@@ -1,0 +1,278 @@
+/* Copyright 2019 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================*/
+// The returned results from a MetadataSource.
+syntax = "proto3";
+
+package ml_metadata;
+
+// A collection of returned records.
+message RecordSet {
+  // An individual record (e.g., row) returned by a MetadataSource.
+  // The record does not address the type conversion.
+  message Record {
+    repeated string values = 1;
+  }
+
+  // index aligned column names for all records
+  repeated string column_names = 1;
+
+  // a list of records returned by a query
+  repeated Record records = 2;
+}
+
+// Contains supported metadata sources types in MetadataAccessObject.
+enum MetadataSourceType {
+  UNKNOWN_METADATA_SOURCE = 0;
+  // a fake in memory metadata_source for testing
+  // DEPRECATED -- use SQLITE_METADATA_SOURCE instead.
+  FAKE_METADATA_SOURCE = 1;
+  // a MYSQL metadata source.
+  MYSQL_METADATA_SOURCE = 2;
+  // A Sqlite metadata source
+  SQLITE_METADATA_SOURCE = 3;
+}
+
+// A config includes a set of SQL queries and the type of metadata source.
+// It is used by MetadataAccessObject to init backend and issue queries.
+// Next ID: 52
+message MetadataSourceQueryConfig {
+  // the type of the metadata source
+  MetadataSourceType metadata_source_type = 1;
+
+  // Template of a SQL query, which can contain parameterized variables using
+  // $0, $1, ... $9.
+  // For instance:
+  //    query: "select * from foo where bar = $0"
+  //    parameter_num: 1
+  message TemplateQuery {
+    string query = 1;
+    int32 parameter_num = 2;
+  }
+
+  // Below is a list of SQL templates queries required for MetadataAccessObject.
+  // The given SQL should follow conventions in a metadata_source_type.
+
+  // Drops the Type table.
+  TemplateQuery drop_type_table = 3;
+
+  // Creates the Type table.
+  TemplateQuery create_type_table = 4;
+
+  // Checks the existence of the Type table.
+  TemplateQuery check_type_table = 44;
+
+  // Inserts a type into the Type table. It has 2 parameters.
+  // $0 is the type name
+  // $1 is the is_artifact_type
+  TemplateQuery insert_type = 5;
+
+  // Queries a type by its type id. It has 2 parameter.
+  // $0 is the type id
+  // $1 is the is_artifact_type
+  TemplateQuery select_type_by_id = 6;
+
+  // Queries a type by its type name. It has 2 parameter.
+  // $0 is the type name
+  // $1 is the is_artifact_type
+  TemplateQuery select_type_by_name = 20;
+
+  // Drops the TypeProperty table.
+  TemplateQuery drop_type_property_table = 7;
+
+  // Creates the TypeProperty table.
+  TemplateQuery create_type_property_table = 8;
+
+  // Checks the existence of the TypeProperty table.
+  TemplateQuery check_type_property_table = 45;
+
+  // Inserts a property of a type into the TypeProperty table. It has 3
+  // parameters.
+  // $0 is the type_id
+  // $1 is the name of the property
+  // $2 is the data_type of the property
+  TemplateQuery insert_type_property = 9;
+
+  // Queries properties of a type from the TypeProperty table by the type_id
+  // Returns a list of properties (name, data_type). It has 1 parameter.
+  // $0 is the type_id
+  TemplateQuery select_property_by_type_id = 10;
+
+  // Queries the last inserted id.
+  TemplateQuery select_last_insert_id = 11;
+
+  // Drops the Artifact table.
+  TemplateQuery drop_artifact_table = 12;
+
+  // Creates the Artifact table.
+  TemplateQuery create_artifact_table = 13;
+
+  // Checks the existence of the Artifact table.
+  TemplateQuery check_artifact_table = 46;
+
+  // Inserts an artifact into the Artifact table. It has 2 parameters.
+  // $0 is the type_id
+  // $1 is the uri of the Artifact
+  TemplateQuery insert_artifact = 14;
+
+  // Queries an artifact from the Artifact table by its id. It has 1 parameter.
+  // $0 is the artifact_id
+  TemplateQuery select_artifact_by_id = 15;
+
+  // Updates an artifact in the Artifact table. It has 3 parameters.
+  // $0 is the existing artifact id
+  // $1 is the type_id
+  // $2 is the uri of the Artifact
+  TemplateQuery update_artifact = 21;
+
+  // Drops the ArtifactProperty table.
+  TemplateQuery drop_artifact_property_table = 16;
+
+  // Creates the ArtifactProperty table.
+  TemplateQuery create_artifact_property_table = 17;
+
+  // Checks the existence of the ArtifactProperty table.
+  TemplateQuery check_artifact_property_table = 47;
+
+  // Insert a property of an artifact from the ArtifactProperty table. It has 5
+  // parameters.
+  // $0 is the property data type
+  // $1 is the artifact_id
+  // $2 is the name of the artifact property
+  // $3 is the flag to indicate whether it is a custom property
+  // $4 is the value of the property
+  TemplateQuery insert_artifact_property = 18;
+
+  // Queries properties of an artifact from the ArtifactProperty table by the
+  // artifact id. It has 1 parameter.
+  // $0 is the artifact_id
+  TemplateQuery select_artifact_property_by_artifact_id = 19;
+
+  // Updates a property of an artifact in the ArtifactProperty table. It has 4
+  // parameters.
+  // $0 is the property data type
+  // $1 is the value of the property
+  // $2 is the artifact_id
+  // $3 is the name of the artifact property
+  TemplateQuery update_artifact_property = 22;
+
+  // Deletes a property of an artifact. It has 2 parameters.
+  // $0 is the artifact_id
+  // $1 is the name of the artifact property
+  TemplateQuery delete_artifact_property = 23;
+
+  // Drops the Execution table.
+  TemplateQuery drop_execution_table = 24;
+
+  // Creates the Execution table.
+  TemplateQuery create_execution_table = 25;
+
+  // Checks the existence of the Execution table.
+  TemplateQuery check_execution_table = 48;
+
+  // Inserts an execution into the Execution table. It has 1 parameter.
+  // $0 is the type_id
+  TemplateQuery insert_execution = 28;
+
+  // Queries an execution from the Execution table by its id. It has 1
+  // parameter.
+  // $0 is the execution_id
+  TemplateQuery select_execution_by_id = 29;
+
+  // Updates an execution in the Execution table. It has 2 parameters.
+  // $0 is the existing execution id
+  // $1 is the type_id
+  TemplateQuery update_execution = 34;
+
+  // Drops the ExecutionProperty table.
+  TemplateQuery drop_execution_property_table = 26;
+
+  // Creates the ExecutionProperty table.
+  TemplateQuery create_execution_property_table = 27;
+
+  // Checks the existence of the ExecutionProperty table.
+  TemplateQuery check_execution_property_table = 49;
+
+  // Insert a property of an execution from the ExecutionProperty table. It has
+  // 5 parameters.
+  // $0 is the property data type
+  // $1 is the execution_id
+  // $2 is the name of the execution property
+  // $3 is the flag to indicate whether it is a custom property
+  // $4 is the value of the property
+  TemplateQuery insert_execution_property = 30;
+
+  // Queries properties of an execution from the ExecutionProperty table by the
+  // execution id. It has 1 parameter.
+  // $0 is the execution_id
+  TemplateQuery select_execution_property_by_execution_id = 31;
+
+  // Updates a property of an execution in the ExecutionProperty table. It has 4
+  // parameters.
+  // $0 is the property data type
+  // $1 is the value of the property
+  // $2 is the execution_id
+  // $3 is the name of the execution property
+  TemplateQuery update_execution_property = 32;
+
+  // Deletes a property of an execution. It has 2 parameters.
+  // $0 is the execution_id
+  // $1 is the name of the execution property
+  TemplateQuery delete_execution_property = 33;
+
+  // Drops the Event table.
+  TemplateQuery drop_event_table = 35;
+
+  // Creates the Event table.
+  TemplateQuery create_event_table = 36;
+
+  // Checks the existence of the Event table.
+  TemplateQuery check_event_table = 50;
+
+  // Inserts an event into the Event table. It has 4 parameters.
+  // $0 is the artifact_id
+  // $1 is the execution_id
+  // $2 is the event type
+  // $3 is the event time
+  TemplateQuery insert_event = 37;
+
+  // Queries events from the Event table by its artifact id. It has 1 parameter.
+  // $0 is the artifact_id
+  TemplateQuery select_event_by_artifact_id = 38;
+
+  // Queries events from the Event table by its execution id. It has 1
+  // parameter.
+  // $0 is the execution_id
+  TemplateQuery select_event_by_execution_id = 39;
+
+  // Drops the EventPath table.
+  TemplateQuery drop_event_path_table = 40;
+
+  // Creates the EventPath table.
+  TemplateQuery create_event_path_table = 41;
+
+  // Checks the existence of the EventPath table.
+  TemplateQuery check_event_path_table = 51;
+
+  // Inserts a path into the EventPath table. It has 4 parameters
+  // $0 is the event_id
+  // $1 is the step value case, either index or key
+  // $2 is the is_index_step indicates the step value case
+  // $3 is the value of the step
+  TemplateQuery insert_event_path = 42;
+
+  // Queries paths from the EventPath table. It has 1 parameter.
+  // $0 is the event_i
+  TemplateQuery select_event_path_by_event_id = 43;
+}

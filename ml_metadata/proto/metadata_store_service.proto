@@ -1,0 +1,430 @@
+/* Copyright 2019 Google LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+==============================================================================*/
+
+syntax = "proto2";
+
+import "ml_metadata/proto/metadata_store.proto";
+
+package ml_metadata;
+
+message PutArtifactsRequest {
+  repeated Artifact artifacts = 1;
+}
+
+message PutArtifactsResponse {
+  // A list of artifact ids index-aligned with PutArtifactsRequest.
+  repeated int64 artifact_ids = 1;
+}
+
+message PutArtifactTypeRequest {
+  optional ArtifactType artifact_type = 1;
+  // if true, you can add fields with this operation. If false,
+  // then if there are more fields in artifact_type than in the database,
+  // the call fails.
+  optional bool can_add_fields = 2;
+
+  // if true, you can remove fields with this operation. If
+  // false, then if there are more fields.
+  optional bool can_delete_fields = 3;
+
+  // if true, and an artifact type with the same name exists, then all
+  // fields must match.
+  optional bool all_fields_match = 4;
+}
+
+message PutArtifactTypeResponse {
+
+  // The type ID of the artifact type.
+  optional int64 type_id = 1;
+}
+
+message PutExecutionsRequest {
+  repeated Execution executions = 1;
+}
+
+message PutExecutionsResponse {
+  // A list of execution ids index-aligned with PutExecutionsRequest.
+  repeated int64 execution_ids = 1;
+}
+
+message PutExecutionTypeRequest {
+  optional ExecutionType execution_type = 1;
+  // if true, you can add fields with this operation. If false,
+  // then if there are more fields in execution_type than in the database,
+  // the call fails.
+  optional bool can_add_fields = 2;
+
+  // if true, you can remove fields with this operation. If
+  // false, then if there are more fields.
+  optional bool can_delete_fields = 3;
+
+  // if true, and an artifact type with the same name exists, then all
+  // fields must match.
+  optional bool all_fields_match = 4;
+}
+
+message PutExecutionTypeResponse {
+
+  // The type ID of the execution type.
+  optional int64 type_id = 1;
+}
+
+message PutEventsRequest {
+  repeated Event events = 1;
+}
+
+message PutEventsResponse {}
+
+message GetArtifactsByTypeRequest {
+  optional string type_name = 2;
+}
+
+message GetArtifactsByTypeResponse {
+  repeated Artifact artifact = 1;
+}
+
+message GetArtifactsByIDRequest {
+  // A list of artifact ids to retrieve.
+  repeated int64 artifact_ids = 1;
+}
+
+message GetArtifactsByIDResponse {
+  // Artifacts with matching ids.
+  // This is not index-aligned: if an id is not found, it is not
+  repeated Artifact artifacts = 1;
+}
+
+message GetArtifactsRequest {
+}
+
+message GetArtifactsResponse {
+  // All artifacts.
+  repeated Artifact artifacts = 1;
+}
+
+message GetExecutionsRequest {
+}
+
+message GetExecutionsResponse {
+  // All executions.
+  repeated Execution executions = 1;
+}
+
+message GetArtifactTypeRequest {
+  optional string type_name = 1;
+}
+
+message GetArtifactTypeResponse {
+  // Gets an artifact type, or clear if it does not exist.
+  optional ArtifactType artifact_type = 1;
+}
+
+message GetExecutionsByTypeRequest {
+  optional string type_name = 2;
+}
+
+message GetExecutionsByTypeResponse {
+  repeated Execution executions = 1;
+}
+
+message GetExecutionsByIDRequest {
+  //   execution_ids: A list of execution ids to retrieve.
+  repeated int64 execution_ids = 1;
+}
+
+message GetExecutionsByIDResponse {
+  // The result is not index-aligned: if an id is not found, it is not
+  // returned.
+  repeated Execution executions = 1;
+}
+
+message GetExecutionTypeRequest {
+  optional string type_name = 1;
+}
+
+message GetExecutionTypeResponse {
+  // Gets an execution type, or clear if it does not exist.
+  optional ExecutionType execution_type = 1;
+}
+
+// Gets all events with matching execution ids.
+message GetEventsByExecutionIDsRequest {
+  repeated int64 execution_ids = 1;
+}
+
+message GetEventsByExecutionIDsResponse {
+  repeated Event events = 1;
+}
+
+message GetEventsByArtifactIDsRequest {
+  repeated int64 artifact_ids = 1;
+}
+
+message GetEventsByArtifactIDsResponse {
+  repeated Event events = 1;
+}
+
+message GetArtifactTypesByIDRequest {
+  repeated int64 type_ids = 1;
+}
+
+message GetArtifactTypesByIDResponse {
+  repeated ArtifactType artifact_types = 1;
+}
+
+message GetExecutionTypesByIDRequest {
+  repeated int64 type_ids = 1;
+}
+
+message GetExecutionTypesByIDResponse {
+  repeated ExecutionType execution_types = 1;
+}
+
+message GetRequest {
+  // artifact_ids: Artifact IDs to be directly searched for.
+  repeated int64 artifact_ids = 1;
+  // execution_ids: Artifact IDs to be directly searched for.
+  repeated int64 execution_ids = 2;
+  // artifact_types: Artifact types to be searched for.
+  repeated string artifact_types = 3;
+  // execution_types: Execution types to be searched for.
+  repeated string execution_types = 4;
+}
+
+// A snapshot of all or part of the database.
+message DatabaseView {
+  repeated Artifact artifacts = 1;
+  repeated ArtifactType artifact_types = 2;
+  repeated Execution executions = 3;
+  repeated ExecutionType execution_types = 4;
+  repeated Event events = 5;
+}
+
+message GetResponse {
+  optional DatabaseView view = 1;
+}
+
+message GetAllRequest {
+  // If unset, return all values.
+  optional int32 max_artifacts_num = 1;
+}
+
+message GetAllResponse {
+  optional DatabaseView view = 1;
+}
+
+message MakeArtifactLiveRequest {
+  optional int64 artifact_id = 1;
+}
+
+message MakeArtifactLiveResponse {}
+
+message CompleteExecutionRequest {
+  // The execution to change to COMPLETE.
+  // The state must be NEW or RUNNING.
+  optional int64 execution_id = 1;
+  // The artifacts to change to LIVE.
+  // The artifacts must be NEW or CREATABLE.
+  repeated int64 artifact_ids = 2;
+}
+
+message CompleteExecutionResponse {}
+
+service MetadataStoreService {
+  // Inserts or updates artifacts in the database.
+  //
+  // If an artifact_id is specified for an artifact, it is an update.
+  // If an artifact_id is unspecified, it will insert a new artifact.
+  // For new artifacts, type must be specified.
+  // For old artifacts, type must be unchanged or unspecified.
+  //
+  // Args:
+  //   artifacts: A list of artifacts to insert or update.
+  //
+  // Returns:
+  //   A list of artifact ids index-aligned with the input.
+  rpc PutArtifacts(PutArtifactsRequest) returns (PutArtifactsResponse) {};
+
+  // Inserts or updates an artifact type.
+  //
+  // If no artifact type exists in the database with the given name, it creates
+  // a new artifact type (and a database).
+  //
+  // If an artifact type with the same name already exists (let's call it
+  // old_artifact_type), then the impact depends upon the other options.
+  //
+  // If artifact_type == old_artifact_type, then nothing happens.
+  //
+  // Otherwise, if there is a field where artifact_type and old_artifact_type
+  // have different types, then it fails.
+  //
+  // Otherwise, if can_add_fields is False and artifact_type has a field
+  // old_artifact_type is missing, then it fails.
+  //
+  // Otherwise, if all_fields_match is True and old_artifact_type has a field
+  // artifact_type is missing, then it fails.
+  //
+  // Otherwise, if can_delete_fields is True and old_artifact_type has a field
+  // artifact_type is missing, then it deletes that field.
+  //
+  // Otherwise, it does nothing.
+  // Args:
+  //   artifact_type: the type to add or update.
+  //
+  // Returns error if a constraint is violated.
+  rpc PutArtifactType(PutArtifactTypeRequest)
+      returns (PutArtifactTypeResponse) {};
+
+  // Inserts or updates executions in the database.
+  //
+  // If an execution_id is specified for an execution, it is an update.
+  // If an execution_id is unspecified, it will insert a new execution.
+  // For new executions, type must be specified.
+  // For old executions, type must be unchanged or unspecified.
+  //
+  // Args:
+  //   executions: A list of executions to insert or update.
+  //
+  // Returns:
+  //   A list of execution ids index-aligned with the input.
+  //
+  rpc PutExecutions(PutExecutionsRequest) returns (PutExecutionsResponse) {};
+
+  // Inserts or updates an execution type.
+  //
+  // If no execution type exists in the database with the given name, it
+  // creates a new execution type (and a database).
+  //
+  // If an execution type with the same name already exists (let's call it
+  // old_execution_type), then the impact depends upon the other options.
+  //
+  // If execution_type == old_execution_type, then nothing happens.
+  //
+  // Otherwise, if there is a field where execution_type and old_execution_type
+  // have different types, then it fails.
+  //
+  // Otherwise, if can_add_fields is False and execution_type has a field
+  // old_execution_type is missing, then it fails.
+  //
+  // Otherwise, if all_fields_match is True and old_execution_type has a field
+  // execution_type is missing, then it fails.
+  //
+  // Otherwise, if can_delete_fields is True and old_execution_type has a field
+  // execution_type is missing, then it deletes that field.
+  //
+  // Otherwise, it does nothing.
+  // Args:
+  //   execution_type: the type to add or update.
+  //   can_add_fields: if true, you can add fields with this operation. If
+  // false, then if there are more fields in execution_type than in the
+  // database,
+  //     the call fails.
+  //   can_delete_fields: if true, you can remove fields with this operation.
+  // If false, then if there are more fields.
+  //
+  // Returns error if a constraint is violated.
+  rpc PutExecutionType(PutExecutionTypeRequest)
+      returns (PutExecutionTypeResponse) {};
+
+  // Inserts events in the database.
+  //
+  // The execution_id and artifact_id must already exist.
+  // Once created, events cannot be modified.
+  //
+  // Args:
+  //   events: A list of events to insert or update.
+  rpc PutEvents(PutEventsRequest) returns (PutEventsResponse) {};
+
+  // Gets all the artifacts of a given type.
+  rpc GetArtifactsByType(GetArtifactsByTypeRequest)
+      returns (GetArtifactsByTypeResponse) {};
+
+  // Gets all the artifacts.
+  rpc GetArtifacts(GetArtifactsRequest) returns (GetArtifactsResponse) {};
+
+  // Gets all the executions.
+  rpc GetExecutions(GetExecutionsRequest) returns (GetExecutionsResponse) {};
+
+  // Gets all artifacts with matching ids.
+  //
+  // The result is not index-aligned: if an id is not found, it is not
+  // returned.
+  //
+  // Args:
+  //   artifact_ids: A list of artifact ids to retrieve.
+  //
+  // Returns:
+  //   Artifacts with matching ids.
+  rpc GetArtifactsByID(GetArtifactsByIDRequest)
+      returns (GetArtifactsByIDResponse) {};
+
+  // Gets an artifact type. Returns a NOT_FOUND error if the type does not
+  // exist.
+  rpc GetArtifactType(GetArtifactTypeRequest)
+      returns (GetArtifactTypeResponse) {};
+
+  // Gets all the executions of a given type.
+  rpc GetExecutionsByType(GetExecutionsByTypeRequest)
+      returns (GetExecutionsByTypeResponse) {};
+
+  // Gets all executions with matching ids.
+  //
+  // The result is not index-aligned: if an id is not found, it is not
+  // returned.
+  //
+  // Args:
+  //   execution_ids: A list of execution ids to retrieve.
+  rpc GetExecutionsByID(GetExecutionsByIDRequest)
+      returns (GetExecutionsByIDResponse) {};
+
+  // Gets an execution type, or None if it does not exist.
+  rpc GetExecutionType(GetExecutionTypeRequest)
+      returns (GetExecutionTypeResponse) {};
+
+  // Gets all events with matching execution ids.
+  rpc GetEventsByExecutionIDs(GetEventsByExecutionIDsRequest)
+      returns (GetEventsByExecutionIDsResponse) {};
+
+  // Gets all events with matching artifact ids.
+  rpc GetEventsByArtifactIDs(GetEventsByArtifactIDsRequest)
+      returns (GetEventsByArtifactIDsResponse) {};
+
+  // Gets a snapshot of the entire database.
+  //
+  rpc GetAll(GetAllRequest) returns (GetAllResponse) {};
+
+  rpc Get(GetRequest) returns (GetResponse) {};
+
+  // Changes the state of each artifact to LIVE.
+  //
+  // The artifact state must be NEW or CREATABLE.
+  //
+  // Args:
+  //   artifact_id: the ID of the artifact.
+  rpc MakeArtifactLive(MakeArtifactLiveRequest)
+      returns (MakeArtifactLiveResponse) {};
+
+  // Changes the state of an execution to COMPLETE and the artifacts to
+  // LIVE.
+  //
+  // The execution state must be NEW or RUNNING.
+  // The artifacts must be NEW or CREATABLE.
+  //
+  // Args:
+  //   execution_id: the execution to change to COMPLETE.
+  //   artifact_ids: the artifacts to change to LIVE.
+  rpc CompleteExecution(CompleteExecutionRequest)
+      returns (CompleteExecutionResponse) {};
+};
