@@ -16,6 +16,7 @@
 """
 
 load("@org_tensorflow//tensorflow:workspace.bzl", "tf_workspace")
+load("//ml_metadata:mysql_configure.bzl", "mysql_configure")
 
 # Sanitize a dependency so that it works correctly from code that includes
 # ML Metadata as a submodule.
@@ -44,3 +45,5 @@ def ml_metadata_workspace():
         name = "cares",
         actual = "@grpc//third_party/nanopb:nanopb",
     )
+
+    mysql_configure()

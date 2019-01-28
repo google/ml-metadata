@@ -46,9 +46,13 @@ def _create_example_execution_type():
   return execution_type
 
 
-
-
 class MetadataStoreTest(absltest.TestCase):
+
+  def test_unset_connection_config(self):
+    connection_config = metadata_store_pb2.ConnectionConfig()
+    for _ in range(10):
+      with self.assertRaises(errors.InvalidArgumentError):
+        return metadata_store.MetadataStore(connection_config)
 
   def test_put_artifact_type_get_artifact_type(self):
     store = _get_metadata_store()
@@ -248,10 +252,30 @@ class MetadataStoreTest(absltest.TestCase):
                      metadata_store_pb2.Event.DECLARED_OUTPUT)
 
   def test_get_executions_by_id_empty(self):
-    """See b/122594744."""
     store = _get_metadata_store()
     result = store.get_executions_by_id({})
     self.assertEmpty(result)
+
+  def test_get_artifact_type_fails(self):
+    store = _get_metadata_store()
+    with self.assertRaises(errors.NotFoundError):
+      store.get_artifact_type("test_type_2")
+
+  def test_put_events_no_artifact_id(self):
+    # No execution_id throws the same error type, so we just test this.
+    store = _get_metadata_store()
+    execution_type = metadata_store_pb2.ExecutionType()
+    execution_type.name = "execution_type"
+    execution_type_id = store.put_execution_type(execution_type)
+    execution = metadata_store_pb2.Execution()
+    execution.type_id = execution_type_id
+    [execution_id] = store.put_executions([execution])
+
+    event = metadata_store_pb2.Event()
+    event.type = metadata_store_pb2.Event.DECLARED_OUTPUT
+    event.execution_id = execution_id
+    with self.assertRaises(errors.InvalidArgumentError):
+      store.put_events([event])
 
 
 if __name__ == "__main__":

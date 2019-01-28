@@ -29,6 +29,15 @@ from ml_metadata.proto import metadata_store_service_pb2
 from tensorflow.python.framework import errors
 
 
+# See  _make_specific_exception in tensorflow.python.framework.errors
+def _make_exception(message, error_code):
+  try:
+    exc_type = errors.exception_type_from_error_code(error_code)
+    return exc_type(None, None, message)
+  except KeyError:
+    return errors.UnknownError(None, None, message, error_code)
+
+
 class MetadataStore(object):
   """A store for the artifact metadata."""
 
@@ -60,9 +69,10 @@ class MetadataStore(object):
     Raises:
       Error: whatever tensorflow error is returned by the method.
     """
-    with errors.raise_exception_on_not_ok_status() as status:
-      response_str = method(self._metadata_store, request.SerializeToString(),
-                            status)
+    [response_str, error_message, status_code] = method(
+        self._metadata_store, request.SerializeToString())
+    if status_code != 0:
+      raise _make_exception(error_message, status_code)
     response.ParseFromString(response_str)
 
   def put_artifacts(

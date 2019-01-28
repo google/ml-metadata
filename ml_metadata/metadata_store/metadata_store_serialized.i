@@ -32,24 +32,28 @@ PyObject* ConvertToPythonString(const string& input_str) {
 }
 
 template<typename ProtoType>
-bool ParseProto(const string& input, ProtoType* proto, TF_Status* out_status) {
+tensorflow::Status ParseProto(const string& input, ProtoType* proto) {
   if (proto->ParseFromString(input)) {
-    return true;
+    return tensorflow::Status::OK();
   }
-  const tensorflow::Status status = tensorflow::errors::InvalidArgument(
+  return tensorflow::errors::InvalidArgument(
       "Could not parse proto");
-  Set_TF_Status_from_Status(out_status, status);
-  return false;
 }
+
+
 
 %}
 
 %{
 
+
 ml_metadata::MetadataStore* CreateMetadataStore(const string& connection_config,
                                     TF_Status* out_status) {
   ml_metadata::ConnectionConfig proto_connection_config;
-  if (!ParseProto(connection_config, &proto_connection_config, out_status)) {
+  const tensorflow::Status parse_proto_result =
+      ParseProto(connection_config, &proto_connection_config);
+  if (!parse_proto_result.ok()) {
+    Set_TF_Status_from_Status(out_status, parse_proto_result);
     return nullptr;
   }
 
@@ -70,124 +74,133 @@ void DestroyMetadataStore(ml_metadata::MetadataStore* metadata_store) {
   }
 }
 
+// Returns a native Python tuple:
+// (serialized_proto_message, status message, status code),
+// that can be deleted in Python safely.
+PyObject* ConvertAccessMetadataStoreResultToPyTuple(
+    const string& serialized_proto_message, const tensorflow::Status& status) {
+  return PyTuple_Pack(3, ConvertToPythonString(serialized_proto_message),
+  ConvertToPythonString(status.error_message()), PyInt_FromLong(status.code()));
+}
+
 // Given a method for MetadataStore of the form:
 // tensorflow::Status my_method(const InputProto& input, OutputProto* output);
 // this method will deserialize the request to an object of type InputProto,
 // and serialize the result to a python string object. If there is an error,
 // out_status will be set.
 template<typename InputProto, typename OutputProto>
-PyObject* AccessMetadataStore(ml_metadata::MetadataStore* metadata_store,
-    const string& request, tensorflow::Status(ml_metadata::MetadataStore::*method)(const InputProto&, OutputProto*), 
-    TF_Status *out_status) {
+PyObject* AccessMetadataStore(
+    ml_metadata::MetadataStore* metadata_store,
+    const string& request,
+    tensorflow::Status(ml_metadata::MetadataStore::*method)(const InputProto&,
+        OutputProto*)) {
   InputProto proto_request;
-  if (!ParseProto(request, &proto_request, out_status)) {
-    string response;
-    return ConvertToPythonString(response);
+  tensorflow::Status parse_result = ParseProto(request, &proto_request);
+  if (!parse_result.ok()) {
+    
+    return ConvertAccessMetadataStoreResultToPyTuple(
+        /* serialized_proto_message */ "",
+        parse_result);
   }
 
   OutputProto proto_response;
 
   tensorflow::Status status = ((*metadata_store).*method)(proto_request,
                                                           &proto_response);
-  if (!status.ok()) {
-    Set_TF_Status_from_Status(out_status, status);
-  }
   string response;
   proto_response.SerializeToString(&response);
-  return ConvertToPythonString(response);
+  return ConvertAccessMetadataStoreResultToPyTuple(response, status);
 }
 
 PyObject* GetArtifactType(ml_metadata::MetadataStore* metadata_store,
-                          const string& request, TF_Status* out_status) {
+                          const string& request) {
   return AccessMetadataStore(metadata_store, request,
-      &ml_metadata::MetadataStore::GetArtifactType, out_status);
+      &ml_metadata::MetadataStore::GetArtifactType);
 }
 
 PyObject* PutArtifacts(ml_metadata::MetadataStore* metadata_store,
-                       const string& request, TF_Status* out_status) {
+                       const string& request) {
   return AccessMetadataStore(metadata_store, request,
-      &ml_metadata::MetadataStore::PutArtifacts, out_status);
+      &ml_metadata::MetadataStore::PutArtifacts);
 }
 
 PyObject* GetArtifactsByID(ml_metadata::MetadataStore* metadata_store,
-                           const string& request, TF_Status* out_status) {
+                           const string& request) {
   return AccessMetadataStore(metadata_store, request,
-      &ml_metadata::MetadataStore::GetArtifactsByID, out_status);
+      &ml_metadata::MetadataStore::GetArtifactsByID);
 }
 
 PyObject* PutArtifactType(ml_metadata::MetadataStore* metadata_store,
-                          const string& request, TF_Status* out_status) {
+                          const string& request) {
   return AccessMetadataStore(metadata_store, request,
-      &ml_metadata::MetadataStore::PutArtifactType, out_status);
+      &ml_metadata::MetadataStore::PutArtifactType);
 }
 
 PyObject* GetExecutionType(ml_metadata::MetadataStore* metadata_store,
-                           const string& request, TF_Status* out_status) {
+                           const string& request) {
   return AccessMetadataStore(metadata_store, request,
-      &ml_metadata::MetadataStore::GetExecutionType, out_status);
+      &ml_metadata::MetadataStore::GetExecutionType);
 }
 
 PyObject* PutExecutions(ml_metadata::MetadataStore* metadata_store,
-                        const string& request, TF_Status* out_status) {
+                        const string& request) {
   return AccessMetadataStore(metadata_store, request,
-      &ml_metadata::MetadataStore::PutExecutions, out_status);
+      &ml_metadata::MetadataStore::PutExecutions);
 }
 
 PyObject* GetExecutionsByID(ml_metadata::MetadataStore* metadata_store,
-                            const string& request, TF_Status* out_status) {
+                            const string& request) {
   return AccessMetadataStore(metadata_store, request,
-      &ml_metadata::MetadataStore::GetExecutionsByID, out_status);
+      &ml_metadata::MetadataStore::GetExecutionsByID);
 }
 
 PyObject* PutExecutionType(ml_metadata::MetadataStore* metadata_store,
-                           const string& request, TF_Status* out_status) {
+                           const string& request) {
   return AccessMetadataStore(metadata_store, request,
-      &ml_metadata::MetadataStore::PutExecutionType, out_status);
+      &ml_metadata::MetadataStore::PutExecutionType);
 }
 
 PyObject* PutEvents(ml_metadata::MetadataStore* metadata_store,
-    const string& request, TF_Status* out_status) {
+    const string& request) {
   return AccessMetadataStore(metadata_store, request,
-      &ml_metadata::MetadataStore::PutEvents, out_status);
+      &ml_metadata::MetadataStore::PutEvents);
 }
 
 PyObject* GetEventsByExecutionIDs(ml_metadata::MetadataStore* metadata_store,
-    const string& request, TF_Status* out_status) {
+    const string& request) {
   return AccessMetadataStore(metadata_store, request,
-      &ml_metadata::MetadataStore::GetEventsByExecutionIDs, out_status);
+      &ml_metadata::MetadataStore::GetEventsByExecutionIDs);
 }
 
 PyObject* GetArtifactTypesByID(ml_metadata::MetadataStore* metadata_store,
-    const string& request, TF_Status* out_status) {
+    const string& request) {
   return AccessMetadataStore(metadata_store, request,
-      &ml_metadata::MetadataStore::GetArtifactTypesByID, out_status);
+      &ml_metadata::MetadataStore::GetArtifactTypesByID);
 }
 
 PyObject* GetExecutionTypesByID(ml_metadata::MetadataStore* metadata_store,
-    const string& request, TF_Status* out_status) {
+    const string& request) {
   return AccessMetadataStore(metadata_store, request,
-      &ml_metadata::MetadataStore::GetExecutionTypesByID, out_status);
+      &ml_metadata::MetadataStore::GetExecutionTypesByID);
 }
 
 PyObject* GetEventsByArtifactIDs(ml_metadata::MetadataStore* metadata_store,
-    const string& request, TF_Status* out_status) {
+    const string& request) {
   return AccessMetadataStore(metadata_store, request,
-      &ml_metadata::MetadataStore::GetEventsByArtifactIDs, out_status);
+      &ml_metadata::MetadataStore::GetEventsByArtifactIDs);
 }
 
 PyObject* GetArtifacts(ml_metadata::MetadataStore* metadata_store,
-    const string& request, TF_Status* out_status) {
+    const string& request) {
   return AccessMetadataStore(metadata_store, request,
-      &ml_metadata::MetadataStore::GetArtifacts, out_status);
+      &ml_metadata::MetadataStore::GetArtifacts);
 }
 
 PyObject* GetExecutions(ml_metadata::MetadataStore* metadata_store,
-    const string& request, TF_Status* out_status) {
+    const string& request) {
   return AccessMetadataStore(metadata_store, request,
-      &ml_metadata::MetadataStore::GetExecutions, out_status);
+      &ml_metadata::MetadataStore::GetExecutions);
 }
-
-
 
 %}
 
@@ -204,7 +217,7 @@ PyObject* GetExecutions(ml_metadata::MetadataStore* metadata_store,
 
 %delobject DestroyMetadataStore;
 
-// Indicates that the CreateMetadataStore2 creates a new object, and that
+// Indicates that the CreateMetadataStore creates a new object, and that
 // python is responsible for destroying it.
 %newobject CreateMetadataStore;
 
@@ -215,49 +228,48 @@ void DestroyMetadataStore(ml_metadata::MetadataStore* metadata_store);
 
 
 PyObject* PutArtifactType(ml_metadata::MetadataStore* metadata_store,
-                          const string& request, TF_Status* out_status);
+                          const string& request);
 
 PyObject* PutArtifacts(ml_metadata::MetadataStore* metadata_store,
-                       const string& request, TF_Status* out_status);
+                       const string& request);
 
 PyObject* GetArtifactType(ml_metadata::MetadataStore* metadata_store,
-                          const string& request, TF_Status* out_status);
+                          const string& request);
 
 PyObject* GetArtifactsByID(ml_metadata::MetadataStore* metadata_store,
-                           const string& request, TF_Status* out_status);
+                           const string& request);
 
 PyObject* PutExecutionType(ml_metadata::MetadataStore* metadata_store,
-                           const string& request, TF_Status* out_status);
+                           const string& request);
 
 PyObject* PutExecutions(ml_metadata::MetadataStore* metadata_store,
-                        const string& request, TF_Status* out_status);
+                        const string& request);
 
 PyObject* GetExecutionType(ml_metadata::MetadataStore* metadata_store,
-                           const string& request, TF_Status* out_status);
+                           const string& request);
 
 PyObject* GetExecutionsByID(ml_metadata::MetadataStore* metadata_store,
-                            const string& request, TF_Status* out_status);
+                            const string& request);
 
 
 PyObject* GetArtifactTypesByID(ml_metadata::MetadataStore* metadata_store,
-    const string& request, TF_Status* out_status);
+    const string& request);
 
 PyObject* GetExecutionTypesByID(ml_metadata::MetadataStore* metadata_store,
-    const string& request, TF_Status* out_status);
+    const string& request);
 
 PyObject* PutEvents(ml_metadata::MetadataStore* metadata_store,
-                    const string& request, TF_Status* out_status);
+                    const string& request);
 
 PyObject* GetEventsByExecutionIDs(ml_metadata::MetadataStore* metadata_store,
-                                  const string& request, TF_Status* out_status);
+                                  const string& request);
 
 PyObject* GetEventsByArtifactIDs(ml_metadata::MetadataStore* metadata_store,
-    const string& request, TF_Status* out_status);
+    const string& request);
 
 PyObject* GetArtifacts(ml_metadata::MetadataStore* metadata_store,
-    const string& request, TF_Status* out_status);
+    const string& request);
 
 PyObject* GetExecutions(ml_metadata::MetadataStore* metadata_store,
-    const string& request, TF_Status* out_status);
-
+    const string& request);
 

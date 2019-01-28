@@ -187,7 +187,6 @@ cc_library(
     name = "mysql_metadata_source",
     srcs = ["mysql_metadata_source.cc"],
     hdrs = ["mysql_metadata_source.h"],
-    linkopts = ["-lmysqlclient"],
     deps = [
         ":metadata_source",
         ":types",
@@ -195,6 +194,7 @@ cc_library(
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
         "@org_tensorflow//tensorflow/core:lib",
+        "@libmysqlclient",
     ],
 )
 
