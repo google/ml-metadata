@@ -16,6 +16,7 @@ limitations under the License.
 
 #include <memory>
 
+#include "gflags/gflags.h"
 #include "absl/time/time.h"
 #include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
@@ -66,17 +67,10 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExistsErrorDataLoss) {
   TF_EXPECT_OK(metadata_access_object_->InitMetadataSource());
 
   {
-    // rename expected column from a table
+    // drop a table.
     RecordSet record_set;
-    tensorflow::Status alter_table_status =
-        metadata_access_object_->metadata_source()->ExecuteQuery(
-            "ALTER TABLE `Artifact` DROP COLUMN `uri`;", &record_set);
-    // sqlite3 supports limited set of alter table syntax
-    if (!alter_table_status.ok())
-      TF_ASSERT_OK(metadata_access_object_->metadata_source()->ExecuteQuery(
-          "ALTER TABLE `Artifact` RENAME COLUMN `uri` TO `column1`;",
-          &record_set));
-
+    TF_ASSERT_OK(metadata_access_object_->metadata_source()->ExecuteQuery(
+        "DROP TABLE `Artifact`;", &record_set));
     tensorflow::Status s =
         metadata_access_object_->InitMetadataSourceIfNotExists();
     EXPECT_EQ(s.code(), tensorflow::error::DATA_LOSS);
@@ -578,6 +572,7 @@ TEST_P(MetadataAccessObjectTest, UpdateExecution) {
   EXPECT_THAT(execution, EqualsProto(want_execution));
 }
 
+// TODO(huimiao) Refactoring the test by setting up the types in utility methods
 TEST_P(MetadataAccessObjectTest, CreateAndFindEvent) {
   TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
   ArtifactType artifact_type;
@@ -707,5 +702,87 @@ TEST_P(MetadataAccessObjectTest, CreateEventError) {
   }
 }
 
+TEST_P(MetadataAccessObjectTest, PutEventsWithPaths) {
+  LOG(ERROR) << "PutEventsWithPaths";
+
+  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  ArtifactType artifact_type;
+  artifact_type.set_name("test_artifact_type");
+  int64 artifact_type_id;
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateType(artifact_type, &artifact_type_id));
+  ExecutionType execution_type;
+  execution_type.set_name("test_execution_type");
+  int64 execution_type_id;
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateType(execution_type, &execution_type_id));
+  Artifact input_artifact;
+  input_artifact.set_type_id(artifact_type_id);
+  int64 input_artifact_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateArtifact(input_artifact,
+                                                       &input_artifact_id));
+
+  Artifact output_artifact;
+  output_artifact.set_type_id(artifact_type_id);
+  int64 output_artifact_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateArtifact(output_artifact,
+                                                       &output_artifact_id));
+
+  Execution execution;
+  execution.set_type_id(execution_type_id);
+  int64 execution_id;
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateExecution(execution, &execution_id));
+
+  // event1 with event paths
+  Event event1 = ParseTextProtoOrDie<Event>("type: INPUT");
+  event1.set_artifact_id(input_artifact_id);
+  event1.set_execution_id(execution_id);
+  event1.set_milliseconds_since_epoch(12345);
+  event1.mutable_path()->add_steps()->set_index(1);
+  event1.mutable_path()->add_steps()->set_key("key");
+  int64 event1_id = -1;
+  TF_EXPECT_OK(metadata_access_object_->CreateEvent(event1, &event1_id));
+
+  // event2 with optional fields
+  Event event2 = ParseTextProtoOrDie<Event>("type: OUTPUT");
+  event2.set_artifact_id(output_artifact_id);
+  event2.set_execution_id(execution_id);
+  event2.mutable_path()->add_steps()->set_index(2);
+  event2.mutable_path()->add_steps()->set_key("output_key");
+
+  int64 event2_id = -1;
+  TF_EXPECT_OK(metadata_access_object_->CreateEvent(event2, &event2_id));
+
+  EXPECT_NE(event1_id, -1);
+  EXPECT_NE(event2_id, -1);
+  EXPECT_NE(event1_id, event2_id);
+
+  // query the executions
+  std::vector<Event> events_with_input_artifact;
+  TF_EXPECT_OK(metadata_access_object_->FindEventsByArtifact(
+      input_artifact_id, &events_with_input_artifact));
+  EXPECT_EQ(events_with_input_artifact.size(), 1);
+  EXPECT_THAT(events_with_input_artifact[0], EqualsProto(event1));
+
+  std::vector<Event> events_with_output_artifact;
+  TF_EXPECT_OK(metadata_access_object_->FindEventsByArtifact(
+      output_artifact_id, &events_with_output_artifact));
+  EXPECT_EQ(events_with_output_artifact.size(), 1);
+  event2.set_milliseconds_since_epoch(
+      events_with_output_artifact[0].milliseconds_since_epoch());
+  EXPECT_THAT(events_with_output_artifact[0], EqualsProto(event2));
+
+  std::vector<Event> events_with_execution;
+  TF_EXPECT_OK(metadata_access_object_->FindEventsByExecution(
+      execution_id, &events_with_execution));
+  EXPECT_EQ(events_with_execution.size(), 2);
+}
 }  // namespace testing
 }  // namespace ml_metadata
+
+int main(int argc, char* argv[]) {
+  ::testing::InitGoogleTest(&argc, argv);
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
+  return RUN_ALL_TESTS();
+}

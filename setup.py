@@ -34,6 +34,8 @@ __version__ = globals_dict['__version__']
 with open('README.md') as fp:
   _LONG_DESCRIPTION = fp.read()
 
+# TODO(martinz): this was copied from TFDV. Come up with more appropriate
+# values.
 setup(
     name='ml-metadata',
     version=__version__,
@@ -72,6 +74,11 @@ setup(
 
         'six>=1.10,<2',
 
+        # TODO(martinz): Add a method to check if we are using a
+        # compatible TF version. If not, fail with a clear error.
+        # TODO(martinz): Uncomment this once TF can automatically
+        # select between CPU and GPU installation.
+        # 'tensorflow>=1.13,<2',
 
 
 
@@ -86,6 +93,8 @@ setup(
     long_description=_LONG_DESCRIPTION,
     long_description_content_type='text/markdown',
     keywords='machine learning metadata tfx',
+    # TODO(martinz): change this when we have a homepage for the project.
     url='https://www.google.com/',
+    # TODO(martinz): Create PyPI project URL
     download_url='https://pypi.org/project/ml-metadata',
     requires=[])

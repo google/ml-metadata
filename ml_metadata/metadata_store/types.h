@@ -15,6 +15,8 @@ limitations under the License.
 #ifndef ML_METADATA_METADATA_STORE_TYPES_H_
 #define ML_METADATA_METADATA_STORE_TYPES_H_
 
+// TODO(martinz): replace with "third_party/tensorflow/core/platform/types.h"
+// However, this isn't working at present.
 
 using std::string;
 typedef long long           int64;

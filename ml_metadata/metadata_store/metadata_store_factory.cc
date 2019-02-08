@@ -48,6 +48,8 @@ tensorflow::Status CreateMetadataStore(const ConnectionConfig& config,
                                        std::unique_ptr<MetadataStore>* result) {
   switch (config.config_case()) {
     case ConnectionConfig::CONFIG_NOT_SET:
+      // TODO(b/123345695): make this longer when that bug is resolved.
+      // Must specify a metadata store type.
       return tensorflow::errors::InvalidArgument("Unset");
     case ConnectionConfig::kFakeDatabase:
       // Creates an in-memory SQLite database for testing.

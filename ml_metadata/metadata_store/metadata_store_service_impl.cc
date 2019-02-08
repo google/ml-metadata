@@ -62,6 +62,18 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   return status;
 }
 
+::grpc::Status MetadataStoreServiceImpl::GetArtifactTypesByID(
+    ::grpc::ServerContext* context,
+    const ::ml_metadata::GetArtifactTypesByIDRequest* request,
+    ::ml_metadata::GetArtifactTypesByIDResponse* response) {
+  absl::WriterMutexLock l(&lock_);
+  const ::grpc::Status status =
+      ToGRPCStatus(metadata_store_->GetArtifactTypesByID(*request, response));
+  if (!status.ok())
+    LOG(WARNING) << "GetArtifactTypesByID failed: " << status.error_message();
+  return status;
+}
+
 ::grpc::Status MetadataStoreServiceImpl::PutExecutionType(
     ::grpc::ServerContext* context,
     const ::ml_metadata::PutExecutionTypeRequest* request,
@@ -83,6 +95,18 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
       ToGRPCStatus(metadata_store_->GetExecutionType(*request, response));
   if (!status.ok())
     LOG(WARNING) << "GetExecutionType failed: " << status.error_message();
+  return status;
+}
+
+::grpc::Status MetadataStoreServiceImpl::GetExecutionTypesByID(
+    ::grpc::ServerContext* context,
+    const ::ml_metadata::GetExecutionTypesByIDRequest* request,
+    ::ml_metadata::GetExecutionTypesByIDResponse* response) {
+  absl::WriterMutexLock l(&lock_);
+  const ::grpc::Status status =
+      ToGRPCStatus(metadata_store_->GetExecutionTypesByID(*request, response));
+  if (!status.ok())
+    LOG(WARNING) << "GetExecutionTypesByID failed: " << status.error_message();
   return status;
 }
 

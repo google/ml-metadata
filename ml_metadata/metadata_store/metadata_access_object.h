@@ -48,6 +48,11 @@ namespace ml_metadata {
 //    else
 //      TF_CHECK_OK(src.Rollback());
 //
+// TODO(huimiao) Refactor it to be an abstract interface when the CRUD methods
+// are more stable. Having an abstract interface allows
+//   a) alternative RDBMS schema designs
+//   b) non-SQL backend
+//   c) easier to test
 class MetadataAccessObject {
  public:
   // Factory method, if the return value is ok, 'result' is populated with an
@@ -82,6 +87,10 @@ class MetadataAccessObject {
 
   // Creates a type, returns the assigned type id. A type is an ArtifactType or
   // an ExecutionType. The id field of the given type is ignored.
+  // TODO(huimiao) Enforce the id and name has 1-1 mapping.
+  // Returns INVALID_ARGUMENT error, if name field is not given.
+  // Returns INVALID_ARGUMENT error, if any property type is unknown.
+  // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status CreateType(const ArtifactType& type, int64* type_id);
   tensorflow::Status CreateType(const ExecutionType& type, int64* type_id);
 
@@ -117,6 +126,8 @@ class MetadataAccessObject {
   tensorflow::Status FindArtifactById(int64 artifact_id, Artifact* artifact);
 
   // Queries artifacts stored in the metadata source
+  // TODO(huimiao) Extends FindArtifacts/Executions with predicates/expressions.
+  // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status FindArtifacts(std::vector<Artifact>* artifacts);
 
   // Updates an artifact.
@@ -163,6 +174,11 @@ class MetadataAccessObject {
 
   // Creates an event, returns the assigned event id. If the event occurrence
   // time is not given, the insertion time is used.
+  // TODO(huimiao) Support Event::Path as a blob when inserting an event.
+  // TODO(huimiao) Allow to have a unknown event time.
+  // Returns INVALID_ARGUMENT error, if no artifact matches the artifact_id.
+  // Returns INVALID_ARGUMENT error, if no execution matches the execution_id.
+  // Returns INVALID_ARGUMENT error, if the type field is UNKNOWN.
   tensorflow::Status CreateEvent(const Event& event, int64* event_id);
 
   // Queries the events associated with an artifact_id.
@@ -177,6 +193,9 @@ class MetadataAccessObject {
   tensorflow::Status FindEventsByExecution(int64 execution_id,
                                            std::vector<Event>* events);
 
+  // TODO(huimiao) Add other CRUD methods to support metadata_store_service.
+  // Updates an artifact type.
+  // Returns INVALID_ARGUMENT error, if id field is not given.
   tensorflow::Status UpdateType(const ArtifactType& type);
 
   MetadataSource* metadata_source() { return metadata_source_; }

@@ -22,6 +22,7 @@ from __future__ import division
 
 from __future__ import print_function
 
+from typing import List, Optional, Sequence, Text
 
 from ml_metadata.metadata_store import pywrap_metadata_store_serialized as metadata_store_serialized
 from ml_metadata.proto import metadata_store_pb2
@@ -41,17 +42,14 @@ def _make_exception(message, error_code):
 class MetadataStore(object):
   """A store for the artifact metadata."""
 
-  def __init__(self, config):
-    with errors.raise_exception_on_not_ok_status() as status:
-      # MetadataStore will contain a MetadataStorePtr, which may be nullptr
-      # if the store was not correctly initialized.
-      self._metadata_store = metadata_store_serialized.CreateMetadataStore(
-          config.SerializeToString(), status)
+  def __init__(self, config: metadata_store_pb2.ConnectionConfig):
+    self._metadata_store = metadata_store_serialized.CreateMetadataStore(
+        config.SerializeToString())
 
   def __del__(self):
     metadata_store_serialized.DestroyMetadataStore(self._metadata_store)
 
-  def _swig_call(self, method, request, response):
+  def _swig_call(self, method, request, response) -> None:
     """Calls method, serializing and deserializing inputs and outputs.
 
     Note that this does not check the types of request and response.
@@ -76,7 +74,7 @@ class MetadataStore(object):
     response.ParseFromString(response_str)
 
   def put_artifacts(
-      self, artifacts):
+      self, artifacts: Sequence[metadata_store_pb2.Artifact]) -> List[int]:
     """Inserts or updates artifacts in the database.
 
     If an artifact_id is specified for an artifact, it is an update.
@@ -101,10 +99,10 @@ class MetadataStore(object):
     return result
 
   def put_artifact_type(self,
-                        artifact_type,
-                        can_add_fields = False,
-                        can_delete_fields = False,
-                        all_fields_match = True):
+                        artifact_type: metadata_store_pb2.ArtifactType,
+                        can_add_fields: bool = False,
+                        can_delete_fields: bool = False,
+                        all_fields_match: bool = True) -> int:
     """Inserts or updates an artifact type.
 
     If no artifact type exists in the database with the given name, it creates
@@ -157,8 +155,8 @@ class MetadataStore(object):
     return response.type_id
 
   def create_artifact_with_type(
-      self, artifact,
-      artifact_type):
+      self, artifact: metadata_store_pb2.Artifact,
+      artifact_type: metadata_store_pb2.ArtifactType) -> int:
     """Creates an artifact with a type.
 
     This first gets the type (or creates it if it does not exist), and then
@@ -189,7 +187,7 @@ class MetadataStore(object):
     return artifact_id
 
   def put_executions(
-      self, executions):
+      self, executions: Sequence[metadata_store_pb2.Execution]) -> List[int]:
     """Inserts or updates executions in the database.
 
     If an execution_id is specified for an execution, it is an update.
@@ -214,10 +212,10 @@ class MetadataStore(object):
     return result
 
   def put_execution_type(self,
-                         execution_type,
-                         can_add_fields = False,
-                         can_delete_fields = False,
-                         all_fields_match = True):
+                         execution_type: metadata_store_pb2.ExecutionType,
+                         can_add_fields: bool = False,
+                         can_delete_fields: bool = False,
+                         all_fields_match: bool = True) -> int:
     """Inserts or updates an execution type.
 
     If no execution type exists in the database with the given name, it creates
@@ -266,7 +264,7 @@ class MetadataStore(object):
                     response)
     return response.type_id
 
-  def put_events(self, events):
+  def put_events(self, events: Sequence[metadata_store_pb2.Event]) -> None:
     """Inserts events in the database.
 
     The execution_id and artifact_id must already exist.
@@ -283,13 +281,15 @@ class MetadataStore(object):
 
     self._swig_call(metadata_store_serialized.PutEvents, request, response)
 
+  # TODO(b/123594325): implement in C++ too
   def get_artifacts_by_type(
-      self, type_name):
+      self, type_name: Text) -> List[metadata_store_pb2.Artifact]:
     """Gets all the artifacts of a given type."""
-    raise NotImplementedError()
+    artifact_type = self.get_artifact_type(type_name)
+    return [x for x in self.get_artifacts() if x.type_id == artifact_type.id]
 
   def get_artifacts_by_id(
-      self, artifact_ids):
+      self, artifact_ids: Sequence[int]) -> List[metadata_store_pb2.Artifact]:
     """Gets all artifacts with matching ids.
 
     The result is not index-aligned: if an id is not found, it is not returned.
@@ -312,7 +312,7 @@ class MetadataStore(object):
     return result
 
   def get_artifact_type(
-      self, type_name):
+      self, type_name: Text) -> Optional[metadata_store_pb2.ArtifactType]:
     """Gets an artifact type by name.
 
     Args:
@@ -333,7 +333,7 @@ class MetadataStore(object):
     return response.artifact_type
 
   def get_execution_type(
-      self, type_name):
+      self, type_name: Text) -> Optional[metadata_store_pb2.ExecutionType]:
     """Gets an execution type, or None if it does not exist."""
     request = metadata_store_service_pb2.GetExecutionTypeRequest()
     request.type_name = type_name
@@ -342,13 +342,15 @@ class MetadataStore(object):
                     response)
     return response.execution_type
 
+  # TODO(b/123594325): implement in C++ too
   def get_executions_by_type(
-      self, type_name):
+      self, type_name: Text) -> List[metadata_store_pb2.Execution]:
     """Gets all the executions of a given type."""
-    raise NotImplementedError()
+    execution_type = self.get_execution_type(type_name)
+    return [x for x in self.get_executions() if x.type_id == execution_type.id]
 
   def get_executions_by_id(
-      self, execution_ids):
+      self, execution_ids: Sequence[int]) -> List[metadata_store_pb2.Execution]:
     """Gets all executions with matching ids.
 
     The result is not index-aligned: if an id is not found, it is not returned.
@@ -370,7 +372,7 @@ class MetadataStore(object):
       result.append(x)
     return result
 
-  def get_executions(self):
+  def get_executions(self) -> List[metadata_store_pb2.Execution]:
     """Gets all executions.
 
     Returns:
@@ -387,7 +389,7 @@ class MetadataStore(object):
       result.append(x)
     return result
 
-  def get_artifacts(self):
+  def get_artifacts(self) -> List[metadata_store_pb2.Artifact]:
     """Gets all artifacts.
 
     Returns:
@@ -405,8 +407,10 @@ class MetadataStore(object):
     return result
 
   def get_artifact_types_by_id(
-      self, type_ids):
+      self, type_ids: Sequence[int]) -> List[metadata_store_pb2.ArtifactType]:
     """Gets types by ID.
+
+    TODO(b/122657258): implement in gRPC
 
     Args:
       type_ids: a sequence of artifact type IDs.
@@ -429,8 +433,10 @@ class MetadataStore(object):
     return result
 
   def get_execution_types_by_id(
-      self, type_ids):
+      self, type_ids: Sequence[int]) -> List[metadata_store_pb2.ExecutionType]:
     """Gets types by ID.
+
+    TODO(b/122657258): implement in gRPC
 
     Args:
       type_ids: a sequence of artifact type IDs.
@@ -456,7 +462,7 @@ class MetadataStore(object):
     return result
 
   def get_events_by_execution_ids(
-      self, execution_ids):
+      self, execution_ids: Sequence[int]) -> List[metadata_store_pb2.Event]:
     """Gets all events with matching execution ids.
 
     Args:
@@ -480,7 +486,7 @@ class MetadataStore(object):
     return result
 
   def get_events_by_artifact_ids(
-      self, artifact_ids):
+      self, artifact_ids: Sequence[int]) -> List[metadata_store_pb2.Event]:
     """Gets all events with matching artifact ids.
 
     Args:
@@ -504,7 +510,7 @@ class MetadataStore(object):
       result.append(x)
     return result
 
-  def make_artifact_live(self, artifact_id):
+  def make_artifact_live(self, artifact_id: int) -> None:
     """Changes the state of each artifact to LIVE.
 
     The artifact state must be NEW or CREATABLE.
@@ -514,8 +520,9 @@ class MetadataStore(object):
     """
     raise NotImplementedError()
 
-  def complete_execution(self, execution_id,
-                         artifact_ids):
+  # TODO(b/121041332) consider at the same time as artifact/execution creation.
+  def complete_execution(self, execution_id: int,
+                         artifact_ids: Sequence[int]) -> None:
     """Changes the state of an execution to COMPLETE and the artifacts to LIVE.
 
     The execution state must be NEW or RUNNING.

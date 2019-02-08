@@ -45,6 +45,8 @@ message PutArtifactTypeRequest {
 }
 
 message PutArtifactTypeResponse {
+  // TODO(martinz): Should we return the artifact type as the database
+  // understands it now?
 
   // The type ID of the artifact type.
   optional int64 type_id = 1;
@@ -76,6 +78,8 @@ message PutExecutionTypeRequest {
 }
 
 message PutExecutionTypeResponse {
+  // TODO(martinz): Should we return the execution type as the database
+  // understands it now?
 
   // The type ID of the execution type.
   optional int64 type_id = 1;
@@ -107,6 +111,7 @@ message GetArtifactsByIDResponse {
 }
 
 message GetArtifactsRequest {
+  // TODO(martinz): add query constraints here.
 }
 
 message GetArtifactsResponse {
@@ -115,6 +120,7 @@ message GetArtifactsResponse {
 }
 
 message GetExecutionsRequest {
+  // TODO(martinz): add query constraints here.
 }
 
 message GetExecutionsResponse {
@@ -375,6 +381,11 @@ service MetadataStoreService {
   rpc GetArtifactType(GetArtifactTypeRequest)
       returns (GetArtifactTypeResponse) {};
 
+  // Gets a list of artifact types by ID.
+  // If no artifact types with an ID exists, the artifact type is skipped.
+  rpc GetArtifactTypesByID(GetArtifactTypesByIDRequest)
+      returns (GetArtifactTypesByIDResponse) {};
+
   // Gets all the executions of a given type.
   rpc GetExecutionsByType(GetExecutionsByTypeRequest)
       returns (GetExecutionsByTypeResponse) {};
@@ -393,6 +404,11 @@ service MetadataStoreService {
   rpc GetExecutionType(GetExecutionTypeRequest)
       returns (GetExecutionTypeResponse) {};
 
+  // Gets a list of execution types by ID.
+  // If no execution types with an ID exists, the execution type is skipped.
+  rpc GetExecutionTypesByID(GetExecutionTypesByIDRequest)
+      returns (GetExecutionTypesByIDResponse) {};
+
   // Gets all events with matching execution ids.
   rpc GetEventsByExecutionIDs(GetEventsByExecutionIDsRequest)
       returns (GetEventsByExecutionIDsResponse) {};
@@ -403,8 +419,31 @@ service MetadataStoreService {
 
   // Gets a snapshot of the entire database.
   //
+  // TODO(martinz): This method is a very blunt instrument. As the use cases
+  // evolve, let's dive into the uses of this method.
+  //
+  // Returns:
+  //   A view of all artifacts, executions, types, and events in the database.
   rpc GetAll(GetAllRequest) returns (GetAllResponse) {};
 
+  // TODO(martinz): This method is a very blunt instrument. As the use cases
+  // evolve, let's dive into the uses of this method.
+  //
+  // Args:
+  //   artifact_ids: Artifact IDs to be directly searched for.
+  //   artifact_types: Artifact types to be searched for.
+  //   execution_ids: Artifact IDs to be directly searched for.
+  //   execution_types: Execution types to be searched for.
+  //
+  // Returns:
+  //   All artifacts of the given types are returned.
+  //   All executions of the given types are returned.
+  //   All artifacts with the given IDs are returned.
+  //   All executions with the given IDs are returned.
+  //   If a artifact type is requested or it is the type of a returned
+  // artifact, it is returned. If an execution type is requested or it is the
+  // type of a returned execution, it is returned. If an event refers to a
+  // returned artifact or execution, it is returned.
   rpc Get(GetRequest) returns (GetResponse) {};
 
   // Changes the state of each artifact to LIVE.

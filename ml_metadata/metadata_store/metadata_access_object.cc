@@ -342,6 +342,7 @@ tensorflow::Status GetPropertyTypeAndValue(
 // The queries are composed from corresponding template queries with the given
 // `Node` (which is either Artifact or Execution) and the `is_custom_property`
 // (which indicates the space of the given properties in the `node`).
+// TODO(huimiao) Revisit idioms of query generation using checking is_artifact.
 template <typename Node>
 tensorflow::Status GeneratePropertiesModificationQueries(
     const google::protobuf::Map<string, Value>& curr_properties,
@@ -1007,7 +1008,7 @@ tensorflow::Status MetadataAccessObject::CreateEvent(const Event& event,
       case Event::Path::Step::kIndex: {
         TF_RETURN_IF_ERROR(
             ComposeParameterizedQuery(query_config_.insert_event_path(),
-                                      {Bind(event_id), "step_index",
+                                      {Bind(*event_id), "step_index",
                                        Bind(is_index_step), Bind(step.index())},
                                       &insert_event_path));
         break;
@@ -1015,7 +1016,7 @@ tensorflow::Status MetadataAccessObject::CreateEvent(const Event& event,
       case Event::Path::Step::kKey: {
         TF_RETURN_IF_ERROR(ComposeParameterizedQuery(
             query_config_.insert_event_path(),
-            {Bind(event_id), "step_key", Bind(is_index_step),
+            {Bind(*event_id), "step_key", Bind(is_index_step),
              Bind(metadata_source_, step.key())},
             &insert_event_path));
         break;

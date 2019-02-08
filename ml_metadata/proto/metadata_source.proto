@@ -245,6 +245,7 @@ message MetadataSourceQueryConfig {
   // $1 is the execution_id
   // $2 is the event type
   // $3 is the event time
+  // TODO(huimiao) support insert path context as blob
   TemplateQuery insert_event = 37;
 
   // Queries events from the Event table by its artifact id. It has 1 parameter.

@@ -72,6 +72,15 @@ class MetadataStore {
   //   can_add_fields must be false (otherwise returns UNIMPLEMENTED).
   //   all_fields_match must be true (otherwise returns UNIMPLEMENTED).
   //   can_delete_fields must be false (otherwise returns UNIMPLEMENTED).
+  // TODO(martinz): support the functionality suggested by the above
+  // options or remove the options from the proto.
+  // Returns ALREADY_EXISTS error in the case listed above.
+  // Returns UNIMPLEMENTED error in the cases listed above.
+  // Returns INVALID_ARGUMENT error, if name field in request.artifact_type
+  //     is not given.
+  // Returns INVALID_ARGUMENT error, if any property type in
+  //     request.artifact_type is unknown.
+  // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status PutArtifactType(const PutArtifactTypeRequest& request,
                                      PutArtifactTypeResponse* response);
 
@@ -93,6 +102,15 @@ class MetadataStore {
   //   can_add_fields must be false (otherwise returns UNIMPLEMENTED).
   //   all_fields_match must be true  (otherwise returns UNIMPLEMENTED).
   //   can_delete_fields must be false  (otherwise returns UNIMPLEMENTED).
+  // TODO(martinz): support the above functionality or remove options from
+  // proto.
+  // Returns ALREADY_EXISTS in the case listed above.
+  // Returns UNIMPLEMENTED error in the cases listed above.
+  // Returns INVALID_ARGUMENT error, if name field in request.execution_type
+  //     is not given.
+  // Returns INVALID_ARGUMENT error, if any property type in
+  //     request.execution_type is unknown.
+  // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status PutExecutionType(const PutExecutionTypeRequest& request,
                                       PutExecutionTypeResponse* response);
 
@@ -194,11 +212,13 @@ class MetadataStore {
 
   // Gets all artifacts.
   // Returns detailed INTERNAL error, if query execution fails.
+  // TODO(120853124): add predicates
   tensorflow::Status GetArtifacts(const GetArtifactsRequest& request,
                                   GetArtifactsResponse* response);
 
   // Gets all executions.
   // Returns detailed INTERNAL error, if query execution fails.
+  // TODO(120853124): add predicates
   tensorflow::Status GetExecutions(const GetExecutionsRequest& request,
                                    GetExecutionsResponse* response);
 

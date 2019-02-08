@@ -13,8 +13,8 @@ For more background on MLMD and instructions on using it, see the
 
 ## Installing from PyPI
 
-
-
+<!-- TODO: create PyPI repository -->
+<!-- TODO: add instructions for installing from PyPI -->
 
 ## Installing from source
 
@@ -22,7 +22,7 @@ For more background on MLMD and instructions on using it, see the
 
 #### Install Python
 
-
+<!-- TODO: Add instructions for installing Python -->
 
 #### Install Bazel
 
@@ -31,16 +31,66 @@ directions](https://bazel.build/versions/master/docs/install.html).
 
 #### Install MySQL
 
-sudo apt-get install default-libmysqlclient-dev
+<!--zippy id="ubuntu-mysql"-->
 
+##### Ubuntu
 
+```shell
+# Install the meta package default-libmysqlclient-dev that pulls in either
+# mysql or mariadb client libraries.
+# Note: You can use either one of these client libraries with ml-metadata.
+sudo apt-get update
+sudo apt-get install -y default-libmysqlclient-dev
+```
 
+<!--endzippy-->
 
+<!--zippy id="el-mysql"-->
 
+##### Centos
+
+```shell
+# Change to root.
+su
+
+# Install the epel-release package.
+yum install -y epel-release
+
+# Set up the MariaDB Repo definition.
+cat <<EOF > /etc/yum.repos.d/MariaDB.repo
+# MariaDB 5.5 CentOS repository list - created 2019-01-25 00:09 UTC
+# http://downloads.mariadb.org/mariadb/repositories/
+[mariadb]
+name = MariaDB
+baseurl = http://yum.mariadb.org/5.5/centos7-amd64
+gpgkey=https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
+gpgcheck=1
+EOF
+
+# Install MariaDB client libraries.
+yum clean metadata
+yum install -y MariaDB-devel
+```
+
+<!--endzippy-->
+
+<!--zippy id="mac-mysql"-->
+
+##### MAC
+
+```shell
+# Install brew.
+/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+
+# Install MYSQL c-connector package.
+brew install mysql-connector-c
+```
+
+<!--endzippy-->
 
 ### 2. Clone ML Metadata repository
 
-
+<!-- TODO: create ML Metadata repository -->
 ```shell
 git clone https://github.com/google/ml-metadata
 cd ml-metadata
@@ -72,18 +122,18 @@ ML Metadata works on Python 2.7 or Python 3.
 
 ML Metadata is built and tested on the following 64-bit operating systems:
 
-
-
+<!-- TODO:  * macOS 10.12.6 (Sierra) or later. -->
+<!-- TODO:  * Ubuntu 14.04 or later. -->
 
 ## Dependencies
 
-
+<!-- TODO: determine dependencies. -->
 
 ## Compatible versions
 
-
+<!-- TODO: determine compatible versions. -->
 
 ## Questions
 
-
+<!-- TODO: setup stackoverflow -->
 

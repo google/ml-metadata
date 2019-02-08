@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("//ml_metadata:ml_metadata.bzl", "ml_metadata_go_library", "ml_metadata_go_test", "ml_metadata_go_wrap_cc")
 load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_py_wrap_cc")
 
 licenses(["notice"])  # Apache 2.0
@@ -143,6 +144,7 @@ cc_test(
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
+        "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:test",
     ],
 )
@@ -154,7 +156,7 @@ cc_library(
     hdrs = ["test_util.h"],
     deps = [
         ":types",
-        "@com_google_protobuf//:protobuf",
+        "@protobuf_archive//:protobuf",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/strings",
         "@org_tensorflow//tensorflow/core:lib",
@@ -178,7 +180,6 @@ tf_py_wrap_cc(
     deps = [
         ":metadata_store_factory",
         "@local_config_python//:python_headers",
-        "@org_tensorflow//tensorflow/c:tf_status_helper",
         "@org_tensorflow//tensorflow/core:lib",
     ],
 )
@@ -226,8 +227,7 @@ cc_binary(
     ],
 )
 
-# An abstract type for testing MetadataAccessObject
-# implementations.
+# An abstract type for testing MetadataAccessObject implementations.
 cc_library(
     name = "metadata_access_object_test",
     testonly = 1,
@@ -240,5 +240,168 @@ cc_library(
         "@com_google_absl//absl/time",
         "//ml_metadata/proto:metadata_store_proto",
         "@org_tensorflow//tensorflow/core:test",
+        "@com_github_gflags_gflags//:gflags_nothreads",
+    ],
+)
+
+cc_library(
+    name = "test_mysql_metadata_source_initializer",
+    testonly = 1,
+    hdrs = [
+        "test_mysql_metadata_source_initializer.h",
+    ],
+    deps = [":mysql_metadata_source"],
+)
+
+cc_library(
+    name = "test_standalone_mysql_metadata_source_initializer",
+    testonly = 1,
+    srcs = ["test_standalone_mysql_metadata_source_initializer.cc"],
+    deps = [
+        ":mysql_metadata_source",
+        ":test_mysql_metadata_source_initializer",
+        "@com_google_absl//absl/memory",
+        "//ml_metadata/proto:metadata_store_proto",
+        "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:test",
+        "@com_github_gflags_gflags//:gflags_nothreads",
+    ],
+)
+
+cc_library(
+    name = "mysql_metadata_source_test",
+    testonly = 1,
+    srcs = [
+        "mysql_metadata_source_test.cc",
+    ],
+    deps = [
+        ":metadata_source",
+        ":mysql_metadata_source",
+        ":test_mysql_metadata_source_initializer",
+        ":test_util",
+        "@protobuf_archive//:protobuf",
+        "@com_google_googletest//:gtest",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings",
+        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_store_proto",
+        "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:test",
+        "@com_github_gflags_gflags//:gflags_nothreads",
+    ],
+)
+
+# This test does not run on a Bazel sandbox because it requires a MYSQL server
+# that is separately spawned. Details of the MYSQL server are specified by
+# flags passed to the test. For e.g.,
+#
+# bazel run :standalone_mysql_metadata_source_test -- \
+#     --db_name="foo" \
+#     --user_name="me" \
+#     --host_name="localhost"
+#
+# See test_standalone_mysql_metadata_source_initializer.cc for the full flag
+# list.
+cc_test(
+    name = "standalone_mysql_metadata_source_test",
+    tags = [
+        "local",
+        "manual",
+    ],
+    deps = [
+        ":mysql_metadata_source_test",
+        "//ml_metadata/metadata_store:test_standalone_mysql_metadata_source_initializer",
+    ],
+)
+
+cc_test(
+    name = "sqlite_metadata_access_object_test",
+    size = "small",
+    srcs = ["sqlite_metadata_access_object_test.cc"],
+    deps = [
+        ":metadata_access_object_test",
+        ":metadata_source",
+        ":sqlite_metadata_source",
+        "@com_google_googletest//:gtest",
+        "@com_google_absl//absl/memory",
+        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/util:metadata_source_query_config",
+        "@org_tensorflow//tensorflow/core:test",
+    ],
+)
+
+cc_library(
+    name = "mysql_metadata_access_object_test",
+    testonly = 1,
+    srcs = ["mysql_metadata_access_object_test.cc"],
+    deps = [
+        ":metadata_access_object_test",
+        ":metadata_source",
+        ":mysql_metadata_source",
+        ":test_mysql_metadata_source_initializer",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/memory",
+        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/util:metadata_source_query_config",
+        "@org_tensorflow//tensorflow/core:test",
+    ],
+)
+
+# This test does not run on a Bazel sandbox because it requires a MYSQL server
+# that is separately spawned. Details of the MYSQL server are specified by
+# flags passed to the test. For e.g.,
+#
+# bazel run :standalone_mysql_metadata_access_object_test -- \
+#     --db_name="foo" \
+#     --user_name="me" \
+#     --host_name="localhost"
+#
+# See test_standalone_mysql_metadata_source_initializer.cc for the full flag
+# list.
+cc_test(
+    name = "standalone_mysql_metadata_access_object_test",
+    tags = [
+        "local",
+        "manual",
+    ],
+    deps = [
+        ":mysql_metadata_access_object_test",
+        ":test_standalone_mysql_metadata_source_initializer",
+    ],
+)
+
+ml_metadata_go_wrap_cc(
+    name = "metadata_store_go_wrap",
+    importpath = "ml_metadata/metadata_store/metadata_store_go_wrap",
+    libname = "metadata_store_cgo_wrap",
+    swigfile = "metadata_store_go",
+    deps = [
+        ":metadata_store_factory",
+        "@org_tensorflow//tensorflow/core:lib",
+    ],
+)
+
+ml_metadata_go_library(
+    name = "metadata_store_go",
+    srcs = ["metadata_store.go"],
+    cdeps = ["metadata_store_cgo_wrap"],
+    cgo = True,
+    importpath = "ml_metadata/metadata_store/mlmetadata",
+    deps = [
+        ":metadata_store_go_wrap",
+        "//ml_metadata/proto:metadata_store_go_proto",
+        "//ml_metadata/proto:metadata_store_service_go_proto",
+        "@com_github_golang_protobuf//proto:go_default_library",
+    ],
+)
+
+ml_metadata_go_test(
+    name = "metadata_store_go_test",
+    size = "small",
+    srcs = ["metadata_store_test.go"],
+    library = ":metadata_store_go",
+    deps = [
+        "//ml_metadata/proto:metadata_store_go_proto",
+        "@com_github_golang_protobuf//proto:go_default_library",
     ],
 )

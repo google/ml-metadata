@@ -22,6 +22,7 @@ limitations under the License.
 #include "absl/strings/str_cat.h"
 #include "ml_metadata/metadata_store/test_util.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
+#include "tensorflow/core/platform/env.h"
 
 namespace ml_metadata {
 namespace {
@@ -59,10 +60,17 @@ class SqliteMetadataSourceTest : public ::testing::Test {
     TF_CHECK_OK(metadata_source->Commit());
   }
 
-  void TearDown() override { metadata_source_.reset(); }
+  void TearDown() override {
+    metadata_source_.reset();
+    if (!filename_uri_.empty()) {
+      TF_CHECK_OK(tensorflow::Env::Default()->DeleteFile(filename_uri_));
+    }
+  }
 
   // by default, use a in-memory Sqlite3 metadata source for each tes
   std::unique_ptr<MetadataSource> metadata_source_;
+
+  string filename_uri_;
 };
 
 TEST_F(SqliteMetadataSourceTest, TestQueryWithoutConnect) {
@@ -189,6 +197,37 @@ TEST_F(SqliteMetadataSourceTest, TestMultiQueryTransaction) {
   EXPECT_EQ(expected_num_rows, query_results.records().size());
 }
 
+
+// Note that if this method fails, it does not clean up the file it created,
+// causing issues.
+TEST_F(SqliteMetadataSourceTest, TestPhysicalFile) {
+  RecordSet expected_results;
+  filename_uri_ =
+     absl::StrCat(::testing::TempDir(), "test_physical_file_test.db");
+  SqliteMetadataSourceConfig config;
+  config.set_filename_uri(filename_uri_);
+
+  {
+    SqliteMetadataSource metadata_source(config);
+    InitSchemaAndPopulateRows(&metadata_source);
+
+    TF_ASSERT_OK(metadata_source.Begin());
+    TF_ASSERT_OK(
+        metadata_source.ExecuteQuery("SELECT * FROM t1", &expected_results));
+    TF_ASSERT_OK(metadata_source.Commit());
+    TF_ASSERT_OK(metadata_source.Close());
+  }
+
+  RecordSet query_results;
+  // Connects to the same database without initialize the schema and rows
+  SqliteMetadataSource metadata_source(config);
+  TF_ASSERT_OK(metadata_source.Connect());
+  TF_ASSERT_OK(metadata_source.Begin());
+  TF_ASSERT_OK(
+      metadata_source.ExecuteQuery("SELECT * FROM t1", &query_results));
+  TF_ASSERT_OK(metadata_source.Commit());
+  EXPECT_THAT(query_results, EqualsProto(expected_results));
+}
 
 }  // namespace
 }  // namespace ml_metadata

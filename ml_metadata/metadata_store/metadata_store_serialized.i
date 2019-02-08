@@ -18,7 +18,6 @@ limitations under the License.
 // Do not call these methods directly. Prefer metadata_store.py.
 // For tests, see metadata_store_test.py
 #include "ml_metadata/metadata_store/metadata_store_factory.h"
-#include "tensorflow/c/tf_status_helper.h"
 #include "tensorflow/core/lib/core/errors.h"
 
 #ifdef HAS_GLOBAL_STRING
@@ -46,25 +45,25 @@ tensorflow::Status ParseProto(const string& input, ProtoType* proto) {
 
 %{
 
-
-ml_metadata::MetadataStore* CreateMetadataStore(const string& connection_config,
-                                    TF_Status* out_status) {
+ml_metadata::MetadataStore* CreateMetadataStore(const string& connection_config) {
   ml_metadata::ConnectionConfig proto_connection_config;
   const tensorflow::Status parse_proto_result =
       ParseProto(connection_config, &proto_connection_config);
   if (!parse_proto_result.ok()) {
-    Set_TF_Status_from_Status(out_status, parse_proto_result);
-    return nullptr;
+    PyErr_SetString(PyExc_RuntimeError, parse_proto_result.error_message().c_str());
+    return NULL;
   }
+
 
   std::unique_ptr<ml_metadata::MetadataStore> metadata_store;
   tensorflow::Status status = ml_metadata::CreateMetadataStore(
       proto_connection_config,
       &metadata_store);
   if (!status.ok()) {
-    Set_TF_Status_from_Status(out_status, status);
+    PyErr_SetString(PyExc_RuntimeError, status.error_message().c_str());
+    return NULL;
   }
-  // If the status fails, this will be a nullptr.
+  LOG(ERROR) << "Created MetadataStore.";
   return metadata_store.release();
 }
 
@@ -97,7 +96,6 @@ PyObject* AccessMetadataStore(
   InputProto proto_request;
   tensorflow::Status parse_result = ParseProto(request, &proto_request);
   if (!parse_result.ok()) {
-    
     return ConvertAccessMetadataStoreResultToPyTuple(
         /* serialized_proto_message */ "",
         parse_result);
@@ -215,14 +213,11 @@ PyObject* GetExecutions(ml_metadata::MetadataStore* metadata_store,
 }
 
 
+
+%newobject CreateMetadataStore;
 %delobject DestroyMetadataStore;
 
-// Indicates that the CreateMetadataStore creates a new object, and that
-// python is responsible for destroying it.
-%newobject CreateMetadataStore;
-
-ml_metadata::MetadataStore* CreateMetadataStore(const string& connection_config,
-                                                TF_Status* out_status);
+ml_metadata::MetadataStore* CreateMetadataStore(const string& connection_config);
 
 void DestroyMetadataStore(ml_metadata::MetadataStore* metadata_store);
 

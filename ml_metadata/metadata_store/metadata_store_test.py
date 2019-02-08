@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import print_function
 
 from absl.testing import absltest
+
 from ml_metadata.metadata_store import metadata_store
 from ml_metadata.proto import metadata_store_pb2
 from tensorflow.python.framework import errors
@@ -31,6 +32,15 @@ def _get_metadata_store():
 
 def _create_example_artifact_type():
   artifact_type = metadata_store_pb2.ArtifactType()
+  artifact_type.name = "test_type_1"
+  artifact_type.properties["foo"] = metadata_store_pb2.INT
+  artifact_type.properties["bar"] = metadata_store_pb2.STRING
+  artifact_type.properties["baz"] = metadata_store_pb2.DOUBLE
+  return artifact_type
+
+
+def _create_example_artifact_type_2():
+  artifact_type = metadata_store_pb2.ArtifactType()
   artifact_type.name = "test_type_2"
   artifact_type.properties["foo"] = metadata_store_pb2.INT
   artifact_type.properties["bar"] = metadata_store_pb2.STRING
@@ -39,6 +49,14 @@ def _create_example_artifact_type():
 
 
 def _create_example_execution_type():
+  execution_type = metadata_store_pb2.ExecutionType()
+  execution_type.name = "test_type_1"
+  execution_type.properties["foo"] = metadata_store_pb2.INT
+  execution_type.properties["bar"] = metadata_store_pb2.STRING
+  return execution_type
+
+
+def _create_example_execution_type_2():
   execution_type = metadata_store_pb2.ExecutionType()
   execution_type.name = "test_type_2"
   execution_type.properties["foo"] = metadata_store_pb2.INT
@@ -50,18 +68,20 @@ class MetadataStoreTest(absltest.TestCase):
 
   def test_unset_connection_config(self):
     connection_config = metadata_store_pb2.ConnectionConfig()
-    for _ in range(10):
-      with self.assertRaises(errors.InvalidArgumentError):
-        return metadata_store.MetadataStore(connection_config)
+    for j in range(100):
+      with self.assertRaises(RuntimeError):
+        metadata_store.MetadataStore(connection_config)
+        # If you remove the following line, this won't always throw an error.
+        print("Iteration {} completed.".format(j))
 
   def test_put_artifact_type_get_artifact_type(self):
     store = _get_metadata_store()
     artifact_type = _create_example_artifact_type()
 
     type_id = store.put_artifact_type(artifact_type)
-    artifact_type_result = store.get_artifact_type("test_type_2")
+    artifact_type_result = store.get_artifact_type("test_type_1")
     self.assertEqual(artifact_type_result.id, type_id)
-    self.assertEqual(artifact_type_result.name, "test_type_2")
+    self.assertEqual(artifact_type_result.name, "test_type_1")
     self.assertEqual(artifact_type_result.properties["foo"],
                      metadata_store_pb2.INT)
     self.assertEqual(artifact_type_result.properties["bar"],
@@ -104,6 +124,42 @@ class MetadataStoreTest(absltest.TestCase):
     self.assertEqual(artifact_result_0.properties["foo"].int_value, 3)
     self.assertEqual(artifact_result_1.id, artifact_id_1)
 
+  def test_put_artifacts_get_artifacts_by_type(self):
+    store = _get_metadata_store()
+    artifact_type = _create_example_artifact_type()
+    type_id = store.put_artifact_type(artifact_type)
+    artifact_type_2 = _create_example_artifact_type_2()
+    type_id_2 = store.put_artifact_type(artifact_type_2)
+    artifact_0 = metadata_store_pb2.Artifact()
+    artifact_0.type_id = type_id
+    artifact_0.properties["foo"].int_value = 3
+    artifact_0.properties["bar"].string_value = "Hello"
+    artifact_1 = metadata_store_pb2.Artifact()
+    artifact_1.type_id = type_id_2
+
+    [_, artifact_id_1] = store.put_artifacts([artifact_0, artifact_1])
+    artifact_result = store.get_artifacts_by_type(artifact_type_2.name)
+    self.assertLen(artifact_result, 1)
+    self.assertEqual(artifact_result[0].id, artifact_id_1)
+
+  def test_put_executions_get_executions_by_type(self):
+    store = _get_metadata_store()
+    execution_type = _create_example_execution_type()
+    type_id = store.put_execution_type(execution_type)
+    execution_type_2 = _create_example_execution_type_2()
+    type_id_2 = store.put_execution_type(execution_type_2)
+    execution_0 = metadata_store_pb2.Execution()
+    execution_0.type_id = type_id
+    execution_0.properties["foo"].int_value = 3
+    execution_0.properties["bar"].string_value = "Hello"
+    execution_1 = metadata_store_pb2.Execution()
+    execution_1.type_id = type_id_2
+
+    [_, execution_id_1] = store.put_executions([execution_0, execution_1])
+    execution_result = store.get_executions_by_type(execution_type_2.name)
+    self.assertLen(execution_result, 1)
+    self.assertEqual(execution_result[0].id, execution_id_1)
+
   def test_update_artifact_get_artifact(self):
     store = _get_metadata_store()
     artifact_type = _create_example_artifact_type()
@@ -139,18 +195,18 @@ class MetadataStoreTest(absltest.TestCase):
   def test_put_execution_type_get_execution_type(self):
     store = _get_metadata_store()
     execution_type = metadata_store_pb2.ExecutionType()
-    execution_type.name = "test_type_2"
+    execution_type.name = "test_type_1"
     execution_type.properties["foo"] = metadata_store_pb2.INT
     execution_type.properties["bar"] = metadata_store_pb2.STRING
     type_id = store.put_execution_type(execution_type)
-    execution_type_result = store.get_execution_type("test_type_2")
+    execution_type_result = store.get_execution_type("test_type_1")
     self.assertEqual(execution_type_result.id, type_id)
-    self.assertEqual(execution_type_result.name, "test_type_2")
+    self.assertEqual(execution_type_result.name, "test_type_1")
 
   def test_put_executions_get_executions_by_id(self):
     store = _get_metadata_store()
     execution_type = metadata_store_pb2.ExecutionType()
-    execution_type.name = "test_type_2"
+    execution_type.name = "test_type_1"
     execution_type.properties["foo"] = metadata_store_pb2.INT
     execution_type.properties["bar"] = metadata_store_pb2.STRING
     type_id = store.put_execution_type(execution_type)
@@ -198,7 +254,7 @@ class MetadataStoreTest(absltest.TestCase):
   def test_update_execution_get_execution(self):
     store = _get_metadata_store()
     execution_type = metadata_store_pb2.ExecutionType()
-    execution_type.name = "test_type_2"
+    execution_type.name = "test_type_1"
     execution_type.properties["foo"] = metadata_store_pb2.INT
     execution_type.properties["bar"] = metadata_store_pb2.STRING
     type_id = store.put_execution_type(execution_type)
@@ -219,6 +275,7 @@ class MetadataStoreTest(absltest.TestCase):
     self.assertEqual(execution_result.properties["bar"].string_value, "Goodbye")
     self.assertEqual(execution_result.properties["foo"].int_value, 12)
 
+  # TODO(b/121047373): missing artifact ID causes a crash.
   def test_put_events_get_events(self):
     store = _get_metadata_store()
     execution_type = metadata_store_pb2.ExecutionType()
@@ -259,7 +316,7 @@ class MetadataStoreTest(absltest.TestCase):
   def test_get_artifact_type_fails(self):
     store = _get_metadata_store()
     with self.assertRaises(errors.NotFoundError):
-      store.get_artifact_type("test_type_2")
+      store.get_artifact_type("test_type_1")
 
   def test_put_events_no_artifact_id(self):
     # No execution_id throws the same error type, so we just test this.
@@ -276,6 +333,82 @@ class MetadataStoreTest(absltest.TestCase):
     event.execution_id = execution_id
     with self.assertRaises(errors.InvalidArgumentError):
       store.put_events([event])
+
+  def test_put_events_with_paths(self):
+    store = _get_metadata_store()
+    execution_type = metadata_store_pb2.ExecutionType()
+    execution_type.name = "execution_type"
+    execution_type_id = store.put_execution_type(execution_type)
+    execution = metadata_store_pb2.Execution()
+    execution.type_id = execution_type_id
+    [execution_id] = store.put_executions([execution])
+    artifact_type = metadata_store_pb2.ArtifactType()
+    artifact_type.name = "artifact_type"
+    artifact_type_id = store.put_artifact_type(artifact_type)
+    artifact_0 = metadata_store_pb2.Artifact()
+    artifact_0.type_id = artifact_type_id
+    artifact_1 = metadata_store_pb2.Artifact()
+    artifact_1.type_id = artifact_type_id
+    [artifact_id_0,
+     artifact_id_1] = store.put_artifacts([artifact_0, artifact_1])
+
+    event_0 = metadata_store_pb2.Event()
+    event_0.type = metadata_store_pb2.Event.DECLARED_INPUT
+    event_0.artifact_id = artifact_id_0
+    event_0.execution_id = execution_id
+    event_0.path.steps.add().key = "ggg"
+
+    event_1 = metadata_store_pb2.Event()
+    event_1.type = metadata_store_pb2.Event.DECLARED_INPUT
+    event_1.artifact_id = artifact_id_1
+    event_1.execution_id = execution_id
+    event_1.path.steps.add().key = "fff"
+
+    store.put_events([event_0, event_1])
+    [event_result_0,
+     event_result_1] = store.get_events_by_execution_ids([execution_id])
+    self.assertLen(event_result_0.path.steps, 1)
+    self.assertEqual(event_result_0.path.steps[0].key, "ggg")
+    self.assertLen(event_result_1.path.steps, 1)
+    self.assertEqual(event_result_1.path.steps[0].key, "fff")
+
+  def test_put_events_with_paths_same_artifact(self):
+    store = _get_metadata_store()
+    execution_type = metadata_store_pb2.ExecutionType()
+    execution_type.name = "execution_type"
+    execution_type_id = store.put_execution_type(execution_type)
+    execution_0 = metadata_store_pb2.Execution()
+    execution_0.type_id = execution_type_id
+    execution_1 = metadata_store_pb2.Execution()
+    execution_1.type_id = execution_type_id
+    [execution_id_0,
+     execution_id_1] = store.put_executions([execution_0, execution_1])
+    artifact_type = metadata_store_pb2.ArtifactType()
+    artifact_type.name = "artifact_type"
+    artifact_type_id = store.put_artifact_type(artifact_type)
+    artifact = metadata_store_pb2.Artifact()
+    artifact.type_id = artifact_type_id
+    [artifact_id] = store.put_artifacts([artifact])
+
+    event_0 = metadata_store_pb2.Event()
+    event_0.type = metadata_store_pb2.Event.DECLARED_INPUT
+    event_0.artifact_id = artifact_id
+    event_0.execution_id = execution_id_0
+    event_0.path.steps.add().key = "ggg"
+
+    event_1 = metadata_store_pb2.Event()
+    event_1.type = metadata_store_pb2.Event.DECLARED_INPUT
+    event_1.artifact_id = artifact_id
+    event_1.execution_id = execution_id_1
+    event_1.path.steps.add().key = "fff"
+
+    store.put_events([event_0, event_1])
+    [event_result_0,
+     event_result_1] = store.get_events_by_artifact_ids([artifact_id])
+    self.assertLen(event_result_0.path.steps, 1)
+    self.assertEqual(event_result_0.path.steps[0].key, "ggg")
+    self.assertLen(event_result_1.path.steps, 1)
+    self.assertEqual(event_result_1.path.steps[0].key, "fff")
 
 
 if __name__ == "__main__":

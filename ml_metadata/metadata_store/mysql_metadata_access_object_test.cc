@@ -12,7 +12,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
-// Test suite for a SqliteMetadataSource based MetadataAccessObject.
+// Test suite for a MySqlMetadataSource based MetadataAccessObject.
 
 #include <memory>
 
@@ -21,7 +21,8 @@ limitations under the License.
 #include "absl/memory/memory.h"
 #include "ml_metadata/metadata_store/metadata_access_object_test.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
-#include "ml_metadata/metadata_store/sqlite_metadata_source.h"
+#include "ml_metadata/metadata_store/mysql_metadata_source.h"
+#include "ml_metadata/metadata_store/test_mysql_metadata_source_initializer.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/util/metadata_source_query_config.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
@@ -31,40 +32,45 @@ namespace testing {
 
 namespace {
 
-// SqliteMetadataAccessObjectContainer implements MetadataAccessObjectContainer
-// to generate and retrieve a MetadataAccessObject based on a
-// SqliteMetadataSource.
-class SqliteMetadataAccessObjectContainer
+// MySqlMetadataAccessObjectContainer implements MetadataAccessObjectContainer
+// to generate and retrieve a MetadataAccessObject based off a
+// MySqlMetadataSource.
+class MySqlMetadataAccessObjectContainer
     : public MetadataAccessObjectContainer {
  public:
-  SqliteMetadataAccessObjectContainer() : MetadataAccessObjectContainer() {
-    SqliteMetadataSourceConfig config;
-    metadata_source_ = absl::make_unique<SqliteMetadataSource>(config);
+  MySqlMetadataAccessObjectContainer() : MetadataAccessObjectContainer() {
+    metadata_source_initializer_ = GetTestMySqlMetadataSourceInitializer();
+    metadata_source_ = metadata_source_initializer_->Init();
     TF_CHECK_OK(MetadataAccessObject::Create(
-        util::GetSqliteMetadataSourceQueryConfig(), metadata_source_.get(),
+        util::GetMySqlMetadataSourceQueryConfig(), metadata_source_,
         &metadata_access_object_));
   }
 
-  ~SqliteMetadataAccessObjectContainer() override = default;
+  ~MySqlMetadataAccessObjectContainer() override {
+    metadata_source_initializer_->Cleanup();
+  };
 
-  MetadataSource* GetMetadataSource() override {
-    return metadata_source_.get();
-  }
+  MetadataSource* GetMetadataSource() override { return metadata_source_; }
   MetadataAccessObject* GetMetadataAccessObject() override {
     return metadata_access_object_.get();
   }
 
  private:
-  std::unique_ptr<SqliteMetadataSource> metadata_source_;
+  // An unowned TestMySqlMetadataSourceInitializer from a call to
+  // GetTestMySqlMetadataSourceInitializer().
+  TestMySqlMetadataSourceInitializer* metadata_source_initializer_;
+  // An unowned MySqlMetadataSource from a call to
+  // metadata_source_initializer->Init().
+  MySqlMetadataSource* metadata_source_;
   std::unique_ptr<MetadataAccessObject> metadata_access_object_;
 };
 
 }  // namespace
 
 INSTANTIATE_TEST_CASE_P(
-    SqliteMetadataAccessObjectTest, MetadataAccessObjectTest,
+    MySqlMetadataAccessObjectTest, MetadataAccessObjectTest,
     ::testing::Values([]() {
-      return absl::make_unique<SqliteMetadataAccessObjectContainer>();
+      return absl::make_unique<MySqlMetadataAccessObjectContainer>();
     }));
 
 }  // namespace testing

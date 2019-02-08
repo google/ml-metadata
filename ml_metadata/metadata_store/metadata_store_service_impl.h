@@ -24,6 +24,7 @@ namespace ml_metadata {
 // A metadata store gRPC server that implements MetadataStoreService defined in
 // proto/metadata_store_service.proto. It is thread-safe.
 // Note, concurrent call to methods in different threads are sequential.
+// TODO(b/123039345) Add a connection pool in metadata_store or grpc service.
 class MetadataStoreServiceImpl final
     : public MetadataStoreService::Service {
  public:
@@ -47,6 +48,12 @@ class MetadataStoreServiceImpl final
       ::ml_metadata::GetArtifactTypeResponse* response) override
       LOCKS_EXCLUDED(lock_);
 
+  ::grpc::Status GetArtifactTypesByID(
+      ::grpc::ServerContext* context,
+      const ::ml_metadata::GetArtifactTypesByIDRequest* request,
+      ::ml_metadata::GetArtifactTypesByIDResponse* response) override
+      LOCKS_EXCLUDED(lock_);
+
   ::grpc::Status PutExecutionType(
       ::grpc::ServerContext* context,
       const ::ml_metadata::PutExecutionTypeRequest* request,
@@ -57,6 +64,12 @@ class MetadataStoreServiceImpl final
       ::grpc::ServerContext* context,
       const ::ml_metadata::GetExecutionTypeRequest* request,
       ::ml_metadata::GetExecutionTypeResponse* response) override
+      LOCKS_EXCLUDED(lock_);
+
+  ::grpc::Status GetExecutionTypesByID(
+      ::grpc::ServerContext* context,
+      const ::ml_metadata::GetExecutionTypesByIDRequest* request,
+      ::ml_metadata::GetExecutionTypesByIDResponse* response) override
       LOCKS_EXCLUDED(lock_);
 
   ::grpc::Status PutArtifacts(::grpc::ServerContext* context,

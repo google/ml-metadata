@@ -12,9 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# TODO(120486527): This is currently unused: In theory, it should help
+# to resolve b/120486527.
 
 load("@protobuf_archive//:protobuf.bzl", "cc_proto_library")
 load("@protobuf_archive//:protobuf.bzl", "py_proto_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 
 def ml_metadata_proto_library(
         name,
@@ -68,4 +72,92 @@ def ml_metadata_proto_library_py(
         protoc = "@protobuf_archive//:protoc",
         visibility = visibility,
         testonly = testonly,
+    )
+
+def ml_metadata_proto_library_go(
+        name,
+        deps = [],
+        srcs = [],
+        importpath = None,
+        cc_proto_deps = [],
+        go_proto_deps = [],
+        gen_oss_grpc = False):
+    """Opensource go_proto_library."""
+    proto_library_name = deps[0][1:] + "_copy"
+
+    # add a proto_library rule for bazel go rules
+    proto_library_deps = []
+    for dep in cc_proto_deps:
+        proto_library_deps.append(dep + "_copy")
+    native.proto_library(
+        name = proto_library_name,
+        srcs = srcs,
+        deps = proto_library_deps,
+    )
+
+    go_proto_library(
+        name = name,
+        importpath = importpath,
+        proto = ":" + proto_library_name,
+        deps = go_proto_deps,
+        compilers = ["@io_bazel_rules_go//proto:go_grpc"] if gen_oss_grpc else None,
+    )
+
+def ml_metadata_go_library(
+        name,
+        srcs = [],
+        deps = [],
+        importpath = None,
+        cgo = None,
+        cdeps = None):
+    """Opensource go_library"""
+    go_library(
+        name = name,
+        srcs = srcs,
+        importpath = importpath,
+        deps = deps,
+        cgo = cgo,
+        cdeps = cdeps,
+    )
+
+def ml_metadata_go_test(
+        name,
+        srcs = [],
+        size = None,
+        library = None,
+        deps = []):
+    """Opensource go_test"""
+    go_test(
+        name = name,
+        size = size,
+        srcs = srcs,
+        embed = [library],
+        deps = deps,
+    )
+
+# The rule builds a static cc library with the `libname` as target name,
+# and `swigfile`_swig.cc as its srcs. In addition the rule builds a
+# go_library in -cgo mode with `name` as the target name, `name`.go as its srcs
+# and links to the `libname` with cgo dependency in `cdeps`.
+# Note: the `swigfile`_swig.cc and `name`.go is auto-generated, and should be
+#       provided when using the rule.
+def ml_metadata_go_wrap_cc(
+        name,
+        swigfile = None,
+        deps = [],
+        libname = None,
+        importpath = None):
+    native.cc_library(
+        name = libname,
+        srcs = [swigfile + "_swig.cc"],
+        linkstatic = 1,
+        deps = deps,
+    )
+
+    ml_metadata_go_library(
+        name = name,
+        srcs = [name + ".go"],
+        importpath = importpath,
+        cgo = True,
+        cdeps = [libname],
     )
