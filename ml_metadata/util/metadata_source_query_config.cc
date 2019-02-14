@@ -104,6 +104,10 @@ constexpr char kBaseQueryConfig[] = R"pb(
            " WHERE id = $0; "
     parameter_num: 1
   }
+  select_artifacts_by_type_id {
+    query: " SELECT `id` from `Artifact` WHERE `type_id` = $0; "
+    parameter_num: 1
+  }
   update_artifact {
     query: " UPDATE `Artifact` "
            " SET `type_id` = $1, `uri` = $2"
@@ -173,6 +177,10 @@ constexpr char kBaseQueryConfig[] = R"pb(
     query: " SELECT `type_id` "
            " from `Execution` "
            " WHERE id = $0; "
+    parameter_num: 1
+  }
+  select_executions_by_type_id {
+    query: " SELECT `id` from `Execution` WHERE `type_id` = $0; "
     parameter_num: 1
   }
   update_execution {

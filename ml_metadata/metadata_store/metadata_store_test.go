@@ -89,12 +89,24 @@ func TestGetArtifactType(t *testing.T) {
 	tid := int64(typeID)
 	wantType.Id = &tid
 
+	// get artifact type by name
 	gotType, err := store.GetArtifactType(&typeName)
 	if err != nil {
 		t.Fatalf("GetArtifactType failed: %v", err)
 	}
 	if !proto.Equal(wantType, gotType) {
 		t.Errorf("put and get type mismatch, want: %v, got: %v", wantType, gotType)
+	}
+
+	// get artifact type by id
+	tids := make([]ArtifactTypeID, 1)
+	tids[0] = typeID
+	gotTypesByID, err := store.GetArtifactTypesByID(tids)
+	if err != nil {
+		t.Fatalf("GetArtifactTypesByID failed: %v", err)
+	}
+	if len(gotTypesByID) < 1 || !proto.Equal(wantType, gotTypesByID[0]) {
+		t.Errorf("put and get type by id mismatch, want: %v, got: %v", wantType, gotTypesByID)
 	}
 }
 
@@ -124,6 +136,16 @@ func TestPutAndGetExecutionType(t *testing.T) {
 	}
 	if !proto.Equal(wantType, gotType) {
 		t.Errorf("put and get type mismatch, want: %v, got: %v", wantType, gotType)
+	}
+
+	tids := make([]ExecutionTypeID, 1)
+	tids[0] = typeID
+	gotTypesByID, err := store.GetExecutionTypesByID(tids)
+	if err != nil {
+		t.Fatalf("GetExecutionTypesByID failed: %v", err)
+	}
+	if len(gotTypesByID) < 1 || !proto.Equal(wantType, gotTypesByID[0]) {
+		t.Errorf("put and get type by id mismatch, want: %v, got: %v", wantType, gotTypesByID)
 	}
 }
 

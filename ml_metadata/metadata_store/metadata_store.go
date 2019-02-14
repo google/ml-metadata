@@ -109,6 +109,18 @@ func (store *Store) GetArtifactType(typeName *string) (*mdpb.ArtifactType, error
   return resp.GetArtifactType(), err
 }
 
+// GetArtifactTypesByID gets a list of artifact types by ID. If no type with an
+// ID exists, the artifact type is skipped. If query execution fails, error is
+// returned.
+func (store *Store) GetArtifactTypesByID(tids []ArtifactTypeID) ([]*mdpb.ArtifactType, error) {
+  req := &apipb.GetArtifactTypesByIDRequest{
+    TypeIds: convertToInt64ArrayFromArtifactTypeIDs(tids),
+  }
+  resp := &apipb.GetArtifactTypesByIDResponse{}
+  err := store.callMetadataStoreWrapMethod(wrap.GetArtifactTypesByID, req, resp)
+  return resp.GetArtifactTypes(), err
+}
+
 // PutExecutionType inserts or updates an execution type.
 // If no execution type exists in the database with the given name,
 // it creates a new execution type and returns the type_id.
@@ -140,6 +152,18 @@ func (store *Store) GetExecutionType(typeName *string) (*mdpb.ExecutionType, err
   resp := &apipb.GetExecutionTypeResponse{}
   err := store.callMetadataStoreWrapMethod(wrap.GetExecutionType, req, resp)
   return resp.GetExecutionType(), err
+}
+
+// GetExecutionTypesByID gets a list of execution types by ID. If no type with
+// an ID exists, the execution type is skipped. If query execution fails, error
+// is returned.
+func (store *Store) GetExecutionTypesByID(tids []ExecutionTypeID) ([]*mdpb.ExecutionType, error) {
+  req := &apipb.GetExecutionTypesByIDRequest{
+    TypeIds: convertToInt64ArrayFromExecutionTypeIDs(tids),
+  }
+  resp := &apipb.GetExecutionTypesByIDResponse{}
+  err := store.callMetadataStoreWrapMethod(wrap.GetExecutionTypesByID, req, resp)
+  return resp.GetExecutionTypes(), err
 }
 
 // PutArtifacts inserts and updates artifacts into the store.
@@ -289,6 +313,22 @@ func (store *Store) callMetadataStoreWrapMethod(fn metadataStoreMethod, req prot
     return err
   }
   return nil
+}
+
+func convertToInt64ArrayFromArtifactTypeIDs(tids []ArtifactTypeID) ([]int64) {
+  ids := make([]int64, len(tids))
+  for i, v := range tids {
+    ids[i] = int64(v)
+  }
+  return ids
+}
+
+func convertToInt64ArrayFromExecutionTypeIDs(tids []ExecutionTypeID) ([]int64) {
+  ids := make([]int64, len(tids))
+  for i, v := range tids {
+    ids[i] = int64(v)
+  }
+  return ids
 }
 
 func convertToInt64ArrayFromArtifactIDs(aids []ArtifactID) ([]int64) {

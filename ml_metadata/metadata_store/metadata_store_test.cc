@@ -751,6 +751,40 @@ TEST_F(MetadataStoreTest, PutExecutionsGetExecutionsWithEmptyExecution) {
   *expected.mutable_executions() = put_executions_request.executions();
   expected.mutable_executions(0)->set_id(execution_id);
   EXPECT_THAT(get_executions_response, testing::EqualsProto(expected));
+
+  GetExecutionsByTypeRequest get_executions_by_type_request;
+  GetExecutionsByTypeResponse get_executions_by_type_response;
+  get_executions_by_type_request.set_type_name("test_type2");
+  TF_ASSERT_OK(metadata_store_->GetExecutionsByType(
+      get_executions_by_type_request, &get_executions_by_type_response));
+  ASSERT_EQ(get_executions_by_type_response.executions_size(), 1);
+  EXPECT_EQ(get_executions_by_type_response.executions(0).id(), execution_id);
+
+  GetExecutionsByTypeRequest get_executions_by_not_exist_type_request;
+  GetExecutionsByTypeResponse get_executions_by_not_exist_type_response;
+  get_executions_by_not_exist_type_request.set_type_name("not_exist_type");
+  TF_ASSERT_OK(metadata_store_->GetExecutionsByType(
+      get_executions_by_not_exist_type_request,
+      &get_executions_by_not_exist_type_response));
+  EXPECT_EQ(get_executions_by_not_exist_type_response.executions_size(), 0);
+}
+
+TEST_F(MetadataStoreTest, GetArtifactAndExecutionByTypesWithEmptyDatabase) {
+  GetArtifactsByTypeRequest get_artifacts_by_not_exist_type_request;
+  GetArtifactsByTypeResponse get_artifacts_by_not_exist_type_response;
+  get_artifacts_by_not_exist_type_request.set_type_name("artifact_type");
+  TF_ASSERT_OK(metadata_store_->GetArtifactsByType(
+      get_artifacts_by_not_exist_type_request,
+      &get_artifacts_by_not_exist_type_response));
+  EXPECT_EQ(get_artifacts_by_not_exist_type_response.artifacts_size(), 0);
+
+  GetExecutionsByTypeRequest get_executions_by_not_exist_type_request;
+  GetExecutionsByTypeResponse get_executions_by_not_exist_type_response;
+  get_executions_by_not_exist_type_request.set_type_name("execution_type");
+  TF_ASSERT_OK(metadata_store_->GetExecutionsByType(
+      get_executions_by_not_exist_type_request,
+      &get_executions_by_not_exist_type_response));
+  EXPECT_EQ(get_executions_by_not_exist_type_response.executions_size(), 0);
 }
 
 TEST_F(MetadataStoreTest, PutArtifactsGetArtifactsWithEmptyArtifact) {
@@ -784,6 +818,22 @@ TEST_F(MetadataStoreTest, PutArtifactsGetArtifactsWithEmptyArtifact) {
                                              &get_artifacts_response));
   ASSERT_EQ(get_artifacts_response.artifacts_size(), 1);
   EXPECT_EQ(get_artifacts_response.artifacts(0).id(), artifact_id);
+
+  GetArtifactsByTypeRequest get_artifacts_by_type_request;
+  GetArtifactsByTypeResponse get_artifacts_by_type_response;
+  get_artifacts_by_type_request.set_type_name("test_type2");
+  TF_ASSERT_OK(metadata_store_->GetArtifactsByType(
+      get_artifacts_by_type_request, &get_artifacts_by_type_response));
+  ASSERT_EQ(get_artifacts_by_type_response.artifacts_size(), 1);
+  EXPECT_EQ(get_artifacts_by_type_response.artifacts(0).id(), artifact_id);
+
+  GetArtifactsByTypeRequest get_artifacts_by_not_exist_type_request;
+  GetArtifactsByTypeResponse get_artifacts_by_not_exist_type_response;
+  get_artifacts_by_not_exist_type_request.set_type_name("not_exist_type");
+  TF_ASSERT_OK(metadata_store_->GetArtifactsByType(
+      get_artifacts_by_not_exist_type_request,
+      &get_artifacts_by_not_exist_type_response));
+  EXPECT_EQ(get_artifacts_by_not_exist_type_response.artifacts_size(), 0);
 }
 
 TEST_F(MetadataStoreTest, PutExecutionTypeTwiceChangedRemovedProperty) {

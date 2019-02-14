@@ -15,11 +15,14 @@ limitations under the License.
 #ifndef ML_METADATA_METADATA_STORE_TYPES_H_
 #define ML_METADATA_METADATA_STORE_TYPES_H_
 
-// TODO(martinz): replace with "third_party/tensorflow/core/platform/types.h"
-// However, this isn't working at present.
+#include <string>
+
+#ifndef HAS_GLOBAL_STRING
 
 using std::string;
-typedef long long           int64;
-typedef unsigned int        uint32;
+typedef long long int64;  // NOLINT
+typedef unsigned int uint32;
+
+#endif
 
 #endif  // ML_METADATA_METADATA_STORE_TYPES_H_

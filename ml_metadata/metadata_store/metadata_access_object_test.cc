@@ -356,6 +356,44 @@ TEST_P(MetadataAccessObjectTest, FindAllArtifacts) {
   EXPECT_THAT(artifacts[1], EqualsProto(want_artifact2));
 }
 
+TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIds) {
+  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>("name: 'test_type'");
+  int64 type_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
+  Artifact want_artifact1 =
+      ParseTextProtoOrDie<Artifact>("uri: 'testuri://test/uri1'");
+  want_artifact1.set_type_id(type_id);
+  int64 artifact1_id;
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateArtifact(want_artifact1, &artifact1_id));
+  want_artifact1.set_id(artifact1_id);
+
+  Artifact want_artifact2 =
+      ParseTextProtoOrDie<Artifact>("uri: 'testuri://test/uri2'");
+  want_artifact2.set_type_id(type_id);
+  int64 artifact2_id;
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateArtifact(want_artifact2, &artifact2_id));
+  want_artifact2.set_id(artifact2_id);
+
+  ArtifactType type2 = ParseTextProtoOrDie<ArtifactType>("name: 'test_type2'");
+  int64 type2_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type2_id));
+  Artifact artifact3;
+  artifact3.set_type_id(type2_id);
+  int64 artifact3_id;
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateArtifact(artifact3, &artifact3_id));
+
+  std::vector<Artifact> artifacts;
+  TF_EXPECT_OK(
+      metadata_access_object_->FindArtifactsByTypeId(type_id, &artifacts));
+  EXPECT_EQ(artifacts.size(), 2);
+  EXPECT_THAT(artifacts[0], EqualsProto(want_artifact1));
+  EXPECT_THAT(artifacts[1], EqualsProto(want_artifact2));
+}
+
 TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
   TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
@@ -523,6 +561,12 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
   EXPECT_EQ(executions.size(), 2);
   EXPECT_THAT(executions[0], EqualsProto(want_execution1));
   EXPECT_THAT(executions[1], EqualsProto(want_execution2));
+
+  std::vector<Execution> type1_executions;
+  TF_EXPECT_OK(metadata_access_object_->FindExecutionsByTypeId(
+      type_id, &type1_executions));
+  EXPECT_EQ(type1_executions.size(), 1);
+  EXPECT_THAT(type1_executions[0], EqualsProto(want_execution1));
 }
 
 TEST_P(MetadataAccessObjectTest, UpdateExecution) {

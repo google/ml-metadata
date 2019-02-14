@@ -15,9 +15,9 @@ limitations under the License.
 
 syntax = "proto2";
 
-import "ml_metadata/proto/metadata_store.proto";
-
 package ml_metadata;
+
+import "ml_metadata/proto/metadata_store.proto";
 
 message PutArtifactsRequest {
   repeated Artifact artifacts = 1;
@@ -96,7 +96,7 @@ message GetArtifactsByTypeRequest {
 }
 
 message GetArtifactsByTypeResponse {
-  repeated Artifact artifact = 1;
+  repeated Artifact artifacts = 1;
 }
 
 message GetArtifactsByIDRequest {
@@ -261,7 +261,7 @@ service MetadataStoreService {
   //
   // Returns:
   //   A list of artifact ids index-aligned with the input.
-  rpc PutArtifacts(PutArtifactsRequest) returns (PutArtifactsResponse) {};
+  rpc PutArtifacts(PutArtifactsRequest) returns (PutArtifactsResponse) {}
 
   // Inserts or updates an artifact type.
   //
@@ -291,7 +291,7 @@ service MetadataStoreService {
   //
   // Returns error if a constraint is violated.
   rpc PutArtifactType(PutArtifactTypeRequest)
-      returns (PutArtifactTypeResponse) {};
+      returns (PutArtifactTypeResponse) {}
 
   // Inserts or updates executions in the database.
   //
@@ -306,7 +306,7 @@ service MetadataStoreService {
   // Returns:
   //   A list of execution ids index-aligned with the input.
   //
-  rpc PutExecutions(PutExecutionsRequest) returns (PutExecutionsResponse) {};
+  rpc PutExecutions(PutExecutionsRequest) returns (PutExecutionsResponse) {}
 
   // Inserts or updates an execution type.
   //
@@ -342,7 +342,7 @@ service MetadataStoreService {
   //
   // Returns error if a constraint is violated.
   rpc PutExecutionType(PutExecutionTypeRequest)
-      returns (PutExecutionTypeResponse) {};
+      returns (PutExecutionTypeResponse) {}
 
   // Inserts events in the database.
   //
@@ -351,17 +351,17 @@ service MetadataStoreService {
   //
   // Args:
   //   events: A list of events to insert or update.
-  rpc PutEvents(PutEventsRequest) returns (PutEventsResponse) {};
+  rpc PutEvents(PutEventsRequest) returns (PutEventsResponse) {}
 
   // Gets all the artifacts of a given type.
   rpc GetArtifactsByType(GetArtifactsByTypeRequest)
-      returns (GetArtifactsByTypeResponse) {};
+      returns (GetArtifactsByTypeResponse) {}
 
   // Gets all the artifacts.
-  rpc GetArtifacts(GetArtifactsRequest) returns (GetArtifactsResponse) {};
+  rpc GetArtifacts(GetArtifactsRequest) returns (GetArtifactsResponse) {}
 
   // Gets all the executions.
-  rpc GetExecutions(GetExecutionsRequest) returns (GetExecutionsResponse) {};
+  rpc GetExecutions(GetExecutionsRequest) returns (GetExecutionsResponse) {}
 
   // Gets all artifacts with matching ids.
   //
@@ -374,21 +374,21 @@ service MetadataStoreService {
   // Returns:
   //   Artifacts with matching ids.
   rpc GetArtifactsByID(GetArtifactsByIDRequest)
-      returns (GetArtifactsByIDResponse) {};
+      returns (GetArtifactsByIDResponse) {}
 
   // Gets an artifact type. Returns a NOT_FOUND error if the type does not
   // exist.
   rpc GetArtifactType(GetArtifactTypeRequest)
-      returns (GetArtifactTypeResponse) {};
+      returns (GetArtifactTypeResponse) {}
 
   // Gets a list of artifact types by ID.
   // If no artifact types with an ID exists, the artifact type is skipped.
   rpc GetArtifactTypesByID(GetArtifactTypesByIDRequest)
-      returns (GetArtifactTypesByIDResponse) {};
+      returns (GetArtifactTypesByIDResponse) {}
 
   // Gets all the executions of a given type.
   rpc GetExecutionsByType(GetExecutionsByTypeRequest)
-      returns (GetExecutionsByTypeResponse) {};
+      returns (GetExecutionsByTypeResponse) {}
 
   // Gets all executions with matching ids.
   //
@@ -398,24 +398,24 @@ service MetadataStoreService {
   // Args:
   //   execution_ids: A list of execution ids to retrieve.
   rpc GetExecutionsByID(GetExecutionsByIDRequest)
-      returns (GetExecutionsByIDResponse) {};
+      returns (GetExecutionsByIDResponse) {}
 
   // Gets an execution type, or None if it does not exist.
   rpc GetExecutionType(GetExecutionTypeRequest)
-      returns (GetExecutionTypeResponse) {};
+      returns (GetExecutionTypeResponse) {}
 
   // Gets a list of execution types by ID.
   // If no execution types with an ID exists, the execution type is skipped.
   rpc GetExecutionTypesByID(GetExecutionTypesByIDRequest)
-      returns (GetExecutionTypesByIDResponse) {};
+      returns (GetExecutionTypesByIDResponse) {}
 
   // Gets all events with matching execution ids.
   rpc GetEventsByExecutionIDs(GetEventsByExecutionIDsRequest)
-      returns (GetEventsByExecutionIDsResponse) {};
+      returns (GetEventsByExecutionIDsResponse) {}
 
   // Gets all events with matching artifact ids.
   rpc GetEventsByArtifactIDs(GetEventsByArtifactIDsRequest)
-      returns (GetEventsByArtifactIDsResponse) {};
+      returns (GetEventsByArtifactIDsResponse) {}
 
   // Gets a snapshot of the entire database.
   //
@@ -424,7 +424,7 @@ service MetadataStoreService {
   //
   // Returns:
   //   A view of all artifacts, executions, types, and events in the database.
-  rpc GetAll(GetAllRequest) returns (GetAllResponse) {};
+  rpc GetAll(GetAllRequest) returns (GetAllResponse) {}
 
   // TODO(martinz): This method is a very blunt instrument. As the use cases
   // evolve, let's dive into the uses of this method.
@@ -444,7 +444,7 @@ service MetadataStoreService {
   // artifact, it is returned. If an execution type is requested or it is the
   // type of a returned execution, it is returned. If an event refers to a
   // returned artifact or execution, it is returned.
-  rpc Get(GetRequest) returns (GetResponse) {};
+  rpc Get(GetRequest) returns (GetResponse) {}
 
   // Changes the state of each artifact to LIVE.
   //
@@ -453,7 +453,7 @@ service MetadataStoreService {
   // Args:
   //   artifact_id: the ID of the artifact.
   rpc MakeArtifactLive(MakeArtifactLiveRequest)
-      returns (MakeArtifactLiveResponse) {};
+      returns (MakeArtifactLiveResponse) {}
 
   // Changes the state of an execution to COMPLETE and the artifacts to
   // LIVE.
@@ -465,5 +465,5 @@ service MetadataStoreService {
   //   execution_id: the execution to change to COMPLETE.
   //   artifact_ids: the artifacts to change to LIVE.
   rpc CompleteExecution(CompleteExecutionRequest)
-      returns (CompleteExecutionResponse) {};
-};
+      returns (CompleteExecutionResponse) {}
+}

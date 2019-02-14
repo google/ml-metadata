@@ -216,11 +216,23 @@ class MetadataStore {
   tensorflow::Status GetArtifacts(const GetArtifactsRequest& request,
                                   GetArtifactsResponse* response);
 
+  // Gets all the artifacts of a given type.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status GetArtifactsByType(
+      const GetArtifactsByTypeRequest& request,
+      GetArtifactsByTypeResponse* response);
+
   // Gets all executions.
   // Returns detailed INTERNAL error, if query execution fails.
   // TODO(120853124): add predicates
   tensorflow::Status GetExecutions(const GetExecutionsRequest& request,
                                    GetExecutionsResponse* response);
+
+  // Gets all the executions of a given type.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status GetExecutionsByType(
+      const GetExecutionsByTypeRequest& request,
+      GetExecutionsByTypeResponse* response);
 
  private:
   // To construct the object, see Create(...).

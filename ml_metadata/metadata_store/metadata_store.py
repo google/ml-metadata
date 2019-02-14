@@ -22,9 +22,10 @@ from __future__ import division
 
 from __future__ import print_function
 
+from absl import logging
 from typing import List, Optional, Sequence, Text
 
-from ml_metadata.metadata_store import pywrap_metadata_store_serialized as metadata_store_serialized
+from ml_metadata.metadata_store import pywrap_tf_metadata_store_serialized as metadata_store_serialized
 from ml_metadata.proto import metadata_store_pb2
 from ml_metadata.proto import metadata_store_service_pb2
 from tensorflow.python.framework import errors
@@ -45,6 +46,8 @@ class MetadataStore(object):
   def __init__(self, config: metadata_store_pb2.ConnectionConfig):
     self._metadata_store = metadata_store_serialized.CreateMetadataStore(
         config.SerializeToString())
+    # If you remove this line, errors are not thrown correctly.
+    logging.log(logging.INFO, "MetadataStore initialized")
 
   def __del__(self):
     metadata_store_serialized.DestroyMetadataStore(self._metadata_store)
@@ -286,6 +289,8 @@ class MetadataStore(object):
       self, type_name: Text) -> List[metadata_store_pb2.Artifact]:
     """Gets all the artifacts of a given type."""
     artifact_type = self.get_artifact_type(type_name)
+    if artifact_type is None:
+      raise ValueError("No such type:{}".format(type_name))
     return [x for x in self.get_artifacts() if x.type_id == artifact_type.id]
 
   def get_artifacts_by_id(
@@ -347,6 +352,8 @@ class MetadataStore(object):
       self, type_name: Text) -> List[metadata_store_pb2.Execution]:
     """Gets all the executions of a given type."""
     execution_type = self.get_execution_type(type_name)
+    if execution_type is None:
+      raise ValueError("No such type:{}".format(type_name))
     return [x for x in self.get_executions() if x.type_id == execution_type.id]
 
   def get_executions_by_id(

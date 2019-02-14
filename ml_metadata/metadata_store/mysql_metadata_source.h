@@ -20,7 +20,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
-#include "mysql/mysql.h"
+#include "mysql.h"
 #include "tensorflow/core/lib/core/status.h"
 
 namespace ml_metadata {

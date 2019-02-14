@@ -130,6 +130,12 @@ class MetadataAccessObject {
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status FindArtifacts(std::vector<Artifact>* artifacts);
 
+  // Queries artifacts by a given type_id.
+  // Returns NOT_FOUND error, if the given artifact_type_id cannot be found.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status FindArtifactsByTypeId(int64 artifact_type_id,
+                                           std::vector<Artifact>* artifacts);
+
   // Updates an artifact.
   // Returns INVALID_ARGUMENT error, if the id field is not given.
   // Returns INVALID_ARGUMENT error, if no artifact is found with the given id.
@@ -161,6 +167,12 @@ class MetadataAccessObject {
   // Queries executions stored in the metadata source
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status FindExecutions(std::vector<Execution>* executions);
+
+  // Queries executions by a given type_id.
+  // Returns NOT_FOUND error, if the given execution_type_id cannot be found.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status FindExecutionsByTypeId(int64 execution_type_id,
+                                            std::vector<Execution>* executions);
 
   // Updates an execution.
   // Returns INVALID_ARGUMENT error, if the id field is not given.

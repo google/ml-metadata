@@ -195,9 +195,11 @@ tensorflow::Status ParseRecordSetToMapField(const RecordSet& record_set,
   return tensorflow::Status::OK();
 }
 
+#ifndef __APPLE__
 string Bind(const google::protobuf::int64 value) {
   return std::to_string(value);
 }
+#endif
 
 // Utility method to bind a boolean value to a SQL clause.
 string Bind(const bool value) { return value ? "1" : "0"; }
@@ -633,17 +635,18 @@ tensorflow::Status FindNodeImpl(const int64 node_id,
   return tensorflow::Status::OK();
 }
 
+// Queries all `Node` (either `Artifact` or `Execution`) whose id is defined by
+// the `find_node_ids_query`.
+// Returns NOT_FOUND error, if the given id cannot be found.
+// Returns detailed INTERNAL error, if query execution fails.
 template <typename Node>
-tensorflow::Status FindNodeImpl(const MetadataSourceQueryConfig& query_config,
-                                MetadataSource* metadata_source,
-                                std::vector<Node>* nodes) {
-  constexpr bool is_artifact = std::is_same<Node, Artifact>::value;
-  constexpr absl::string_view find_artifacts = "select `id` from `Artifact`;";
-  constexpr absl::string_view find_executions = "select `id` from `Execution`;";
-  Query find_node_ids = Query(is_artifact ? find_artifacts : find_executions);
+tensorflow::Status FindNodeByIdsQueryImpl(
+    const Query& find_node_ids_query,
+    const MetadataSourceQueryConfig& query_config,
+    MetadataSource* metadata_source, std::vector<Node>* nodes) {
   std::vector<RecordSet> record_sets;
   TF_RETURN_IF_ERROR(
-      ExecuteMultiQuery({find_node_ids}, metadata_source, &record_sets));
+      ExecuteMultiQuery({find_node_ids_query}, metadata_source, &record_sets));
 
   if (record_sets[0].records_size() == 0)
     return tensorflow::errors::NotFound(absl::StrCat("Cannot find any record"));
@@ -656,8 +659,36 @@ tensorflow::Status FindNodeImpl(const MetadataSourceQueryConfig& query_config,
     TF_RETURN_IF_ERROR(FindNodeImpl<Node>(node_id, query_config,
                                           metadata_source, &nodes->back()));
   }
-
   return tensorflow::Status::OK();
+}
+
+template <typename Node>
+tensorflow::Status FindAllNodesImpl(
+    const MetadataSourceQueryConfig& query_config,
+    MetadataSource* metadata_source, std::vector<Node>* nodes) {
+  constexpr bool is_artifact = std::is_same<Node, Artifact>::value;
+  constexpr absl::string_view find_artifacts = "select `id` from `Artifact`;";
+  constexpr absl::string_view find_executions = "select `id` from `Execution`;";
+  Query find_node_ids = Query(is_artifact ? find_artifacts : find_executions);
+
+  return FindNodeByIdsQueryImpl(find_node_ids, query_config, metadata_source,
+                                nodes);
+}
+
+template <typename Node>
+tensorflow::Status FindNodesByTypeIdImpl(
+    const int64 type_id, const MetadataSourceQueryConfig& query_config,
+    MetadataSource* metadata_source, std::vector<Node>* nodes) {
+  constexpr bool is_artifact = std::is_same<Node, Artifact>::value;
+  Query find_node_ids_query;
+  const MetadataSourceQueryConfig::TemplateQuery& find_node_ids =
+      is_artifact ? query_config.select_artifacts_by_type_id()
+                  : query_config.select_executions_by_type_id();
+  TF_RETURN_IF_ERROR(ComposeParameterizedQuery(find_node_ids, {Bind(type_id)},
+                                               &find_node_ids_query));
+
+  return FindNodeByIdsQueryImpl(find_node_ids_query, query_config,
+                                metadata_source, nodes);
 }
 
 // Updates a `Node` (either Artifact or Execution).
@@ -1043,12 +1074,24 @@ tensorflow::Status MetadataAccessObject::FindEventsByExecution(
 
 tensorflow::Status MetadataAccessObject::FindArtifacts(
     std::vector<Artifact>* artifacts) {
-  return FindNodeImpl(query_config_, metadata_source_, artifacts);
+  return FindAllNodesImpl(query_config_, metadata_source_, artifacts);
+}
+
+tensorflow::Status MetadataAccessObject::FindArtifactsByTypeId(
+    const int64 type_id, std::vector<Artifact>* artifacts) {
+  return FindNodesByTypeIdImpl(type_id, query_config_, metadata_source_,
+                               artifacts);
 }
 
 tensorflow::Status MetadataAccessObject::FindExecutions(
     std::vector<Execution>* executions) {
-  return FindNodeImpl(query_config_, metadata_source_, executions);
+  return FindAllNodesImpl(query_config_, metadata_source_, executions);
+}
+
+tensorflow::Status MetadataAccessObject::FindExecutionsByTypeId(
+    const int64 type_id, std::vector<Execution>* executions) {
+  return FindNodesByTypeIdImpl(type_id, query_config_, metadata_source_,
+                               executions);
 }
 
 }  // namespace ml_metadata

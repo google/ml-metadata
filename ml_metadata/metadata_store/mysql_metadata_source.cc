@@ -21,7 +21,7 @@ limitations under the License.
 #include "absl/strings/str_join.h"
 #include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
-#include "mysql/mysql.h"
+#include "mysql.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status.h"
 

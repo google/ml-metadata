@@ -348,6 +348,48 @@ tensorflow::Status MetadataStore::GetArtifacts(
   return transaction.Commit();
 }
 
+tensorflow::Status MetadataStore::GetArtifactsByType(
+    const GetArtifactsByTypeRequest& request,
+    GetArtifactsByTypeResponse* response) {
+  ScopedTransaction transaction(metadata_source_.get());
+  ArtifactType artifact_type;
+  tensorflow::Status status = metadata_access_object_->FindTypeByName(
+      request.type_name(), &artifact_type);
+  if (status.code() == ::tensorflow::error::NOT_FOUND) {
+    return tensorflow::Status::OK();
+  } else if (!status.ok()) {
+    return status;
+  }
+  std::vector<Artifact> artifacts;
+  TF_RETURN_IF_ERROR(metadata_access_object_->FindArtifactsByTypeId(
+      artifact_type.id(), &artifacts));
+  for (const Artifact& artifact : artifacts) {
+    *response->mutable_artifacts()->Add() = artifact;
+  }
+  return transaction.Commit();
+}
+
+tensorflow::Status MetadataStore::GetExecutionsByType(
+    const GetExecutionsByTypeRequest& request,
+    GetExecutionsByTypeResponse* response) {
+  ScopedTransaction transaction(metadata_source_.get());
+  ExecutionType execution_type;
+  tensorflow::Status status = metadata_access_object_->FindTypeByName(
+      request.type_name(), &execution_type);
+  if (status.code() == ::tensorflow::error::NOT_FOUND) {
+    return tensorflow::Status::OK();
+  } else if (!status.ok()) {
+    return status;
+  }
+  std::vector<Execution> executions;
+  TF_RETURN_IF_ERROR(metadata_access_object_->FindExecutionsByTypeId(
+      execution_type.id(), &executions));
+  for (const Execution& execution : executions) {
+    *response->mutable_executions()->Add() = execution;
+  }
+  return transaction.Commit();
+}
+
 MetadataStore::MetadataStore(
     std::unique_ptr<MetadataSource> metadata_source,
     std::unique_ptr<MetadataAccessObject> metadata_access_object)

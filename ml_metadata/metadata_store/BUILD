@@ -175,8 +175,8 @@ cc_library(
 # pattern specified in tensorflow/tf_exported_symbols.lds in order
 # for the init function in the generated .so file to be exported.
 tf_py_wrap_cc(
-    name = "pywrap_metadata_store_serialized",
-    srcs = ["metadata_store_serialized.i"],
+    name = "pywrap_tf_metadata_store_serialized",
+    srcs = ["tf_metadata_store_serialized.i"],
     deps = [
         ":metadata_store_factory",
         "@local_config_python//:python_headers",

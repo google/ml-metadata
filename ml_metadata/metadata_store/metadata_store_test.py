@@ -68,11 +68,18 @@ class MetadataStoreTest(absltest.TestCase):
 
   def test_unset_connection_config(self):
     connection_config = metadata_store_pb2.ConnectionConfig()
-    for j in range(100):
-      with self.assertRaises(RuntimeError):
+    for _ in range(100):
+      # It will throw a SystemError or RuntimeError, depending upon the version
+      # of Python.
+      try:
         metadata_store.MetadataStore(connection_config)
-        # If you remove the following line, this won't always throw an error.
-        print("Iteration {} completed.".format(j))
+        raise ValueError("Should have already thrown an exception.")
+      except RuntimeError:
+        # Raises a RuntimeError in Python 2.7.
+        pass
+      except SystemError:
+        # Raises a SystemError in Python 3.6.
+        pass
 
   def test_put_artifact_type_get_artifact_type(self):
     store = _get_metadata_store()
