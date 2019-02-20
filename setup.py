@@ -71,7 +71,7 @@ setup(
 
         'protobuf>=3.6.0,<4',
 
-        'six>=1.10,<2',
+        'six>=1.4.0,<2',
 
         # TODO(martinz): Add a method to check if we are using a
         # compatible TF version. If not, fail with a clear error.

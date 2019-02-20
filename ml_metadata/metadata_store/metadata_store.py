@@ -284,14 +284,18 @@ class MetadataStore(object):
 
     self._swig_call(metadata_store_serialized.PutEvents, request, response)
 
-  # TODO(b/123594325): implement in C++ too
   def get_artifacts_by_type(
       self, type_name: Text) -> List[metadata_store_pb2.Artifact]:
     """Gets all the artifacts of a given type."""
-    artifact_type = self.get_artifact_type(type_name)
-    if artifact_type is None:
-      raise ValueError("No such type:{}".format(type_name))
-    return [x for x in self.get_artifacts() if x.type_id == artifact_type.id]
+    request = metadata_store_service_pb2.GetArtifactsByTypeRequest()
+    request.type_name = type_name
+    response = metadata_store_service_pb2.GetArtifactsByTypeResponse()
+    self._swig_call(metadata_store_serialized.GetArtifactsByType, request,
+                    response)
+    result = []
+    for x in response.artifacts:
+      result.append(x)
+    return result
 
   def get_artifacts_by_id(
       self, artifact_ids: Sequence[int]) -> List[metadata_store_pb2.Artifact]:
@@ -351,10 +355,15 @@ class MetadataStore(object):
   def get_executions_by_type(
       self, type_name: Text) -> List[metadata_store_pb2.Execution]:
     """Gets all the executions of a given type."""
-    execution_type = self.get_execution_type(type_name)
-    if execution_type is None:
-      raise ValueError("No such type:{}".format(type_name))
-    return [x for x in self.get_executions() if x.type_id == execution_type.id]
+    request = metadata_store_service_pb2.GetExecutionsByTypeRequest()
+    request.type_name = type_name
+    response = metadata_store_service_pb2.GetExecutionsByTypeResponse()
+    self._swig_call(metadata_store_serialized.GetExecutionsByType, request,
+                    response)
+    result = []
+    for x in response.executions:
+      result.append(x)
+    return result
 
   def get_executions_by_id(
       self, execution_ids: Sequence[int]) -> List[metadata_store_pb2.Execution]:

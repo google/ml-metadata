@@ -19,6 +19,40 @@ package ml_metadata;
 
 import "ml_metadata/proto/metadata_store.proto";
 
+// An artifact and type pair. Part of an artifact struct.
+message ArtifactAndType {
+  optional Artifact artifact = 1;
+  optional ArtifactType type = 2;
+}
+
+
+// A dictionary of artifact structs. Can represent a dictionary.
+message ArtifactStructMap {
+  // An artifact struct that is a dictionary.
+  // Can be represented as a JSON dictionary of artifact structs.
+  map<string, ArtifactStruct> properties = 1;
+}
+
+
+// An artifact struct that is a list.
+message ArtifactStructList {
+  // Can be represented as a JSON list of artifact structs.
+  repeated ArtifactStruct elements = 1;
+}
+
+
+// An artifact struct represents the input or output of an Execution.
+// See the more specific types referenced in the message for more details.
+message ArtifactStruct {
+  // Note: an artifact struct may be empty to indicate "None" or null.
+  oneof value {
+    ArtifactAndType artifact = 1;
+    ArtifactStructMap map = 2;
+    ArtifactStructList list = 3;
+  }
+}
+
+
 message PutArtifactsRequest {
   repeated Artifact artifacts = 1;
 }
@@ -92,7 +126,7 @@ message PutEventsRequest {
 message PutEventsResponse {}
 
 message GetArtifactsByTypeRequest {
-  optional string type_name = 2;
+  optional string type_name = 1;
 }
 
 message GetArtifactsByTypeResponse {
@@ -138,7 +172,7 @@ message GetArtifactTypeResponse {
 }
 
 message GetExecutionsByTypeRequest {
-  optional string type_name = 2;
+  optional string type_name = 1;
 }
 
 message GetExecutionsByTypeResponse {

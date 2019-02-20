@@ -157,7 +157,142 @@ message ExecutionType {
   // The schema of the type.
   // Properties are always optional in the execution.
   map<string, PropertyType> properties = 3;
+  // The ArtifactStructType of the input.
+  // For example: {
+  //     "dict":{
+  //        "properties":{
+  //          "schema":{
+  //            "union_type":{
+  //              "none":{},
+  //              "simple":{...schema type...}
+  //             },
+  //          },
+  //          "data":{
+  //            "simple":{...data_type...}
+  //          }
+  //       }
+  //     }
+  // }
+  // That would be an optional schema field with a required data field.
+  optional ArtifactStructType input = 4;
+  // The ArtifactStructType of the output.
+  // For example {"simple":{...stats gen output type...}}
+  optional ArtifactStructType output = 5;
 }
+
+// The type of an ArtifactStruct.
+// An artifact struct type represents an infinite set of artifact structs.
+// It can specify the input or output type of an ExecutionType.
+// See the more specific types referenced in the message for more details.
+message ArtifactStructType {
+  oneof kind {
+    ArtifactType simple = 1;  // Matches exactly this type.
+    UnionArtifactStructType union_type = 2;
+    IntersectionArtifactStructType intersection = 3;
+    ListArtifactStructType list = 4;
+    NoneArtifactStructType none = 5;
+    AnyArtifactStructType any = 6;
+    TupleArtifactStructType tuple = 7;
+    DictArtifactStructType dict = 8;
+  }
+}
+
+// Represents a union of types.
+message UnionArtifactStructType {
+  // An artifact struct matches this type if it matches any of the candidates.
+  // If candidates is empty, this is a bottom type (matches no artifacts).
+  repeated ArtifactStructType candidates = 1;
+}
+
+// A member of this type must satisfy all constraints.
+// This primarily useful not as an end-user type, but something calculated
+// as an intermediate type in the system.
+//
+// For example, suppose you have a method:
+// def infer_my_input_type(a): # try to infer the input type of this method.
+//   use_in_method_x(a) # with input type x_input
+//   use_in_method_y(a) # with input type y_input
+//
+// Given this information, you know that infer_my_input_type has
+// type {"intersection":{"constraints":[x_input, y_input]}}.
+//
+// IntersectionArtifactStructType intersection_type = {"constraints":[
+//     {"dict":{"properties":{"schema":{"any":{}}},
+//              "extra_properties":{"any":{}}}},
+//     {"dict":{"properties":{"data":{"any":{}}},
+//              "extra_properties":{"any":{}}}}]}
+// Since the first constraint requires the dictionary to have a schema
+// property, and the second constraint requires it to have a data property, this
+// is equivalent to:
+// ArtifactStructType other_type =
+//      {"dict":{"properties":{"schema":{"any":{}},"data":{"any":{}}}},
+//       "extra_properties":{"any":{}}}
+//
+message IntersectionArtifactStructType {
+  repeated ArtifactStructType constraints = 1;
+}
+
+// Represents an ArtifactStruct list type with homogeneous elements.
+message ListArtifactStructType {
+  // Every entry in the list must be of this type.
+  // Note: if this type is Any, then the list can have arbitrary elements.
+  optional ArtifactStructType element = 1;
+}
+
+// The only member of this type is a None artifact.
+// Note: ArtifactStruct{} is a None artifact.
+// This can represent an execution that has no outputs (or inputs),
+// or can be part of a UnionArtifactStructType to represent an optional
+// input.
+// For example, StatsGen has an "optional" schema input.
+// A practical example of this is:
+// stats_gen_type = {
+//     "dict":{
+//        "properties":{
+//          "schema":{
+//            "union_type":{
+//              "none":{},
+//              "simple":{...schema type...}
+//             },
+//          },
+//          "data":{
+//            "simple":{...data_type...}
+//          }
+//       }
+//     }
+// };
+message NoneArtifactStructType {
+
+}
+
+// Every ArtifactStruct is a member of this type.
+message AnyArtifactStructType {
+}
+
+// An ordered list of heterogenous artifact structs.
+// The length of the list is fixed.
+// Each position in the list can have a different type.
+message TupleArtifactStructType {
+  repeated ArtifactStructType elements = 1;
+}
+
+// A artifact struct type that represents a record or struct-like dictionary.
+// ArtifactStruct would be map (i.e. ArtifactStructMap)
+message DictArtifactStructType {
+  // Underlying properties for the type.
+  map<string, ArtifactStructType> properties = 1;
+
+  // If true, then if properties["foo"] can be None, then that key is not
+  // required.
+  optional bool none_type_not_required = 2;
+
+  // Extra keys are allowed that are not specified in properties. These
+  // keys must have the type specified below.
+  // If this is not specified, then extra properties are not allowed.
+  optional ArtifactStructType extra_properties_type = 3;
+}
+
+
 
 // Configuration for a "fake" database.
 // This database is an in-memory SQLite database that lives only as

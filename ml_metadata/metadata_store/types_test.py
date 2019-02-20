@@ -279,6 +279,17 @@ class IsInstanceTest(unittest.TestCase):
     parsed_json_b = json.loads(serialized_b)
     self.assertEqual(parsed_json_a, parsed_json_b)
 
+  def test_json_to_artifact_struct_and_back_with_custom(self):
+    original_struct = {
+        "data": [_create_data_artifact(),
+                 _create_data_artifact()],
+        "schema": _create_schema_artifact()
+    }
+    original_struct["data"][0].set_custom_property("foo", "bar")
+    serialized_a = types.create_json(original_struct)
+    second_struct = types.create_artifact_struct_from_json(serialized_a)
+    self.assertEqual("bar", second_struct["data"][0].get_custom_property("foo"))
+
 
 class ExecutionsTest(absltest.TestCase):
 

@@ -117,11 +117,23 @@ class MetadataStoreServiceImpl final
                               ::ml_metadata::GetArtifactsResponse* response)
       override LOCKS_EXCLUDED(lock_);
 
+  ::grpc::Status GetArtifactsByType(
+      ::grpc::ServerContext* context,
+      const ::ml_metadata::GetArtifactsByTypeRequest* request,
+      ::ml_metadata::GetArtifactsByTypeResponse* response)
+      override LOCKS_EXCLUDED(lock_);
+
   ::grpc::Status GetExecutions(
       ::grpc::ServerContext* context,
       const ::ml_metadata::GetExecutionsRequest* request,
       ::ml_metadata::GetExecutionsResponse* response) override
       LOCKS_EXCLUDED(lock_);
+
+  ::grpc::Status GetExecutionsByType(
+      ::grpc::ServerContext* context,
+      const ::ml_metadata::GetExecutionsByTypeRequest* request,
+      ::ml_metadata::GetExecutionsByTypeResponse* response)
+      override LOCKS_EXCLUDED(lock_);
 
  private:
   absl::Mutex lock_;

@@ -369,7 +369,7 @@ class _NodeAndType(object):
 
   def get_custom_property(self, attr) -> typing.Union[int, float, Text, None]:
     """Gets a custom property of the artifact."""
-    property_value = self.artifact.custom_properties.get(attr)
+    property_value = self._get_node().custom_properties.get(attr)
     if property_value is None:
       return None
     return _get_custom_primitive(property_value)
@@ -377,7 +377,7 @@ class _NodeAndType(object):
   def set_custom_property(self, attr,
                           value: typing.Union[int, float, Text, None]):
     """Sets a property of the underlying artifact (wrapping the value)."""
-    value_container = self.artifact.custom_properties[attr]
+    value_container = self._get_node().custom_properties[attr]
     _set_custom_value(value_container, value)
 
   def set_property(self, attr, value: typing.Union[int, float, Text, None]):
@@ -427,14 +427,17 @@ class Artifact(_NodeAndType):
     artifact_type = _to_artifact_type(from_json["type"])
     artifact = metadata_store_pb2.Artifact()
     artifact.type_id = artifact_type.id
-    result = Artifact(artifact, artifact_type)
     if "id" in from_json:
-      result.id = from_json["id"]
+      artifact.id = from_json["id"]
     if "uri" in from_json:
-      result.uri = from_json["uri"]
+      artifact.uri = from_json["uri"]
+    result = Artifact(artifact, artifact_type)
     if "properties" in from_json:
       for k, v in from_json["properties"].items():
         result.set_property(k, v)
+    if "custom_properties" in from_json:
+      for k, v in from_json["custom_properties"].items():
+        result.set_custom_property(k, v)
     return result
 
   def _get_node(self) -> metadata_store_pb2.Artifact:
@@ -497,6 +500,11 @@ class Artifact(_NodeAndType):
       for k in self.artifact.properties.keys():
         properties[k] = self.get_property(k)
       result["properties"] = properties
+    if self.artifact.custom_properties:
+      custom_properties = {}
+      for k, _ in self.artifact.custom_properties.items():
+        custom_properties[k] = self.get_custom_property(k)
+      result["custom_properties"] = custom_properties
     return result
 
   def __str__(self) -> str:  # pylint: disable=g-ambiguous-str-annotation

@@ -29,8 +29,9 @@ For more background on MLMD and instructions on using it, see the
 If Bazel is not installed on your system, install it now by following [these
 directions](https://bazel.build/versions/master/docs/install.html).
 
-NOTE: ML Metadata works only with bazel version 0.15.0. Higher bazel versions
-are not guaranteed to compile ML Metadata correctly.
+#### Install cmake
+If cmake is not installed on your system, install it now by following [these
+directions](https://cmake.org/install/).
 
 ### 2. Clone ML Metadata repository
 
@@ -66,7 +67,7 @@ ML Metadata works on Python 2.7 or Python 3.
 
 ML Metadata is built and tested on the following 64-bit operating systems:
 
-<!-- TODO:  * macOS 10.12.6 (Sierra) or later. -->
+<!-- TODO:  * macOS 10.13.6 (Sierra) or later. -->
 <!-- TODO:  * Ubuntu 14.04 or later. -->
 
 ## Dependencies

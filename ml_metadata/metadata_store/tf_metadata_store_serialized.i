@@ -128,6 +128,12 @@ PyObject* GetArtifactsByID(ml_metadata::MetadataStore* metadata_store,
       &ml_metadata::MetadataStore::GetArtifactsByID);
 }
 
+PyObject* GetArtifactsByType(ml_metadata::MetadataStore* metadata_store,
+                             const string& request) {
+  return AccessMetadataStore(metadata_store, request,
+      &ml_metadata::MetadataStore::GetArtifactsByType);
+}
+
 PyObject* PutArtifactType(ml_metadata::MetadataStore* metadata_store,
                           const string& request) {
   return AccessMetadataStore(metadata_store, request,
@@ -150,6 +156,12 @@ PyObject* GetExecutionsByID(ml_metadata::MetadataStore* metadata_store,
                             const string& request) {
   return AccessMetadataStore(metadata_store, request,
       &ml_metadata::MetadataStore::GetExecutionsByID);
+}
+
+PyObject* GetExecutionsByType(ml_metadata::MetadataStore* metadata_store,
+                              const string& request) {
+  return AccessMetadataStore(metadata_store, request,
+      &ml_metadata::MetadataStore::GetExecutionsByType);
 }
 
 PyObject* PutExecutionType(ml_metadata::MetadataStore* metadata_store,
@@ -234,6 +246,9 @@ PyObject* GetArtifactType(ml_metadata::MetadataStore* metadata_store,
 PyObject* GetArtifactsByID(ml_metadata::MetadataStore* metadata_store,
                            const string& request);
 
+PyObject* GetArtifactsByType(ml_metadata::MetadataStore* metadata_store,
+                             const string& request);
+
 PyObject* PutExecutionType(ml_metadata::MetadataStore* metadata_store,
                            const string& request);
 
@@ -246,6 +261,8 @@ PyObject* GetExecutionType(ml_metadata::MetadataStore* metadata_store,
 PyObject* GetExecutionsByID(ml_metadata::MetadataStore* metadata_store,
                             const string& request);
 
+PyObject* GetExecutionsByType(ml_metadata::MetadataStore* metadata_store,
+                              const string& request);
 
 PyObject* GetArtifactTypesByID(ml_metadata::MetadataStore* metadata_store,
     const string& request);

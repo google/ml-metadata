@@ -100,9 +100,9 @@ func (store *Store) PutArtifactType(atype *mdpb.ArtifactType, opts *PutTypeOptio
 
 // GetArtifactType gets an artifact type by name. If no type exists or query
 // execution fails, error is returned.
-func (store *Store) GetArtifactType(typeName *string) (*mdpb.ArtifactType, error) {
+func (store *Store) GetArtifactType(typeName string) (*mdpb.ArtifactType, error) {
   req := &apipb.GetArtifactTypeRequest{
-    TypeName: typeName,
+    TypeName: proto.String(typeName),
   }
   resp := &apipb.GetArtifactTypeResponse{}
   err := store.callMetadataStoreWrapMethod(wrap.GetArtifactType, req, resp)
@@ -110,7 +110,7 @@ func (store *Store) GetArtifactType(typeName *string) (*mdpb.ArtifactType, error
 }
 
 // GetArtifactTypesByID gets a list of artifact types by ID. If no type with an
-// ID exists, the artifact type is skipped. If query execution fails, error is
+// ID exists, the artifact type is skipped. If the query execution fails, error is
 // returned.
 func (store *Store) GetArtifactTypesByID(tids []ArtifactTypeID) ([]*mdpb.ArtifactType, error) {
   req := &apipb.GetArtifactTypesByIDRequest{
@@ -145,9 +145,9 @@ func (store *Store) PutExecutionType(etype *mdpb.ExecutionType, opts *PutTypeOpt
 
 // GetExecutionType gets an execution type by name. If no type exists or query
 // execution fails, error is returned.
-func (store *Store) GetExecutionType(typeName *string) (*mdpb.ExecutionType, error) {
+func (store *Store) GetExecutionType(typeName string) (*mdpb.ExecutionType, error) {
   req := &apipb.GetExecutionTypeRequest{
-    TypeName: typeName,
+    TypeName: proto.String(typeName),
   }
   resp := &apipb.GetExecutionTypeResponse{}
   err := store.callMetadataStoreWrapMethod(wrap.GetExecutionType, req, resp)
@@ -155,7 +155,7 @@ func (store *Store) GetExecutionType(typeName *string) (*mdpb.ExecutionType, err
 }
 
 // GetExecutionTypesByID gets a list of execution types by ID. If no type with
-// an ID exists, the execution type is skipped. If query execution fails, error
+// an ID exists, the execution type is skipped. If the query execution fails, error
 // is returned.
 func (store *Store) GetExecutionTypesByID(tids []ExecutionTypeID) ([]*mdpb.ExecutionType, error) {
   req := &apipb.GetExecutionTypesByIDRequest{
@@ -172,7 +172,7 @@ func (store *Store) GetExecutionTypesByID(tids []ExecutionTypeID) ([]*mdpb.Execu
 // if Id is not specified, a new artifact is created. It returns a list of
 // artifact ids index-aligned with the input.
 //
-// It returns error, if a) no artifact is found with the given id, b) the given
+// It returns an error if a) no artifact is found with the given id, b) the given
 // TypeId is different from the one stored, or c) given property names and types
 // do not align with the ArtifactType on file.
 func (store *Store) PutArtifacts(artifacts []*mdpb.Artifact) ([]ArtifactID, error) {
@@ -194,7 +194,7 @@ func (store *Store) PutArtifacts(artifacts []*mdpb.Artifact) ([]ArtifactID, erro
 // if Id is not specified, a new execution is created. It returns a list
 // of execution ids index-aligned with the input.
 //
-// It returns error, if a) no execution is found with the given id, b) the given
+// It returns an error if a) no execution is found with the given id, b) the given
 // TypeId is different from the one stored, or c) given property names and types
 // do not align with the ExecutionType on file.
 func (store *Store) PutExecutions(executions []*mdpb.Execution) ([]ExecutionID, error) {
@@ -212,7 +212,7 @@ func (store *Store) PutExecutions(executions []*mdpb.Execution) ([]ExecutionID, 
 
 // GetArtifactsByID gets a list of artifacts by ID.
 // If no artifact with an ID exists, the artifact id is skipped.
-// It returns error, if query execution fails.
+// It returns an error if the query execution fails.
 func (store *Store) GetArtifactsByID(aids []ArtifactID) ([]*mdpb.Artifact, error) {
   req := &apipb.GetArtifactsByIDRequest{
     ArtifactIds: convertToInt64ArrayFromArtifactIDs(aids),
@@ -224,7 +224,7 @@ func (store *Store) GetArtifactsByID(aids []ArtifactID) ([]*mdpb.Artifact, error
 
 // GetExecutionsByID gets a list of executions by ID.
 // If no execution with an ID exists, the execution id is skipped.
-// It returns error, if query execution fails.
+// It returns an error if the query execution fails.
 func (store *Store) GetExecutionsByID(eids []ExecutionID) ([]*mdpb.Execution, error) {
   req := &apipb.GetExecutionsByIDRequest{
     ExecutionIds: convertToInt64ArrayFromExecutionIDs(eids),
@@ -240,7 +240,7 @@ func (store *Store) GetExecutionsByID(eids []ExecutionID) ([]*mdpb.Execution, er
 // events cannot be modified. If MillisecondsSinceEpoch is not set, it will be
 // set to the current time.
 //
-// It returns error, if a) no artifact exists with the given ArtifactId, b) no
+// It returns an error if a) no artifact exists with the given ArtifactId, b) no
 // execution exists with the given ExecutionId, c) the Type field is UNKNOWN.
 func (store *Store) PutEvents(events []*mdpb.Event) (error) {
   req := &apipb.PutEventsRequest{
@@ -252,7 +252,7 @@ func (store *Store) PutEvents(events []*mdpb.Event) (error) {
 }
 
 // GetEventsByArtifactIDs gets all events with matching artifact ids.
-// It returns error, if query execution fails.
+// It returns an error if the query execution fails.
 func (store *Store) GetEventsByArtifactIDs(aids []ArtifactID) ([]*mdpb.Event, error) {
   req := &apipb.GetEventsByArtifactIDsRequest{
     ArtifactIds: convertToInt64ArrayFromArtifactIDs(aids),
@@ -263,7 +263,7 @@ func (store *Store) GetEventsByArtifactIDs(aids []ArtifactID) ([]*mdpb.Event, er
 }
 
 // GetEventsByExecutionIDs gets all events with matching execution ids.
-// It returns error, if query execution fails.
+// It returns an error if the query execution fails.
 func (store *Store) GetEventsByExecutionIDs(eids []ExecutionID) ([]*mdpb.Event, error) {
   req := &apipb.GetEventsByExecutionIDsRequest{
     ExecutionIds: convertToInt64ArrayFromExecutionIDs(eids),
@@ -274,7 +274,7 @@ func (store *Store) GetEventsByExecutionIDs(eids []ExecutionID) ([]*mdpb.Event, 
 }
 
 // GetArtifacts gets all artifacts.
-// It returns error, if query execution fails.
+// It returns an error if the query execution fails.
 func (store *Store) GetArtifacts() ([]*mdpb.Artifact, error) {
   req := &apipb.GetArtifactsRequest{}
   resp := &apipb.GetArtifactsResponse{}
@@ -282,8 +282,19 @@ func (store *Store) GetArtifacts() ([]*mdpb.Artifact, error) {
   return resp.GetArtifacts(), err
 }
 
+// GetArtifactsByType gets all artifacts of a given type.
+// It returns an error if the query execution fails.
+func (store *Store) GetArtifactsByType(typeName string) ([]*mdpb.Artifact, error) {
+  req := &apipb.GetArtifactsByTypeRequest{
+    TypeName: proto.String(typeName),
+  }
+  resp := &apipb.GetArtifactsByTypeResponse{}
+  err := store.callMetadataStoreWrapMethod(wrap.GetArtifactsByType, req, resp)
+  return resp.GetArtifacts(), err
+}
+
 // GetExecutions gets all executions.
-// It returns error, if query execution fails.
+// It returns an error if the query execution fails.
 func (store *Store) GetExecutions() ([]*mdpb.Execution, error) {
   req := &apipb.GetExecutionsRequest{}
   resp := &apipb.GetExecutionsResponse{}
@@ -291,10 +302,21 @@ func (store *Store) GetExecutions() ([]*mdpb.Execution, error) {
   return resp.GetExecutions(), err
 }
 
+// GetExecutionsByType gets all executions of a given type.
+// It returns an error if the query execution fails.
+func (store *Store) GetExecutionsByType(typeName string) ([]*mdpb.Execution, error) {
+  req := &apipb.GetExecutionsByTypeRequest{
+    TypeName: proto.String(typeName),
+  }
+  resp := &apipb.GetExecutionsByTypeResponse{}
+  err := store.callMetadataStoreWrapMethod(wrap.GetExecutionsByType, req, resp)
+  return resp.GetExecutions(), err
+}
+
 type metadataStoreMethod func(wrap.Ml_metadata_MetadataStore, string, wrap.Status) (string)
 
 // callMetadataStoreWrapMethod calls a `metadataStoreMethod` in cc library.
-// It returns error, if the cc library method returns non-ok status, or `req`,
+// It returns an error if the cc library method returns non-ok status, or `req`,
 // `resp` proto message cannot be serialized/parsed correctly.
 func (store *Store) callMetadataStoreWrapMethod(fn metadataStoreMethod, req proto.Message, resp proto.Message) error {
   status := wrap.NewStatus()

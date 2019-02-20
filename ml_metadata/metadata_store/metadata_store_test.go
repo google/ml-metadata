@@ -90,7 +90,7 @@ func TestGetArtifactType(t *testing.T) {
 	wantType.Id = &tid
 
 	// get artifact type by name
-	gotType, err := store.GetArtifactType(&typeName)
+	gotType, err := store.GetArtifactType(typeName)
 	if err != nil {
 		t.Fatalf("GetArtifactType failed: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestPutAndGetExecutionType(t *testing.T) {
 	wantType.Id = &tid
 
 	typeName := wantType.GetName()
-	gotType, err := store.GetExecutionType(&typeName)
+	gotType, err := store.GetExecutionType(typeName)
 	if err != nil {
 		t.Fatalf("GetExecutionType failed: %v", err)
 	}
@@ -162,6 +162,7 @@ func insertArtifactType(s *Store, textType string) (int64, error) {
 	return int64(tid), nil
 }
 
+// TODO(b/124764089) Separate the test.
 func TestPutAndGetArtifacts(t *testing.T) {
 	store, err := NewStore(fakeDatabaseConfig())
 	defer store.Close()
@@ -228,6 +229,29 @@ func TestPutAndGetArtifacts(t *testing.T) {
 	if proto.Equal(gotStoredArtifacts[0], gotStoredArtifacts[1]) {
 		t.Errorf("GetArtifacts returns duplicated artifacts: %v. want: %v, %v", gotStoredArtifacts[0], artifacts[0], artifacts[1])
 	}
+
+	// query artifacts of a particular type
+	typeName := "test_type_name"
+	gotArtifactsOfType, err := store.GetArtifactsByType(typeName)
+	if err != nil {
+		t.Fatalf("GetArtifactsByType failed: %v", err)
+	}
+	if len(gotArtifactsOfType) != len(artifacts) {
+		t.Errorf("GetArtifactsByType number of artifacts mismatch, want: %v, got: %v", len(artifacts), len(gotArtifactsOfType))
+	}
+	if proto.Equal(gotArtifactsOfType[0], gotArtifactsOfType[1]) {
+		t.Errorf("GetArtifactsByType returns duplicated artifacts: %v. want: %v, %v", gotArtifactsOfType[0], artifacts[0], artifacts[1])
+	}
+
+	// query artifacts of a non-exist type
+	notExistTypeName := "not_exist_type_name"
+	gotArtifactsOfNotExistType, err := store.GetArtifactsByType(notExistTypeName)
+	if err != nil {
+		t.Fatalf("GetArtifactsByType failed: %v", err)
+	}
+	if len(gotArtifactsOfNotExistType) != 0 {
+		t.Errorf("GetArtifactsByType number of artifacts mismatch of non-exist type, want: 0, got: %v", len(gotArtifactsOfNotExistType))
+	}
 }
 
 func insertExecutionType(s *Store, textType string) (int64, error) {
@@ -243,6 +267,7 @@ func insertExecutionType(s *Store, textType string) (int64, error) {
 	return int64(tid), nil
 }
 
+// TODO(b/124764089) Separate the test.
 func TestPutAndGetExecutions(t *testing.T) {
 	store, err := NewStore(fakeDatabaseConfig())
 	defer store.Close()
@@ -297,6 +322,29 @@ func TestPutAndGetExecutions(t *testing.T) {
 	}
 	if !proto.Equal(wantExecution, gotStoredExecutions[0]) {
 		t.Errorf("GetExecutions returned result is incorrect. want: %v, got: %v", wantExecution, gotStoredExecutions[0])
+	}
+
+	// query executions of a particular type
+	typeName := "test_type_name"
+	gotExecutionsOfType, err := store.GetExecutionsByType(typeName)
+	if err != nil {
+		t.Fatalf("GetExecutionsByType failed: %v", err)
+	}
+	if len(gotExecutionsOfType) != len(executions) {
+		t.Errorf("GetExecutionsByType number of executions mismatch, want: %v, got: %v", len(executions), len(gotExecutionsOfType))
+	}
+	if !proto.Equal(wantExecution, gotExecutionsOfType[0]) {
+		t.Errorf("GetExecutionsByType returned result is incorrect. want: %v, got: %v", wantExecution, gotExecutionsOfType[0])
+	}
+
+	// query executions of a non-existent type
+	notExistTypeName := "not_exist_type_name"
+	gotExecutionsOfNotExistType, err := store.GetExecutionsByType(notExistTypeName)
+	if err != nil {
+		t.Fatalf("GetExecutionsByType failed: %v", err)
+	}
+	if len(gotExecutionsOfNotExistType) != 0 {
+		t.Errorf("GetExecutionsByType number of executions mismatch of non-exist type, want: 0, got: %v", len(gotExecutionsOfNotExistType))
 	}
 }
 
