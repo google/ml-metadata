@@ -17,7 +17,7 @@ limitations under the License.
 package mlmetadata
 
 import (
-  "errors"
+	"errors"
 	"log"
 
 	"github.com/golang/protobuf/proto"
@@ -37,43 +37,46 @@ type Store struct {
 
 // NewStore creates Store instance given a connection config.
 func NewStore(config *mdpb.ConnectionConfig) (*Store, error) {
-  status := wrap.NewStatus()
-  defer wrap.DeleteStatus(status)
+	status := wrap.NewStatus()
+	defer wrap.DeleteStatus(status)
 
 	b, err := proto.Marshal(config)
 	if err != nil {
 		log.Printf("Cannot marshal given connection config: %v. Error: %v\n", config, err)
-    return nil, err
+		return nil, err
 	}
 	s := wrap.CreateMetadataStore(string(b), status)
-  if !status.Ok() {
-    return nil, errors.New(status.Error_message())
-  }
+	if !status.Ok() {
+		return nil, errors.New(status.Error_message())
+	}
 	return &Store{s}, nil
 }
 
 // Close frees allocated memory in cc library of the Store instance.
 func (store *Store) Close() {
-  if store.ptr != nil {
-    wrap.DestroyMetadataStore(store.ptr)
-    store.ptr = nil
-  }
+	if store.ptr != nil {
+		wrap.DestroyMetadataStore(store.ptr)
+		store.ptr = nil
+	}
 }
 
 // ArtifactTypeID refers the id space of ArtifactType
 type ArtifactTypeID int64
+
 // ExecutionTypeID refers the id space of ExecutionType
 type ExecutionTypeID int64
+
 // ArtifactID refers the id space of Artifact
 type ArtifactID int64
+
 // ExecutionID refers the id space of Execution
 type ExecutionID int64
 
 // PutTypeOptions defines options for PutArtifactType request.
 type PutTypeOptions struct {
-  CanAddFields bool
-  CanDeleteFields bool
-  AllFieldsMustMatch bool
+	CanAddFields       bool
+	CanDeleteFields    bool
+	AllFieldsMustMatch bool
 }
 
 // PutArtifactType inserts or updates an artifact type.
@@ -87,38 +90,38 @@ type PutTypeOptions struct {
 // true, `opts`.CanAddFields and `opts`.CanDeleteFields must be false; otherwise
 // error is returned.
 func (store *Store) PutArtifactType(atype *mdpb.ArtifactType, opts *PutTypeOptions) (ArtifactTypeID, error) {
-  req := &apipb.PutArtifactTypeRequest{
-    ArtifactType: atype,
-    CanAddFields: &opts.CanAddFields,
-    CanDeleteFields: &opts.CanDeleteFields,
-    AllFieldsMatch: &opts.AllFieldsMustMatch,
-  }
-  resp := &apipb.PutArtifactTypeResponse{}
-  err := store.callMetadataStoreWrapMethod(wrap.PutArtifactType, req, resp)
-  return ArtifactTypeID(resp.GetTypeId()), err
+	req := &apipb.PutArtifactTypeRequest{
+		ArtifactType:    atype,
+		CanAddFields:    &opts.CanAddFields,
+		CanDeleteFields: &opts.CanDeleteFields,
+		AllFieldsMatch:  &opts.AllFieldsMustMatch,
+	}
+	resp := &apipb.PutArtifactTypeResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.PutArtifactType, req, resp)
+	return ArtifactTypeID(resp.GetTypeId()), err
 }
 
 // GetArtifactType gets an artifact type by name. If no type exists or query
 // execution fails, error is returned.
 func (store *Store) GetArtifactType(typeName string) (*mdpb.ArtifactType, error) {
-  req := &apipb.GetArtifactTypeRequest{
-    TypeName: proto.String(typeName),
-  }
-  resp := &apipb.GetArtifactTypeResponse{}
-  err := store.callMetadataStoreWrapMethod(wrap.GetArtifactType, req, resp)
-  return resp.GetArtifactType(), err
+	req := &apipb.GetArtifactTypeRequest{
+		TypeName: proto.String(typeName),
+	}
+	resp := &apipb.GetArtifactTypeResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetArtifactType, req, resp)
+	return resp.GetArtifactType(), err
 }
 
 // GetArtifactTypesByID gets a list of artifact types by ID. If no type with an
 // ID exists, the artifact type is skipped. If the query execution fails, error is
 // returned.
 func (store *Store) GetArtifactTypesByID(tids []ArtifactTypeID) ([]*mdpb.ArtifactType, error) {
-  req := &apipb.GetArtifactTypesByIDRequest{
-    TypeIds: convertToInt64ArrayFromArtifactTypeIDs(tids),
-  }
-  resp := &apipb.GetArtifactTypesByIDResponse{}
-  err := store.callMetadataStoreWrapMethod(wrap.GetArtifactTypesByID, req, resp)
-  return resp.GetArtifactTypes(), err
+	req := &apipb.GetArtifactTypesByIDRequest{
+		TypeIds: convertToInt64ArrayFromArtifactTypeIDs(tids),
+	}
+	resp := &apipb.GetArtifactTypesByIDResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetArtifactTypesByID, req, resp)
+	return resp.GetArtifactTypes(), err
 }
 
 // PutExecutionType inserts or updates an execution type.
@@ -132,38 +135,38 @@ func (store *Store) GetArtifactTypesByID(tids []ArtifactTypeID) ([]*mdpb.Artifac
 // true, `opts`.CanAddFields and `opts`.CanDeleteFields must be false; otherwise
 // error is returned.
 func (store *Store) PutExecutionType(etype *mdpb.ExecutionType, opts *PutTypeOptions) (ExecutionTypeID, error) {
-  req := &apipb.PutExecutionTypeRequest{
-    ExecutionType: etype,
-    CanAddFields: &opts.CanAddFields,
-    CanDeleteFields: &opts.CanDeleteFields,
-    AllFieldsMatch: &opts.AllFieldsMustMatch,
-  }
-  resp := &apipb.PutExecutionTypeResponse{}
-  err := store.callMetadataStoreWrapMethod(wrap.PutExecutionType, req, resp)
-  return ExecutionTypeID(resp.GetTypeId()), err
+	req := &apipb.PutExecutionTypeRequest{
+		ExecutionType:   etype,
+		CanAddFields:    &opts.CanAddFields,
+		CanDeleteFields: &opts.CanDeleteFields,
+		AllFieldsMatch:  &opts.AllFieldsMustMatch,
+	}
+	resp := &apipb.PutExecutionTypeResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.PutExecutionType, req, resp)
+	return ExecutionTypeID(resp.GetTypeId()), err
 }
 
 // GetExecutionType gets an execution type by name. If no type exists or query
 // execution fails, error is returned.
 func (store *Store) GetExecutionType(typeName string) (*mdpb.ExecutionType, error) {
-  req := &apipb.GetExecutionTypeRequest{
-    TypeName: proto.String(typeName),
-  }
-  resp := &apipb.GetExecutionTypeResponse{}
-  err := store.callMetadataStoreWrapMethod(wrap.GetExecutionType, req, resp)
-  return resp.GetExecutionType(), err
+	req := &apipb.GetExecutionTypeRequest{
+		TypeName: proto.String(typeName),
+	}
+	resp := &apipb.GetExecutionTypeResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetExecutionType, req, resp)
+	return resp.GetExecutionType(), err
 }
 
 // GetExecutionTypesByID gets a list of execution types by ID. If no type with
 // an ID exists, the execution type is skipped. If the query execution fails, error
 // is returned.
 func (store *Store) GetExecutionTypesByID(tids []ExecutionTypeID) ([]*mdpb.ExecutionType, error) {
-  req := &apipb.GetExecutionTypesByIDRequest{
-    TypeIds: convertToInt64ArrayFromExecutionTypeIDs(tids),
-  }
-  resp := &apipb.GetExecutionTypesByIDResponse{}
-  err := store.callMetadataStoreWrapMethod(wrap.GetExecutionTypesByID, req, resp)
-  return resp.GetExecutionTypes(), err
+	req := &apipb.GetExecutionTypesByIDRequest{
+		TypeIds: convertToInt64ArrayFromExecutionTypeIDs(tids),
+	}
+	resp := &apipb.GetExecutionTypesByIDResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetExecutionTypesByID, req, resp)
+	return resp.GetExecutionTypes(), err
 }
 
 // PutArtifacts inserts and updates artifacts into the store.
@@ -176,16 +179,16 @@ func (store *Store) GetExecutionTypesByID(tids []ExecutionTypeID) ([]*mdpb.Execu
 // TypeId is different from the one stored, or c) given property names and types
 // do not align with the ArtifactType on file.
 func (store *Store) PutArtifacts(artifacts []*mdpb.Artifact) ([]ArtifactID, error) {
-  req := &apipb.PutArtifactsRequest{
-    Artifacts: artifacts,
-  }
-  resp := &apipb.PutArtifactsResponse{}
-  err := store.callMetadataStoreWrapMethod(wrap.PutArtifacts, req, resp)
-  rst := make([]ArtifactID, len(resp.GetArtifactIds()))
-  for i, v := range resp.GetArtifactIds() {
-    rst[i] = ArtifactID(v)
-  }
-  return rst, err
+	req := &apipb.PutArtifactsRequest{
+		Artifacts: artifacts,
+	}
+	resp := &apipb.PutArtifactsResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.PutArtifacts, req, resp)
+	rst := make([]ArtifactID, len(resp.GetArtifactIds()))
+	for i, v := range resp.GetArtifactIds() {
+		rst[i] = ArtifactID(v)
+	}
+	return rst, err
 }
 
 // PutExecutions inserts and updates executions into the store.
@@ -198,40 +201,40 @@ func (store *Store) PutArtifacts(artifacts []*mdpb.Artifact) ([]ArtifactID, erro
 // TypeId is different from the one stored, or c) given property names and types
 // do not align with the ExecutionType on file.
 func (store *Store) PutExecutions(executions []*mdpb.Execution) ([]ExecutionID, error) {
-  req := &apipb.PutExecutionsRequest{
-    Executions: executions,
-  }
-  resp := &apipb.PutExecutionsResponse{}
-  err := store.callMetadataStoreWrapMethod(wrap.PutExecutions, req, resp)
-  rst := make([]ExecutionID, len(resp.GetExecutionIds()))
-  for i, v := range resp.GetExecutionIds() {
-    rst[i] = ExecutionID(v)
-  }
-  return rst, err
+	req := &apipb.PutExecutionsRequest{
+		Executions: executions,
+	}
+	resp := &apipb.PutExecutionsResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.PutExecutions, req, resp)
+	rst := make([]ExecutionID, len(resp.GetExecutionIds()))
+	for i, v := range resp.GetExecutionIds() {
+		rst[i] = ExecutionID(v)
+	}
+	return rst, err
 }
 
 // GetArtifactsByID gets a list of artifacts by ID.
 // If no artifact with an ID exists, the artifact id is skipped.
 // It returns an error if the query execution fails.
 func (store *Store) GetArtifactsByID(aids []ArtifactID) ([]*mdpb.Artifact, error) {
-  req := &apipb.GetArtifactsByIDRequest{
-    ArtifactIds: convertToInt64ArrayFromArtifactIDs(aids),
-  }
-  resp := &apipb.GetArtifactsByIDResponse{}
-  err := store.callMetadataStoreWrapMethod(wrap.GetArtifactsByID, req, resp)
-  return resp.GetArtifacts(), err
+	req := &apipb.GetArtifactsByIDRequest{
+		ArtifactIds: convertToInt64ArrayFromArtifactIDs(aids),
+	}
+	resp := &apipb.GetArtifactsByIDResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetArtifactsByID, req, resp)
+	return resp.GetArtifacts(), err
 }
 
 // GetExecutionsByID gets a list of executions by ID.
 // If no execution with an ID exists, the execution id is skipped.
 // It returns an error if the query execution fails.
 func (store *Store) GetExecutionsByID(eids []ExecutionID) ([]*mdpb.Execution, error) {
-  req := &apipb.GetExecutionsByIDRequest{
-    ExecutionIds: convertToInt64ArrayFromExecutionIDs(eids),
-  }
-  resp := &apipb.GetExecutionsByIDResponse{}
-  err := store.callMetadataStoreWrapMethod(wrap.GetExecutionsByID, req, resp)
-  return resp.GetExecutions(), err
+	req := &apipb.GetExecutionsByIDRequest{
+		ExecutionIds: convertToInt64ArrayFromExecutionIDs(eids),
+	}
+	resp := &apipb.GetExecutionsByIDResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetExecutionsByID, req, resp)
+	return resp.GetExecutions(), err
 }
 
 // PutEvents inserts events into the store.
@@ -242,129 +245,140 @@ func (store *Store) GetExecutionsByID(eids []ExecutionID) ([]*mdpb.Execution, er
 //
 // It returns an error if a) no artifact exists with the given ArtifactId, b) no
 // execution exists with the given ExecutionId, c) the Type field is UNKNOWN.
-func (store *Store) PutEvents(events []*mdpb.Event) (error) {
-  req := &apipb.PutEventsRequest{
-    Events: events,
-  }
-  resp := &apipb.PutEventsResponse{}
-  err := store.callMetadataStoreWrapMethod(wrap.PutEvents, req, resp)
-  return err
+func (store *Store) PutEvents(events []*mdpb.Event) error {
+	req := &apipb.PutEventsRequest{
+		Events: events,
+	}
+	resp := &apipb.PutEventsResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.PutEvents, req, resp)
+	return err
 }
 
 // GetEventsByArtifactIDs gets all events with matching artifact ids.
 // It returns an error if the query execution fails.
 func (store *Store) GetEventsByArtifactIDs(aids []ArtifactID) ([]*mdpb.Event, error) {
-  req := &apipb.GetEventsByArtifactIDsRequest{
-    ArtifactIds: convertToInt64ArrayFromArtifactIDs(aids),
-  }
-  resp := &apipb.GetEventsByArtifactIDsResponse{}
-  err := store.callMetadataStoreWrapMethod(wrap.GetEventsByArtifactIDs, req, resp)
-  return resp.GetEvents(), err
+	req := &apipb.GetEventsByArtifactIDsRequest{
+		ArtifactIds: convertToInt64ArrayFromArtifactIDs(aids),
+	}
+	resp := &apipb.GetEventsByArtifactIDsResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetEventsByArtifactIDs, req, resp)
+	return resp.GetEvents(), err
 }
 
 // GetEventsByExecutionIDs gets all events with matching execution ids.
 // It returns an error if the query execution fails.
 func (store *Store) GetEventsByExecutionIDs(eids []ExecutionID) ([]*mdpb.Event, error) {
-  req := &apipb.GetEventsByExecutionIDsRequest{
-    ExecutionIds: convertToInt64ArrayFromExecutionIDs(eids),
-  }
-  resp := &apipb.GetEventsByExecutionIDsResponse{}
-  err := store.callMetadataStoreWrapMethod(wrap.GetEventsByExecutionIDs, req, resp)
-  return resp.GetEvents(), err
+	req := &apipb.GetEventsByExecutionIDsRequest{
+		ExecutionIds: convertToInt64ArrayFromExecutionIDs(eids),
+	}
+	resp := &apipb.GetEventsByExecutionIDsResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetEventsByExecutionIDs, req, resp)
+	return resp.GetEvents(), err
 }
 
 // GetArtifacts gets all artifacts.
 // It returns an error if the query execution fails.
 func (store *Store) GetArtifacts() ([]*mdpb.Artifact, error) {
-  req := &apipb.GetArtifactsRequest{}
-  resp := &apipb.GetArtifactsResponse{}
-  err := store.callMetadataStoreWrapMethod(wrap.GetArtifacts, req, resp)
-  return resp.GetArtifacts(), err
+	req := &apipb.GetArtifactsRequest{}
+	resp := &apipb.GetArtifactsResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetArtifacts, req, resp)
+	return resp.GetArtifacts(), err
 }
 
 // GetArtifactsByType gets all artifacts of a given type.
 // It returns an error if the query execution fails.
 func (store *Store) GetArtifactsByType(typeName string) ([]*mdpb.Artifact, error) {
-  req := &apipb.GetArtifactsByTypeRequest{
-    TypeName: proto.String(typeName),
-  }
-  resp := &apipb.GetArtifactsByTypeResponse{}
-  err := store.callMetadataStoreWrapMethod(wrap.GetArtifactsByType, req, resp)
-  return resp.GetArtifacts(), err
+	req := &apipb.GetArtifactsByTypeRequest{
+		TypeName: proto.String(typeName),
+	}
+	resp := &apipb.GetArtifactsByTypeResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetArtifactsByType, req, resp)
+	return resp.GetArtifacts(), err
+}
+
+// GetArtifactsByURI gets all artifacts of a given uri.
+// It returns an error if the query execution fails.
+func (store *Store) GetArtifactsByURI(uri string) ([]*mdpb.Artifact, error) {
+	req := &apipb.GetArtifactsByURIRequest{
+		Uri: proto.String(uri),
+	}
+	resp := &apipb.GetArtifactsByURIResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetArtifactsByURI, req, resp)
+	return resp.GetArtifacts(), err
 }
 
 // GetExecutions gets all executions.
 // It returns an error if the query execution fails.
 func (store *Store) GetExecutions() ([]*mdpb.Execution, error) {
-  req := &apipb.GetExecutionsRequest{}
-  resp := &apipb.GetExecutionsResponse{}
-  err := store.callMetadataStoreWrapMethod(wrap.GetExecutions, req, resp)
-  return resp.GetExecutions(), err
+	req := &apipb.GetExecutionsRequest{}
+	resp := &apipb.GetExecutionsResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetExecutions, req, resp)
+	return resp.GetExecutions(), err
 }
 
 // GetExecutionsByType gets all executions of a given type.
 // It returns an error if the query execution fails.
 func (store *Store) GetExecutionsByType(typeName string) ([]*mdpb.Execution, error) {
-  req := &apipb.GetExecutionsByTypeRequest{
-    TypeName: proto.String(typeName),
-  }
-  resp := &apipb.GetExecutionsByTypeResponse{}
-  err := store.callMetadataStoreWrapMethod(wrap.GetExecutionsByType, req, resp)
-  return resp.GetExecutions(), err
+	req := &apipb.GetExecutionsByTypeRequest{
+		TypeName: proto.String(typeName),
+	}
+	resp := &apipb.GetExecutionsByTypeResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetExecutionsByType, req, resp)
+	return resp.GetExecutions(), err
 }
 
-type metadataStoreMethod func(wrap.Ml_metadata_MetadataStore, string, wrap.Status) (string)
+type metadataStoreMethod func(wrap.Ml_metadata_MetadataStore, string, wrap.Status) string
 
 // callMetadataStoreWrapMethod calls a `metadataStoreMethod` in cc library.
 // It returns an error if the cc library method returns non-ok status, or `req`,
 // `resp` proto message cannot be serialized/parsed correctly.
 func (store *Store) callMetadataStoreWrapMethod(fn metadataStoreMethod, req proto.Message, resp proto.Message) error {
-  status := wrap.NewStatus()
-  defer wrap.DeleteStatus(status)
+	status := wrap.NewStatus()
+	defer wrap.DeleteStatus(status)
 
-  b, err := proto.Marshal(req)
-  if err != nil {
-    return err
-  }
-  wrt := fn(store.ptr, string(b), status)
-  if !status.Ok() {
-    return errors.New(status.Error_message())
-  }
-  err = proto.Unmarshal(([]byte)(wrt), resp)
-  if err != nil {
-    return err
-  }
-  return nil
+	b, err := proto.Marshal(req)
+	if err != nil {
+		return err
+	}
+	wrt := fn(store.ptr, string(b), status)
+	if !status.Ok() {
+		return errors.New(status.Error_message())
+	}
+	err = proto.Unmarshal(([]byte)(wrt), resp)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func convertToInt64ArrayFromArtifactTypeIDs(tids []ArtifactTypeID) ([]int64) {
-  ids := make([]int64, len(tids))
-  for i, v := range tids {
-    ids[i] = int64(v)
-  }
-  return ids
+func convertToInt64ArrayFromArtifactTypeIDs(tids []ArtifactTypeID) []int64 {
+	ids := make([]int64, len(tids))
+	for i, v := range tids {
+		ids[i] = int64(v)
+	}
+	return ids
 }
 
-func convertToInt64ArrayFromExecutionTypeIDs(tids []ExecutionTypeID) ([]int64) {
-  ids := make([]int64, len(tids))
-  for i, v := range tids {
-    ids[i] = int64(v)
-  }
-  return ids
+func convertToInt64ArrayFromExecutionTypeIDs(tids []ExecutionTypeID) []int64 {
+	ids := make([]int64, len(tids))
+	for i, v := range tids {
+		ids[i] = int64(v)
+	}
+	return ids
 }
 
-func convertToInt64ArrayFromArtifactIDs(aids []ArtifactID) ([]int64) {
-  ids := make([]int64, len(aids))
-  for i, v := range aids {
-    ids[i] = int64(v)
-  }
-  return ids
+func convertToInt64ArrayFromArtifactIDs(aids []ArtifactID) []int64 {
+	ids := make([]int64, len(aids))
+	for i, v := range aids {
+		ids[i] = int64(v)
+	}
+	return ids
 }
 
-func convertToInt64ArrayFromExecutionIDs(eids []ExecutionID) ([]int64) {
-  ids := make([]int64, len(eids))
-  for i, v := range eids {
-    ids[i] = int64(v)
-  }
-  return ids
+func convertToInt64ArrayFromExecutionIDs(eids []ExecutionID) []int64 {
+	ids := make([]int64, len(eids))
+	for i, v := range eids {
+		ids[i] = int64(v)
+	}
+	return ids
 }

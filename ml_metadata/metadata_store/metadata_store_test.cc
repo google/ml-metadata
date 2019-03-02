@@ -787,6 +787,114 @@ TEST_F(MetadataStoreTest, GetArtifactAndExecutionByTypesWithEmptyDatabase) {
   EXPECT_EQ(get_executions_by_not_exist_type_response.executions_size(), 0);
 }
 
+TEST_F(MetadataStoreTest, GetArtifactAndExecutionByTypesWithEmptyType) {
+  const PutArtifactTypeRequest put_artifact_type_request =
+      ParseTextProtoOrDie<PutArtifactTypeRequest>(
+          R"(
+            all_fields_match: true
+            artifact_type: { name: 'empty_artifact_type' }
+          )");
+  PutArtifactTypeResponse put_artifact_type_response;
+  TF_ASSERT_OK(metadata_store_->PutArtifactType(put_artifact_type_request,
+                                                &put_artifact_type_response));
+  GetArtifactsByTypeRequest get_artifacts_by_empty_type_request;
+  GetArtifactsByTypeResponse get_artifacts_by_empty_type_response;
+  get_artifacts_by_empty_type_request.set_type_name("empty_artifact_type");
+  TF_ASSERT_OK(metadata_store_->GetArtifactsByType(
+      get_artifacts_by_empty_type_request,
+      &get_artifacts_by_empty_type_response));
+  EXPECT_EQ(get_artifacts_by_empty_type_response.artifacts_size(), 0);
+
+  const PutExecutionTypeRequest put_execution_type_request =
+      ParseTextProtoOrDie<PutExecutionTypeRequest>(
+          R"(
+            all_fields_match: true
+            execution_type: { name: 'empty_execution_type' }
+          )");
+  PutExecutionTypeResponse put_execution_type_response;
+  TF_ASSERT_OK(metadata_store_->PutExecutionType(put_execution_type_request,
+                                                 &put_execution_type_response));
+  GetExecutionsByTypeRequest get_executions_by_empty_type_request;
+  GetExecutionsByTypeResponse get_executions_by_empty_type_response;
+  get_executions_by_empty_type_request.set_type_name("empty_execution_type");
+  TF_ASSERT_OK(metadata_store_->GetExecutionsByType(
+      get_executions_by_empty_type_request,
+      &get_executions_by_empty_type_response));
+  EXPECT_EQ(get_executions_by_empty_type_response.executions_size(), 0);
+}
+
+TEST_F(MetadataStoreTest, GetArtifactByURI) {
+  const PutArtifactTypeRequest put_artifact_type_request =
+      ParseTextProtoOrDie<PutArtifactTypeRequest>(
+          R"(all_fields_match: true
+             artifact_type: { name: 'artifact_type' })");
+  PutArtifactTypeResponse put_artifact_type_response;
+  TF_ASSERT_OK(metadata_store_->PutArtifactType(put_artifact_type_request,
+                                                &put_artifact_type_response));
+  const int64 type_id = put_artifact_type_response.type_id();
+
+  GetArtifactsByURIRequest get_artifacts_by_uri_empty_db_request;
+  GetArtifactsByURIResponse get_artifacts_by_uri_empty_db_response;
+  TF_ASSERT_OK(metadata_store_->GetArtifactsByURI(
+      get_artifacts_by_uri_empty_db_request,
+      &get_artifacts_by_uri_empty_db_response));
+  EXPECT_EQ(get_artifacts_by_uri_empty_db_response.artifacts_size(), 0);
+
+  PutArtifactsRequest put_artifacts_request =
+      ParseTextProtoOrDie<PutArtifactsRequest>(R"(
+        artifacts: { uri: 'testuri://with_one_artifact' }
+        artifacts: { uri: 'testuri://with_multiple_artifacts' }
+        artifacts: { uri: 'testuri://with_multiple_artifacts' }
+        artifacts: {}
+        artifacts: {}
+        artifacts: {}
+      )");
+  for (int i = 0; i < put_artifacts_request.artifacts_size(); i++) {
+    put_artifacts_request.mutable_artifacts(i)->set_type_id(type_id);
+  }
+  PutArtifactsResponse put_artifacts_response;
+  TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request,
+                                             &put_artifacts_response));
+  ASSERT_EQ(put_artifacts_response.artifact_ids_size(), 6);
+
+  {
+    GetArtifactsByURIRequest get_artifacts_by_uri_request;
+    GetArtifactsByURIResponse get_artifacts_by_uri_response;
+    get_artifacts_by_uri_request.set_uri("testuri://with_one_artifact");
+    TF_ASSERT_OK(metadata_store_->GetArtifactsByURI(
+        get_artifacts_by_uri_request, &get_artifacts_by_uri_response));
+    EXPECT_EQ(get_artifacts_by_uri_response.artifacts_size(), 1);
+  }
+
+  {
+    GetArtifactsByURIRequest get_artifacts_by_uri_request;
+    GetArtifactsByURIResponse get_artifacts_by_uri_response;
+    get_artifacts_by_uri_request.set_uri("testuri://with_multiple_artifacts");
+    TF_ASSERT_OK(metadata_store_->GetArtifactsByURI(
+        get_artifacts_by_uri_request, &get_artifacts_by_uri_response));
+    EXPECT_EQ(get_artifacts_by_uri_response.artifacts_size(), 2);
+  }
+
+  {
+    // empty uri
+    GetArtifactsByURIRequest get_artifacts_by_uri_request;
+    GetArtifactsByURIResponse get_artifacts_by_uri_response;
+    TF_ASSERT_OK(metadata_store_->GetArtifactsByURI(
+        get_artifacts_by_uri_request, &get_artifacts_by_uri_response));
+    EXPECT_EQ(get_artifacts_by_uri_response.artifacts_size(), 3);
+  }
+
+  {
+    // query uri that does not exist
+    GetArtifactsByURIRequest get_artifacts_by_uri_request;
+    GetArtifactsByURIResponse get_artifacts_by_uri_response;
+    get_artifacts_by_uri_request.set_uri("unknown_uri");
+    TF_ASSERT_OK(metadata_store_->GetArtifactsByURI(
+        get_artifacts_by_uri_request, &get_artifacts_by_uri_response));
+    EXPECT_EQ(get_artifacts_by_uri_response.artifacts_size(), 0);
+  }
+}
+
 TEST_F(MetadataStoreTest, PutArtifactsGetArtifactsWithEmptyArtifact) {
   const PutArtifactTypeRequest put_artifact_type_request =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(

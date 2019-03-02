@@ -79,34 +79,37 @@ typedef _gostring_ swig_type_33;
 typedef _gostring_ swig_type_34;
 typedef _gostring_ swig_type_35;
 typedef _gostring_ swig_type_36;
-extern void _wrap_Swig_free_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1);
-extern uintptr_t _wrap_Swig_malloc_metadata_store_go_wrap_e0c81d1f65664b38(swig_intgo arg1);
-extern uintptr_t _wrap_CreateMetadataStore_metadata_store_go_wrap_e0c81d1f65664b38(swig_type_1 arg1, uintptr_t arg2);
-extern void _wrap_DestroyMetadataStore_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1);
-extern swig_type_2 _wrap_PutArtifactType_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1, swig_type_3 arg2, uintptr_t arg3);
-extern swig_type_4 _wrap_GetArtifactType_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1, swig_type_5 arg2, uintptr_t arg3);
-extern swig_type_6 _wrap_GetArtifactTypesByID_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1, swig_type_7 arg2, uintptr_t arg3);
-extern swig_type_8 _wrap_PutExecutionType_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1, swig_type_9 arg2, uintptr_t arg3);
-extern swig_type_10 _wrap_GetExecutionType_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1, swig_type_11 arg2, uintptr_t arg3);
-extern swig_type_12 _wrap_GetExecutionTypesByID_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1, swig_type_13 arg2, uintptr_t arg3);
-extern swig_type_14 _wrap_PutArtifacts_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1, swig_type_15 arg2, uintptr_t arg3);
-extern swig_type_16 _wrap_PutExecutions_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1, swig_type_17 arg2, uintptr_t arg3);
-extern swig_type_18 _wrap_GetArtifactsByID_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1, swig_type_19 arg2, uintptr_t arg3);
-extern swig_type_20 _wrap_GetExecutionsByID_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1, swig_type_21 arg2, uintptr_t arg3);
-extern swig_type_22 _wrap_PutEvents_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1, swig_type_23 arg2, uintptr_t arg3);
-extern swig_type_24 _wrap_GetEventsByArtifactIDs_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1, swig_type_25 arg2, uintptr_t arg3);
-extern swig_type_26 _wrap_GetEventsByExecutionIDs_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1, swig_type_27 arg2, uintptr_t arg3);
-extern swig_type_28 _wrap_GetArtifacts_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1, swig_type_29 arg2, uintptr_t arg3);
-extern swig_type_30 _wrap_GetArtifactsByType_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1, swig_type_31 arg2, uintptr_t arg3);
-extern swig_type_32 _wrap_GetExecutions_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1, swig_type_33 arg2, uintptr_t arg3);
-extern swig_type_34 _wrap_GetExecutionsByType_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1, swig_type_35 arg2, uintptr_t arg3);
-extern uintptr_t _wrap_new_Status__SWIG_0_metadata_store_go_wrap_e0c81d1f65664b38(void);
-extern uintptr_t _wrap_new_Status__SWIG_1_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1, uintptr_t arg2);
-extern uintptr_t _wrap_new_Status__SWIG_2_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1);
-extern _Bool _wrap_Status_ok_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1);
-extern uintptr_t _wrap_Status_code_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1);
-extern swig_type_36 _wrap_Status_error_message_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1);
-extern void _wrap_delete_Status_metadata_store_go_wrap_e0c81d1f65664b38(uintptr_t arg1);
+typedef _gostring_ swig_type_37;
+typedef _gostring_ swig_type_38;
+extern void _wrap_Swig_free_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1);
+extern uintptr_t _wrap_Swig_malloc_metadata_store_go_wrap_79669df856d5e5b8(swig_intgo arg1);
+extern uintptr_t _wrap_CreateMetadataStore_metadata_store_go_wrap_79669df856d5e5b8(swig_type_1 arg1, uintptr_t arg2);
+extern void _wrap_DestroyMetadataStore_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1);
+extern swig_type_2 _wrap_PutArtifactType_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1, swig_type_3 arg2, uintptr_t arg3);
+extern swig_type_4 _wrap_GetArtifactType_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1, swig_type_5 arg2, uintptr_t arg3);
+extern swig_type_6 _wrap_GetArtifactTypesByID_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1, swig_type_7 arg2, uintptr_t arg3);
+extern swig_type_8 _wrap_PutExecutionType_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1, swig_type_9 arg2, uintptr_t arg3);
+extern swig_type_10 _wrap_GetExecutionType_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1, swig_type_11 arg2, uintptr_t arg3);
+extern swig_type_12 _wrap_GetExecutionTypesByID_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1, swig_type_13 arg2, uintptr_t arg3);
+extern swig_type_14 _wrap_PutArtifacts_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1, swig_type_15 arg2, uintptr_t arg3);
+extern swig_type_16 _wrap_PutExecutions_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1, swig_type_17 arg2, uintptr_t arg3);
+extern swig_type_18 _wrap_GetArtifactsByID_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1, swig_type_19 arg2, uintptr_t arg3);
+extern swig_type_20 _wrap_GetExecutionsByID_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1, swig_type_21 arg2, uintptr_t arg3);
+extern swig_type_22 _wrap_PutEvents_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1, swig_type_23 arg2, uintptr_t arg3);
+extern swig_type_24 _wrap_GetEventsByArtifactIDs_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1, swig_type_25 arg2, uintptr_t arg3);
+extern swig_type_26 _wrap_GetEventsByExecutionIDs_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1, swig_type_27 arg2, uintptr_t arg3);
+extern swig_type_28 _wrap_GetArtifacts_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1, swig_type_29 arg2, uintptr_t arg3);
+extern swig_type_30 _wrap_GetArtifactsByType_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1, swig_type_31 arg2, uintptr_t arg3);
+extern swig_type_32 _wrap_GetArtifactsByURI_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1, swig_type_33 arg2, uintptr_t arg3);
+extern swig_type_34 _wrap_GetExecutions_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1, swig_type_35 arg2, uintptr_t arg3);
+extern swig_type_36 _wrap_GetExecutionsByType_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1, swig_type_37 arg2, uintptr_t arg3);
+extern uintptr_t _wrap_new_Status__SWIG_0_metadata_store_go_wrap_79669df856d5e5b8(void);
+extern uintptr_t _wrap_new_Status__SWIG_1_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1, uintptr_t arg2);
+extern uintptr_t _wrap_new_Status__SWIG_2_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1);
+extern _Bool _wrap_Status_ok_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1);
+extern uintptr_t _wrap_Status_code_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1);
+extern swig_type_38 _wrap_Status_error_message_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1);
+extern void _wrap_delete_Status_metadata_store_go_wrap_79669df856d5e5b8(uintptr_t arg1);
 #undef intgo
 */
 import "C"
@@ -141,13 +144,13 @@ func swigCopyString(s string) string {
 
 func Swig_free(arg1 uintptr) {
 	_swig_i_0 := arg1
-	C._wrap_Swig_free_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0))
+	C._wrap_Swig_free_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0))
 }
 
 func Swig_malloc(arg1 int) (_swig_ret uintptr) {
 	var swig_r uintptr
 	_swig_i_0 := arg1
-	swig_r = (uintptr)(C._wrap_Swig_malloc_metadata_store_go_wrap_e0c81d1f65664b38(C.swig_intgo(_swig_i_0)))
+	swig_r = (uintptr)(C._wrap_Swig_malloc_metadata_store_go_wrap_79669df856d5e5b8(C.swig_intgo(_swig_i_0)))
 	return swig_r
 }
 
@@ -155,7 +158,7 @@ func CreateMetadataStore(arg1 string, arg2 Status) (_swig_ret Ml_metadata_Metada
 	var swig_r Ml_metadata_MetadataStore
 	_swig_i_0 := arg1
 	_swig_i_1 := arg2.Swigcptr()
-	swig_r = (Ml_metadata_MetadataStore)(SwigcptrMl_metadata_MetadataStore(C._wrap_CreateMetadataStore_metadata_store_go_wrap_e0c81d1f65664b38(*(*C.swig_type_1)(unsafe.Pointer(&_swig_i_0)), C.uintptr_t(_swig_i_1))))
+	swig_r = (Ml_metadata_MetadataStore)(SwigcptrMl_metadata_MetadataStore(C._wrap_CreateMetadataStore_metadata_store_go_wrap_79669df856d5e5b8(*(*C.swig_type_1)(unsafe.Pointer(&_swig_i_0)), C.uintptr_t(_swig_i_1))))
 	if Swig_escape_always_false {
 		Swig_escape_val = arg1
 	}
@@ -164,7 +167,7 @@ func CreateMetadataStore(arg1 string, arg2 Status) (_swig_ret Ml_metadata_Metada
 
 func DestroyMetadataStore(arg1 Ml_metadata_MetadataStore) {
 	_swig_i_0 := arg1.Swigcptr()
-	C._wrap_DestroyMetadataStore_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0))
+	C._wrap_DestroyMetadataStore_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0))
 }
 
 func PutArtifactType(arg1 Ml_metadata_MetadataStore, arg2 string, arg3 Status) (_swig_ret string) {
@@ -172,7 +175,7 @@ func PutArtifactType(arg1 Ml_metadata_MetadataStore, arg2 string, arg3 Status) (
 	_swig_i_0 := arg1.Swigcptr()
 	_swig_i_1 := arg2
 	_swig_i_2 := arg3.Swigcptr()
-	swig_r_p := C._wrap_PutArtifactType_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0), *(*C.swig_type_3)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
+	swig_r_p := C._wrap_PutArtifactType_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0), *(*C.swig_type_3)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	if Swig_escape_always_false {
 		Swig_escape_val = arg2
@@ -187,7 +190,7 @@ func GetArtifactType(arg1 Ml_metadata_MetadataStore, arg2 string, arg3 Status) (
 	_swig_i_0 := arg1.Swigcptr()
 	_swig_i_1 := arg2
 	_swig_i_2 := arg3.Swigcptr()
-	swig_r_p := C._wrap_GetArtifactType_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0), *(*C.swig_type_5)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
+	swig_r_p := C._wrap_GetArtifactType_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0), *(*C.swig_type_5)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	if Swig_escape_always_false {
 		Swig_escape_val = arg2
@@ -202,7 +205,7 @@ func GetArtifactTypesByID(arg1 Ml_metadata_MetadataStore, arg2 string, arg3 Stat
 	_swig_i_0 := arg1.Swigcptr()
 	_swig_i_1 := arg2
 	_swig_i_2 := arg3.Swigcptr()
-	swig_r_p := C._wrap_GetArtifactTypesByID_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0), *(*C.swig_type_7)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
+	swig_r_p := C._wrap_GetArtifactTypesByID_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0), *(*C.swig_type_7)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	if Swig_escape_always_false {
 		Swig_escape_val = arg2
@@ -217,7 +220,7 @@ func PutExecutionType(arg1 Ml_metadata_MetadataStore, arg2 string, arg3 Status) 
 	_swig_i_0 := arg1.Swigcptr()
 	_swig_i_1 := arg2
 	_swig_i_2 := arg3.Swigcptr()
-	swig_r_p := C._wrap_PutExecutionType_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0), *(*C.swig_type_9)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
+	swig_r_p := C._wrap_PutExecutionType_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0), *(*C.swig_type_9)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	if Swig_escape_always_false {
 		Swig_escape_val = arg2
@@ -232,7 +235,7 @@ func GetExecutionType(arg1 Ml_metadata_MetadataStore, arg2 string, arg3 Status) 
 	_swig_i_0 := arg1.Swigcptr()
 	_swig_i_1 := arg2
 	_swig_i_2 := arg3.Swigcptr()
-	swig_r_p := C._wrap_GetExecutionType_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0), *(*C.swig_type_11)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
+	swig_r_p := C._wrap_GetExecutionType_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0), *(*C.swig_type_11)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	if Swig_escape_always_false {
 		Swig_escape_val = arg2
@@ -247,7 +250,7 @@ func GetExecutionTypesByID(arg1 Ml_metadata_MetadataStore, arg2 string, arg3 Sta
 	_swig_i_0 := arg1.Swigcptr()
 	_swig_i_1 := arg2
 	_swig_i_2 := arg3.Swigcptr()
-	swig_r_p := C._wrap_GetExecutionTypesByID_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0), *(*C.swig_type_13)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
+	swig_r_p := C._wrap_GetExecutionTypesByID_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0), *(*C.swig_type_13)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	if Swig_escape_always_false {
 		Swig_escape_val = arg2
@@ -262,7 +265,7 @@ func PutArtifacts(arg1 Ml_metadata_MetadataStore, arg2 string, arg3 Status) (_sw
 	_swig_i_0 := arg1.Swigcptr()
 	_swig_i_1 := arg2
 	_swig_i_2 := arg3.Swigcptr()
-	swig_r_p := C._wrap_PutArtifacts_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0), *(*C.swig_type_15)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
+	swig_r_p := C._wrap_PutArtifacts_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0), *(*C.swig_type_15)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	if Swig_escape_always_false {
 		Swig_escape_val = arg2
@@ -277,7 +280,7 @@ func PutExecutions(arg1 Ml_metadata_MetadataStore, arg2 string, arg3 Status) (_s
 	_swig_i_0 := arg1.Swigcptr()
 	_swig_i_1 := arg2
 	_swig_i_2 := arg3.Swigcptr()
-	swig_r_p := C._wrap_PutExecutions_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0), *(*C.swig_type_17)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
+	swig_r_p := C._wrap_PutExecutions_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0), *(*C.swig_type_17)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	if Swig_escape_always_false {
 		Swig_escape_val = arg2
@@ -292,7 +295,7 @@ func GetArtifactsByID(arg1 Ml_metadata_MetadataStore, arg2 string, arg3 Status) 
 	_swig_i_0 := arg1.Swigcptr()
 	_swig_i_1 := arg2
 	_swig_i_2 := arg3.Swigcptr()
-	swig_r_p := C._wrap_GetArtifactsByID_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0), *(*C.swig_type_19)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
+	swig_r_p := C._wrap_GetArtifactsByID_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0), *(*C.swig_type_19)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	if Swig_escape_always_false {
 		Swig_escape_val = arg2
@@ -307,7 +310,7 @@ func GetExecutionsByID(arg1 Ml_metadata_MetadataStore, arg2 string, arg3 Status)
 	_swig_i_0 := arg1.Swigcptr()
 	_swig_i_1 := arg2
 	_swig_i_2 := arg3.Swigcptr()
-	swig_r_p := C._wrap_GetExecutionsByID_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0), *(*C.swig_type_21)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
+	swig_r_p := C._wrap_GetExecutionsByID_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0), *(*C.swig_type_21)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	if Swig_escape_always_false {
 		Swig_escape_val = arg2
@@ -322,7 +325,7 @@ func PutEvents(arg1 Ml_metadata_MetadataStore, arg2 string, arg3 Status) (_swig_
 	_swig_i_0 := arg1.Swigcptr()
 	_swig_i_1 := arg2
 	_swig_i_2 := arg3.Swigcptr()
-	swig_r_p := C._wrap_PutEvents_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0), *(*C.swig_type_23)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
+	swig_r_p := C._wrap_PutEvents_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0), *(*C.swig_type_23)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	if Swig_escape_always_false {
 		Swig_escape_val = arg2
@@ -337,7 +340,7 @@ func GetEventsByArtifactIDs(arg1 Ml_metadata_MetadataStore, arg2 string, arg3 St
 	_swig_i_0 := arg1.Swigcptr()
 	_swig_i_1 := arg2
 	_swig_i_2 := arg3.Swigcptr()
-	swig_r_p := C._wrap_GetEventsByArtifactIDs_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0), *(*C.swig_type_25)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
+	swig_r_p := C._wrap_GetEventsByArtifactIDs_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0), *(*C.swig_type_25)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	if Swig_escape_always_false {
 		Swig_escape_val = arg2
@@ -352,7 +355,7 @@ func GetEventsByExecutionIDs(arg1 Ml_metadata_MetadataStore, arg2 string, arg3 S
 	_swig_i_0 := arg1.Swigcptr()
 	_swig_i_1 := arg2
 	_swig_i_2 := arg3.Swigcptr()
-	swig_r_p := C._wrap_GetEventsByExecutionIDs_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0), *(*C.swig_type_27)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
+	swig_r_p := C._wrap_GetEventsByExecutionIDs_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0), *(*C.swig_type_27)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	if Swig_escape_always_false {
 		Swig_escape_val = arg2
@@ -367,7 +370,7 @@ func GetArtifacts(arg1 Ml_metadata_MetadataStore, arg2 string, arg3 Status) (_sw
 	_swig_i_0 := arg1.Swigcptr()
 	_swig_i_1 := arg2
 	_swig_i_2 := arg3.Swigcptr()
-	swig_r_p := C._wrap_GetArtifacts_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0), *(*C.swig_type_29)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
+	swig_r_p := C._wrap_GetArtifacts_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0), *(*C.swig_type_29)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	if Swig_escape_always_false {
 		Swig_escape_val = arg2
@@ -382,7 +385,22 @@ func GetArtifactsByType(arg1 Ml_metadata_MetadataStore, arg2 string, arg3 Status
 	_swig_i_0 := arg1.Swigcptr()
 	_swig_i_1 := arg2
 	_swig_i_2 := arg3.Swigcptr()
-	swig_r_p := C._wrap_GetArtifactsByType_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0), *(*C.swig_type_31)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
+	swig_r_p := C._wrap_GetArtifactsByType_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0), *(*C.swig_type_31)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
+	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
+	if Swig_escape_always_false {
+		Swig_escape_val = arg2
+	}
+	var swig_r_1 string
+ swig_r_1 = swigCopyString(swig_r) 
+	return swig_r_1
+}
+
+func GetArtifactsByURI(arg1 Ml_metadata_MetadataStore, arg2 string, arg3 Status) (_swig_ret string) {
+	var swig_r string
+	_swig_i_0 := arg1.Swigcptr()
+	_swig_i_1 := arg2
+	_swig_i_2 := arg3.Swigcptr()
+	swig_r_p := C._wrap_GetArtifactsByURI_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0), *(*C.swig_type_33)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	if Swig_escape_always_false {
 		Swig_escape_val = arg2
@@ -397,7 +415,7 @@ func GetExecutions(arg1 Ml_metadata_MetadataStore, arg2 string, arg3 Status) (_s
 	_swig_i_0 := arg1.Swigcptr()
 	_swig_i_1 := arg2
 	_swig_i_2 := arg3.Swigcptr()
-	swig_r_p := C._wrap_GetExecutions_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0), *(*C.swig_type_33)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
+	swig_r_p := C._wrap_GetExecutions_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0), *(*C.swig_type_35)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	if Swig_escape_always_false {
 		Swig_escape_val = arg2
@@ -412,7 +430,7 @@ func GetExecutionsByType(arg1 Ml_metadata_MetadataStore, arg2 string, arg3 Statu
 	_swig_i_0 := arg1.Swigcptr()
 	_swig_i_1 := arg2
 	_swig_i_2 := arg3.Swigcptr()
-	swig_r_p := C._wrap_GetExecutionsByType_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0), *(*C.swig_type_35)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
+	swig_r_p := C._wrap_GetExecutionsByType_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0), *(*C.swig_type_37)(unsafe.Pointer(&_swig_i_1)), C.uintptr_t(_swig_i_2))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	if Swig_escape_always_false {
 		Swig_escape_val = arg2
@@ -433,7 +451,7 @@ func (p SwigcptrStatus) SwigIsStatus() {
 
 func NewStatus__SWIG_0() (_swig_ret Status) {
 	var swig_r Status
-	swig_r = (Status)(SwigcptrStatus(C._wrap_new_Status__SWIG_0_metadata_store_go_wrap_e0c81d1f65664b38()))
+	swig_r = (Status)(SwigcptrStatus(C._wrap_new_Status__SWIG_0_metadata_store_go_wrap_79669df856d5e5b8()))
 	return swig_r
 }
 
@@ -441,14 +459,14 @@ func NewStatus__SWIG_1(arg1 Tensorflow_error_Code, arg2 Tensorflow_StringPiece) 
 	var swig_r Status
 	_swig_i_0 := arg1.Swigcptr()
 	_swig_i_1 := arg2.Swigcptr()
-	swig_r = (Status)(SwigcptrStatus(C._wrap_new_Status__SWIG_1_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0), C.uintptr_t(_swig_i_1))))
+	swig_r = (Status)(SwigcptrStatus(C._wrap_new_Status__SWIG_1_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0), C.uintptr_t(_swig_i_1))))
 	return swig_r
 }
 
 func NewStatus__SWIG_2(arg1 Status) (_swig_ret Status) {
 	var swig_r Status
 	_swig_i_0 := arg1.Swigcptr()
-	swig_r = (Status)(SwigcptrStatus(C._wrap_new_Status__SWIG_2_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0))))
+	swig_r = (Status)(SwigcptrStatus(C._wrap_new_Status__SWIG_2_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0))))
 	return swig_r
 }
 
@@ -469,21 +487,21 @@ func NewStatus(a ...interface{}) Status {
 func (arg1 SwigcptrStatus) Ok() (_swig_ret bool) {
 	var swig_r bool
 	_swig_i_0 := arg1
-	swig_r = (bool)(C._wrap_Status_ok_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0)))
+	swig_r = (bool)(C._wrap_Status_ok_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0)))
 	return swig_r
 }
 
 func (arg1 SwigcptrStatus) Code() (_swig_ret Tensorflow_error_Code) {
 	var swig_r Tensorflow_error_Code
 	_swig_i_0 := arg1
-	swig_r = (Tensorflow_error_Code)(SwigcptrTensorflow_error_Code(C._wrap_Status_code_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0))))
+	swig_r = (Tensorflow_error_Code)(SwigcptrTensorflow_error_Code(C._wrap_Status_code_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0))))
 	return swig_r
 }
 
 func (arg1 SwigcptrStatus) Error_message() (_swig_ret string) {
 	var swig_r string
 	_swig_i_0 := arg1
-	swig_r_p := C._wrap_Status_error_message_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0))
+	swig_r_p := C._wrap_Status_error_message_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0))
 	swig_r = *(*string)(unsafe.Pointer(&swig_r_p))
 	var swig_r_1 string
  swig_r_1 = swigCopyString(swig_r) 
@@ -492,7 +510,7 @@ func (arg1 SwigcptrStatus) Error_message() (_swig_ret string) {
 
 func DeleteStatus(arg1 Status) {
 	_swig_i_0 := arg1.Swigcptr()
-	C._wrap_delete_Status_metadata_store_go_wrap_e0c81d1f65664b38(C.uintptr_t(_swig_i_0))
+	C._wrap_delete_Status_metadata_store_go_wrap_79669df856d5e5b8(C.uintptr_t(_swig_i_0))
 }
 
 type Status interface {

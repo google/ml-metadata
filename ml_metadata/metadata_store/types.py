@@ -50,7 +50,7 @@ assert(types.is_instance(input_to_stats,
 
 # Create the execution type. Note that the input type and output type are
 # specified.
-stats_execution_type = types.Execution.create(
+stats_execution_type = types.ExecutionType.create(
   name="Stats",                                    # Name of type
   properties={"mpm_version": metadata_store_pb2.INT},    # Properties of
   execution
@@ -170,6 +170,7 @@ from __future__ import division
 from __future__ import print_function
 
 import abc
+import collections
 import copy
 import json
 import threading
@@ -177,6 +178,7 @@ import six
 import typing
 
 from typing import Optional, Text, Dict
+from ml_metadata.metadata_store import metadata_store
 from ml_metadata.proto import metadata_store_pb2
 
 
@@ -440,6 +442,23 @@ class Artifact(_NodeAndType):
         result.set_custom_property(k, v)
     return result
 
+  @classmethod
+  def find_by_ids(
+      cls, store: metadata_store.MetadataStore,
+      artifact_ids: typing.Sequence[int]) -> typing.List["Artifact"]:
+    """Find artifacts in the database by ID."""
+    artifacts = store.get_artifacts_by_id(artifact_ids)
+    type_ids = _unique_elements([x.type_id for x in artifacts])
+    types = {x.id: x for x in store.get_artifact_types_by_id(type_ids)}
+    return [Artifact(x, types[x.type_id]) for x in artifacts]
+
+  @classmethod
+  def find_by_id(cls, store: metadata_store.MetadataStore,
+                 artifact_id: int) -> "Artifact":
+    """Find an artifact in the database by ID."""
+    [result] = Artifact.find_by_ids(store, [artifact_id])
+    return result
+
   def _get_node(self) -> metadata_store_pb2.Artifact:
     return self._artifact
 
@@ -507,6 +526,27 @@ class Artifact(_NodeAndType):
       result["custom_properties"] = custom_properties
     return result
 
+  def save(self, store: metadata_store.MetadataStore):
+    """Upsert this to a metadata store."""
+    if not self.type.HasField("id"):
+      if self.artifact.HasField("type_id"):
+        # In order to avoid committing a new artifact type into the database
+        # when the type id of the artifact does not match the type in the
+        # database, we check here.
+        [local_type] = store.get_artifact_types_by_id([self.artifact.type_id])
+        if not _types_are_equal(local_type, self.type):
+          raise ValueError(
+              "ArtifactType in database with artifact's type_id does not match ArtifactType"
+          )
+        else:
+          self.type.id = self.artifact.type_id
+      else:
+        assert not self.artifact.HasField("type_id")
+        self.type.id = store.put_artifact_type(self.type)
+        self.artifact.type_id = self.type.id
+    assert self.artifact.type_id == self.type.id
+    [self.artifact.id] = store.put_artifacts([self._artifact])
+
   def __str__(self) -> str:  # pylint: disable=g-ambiguous-str-annotation
     return json.dumps(self._create_pre_json())
 
@@ -563,6 +603,7 @@ def _is_serialized_artifact(from_json) -> bool:
 # However, pytype does not allow infinite recursion.
 # Thus, we go three levels deep.
 # NOTE: exporting this may be nasty. We may wish to make this GOOGLE_INTERNAL.
+# BEGIN PYTHON_3_ONLY
 _ArtifactStruct0 = Optional[Artifact]
 _ArtifactStruct1 = typing.Union[Dict[Text, _ArtifactStruct0], typing
                                 .List[_ArtifactStruct0], _ArtifactStruct0]
@@ -571,6 +612,7 @@ _ArtifactStruct2 = typing.Union[Dict[Text, _ArtifactStruct1], typing
 _ArtifactStruct3 = typing.Union[Dict[Text, _ArtifactStruct2], typing
                                 .List[_ArtifactStruct2], _ArtifactStruct2]
 ArtifactStruct = _ArtifactStruct3  # pylint: disable=invalid-name
+# END PYTHON_3_ONLY
 
 
 def _create_artifact_struct_from_json_helper(from_json) -> ArtifactStruct:
@@ -832,6 +874,7 @@ class DictArtifactStructType(ArtifactStructType):
 # CoercableToType = Union[Dict[Text, CoercableToType],
 #                         typing.List[CoercableToType],
 #     None, ArtifactType, ArtifactStructType]
+# BEGIN PYTHON_3_ONLY
 _CoercableToType0 = typing.Union[metadata_store_pb2
                                  .ArtifactType, ArtifactStructType, None]
 _CoercableToType1 = typing.Union[Dict[Text, _CoercableToType0], typing
@@ -841,6 +884,7 @@ _CoercableToType2 = typing.Union[Dict[Text, _CoercableToType1], typing
 _CoercableToType3 = typing.Union[Dict[Text, _CoercableToType2], typing
                                  .List[_CoercableToType2], _CoercableToType2]
 CoercableToType = _CoercableToType3  # pylint: disable=invalid-name
+# END PYTHON_3_ONLY
 
 
 def create_artifact_struct_type(
@@ -933,37 +977,91 @@ class ExecutionType(object):
         create_artifact_struct_type(input_type),
         create_artifact_struct_type(output_type))
 
+  @property
+  def id(self) -> int:
+    return self.type.id
+
+  def has_id(self) -> bool:
+    return self.type.HasField("id")
+
+  @classmethod
+  def find_by_id(cls, store: metadata_store.MetadataStore,
+                 execution_type_id: int) -> "ExecutionType":
+    [result] = ExecutionType.find_by_ids(store, [execution_type_id])
+    return result
+
+  @classmethod
+  def find_by_ids(
+      cls, store: metadata_store.MetadataStore,
+      execution_type_ids: typing.Sequence[int]) -> typing.List["ExecutionType"]:
+    execution_types = store.get_execution_types_by_id(execution_type_ids)
+    # TODO(b/124322020): load input and output types from the MetadataStore,
+    # instead of Any types like here.
+    return [ExecutionType(x, any_type(), any_type()) for x in execution_types]
+
   def _is_equal(self, execution_type: "ExecutionType") -> bool:
-    """For now, just checks name equality."""
+    """For now, just checks name and property equality."""
     # TODO(martinz): Decide what should be checked here with regard to input
-    # structs and output structs.
+    # structs and output struct types.
+    # This will depend upon b/124322020.
+
     return _types_are_equal(self.type, execution_type.type)
 
-
-def _create_execution_type_proto(name: Text, properties: Dict[Text, typing.Any]
-                                ) -> metadata_store_pb2.ExecutionType:
-  """Creates an ExecutionType without putting it in the database.
-
-  Args:
-    name: the name of the ExecutionType
-    properties: a dictionary of properties to metadata_store_pb2.PropertyType
-
-  Returns:
-    an ExecutionType proto.
-  """
-  result = metadata_store_pb2.ExecutionType()
-  result.name = name
-  for k, v in properties.items():
-    result.properties[k] = v
-  return result
+  def save(self, store: metadata_store.MetadataStore):
+    """Save the ExecutionType to the database."""
+    if not self.type.HasField("id"):
+      type_id = store.put_execution_type(self.type)
+      # TODO(b/124322020): save input and output types to the MetadataStore.
+      self.type.id = type_id
 
 
 class Execution(_NodeAndType):
-  """A representation of an execution, its type, inputs, and outputs."""
+  """A representation of an execution, its type, inputs, and outputs.
+
+  Some orchestration examples follow:
+
+  Example use #1: store completed execution all at once
+  store = ...metadata store...
+  stats_gen_output = ...stats gen Artifact...
+  stats_gen_type = ExecutionType.create(...)
+  input_struct = {"data":....,"schema":...}
+  output_struct = stats_gen_output
+  stats_execution = Execution.create(stats_gen_type, input_struct,
+             output_struct)
+  stats_execution.save(store)
+
+  Example use #2: store execution piece by piece
+  store = ...metadata store...
+  stats_gen_type = ExecutionType.create(...)
+  input_struct = {"data":....,"schema":...}
+  output_struct = stats_gen_output
+  stats_execution = Execution.create(stats_gen_type, input_struct,
+             None, state="RUNNING")
+  stats_execution.save_execution(store)
+  stats_execution.save_input(store)
+
+  stats_gen_output = ...stats gen Artifact...
+
+  stats_execution.save_output(store)
+  stats_execution.state = "COMPLETE"
+  stats_execution.save_execution(store)
+  """
 
   def __init__(self, execution: metadata_store_pb2.Execution,
                execution_type: ExecutionType, input_struct: ArtifactStruct,
                output_struct: ArtifactStruct):
+    """Construct a new Execution object.
+
+    Note that this object helps to define DECLARED_INPUT and DECLARED_OUTPUT
+    events. If one needs raw INPUT and OUTPUT events, see the low-level
+    API in metadata_store.MetadataStore.
+
+    Args:
+      execution: the Execution proto
+      execution_type: the type of the execution
+      input_struct: the input struct, corresponding to DECLARED_INPUT events
+      output_struct: the input struct, corresponding to DECLARED_OUTPUT events
+    """
     self.__dict__["execution"] = execution
     self.__dict__["type"] = execution_type
     self.__dict__["input_struct"] = input_struct
@@ -971,13 +1069,72 @@ class Execution(_NodeAndType):
     if not self._is_consistent():
       raise ValueError("Execution properties are not internally consistent")
 
+  def __setattr__(self, attr, value):
+    """Set execution property, input_struct, or output_struct."""
+    if attr == "input_struct":
+      self.__dict__["input_struct"] = value
+      return
+
+    if attr == "output_struct":
+      self.__dict__["output_struct"] = value
+      return
+    self.set_property(attr, value)
+
   @classmethod
   def create(cls, execution_type: ExecutionType, input_struct: ArtifactStruct,
              output_struct: ArtifactStruct, **kwargs) -> "Execution":
+    """Create a new ExecutionType.
+
+    Note that custom properties must be added after this method is called,
+    using set_custom_property.
+
+    Args:
+      execution_type: the type of the execution
+      input_struct: the input struct, corresponding to DECLARED_INPUT events
+      output_struct: the input struct, corresponding to DECLARED_OUTPUT events
+      **kwargs: properties of the execution.
+
+    Returns:
+      a new Execution.
+    """
     result = Execution(metadata_store_pb2.Execution(), execution_type,
                        input_struct, output_struct)
     for k, v in kwargs.items():
       result.set_property(k, v)
+    return result
+
+  @classmethod
+  def _get_from_protos(cls, store: metadata_store.MetadataStore,
+                       executions: typing.Sequence[metadata_store_pb2.Execution]
+                      ) -> typing.List["Execution"]:
+    """Converts proto Executions to the executions of this kind."""
+    execution_ids = [x.id for x in executions]
+    input_structs = _get_artifact_structs(
+        store, execution_ids, metadata_store_pb2.Event.DECLARED_INPUT)
+    output_structs = _get_artifact_structs(
+        store, execution_ids, metadata_store_pb2.Event.DECLARED_OUTPUT)
+
+    unique_type_ids = _unique_elements([x.type_id for x in executions])
+    new_types = {
+        x.id: x for x in ExecutionType.find_by_ids(store, unique_type_ids)
+    }
+
+    return [
+        Execution(x, new_types[x.type_id], input_structs.get(x.id),
+                  output_structs.get(x.id)) for x in executions
+    ]
+
+  @classmethod
+  def find_by_ids(
+      cls, store: metadata_store.MetadataStore,
+      execution_ids: typing.Sequence[int]) -> typing.List["Execution"]:
+    return Execution._get_from_protos(store,
+                                      store.get_executions_by_id(execution_ids))
+
+  @classmethod
+  def find_by_id(cls, store: metadata_store.MetadataStore,
+                 execution_id: int) -> "Execution":
+    [result] = Execution.find_by_ids(store, [execution_id])
     return result
 
   def is_input_consistent(self) -> bool:
@@ -999,6 +1156,95 @@ class Execution(_NodeAndType):
   def is_instance_of_type(self, execution_type: ExecutionType) -> bool:
     return self.type._is_equal(execution_type)  # pylint: disable=protected-access
 
+  def _output_exists(self, store: metadata_store.MetadataStore) -> bool:
+    if not self.execution.HasField("id"):
+      return False
+    current_struct = _get_artifact_structs(
+        store, [self.execution.id], metadata_store_pb2.Event.DECLARED_OUTPUT)
+    return self.execution.id in current_struct
+
+  def _input_exists(self, store: metadata_store.MetadataStore) -> bool:
+    if not self.execution.HasField("id"):
+      return False
+    current_struct = _get_artifact_structs(
+        store, [self.execution.id], metadata_store_pb2.Event.DECLARED_INPUT)
+    return self.execution.id in current_struct
+
+  def save_execution(self, store: metadata_store.MetadataStore):
+    """Saves the type and the properties of the execution."""
+    if not self.type.type.HasField("id"):
+      if self.execution.HasField("type_id"):
+        # In order to avoid committing a new execution type into the database
+        # when the type id of the execution does not match the type in the
+        # database, we check here.
+        [local_type] = store.get_execution_types_by_id([self.execution.type_id])
+        # Revisit checking input and output types  when b/124322020 is resolved.
+        if not _types_are_equal(local_type, self.type):
+          raise ValueError(
+              "ArtifactType in database with artifact's type_id does not match ArtifactType"
+          )
+        else:
+          self.type.id = self.execution.type_id
+      else:
+        assert not self.execution.HasField("type_id")
+        self.type.save(store)
+        self.execution.type_id = self.type.type.id
+    assert self.execution.type_id == self.type.id
+    [execution_id] = store.put_executions([self.execution])
+    self.execution.id = execution_id
+
+  def save_output(self, store: metadata_store.MetadataStore) -> None:
+    """Saves output_struct to store.
+
+    Saves the structure of the output, as well as the individual artifacts
+    if they have not already been saved.
+    It is intended for orchestration users.
+    This should never be called more than once, or it will fail.
+
+    Args:
+      store: the database the data goes to.
+
+    Raises:
+      ValueError: if execution has not been saved, or outputs for this execution
+        already exist.
+    """
+    if not self.has_id():
+      raise ValueError("Must save_execution before save_output")
+    if self._output_exists(store):
+      raise ValueError("Output already saved")
+    _save_artifact_structs_as_events(
+        store, [(self.execution.id, metadata_store_pb2.Event.DECLARED_OUTPUT,
+                 self.output_struct)])
+
+  def save_input(self, store: metadata_store.MetadataStore):
+    """Saves input_struct to store.
+
+    Saves the structure of the input, as well as the individual artifacts
+    if they have not already been saved.
+    It is intended for orchestration users.
+    This should never be called more than once, or it will fail.
+
+    Args:
+      store: the database the data goes to.
+
+    Raises:
+      ValueError: if execution has not been saved, or inputs for this execution
+        already exist.
+    """
+    if not self.has_id():
+      raise ValueError("Must save_execution before save_input")
+    if self._input_exists(store):
+      raise ValueError("Input already saved")
+    _save_artifact_structs_as_events(
+        store, [(self.execution.id, metadata_store_pb2.Event.DECLARED_INPUT,
+                 self.input_struct)])
+
+  def save(self, store: metadata_store.MetadataStore):
+    """Save input, output, and execution."""
+    self.save_execution(store)
+    self.save_output(store)
+    self.save_input(store)
+
 
 def _register_type_as_used(registered_types, node_type) -> None:
   """Common implementation for registering a type."""
@@ -1018,6 +1264,7 @@ def _register_type_as_used(registered_types, node_type) -> None:
   registered_types[type_to_register.name] = type_to_register
 
 
+# TODO(b/124885092): add a way to check the types in the database.
 class _RegisteredTypes(object):
   """Dictionary of all registered types by name.
 
@@ -1130,3 +1377,207 @@ def get_all_registered_execution_types(
 def clear_registered_types():
   """For testing only. In general, there should be no need to clear types."""
   _registered_types.clear_registered_types()
+
+
+##### Private methods follow. ##################################################
+# TODO(martinz): move existing private methods below where possible.
+
+# BEGIN PYTHON_3_ONLY
+# Internal types useful from converting events to ArtifactStructs and back.
+# _Step is analogous to Event.Path.Step
+_Step = typing.Union[int, Text]
+# _Path is analogous to Event.Path
+_Path = typing.List[_Step]
+# The artifact at the end of a Path
+# END PYTHON_3_ONLY
+
+_PathAndArtifact = collections.namedtuple("_PathAndArtifact",
+                                          ["path", "artifact"])
+
+
+def _save_artifact_structs_as_events(
+    store: metadata_store.MetadataStore,
+    structs: typing.Sequence[typing.Tuple[int, typing.Any, ArtifactStruct]]
+) -> None:
+  """Publish the artifacts and events into the repository."""
+  # TODO(martinz): only save events that do not already exist.
+  # TODO(martinz): add more nuanced options: e.g., save only events,
+  # save artifacts that have not been saved yet, save everything.
+  proto_events = []
+
+  for execution_id, event_type, struct in structs:
+    paths_and_artifacts = _get_paths_and_artifacts(struct)
+    proto_events = proto_events + [(execution_id, event_type, x.path,
+                                    x.artifact) for x in paths_and_artifacts]
+
+  all_artifacts = [artifact for (_, _, _, artifact) in proto_events]
+  for x in all_artifacts:
+    x.save(store)
+
+  events = [
+      _create_local_event(execution_id, event_type, path, artifact)
+      for (execution_id, event_type, path, artifact) in proto_events
+  ]
+  store.put_events(events)
+
+
+def _create_execution_type_proto(name: Text, properties: Dict[Text, typing.Any]
+                                ) -> metadata_store_pb2.ExecutionType:
+  """Creates an ExecutionType without putting it in the database.
+
+  Args:
+    name: the name of the ExecutionType
+    properties: a dictionary of properties to metadata_store_pb2.PropertyType
+
+  Returns:
+    an ExecutionType proto.
+  """
+  result = metadata_store_pb2.ExecutionType()
+  result.name = name
+  for k, v in properties.items():
+    result.properties[k] = v
+  return result
+
+
+def _get_artifact_structs(
+    store: metadata_store.MetadataStore, execution_ids: typing.Sequence[int],
+    event_type: metadata_store_pb2.Event.Type) -> Dict[int, ArtifactStruct]:
+  """Given execution IDs and an event type, get the artifact structs."""
+  events = [
+      x for x in store.get_events_by_execution_ids(execution_ids)
+      if x.type == event_type
+  ]
+  unique_artifact_ids = _unique_elements([x.artifact_id for x in events])
+  artifact_and_types = {
+      x.id: x for x in Artifact.find_by_ids(store, unique_artifact_ids)
+  }
+
+  # Now that we have finished accessing the database, we can deal with each
+  # execution separately.
+  def _get_artifact_struct_helper(
+      path_and_artifacts: typing.Sequence[_PathAndArtifact]):
+    """Create a struct helper."""
+    # Add context to error messages
+    # Note that this method cheats a bit in terms of types, to handle the
+    # limited recursion of pytype.
+    if not path_and_artifacts:
+      return None
+    if len(path_and_artifacts) == 1:
+      [only_path_and_artifact] = path_and_artifacts
+      if not only_path_and_artifact.path:
+        return only_path_and_artifact.artifact
+    if any([not x.path for x in path_and_artifacts]):
+      raise ValueError("artifacts share the same path")
+    # Group by first step, and then recursively call the method after
+    # truncating the paths.
+    paths_by_first_step = _group_by(path_and_artifacts, lambda x: x.path[0])
+    # Construct a dictionary of artifact structs. If all the keys are
+    # integers, we convert it to a list.
+    near_result = {
+        k: _get_artifact_struct_helper(_get_suffixes(v))
+        for k, v in paths_by_first_step.items()
+    }
+    # Avoid testing if something is a string, Text, bytes, or unicode.
+    if all([not isinstance(x, int) for x in near_result.keys()]):
+      # A dictionary layer: return what we have.
+      return near_result
+    if all([isinstance(x, int) for x in near_result.keys()]):
+      # Rewrite as a list layer.
+      result = []
+      for k, v in near_result.items():
+        if k != len(result):
+          raise ValueError("Missing an index: " + str(len(result)))
+        result.append(v)
+      return result
+    raise ValueError("Mixing ints and strings")
+
+  def _get_artifact_struct(
+      events: typing.Sequence[metadata_store_pb2.Event]) -> ArtifactStruct:
+    path_and_artifact = [
+        _PathAndArtifact(
+            _create_path(x.path), artifact_and_types[x.artifact_id])
+        for x in events
+    ]
+    return _get_artifact_struct_helper(path_and_artifact)
+
+  return {
+      k: _get_artifact_struct(v)
+      for k, v in _group_by(events, lambda x: x.execution_id).items()
+  }
+
+
+def _create_step(step: metadata_store_pb2.Event.Path.Step) -> _Step:
+  """Convert from Event.Path.Step to _Step."""
+  if step.HasField("index"):
+    return step.index
+  if step.HasField("key"):
+    return step.key
+  raise ValueError("Steps should have either an index or a key.")
+
+
+def _create_path(path: metadata_store_pb2.Event.Path) -> _Path:
+  """Convert from Event.Path to _Path."""
+  return [_create_step(x) for x in path.steps]
+
+
+def _get_suffixes(paths_and_artifacts: typing.Sequence[_PathAndArtifact]
+                 ) -> typing.Sequence[_PathAndArtifact]:
+  return [
+      _PathAndArtifact(path[1:], artifact)
+      for path, artifact in paths_and_artifacts
+  ]
+
+
+def _group_by(input_list, key_fn):
+  """Group a list according to a key function (with a hashable range)."""
+  result = collections.defaultdict(list)
+  for x in input_list:
+    result[key_fn(x)].append(x)
+  return result
+
+
+def _create_local_event(execution_id: int,
+                        event_type: metadata_store_pb2.Event.Type, path,
+                        artifact: Artifact) -> metadata_store_pb2.Event:
+  """Create an event without committing it to the database."""
+  result = metadata_store_pb2.Event()
+  for x in path:
+    if isinstance(x, int):
+      result.path.steps.add().index = x
+    else:
+      result.path.steps.add().key = x
+  result.type = event_type
+  result.execution_id = execution_id
+  result.artifact_id = artifact.id
+  return result
+
+
+def _get_paths_and_artifacts(
+    struct: ArtifactStruct) -> typing.List[_PathAndArtifact]:
+  """Break an ArtifactStruct into _PathAndArtifacts, used to make events."""
+  if struct is None:
+    return []
+  if isinstance(struct, Artifact):
+    return [_PathAndArtifact([], struct)]
+  elif isinstance(struct, list):
+    result = []
+    for i in range(len(struct)):
+      result = result + [
+          _PathAndArtifact([i] + x.path, x.artifact)
+          for x in _get_paths_and_artifacts(struct[i])
+      ]
+    return result
+  elif isinstance(struct, dict):
+    result = []
+    for k, v in struct.items():
+      result = result + [
+          _PathAndArtifact([k] + x.path, x.artifact)
+          for x in _get_paths_and_artifacts(v)
+      ]
+    return result
+  raise ValueError("Not an artifact struct")
+
+
+def _unique_elements(input_list):
+  """Returns a list of the unique elements in input_list."""
+  return list(set(input_list))

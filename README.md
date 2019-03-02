@@ -13,16 +13,20 @@ For more background on MLMD and instructions on using it, see the
 
 ## Installing from PyPI
 
-<!-- TODO: create PyPI repository -->
-<!-- TODO: add instructions for installing from PyPI -->
+The recommended way to install ML Metadata is to use the
+[PyPI package](https://pypi.org/project/ml-metadata/):
+
+```bash
+pip install ml-metadata
+```
 
 ## Installing from source
 
+
 ### 1. Prerequisites
 
-#### Install Python
+To compile and use ML Metadata, you need to set up some prerequisites.
 
-<!-- TODO: Add instructions for installing Python -->
 
 #### Install Bazel
 
@@ -35,15 +39,14 @@ directions](https://cmake.org/install/).
 
 ### 2. Clone ML Metadata repository
 
-<!-- TODO: create ML Metadata repository -->
 ```shell
-git clone https://github.com/google/ml-metadata
+git clone https://github.com/tensorflow/ml-metadata
 cd ml-metadata
 ```
 
-Note that these instructions will install the latest master branch of
-ML Metadata. If you want to install a specific branch (such as a release
-branch), pass `-b <branchname>` to the `git clone` command.
+Note that these instructions will install the latest master branch of ML
+Metadata. If you want to install a specific branch (such as a release branch),
+pass `-b <branchname>` to the `git clone` command.
 
 ### 3. Build the pip package
 
@@ -63,22 +66,10 @@ pip install dist/*.whl
 
 ## Supported platforms
 
-ML Metadata works on Python 2.7 or Python 3.
+MLMD supports Python 2 and Python 3.
 
-ML Metadata is built and tested on the following 64-bit operating systems:
+MLMD is built and tested on the following 64-bit operating systems:
 
-<!-- TODO:  * macOS 10.13.6 (Sierra) or later. -->
-<!-- TODO:  * Ubuntu 14.04 or later. -->
-
-## Dependencies
-
-<!-- TODO: determine dependencies. -->
-
-## Compatible versions
-
-<!-- TODO: determine compatible versions. -->
-
-## Questions
-
-<!-- TODO: setup stackoverflow -->
+  * macOS 10.12.6 (Sierra) or later.
+  * Ubuntu 14.04 or later.
 

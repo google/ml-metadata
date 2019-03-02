@@ -123,6 +123,12 @@ class MetadataStoreServiceImpl final
       ::ml_metadata::GetArtifactsByTypeResponse* response)
       override LOCKS_EXCLUDED(lock_);
 
+  ::grpc::Status GetArtifactsByURI(
+      ::grpc::ServerContext* context,
+      const ::ml_metadata::GetArtifactsByURIRequest* request,
+      ::ml_metadata::GetArtifactsByURIResponse* response) override
+      LOCKS_EXCLUDED(lock_);
+
   ::grpc::Status GetExecutions(
       ::grpc::ServerContext* context,
       const ::ml_metadata::GetExecutionsRequest* request,

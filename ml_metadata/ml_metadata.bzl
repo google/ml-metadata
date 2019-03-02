@@ -12,13 +12,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# TODO(120486527): This is currently unused: In theory, it should help
-# to resolve b/120486527.
-
 load("@protobuf_archive//:protobuf.bzl", "cc_proto_library")
 load("@protobuf_archive//:protobuf.bzl", "py_proto_library")
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+
+def ml_metadata_cc_test(
+        name,
+        srcs = [],
+        deps = [],
+        tags = [],
+        args = [],
+        size = None):
+    native.cc_test(
+        name = name,
+        srcs = srcs,
+        deps = deps,
+        tags = tags,
+        args = args,
+        size = size,
+        # cc_tests with ".so"s in srcs incorrectly link on Darwin unless
+        # linkstatic=1 (https://github.com/bazelbuild/bazel/issues/3450).
+        linkstatic = select({
+            "//ml_metadata/metadata_store:darwin": 1,
+            "//conditions:default": 0,
+        }),
+    )
 
 def ml_metadata_proto_library(
         name,

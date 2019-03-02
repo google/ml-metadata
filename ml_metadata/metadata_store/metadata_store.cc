@@ -348,6 +348,24 @@ tensorflow::Status MetadataStore::GetArtifacts(
   return transaction.Commit();
 }
 
+tensorflow::Status MetadataStore::GetArtifactsByURI(
+    const GetArtifactsByURIRequest& request,
+    GetArtifactsByURIResponse* response) {
+  ScopedTransaction transaction(metadata_source_.get());
+  std::vector<Artifact> artifacts;
+  tensorflow::Status status =
+      metadata_access_object_->FindArtifactsByURI(request.uri(), &artifacts);
+  if (status.code() == ::tensorflow::error::NOT_FOUND) {
+    return tensorflow::Status::OK();
+  } else if (!status.ok()) {
+    return status;
+  }
+  for (const Artifact& artifact : artifacts) {
+    *response->mutable_artifacts()->Add() = artifact;
+  }
+  return transaction.Commit();
+}
+
 tensorflow::Status MetadataStore::GetArtifactsByType(
     const GetArtifactsByTypeRequest& request,
     GetArtifactsByTypeResponse* response) {
@@ -361,8 +379,13 @@ tensorflow::Status MetadataStore::GetArtifactsByType(
     return status;
   }
   std::vector<Artifact> artifacts;
-  TF_RETURN_IF_ERROR(metadata_access_object_->FindArtifactsByTypeId(
-      artifact_type.id(), &artifacts));
+  status = metadata_access_object_->FindArtifactsByTypeId(artifact_type.id(),
+                                                          &artifacts);
+  if (status.code() == ::tensorflow::error::NOT_FOUND) {
+    return tensorflow::Status::OK();
+  } else if (!status.ok()) {
+    return status;
+  }
   for (const Artifact& artifact : artifacts) {
     *response->mutable_artifacts()->Add() = artifact;
   }
@@ -382,8 +405,13 @@ tensorflow::Status MetadataStore::GetExecutionsByType(
     return status;
   }
   std::vector<Execution> executions;
-  TF_RETURN_IF_ERROR(metadata_access_object_->FindExecutionsByTypeId(
-      execution_type.id(), &executions));
+  status = metadata_access_object_->FindExecutionsByTypeId(execution_type.id(),
+                                                           &executions);
+  if (status.code() == ::tensorflow::error::NOT_FOUND) {
+    return tensorflow::Status::OK();
+  } else if (!status.ok()) {
+    return status;
+  }
   for (const Execution& execution : executions) {
     *response->mutable_executions()->Add() = execution;
   }

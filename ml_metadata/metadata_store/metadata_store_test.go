@@ -230,6 +230,26 @@ func TestPutAndGetArtifacts(t *testing.T) {
 		t.Errorf("GetArtifacts returns duplicated artifacts: %v. want: %v, %v", gotStoredArtifacts[0], artifacts[0], artifacts[1])
 	}
 
+	// query artifacts by URI
+	gotArtifactsOfURI, err := store.GetArtifactsByURI(uri1)
+	if err != nil {
+		t.Fatalf("GetArtifactsByURI failed: %v", err)
+	}
+	if len(gotArtifactsOfURI) != 1 {
+		t.Errorf("GetArtifactsByURI number of artifacts mismatch, want: %v, got: %v", 1, len(gotArtifactsOfURI))
+	}
+	if !proto.Equal(wantArtifact, gotArtifactsOfURI[0]) {
+		t.Errorf("GetArtifactsByURI returned result is incorrect. want: %v, got: %v", wantArtifact, gotArtifactsOfURI[0])
+	}
+	unknownURI := "unknown_uri"
+	gotArtifactsOfUnknownURI, err := store.GetArtifactsByURI(unknownURI)
+	if err != nil {
+		t.Fatalf("GetArtifactsByURI failed: %v", err)
+	}
+	if len(gotArtifactsOfUnknownURI) != 0 {
+		t.Errorf("GetArtifactsByURI number of artifacts mismatch, want: %v, got: %v", 0, len(gotArtifactsOfUnknownURI))
+	}
+
 	// query artifacts of a particular type
 	typeName := "test_type_name"
 	gotArtifactsOfType, err := store.GetArtifactsByType(typeName)
@@ -251,6 +271,20 @@ func TestPutAndGetArtifacts(t *testing.T) {
 	}
 	if len(gotArtifactsOfNotExistType) != 0 {
 		t.Errorf("GetArtifactsByType number of artifacts mismatch of non-exist type, want: 0, got: %v", len(gotArtifactsOfNotExistType))
+	}
+
+	// test querying artifacts of an empty type having no artifacts
+	_, err = insertArtifactType(store, `name: 'test_type_name_no_artifacts' properties { key: 'p1' value: INT } `)
+	if err != nil {
+		t.Fatalf("Cannot create artifact type: %v", err)
+	}
+	typeNameNoArtifacts := "test_type_name_no_artifacts"
+	gotEmptyTypeArtifacts, err := store.GetArtifactsByType(typeNameNoArtifacts)
+	if err != nil {
+		t.Fatalf("GetArtifactsByType failed: %v", err)
+	}
+	if len(gotEmptyTypeArtifacts) != 0 {
+		t.Errorf("GetArtifactsByType number of artifacts mismatch of an empty type, want: 0, got: %v", len(gotEmptyTypeArtifacts))
 	}
 }
 
@@ -345,6 +379,20 @@ func TestPutAndGetExecutions(t *testing.T) {
 	}
 	if len(gotExecutionsOfNotExistType) != 0 {
 		t.Errorf("GetExecutionsByType number of executions mismatch of non-exist type, want: 0, got: %v", len(gotExecutionsOfNotExistType))
+	}
+
+	// test querying executions of an empty type having no execution
+	_, err = insertArtifactType(store, `name: 'test_type_name_no_execution' properties { key: 'p1' value: INT } `)
+	if err != nil {
+		t.Fatalf("Cannot create artifact type: %v", err)
+	}
+	typeNameNoExecutions := "test_type_name_no_execution"
+	gotEmptyTypeArtifacts, err := store.GetExecutionsByType(typeNameNoExecutions)
+	if err != nil {
+		t.Fatalf("GetExecutionsByType failed: %v", err)
+	}
+	if len(gotEmptyTypeArtifacts) != 0 {
+		t.Errorf("GetExecutionsByType number of artifacts mismatch of an empty type, want: 0, got: %v", len(gotEmptyTypeArtifacts))
 	}
 }
 

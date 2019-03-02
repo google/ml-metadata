@@ -12,12 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//ml_metadata:ml_metadata.bzl", "ml_metadata_go_library", "ml_metadata_go_test", "ml_metadata_go_wrap_cc")
+load("//ml_metadata:ml_metadata.bzl", "ml_metadata_go_library", "ml_metadata_go_test", "ml_metadata_go_wrap_cc", "ml_metadata_cc_test")
 load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_py_wrap_cc")
 
 licenses(["notice"])  # Apache 2.0
 
 package(default_visibility = ["//visibility:public"])
+
+config_setting(
+    name = "darwin",
+    values = {"cpu": "darwin"},
+    visibility = ["//visibility:public"],
+)
 
 cc_library(
     name = "metadata_access_object",
@@ -26,6 +32,7 @@ cc_library(
     deps = [
         ":metadata_source",
         "@protobuf_archive//:protobuf",
+        
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
@@ -41,12 +48,13 @@ cc_library(
     hdrs = ["metadata_source.h"],
     deps = [
         ":types",
+        "@com_google_absl//absl/strings",
         "//ml_metadata/proto:metadata_source_proto",
         "@org_tensorflow//tensorflow/core:lib",
     ],
 )
 
-cc_test(
+ml_metadata_cc_test(
     name = "metadata_source_test",
     size = "small",
     srcs = ["metadata_source_test.cc"],
@@ -73,7 +81,7 @@ cc_library(
 )
 
 # Added cc to name to not collide with python.
-cc_test(
+ml_metadata_cc_test(
     name = "metadata_store_cc_test",
     srcs = ["metadata_store_test.cc"],
     deps = [
@@ -105,7 +113,7 @@ cc_library(
     ],
 )
 
-cc_test(
+ml_metadata_cc_test(
     name = "metadata_store_factory_test",
     srcs = ["metadata_store_factory_test.cc"],
     deps = [
@@ -134,7 +142,7 @@ cc_library(
     ],
 )
 
-cc_test(
+ml_metadata_cc_test(
     name = "sqlite_metadata_source_test",
     size = "small",
     srcs = ["sqlite_metadata_source_test.cc"],
@@ -314,7 +322,7 @@ cc_test(
     ],
 )
 
-cc_test(
+ml_metadata_cc_test(
     name = "sqlite_metadata_access_object_test",
     size = "small",
     srcs = ["sqlite_metadata_access_object_test.cc"],

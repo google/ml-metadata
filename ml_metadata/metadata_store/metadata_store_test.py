@@ -149,6 +149,22 @@ class MetadataStoreTest(absltest.TestCase):
     self.assertLen(artifact_result, 1)
     self.assertEqual(artifact_result[0].id, artifact_id_1)
 
+  def test_put_artifacts_get_artifacts_by_uri(self):
+    store = _get_metadata_store()
+    artifact_type = _create_example_artifact_type()
+    type_id = store.put_artifact_type(artifact_type)
+    want_artifact = metadata_store_pb2.Artifact()
+    want_artifact.type_id = type_id
+    want_artifact.uri = "test_uri"
+    other_artifact = metadata_store_pb2.Artifact()
+    other_artifact.uri = "other_uri"
+    other_artifact.type_id = type_id
+
+    [want_artifact_id, _] = store.put_artifacts([want_artifact, other_artifact])
+    artifact_result = store.get_artifacts_by_uri(want_artifact.uri)
+    self.assertLen(artifact_result, 1)
+    self.assertEqual(artifact_result[0].id, want_artifact_id)
+
   def test_put_executions_get_executions_by_type(self):
     store = _get_metadata_store()
     execution_type = _create_example_execution_type()

@@ -26,6 +26,9 @@ cp -f ml_metadata/proto/metadata_store_pb2.py \
 cp -f ml_metadata/proto/metadata_store_service_pb2.py \
   ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
 
+cp -f ml_metadata
+  ${BUILD_WORKSPACE_DIRECTORY}/src
+
 cp -f ml_metadata/metadata_store/_pywrap_tf_metadata_store_serialized.so \
   ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/metadata_store
 

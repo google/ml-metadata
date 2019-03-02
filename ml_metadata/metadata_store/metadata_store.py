@@ -297,6 +297,19 @@ class MetadataStore(object):
       result.append(x)
     return result
 
+  def get_artifacts_by_uri(self,
+                           uri: Text) -> List[metadata_store_pb2.Artifact]:
+    """Gets all the artifacts of a given uri."""
+    request = metadata_store_service_pb2.GetArtifactsByURIRequest()
+    request.uri = uri
+    response = metadata_store_service_pb2.GetArtifactsByURIResponse()
+    self._swig_call(metadata_store_serialized.GetArtifactsByURI, request,
+                    response)
+    result = []
+    for x in response.artifacts:
+      result.append(x)
+    return result
+
   def get_artifacts_by_id(
       self, artifact_ids: Sequence[int]) -> List[metadata_store_pb2.Artifact]:
     """Gets all artifacts with matching ids.

@@ -174,10 +174,10 @@ message ExecutionType {
   //     }
   // }
   // That would be an optional schema field with a required data field.
-  optional ArtifactStructType input = 4;
+  optional ArtifactStructType input_type = 4;
   // The ArtifactStructType of the output.
   // For example {"simple":{...stats gen output type...}}
-  optional ArtifactStructType output = 5;
+  optional ArtifactStructType output_type = 5;
 }
 
 // The type of an ArtifactStruct.
@@ -261,13 +261,10 @@ message ListArtifactStructType {
 //       }
 //     }
 // };
-message NoneArtifactStructType {
-
-}
+message NoneArtifactStructType {}
 
 // Every ArtifactStruct is a member of this type.
-message AnyArtifactStructType {
-}
+message AnyArtifactStructType {}
 
 // An ordered list of heterogenous artifact structs.
 // The length of the list is fixed.
@@ -291,8 +288,6 @@ message DictArtifactStructType {
   // If this is not specified, then extra properties are not allowed.
   optional ArtifactStructType extra_properties_type = 3;
 }
-
-
 
 // Configuration for a "fake" database.
 // This database is an in-memory SQLite database that lives only as
@@ -373,7 +368,7 @@ message MetadataStoreServerConfig {
     optional string custom_ca = 3;
     // Valid client certificate required?
     optional bool client_verify = 4;
-  };
+  }
 
   // Configuration for a secure gRPC channel.
   // If not given, insecure connection is used.

@@ -30,31 +30,45 @@ constexpr char kBaseQueryConfig[] = R"pb(
     query: " CREATE TABLE IF NOT EXISTS `Type` ( "
            "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
            "   `name` VARCHAR(255) NOT NULL, "
-           "   `is_artifact_type` TINYINT(1) NOT NULL "
+           "   `is_artifact_type` TINYINT(1) NOT NULL, "
+           "   `input_type` TEXT, "
+           "   `output_type` TEXT"
            " ); "
   }
   check_type_table {
-    query: " SELECT `id`, `name`, `is_artifact_type` "
+    query: " SELECT "
+           "`id`, `name`, `is_artifact_type`, `input_type`, `output_type` "
            " FROM `Type` LIMIT 1; "
   }
-  insert_type {
+
+  insert_artifact_type {
     query: " INSERT INTO `Type`( "
            "   `name`, `is_artifact_type` "
-           ") VALUES($0, $1);"
-    parameter_num: 2
+           ") VALUES($0, 1);"
+    parameter_num: 1
   }
+
+  insert_execution_type {
+    query: " INSERT INTO `Type`( "
+           "   `name`, `is_artifact_type`, `input_type`,  `output_type` "
+           ") VALUES($0, 0, $1, $2);"
+    parameter_num: 3
+  }
+
   select_type_by_id {
-    query: " SELECT `id`, `name` "
+    query: " SELECT `id`, `name`, `input_type`, `output_type` "
            " from `Type` "
            " WHERE id = $0 and is_artifact_type = $1; "
     parameter_num: 2
   }
+
   select_type_by_name {
-    query: " SELECT `id`, `name` "
+    query: " SELECT `id`, `name`, `input_type`, `output_type` "
            " from `Type` "
            " WHERE name = $0 and is_artifact_type = $1; "
     parameter_num: 2
   }
+
   drop_type_property_table { query: " DROP TABLE IF EXISTS `TypeProperty`; " }
   create_type_property_table {
     query: " CREATE TABLE IF NOT EXISTS `TypeProperty` ( "
@@ -106,6 +120,10 @@ constexpr char kBaseQueryConfig[] = R"pb(
   }
   select_artifacts_by_type_id {
     query: " SELECT `id` from `Artifact` WHERE `type_id` = $0; "
+    parameter_num: 1
+  }
+  select_artifacts_by_uri {
+    query: " SELECT `id` from `Artifact` WHERE `uri` = $0; "
     parameter_num: 1
   }
   update_artifact {
@@ -310,7 +328,9 @@ constexpr char kMySQLMetadataSourceQueryConfig[] = R"pb(
     query: " CREATE TABLE IF NOT EXISTS `Type` ( "
            "   `id` INT PRIMARY KEY AUTO_INCREMENT, "
            "   `name` VARCHAR(255) NOT NULL, "
-           "   `is_artifact_type` TINYINT(1) NOT NULL "
+           "   `is_artifact_type` TINYINT(1) NOT NULL, "
+           "   `input_type` TEXT, "
+           "   `output_type` TEXT"
            " ); "
   }
   create_artifact_table {

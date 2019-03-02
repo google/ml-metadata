@@ -134,6 +134,12 @@ PyObject* GetArtifactsByType(ml_metadata::MetadataStore* metadata_store,
       &ml_metadata::MetadataStore::GetArtifactsByType);
 }
 
+PyObject* GetArtifactsByURI(ml_metadata::MetadataStore* metadata_store,
+                             const string& request) {
+  return AccessMetadataStore(metadata_store, request,
+      &ml_metadata::MetadataStore::GetArtifactsByURI);
+}
+
 PyObject* PutArtifactType(ml_metadata::MetadataStore* metadata_store,
                           const string& request) {
   return AccessMetadataStore(metadata_store, request,
@@ -248,6 +254,9 @@ PyObject* GetArtifactsByID(ml_metadata::MetadataStore* metadata_store,
 
 PyObject* GetArtifactsByType(ml_metadata::MetadataStore* metadata_store,
                              const string& request);
+
+PyObject* GetArtifactsByURI(ml_metadata::MetadataStore* metadata_store,
+                            const string& request);
 
 PyObject* PutExecutionType(ml_metadata::MetadataStore* metadata_store,
                            const string& request);

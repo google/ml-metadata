@@ -90,7 +90,12 @@ TEST_P(MetadataAccessObjectTest, CreateType) {
   TF_EXPECT_OK(metadata_access_object_->CreateType(type2, &type2_id));
   EXPECT_NE(type1_id, type2_id);
 
-  ExecutionType type3 = ParseTextProtoOrDie<ExecutionType>("name: 'test_type'");
+  ExecutionType type3 = ParseTextProtoOrDie<ExecutionType>(
+      R"(name: 'test_type'
+         properties { key: 'property_2' value: INT }
+         input_type: { any: {} }
+         output_type: { none: {} }
+      )");
   int64 type3_id = -1;
   TF_EXPECT_OK(metadata_access_object_->CreateType(type3, &type3_id));
   EXPECT_NE(type1_id, type3_id);
@@ -102,18 +107,19 @@ TEST_P(MetadataAccessObjectTest, CreateTypeError) {
   {
     ArtifactType wrong_type;
     int64 type_id;
-    tensorflow::Status s =
-        metadata_access_object_->CreateType(wrong_type, &type_id);
-    EXPECT_EQ(s.code(), tensorflow::error::INVALID_ARGUMENT);
+    // Types must at least have a name.
+    EXPECT_EQ(metadata_access_object_->CreateType(wrong_type, &type_id).code(),
+              tensorflow::error::INVALID_ARGUMENT);
   }
   {
     ArtifactType wrong_type = ParseTextProtoOrDie<ArtifactType>(R"(
       name: 'test_type2'
       properties { key: 'property_1' value: UNKNOWN })");
     int64 type_id;
-    tensorflow::Status s =
-        metadata_access_object_->CreateType(wrong_type, &type_id);
-    EXPECT_EQ(s.code(), tensorflow::error::INVALID_ARGUMENT);
+    // Properties must have type either STRING, DOUBLE, or INT. UNKNOWN
+    // is not allowed.
+    EXPECT_EQ(metadata_access_object_->CreateType(wrong_type, &type_id).code(),
+              tensorflow::error::INVALID_ARGUMENT);
   }
 }
 
@@ -134,12 +140,115 @@ TEST_P(MetadataAccessObjectTest, FindTypeById) {
   EXPECT_THAT(type, EqualsProto(want_type));
 
   ExecutionType execution_type;
-  tensorflow::Status s =
-      metadata_access_object_->FindTypeById(type_id, &execution_type);
-  EXPECT_EQ(s.code(), tensorflow::error::NOT_FOUND);
+  // type_id is for an artifact type, not an execution type.
+  EXPECT_EQ(
+      metadata_access_object_->FindTypeById(type_id, &execution_type).code(),
+      tensorflow::error::NOT_FOUND);
+}
+
+TEST_P(MetadataAccessObjectTest, FindTypeByIdExecution) {
+  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  ExecutionType want_type = ParseTextProtoOrDie<ExecutionType>(R"(
+    name: 'test_type'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: DOUBLE }
+    properties { key: 'property_3' value: STRING }
+    input_type: { any: {} }
+    output_type: { none: {} }
+  )");
+  int64 type_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(want_type, &type_id));
+  want_type.set_id(type_id);
+
+  ExecutionType type;
+  TF_EXPECT_OK(metadata_access_object_->FindTypeById(type_id, &type));
+  EXPECT_THAT(type, EqualsProto(want_type));
+
+  ArtifactType artifact_type;
+  EXPECT_EQ(
+      metadata_access_object_->FindTypeById(type_id, &artifact_type).code(),
+      tensorflow::error::NOT_FOUND);
+}
+
+TEST_P(MetadataAccessObjectTest, FindTypeByIdExecutionUnicode) {
+  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  ExecutionType want_type;
+  want_type.set_name("пример_типа");
+  (*want_type.mutable_properties())["привет"] = INT;
+  (*want_type.mutable_input_type()
+        ->mutable_dict()
+        ->mutable_properties())["пример"]
+      .mutable_any();
+  int64 type_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(want_type, &type_id));
+  want_type.set_id(type_id);
+
+  ExecutionType type;
+  TF_EXPECT_OK(metadata_access_object_->FindTypeById(type_id, &type));
+  EXPECT_THAT(type, EqualsProto(want_type));
+
+  ArtifactType artifact_type;
+  // The object with this type_id is an execution type, not an artifact
+  // type, so the method below fails.
+  EXPECT_EQ(
+      metadata_access_object_->FindTypeById(type_id, &artifact_type).code(),
+      tensorflow::error::NOT_FOUND);
+}
+
+// Test if an execution type can be stored without input_type and output_type.
+TEST_P(MetadataAccessObjectTest, FindTypeByIdExecutionNoSignature) {
+  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  ExecutionType want_type = ParseTextProtoOrDie<ExecutionType>(R"(
+    name: 'test_type'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: DOUBLE }
+    properties { key: 'property_3' value: STRING }
+  )");
+  int64 type_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(want_type, &type_id));
+  want_type.set_id(type_id);
+
+  ExecutionType type;
+  TF_EXPECT_OK(metadata_access_object_->FindTypeById(type_id, &type));
+  EXPECT_THAT(type, EqualsProto(want_type));
+
+  ArtifactType artifact_type;
+
+  // The object with this type_id is an execution type, not an artifact
+  // type, so the method below fails.
+  EXPECT_EQ(
+      metadata_access_object_->FindTypeById(type_id, &artifact_type).code(),
+      tensorflow::error::NOT_FOUND);
 }
 
 TEST_P(MetadataAccessObjectTest, FindTypeByName) {
+  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  ExecutionType want_type = ParseTextProtoOrDie<ExecutionType>(R"(
+    name: 'test_type'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: DOUBLE }
+    properties { key: 'property_3' value: STRING }
+    input_type: { any: {} }
+    output_type: { none: {} }
+  )");
+  int64 type_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(want_type, &type_id));
+  want_type.set_id(type_id);
+
+  ExecutionType type;
+  TF_EXPECT_OK(metadata_access_object_->FindTypeByName("test_type", &type));
+  EXPECT_THAT(type, EqualsProto(want_type));
+
+  ArtifactType artifact_type;
+  // The type with this name is an execution type, not an artifact type,
+  // so the method fails.
+  EXPECT_EQ(metadata_access_object_->FindTypeByName("test_type", &artifact_type)
+                .code(),
+            tensorflow::error::NOT_FOUND);
+}
+
+// Test if an execution type can be stored without input_type and output_type.
+TEST_P(MetadataAccessObjectTest, FindTypeByNameNoSignature) {
   TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
   ExecutionType want_type = ParseTextProtoOrDie<ExecutionType>(R"(
     name: 'test_type'
@@ -243,8 +352,9 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactError) {
   EXPECT_EQ(s.code(), tensorflow::error::INVALID_ARGUMENT);
 
   artifact.set_type_id(1);
-  s = metadata_access_object_->CreateArtifact(artifact, &artifact_id);
-  EXPECT_EQ(s.code(), tensorflow::error::NOT_FOUND);
+  EXPECT_EQ(
+      metadata_access_object_->CreateArtifact(artifact, &artifact_id).code(),
+      tensorflow::error::NOT_FOUND);
 
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
     name: 'test_type_disallow_custom_property'
@@ -258,8 +368,9 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactError) {
   artifact3.set_type_id(type_id);
   (*artifact3.mutable_properties())["property_1"].set_string_value("3");
   int64 artifact3_id;
-  s = metadata_access_object_->CreateArtifact(artifact3, &artifact3_id);
-  EXPECT_EQ(s.code(), tensorflow::error::INVALID_ARGUMENT);
+  EXPECT_EQ(
+      metadata_access_object_->CreateArtifact(artifact3, &artifact3_id).code(),
+      tensorflow::error::INVALID_ARGUMENT);
 }
 
 TEST_P(MetadataAccessObjectTest, FindArtifactById) {
@@ -392,6 +503,34 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIds) {
   EXPECT_EQ(artifacts.size(), 2);
   EXPECT_THAT(artifacts[0], EqualsProto(want_artifact1));
   EXPECT_THAT(artifacts[1], EqualsProto(want_artifact2));
+}
+
+TEST_P(MetadataAccessObjectTest, FindArtifactsByURI) {
+  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>("name: 'test_type'");
+  int64 type_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
+  Artifact want_artifact1 =
+      ParseTextProtoOrDie<Artifact>("uri: 'testuri://test/uri1'");
+  want_artifact1.set_type_id(type_id);
+  int64 artifact1_id;
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateArtifact(want_artifact1, &artifact1_id));
+  want_artifact1.set_id(artifact1_id);
+
+  Artifact artifact2 =
+      ParseTextProtoOrDie<Artifact>("uri: 'testuri://test/uri2'");
+  artifact2.set_type_id(type_id);
+  int64 artifact2_id;
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateArtifact(artifact2, &artifact2_id));
+  artifact2.set_id(artifact2_id);
+
+  std::vector<Artifact> artifacts;
+  TF_EXPECT_OK(metadata_access_object_->FindArtifactsByURI(
+      "testuri://test/uri1", &artifacts));
+  ASSERT_EQ(artifacts.size(), 1);
+  EXPECT_THAT(artifacts[0], EqualsProto(want_artifact1));
 }
 
 TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
@@ -747,8 +886,6 @@ TEST_P(MetadataAccessObjectTest, CreateEventError) {
 }
 
 TEST_P(MetadataAccessObjectTest, PutEventsWithPaths) {
-  LOG(ERROR) << "PutEventsWithPaths";
-
   TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
   ArtifactType artifact_type;
   artifact_type.set_name("test_artifact_type");

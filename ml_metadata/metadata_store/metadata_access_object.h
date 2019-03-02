@@ -136,6 +136,12 @@ class MetadataAccessObject {
   tensorflow::Status FindArtifactsByTypeId(int64 artifact_type_id,
                                            std::vector<Artifact>* artifacts);
 
+  // Queries artifacts by a given uri with exact match.
+  // Returns NOT_FOUND error, if the given uri cannot be found.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status FindArtifactsByURI(absl::string_view uri,
+                                        std::vector<Artifact>* artifacts);
+
   // Updates an artifact.
   // Returns INVALID_ARGUMENT error, if the id field is not given.
   // Returns INVALID_ARGUMENT error, if no artifact is found with the given id.

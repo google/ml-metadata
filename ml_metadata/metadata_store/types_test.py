@@ -22,8 +22,18 @@ import json
 from absl.testing import absltest
 
 import unittest
+from ml_metadata.metadata_store import metadata_store
 from ml_metadata.metadata_store import types
 from ml_metadata.proto import metadata_store_pb2
+
+
+def _create_metadata_store():
+  """Creates a new metadata store."""
+  # Need to clear the registered types if you are connecting to a new database.
+  types.clear_registered_types()
+  connection_config = metadata_store_pb2.ConnectionConfig()
+  connection_config.sqlite.SetInParent()
+  return metadata_store.MetadataStore(connection_config)
 
 
 def _create_example_artifact_type():
@@ -208,6 +218,30 @@ class ArtifactsTest(absltest.TestCase):
           bar=metadata_store_pb2.STRING,
           baz=metadata_store_pb2.DOUBLE)
 
+  def test_save_and_find_by_id(self):
+    store = _create_metadata_store()
+    artifact = _create_example_artifact()
+    artifact.save(store)
+    id_result = artifact.id
+    result_artifact_2 = types.Artifact.find_by_id(store, id_result)
+    self.assertEqual(result_artifact_2.id, id_result)
+    [result_artifact_3] = types.Artifact.find_by_ids(store, [id_result])
+    self.assertEqual(result_artifact_3.id, id_result)
+
+  def test_save_and_find_by_ids_with_2(self):
+    store = _create_metadata_store()
+    artifact = _create_example_artifact()
+    artifact.save(store)
+    artifact_2 = _create_example_artifact()
+    artifact_2.save(store)
+
+    id_result = artifact.id
+    id_result_2 = artifact_2.id
+    [result_artifact, result_artifact_2] = types.Artifact.find_by_ids(
+        store, [id_result, id_result_2])
+    self.assertEqual(result_artifact.id, id_result)
+    self.assertEqual(result_artifact_2.id, id_result_2)
+
 
 class IsInstanceTest(unittest.TestCase):
 
@@ -289,6 +323,39 @@ class IsInstanceTest(unittest.TestCase):
     serialized_a = types.create_json(original_struct)
     second_struct = types.create_artifact_struct_from_json(serialized_a)
     self.assertEqual("bar", second_struct["data"][0].get_custom_property("foo"))
+
+
+class ExecutionTypeTest(absltest.TestCase):
+
+  def test_create_init_execution(self):
+    execution_type = _create_stats_gen_execution_type()
+    self.assertEqual("stats_gen", execution_type.type.name)
+
+  def test_save_and_find_by_id(self):
+    store = _create_metadata_store()
+    execution_type = _create_stats_gen_execution_type()
+    execution_type.save(store)
+
+    execution_type_id = execution_type.type.id
+    execution_type_result = types.ExecutionType.find_by_id(
+        store, execution_type_id)
+    self.assertEqual(execution_type.type.name, execution_type_result.type.name)
+
+  def test_save_and_find_by_ids(self):
+    store = _create_metadata_store()
+    execution_type = _create_stats_gen_execution_type()
+    execution_type.save(store)
+    execution_type_2 = _create_transform_data_execution_type()
+    execution_type_2.save(store)
+
+    execution_type_id = execution_type.type.id
+    execution_type_id_2 = execution_type_2.type.id
+    [execution_type_result,
+     execution_type_result_2] = types.ExecutionType.find_by_ids(
+         store, [execution_type_id, execution_type_id_2])
+    self.assertEqual(execution_type.type.name, execution_type_result.type.name)
+    self.assertEqual(execution_type_2.type.name,
+                     execution_type_result_2.type.name)
 
 
 class ExecutionsTest(absltest.TestCase):
@@ -405,6 +472,85 @@ class ExecutionsTest(absltest.TestCase):
     self.assertFalse(invalid_input.is_consistent())
     self.assertFalse(invalid_output.is_consistent())
     self.assertTrue(_create_stats_gen_execution().is_consistent())
+
+  def test_save_and_find_by_id(self):
+    store = _create_metadata_store()
+    stats_gen_execution = _create_stats_gen_execution()
+    stats_gen_execution.save(store)
+    execution_id = stats_gen_execution.id
+    execution_result = types.Execution.find_by_id(store, execution_id)
+    self.assertTrue(execution_result.id, stats_gen_execution.id)
+    self.assertEqual(3, execution_result.input_struct["schema"].version)
+    self.assertEqual("Stats", execution_result.output_struct.type.name)
+
+  def test_save_execution_and_find_by_id(self):
+    store = _create_metadata_store()
+    stats_gen_execution = _create_stats_gen_execution()
+    stats_gen_execution.save_execution(store)
+    execution_id = stats_gen_execution.id
+    execution_result = types.Execution.find_by_id(store, execution_id)
+    self.assertTrue(execution_result.id, stats_gen_execution.id)
+    self.assertEqual(None, execution_result.input_struct)
+    self.assertEqual(None, execution_result.output_struct)
+
+  def test_save_output_and_find_by_id(self):
+    store = _create_metadata_store()
+    stats_gen_execution = _create_stats_gen_execution()
+    stats_gen_execution.save_execution(store)
+    stats_gen_execution.save_output(store)
+    execution_id = stats_gen_execution.id
+    execution_result = types.Execution.find_by_id(store, execution_id)
+    self.assertTrue(execution_result.id, stats_gen_execution.id)
+    self.assertEqual(None, execution_result.input_struct)
+    self.assertEqual("Stats", execution_result.output_struct.type.name)
+
+  def test_save_output_twice(self):
+    """Saving the output twice, even if it is the same, is disallowed."""
+    store = _create_metadata_store()
+    stats_gen_execution = _create_stats_gen_execution()
+    stats_gen_execution.save_execution(store)
+    stats_gen_execution.save_output(store)
+    with self.assertRaises(ValueError):
+      stats_gen_execution.save_output(store)
+
+  def test_save_input_and_find_by_id(self):
+    store = _create_metadata_store()
+    stats_gen_execution = _create_stats_gen_execution()
+    stats_gen_execution.save_execution(store)
+    stats_gen_execution.save_input(store)
+    execution_id = stats_gen_execution.id
+    execution_result = types.Execution.find_by_id(store, execution_id)
+    self.assertTrue(execution_result.id, stats_gen_execution.id)
+    self.assertEqual(3, execution_result.input_struct["schema"].version)
+    self.assertEqual(None, execution_result.output_struct)
+
+  def test_save_input_twice(self):
+    """Saving the input twice, even if it is the same, is disallowed."""
+    store = _create_metadata_store()
+    stats_gen_execution = _create_stats_gen_execution()
+    stats_gen_execution.save_execution(store)
+    stats_gen_execution.save_input(store)
+    with self.assertRaises(ValueError):
+      stats_gen_execution.save_input(store)
+
+  def test_save_output_later(self):
+    """Save execution and input, then save output.
+
+    This is a standard pattern.
+    """
+    store = _create_metadata_store()
+    stats_gen_execution = _create_stats_gen_execution()
+    stats_gen_execution.save_execution(store)
+    stats_gen_execution.save_input(store)
+    execution_id = stats_gen_execution.id
+    execution_result = types.Execution.find_by_id(store, execution_id)
+    self.assertTrue(execution_result.id, stats_gen_execution.id)
+    execution_result.output_struct = _create_stats_artifact()
+    execution_result.save_output(store)
+    execution_result_2 = types.Execution.find_by_id(store, execution_id)
+    self.assertTrue(execution_result_2.id, stats_gen_execution.id)
+    self.assertEqual(3, execution_result_2.input_struct["schema"].version)
+    self.assertEqual("Stats", execution_result_2.output_struct.type.name)
 
 
 if __name__ == "__main__":

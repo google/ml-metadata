@@ -25,7 +25,6 @@ message ArtifactAndType {
   optional ArtifactType type = 2;
 }
 
-
 // A dictionary of artifact structs. Can represent a dictionary.
 message ArtifactStructMap {
   // An artifact struct that is a dictionary.
@@ -33,13 +32,11 @@ message ArtifactStructMap {
   map<string, ArtifactStruct> properties = 1;
 }
 
-
 // An artifact struct that is a list.
 message ArtifactStructList {
   // Can be represented as a JSON list of artifact structs.
   repeated ArtifactStruct elements = 1;
 }
-
 
 // An artifact struct represents the input or output of an Execution.
 // See the more specific types referenced in the message for more details.
@@ -51,7 +48,6 @@ message ArtifactStruct {
     ArtifactStructList list = 3;
   }
 }
-
 
 message PutArtifactsRequest {
   repeated Artifact artifacts = 1;
@@ -150,6 +146,14 @@ message GetArtifactsRequest {
 
 message GetArtifactsResponse {
   // All artifacts.
+  repeated Artifact artifacts = 1;
+}
+
+message GetArtifactsByURIRequest {
+  optional string uri = 1;
+}
+
+message GetArtifactsByURIResponse {
   repeated Artifact artifacts = 1;
 }
 
@@ -387,9 +391,24 @@ service MetadataStoreService {
   //   events: A list of events to insert or update.
   rpc PutEvents(PutEventsRequest) returns (PutEventsResponse) {}
 
-  // Gets all the artifacts of a given type.
-  rpc GetArtifactsByType(GetArtifactsByTypeRequest)
-      returns (GetArtifactsByTypeResponse) {}
+  // Gets an artifact type. Returns a NOT_FOUND error if the type does not
+  // exist.
+  rpc GetArtifactType(GetArtifactTypeRequest)
+      returns (GetArtifactTypeResponse) {}
+
+  // Gets a list of artifact types by ID.
+  // If no artifact types with an ID exists, the artifact type is skipped.
+  rpc GetArtifactTypesByID(GetArtifactTypesByIDRequest)
+      returns (GetArtifactTypesByIDResponse) {}
+
+  // Gets an execution type, or None if it does not exist.
+  rpc GetExecutionType(GetExecutionTypeRequest)
+      returns (GetExecutionTypeResponse) {}
+
+  // Gets a list of execution types by ID.
+  // If no execution types with an ID exists, the execution type is skipped.
+  rpc GetExecutionTypesByID(GetExecutionTypesByIDRequest)
+      returns (GetExecutionTypesByIDResponse) {}
 
   // Gets all the artifacts.
   rpc GetArtifacts(GetArtifactsRequest) returns (GetArtifactsResponse) {}
@@ -410,20 +429,6 @@ service MetadataStoreService {
   rpc GetArtifactsByID(GetArtifactsByIDRequest)
       returns (GetArtifactsByIDResponse) {}
 
-  // Gets an artifact type. Returns a NOT_FOUND error if the type does not
-  // exist.
-  rpc GetArtifactType(GetArtifactTypeRequest)
-      returns (GetArtifactTypeResponse) {}
-
-  // Gets a list of artifact types by ID.
-  // If no artifact types with an ID exists, the artifact type is skipped.
-  rpc GetArtifactTypesByID(GetArtifactTypesByIDRequest)
-      returns (GetArtifactTypesByIDResponse) {}
-
-  // Gets all the executions of a given type.
-  rpc GetExecutionsByType(GetExecutionsByTypeRequest)
-      returns (GetExecutionsByTypeResponse) {}
-
   // Gets all executions with matching ids.
   //
   // The result is not index-aligned: if an id is not found, it is not
@@ -434,14 +439,17 @@ service MetadataStoreService {
   rpc GetExecutionsByID(GetExecutionsByIDRequest)
       returns (GetExecutionsByIDResponse) {}
 
-  // Gets an execution type, or None if it does not exist.
-  rpc GetExecutionType(GetExecutionTypeRequest)
-      returns (GetExecutionTypeResponse) {}
+  // Gets all the artifacts of a given type.
+  rpc GetArtifactsByType(GetArtifactsByTypeRequest)
+      returns (GetArtifactsByTypeResponse) {}
 
-  // Gets a list of execution types by ID.
-  // If no execution types with an ID exists, the execution type is skipped.
-  rpc GetExecutionTypesByID(GetExecutionTypesByIDRequest)
-      returns (GetExecutionTypesByIDResponse) {}
+  // Gets all the executions of a given type.
+  rpc GetExecutionsByType(GetExecutionsByTypeRequest)
+      returns (GetExecutionsByTypeResponse) {}
+
+  // Gets all the artifacts of a given uri.
+  rpc GetArtifactsByURI(GetArtifactsByURIRequest)
+      returns (GetArtifactsByURIResponse) {}
 
   // Gets all events with matching execution ids.
   rpc GetEventsByExecutionIDs(GetEventsByExecutionIDsRequest)

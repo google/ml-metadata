@@ -216,11 +216,18 @@ class MetadataStore {
   tensorflow::Status GetArtifacts(const GetArtifactsRequest& request,
                                   GetArtifactsResponse* response);
 
-  // Gets all the artifacts of a given type.
+  // Gets all the artifacts of a given type. If no artifacts found, it returns
+  // OK and empty response.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetArtifactsByType(
       const GetArtifactsByTypeRequest& request,
       GetArtifactsByTypeResponse* response);
+
+  // Gets all the artifacts of a given URI. If no artifacts found, it returns
+  // OK and empty response.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status GetArtifactsByURI(const GetArtifactsByURIRequest& request,
+                                       GetArtifactsByURIResponse* response);
 
   // Gets all executions.
   // Returns detailed INTERNAL error, if query execution fails.
@@ -228,7 +235,8 @@ class MetadataStore {
   tensorflow::Status GetExecutions(const GetExecutionsRequest& request,
                                    GetExecutionsResponse* response);
 
-  // Gets all the executions of a given type.
+  // Gets all the executions of a given type. If no executions found, it returns
+  // OK and empty response.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetExecutionsByType(
       const GetExecutionsByTypeRequest& request,

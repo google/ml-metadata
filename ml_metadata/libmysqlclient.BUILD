@@ -33,6 +33,12 @@ genrule(
     ]),
 )
 
+config_setting(
+    name = "darwin",
+    values = {"cpu": "darwin"},
+    visibility = ["//visibility:public"],
+)
+
 cc_library(
     name = "libmysqlclient",
     srcs = configure_out_srcs + [
@@ -95,10 +101,14 @@ cc_library(
         "-lpthread",
         "-ldl",
         "-lm",
-    ],
+    ] + select({
+        ":darwin": ["-liconv"],
+        "//conditions:default": [],
+    }),
     deps = [
         "@boringssl//:ssl",
         "@zlib_archive//:zlib",
     ],
     visibility = ["//visibility:public"],
 )
+                                                                               

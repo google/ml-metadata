@@ -18,6 +18,7 @@ limitations under the License.
 #include <vector>
 
 #include "google/protobuf/descriptor.h"
+#include "google/protobuf/util/json_util.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
@@ -117,6 +118,21 @@ tensorflow::Status ParseValueToField(
         reflection->AddEnumValue(message, field_descriptor, enum_value);
       else
         reflection->SetEnumValue(message, field_descriptor, enum_value);
+      break;
+    }
+    case google::protobuf::FieldDescriptor::CppType::CPPTYPE_MESSAGE: {
+      CHECK(!field_descriptor->is_repeated())
+          << "Cannot handle a repeated message";
+      if (!value.empty()) {
+        ::google::protobuf::Message* sub_message =
+            reflection->MutableMessage(message, field_descriptor);
+        if (!::google::protobuf::util::JsonStringToMessage(
+                 string(value.begin(), value.size()), sub_message)
+                 .ok()) {
+          return tensorflow::errors::Internal(
+              ::absl::StrCat("Failed to parse proto: ", value));
+        }
+      }
       break;
     }
     default: {
@@ -222,6 +238,22 @@ string Bind(const PropertyType type) { return std::to_string(type); }
 // by escaping metadata_source specific characters.
 string Bind(const MetadataSource* metadata_source, absl::string_view value) {
   return absl::StrCat("'", metadata_source->EscapeString(value), "'");
+}
+
+// Utility method to bind a proto message to a text field.
+// The proto message is encoded as JSON (which is unicode).
+// If present is false, this indicates a missing field, and is encoded as
+// null.
+string Bind(const MetadataSource* metadata_source, bool present,
+            const google::protobuf::Message& message) {
+  if (present) {
+    string json_output;
+    CHECK(::google::protobuf::util::MessageToJsonString(message, &json_output).ok())
+        << "Could not write proto to JSON: " << message.DebugString();
+    return Bind(metadata_source, json_output);
+  } else {
+    return "null";
+  }
 }
 
 // Validates properties in a `Node` with the properties defined in a `Type`.
@@ -412,6 +444,27 @@ tensorflow::Status GeneratePropertiesModificationQueries(
   return tensorflow::Status::OK();
 }
 
+// Creates a query to insert an artifact type.
+tensorflow::Status ComposeInsertTypeQueryImpl(
+    const ArtifactType& type, const MetadataSourceQueryConfig& query_config,
+    MetadataSource* metadata_source, Query* insert_type) {
+  return ComposeParameterizedQuery(query_config.insert_artifact_type(),
+                                   {Bind(metadata_source, type.name())},
+                                   insert_type);
+}
+
+// Creates a query to insert an execution type.
+tensorflow::Status ComposeInsertTypeQueryImpl(
+    const ExecutionType& type, const MetadataSourceQueryConfig& query_config,
+    MetadataSource* metadata_source, Query* insert_type) {
+  return ComposeParameterizedQuery(
+      query_config.insert_execution_type(),
+      {Bind(metadata_source, type.name()),
+       Bind(metadata_source, type.has_input_type(), type.input_type()),
+       Bind(metadata_source, type.has_output_type(), type.output_type())},
+      insert_type);
+}
+
 // Creates a `Type` where acceptable types are ArtifactType and ExecutionType.
 // Returns INVALID_ARGUMENT error, if name field is not given.
 // Returns INVALID_ARGUMENT error, if any property type is unknown.
@@ -421,7 +474,6 @@ tensorflow::Status CreateTypeImpl(const Type& type,
                                   const MetadataSourceQueryConfig& query_config,
                                   MetadataSource* metadata_source,
                                   int64* type_id) {
-  constexpr bool is_artifact_type = std::is_same<Type, ArtifactType>::value;
   const string& type_name = type.name();
   const auto& type_properties = type.properties();
 
@@ -433,10 +485,8 @@ tensorflow::Status CreateTypeImpl(const Type& type,
 
   // insert a type and get its given id
   Query insert_type;
-  TF_RETURN_IF_ERROR(ComposeParameterizedQuery(
-      query_config.insert_type(),
-      {Bind(metadata_source, type_name), Bind(is_artifact_type)},
-      &insert_type));
+  TF_RETURN_IF_ERROR(ComposeInsertTypeQueryImpl(type, query_config,
+                                                metadata_source, &insert_type));
 
   const Query& last_type_id = query_config.select_last_insert_id().query();
   std::vector<RecordSet> record_sets;
@@ -1092,6 +1142,16 @@ tensorflow::Status MetadataAccessObject::FindExecutionsByTypeId(
     const int64 type_id, std::vector<Execution>* executions) {
   return FindNodesByTypeIdImpl(type_id, query_config_, metadata_source_,
                                executions);
+}
+
+tensorflow::Status MetadataAccessObject::FindArtifactsByURI(
+    const absl::string_view uri, std::vector<Artifact>* artifacts) {
+  Query find_node_ids_query;
+  TF_RETURN_IF_ERROR(ComposeParameterizedQuery(
+      query_config_.select_artifacts_by_uri(), {Bind(metadata_source_, uri)},
+      &find_node_ids_query));
+  return FindNodeByIdsQueryImpl(find_node_ids_query, query_config_,
+                                metadata_source_, artifacts);
 }
 
 }  // namespace ml_metadata

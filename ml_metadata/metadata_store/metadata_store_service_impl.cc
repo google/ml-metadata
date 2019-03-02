@@ -219,6 +219,18 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   return status;
 }
 
+::grpc::Status MetadataStoreServiceImpl::GetArtifactsByURI(
+    ::grpc::ServerContext* context,
+    const ::ml_metadata::GetArtifactsByURIRequest* request,
+    ::ml_metadata::GetArtifactsByURIResponse* response) {
+  absl::WriterMutexLock l(&lock_);
+  const ::grpc::Status status =
+      ToGRPCStatus(metadata_store_->GetArtifactsByURI(*request, response));
+  if (!status.ok())
+    LOG(WARNING) << "GetArtifactsByURI failed: " << status.error_message();
+  return status;
+}
+
 ::grpc::Status MetadataStoreServiceImpl::GetExecutions(
     ::grpc::ServerContext* context,
     const ::ml_metadata::GetExecutionsRequest* request,
