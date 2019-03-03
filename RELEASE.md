@@ -1,5 +1,5 @@
 
-# Version 0.13.1
+# Version 0.13.2
 
 ## Major Features and Improvements
 

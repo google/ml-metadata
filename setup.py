@@ -30,6 +30,13 @@ with open('ml_metadata/version.py') as fp:
   exec (fp.read(), globals_dict)  # pylint: disable=exec-used
 __version__ = globals_dict['__version__']
 
+# TODO(b/121329572): Remove the following comment after we can guarantee the
+# required versions of packages through kokoro release workflow.
+# Note: In order for the README to be rendered correctly, make sure to have the
+# following minimum required versions of the respective packages when building
+# and uploading the zip/wheel package to PyPI:
+# setuptools >= 38.6.0, wheel >= 0.31.0, twine >= 1.11.0
+
 # Get the long description from the README file.
 with open('README.md') as fp:
   _LONG_DESCRIPTION = fp.read()
@@ -53,9 +60,9 @@ setup(
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         'Topic :: Scientific/Engineering',
         'Topic :: Scientific/Engineering :: Artificial Intelligence',
         'Topic :: Scientific/Engineering :: Mathematics',
@@ -67,9 +74,9 @@ setup(
     # Make sure to sync the versions of common dependencies (absl-py, numpy,
     # six, and protobuf) with TF.
     install_requires=[
-        'absl-py>=0.1.6',
+        'absl-py>=0.1.6,<1',
 
-        'protobuf>=3.6.0,<4',
+        'protobuf>=3.7,<4',
 
         'six>=1.4.0,<2',
 
@@ -77,12 +84,9 @@ setup(
         # compatible TF version. If not, fail with a clear error.
         # TODO(martinz): Uncomment this once TF can automatically
         # select between CPU and GPU installation.
-        # 'tensorflow>=1.13,<2',
-
-
-
+        # 'tensorflow>=1.13.1,<2',
     ],
-    python_requires='>=2.7,<4',
+    python_requires='>=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,<4',
     packages=find_packages(),
     include_package_data=True,
     package_data={'': ['*.so']},
@@ -92,8 +96,6 @@ setup(
     long_description=_LONG_DESCRIPTION,
     long_description_content_type='text/markdown',
     keywords='machine learning metadata tfx',
-    # TODO(martinz): change this when we have a homepage for the project.
-    url='https://www.google.com/',
-    # TODO(martinz): Create PyPI project URL
-    download_url='https://pypi.org/project/ml-metadata',
+    url='https://github.com/google/ml-metadata',
+    download_url='https://github.com/google/ml-metadata/tags',
     requires=[])

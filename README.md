@@ -1,6 +1,9 @@
 
 # ML Metadata
 
+[![Python](https://img.shields.io/pypi/pyversions/ml-metadata.svg?style=plastic)](https://github.com/google/ml-metadata)
+[![PyPI](https://badge.fury.io/py/ml-metadata.svg)](https://badge.fury.io/py/ml-metadata)
+
 *ML Metadata (MLMD)* is a library for recording and retrieving metadata
 associated with ML developer and data scientist workflows.
 
@@ -66,10 +69,7 @@ pip install dist/*.whl
 
 ## Supported platforms
 
-MLMD supports Python 2 and Python 3.
-
 MLMD is built and tested on the following 64-bit operating systems:
 
   * macOS 10.12.6 (Sierra) or later.
   * Ubuntu 14.04 or later.
-
