@@ -53,11 +53,23 @@ ml_metadata_proto_library_py(
 )
 
 ml_metadata_proto_library_py(
-    name = "metadata_store_service_py_pb2",
+    name = "metadata_store_service_proto_py_pb2",
     srcs = ["metadata_store_service.proto"],
     api_version = 2,
     oss_deps = [":metadata_store_py_pb2"],
     proto_library = "metadata_store_service_proto",
+)
+
+py_library(
+    name = "metadata_store_service_py_pb2",
+    srcs = [
+        "metadata_store_service_pb2.py",
+        "metadata_store_service_pb2_grpc.py",
+    ],
+    srcs_version = "PY2AND3",
+    deps = [
+        ":metadata_store_service_proto_py_pb2",
+    ],
 )
 
 ml_metadata_proto_library_go(
