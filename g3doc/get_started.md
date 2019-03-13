@@ -213,3 +213,53 @@ trainer_run.id = run_id
 trainer_run.id.properties["state"].string_value = "COMPLETED"
 store.put_executions([trainer_run])
 ```
+
+### With remote grpc server
+
+1) Start a server with
+
+```bash
+bazel run -c opt --define grpc_no_ares=true  //ml_metadata/metadata_store:metadata_store_server
+```
+
+2)  Install the client
+
+```bash
+bazel run --define grpc_no_ares=true //ml_metadata:build_pip_package
+```
+
+3) Using grpc client in python
+
+```python
+from grpc import insecure_channel
+from ml_metadata.proto import metadata_store_pb2
+from ml_metadata.proto import metadata_store_service_pb2
+from ml_metadata.proto import metadata_store_service_pb2_grpc
+
+
+channel = insecure_channel('localhost:8080')
+stub = metadata_store_service_pb2_grpc.MetadataStoreServiceStub(channel)
+
+```
+
+4) Register ArtifactTypes.
+
+```python
+# Create ArtifactTypes, e.g., Data and Model
+data_type = metadata_store_pb2.ArtifactType()
+data_type.name = "DataSet"
+data_type.properties["day"] = metadata_store_pb2.INT
+data_type.properties["split"] = metadata_store_pb2.STRING
+
+request = metadata_store_service_pb2.PutArtifactTypeRequest()
+request.all_fields_match = True
+request.artifact_type.CopyFrom(data_type)
+stub.PutArtifactType(request)
+
+model_type = metadata_store_pb2.ArtifactType()
+model_type.name = "SavedModel"
+model_type.properties["version"] = metadata_store_pb2.INT
+model_type.properties["name"] = metadata_store_pb2.STRING
+request.artifact_type.CopyFrom(model_type)
+stub.PutArtifactType(request)
+```
