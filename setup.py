@@ -24,6 +24,7 @@ class BinaryDistribution(Distribution):
   def has_ext_modules(self):
     return True
 
+
 # Get version from version module.
 with open('ml_metadata/version.py') as fp:
   globals_dict = {}
@@ -80,6 +81,7 @@ setup(
 
         'six>=1.4.0,<2',
 
+        'grpcio>=1.0<2',
         # TODO(martinz): Add a method to check if we are using a
         # compatible TF version. If not, fail with a clear error.
         # TODO(martinz): Uncomment this once TF can automatically
