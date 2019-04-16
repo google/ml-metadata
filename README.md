@@ -67,6 +67,14 @@ You can find the generated `.whl` file in the `dist` subdirectory.
 pip install dist/*.whl
 ```
 
+### 5.(Optional) Build the grpc server
+
+ML Metadata uses Bazel to build the c++ binary from source:
+
+```shell
+bazel build -c opt --define grpc_no_ares=true  //ml_metadata/metadata_store:metadata_store_server
+```
+
 ## Supported platforms
 
 MLMD is built and tested on the following 64-bit operating systems:
