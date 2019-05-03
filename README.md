@@ -43,7 +43,7 @@ directions](https://cmake.org/install/).
 ### 2. Clone ML Metadata repository
 
 ```shell
-git clone https://github.com/tensorflow/ml-metadata
+git clone https://github.com/google/ml-metadata
 cd ml-metadata
 ```
 

@@ -63,7 +63,6 @@ ml_metadata::MetadataStore* CreateMetadataStore(const string& connection_config)
     PyErr_SetString(PyExc_RuntimeError, status.error_message().c_str());
     return NULL;
   }
-  LOG(ERROR) << "Created MetadataStore.";
   return metadata_store.release();
 }
 

@@ -25,7 +25,7 @@ message RecordSet {
     repeated string values = 1;
   }
 
-  // index aligned column names for all records
+  // index-aligned column names for all records
   repeated string column_names = 1;
 
   // a list of records returned by a query
