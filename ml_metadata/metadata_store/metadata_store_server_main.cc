@@ -99,7 +99,7 @@ DEFINE_string(metadata_store_server_config_file, "",
               "and set up a secure gRPC channel");
 
 int main(int argc, char** argv) {
-  ParseCommandLineFlags(&argc, &argv, true);
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   if (FLAGS_grpc_port <= 0) {
     LOG(ERROR) << "grpc_port is invalid: " << FLAGS_grpc_port;
