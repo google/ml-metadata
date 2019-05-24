@@ -44,6 +44,37 @@ bool CheckIdentical(const T& type_a, const T& type_b) {
   // the properties are the same.
   return type_a.properties_size() == type_b.properties_size();
 }
+
+// If a type with the same name already exists (let's call it `old_type`), it
+// compares the given properties in `type` with the properties in `old_type`.
+// If there is a property where `type` and `old_type` have different types, or
+// `type` and `old_type` have different properties, it fails and returns
+// ALREADY_EXISTS. Otherwise, it returns the type_id of `old_type`.
+// If there is no type having the same name, then insert a new type.
+// Returns INVALID_ARGUMENT error, if name field in `type` is not given.
+// Returns INVALID_ARGUMENT error, if any property type in `type` is unknown.
+// Returns detailed INTERNAL error, if query execution fails.
+template <typename T>
+tensorflow::Status InsertType(MetadataAccessObject* metadata_access_object,
+                              const T& type, int64* type_id) {
+  T current;
+  tensorflow::Status status =
+      metadata_access_object->FindTypeByName(type.name(), &current);
+  if (status.ok()) {
+    if (!CheckIdentical(current, type)) {
+      return tensorflow::errors::AlreadyExists(
+          "Type already exists with different properties.");
+    }
+    *type_id = current.id();
+    return tensorflow::Status::OK();
+  } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
+    return status;
+  }
+  // If the type does not exist, create it.
+  TF_RETURN_IF_ERROR(metadata_access_object->CreateType(type, type_id));
+  return tensorflow::Status::OK();
+}
+
 }  // namespace
 
 tensorflow::Status MetadataStore::InitMetadataStore() {
@@ -55,6 +86,24 @@ tensorflow::Status MetadataStore::InitMetadataStore() {
 tensorflow::Status MetadataStore::InitMetadataStoreIfNotExists() {
   ScopedTransaction transaction(metadata_source_.get());
   TF_RETURN_IF_ERROR(metadata_access_object_->InitMetadataSourceIfNotExists());
+  return transaction.Commit();
+}
+
+tensorflow::Status MetadataStore::PutTypes(const PutTypesRequest& request,
+                                           PutTypesResponse* response) {
+  ScopedTransaction transaction(metadata_source_.get());
+  for (const ArtifactType& artifact_type : request.artifact_types()) {
+    int64 artifact_type_id;
+    TF_RETURN_IF_ERROR(InsertType(metadata_access_object_.get(), artifact_type,
+                                  &artifact_type_id));
+    response->add_artifact_type_ids(artifact_type_id);
+  }
+  for (const ExecutionType& execution_type : request.execution_types()) {
+    int64 execution_type_id;
+    TF_RETURN_IF_ERROR(InsertType(metadata_access_object_.get(), execution_type,
+                                  &execution_type_id));
+    response->add_execution_type_ids(execution_type_id);
+  }
   return transaction.Commit();
 }
 
@@ -72,55 +121,14 @@ tensorflow::Status MetadataStore::PutArtifactType(
   if (!request.artifact_type().has_id()) {
     ScopedTransaction transaction(metadata_source_.get());
     int64 type_id;
-
-    ArtifactType current;
-    tensorflow::Status status = metadata_access_object_->FindTypeByName(
-        request.artifact_type().name(), &current);
-    if (status.ok()) {
-      if (!CheckIdentical(current, request.artifact_type())) {
-        return tensorflow::errors::AlreadyExists(
-            "Type already exists with different properties.");
-      }
-      response->set_type_id(current.id());
-      return transaction.Commit();
-    } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
-      return status;
-    }
-    // If the type does not exist, create it.
-    TF_RETURN_IF_ERROR(
-        metadata_access_object_->CreateType(request.artifact_type(), &type_id));
+    TF_RETURN_IF_ERROR(InsertType(metadata_access_object_.get(),
+                                  request.artifact_type(), &type_id));
     response->set_type_id(type_id);
     return transaction.Commit();
   } else {
     return tensorflow::errors::Unimplemented(
         "Updating type by ID not implemented.");
   }
-}
-
-tensorflow::Status MetadataStore::InsertExecutionType(
-    const PutExecutionTypeRequest& request,
-    PutExecutionTypeResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  int64 type_id;
-
-  ExecutionType current;
-  tensorflow::Status status = metadata_access_object_->FindTypeByName(
-      request.execution_type().name(), &current);
-  if (status.ok()) {
-    if (!CheckIdentical(current, request.execution_type())) {
-      return tensorflow::errors::AlreadyExists(
-          "Type already exists with different properties.");
-    }
-    response->set_type_id(current.id());
-    return transaction.Commit();
-  } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
-    return status;
-  }
-  // If the type does not exist, create it.
-  TF_RETURN_IF_ERROR(
-      metadata_access_object_->CreateType(request.execution_type(), &type_id));
-  response->set_type_id(type_id);
-  return transaction.Commit();
 }
 
 tensorflow::Status MetadataStore::PutExecutionType(
@@ -136,7 +144,12 @@ tensorflow::Status MetadataStore::PutExecutionType(
     return tensorflow::errors::Unimplemented("Must match all fields.");
   }
   if (!request.execution_type().has_id()) {
-    return InsertExecutionType(request, response);
+    ScopedTransaction transaction(metadata_source_.get());
+    int64 type_id;
+    TF_RETURN_IF_ERROR(InsertType(metadata_access_object_.get(),
+                                  request.execution_type(), &type_id));
+    response->set_type_id(type_id);
+    return transaction.Commit();
   } else {
     return tensorflow::errors::Unimplemented(
         "Updating type by ID not implemented.");

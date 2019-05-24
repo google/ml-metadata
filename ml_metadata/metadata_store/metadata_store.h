@@ -126,6 +126,19 @@ class MetadataStore {
   tensorflow::Status GetArtifactType(const GetArtifactTypeRequest& request,
                                      GetArtifactTypeResponse* response);
 
+  // Bulk inserts a list of artifact types and executions types atomically.
+  // If the type with the same name already exists, it compares given properties
+  // in the existed type. If all property matches, then the existing id is
+  // returned.
+  // Returns ALREADY_EXISTS if any of the type to be inserted is different from
+  //     the type with the same name existed.
+  // Returns INVALID_ARGUMENT if the given type message has no name, or the
+  //     property value type is unknown.
+  // Returns detailed INTERNAL error, if query execution fails.
+  // TODO(huimiao) Surface the API in python/Go/gRPC.
+  tensorflow::Status PutTypes(const PutTypesRequest& request,
+                              PutTypesResponse* response);
+
   // Inserts and updates artifacts in request into the database.
   // If artifact_id is specified, an existing artifact is updated.
   // If artifact_id is not specified, a new artifact is created.
@@ -246,22 +259,6 @@ class MetadataStore {
   // To construct the object, see Create(...).
   MetadataStore(std::unique_ptr<MetadataSource> metadata_source,
                 std::unique_ptr<MetadataAccessObject> metadata_access_object);
-
-  // If an execution type with the same name already exists (let's call it
-  // old_execution_type), it compares the given properties in execution_type
-  // with the properties in old_execution_type. If there is a property where
-  // execution_type and old_execution_type have different types, or
-  // execution_type and old_execution_type have different properties, it fails
-  // and returns ALREADY_EXISTS.
-  // Otherwise, it returns the type_id of old_execution_type.
-  // Insert a new execution type.
-  // Returns INVALID_ARGUMENT error, if name field in request.execution_type
-  //     is not given.
-  // Returns INVALID_ARGUMENT error, if any property type in
-  //     request.execution_type is unknown.
-  // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status InsertExecutionType(const PutExecutionTypeRequest& request,
-                                         PutExecutionTypeResponse* response);
 
   std::unique_ptr<MetadataSource> metadata_source_;
   std::unique_ptr<MetadataAccessObject> metadata_access_object_;

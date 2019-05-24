@@ -503,6 +503,7 @@ TEST_F(MetadataStoreTest, PutArtifactsUpdateGetArtifactsByID) {
   EXPECT_THAT(get_artifacts_by_id_response.artifacts(0),
               testing::EqualsProto(put_artifacts_request_2.artifacts(0)));
 }
+
 // Test creating an execution and then updating one of its properties.
 TEST_F(MetadataStoreTest, PutExecutionsUpdateGetExecutionsByID) {
   const PutExecutionTypeRequest put_execution_type_request =
@@ -1050,6 +1051,54 @@ TEST_F(MetadataStoreTest, PutEventGetEvents) {
   ASSERT_EQ(get_events_by_execution_ids_response.events_size(), 1);
   EXPECT_EQ(get_events_by_artifact_ids_response.events(0).artifact_id(),
             put_artifacts_response.artifact_ids(0));
+}
+
+TEST_F(MetadataStoreTest, PutTypesGetTypes) {
+  PutTypesRequest put_request = ParseTextProtoOrDie<PutTypesRequest>(
+      R"(
+        artifact_types: {
+          name: 'test_type1'
+          properties { key: 'property_1' value: STRING }
+        }
+        artifact_types: {
+          name: 'test_type1'
+          properties { key: 'property_1' value: STRING }
+        }
+        execution_types: {
+          name: 'test_type1'
+          properties { key: 'property_1' value: STRING }
+        }
+        execution_types: {
+          name: 'test_type2'
+          properties { key: 'property_1' value: STRING }
+        }
+      )");
+  PutTypesResponse put_response;
+  TF_ASSERT_OK(metadata_store_->PutTypes(put_request, &put_response));
+  ASSERT_EQ(put_response.artifact_type_ids().size(), 2);
+  // Two identical artifact types are inserted. The returned ids are the same.
+  EXPECT_EQ(put_response.artifact_type_ids(0),
+            put_response.artifact_type_ids(1));
+  ASSERT_EQ(put_response.execution_type_ids().size(), 2);
+  // Two different execution types are inserted. The returned ids are different.
+  EXPECT_NE(put_response.execution_type_ids(0),
+            put_response.execution_type_ids(1));
+
+  GetArtifactTypeRequest get_artifact_type_request =
+      ParseTextProtoOrDie<GetArtifactTypeRequest>("type_name: 'test_type1'");
+  GetArtifactTypeResponse get_artifact_type_response;
+  TF_ASSERT_OK(metadata_store_->GetArtifactType(get_artifact_type_request,
+                                                &get_artifact_type_response));
+  EXPECT_EQ(put_response.artifact_type_ids(0),
+            get_artifact_type_response.artifact_type().id());
+
+  GetExecutionTypeRequest get_execution_type_request =
+      ParseTextProtoOrDie<GetExecutionTypeRequest>("type_name: 'test_type2'");
+  GetExecutionTypeResponse get_execution_type_response;
+  TF_ASSERT_OK(metadata_store_->GetExecutionType(get_execution_type_request,
+                                                 &get_execution_type_response));
+  EXPECT_EQ(put_response.execution_type_ids(1),
+            get_execution_type_response.execution_type().id());
 }
 
 }  // namespace

@@ -121,6 +121,18 @@ message PutEventsRequest {
 
 message PutEventsResponse {}
 
+message PutTypesRequest {
+  repeated ArtifactType artifact_types = 1;
+  repeated ExecutionType execution_types = 2;
+}
+
+message PutTypesResponse {
+  // The type ids of the artifact type.
+  repeated int64 artifact_type_ids = 1;
+  // The type ids of the execution type.
+  repeated int64 execution_type_ids = 2;
+}
+
 message GetArtifactsByTypeRequest {
   optional string type_name = 1;
 }
@@ -390,6 +402,26 @@ service MetadataStoreService {
   // Args:
   //   events: A list of events to insert or update.
   rpc PutEvents(PutEventsRequest) returns (PutEventsResponse) {}
+
+  // Bulk inserts types atomically.
+  //
+  // If no type exists in the database with the given name, it creates
+  // a new type.
+  //
+  // If a type with the same name already exists (let's call it
+  // old_type), then the impact depends upon the other options.
+  //
+  // If type == old_type, then nothing happens.
+  //
+  // Otherwise, if there is a field where type and old_type have different
+  // types, then it fails.
+  //
+  // Args:
+  //   artifact_type: the artifact type to add or update.
+  //   execution_type: the execution type to add or update.
+  //
+  // Returns error if a constraint is violated.
+  rpc PutTypes(PutTypesRequest) returns (PutTypesResponse) {}
 
   // Gets an artifact type. Returns a NOT_FOUND error if the type does not
   // exist.
