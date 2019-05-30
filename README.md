@@ -7,7 +7,7 @@
 *ML Metadata (MLMD)* is a library for recording and retrieving metadata
 associated with ML developer and data scientist workflows.
 
-Caution: ML Metadata may be backwards incompatible before version 1.0.
+NOTE: ML Metadata may be backwards incompatible before version 1.0.
 
 ## Getting Started
 

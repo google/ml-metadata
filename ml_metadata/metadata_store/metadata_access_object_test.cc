@@ -282,7 +282,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifact) {
   TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
 
   Artifact artifact = ParseTextProtoOrDie<Artifact>(R"(
-    uri: 'testuri://test/uri'
+    uri: 'testuri://testing/uri'
     properties {
       key: 'property_1'
       value: { int_value: 3 }
@@ -316,7 +316,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithCustomProperty) {
   TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
 
   Artifact artifact = ParseTextProtoOrDie<Artifact>(R"(
-    uri: 'testuri://test/uri'
+    uri: 'testuri://testing/uri'
     custom_properties {
       key: 'custom_property_1'
       value: { int_value: 3 }
@@ -385,7 +385,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactById) {
   TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
 
   Artifact want_artifact = ParseTextProtoOrDie<Artifact>(R"(
-    uri: 'testuri://test/uri'
+    uri: 'testuri://testing/uri'
     properties {
       key: 'property_1'
       value: { int_value: 3 }
@@ -428,7 +428,7 @@ TEST_P(MetadataAccessObjectTest, FindAllArtifacts) {
   TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
 
   Artifact want_artifact1 = ParseTextProtoOrDie<Artifact>(R"(
-    uri: 'testuri://test/uri'
+    uri: 'testuri://testing/uri'
     properties {
       key: 'property_1'
       value: { int_value: 3 }
@@ -473,7 +473,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIds) {
   int64 type_id;
   TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
   Artifact want_artifact1 =
-      ParseTextProtoOrDie<Artifact>("uri: 'testuri://test/uri1'");
+      ParseTextProtoOrDie<Artifact>("uri: 'testuri://testing/uri1'");
   want_artifact1.set_type_id(type_id);
   int64 artifact1_id;
   TF_ASSERT_OK(
@@ -481,7 +481,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIds) {
   want_artifact1.set_id(artifact1_id);
 
   Artifact want_artifact2 =
-      ParseTextProtoOrDie<Artifact>("uri: 'testuri://test/uri2'");
+      ParseTextProtoOrDie<Artifact>("uri: 'testuri://testing/uri2'");
   want_artifact2.set_type_id(type_id);
   int64 artifact2_id;
   TF_ASSERT_OK(
@@ -511,7 +511,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByURI) {
   int64 type_id;
   TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
   Artifact want_artifact1 =
-      ParseTextProtoOrDie<Artifact>("uri: 'testuri://test/uri1'");
+      ParseTextProtoOrDie<Artifact>("uri: 'testuri://testing/uri1'");
   want_artifact1.set_type_id(type_id);
   int64 artifact1_id;
   TF_ASSERT_OK(
@@ -519,7 +519,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByURI) {
   want_artifact1.set_id(artifact1_id);
 
   Artifact artifact2 =
-      ParseTextProtoOrDie<Artifact>("uri: 'testuri://test/uri2'");
+      ParseTextProtoOrDie<Artifact>("uri: 'testuri://testing/uri2'");
   artifact2.set_type_id(type_id);
   int64 artifact2_id;
   TF_ASSERT_OK(
@@ -528,7 +528,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByURI) {
 
   std::vector<Artifact> artifacts;
   TF_EXPECT_OK(metadata_access_object_->FindArtifactsByURI(
-      "testuri://test/uri1", &artifacts));
+      "testuri://testing/uri1", &artifacts));
   ASSERT_EQ(artifacts.size(), 1);
   EXPECT_THAT(artifacts[0], EqualsProto(want_artifact1));
 }
@@ -545,7 +545,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
   TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
 
   Artifact stored_artifact = ParseTextProtoOrDie<Artifact>(R"(
-    uri: 'testuri://test/uri'
+    uri: 'testuri://testing/uri'
     properties {
       key: 'property_1'
       value: { int_value: 3 }
@@ -601,7 +601,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactError) {
   TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
 
   Artifact artifact = ParseTextProtoOrDie<Artifact>(R"(
-    uri: 'testuri://test/uri'
+    uri: 'testuri://testing/uri'
     properties {
       key: 'property_1'
       value: { int_value: 3 }

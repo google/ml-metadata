@@ -416,7 +416,7 @@ TEST_F(MetadataStoreTest, PutArtifactsGetArtifactsByID) {
   PutArtifactsRequest put_artifacts_request =
       ParseTextProtoOrDie<PutArtifactsRequest>(R"(
         artifacts: {
-          uri: 'testuri://test/uri'
+          uri: 'testuri://testing/uri'
           properties {
             key: 'property'
             value: { string_value: '3' }
@@ -462,7 +462,7 @@ TEST_F(MetadataStoreTest, PutArtifactsUpdateGetArtifactsByID) {
   PutArtifactsRequest put_artifacts_request =
       ParseTextProtoOrDie<PutArtifactsRequest>(R"(
         artifacts: {
-          uri: 'testuri://test/uri'
+          uri: 'testuri://testing/uri'
           properties {
             key: 'property'
             value: { string_value: '3' }
@@ -480,7 +480,7 @@ TEST_F(MetadataStoreTest, PutArtifactsUpdateGetArtifactsByID) {
   PutArtifactsRequest put_artifacts_request_2 =
       ParseTextProtoOrDie<PutArtifactsRequest>(R"(
         artifacts: {
-          uri: 'testuri://test/uri'
+          uri: 'testuri://testing/uri'
           properties {
             key: 'property'
             value: { string_value: '2' }

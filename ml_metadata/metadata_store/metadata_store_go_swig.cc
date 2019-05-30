@@ -23,7 +23,7 @@ limitations under the License.
  * interface file instead. 
  * ----------------------------------------------------------------------------- */
 
-// source: blaze-out/k8-fastbuild/genfiles/third_party/ml_metadata/metadata_store/metadata_store_go.swig
+// Auto generated files. Please do not change.
 
 #define SWIGMODULE third__party_ml__metadata_metadata__store_metadata__store__go__wrap
 /* -----------------------------------------------------------------------------
