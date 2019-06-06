@@ -10,25 +10,40 @@ workspace(name = "ml_metadata")
 
 
 load("//ml_metadata:repo.bzl", "tensorflow_http_archive")
-
-# v1.13.0-rc0
-tensorflow_http_archive(
-    name = "org_tensorflow",
-    sha256 = "1677e8e5bf9d5a9041aa5fc12ea6ff82eecc8603f6fd1292f0759b90e7096c21",
-    git_commit = "a8e5c41c5bbe684a88b9285e07bd9838c089e83b",
-)
-
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
+# v1.14.0-rc0
+# updated: 2019/05/30
+_TENSORFLOW_GIT_COMMIT = "f5ce1c00d4397875ff3d706881bd46430f4a9667"
+http_archive(
+    name = "org_tensorflow",
+    sha256 = "1bc357f72d6582351cfb3eb6a340aa496539277b2177a641dd203b40ac54fc27",
+    urls = [
+      "https://mirror.bazel.build/github.com/tensorflow/tensorflow/archive/%s.tar.gz" % _TENSORFLOW_GIT_COMMIT,
+      "https://github.com/tensorflow/tensorflow/archive/%s.tar.gz" % _TENSORFLOW_GIT_COMMIT,
+    ],
+    strip_prefix = "tensorflow-%s" % _TENSORFLOW_GIT_COMMIT,
+)
 
+# Needed by tf_py_wrap_cc rule from Tensorflow.
+# When upgrading tensorflow version, also check tensorflow/WORKSPACE for the
+# version of this -- keep in sync.
+http_archive(
+    name = "bazel_skylib",
+    sha256 = "2ef429f5d7ce7111263289644d233707dba35e39696377ebab8b0bc701f7818e",
+    urls = ["https://github.com/bazelbuild/bazel-skylib/releases/download/0.8.0/bazel-skylib.0.8.0.tar.gz"],
+)
+
+# TensorFlow depends on "io_bazel_rules_closure" so we need this here.
+# Needs to be kept in sync with the same target in TensorFlow's WORKSPACE file.
 http_archive(
     name = "io_bazel_rules_closure",
-    sha256 = "43c9b882fa921923bcba764453f4058d102bece35a37c9f6383c713004aacff1",
-    strip_prefix = "rules_closure-9889e2348259a5aad7e805547c1a0cf311cfcd91",
+    sha256 = "e0a111000aeed2051f29fcc7a3f83be3ad8c6c93c186e64beb1ad313f0c7f9f9",
+    strip_prefix = "rules_closure-cf1e44edb908e9616030cc83d085989b8e6cd6df",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_closure/archive/9889e2348259a5aad7e805547c1a0cf311cfcd91.tar.gz",
-        "https://github.com/bazelbuild/rules_closure/archive/9889e2348259a5aad7e805547c1a0cf311cfcd91.tar.gz",  # 2018-12-21
+        "http://mirror.tensorflow.org/github.com/bazelbuild/rules_closure/archive/cf1e44edb908e9616030cc83d085989b8e6cd6df.tar.gz",
+        "https://github.com/bazelbuild/rules_closure/archive/cf1e44edb908e9616030cc83d085989b8e6cd6df.tar.gz",  # 2019-04-04
     ],
 )
 
@@ -78,4 +93,4 @@ ml_metadata_workspace()
 # Specify the minimum required bazel version.
 load("@org_tensorflow//tensorflow:version_check.bzl", "check_bazel_version_at_least")
 
-check_bazel_version_at_least("0.18.0")
+check_bazel_version_at_least("0.24.1")
