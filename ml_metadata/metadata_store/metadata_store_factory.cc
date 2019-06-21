@@ -21,6 +21,7 @@ limitations under the License.
 #include "ml_metadata/util/metadata_source_query_config.h"
 #include "tensorflow/core/lib/core/errors.h"
 
+
 namespace ml_metadata {
 
 namespace {
@@ -41,6 +42,7 @@ tensorflow::Status CreateSqliteMetadataStore(
       absl::make_unique<SqliteMetadataSource>(config), result));
   return (*result)->InitMetadataStoreIfNotExists();
 }
+
 
 }  // namespace
 

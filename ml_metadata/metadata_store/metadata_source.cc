@@ -94,7 +94,7 @@ ScopedTransaction::~ScopedTransaction() {
 }
 
 // Commit the transaction.
-// If there is a failure during the commit, the commit_ flag is not
+// If there is a failure during the commit, the committed_ flag is not
 // set, resulting in a Rollback().
 // Should be called no more than once on a transaction.
 tensorflow::Status ScopedTransaction::Commit() {
@@ -104,9 +104,11 @@ tensorflow::Status ScopedTransaction::Commit() {
     return ::tensorflow::errors::FailedPrecondition(
         "Cannot commit a transaction twice");
   }
-  TF_CHECK_OK(metadata_source_->Commit());
-  committed_ = true;
-  return tensorflow::Status::OK();
+  tensorflow::Status status = metadata_source_->Commit();
+  if (status.ok()) {
+    committed_ = true;
+  }
+  return status;
 }
 
 }  // namespace ml_metadata

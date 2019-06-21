@@ -345,6 +345,7 @@ message SqliteMetadataSourceConfig {
   optional ConnectionMode connection_mode = 2;
 }
 
+
 // Configuration for a new connection.
 message ConnectionConfig {
   oneof config {

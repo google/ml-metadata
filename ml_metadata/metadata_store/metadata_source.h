@@ -91,6 +91,8 @@ class MetadataSource {
   // Commits a transaction.
   // Returns FAILED_PRECONDITION error, if Connection() is not opened.
   // Returns FAILED_PRECONDITION error, if a transaction has not begun.
+  // Returns ABORTED error, if there is a data race detected at commit time.
+  // The caller can rollback the transaction, and retry the transaction again.
   tensorflow::Status Commit();
 
   // Rolls back a transaction. Undoes all uncommitted updates queries, i.e., all

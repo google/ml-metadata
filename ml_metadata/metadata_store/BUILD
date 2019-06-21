@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//ml_metadata:ml_metadata.bzl", "ml_metadata_go_library", "ml_metadata_go_test", "ml_metadata_go_wrap_cc", "ml_metadata_cc_test")
+load("//ml_metadata:ml_metadata.bzl", "ml_metadata_cc_test", "ml_metadata_go_library", "ml_metadata_go_test", "ml_metadata_go_wrap_cc")
 load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_py_wrap_cc")
 
 licenses(["notice"])  # Apache 2.0
@@ -129,11 +129,23 @@ ml_metadata_cc_test(
 )
 
 cc_library(
+    name = "sqlite_metadata_source_util",
+    srcs = ["sqlite_metadata_source_util.cc"],
+    hdrs = ["sqlite_metadata_source_util.h"],
+    deps = [
+        "@com_google_absl//absl/strings",
+        "//ml_metadata/proto:metadata_source_proto",
+        "@org_sqlite",
+    ],
+)
+
+cc_library(
     name = "sqlite_metadata_source",
     srcs = ["sqlite_metadata_source.cc"],
     hdrs = ["sqlite_metadata_source.h"],
     deps = [
         ":metadata_source",
+        ":sqlite_metadata_source_util",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "//ml_metadata/proto:metadata_store_proto",

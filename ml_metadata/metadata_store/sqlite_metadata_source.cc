@@ -17,6 +17,7 @@ limitations under the License.
 #include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "ml_metadata/metadata_store/sqlite_metadata_source_util.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "sqlite3.h"
 #include "tensorflow/core/lib/core/errors.h"
@@ -52,31 +53,6 @@ int GetConnectionFlag(const SqliteMetadataSourceConfig& config) {
       LOG(FATAL) << "Unknown connection mode.";
   }
   return result;
-}
-
-// A callback of sqlite3_exec. It converts the query results (`column_vals`) if
-// any to a RecordSet (`results`). The `results` should be owned by the caller
-// of sqlite3_exec. If the given RecordSet (`results`) is nullptr, the query
-// result is ignored.
-// (see https://www.sqlite.org/c3ref/exec.html for details)
-int ConvertSqliteResultsToRecordSet(void* results, int column_num,
-                                    char** column_vals, char** column_names) {
-  // return if queries return no result, e.g., create, insert, update, etc.
-  if (column_num == 0) return SQLITE_OK;
-  RecordSet* record_set = static_cast<RecordSet*>(results);
-  // ignore the results of the query, if the user passes a nullptr for results.
-  if (record_set == nullptr) return SQLITE_OK;
-  // parse the query results to the record_sets (column_names and records)
-  // as sqlite calls the callback repetitively for each row, it sets the column
-  // names at the first time.
-  bool is_column_name_initted = (record_set->column_names_size() == column_num);
-  if (!is_column_name_initted) record_set->clear_column_names();
-  RecordSet::Record* record = record_set->add_records();
-  for (int i = 0; i < column_num; i++) {
-    if (!is_column_name_initted) record_set->add_column_names(column_names[i]);
-    record->add_values(column_vals[i] ? column_vals[i] : "");
-  }
-  return SQLITE_OK;
 }
 
 // A set of options when waiting for table locks in a sqlite3_busy_handler.
@@ -179,10 +155,7 @@ tensorflow::Status SqliteMetadataSource::RollbackImpl() {
 }
 
 string SqliteMetadataSource::EscapeString(absl::string_view value) const {
-  char* buffer = sqlite3_mprintf("%q", value.data());  // NOLINT
-  string result(buffer);
-  sqlite3_free(buffer);
-  return result;
+  return SqliteEscapeString(value);
 }
 
 }  // namespace ml_metadata

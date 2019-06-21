@@ -42,6 +42,7 @@ enum MetadataSourceType {
   MYSQL_METADATA_SOURCE = 2;
   // A Sqlite metadata source
   SQLITE_METADATA_SOURCE = 3;
+
 }
 
 // A config includes a set of SQL queries and the type of metadata source.
