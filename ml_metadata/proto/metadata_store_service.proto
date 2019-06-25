@@ -59,6 +59,7 @@ message PutArtifactsResponse {
 }
 
 message PutArtifactTypeRequest {
+  // The field is required in any request.
   optional ArtifactType artifact_type = 1;
   // if true, you can add fields with this operation. If false,
   // then if there are more fields in artifact_type than in the database,
@@ -92,6 +93,7 @@ message PutExecutionsResponse {
 }
 
 message PutExecutionTypeRequest {
+  // The field is required in any request.
   optional ExecutionType execution_type = 1;
   // if true, you can add fields with this operation. If false,
   // then if there are more fields in execution_type than in the database,
@@ -132,6 +134,49 @@ message PutTypesResponse {
   // The type ids of the execution type.
   repeated int64 execution_type_ids = 2;
 }
+
+message PutContextTypeRequest {
+  // The field is required in any request.
+  optional ContextType context_type = 1;
+  // if true, you can add fields with this operation. If false, then if there
+  // are more fields in context_type than in the database, the call fails.
+  optional bool can_add_fields = 2;
+
+  // if true, you can remove fields with this operation. If false, then if there
+  // are less fields in context_type than in the database, the call fails.
+  optional bool can_delete_fields = 3;
+
+  // if true, and a context_type with the same name exists, then all fields
+  // must match.
+  optional bool all_fields_match = 4;
+}
+
+message PutContextTypeResponse {
+  // The type ID of the context type.
+  optional int64 type_id = 1;
+}
+
+message PutContextsRequest {
+  repeated Context contexts = 1;
+}
+
+message PutContextsResponse {
+  // A list of context ids index-aligned with PutContextsRequest.
+  repeated int64 context_ids = 1;
+}
+
+message PutAttributionsAndAssociationsRequest {
+  repeated Attribution attributions = 1;
+  repeated Association associations = 2;
+}
+
+message PutAttributionsAndAssociationsResponse {}
+
+message PutParentContextsRequest {
+  repeated ParentContext parent_contexts = 1;
+}
+
+message PutParentContextsResponse {}
 
 message GetArtifactsByTypeRequest {
   optional string type_name = 1;
@@ -248,55 +293,87 @@ message GetExecutionTypesByIDResponse {
   repeated ExecutionType execution_types = 1;
 }
 
-message GetRequest {
-  // artifact_ids: Artifact IDs to be directly searched for.
-  repeated int64 artifact_ids = 1;
-  // execution_ids: Artifact IDs to be directly searched for.
-  repeated int64 execution_ids = 2;
-  // artifact_types: Artifact types to be searched for.
-  repeated string artifact_types = 3;
-  // execution_types: Execution types to be searched for.
-  repeated string execution_types = 4;
+message GetContextTypeRequest {
+  optional string type_name = 1;
 }
 
-// A snapshot of all or part of the database.
-message DatabaseView {
-  repeated Artifact artifacts = 1;
-  repeated ArtifactType artifact_types = 2;
-  repeated Execution executions = 3;
-  repeated ExecutionType execution_types = 4;
-  repeated Event events = 5;
+message GetContextTypeResponse {
+  // Gets a context type, or clear if it does not exist.
+  optional ContextType context_type = 1;
 }
 
-message GetResponse {
-  optional DatabaseView view = 1;
+message GetContextTypesByIDRequest {
+  repeated int64 type_ids = 1;
 }
 
-message GetAllRequest {
-  // If unset, return all values.
-  optional int32 max_artifacts_num = 1;
+message GetContextTypesByIDResponse {
+  repeated ContextType context_types = 1;
 }
 
-message GetAllResponse {
-  optional DatabaseView view = 1;
+message GetContextsRequest {
+  // TODO(martinz): add query constraints here.
 }
 
-message MakeArtifactLiveRequest {
+message GetContextsResponse {
+  // All contexts.
+  repeated Context contexts = 1;
+}
+
+message GetContextsByTypeRequest {
+  optional string type_name = 1;
+}
+
+message GetContextsByTypeResponse {
+  repeated Context contexts = 1;
+}
+
+message GetContextsByArtifactRequest {
   optional int64 artifact_id = 1;
 }
 
-message MakeArtifactLiveResponse {}
-
-message CompleteExecutionRequest {
-  // The execution to change to COMPLETE.
-  // The state must be NEW or RUNNING.
-  optional int64 execution_id = 1;
-  // The artifacts to change to LIVE.
-  // The artifacts must be NEW or CREATABLE.
-  repeated int64 artifact_ids = 2;
+message GetContextsByArtifactResponse {
+  repeated Context contexts = 1;
 }
 
-message CompleteExecutionResponse {}
+message GetContextsByExecutionRequest {
+  optional int64 execution_id = 1;
+}
+
+message GetContextsByExecutionResponse {
+  repeated Context contexts = 1;
+}
+
+message GetParentContextsByContextRequest {
+  optional int64 context_id = 1;
+}
+
+message GetParentContextsByContextResponse {
+  repeated Context contexts = 1;
+}
+
+message GetChildrenContextsByContextRequest {
+  optional int64 context_id = 1;
+}
+
+message GetChildrenContextsByContextResponse {
+  repeated Context contexts = 1;
+}
+
+message GetArtifactsByContextRequest {
+  optional int64 context_id = 1;
+}
+
+message GetArtifactsByContextResponse {
+  repeated Artifact artifacts = 1;
+}
+
+message GetExecutionsByContextRequest {
+  optional int64 context_id = 1;
+}
+
+message GetExecutionsByContextResponse {
+  repeated Execution executions = 1;
+}
 
 service MetadataStoreService {
   // Inserts or updates artifacts in the database.
@@ -423,6 +500,58 @@ service MetadataStoreService {
   // Returns error if a constraint is violated.
   rpc PutTypes(PutTypesRequest) returns (PutTypesResponse) {}
 
+  // Inserts or updates an ContextType.
+  //
+  // If no context type exists in the database with the given name, it
+  // creates a new context type (and a database).
+  //
+  // If an context type with the same name already exists (let's call it
+  // old_context_type), then the impact depends upon the other options.
+  //
+  // If context_type == old_context_type, nothing happens (its id is returned).
+  //
+  // Otherwise, when context_type and old_context_type have different types,
+  // a) if all_fields_match is True: then it fails.
+  // b) can_add_fields is True: it fails when old_context_type has additional
+  // fields than context_type.
+  //
+  // Returns error if a constraint is violated.
+  rpc PutContextType(PutContextTypeRequest) returns (PutContextTypeResponse) {}
+
+  // Inserts or updates contexts in database and returns a list of context ids.
+  //
+  // If an context_id is specified for a context, it is an update.
+  // If an context_id is unspecified, it will insert a new context.
+  // For new contexts, type must be specified.
+  // For old contexts, type must be unchanged or unspecified.
+  //
+  // Args:
+  //   contexts: A list of contexts to insert or update.
+  //
+  // Returns:
+  //   A list of context ids index-aligned with the input.
+  rpc PutContexts(PutContextsRequest) returns (PutContextsResponse) {}
+
+  // Inserts attribution and association relationships in the database.
+  // The context_id, artifact_id, and execution_id must already exist.
+  // If the relationship exists, this call does nothing. Once added, the
+  // relationships cannot be modified.
+  //
+  // Args:
+  //   attributions: A list of attributions to insert.
+  //   associations: A list of associations to insert.
+  rpc PutAttributionsAndAssociations(PutAttributionsAndAssociationsRequest)
+      returns (PutAttributionsAndAssociationsResponse) {}
+
+  // Inserts parental context relationships in the database.
+  // The ParentContext relationship has direction. The call fails if cycles are
+  // detected.
+  //
+  // Args:
+  //   parent_contexts: A list of parent contexts to insert.
+  rpc PutParentContexts(PutParentContextsRequest)
+      returns (PutParentContextsResponse) {}
+
   // Gets an artifact type. Returns a NOT_FOUND error if the type does not
   // exist.
   rpc GetArtifactType(GetArtifactTypeRequest)
@@ -442,16 +571,26 @@ service MetadataStoreService {
   rpc GetExecutionTypesByID(GetExecutionTypesByIDRequest)
       returns (GetExecutionTypesByIDResponse) {}
 
+  // Gets a context type. Returns a NOT_FOUND error if the type does not exist.
+  rpc GetContextType(GetContextTypeRequest) returns (GetContextTypeResponse) {}
+
+  // Gets a list of context types by ID.
+  // If no context types with an ID exists, the context type is skipped.
+  rpc GetContextTypesByID(GetContextTypesByIDRequest)
+      returns (GetContextTypesByIDResponse) {}
+
   // Gets all the artifacts.
   rpc GetArtifacts(GetArtifactsRequest) returns (GetArtifactsResponse) {}
 
   // Gets all the executions.
   rpc GetExecutions(GetExecutionsRequest) returns (GetExecutionsResponse) {}
 
+  // Gets all the contexts.
+  rpc GetContexts(GetContextsRequest) returns (GetContextsResponse) {}
+
   // Gets all artifacts with matching ids.
   //
-  // The result is not index-aligned: if an id is not found, it is not
-  // returned.
+  // The result is not index-aligned: if an id is not found, it is not returned.
   //
   // Args:
   //   artifact_ids: A list of artifact ids to retrieve.
@@ -463,12 +602,20 @@ service MetadataStoreService {
 
   // Gets all executions with matching ids.
   //
-  // The result is not index-aligned: if an id is not found, it is not
-  // returned.
+  // The result is not index-aligned: if an id is not found, it is not returned.
   //
   // Args:
   //   execution_ids: A list of execution ids to retrieve.
   rpc GetExecutionsByID(GetExecutionsByIDRequest)
+      returns (GetExecutionsByIDResponse) {}
+
+  // Gets all contexts with matching ids.
+  //
+  // The result is not index-aligned: if an id is not found, it is not returned.
+  //
+  // Args:
+  //   context_ids: A list of context ids to retrieve.
+  rpc GetContextsByID(GetExecutionsByIDRequest)
       returns (GetExecutionsByIDResponse) {}
 
   // Gets all the artifacts of a given type.
@@ -478,6 +625,10 @@ service MetadataStoreService {
   // Gets all the executions of a given type.
   rpc GetExecutionsByType(GetExecutionsByTypeRequest)
       returns (GetExecutionsByTypeResponse) {}
+
+  // Gets all the contexts of a given type.
+  rpc GetContextsByType(GetContextsByTypeRequest)
+      returns (GetContextsByTypeResponse) {}
 
   // Gets all the artifacts of a given uri.
   rpc GetArtifactsByURI(GetArtifactsByURIRequest)
@@ -491,53 +642,27 @@ service MetadataStoreService {
   rpc GetEventsByArtifactIDs(GetEventsByArtifactIDsRequest)
       returns (GetEventsByArtifactIDsResponse) {}
 
-  // Gets a snapshot of the entire database.
-  //
-  // TODO(martinz): This method is a very blunt instrument. As the use cases
-  // evolve, let's dive into the uses of this method.
-  //
-  // Returns:
-  //   A view of all artifacts, executions, types, and events in the database.
-  rpc GetAll(GetAllRequest) returns (GetAllResponse) {}
+  // Gets all context that an artifact is attributed to.
+  rpc GetContextsByArtifact(GetContextsByArtifactRequest)
+      returns (GetContextsByArtifactResponse) {}
 
-  // TODO(martinz): This method is a very blunt instrument. As the use cases
-  // evolve, let's dive into the uses of this method.
-  //
-  // Args:
-  //   artifact_ids: Artifact IDs to be directly searched for.
-  //   artifact_types: Artifact types to be searched for.
-  //   execution_ids: Artifact IDs to be directly searched for.
-  //   execution_types: Execution types to be searched for.
-  //
-  // Returns:
-  //   All artifacts of the given types are returned.
-  //   All executions of the given types are returned.
-  //   All artifacts with the given IDs are returned.
-  //   All executions with the given IDs are returned.
-  //   If a artifact type is requested or it is the type of a returned
-  // artifact, it is returned. If an execution type is requested or it is the
-  // type of a returned execution, it is returned. If an event refers to a
-  // returned artifact or execution, it is returned.
-  rpc Get(GetRequest) returns (GetResponse) {}
+  // Gets all context that an execution is associated with.
+  rpc GetContextsByExecution(GetContextsByExecutionRequest)
+      returns (GetContextsByExecutionResponse) {}
 
-  // Changes the state of each artifact to LIVE.
-  //
-  // The artifact state must be NEW or CREATABLE.
-  //
-  // Args:
-  //   artifact_id: the ID of the artifact.
-  rpc MakeArtifactLive(MakeArtifactLiveRequest)
-      returns (MakeArtifactLiveResponse) {}
+  // Gets all parent contexts that a context is related.
+  rpc GetParentContextsByContext(GetParentContextsByContextRequest)
+      returns (GetParentContextsByContextResponse) {}
 
-  // Changes the state of an execution to COMPLETE and the artifacts to
-  // LIVE.
-  //
-  // The execution state must be NEW or RUNNING.
-  // The artifacts must be NEW or CREATABLE.
-  //
-  // Args:
-  //   execution_id: the execution to change to COMPLETE.
-  //   artifact_ids: the artifacts to change to LIVE.
-  rpc CompleteExecution(CompleteExecutionRequest)
-      returns (CompleteExecutionResponse) {}
+  // Gets all children contexts that a context is related.
+  rpc GetChildrenContextsByContext(GetChildrenContextsByContextRequest)
+      returns (GetChildrenContextsByContextResponse) {}
+
+  // Gets all direct artifacts that a context attributes to.
+  rpc GetArtifactsByContext(GetArtifactsByContextRequest)
+      returns (GetArtifactsByContextResponse) {}
+
+  // Gets all direct executions that a context associates with.
+  rpc GetExecutionsByContext(GetExecutionsByContextRequest)
+      returns (GetExecutionsByContextResponse) {}
 }

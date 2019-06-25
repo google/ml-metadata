@@ -1,3 +1,16 @@
+# Current version (not yet released; still in development)
+
+## Major Features and Improvements
+
+*   Add Context and ContextType to MLMD data model, which are used for capturing
+    grouping concepts (e.g., Project, Pipeline, Owner, etc) of Artifacts and
+    Executions.
+
+## Bug Fixes and Other Changes
+
+## Breaking changes
+
+## Deprecations
 
 # Version 0.13.2
 

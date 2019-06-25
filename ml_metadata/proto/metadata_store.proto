@@ -55,7 +55,8 @@ enum PropertyType {
 message ArtifactType {
   // The id of the type. 1-1 relationship between type names and IDs.
   optional int64 id = 1;
-  // The name of the type.
+  // The name of the type. It must be unique among ArtifactTypes within a
+  // database instance.
   optional string name = 2;
   // The schema of the type.
   // Properties are always optional in the artifact.
@@ -152,7 +153,8 @@ message Execution {
 message ExecutionType {
   // The id of the type. 1-1 relationship between type names and IDs.
   optional int64 id = 1;
-  // The name of the type.
+  // The name of the type. It must be unique among ExecutionTypes within a
+  // database instance.
   optional string name = 2;
   // The schema of the type.
   // Properties are always optional in the execution.
@@ -178,6 +180,51 @@ message ExecutionType {
   // The ArtifactStructType of the output.
   // For example {"simple":{...stats gen output type...}}
   optional ArtifactStructType output_type = 5;
+}
+
+message ContextType {
+  // The id of the type. 1-1 relationship between type names and IDs.
+  optional int64 id = 1;
+  // The name of the type, e.g., Pipeline, Task, Session, User, etc. It must be
+  // unique among ContextTypes within a database instance.
+  optional string name = 2;
+  // The schema of the type, e.g., name: string, owner: string
+  // Properties are always optional in the context.
+  // Properties of an context type can be expanded but not contracted (i.e.,
+  // you can add columns but not remove them).
+  map<string, PropertyType> properties = 3;
+}
+
+message Context {
+  // The id of the context instance.
+  optional int64 id = 1;
+  // The id of its ContextType. ContextType must be specified when a context is
+  // created, and it cannot be changed.
+  optional int64 type_id = 2;
+  // The unique user given name of the Context.
+  optional string name = 3;
+  // Values of the properties, which must be specified in the ContextType.
+  map<string, Value> properties = 4;
+  // User provided custom properties which are not defined by its type.
+  map<string, Value> custom_properties = 5;
+}
+
+// the Attribution edges between Context and Artifact instances.
+message Attribution {
+  optional int64 artifact_id = 1;
+  optional int64 context_id = 2;
+}
+
+// the Association edges between Context and Execution instances.
+message Association {
+  optional int64 execution_id = 1;
+  optional int64 context_id = 2;
+}
+
+// the Parental Context edges between Context and Context instances.
+message ParentContext {
+  optional int64 child_id = 1;
+  optional int64 parent_id = 2;
 }
 
 // The type of an ArtifactStruct.
