@@ -133,13 +133,16 @@ message Execution {
   // The id of an ExecutionType.
   // The ExecutionType must be specified and cannot be changed.
   optional int64 type_id = 2;
-  // TODO(martinz): consider adding INVALIDATED as a state.
+  // The state of the Execution. The state transitions are
+  //   NEW -> RUNNING -> COMPLETE | CACHED | FAILED
+  // CACHED means the execution is skipped due to cached results.
   enum State {
     UNKNOWN = 0;
     NEW = 1;
     RUNNING = 2;
     COMPLETE = 3;
     FAILED = 4;
+    CACHED = 5;
   }
   // The last known state of an execution.
   optional State last_known_state = 3;
@@ -313,7 +316,7 @@ message NoneArtifactStructType {}
 // Every ArtifactStruct is a member of this type.
 message AnyArtifactStructType {}
 
-// An ordered list of heterogenous artifact structs.
+// An ordered list of heterogeneous artifact structs.
 // The length of the list is fixed.
 // Each position in the list can have a different type.
 message TupleArtifactStructType {

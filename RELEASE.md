@@ -5,6 +5,8 @@
 *   Add Context and ContextType to MLMD data model, which are used for capturing
     grouping concepts (e.g., Project, Pipeline, Owner, etc) of Artifacts and
     Executions.
+*   Add CACHED state to Execution state enum to model an execution that is
+    skipped due to cached results.
 
 ## Bug Fixes and Other Changes
 
