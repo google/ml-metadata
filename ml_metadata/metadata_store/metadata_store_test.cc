@@ -29,8 +29,8 @@ limitations under the License.
 
 namespace ml_metadata {
 namespace {
-using std::unique_ptr;
-using testing::ParseTextProtoOrDie;
+
+using ::ml_metadata::testing::ParseTextProtoOrDie;
 
 class MetadataStoreTest : public ::testing::Test {
  protected:
@@ -101,6 +101,63 @@ TEST_F(MetadataStoreTest, PutArtifactTypeGetArtifactType) {
       << "The name should be the same as the one returned.";
   // Don't test all the properties, to make the serialization of the type
   // more flexible. This can be tested at other layers.
+}
+
+TEST_F(MetadataStoreTest, PutArtifactTypesGetArtifactTypes) {
+  const PutArtifactTypeRequest put_request_1 =
+      ParseTextProtoOrDie<PutArtifactTypeRequest>(
+          R"(
+            all_fields_match: true
+            artifact_type: {
+              name: 'test_type_1'
+              properties { key: 'property_1' value: STRING }
+            }
+          )");
+  PutArtifactTypeResponse put_response;
+  TF_ASSERT_OK(metadata_store_->PutArtifactType(put_request_1, &put_response));
+  ASSERT_TRUE(put_response.has_type_id());
+  ArtifactType type_1 = ParseTextProtoOrDie<ArtifactType>(
+      R"(
+        name: 'test_type_1'
+        properties { key: 'property_1' value: STRING }
+      )");
+  type_1.set_id(put_response.type_id());
+
+  const PutArtifactTypeRequest put_request_2 =
+      ParseTextProtoOrDie<PutArtifactTypeRequest>(
+          R"(
+            all_fields_match: true
+            artifact_type: {
+              name: 'test_type_2'
+              properties { key: 'property_2' value: INT }
+            }
+          )");
+  TF_ASSERT_OK(metadata_store_->PutArtifactType(put_request_2, &put_response));
+  ASSERT_TRUE(put_response.has_type_id());
+  ArtifactType type_2 = ParseTextProtoOrDie<ArtifactType>(
+      R"(
+        name: 'test_type_2'
+        properties { key: 'property_2' value: INT }
+      )");
+  type_2.set_id(put_response.type_id());
+
+  GetArtifactTypesRequest get_request;
+  GetArtifactTypesResponse got_response;
+  TF_ASSERT_OK(metadata_store_->GetArtifactTypes(get_request, &got_response));
+  GetArtifactTypesResponse want_response;
+  *want_response.add_artifact_types() = type_1;
+  *want_response.add_artifact_types() = type_2;
+  EXPECT_THAT(got_response, testing::EqualsProto(want_response));
+}
+
+TEST_F(MetadataStoreTest, GetArtifactTypesWhenNoneExist) {
+  GetArtifactTypesRequest get_request;
+  GetArtifactTypesResponse got_response;
+
+  // Expect OK status and empty response.
+  TF_ASSERT_OK(metadata_store_->GetArtifactTypes(get_request, &got_response));
+  const GetArtifactTypesResponse want_response;
+  EXPECT_THAT(got_response, testing::EqualsProto(want_response));
 }
 
 // Create an artifact, then try to create it again with an added property.
@@ -600,6 +657,63 @@ TEST_F(MetadataStoreTest, PutExecutionTypeGetExecutionType) {
   ExecutionType expected = put_request.execution_type();
   expected.set_id(put_response.type_id());
   EXPECT_THAT(get_response.execution_type(), testing::EqualsProto(expected));
+}
+
+TEST_F(MetadataStoreTest, PutExecutionTypesGetExecutionTypes) {
+  const PutExecutionTypeRequest put_request_1 =
+      ParseTextProtoOrDie<PutExecutionTypeRequest>(
+          R"(
+            all_fields_match: true
+            execution_type: {
+              name: 'test_type_1'
+              properties { key: 'property_1' value: STRING }
+            }
+          )");
+  PutExecutionTypeResponse put_response;
+  TF_ASSERT_OK(metadata_store_->PutExecutionType(put_request_1, &put_response));
+  ASSERT_TRUE(put_response.has_type_id());
+  ExecutionType type_1 = ParseTextProtoOrDie<ExecutionType>(
+      R"(
+        name: 'test_type_1'
+        properties { key: 'property_1' value: STRING }
+      )");
+  type_1.set_id(put_response.type_id());
+
+  const PutExecutionTypeRequest put_request_2 =
+      ParseTextProtoOrDie<PutExecutionTypeRequest>(
+          R"(
+            all_fields_match: true
+            execution_type: {
+              name: 'test_type_2'
+              properties { key: 'property_2' value: INT }
+            }
+          )");
+  TF_ASSERT_OK(metadata_store_->PutExecutionType(put_request_2, &put_response));
+  ASSERT_TRUE(put_response.has_type_id());
+  ExecutionType type_2 = ParseTextProtoOrDie<ExecutionType>(
+      R"(
+        name: 'test_type_2'
+        properties { key: 'property_2' value: INT }
+      )");
+  type_2.set_id(put_response.type_id());
+
+  GetExecutionTypesRequest get_request;
+  GetExecutionTypesResponse got_response;
+  TF_ASSERT_OK(metadata_store_->GetExecutionTypes(get_request, &got_response));
+  GetExecutionTypesResponse want_response;
+  *want_response.add_execution_types() = type_1;
+  *want_response.add_execution_types() = type_2;
+  EXPECT_THAT(got_response, testing::EqualsProto(want_response));
+}
+
+TEST_F(MetadataStoreTest, GetExecutionTypesWhenNoneExist) {
+  GetExecutionTypesRequest get_request;
+  GetExecutionTypesResponse got_response;
+
+  // Expect OK status and empty response.
+  TF_ASSERT_OK(metadata_store_->GetExecutionTypes(get_request, &got_response));
+  const GetExecutionTypesResponse want_response;
+  EXPECT_THAT(got_response, testing::EqualsProto(want_response));
 }
 
 TEST_F(MetadataStoreTest, PutExecutionTypeTwiceChangedPropertyType) {

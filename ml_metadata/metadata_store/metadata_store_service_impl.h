@@ -54,6 +54,12 @@ class MetadataStoreServiceImpl final
       ::ml_metadata::GetArtifactTypesByIDResponse* response) override
       LOCKS_EXCLUDED(lock_);
 
+  ::grpc::Status GetArtifactTypes(
+      ::grpc::ServerContext* context,
+      const ::ml_metadata::GetArtifactTypesRequest* request,
+      ::ml_metadata::GetArtifactTypesResponse* response) override
+      LOCKS_EXCLUDED(lock_);
+
   ::grpc::Status PutExecutionType(
       ::grpc::ServerContext* context,
       const ::ml_metadata::PutExecutionTypeRequest* request,
@@ -70,6 +76,12 @@ class MetadataStoreServiceImpl final
       ::grpc::ServerContext* context,
       const ::ml_metadata::GetExecutionTypesByIDRequest* request,
       ::ml_metadata::GetExecutionTypesByIDResponse* response) override
+      LOCKS_EXCLUDED(lock_);
+
+  ::grpc::Status GetExecutionTypes(
+      ::grpc::ServerContext* context,
+      const ::ml_metadata::GetExecutionTypesRequest* request,
+      ::ml_metadata::GetExecutionTypesResponse* response) override
       LOCKS_EXCLUDED(lock_);
 
   ::grpc::Status PutArtifacts(::grpc::ServerContext* context,
@@ -120,8 +132,8 @@ class MetadataStoreServiceImpl final
   ::grpc::Status GetArtifactsByType(
       ::grpc::ServerContext* context,
       const ::ml_metadata::GetArtifactsByTypeRequest* request,
-      ::ml_metadata::GetArtifactsByTypeResponse* response)
-      override LOCKS_EXCLUDED(lock_);
+      ::ml_metadata::GetArtifactsByTypeResponse* response) override
+      LOCKS_EXCLUDED(lock_);
 
   ::grpc::Status GetArtifactsByURI(
       ::grpc::ServerContext* context,
@@ -138,8 +150,8 @@ class MetadataStoreServiceImpl final
   ::grpc::Status GetExecutionsByType(
       ::grpc::ServerContext* context,
       const ::ml_metadata::GetExecutionsByTypeRequest* request,
-      ::ml_metadata::GetExecutionsByTypeResponse* response)
-      override LOCKS_EXCLUDED(lock_);
+      ::ml_metadata::GetExecutionsByTypeResponse* response) override
+      LOCKS_EXCLUDED(lock_);
 
  private:
   absl::Mutex lock_;

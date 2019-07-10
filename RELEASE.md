@@ -7,6 +7,7 @@
     Executions.
 *   Add CACHED state to Execution state enum to model an execution that is
     skipped due to cached results.
+*   Adds the ability to list all instances of ArtifactType and ExecutionType.
 
 ## Bug Fixes and Other Changes
 
@@ -18,10 +19,10 @@
 
 ## Major Features and Improvements
 
-* Established ML Metadata as a standalone package.
-* Provides a way to store information about how each artifact (e.g. file) was
-  generated.
-* Provides tools for determining provenance.
+*   Established ML Metadata as a standalone package.
+*   Provides a way to store information about how each artifact (e.g. file) was
+    generated.
+*   Provides tools for determining provenance.
 
 ## Bug Fixes and Other Changes
 

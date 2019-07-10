@@ -536,6 +536,54 @@ tensorflow::Status GenerateFindTypeQuery(
   return tensorflow::Status::OK();
 }
 
+// Generates a query to find all type instances.
+tensorflow::Status GenerateFindAllTypeInstancesQuery(
+    const MetadataSourceQueryConfig& query_config, const bool is_artifact_type,
+    const MetadataSource* metadata_source, Query* query_type) {
+  TF_RETURN_IF_ERROR(ComposeParameterizedQuery(
+      query_config.select_all_types(), {Bind(is_artifact_type)}, query_type));
+  return tensorflow::Status::OK();
+}
+
+// FindType executes `query` to obtain a list of types of the type `MessageType`
+// and returns it in `types`.
+template <typename MessageType>
+tensorflow::Status FindTypes(const Query& query,
+                             const MetadataSourceQueryConfig& query_config,
+                             MetadataSource* metadata_source,
+                             std::vector<MessageType>* types) {
+  // Query type with the given condition
+  std::vector<RecordSet> record_sets;
+  TF_RETURN_IF_ERROR(ExecuteMultiQuery({query}, metadata_source, &record_sets));
+
+  if (record_sets.front().records().empty()) {
+    return tensorflow::errors::NotFound(
+        absl::StrCat("Cannot find type: ", query));
+  }
+
+  const RecordSet& type_record_set = record_sets[0];
+  const int num_records = type_record_set.records_size();
+  types->resize(num_records);
+  for (int i = 0; i < num_records; ++i) {
+    TF_RETURN_IF_ERROR(
+        ParseRecordSetToMessage(type_record_set, &types->at(i), i));
+
+    Query query_property;
+    TF_RETURN_IF_ERROR(
+        ComposeParameterizedQuery(query_config.select_property_by_type_id(),
+                                  {Bind(types->at(i).id())}, &query_property));
+
+    std::vector<RecordSet> property_record_sets;
+    TF_RETURN_IF_ERROR(ExecuteMultiQuery({query_property}, metadata_source,
+                                         &property_record_sets));
+
+    TF_RETURN_IF_ERROR(ParseRecordSetToMapField(property_record_sets[0],
+                                                "properties", &types->at(i)));
+  }
+
+  return tensorflow::Status::OK();
+}
+
 // Finds a type by query conditions. Acceptable types are ArtifactType and
 // ExecutionType (`MessageType`). The types can be queried by two kinds of query
 // conditions, which are type id (int64) or type name (string_view).
@@ -550,31 +598,35 @@ tensorflow::Status FindTypeImpl(const QueryCondition condition,
   constexpr bool is_artifact_type =
       std::is_same<MessageType, ArtifactType>::value;
 
-  Query query_type;
+  Query query;
   TF_RETURN_IF_ERROR(GenerateFindTypeQuery(
-      condition, query_config, is_artifact_type, metadata_source, &query_type));
+      condition, query_config, is_artifact_type, metadata_source, &query));
 
-  // Query type with the given condition
-  std::vector<RecordSet> record_sets;
-  TF_RETURN_IF_ERROR(
-      ExecuteMultiQuery({query_type}, metadata_source, &record_sets));
-  if (record_sets.front().records().empty())
+  std::vector<MessageType> types;
+  TF_RETURN_IF_ERROR(FindTypes(query, query_config, metadata_source, &types));
+
+  if (types.empty()) {
     return tensorflow::errors::NotFound(
-        absl::StrCat("Cannot find type: ", query_type));
-  const RecordSet& type_record_set = record_sets[0];
-  TF_RETURN_IF_ERROR(ParseRecordSetToMessage(type_record_set, type));
-
-  // Query type properties
-  Query query_property;
-  TF_RETURN_IF_ERROR(
-      ComposeParameterizedQuery(query_config.select_property_by_type_id(),
-                                {Bind(type->id())}, &query_property));
-  TF_RETURN_IF_ERROR(
-      ExecuteMultiQuery({query_property}, metadata_source, &record_sets));
-  const RecordSet& properties_record_set = record_sets[1];
-  TF_RETURN_IF_ERROR(
-      ParseRecordSetToMapField(properties_record_set, "properties", type));
+        absl::StrCat("No type found for query: ", query));
+  }
+  *type = std::move(types[0]);
   return tensorflow::Status::OK();
+}
+
+// Finds all type instances of the type `MessageType`.
+// Returns detailed INTERNAL error, if query execution fails.
+template <typename MessageType>
+tensorflow::Status FindAllTypeInstancesImpl(
+    const MetadataSourceQueryConfig& query_config,
+    MetadataSource* metadata_source, std::vector<MessageType>* types) {
+  constexpr bool is_artifact_type =
+      std::is_same<MessageType, ArtifactType>::value;
+
+  Query query;
+  TF_RETURN_IF_ERROR(GenerateFindAllTypeInstancesQuery(
+      query_config, is_artifact_type, metadata_source, &query));
+
+  return FindTypes(query, query_config, metadata_source, types);
 }
 
 // Creates an `Node` (either `Artifact` or `Execution`), returns the assigned
@@ -983,6 +1035,18 @@ tensorflow::Status MetadataAccessObject::FindTypeById(
 tensorflow::Status MetadataAccessObject::FindTypeById(
     const int64 type_id, ExecutionType* execution_type) {
   return FindTypeImpl(type_id, query_config_, metadata_source_, execution_type);
+}
+
+tensorflow::Status MetadataAccessObject::FindArtifactTypes(
+    std::vector<ArtifactType>* artifact_types) {
+  return FindAllTypeInstancesImpl(query_config_, metadata_source_,
+                                  artifact_types);
+}
+
+tensorflow::Status MetadataAccessObject::FindExecutionTypes(
+    std::vector<ExecutionType>* execution_types) {
+  return FindAllTypeInstancesImpl(query_config_, metadata_source_,
+                                  execution_types);
 }
 
 tensorflow::Status MetadataAccessObject::FindTypeByName(

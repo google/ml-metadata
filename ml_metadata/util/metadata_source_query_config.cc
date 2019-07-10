@@ -69,6 +69,13 @@ constexpr char kBaseQueryConfig[] = R"pb(
     parameter_num: 2
   }
 
+  select_all_types {
+    query: " SELECT `id`, `name`, `input_type`, `output_type` "
+           " from `Type` "
+           " WHERE is_artifact_type = $0; "
+    parameter_num: 1
+  }
+
   drop_type_property_table { query: " DROP TABLE IF EXISTS `TypeProperty`; " }
   create_type_property_table {
     query: " CREATE TABLE IF NOT EXISTS `TypeProperty` ( "

@@ -8,7 +8,6 @@ workspace(name = "ml_metadata")
 # 3. Request the new archive to be mirrored on mirror.bazel.build for more
 #    reliable downloads.
 
-
 load("//ml_metadata:repo.bzl", "tensorflow_http_archive")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
@@ -16,14 +15,15 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 # v1.14.0-rc0
 # updated: 2019/05/30
 _TENSORFLOW_GIT_COMMIT = "f5ce1c00d4397875ff3d706881bd46430f4a9667"
+
 http_archive(
     name = "org_tensorflow",
     sha256 = "1bc357f72d6582351cfb3eb6a340aa496539277b2177a641dd203b40ac54fc27",
-    urls = [
-      "https://mirror.bazel.build/github.com/tensorflow/tensorflow/archive/%s.tar.gz" % _TENSORFLOW_GIT_COMMIT,
-      "https://github.com/tensorflow/tensorflow/archive/%s.tar.gz" % _TENSORFLOW_GIT_COMMIT,
-    ],
     strip_prefix = "tensorflow-%s" % _TENSORFLOW_GIT_COMMIT,
+    urls = [
+        "https://mirror.bazel.build/github.com/tensorflow/tensorflow/archive/%s.tar.gz" % _TENSORFLOW_GIT_COMMIT,
+        "https://github.com/tensorflow/tensorflow/archive/%s.tar.gz" % _TENSORFLOW_GIT_COMMIT,
+    ],
 )
 
 # Needed by tf_py_wrap_cc rule from Tensorflow.
@@ -49,18 +49,19 @@ http_archive(
 
 # Requires bazel 0.18.0 or greater.
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
 http_archive(
     name = "io_bazel_rules_go",
-    urls = ["https://github.com/bazelbuild/rules_go/releases/download/0.17.0/rules_go-0.17.0.tar.gz"],
     sha256 = "492c3ac68ed9dcf527a07e6a1b2dcbf199c6bf8b35517951467ac32e421c06c1",
+    urls = ["https://github.com/bazelbuild/rules_go/releases/download/0.17.0/rules_go-0.17.0.tar.gz"],
 )
-load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies", "go_register_toolchains")
 
+load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies", "go_register_toolchains")
 
 http_archive(
     name = "bazel_gazelle",
-    url = "https://github.com/bazelbuild/bazel-gazelle/releases/download/0.16.0/bazel-gazelle-0.16.0.tar.gz",
     sha256 = "7949fc6cc17b5b191103e97481cf8889217263acf52e00b560683413af204fcb",
+    url = "https://github.com/bazelbuild/bazel-gazelle/releases/download/0.16.0/bazel-gazelle-0.16.0.tar.gz",
 )
 
 load("@bazel_gazelle//:deps.bzl", "go_repository")
@@ -71,10 +72,18 @@ go_repository(
     importpath = "golang.org/x/sys",
 )
 
+go_repository(
+    name = "com_github_google_go_cmp",
+    importpath = "github.com/google/go-cmp",
+    tag = "v0.2.0",
+)
+
 go_rules_dependencies()
+
 go_register_toolchains()
 
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
+
 gazelle_dependencies()
 
 # For commandline flags used in gRPC server

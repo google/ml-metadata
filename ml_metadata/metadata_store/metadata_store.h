@@ -139,6 +139,18 @@ class MetadataStore {
   tensorflow::Status PutTypes(const PutTypesRequest& request,
                               PutTypesResponse* response);
 
+  // Gets all artifact types. If no artifact types found, it returns OK and
+  // empty response.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status GetArtifactTypes(const GetArtifactTypesRequest& request,
+                                      GetArtifactTypesResponse* response);
+
+  // Gets all execution types. If no execution types found, it returns OK and
+  // empty response.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status GetExecutionTypes(const GetExecutionTypesRequest& request,
+                                       GetExecutionTypesResponse* response);
+
   // Inserts and updates artifacts in request into the database.
   // If artifact_id is specified, an existing artifact is updated.
   // If artifact_id is not specified, a new artifact is created.

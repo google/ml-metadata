@@ -17,6 +17,7 @@ limitations under the License.
 #include <memory>
 
 #include "gflags/gflags.h"
+#include <gmock/gmock.h>
 #include "absl/time/time.h"
 #include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
@@ -24,10 +25,10 @@ limitations under the License.
 
 namespace ml_metadata {
 namespace testing {
-
 namespace {
-using testing::ParseTextProtoOrDie;
-}  // namespace
+
+using ::ml_metadata::testing::ParseTextProtoOrDie;
+using ::testing::UnorderedElementsAre;
 
 TEST_P(MetadataAccessObjectTest, InitMetadataSource) {
   TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
@@ -268,6 +269,80 @@ TEST_P(MetadataAccessObjectTest, FindTypeByNameNoSignature) {
   tensorflow::Status s =
       metadata_access_object_->FindTypeByName("test_type", &artifact_type);
   EXPECT_EQ(s.code(), tensorflow::error::NOT_FOUND);
+}
+
+TEST_P(MetadataAccessObjectTest, FindAllArtifactTypes) {
+  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  ArtifactType want_type_1 = ParseTextProtoOrDie<ArtifactType>(R"(
+    name: 'test_type_1'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: DOUBLE }
+    properties { key: 'property_3' value: STRING }
+    properties { key: 'property_4' value: STRING }
+  )");
+  int64 type_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(want_type_1, &type_id));
+  want_type_1.set_id(type_id);
+
+  ArtifactType want_type_2 = ParseTextProtoOrDie<ArtifactType>(R"(
+    name: 'test_type_2'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: DOUBLE }
+    properties { key: 'property_3' value: STRING }
+    properties { key: 'property_5' value: STRING }
+  )");
+  TF_ASSERT_OK(metadata_access_object_->CreateType(want_type_2, &type_id));
+  want_type_2.set_id(type_id);
+
+  // No properties.
+  ArtifactType want_type_3 = ParseTextProtoOrDie<ArtifactType>(R"(
+    name: 'no_properties_type'
+  )");
+  TF_ASSERT_OK(metadata_access_object_->CreateType(want_type_3, &type_id));
+  want_type_3.set_id(type_id);
+
+  std::vector<ArtifactType> got_types;
+  TF_EXPECT_OK(metadata_access_object_->FindArtifactTypes(&got_types));
+  EXPECT_THAT(got_types, UnorderedElementsAre(EqualsProto(want_type_1),
+                                              EqualsProto(want_type_2),
+                                              EqualsProto(want_type_3)));
+}
+
+TEST_P(MetadataAccessObjectTest, FindAllExecutionTypes) {
+  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  ExecutionType want_type_1 = ParseTextProtoOrDie<ExecutionType>(R"(
+    name: 'test_type_1'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: DOUBLE }
+    properties { key: 'property_3' value: STRING }
+    properties { key: 'property_4' value: STRING }
+  )");
+  int64 type_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(want_type_1, &type_id));
+  want_type_1.set_id(type_id);
+
+  ExecutionType want_type_2 = ParseTextProtoOrDie<ExecutionType>(R"(
+    name: 'test_type_2'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: DOUBLE }
+    properties { key: 'property_3' value: STRING }
+    properties { key: 'property_5' value: STRING }
+  )");
+  TF_ASSERT_OK(metadata_access_object_->CreateType(want_type_2, &type_id));
+  want_type_2.set_id(type_id);
+
+  // No properties.
+  ExecutionType want_type_3 = ParseTextProtoOrDie<ExecutionType>(R"(
+    name: 'no_properties_type'
+  )");
+  TF_ASSERT_OK(metadata_access_object_->CreateType(want_type_3, &type_id));
+  want_type_3.set_id(type_id);
+
+  std::vector<ExecutionType> got_types;
+  TF_EXPECT_OK(metadata_access_object_->FindExecutionTypes(&got_types));
+  EXPECT_THAT(got_types, UnorderedElementsAre(EqualsProto(want_type_1),
+                                              EqualsProto(want_type_2),
+                                              EqualsProto(want_type_3)));
 }
 
 TEST_P(MetadataAccessObjectTest, CreateArtifact) {
@@ -959,6 +1034,8 @@ TEST_P(MetadataAccessObjectTest, PutEventsWithPaths) {
       execution_id, &events_with_execution));
   EXPECT_EQ(events_with_execution.size(), 2);
 }
+
+}  // namespace
 }  // namespace testing
 }  // namespace ml_metadata
 

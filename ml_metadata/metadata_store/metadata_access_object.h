@@ -108,6 +108,18 @@ class MetadataAccessObject {
   tensorflow::Status FindTypeByName(absl::string_view name,
                                     ExecutionType* execution_type);
 
+  // Returns a list of all known ArtifactType instances.
+  // Returns NOT_FOUND error, if no artifact types can be found.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status FindArtifactTypes(
+      std::vector<ArtifactType>* artifact_types);
+
+  // Returns a list of all known ExecutionType instances.
+  // Returns NOT_FOUND error, if no execution types can be found.  
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status FindExecutionTypes(
+      std::vector<ExecutionType>* execution_types);
+
   // Creates an artifact, returns the assigned artifact id. The id field of the
   // artifact is ignored.
   // Returns INVALID_ARGUMENT error, if the ArtifactType is not given.

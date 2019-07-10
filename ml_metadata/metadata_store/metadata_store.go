@@ -157,6 +157,24 @@ func (store *Store) GetExecutionType(typeName string) (*mdpb.ExecutionType, erro
 	return resp.GetExecutionType(), err
 }
 
+// GetExecutionTypes gets all execution types. If query execution fails, error
+// is returned.
+func (store *Store) GetExecutionTypes() ([]*mdpb.ExecutionType, error) {
+	req := &apipb.GetExecutionTypesRequest{}
+	resp := &apipb.GetExecutionTypesResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetExecutionTypes, req, resp)
+	return resp.GetExecutionTypes(), err
+}
+
+// GetArtifactTypes gets all artifact types. If query execution fails, error
+// is returned.
+func (store *Store) GetArtifactTypes() ([]*mdpb.ArtifactType, error) {
+	req := &apipb.GetArtifactTypesRequest{}
+	resp := &apipb.GetArtifactTypesResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetArtifactTypes, req, resp)
+	return resp.GetArtifactTypes(), err
+}
+
 // GetExecutionTypesByID gets a list of execution types by ID. If no type with
 // an ID exists, the execution type is skipped. If the query execution fails, error
 // is returned.

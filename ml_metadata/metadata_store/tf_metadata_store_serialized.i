@@ -151,6 +151,18 @@ PyObject* GetExecutionType(ml_metadata::MetadataStore* metadata_store,
       &ml_metadata::MetadataStore::GetExecutionType);
 }
 
+PyObject* GetExecutionTypes(ml_metadata::MetadataStore* metadata_store,
+                            const string& request) {
+  return AccessMetadataStore(metadata_store, request,
+      &ml_metadata::MetadataStore::GetExecutionTypes);
+}
+
+PyObject* GetArtifactTypes(ml_metadata::MetadataStore* metadata_store,
+                           const string& request) {
+  return AccessMetadataStore(metadata_store, request,
+      &ml_metadata::MetadataStore::GetArtifactTypes);
+}
+
 PyObject* PutExecutions(ml_metadata::MetadataStore* metadata_store,
                         const string& request) {
   return AccessMetadataStore(metadata_store, request,
@@ -247,6 +259,10 @@ PyObject* PutArtifacts(ml_metadata::MetadataStore* metadata_store,
 
 PyObject* GetArtifactType(ml_metadata::MetadataStore* metadata_store,
                           const string& request);
+PyObject* GetArtifactTypes(ml_metadata::MetadataStore* metadata_store,
+                           const string& request);
+PyObject* GetExecutionTypes(ml_metadata::MetadataStore* metadata_store,
+                           const string& request);
 
 PyObject* GetArtifactsByID(ml_metadata::MetadataStore* metadata_store,
                            const string& request);

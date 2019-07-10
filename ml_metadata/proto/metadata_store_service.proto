@@ -232,6 +232,20 @@ message GetArtifactTypeResponse {
   optional ArtifactType artifact_type = 1;
 }
 
+message GetArtifactTypesRequest {
+}
+
+message GetArtifactTypesResponse {
+  repeated ArtifactType artifact_types = 1;
+}
+
+message GetExecutionTypesRequest {
+}
+
+message GetExecutionTypesResponse {
+  repeated ExecutionType execution_types = 1;
+}
+
 message GetExecutionsByTypeRequest {
   optional string type_name = 1;
 }
@@ -562,6 +576,10 @@ service MetadataStoreService {
   rpc GetArtifactTypesByID(GetArtifactTypesByIDRequest)
       returns (GetArtifactTypesByIDResponse) {}
 
+  // Gets a list of all artifact types.
+  rpc GetArtifactTypes(GetArtifactTypesRequest)
+      returns (GetArtifactTypesResponse) {}
+
   // Gets an execution type, or None if it does not exist.
   rpc GetExecutionType(GetExecutionTypeRequest)
       returns (GetExecutionTypeResponse) {}
@@ -570,6 +588,10 @@ service MetadataStoreService {
   // If no execution types with an ID exists, the execution type is skipped.
   rpc GetExecutionTypesByID(GetExecutionTypesByIDRequest)
       returns (GetExecutionTypesByIDResponse) {}
+
+  // Gets a list of all execution types.
+  rpc GetExecutionTypes(GetExecutionTypesRequest)
+      returns (GetExecutionTypesResponse) {}
 
   // Gets a context type. Returns a NOT_FOUND error if the type does not exist.
   rpc GetContextType(GetContextTypeRequest) returns (GetContextTypeResponse) {}

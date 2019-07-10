@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/google/go-cmp/cmp"
 	mdpb "ml_metadata/proto/metadata_store_go_proto"
 )
 
@@ -107,6 +108,72 @@ func TestGetArtifactType(t *testing.T) {
 	}
 	if len(gotTypesByID) < 1 || !proto.Equal(wantType, gotTypesByID[0]) {
 		t.Errorf("put and get type by id mismatch, want: %v, got: %v", wantType, gotTypesByID)
+	}
+}
+
+func TestGetArtifactTypes(t *testing.T) {
+	store, err := NewStore(fakeDatabaseConfig())
+	defer store.Close()
+	if err != nil {
+		t.Fatalf("Cannot create Store: %v", err)
+	}
+
+	wantType1 := &mdpb.ArtifactType{Name: proto.String("test_type_1")}
+	opts := &PutTypeOptions{AllFieldsMustMatch: true}
+	typeID, err := store.PutArtifactType(wantType1, opts)
+	if err != nil {
+		t.Fatalf("PutArtifactType failed: %v", err)
+	}
+	wantType1.Id = proto.Int64(int64(typeID))
+
+	wantType2 := &mdpb.ArtifactType{Name: proto.String("test_type_2")}
+	typeID, err = store.PutArtifactType(wantType2, opts)
+	if err != nil {
+		t.Fatalf("PutArtifactType failed: %v", err)
+	}
+	wantType2.Id = proto.Int64(int64(typeID))
+
+	wantTypes := []*mdpb.ArtifactType{wantType1, wantType2}
+	gotTypes, err := store.GetArtifactTypes()
+	if err != nil {
+		t.Fatalf("GetArtifactTypes failed: %v", err)
+	}
+
+	if !cmp.Equal(wantTypes, gotTypes, cmp.Comparer(proto.Equal)) {
+		t.Errorf("GetArtifactTypes() mismatch, want: %v\n got: %v\nDiff:\n%s", wantTypes, gotTypes, cmp.Diff(gotTypes, wantTypes))
+	}
+}
+
+func TestGetExecutionTypes(t *testing.T) {
+	store, err := NewStore(fakeDatabaseConfig())
+	defer store.Close()
+	if err != nil {
+		t.Fatalf("Cannot create Store: %v", err)
+	}
+
+	wantType1 := &mdpb.ExecutionType{Name: proto.String("test_type_1")}
+	opts := &PutTypeOptions{AllFieldsMustMatch: true}
+	typeID, err := store.PutExecutionType(wantType1, opts)
+	if err != nil {
+		t.Fatalf("PutExecutionType failed: %v", err)
+	}
+	wantType1.Id = proto.Int64(int64(typeID))
+
+	wantType2 := &mdpb.ExecutionType{Name: proto.String("test_type_2")}
+	typeID, err = store.PutExecutionType(wantType2, opts)
+	if err != nil {
+		t.Fatalf("PutExecutionType failed: %v", err)
+	}
+	wantType2.Id = proto.Int64(int64(typeID))
+
+	wantTypes := []*mdpb.ExecutionType{wantType1, wantType2}
+	gotTypes, err := store.GetExecutionTypes()
+	if err != nil {
+		t.Fatalf("GetExecutionTypes failed: %v", err)
+	}
+
+	if !cmp.Equal(wantTypes, gotTypes, cmp.Comparer(proto.Equal)) {
+		t.Errorf("GetExecutionTypes() mismatch, want: %v\n got: %v\nDiff:\n%s", wantTypes, gotTypes, cmp.Diff(gotTypes, wantTypes))
 	}
 }
 

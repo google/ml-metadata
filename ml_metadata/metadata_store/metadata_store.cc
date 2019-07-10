@@ -15,6 +15,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/metadata_store.h"
 
 #include "absl/memory/memory.h"
+#include "ml_metadata/proto/metadata_store_service.pb.h"
 #include "tensorflow/core/lib/core/errors.h"
 
 namespace ml_metadata {
@@ -357,6 +358,42 @@ tensorflow::Status MetadataStore::GetArtifacts(
   TF_RETURN_IF_ERROR(metadata_access_object_->FindArtifacts(&artifacts));
   for (const Artifact& artifact : artifacts) {
     *response->mutable_artifacts()->Add() = artifact;
+  }
+  return transaction.Commit();
+}
+
+tensorflow::Status MetadataStore::GetArtifactTypes(
+    const GetArtifactTypesRequest& request,
+    GetArtifactTypesResponse* response) {
+  ScopedTransaction transaction(metadata_source_.get());
+  std::vector<ArtifactType> artifact_types;
+  const tensorflow::Status status =
+      metadata_access_object_->FindArtifactTypes(&artifact_types);
+  if (status.code() == ::tensorflow::error::NOT_FOUND) {
+    return tensorflow::Status::OK();
+  } else if (!status.ok()) {
+    return status;
+  }
+  for (const ArtifactType& artifact_type : artifact_types) {
+    *response->mutable_artifact_types()->Add() = artifact_type;
+  }
+  return transaction.Commit();
+}
+
+tensorflow::Status MetadataStore::GetExecutionTypes(
+    const GetExecutionTypesRequest& request,
+    GetExecutionTypesResponse* response) {
+  ScopedTransaction transaction(metadata_source_.get());
+  std::vector<ExecutionType> execution_types;
+  const tensorflow::Status status =
+      metadata_access_object_->FindExecutionTypes(&execution_types);
+  if (status.code() == ::tensorflow::error::NOT_FOUND) {
+    return tensorflow::Status::OK();
+  } else if (!status.ok()) {
+    return status;
+  }
+  for (const ExecutionType& execution_type : execution_types) {
+    *response->mutable_execution_types()->Add() = execution_type;
   }
   return transaction.Commit();
 }

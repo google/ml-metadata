@@ -95,6 +95,34 @@ class MetadataStoreTest(absltest.TestCase):
                      metadata_store_pb2.STRING)
     self.assertEqual(artifact_type.properties["baz"], metadata_store_pb2.DOUBLE)
 
+  def test_get_artifact_types(self):
+    store = _get_metadata_store()
+    artifact_type_1 = _create_example_artifact_type()
+    artifact_type_2 = _create_example_artifact_type_2()
+
+    type_id_1 = store.put_artifact_type(artifact_type_1)
+    artifact_type_1.id = type_id_1
+    type_id_2 = store.put_artifact_type(artifact_type_2)
+    artifact_type_2.id = type_id_2
+
+    got_types = store.get_artifact_types()
+    got_types.sort(key=lambda x: x.id)
+    self.assertListEqual([artifact_type_1, artifact_type_2], got_types)
+
+  def test_get_execution_types(self):
+    store = _get_metadata_store()
+    execution_type_1 = _create_example_execution_type()
+    execution_type_2 = _create_example_execution_type_2()
+
+    type_id_1 = store.put_execution_type(execution_type_1)
+    execution_type_1.id = type_id_1
+    type_id_2 = store.put_execution_type(execution_type_2)
+    execution_type_2.id = type_id_2
+
+    got_types = store.get_execution_types()
+    got_types.sort(key=lambda x: x.id)
+    self.assertListEqual([execution_type_1, execution_type_2], got_types)
+
   def test_put_artifacts_get_artifacts_by_id(self):
     store = _get_metadata_store()
     artifact_type = _create_example_artifact_type()

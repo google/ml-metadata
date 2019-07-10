@@ -273,7 +273,6 @@ class MetadataStore(object):
     The execution_id and artifact_id must already exist.
     Once created, events cannot be modified.
 
-
     Args:
       events: A list of events to insert or update.
     """
@@ -354,6 +353,25 @@ class MetadataStore(object):
                     response)
     return response.artifact_type
 
+  def get_artifact_types(self) -> List[metadata_store_pb2.ArtifactType]:
+    """Gets all artifact types.
+
+    Returns:
+     A list of all known ArtifactTypes.
+
+    Raises:
+    tensorflow.errors.InternalError: if query execution fails
+    """
+    request = metadata_store_service_pb2.GetArtifactTypesRequest()
+    response = metadata_store_service_pb2.GetArtifactTypesResponse()
+    self._swig_call(metadata_store_serialized.GetArtifactTypes, request,
+                    response)
+
+    result = []
+    for x in response.artifact_types:
+      result.append(x)
+    return result
+
   def get_execution_type(
       self, type_name: Text) -> Optional[metadata_store_pb2.ExecutionType]:
     """Gets an execution type, or None if it does not exist."""
@@ -364,7 +382,25 @@ class MetadataStore(object):
                     response)
     return response.execution_type
 
-  # TODO(b/123594325): implement in C++ too
+  def get_execution_types(self) -> List[metadata_store_pb2.ExecutionType]:
+    """Gets all execution types.
+
+    Returns:
+     A list of all known ExecutionTypes.
+
+    Raises:
+    tensorflow.errors.InternalError: if query execution fails
+    """
+    request = metadata_store_service_pb2.GetExecutionTypesRequest()
+    response = metadata_store_service_pb2.GetExecutionTypesResponse()
+    self._swig_call(metadata_store_serialized.GetExecutionTypes, request,
+                    response)
+
+    result = []
+    for x in response.execution_types:
+      result.append(x)
+    return result
+
   def get_executions_by_type(
       self, type_name: Text) -> List[metadata_store_pb2.Execution]:
     """Gets all the executions of a given type."""
