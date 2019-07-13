@@ -1215,5 +1215,108 @@ TEST_F(MetadataStoreTest, PutTypesGetTypes) {
             get_execution_type_response.execution_type().id());
 }
 
+TEST_F(MetadataStoreTest, PutAndGetExecution) {
+  PutTypesRequest put_types_request = ParseTextProtoOrDie<PutTypesRequest>(R"(
+    artifact_types: { name: 'artifact_type' }
+    execution_types: {
+      name: 'execution_type'
+      properties { key: 'running_status' value: STRING }
+    })");
+  PutTypesResponse put_types_response;
+  TF_ASSERT_OK(
+      metadata_store_->PutTypes(put_types_request, &put_types_response));
+  int64 artifact_type_id = put_types_response.artifact_type_ids(0);
+  int64 execution_type_id = put_types_response.execution_type_ids(0);
+
+  // 1. Insert an execution first time without any artifact and event pair.
+  Execution execution;
+  execution.set_type_id(execution_type_id);
+  (*execution.mutable_properties())["running_status"].set_string_value("INIT");
+
+  PutExecutionRequest put_execution_request_1;
+  *put_execution_request_1.mutable_execution() = execution;
+  PutExecutionResponse put_execution_response_1;
+  TF_ASSERT_OK(metadata_store_->PutExecution(put_execution_request_1,
+                                             &put_execution_response_1));
+  execution.set_id(put_execution_response_1.execution_id());
+  EXPECT_EQ(put_execution_response_1.artifact_ids_size(), 0);
+
+  // 2. Update an existing execution with an input artifact but no event
+  PutExecutionRequest put_execution_request_2;
+  (*execution.mutable_properties())["running_status"].set_string_value("RUN");
+  *put_execution_request_2.mutable_execution() = execution;
+  Artifact artifact_1;
+  artifact_1.set_uri("uri://an_input_artifact");
+  artifact_1.set_type_id(artifact_type_id);
+  *put_execution_request_2.add_artifact_event_pairs()->mutable_artifact() =
+      artifact_1;
+  PutExecutionResponse put_execution_response_2;
+  TF_ASSERT_OK(metadata_store_->PutExecution(put_execution_request_2,
+                                             &put_execution_response_2));
+  // The persistent id of the execution should be the same.
+  EXPECT_EQ(put_execution_response_2.execution_id(), execution.id());
+  EXPECT_EQ(put_execution_response_2.artifact_ids_size(), 1);
+  artifact_1.set_id(put_execution_response_2.artifact_ids(0));
+
+  // 3. Update an existing execution with existing/new artifacts with events.
+  PutExecutionRequest put_execution_request_3;
+  (*execution.mutable_properties())["running_status"].set_string_value("DONE");
+  *put_execution_request_3.mutable_execution() = execution;
+  *put_execution_request_3.add_artifact_event_pairs()->mutable_artifact() =
+      artifact_1;
+  // add an existing artifact as input, and event has artifact/execution ids
+  Event event_1;
+  event_1.set_artifact_id(artifact_1.id());
+  event_1.set_execution_id(execution.id());
+  event_1.set_type(Event::DECLARED_INPUT);
+  *put_execution_request_3.mutable_artifact_event_pairs(0)->mutable_event() =
+      event_1;
+  // add a new artifact as output, and event has no artifact/execution ids
+  Artifact artifact_2;
+  artifact_2.set_uri("uri://an_output_artifact");
+  artifact_2.set_type_id(artifact_type_id);
+  Event event_2;
+  event_2.set_type(Event::DECLARED_OUTPUT);
+  *put_execution_request_3.add_artifact_event_pairs()->mutable_artifact() =
+      artifact_2;
+  *put_execution_request_3.mutable_artifact_event_pairs(1)->mutable_event() =
+      event_2;
+  PutExecutionResponse put_execution_response_3;
+  TF_ASSERT_OK(metadata_store_->PutExecution(put_execution_request_3,
+                                             &put_execution_response_3));
+  EXPECT_EQ(put_execution_response_3.execution_id(), execution.id());
+  EXPECT_EQ(put_execution_response_3.artifact_ids_size(), 2);
+  EXPECT_EQ(put_execution_response_3.artifact_ids(0), artifact_1.id());
+  artifact_2.set_id(put_execution_response_3.artifact_ids(1));
+
+  // In the end, there should be 2 artifacts, 1 execution and 2 events.
+  GetArtifactsRequest get_artifacts_request;
+  GetArtifactsResponse get_artifacts_response;
+  TF_ASSERT_OK(metadata_store_->GetArtifacts(get_artifacts_request,
+                                             &get_artifacts_response));
+  ASSERT_EQ(get_artifacts_response.artifacts_size(), 2);
+  EXPECT_THAT(get_artifacts_response.artifacts(0),
+              testing::EqualsProto(artifact_1));
+  EXPECT_THAT(get_artifacts_response.artifacts(1),
+              testing::EqualsProto(artifact_2));
+
+  GetExecutionsRequest get_executions_request;
+  GetExecutionsResponse get_executions_response;
+  TF_ASSERT_OK(metadata_store_->GetExecutions(get_executions_request,
+                                              &get_executions_response));
+  ASSERT_EQ(get_executions_response.executions_size(), 1);
+  EXPECT_THAT(get_executions_response.executions(0),
+              testing::EqualsProto(execution));
+
+  GetEventsByExecutionIDsRequest get_events_request;
+  get_events_request.add_execution_ids(execution.id());
+  GetEventsByExecutionIDsResponse get_events_response;
+  TF_ASSERT_OK(metadata_store_->GetEventsByExecutionIDs(get_events_request,
+                                                        &get_events_response));
+  ASSERT_EQ(get_events_response.events_size(), 2);
+  EXPECT_EQ(get_events_response.events(0).artifact_id(), artifact_1.id());
+  EXPECT_EQ(get_events_response.events(1).artifact_id(), artifact_2.id());
+}
+
 }  // namespace
 }  // namespace ml_metadata

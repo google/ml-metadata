@@ -300,6 +300,69 @@ tensorflow::Status MetadataStore::PutEvents(const PutEventsRequest& request,
   return transaction.Commit();
 }
 
+tensorflow::Status MetadataStore::PutExecution(
+    const PutExecutionRequest& request, PutExecutionResponse* response) {
+  ScopedTransaction transaction(metadata_source_.get());
+  if (!request.has_execution()) {
+    return tensorflow::errors::InvalidArgument("No execution is found: ",
+                                               request.DebugString());
+  }
+  // 1. Upsert Execution
+  const Execution& execution = request.execution();
+  int64 execution_id = -1;
+  if (execution.has_id()) {
+    TF_RETURN_IF_ERROR(metadata_access_object_->UpdateExecution(execution));
+    execution_id = execution.id();
+  } else {
+    TF_RETURN_IF_ERROR(
+        metadata_access_object_->CreateExecution(execution, &execution_id));
+  }
+  response->set_execution_id(execution_id);
+  // 2. Upsert Artifacts and insert events
+  for (const PutExecutionRequest::ArtifactAndEvent& artifact_and_event :
+       request.artifact_event_pairs()) {
+    if (!artifact_and_event.has_artifact()) {
+      return tensorflow::errors::InvalidArgument("Request has no artifact: ",
+                                                 request.DebugString());
+    }
+    const Artifact& artifact = artifact_and_event.artifact();
+    int64 artifact_id = -1;
+    if (artifact.has_id()) {
+      TF_RETURN_IF_ERROR(metadata_access_object_->UpdateArtifact(artifact));
+      artifact_id = artifact.id();
+    } else {
+      TF_RETURN_IF_ERROR(
+          metadata_access_object_->CreateArtifact(artifact, &artifact_id));
+    }
+    response->add_artifact_ids(artifact_id);
+    // insert event if any
+    if (!artifact_and_event.has_event()) {
+      continue;
+    }
+    Event event = artifact_and_event.event();
+    if ((event.has_artifact_id() && !artifact.has_id()) ||
+        (event.has_artifact_id() && artifact_id != event.artifact_id())) {
+      return tensorflow::errors::InvalidArgument(
+          "Request's event.artifact_id does not match with the given "
+          "artifact: ",
+          request.DebugString());
+    }
+    event.set_artifact_id(artifact_id);
+    if ((event.has_execution_id() && !execution.has_id()) ||
+        (event.has_execution_id() && execution_id != event.execution_id())) {
+      return tensorflow::errors::InvalidArgument(
+          "Request's event.execution_id does not match with the given "
+          "execution: ",
+          request.DebugString());
+    }
+    event.set_execution_id(execution_id);
+    int64 dummy_event_id = -1;
+    TF_RETURN_IF_ERROR(
+        metadata_access_object_->CreateEvent(event, &dummy_event_id));
+  }
+  return transaction.Commit();
+}
+
 tensorflow::Status MetadataStore::GetEventsByExecutionIDs(
     const GetEventsByExecutionIDsRequest& request,
     GetEventsByExecutionIDsResponse* response) {
