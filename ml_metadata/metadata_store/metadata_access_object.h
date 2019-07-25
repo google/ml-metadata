@@ -94,6 +94,18 @@ class MetadataAccessObject {
   tensorflow::Status CreateType(const ArtifactType& type, int64* type_id);
   tensorflow::Status CreateType(const ExecutionType& type, int64* type_id);
 
+  // Updates an existing type. A type is an ArtifactType or an ExecutionType.
+  // The update should be backward compatible, i.e., existing properties should
+  // not be modified, only new properties can be added.
+  // Returns INVALID_ARGUMENT error if name field is not given.
+  // Returns INVALID_ARGUMENT error, if id field is given but differs from the
+  //   the stored type with the same type name.
+  // Returns INVALID_ARGUMENT error, if any property type is unknown.
+  // Returns ALREADY_EXISTS error, if any property type is different.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status UpdateType(const ArtifactType& type);
+  tensorflow::Status UpdateType(const ExecutionType& type);
+
   // Queries a type by an id. A type is an ArtifactType or an ExecutionType.
   // Returns NOT_FOUND error, if the given type_id cannot be found.
   // Returns detailed INTERNAL error, if query execution fails.
@@ -115,7 +127,7 @@ class MetadataAccessObject {
       std::vector<ArtifactType>* artifact_types);
 
   // Returns a list of all known ExecutionType instances.
-  // Returns NOT_FOUND error, if no execution types can be found.  
+  // Returns NOT_FOUND error, if no execution types can be found.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status FindExecutionTypes(
       std::vector<ExecutionType>* execution_types);
@@ -222,11 +234,6 @@ class MetadataAccessObject {
   // Returns NOT_FOUND error, if there are no events found with the `execution`.
   tensorflow::Status FindEventsByExecution(int64 execution_id,
                                            std::vector<Event>* events);
-
-  // TODO(huimiao) Add other CRUD methods to support metadata_store_service.
-  // Updates an artifact type.
-  // Returns INVALID_ARGUMENT error, if id field is not given.
-  tensorflow::Status UpdateType(const ArtifactType& type);
 
   MetadataSource* metadata_source() { return metadata_source_; }
 

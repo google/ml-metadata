@@ -22,58 +22,67 @@ namespace ml_metadata {
 namespace {
 using std::unique_ptr;
 
+// Checks if the `other_type` have the same names and all list of properties.
+// Returns true if the types are consistent.
+// For a type to be consistent:
+// - all properties in stored_type are in other_type, and have the same type.
+// - either can_add_fields is true or the set of properties in both types
+//   are identical.
 template <typename T>
-// Test if two types have identical names and properties.
-// Works for ArtifactType and ExecutionType.
-bool CheckIdentical(const T& type_a, const T& type_b) {
-  if (type_a.name() != type_b.name()) {
+bool CheckFieldsConsistent(const T& stored_type, const T& other_type,
+                           bool can_add_fields) {
+  if (stored_type.name() != other_type.name()) {
     return false;
   }
   // Make sure every property in a is in b, and has the same type.
-  for (const auto& pair : type_a.properties()) {
+  for (const auto& pair : stored_type.properties()) {
     const string& key = pair.first;
     const PropertyType value = pair.second;
-    const auto other_iter = type_b.properties().find(key);
-    if (other_iter == type_b.properties().end()) {
+    const auto other_iter = other_type.properties().find(key);
+    if (other_iter == other_type.properties().end()) {
       return false;
     }
     if (other_iter->second != value) {
       return false;
     }
   }
-  // If every property that is in a is in b, and the size is the same, then
-  // the properties are the same.
-  return type_a.properties_size() == type_b.properties_size();
+  return can_add_fields ||
+         stored_type.properties_size() == other_type.properties_size();
 }
 
 // If a type with the same name already exists (let's call it `old_type`), it
-// compares the given properties in `type` with the properties in `old_type`.
-// If there is a property where `type` and `old_type` have different types, or
-// `type` and `old_type` have different properties, it fails and returns
-// ALREADY_EXISTS. Otherwise, it returns the type_id of `old_type`.
+// checks the consistency of `type` and `old_type` as described in
+// CheckFieldsConsistent according to can_add_fields.
+// If there are inconsistent, it returns ALREADY_EXISTS. If they are consistent
+// and the types are identical, it returns the old type_id. If they are
+// consistent and there are new fields in `type`, then those fields are added.
 // If there is no type having the same name, then insert a new type.
 // Returns INVALID_ARGUMENT error, if name field in `type` is not given.
 // Returns INVALID_ARGUMENT error, if any property type in `type` is unknown.
 // Returns detailed INTERNAL error, if query execution fails.
 template <typename T>
-tensorflow::Status InsertType(MetadataAccessObject* metadata_access_object,
-                              const T& type, int64* type_id) {
-  T current;
-  tensorflow::Status status =
-      metadata_access_object->FindTypeByName(type.name(), &current);
-  if (status.ok()) {
-    if (!CheckIdentical(current, type)) {
-      return tensorflow::errors::AlreadyExists(
-          "Type already exists with different properties.");
-    }
-    *type_id = current.id();
-    return tensorflow::Status::OK();
-  } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
+tensorflow::Status UpsertType(MetadataAccessObject* metadata_access_object,
+                              const T& type, bool can_add_fields,
+                              int64* type_id) {
+  T stored_type;
+  const tensorflow::Status status =
+      metadata_access_object->FindTypeByName(type.name(), &stored_type);
+  if (!status.ok() && !tensorflow::errors::IsNotFound(status)) {
     return status;
   }
-  // If the type does not exist, create it.
-  TF_RETURN_IF_ERROR(metadata_access_object->CreateType(type, type_id));
-  return tensorflow::Status::OK();
+  // if not found, then it creates a type. `can_add_fields` is ignored.
+  if (tensorflow::errors::IsNotFound(status)) {
+    return metadata_access_object->CreateType(type, type_id);
+  }
+  // otherwise it is update type.
+  *type_id = stored_type.id();
+  // all properties in stored_type must match the given type.
+  // if `can_add_fields` is set, then new properties can be added
+  if (!CheckFieldsConsistent(stored_type, type, can_add_fields)) {
+    return tensorflow::errors::AlreadyExists(
+        "Type already exists with different properties.");
+  }
+  return metadata_access_object->UpdateType(type);
 }
 
 }  // namespace
@@ -95,13 +104,14 @@ tensorflow::Status MetadataStore::PutTypes(const PutTypesRequest& request,
   ScopedTransaction transaction(metadata_source_.get());
   for (const ArtifactType& artifact_type : request.artifact_types()) {
     int64 artifact_type_id;
-    TF_RETURN_IF_ERROR(InsertType(metadata_access_object_.get(), artifact_type,
-                                  &artifact_type_id));
+    TF_RETURN_IF_ERROR(UpsertType(metadata_access_object_.get(), artifact_type,
+                                  /*can_add_fields=*/false, &artifact_type_id));
     response->add_artifact_type_ids(artifact_type_id);
   }
   for (const ExecutionType& execution_type : request.execution_types()) {
     int64 execution_type_id;
-    TF_RETURN_IF_ERROR(InsertType(metadata_access_object_.get(), execution_type,
+    TF_RETURN_IF_ERROR(UpsertType(metadata_access_object_.get(), execution_type,
+                                  /*can_add_fields=*/false,
                                   &execution_type_id));
     response->add_execution_type_ids(execution_type_id);
   }
@@ -110,51 +120,37 @@ tensorflow::Status MetadataStore::PutTypes(const PutTypesRequest& request,
 
 tensorflow::Status MetadataStore::PutArtifactType(
     const PutArtifactTypeRequest& request, PutArtifactTypeResponse* response) {
-  if (request.can_add_fields()) {
-    return tensorflow::errors::Unimplemented("Cannot add fields.");
-  }
   if (request.can_delete_fields()) {
     return tensorflow::errors::Unimplemented("Cannot remove fields.");
   }
   if (!request.all_fields_match()) {
     return tensorflow::errors::Unimplemented("Must match all fields.");
   }
-  if (!request.artifact_type().has_id()) {
-    ScopedTransaction transaction(metadata_source_.get());
-    int64 type_id;
-    TF_RETURN_IF_ERROR(InsertType(metadata_access_object_.get(),
-                                  request.artifact_type(), &type_id));
-    response->set_type_id(type_id);
-    return transaction.Commit();
-  } else {
-    return tensorflow::errors::Unimplemented(
-        "Updating type by ID not implemented.");
-  }
+  ScopedTransaction transaction(metadata_source_.get());
+  int64 type_id;
+  TF_RETURN_IF_ERROR(UpsertType(metadata_access_object_.get(),
+                                request.artifact_type(),
+                                request.can_add_fields(), &type_id));
+  response->set_type_id(type_id);
+  return transaction.Commit();
 }
 
 tensorflow::Status MetadataStore::PutExecutionType(
     const PutExecutionTypeRequest& request,
     PutExecutionTypeResponse* response) {
-  if (request.can_add_fields()) {
-    return tensorflow::errors::Unimplemented("Cannot add fields.");
-  }
   if (request.can_delete_fields()) {
     return tensorflow::errors::Unimplemented("Cannot remove fields.");
   }
   if (!request.all_fields_match()) {
     return tensorflow::errors::Unimplemented("Must match all fields.");
   }
-  if (!request.execution_type().has_id()) {
-    ScopedTransaction transaction(metadata_source_.get());
-    int64 type_id;
-    TF_RETURN_IF_ERROR(InsertType(metadata_access_object_.get(),
-                                  request.execution_type(), &type_id));
-    response->set_type_id(type_id);
-    return transaction.Commit();
-  } else {
-    return tensorflow::errors::Unimplemented(
-        "Updating type by ID not implemented.");
-  }
+  ScopedTransaction transaction(metadata_source_.get());
+  int64 type_id;
+  TF_RETURN_IF_ERROR(UpsertType(metadata_access_object_.get(),
+                                request.execution_type(),
+                                request.can_add_fields(), &type_id));
+  response->set_type_id(type_id);
+  return transaction.Commit();
 }
 
 tensorflow::Status MetadataStore::GetArtifactType(

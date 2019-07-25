@@ -124,6 +124,87 @@ TEST_P(MetadataAccessObjectTest, CreateTypeError) {
   }
 }
 
+TEST_P(MetadataAccessObjectTest, UpdateType) {
+  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  ArtifactType type1 = ParseTextProtoOrDie<ArtifactType>(R"(
+    name: 'type1'
+    properties { key: 'stored_property' value: STRING })");
+  int64 type1_id = -1;
+  TF_EXPECT_OK(metadata_access_object_->CreateType(type1, &type1_id));
+
+  ExecutionType type2 = ParseTextProtoOrDie<ExecutionType>(R"(
+    name: 'type2'
+    properties { key: 'stored_property' value: STRING })");
+  int64 type2_id = -1;
+  TF_EXPECT_OK(metadata_access_object_->CreateType(type2, &type2_id));
+
+  ArtifactType want_type1;
+  want_type1.set_id(type1_id);
+  want_type1.set_name("type1");
+  (*want_type1.mutable_properties())["stored_property"] = STRING;
+  (*want_type1.mutable_properties())["new_property"] = INT;
+  TF_EXPECT_OK(metadata_access_object_->UpdateType(want_type1));
+
+  ArtifactType got_type1;
+  TF_EXPECT_OK(metadata_access_object_->FindTypeById(type1_id, &got_type1));
+  EXPECT_THAT(want_type1, EqualsProto(got_type1));
+
+  // update properties may not include all existing properties
+  ExecutionType want_type2;
+  want_type2.set_name("type2");
+  (*want_type2.mutable_properties())["new_property"] = DOUBLE;
+  TF_EXPECT_OK(metadata_access_object_->UpdateType(want_type2));
+
+  ExecutionType got_type2;
+  TF_EXPECT_OK(metadata_access_object_->FindTypeById(type2_id, &got_type2));
+  want_type2.set_id(type2_id);
+  (*want_type2.mutable_properties())["stored_property"] = STRING;
+  EXPECT_THAT(want_type2, EqualsProto(got_type2));
+}
+
+TEST_P(MetadataAccessObjectTest, UpdateTypeError) {
+  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
+    name: 'stored_type'
+    properties { key: 'stored_property' value: STRING })");
+  int64 type_id;
+  TF_EXPECT_OK(metadata_access_object_->CreateType(type, &type_id));
+  {
+    ArtifactType type_without_name;
+    EXPECT_EQ(metadata_access_object_->UpdateType(type_without_name).code(),
+              tensorflow::error::INVALID_ARGUMENT);
+  }
+  {
+    ArtifactType type_with_wrong_id;
+    type_with_wrong_id.set_name("stored_type");
+    type_with_wrong_id.set_id(type_id + 1);
+    EXPECT_EQ(metadata_access_object_->UpdateType(type_with_wrong_id).code(),
+              tensorflow::error::INVALID_ARGUMENT);
+  }
+  {
+    ArtifactType type_with_modified_property_type;
+    type_with_modified_property_type.set_id(type_id);
+    type_with_modified_property_type.set_name("stored_type");
+    (*type_with_modified_property_type
+          .mutable_properties())["stored_property"] = INT;
+    EXPECT_EQ(
+        metadata_access_object_->UpdateType(type_with_modified_property_type)
+            .code(),
+        tensorflow::error::ALREADY_EXISTS);
+  }
+  {
+    ArtifactType type_with_unknown_type_property;
+    type_with_unknown_type_property.set_id(type_id);
+    type_with_unknown_type_property.set_name("stored_type");
+    (*type_with_unknown_type_property.mutable_properties())["new_property"] =
+        UNKNOWN;
+    EXPECT_EQ(
+        metadata_access_object_->UpdateType(type_with_unknown_type_property)
+            .code(),
+        tensorflow::error::INVALID_ARGUMENT);
+  }
+}
+
 TEST_P(MetadataAccessObjectTest, FindTypeById) {
   TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
   ArtifactType want_type = ParseTextProtoOrDie<ArtifactType>(R"(

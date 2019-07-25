@@ -7,7 +7,8 @@
     Executions.
 *   Add CACHED state to Execution state enum to model an execution that is
     skipped due to cached results.
-*   Adds the ability to list all instances of ArtifactType and ExecutionType.
+*   Add the ability to list all instances of ArtifactType and ExecutionType.
+*   Support Type update and enforce backward compatibility.
 
 ## Bug Fixes and Other Changes
 

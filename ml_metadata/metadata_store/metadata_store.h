@@ -61,19 +61,20 @@ class MetadataStore {
   // a new artifact type and returns the type_id.
   //
   // If an artifact type with the same name already exists (let's call it
-  // old_artifact_type),
-  //   If there is a property where artifact_type and old_artifact_type
-  //     have different types, or artifact_type and old_artifact_type
-  //     have different properties, it fails and returns ALREADY_EXISTS.
+  // old_artifact_type), the method enforces all stored fields must be present
+  // in request.artifact_type and must have the same type, otherwise it returns
+  // ALREADY_EXISTS.
+  // If can_add_fields is false and there are more fields in
+  // request.artifact_type than in old_artifact_type, return ALREADY_EXISTS.
+  // Otherwise it returns old_artifact_type.type_id.
   //
-  // Otherwise, it returns the type_id of old_artifact_type.
   // For the fields of PutArtifactTypeRequest:
-  //   artifact_type: the type to add: type_id must not be present.
-  //   can_add_fields must be false (otherwise returns UNIMPLEMENTED).
-  //   all_fields_match must be true (otherwise returns UNIMPLEMENTED).
-  //   can_delete_fields must be false (otherwise returns UNIMPLEMENTED).
-  // TODO(martinz): support the functionality suggested by the above
-  // options or remove the options from the proto.
+  //   all_fields_match: must be true (otherwise returns UNIMPLEMENTED).
+  //   can_delete_fields: must be false (otherwise returns UNIMPLEMENTED).
+  //   can_add_fields: when set to true, new fields can be added.
+  //                   when set to false, returns ALREADY_EXISTS if the
+  //                   stored type is different from the one given.
+  //   artifact_type: the type to add or update; for add, id should be empty.
   // Returns ALREADY_EXISTS error in the case listed above.
   // Returns UNIMPLEMENTED error in the cases listed above.
   // Returns INVALID_ARGUMENT error, if name field in request.artifact_type
@@ -90,20 +91,23 @@ class MetadataStore {
   // a new execution type and returns the type_id.
   //
   // If an execution type with the same name already exists (let's call it
-  // old_execution_type), it compares the given properties in execution_type
-  // with the properties in old_execution_type. If there is a property where
-  // execution_type and old_execution_type have different types, or
-  // execution_type and old_execution_type have different properties, it fails
-  // and returns ALREADY_EXISTS.
-  // Otherwise, it returns the type_id of old_execution_type.
+  // old_execution_type), the method enforces all stored fields must be present
+  // in request.execution_type and must have the same type, otherwise it returns
+  // ALREADY_EXISTS.
+  // If can_add_fields is false and there are more fields in
+  // request.execution_type than in old_execution_type, return ALREADY_EXISTS.
+  // Otherwise it returns old_execution_type.type_id.
   //
   // For the fields of PutExecutionTypeRequest:
-  //   execution_type: the type to add: type_id must not be present.
-  //   can_add_fields must be false (otherwise returns UNIMPLEMENTED).
-  //   all_fields_match must be true  (otherwise returns UNIMPLEMENTED).
-  //   can_delete_fields must be false  (otherwise returns UNIMPLEMENTED).
-  // TODO(martinz): support the above functionality or remove options from
-  // proto.
+  //   all_fields_match: must be true (otherwise returns UNIMPLEMENTED).
+  //                     it matches the given properties with the stored type,
+  //                     such that any stored property type must be the same
+  //                     with the given property.
+  //   can_delete_fields: must be false (otherwise returns UNIMPLEMENTED).
+  //   can_add_fields: when set to true, new fields can be added.
+  //                   when set to false, returns ALREADY_EXISTS if the
+  //                   stored type is different from the one given.
+  //   execution_type: the type to add or update; for add, id should be empty.
   // Returns ALREADY_EXISTS in the case listed above.
   // Returns UNIMPLEMENTED error in the cases listed above.
   // Returns INVALID_ARGUMENT error, if name field in request.execution_type

@@ -95,6 +95,25 @@ class MetadataStoreTest(absltest.TestCase):
                      metadata_store_pb2.STRING)
     self.assertEqual(artifact_type.properties["baz"], metadata_store_pb2.DOUBLE)
 
+  def test_put_artifact_type_with_update_get_artifact_type(self):
+    store = _get_metadata_store()
+    artifact_type = _create_example_artifact_type()
+    type_id = store.put_artifact_type(artifact_type)
+
+    artifact_type.properties["new_property"] = metadata_store_pb2.INT
+    store.put_artifact_type(artifact_type, can_add_fields=True)
+
+    artifact_type_result = store.get_artifact_type("test_type_1")
+    self.assertEqual(artifact_type_result.id, type_id)
+    self.assertEqual(artifact_type_result.name, "test_type_1")
+    self.assertEqual(artifact_type_result.properties["foo"],
+                     metadata_store_pb2.INT)
+    self.assertEqual(artifact_type_result.properties["bar"],
+                     metadata_store_pb2.STRING)
+    self.assertEqual(artifact_type.properties["baz"], metadata_store_pb2.DOUBLE)
+    self.assertEqual(artifact_type.properties["new_property"],
+                     metadata_store_pb2.INT)
+
   def test_get_artifact_types(self):
     store = _get_metadata_store()
     artifact_type_1 = _create_example_artifact_type()
@@ -253,6 +272,28 @@ class MetadataStoreTest(absltest.TestCase):
     execution_type_result = store.get_execution_type("test_type_1")
     self.assertEqual(execution_type_result.id, type_id)
     self.assertEqual(execution_type_result.name, "test_type_1")
+
+  def test_put_execution_type_with_update_get_execution_type(self):
+    store = _get_metadata_store()
+    execution_type = metadata_store_pb2.ExecutionType()
+    execution_type.name = "test_type"
+    execution_type.properties["foo"] = metadata_store_pb2.DOUBLE
+    type_id = store.put_execution_type(execution_type)
+
+    want_execution_type = metadata_store_pb2.ExecutionType()
+    want_execution_type.id = type_id
+    want_execution_type.name = "test_type"
+    want_execution_type.properties["foo"] = metadata_store_pb2.DOUBLE
+    want_execution_type.properties["new_property"] = metadata_store_pb2.INT
+    store.put_execution_type(want_execution_type, can_add_fields=True)
+
+    got_execution_type = store.get_execution_type("test_type")
+    self.assertEqual(got_execution_type.id, type_id)
+    self.assertEqual(got_execution_type.name, "test_type")
+    self.assertEqual(got_execution_type.properties["foo"],
+                     metadata_store_pb2.DOUBLE)
+    self.assertEqual(got_execution_type.properties["new_property"],
+                     metadata_store_pb2.INT)
 
   def test_put_executions_get_executions_by_id(self):
     store = _get_metadata_store()

@@ -87,8 +87,8 @@ type PutTypeOptions struct {
 // it returns the original type_id.
 //
 // Valid `atype` should not include a TypeID. `opts`.AllFieldsMustMatch must be
-// true, `opts`.CanAddFields and `opts`.CanDeleteFields must be false; otherwise
-// error is returned.
+// true, `opts`.CanAddFields should be true when update an stored type
+// and `opts`.CanDeleteFields must be false; otherwise error is returned.
 func (store *Store) PutArtifactType(atype *mdpb.ArtifactType, opts *PutTypeOptions) (ArtifactTypeID, error) {
 	req := &apipb.PutArtifactTypeRequest{
 		ArtifactType:    atype,
@@ -132,8 +132,8 @@ func (store *Store) GetArtifactTypesByID(tids []ArtifactTypeID) ([]*mdpb.Artifac
 // existing type, it returns the original type_id.
 //
 // Valid `etype` should not include a TypeID. `opts`.AllFieldsMustMatch must be
-// true, `opts`.CanAddFields and `opts`.CanDeleteFields must be false; otherwise
-// error is returned.
+// true, `opts`.CanAddFields should be true when update an stored type
+// and `opts`.CanDeleteFields must be false; otherwise error is returned.
 func (store *Store) PutExecutionType(etype *mdpb.ExecutionType, opts *PutTypeOptions) (ExecutionTypeID, error) {
 	req := &apipb.PutExecutionTypeRequest{
 		ExecutionType:   etype,

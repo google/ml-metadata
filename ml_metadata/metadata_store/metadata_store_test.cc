@@ -231,6 +231,7 @@ TEST_F(MetadataStoreTest, PutArtifactTypeTwiceChangedPropertyType) {
   PutArtifactTypeRequest request_2 =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
           R"(
+            all_fields_match: true
             artifact_type: {
               name: 'test_type2'
               properties { key: 'property_1' value: INT }
@@ -238,6 +239,118 @@ TEST_F(MetadataStoreTest, PutArtifactTypeTwiceChangedPropertyType) {
           )");
   PutArtifactTypeResponse response_2;
   EXPECT_FALSE(metadata_store_->PutArtifactType(request_2, &response_2).ok());
+}
+
+TEST_F(MetadataStoreTest, PutArtifactTypeMultipleTimesWithUpdate) {
+  PutArtifactTypeRequest request_1 =
+      ParseTextProtoOrDie<PutArtifactTypeRequest>(
+          R"(
+            all_fields_match: true
+            artifact_type: {
+              name: 'test_type'
+              properties { key: 'property_1' value: STRING }
+            }
+          )");
+  PutArtifactTypeResponse response_1;
+  TF_ASSERT_OK(metadata_store_->PutArtifactType(request_1, &response_1));
+
+  PutArtifactTypeRequest request_2 =
+      ParseTextProtoOrDie<PutArtifactTypeRequest>(
+          R"(
+            all_fields_match: true
+            can_add_fields: true
+            artifact_type: {
+              name: 'test_type'
+              properties { key: 'property_1' value: STRING }
+              properties { key: 'property_2' value: INT }
+            }
+          )");
+  PutArtifactTypeResponse response_2;
+  TF_EXPECT_OK(metadata_store_->PutArtifactType(request_2, &response_2));
+  EXPECT_EQ(response_2.type_id(), response_1.type_id());
+}
+
+TEST_F(MetadataStoreTest, PutArtifactTypeWithUpdateErrors) {
+  PutArtifactTypeRequest request_1 =
+      ParseTextProtoOrDie<PutArtifactTypeRequest>(
+          R"(
+            all_fields_match: true
+            artifact_type: {
+              name: 'test_type'
+              properties { key: 'property_1' value: STRING }
+            }
+          )");
+  PutArtifactTypeResponse response_1;
+  TF_ASSERT_OK(metadata_store_->PutArtifactType(request_1, &response_1));
+  const int64 type_id = response_1.type_id();
+
+  {
+    // can_add_fields is not set to true
+    PutArtifactTypeRequest wrong_request =
+        ParseTextProtoOrDie<PutArtifactTypeRequest>(
+            R"(
+              all_fields_match: true
+              artifact_type: {
+                name: 'test_type'
+                properties { key: 'property_1' value: STRING }
+                properties { key: 'property_2' value: INT }
+              }
+            )");
+    PutArtifactTypeResponse response;
+    EXPECT_EQ(metadata_store_->PutArtifactType(wrong_request, &response).code(),
+              tensorflow::error::ALREADY_EXISTS);
+  }
+
+  {
+    // cannot update an existing property
+    PutArtifactTypeRequest wrong_request =
+        ParseTextProtoOrDie<PutArtifactTypeRequest>(
+            R"(
+              all_fields_match: true
+              can_add_fields: true
+              artifact_type: {
+                name: 'test_type'
+                properties { key: 'property_1' value: DOUBLE }
+              }
+            )");
+    wrong_request.mutable_artifact_type()->set_id(type_id);
+    PutArtifactTypeResponse response;
+    EXPECT_EQ(metadata_store_->PutArtifactType(wrong_request, &response).code(),
+              tensorflow::error::ALREADY_EXISTS);
+  }
+
+  {
+    // should provide a name
+    PutArtifactTypeRequest wrong_request =
+        ParseTextProtoOrDie<PutArtifactTypeRequest>(
+            R"(
+              all_fields_match: true
+              can_add_fields: true
+              artifact_type: { properties { key: 'property_2' value: INT } }
+            )");
+    wrong_request.mutable_artifact_type()->set_id(type_id);
+    PutArtifactTypeResponse response;
+    EXPECT_EQ(metadata_store_->PutArtifactType(wrong_request, &response).code(),
+              tensorflow::error::INVALID_ARGUMENT);
+  }
+
+  {
+    // all stored fields should be matched
+    PutArtifactTypeRequest wrong_request =
+        ParseTextProtoOrDie<PutArtifactTypeRequest>(
+            R"(
+              all_fields_match: true
+              can_add_fields: true
+              artifact_type: {
+                name: 'test_type'
+                properties { key: 'property_2' value: INT }
+              }
+            )");
+    wrong_request.mutable_artifact_type()->set_id(type_id);
+    PutArtifactTypeResponse response;
+    EXPECT_EQ(metadata_store_->PutArtifactType(wrong_request, &response).code(),
+              tensorflow::error::ALREADY_EXISTS);
+  }
 }
 
 TEST_F(MetadataStoreTest, PutArtifactTypeSame) {
@@ -743,6 +856,36 @@ TEST_F(MetadataStoreTest, PutExecutionTypeTwiceChangedPropertyType) {
       metadata_store_->PutExecutionType(request_2, &response_2);
   EXPECT_EQ(tensorflow::error::ALREADY_EXISTS, status.code())
       << status.ToString();
+}
+
+TEST_F(MetadataStoreTest, PutExecutionTypeMultipleTimesWithUpdate) {
+  PutExecutionTypeRequest request_1 =
+      ParseTextProtoOrDie<PutExecutionTypeRequest>(
+          R"(
+            all_fields_match: true
+            execution_type: {
+              name: 'test_type'
+              properties { key: 'property_1' value: STRING }
+            }
+          )");
+  PutExecutionTypeResponse response_1;
+  TF_ASSERT_OK(metadata_store_->PutExecutionType(request_1, &response_1));
+
+  PutExecutionTypeRequest request_2 =
+      ParseTextProtoOrDie<PutExecutionTypeRequest>(
+          R"(
+            all_fields_match: true
+            can_add_fields: true
+            execution_type: {
+              name: 'test_type'
+              properties { key: 'property_1' value: STRING }
+              properties { key: 'property_2' value: INT }
+            }
+          )");
+  request_2.mutable_execution_type()->set_id(response_1.type_id());
+  PutExecutionTypeResponse response_2;
+  TF_EXPECT_OK(metadata_store_->PutExecutionType(request_2, &response_2));
+  EXPECT_EQ(response_2.type_id(), response_1.type_id());
 }
 
 TEST_F(MetadataStoreTest, PutExecutionTypeSame) {

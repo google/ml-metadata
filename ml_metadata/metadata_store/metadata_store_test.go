@@ -73,6 +73,54 @@ func TestPutArtifactType(t *testing.T) {
 	}
 }
 
+func TestPutAndUpdateArtifactType(t *testing.T) {
+	store, err := NewStore(fakeDatabaseConfig())
+	defer store.Close()
+	if err != nil {
+		t.Fatalf("Cannot create Store: %v", err)
+	}
+
+	textType := `name: 'test_type_name' properties { key: 'p1' value: INT } `
+	aType := &mdpb.ArtifactType{}
+	if err := proto.UnmarshalText(textType, aType); err != nil {
+		t.Fatalf("Cannot parse text for ArtifactType proto: %v", err)
+	}
+	opts := &PutTypeOptions{AllFieldsMustMatch: true}
+	typeID, err := store.PutArtifactType(aType, opts)
+	if err != nil {
+		t.Fatalf("PutArtifactType failed: %v", err)
+	}
+	if typeID <= 0 {
+		t.Errorf("expected type ID should be positive, got %v", typeID)
+	}
+
+	wantTextType := `name: 'test_type_name' properties { key: 'p1' value: INT } properties { key: 'p2' value: DOUBLE } `
+	wantType := &mdpb.ArtifactType{}
+	if err := proto.UnmarshalText(wantTextType, wantType); err != nil {
+		t.Fatalf("Cannot parse text for ArtifactType proto: %v", err)
+	}
+	opts = &PutTypeOptions{AllFieldsMustMatch: true, CanAddFields: true}
+	typeID2, err := store.PutArtifactType(wantType, opts)
+	if err != nil {
+		t.Fatalf("PutArtifactType failed: %v", err)
+	}
+	if typeID2 != typeID {
+		t.Errorf("update the type, type IDs should be the same. want: %v, got %v", typeID, typeID2)
+	}
+
+	tids := make([]ArtifactTypeID, typeID)
+	tids[0] = typeID
+	gotTypesByID, err := store.GetArtifactTypesByID(tids)
+	if err != nil {
+		t.Fatalf("GetArtifactTypesByID failed: %v", err)
+	}
+	tid := int64(typeID)
+	wantType.Id = &tid
+	if len(gotTypesByID) < 1 || !proto.Equal(wantType, gotTypesByID[0]) {
+		t.Errorf("put and get type by id mismatch, want: %v, got: %v", wantType, gotTypesByID)
+	}
+}
+
 func TestGetArtifactType(t *testing.T) {
 	store, err := NewStore(fakeDatabaseConfig())
 	defer store.Close()
@@ -211,6 +259,54 @@ func TestPutAndGetExecutionType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetExecutionTypesByID failed: %v", err)
 	}
+	if len(gotTypesByID) < 1 || !proto.Equal(wantType, gotTypesByID[0]) {
+		t.Errorf("put and get type by id mismatch, want: %v, got: %v", wantType, gotTypesByID)
+	}
+}
+
+func TestPutAndUpdateExecutionType(t *testing.T) {
+	store, err := NewStore(fakeDatabaseConfig())
+	defer store.Close()
+	if err != nil {
+		t.Fatalf("Cannot create Store: %v", err)
+	}
+
+	textType := `name: 'test_type_name' properties { key: 'p1' value: INT } `
+	eType := &mdpb.ExecutionType{}
+	if err := proto.UnmarshalText(textType, eType); err != nil {
+		t.Fatalf("Cannot parse text for ExecutionType proto: %v", err)
+	}
+	opts := &PutTypeOptions{AllFieldsMustMatch: true}
+	typeID, err := store.PutExecutionType(eType, opts)
+	if err != nil {
+		t.Fatalf("PutExecutionType failed: %v", err)
+	}
+	if typeID <= 0 {
+		t.Errorf("expected type ID should be positive, got %v", typeID)
+	}
+
+	wantTextType := `name: 'test_type_name' properties { key: 'p1' value: INT } properties { key: 'p2' value: DOUBLE } `
+	wantType := &mdpb.ExecutionType{}
+	if err := proto.UnmarshalText(wantTextType, wantType); err != nil {
+		t.Fatalf("Cannot parse text for ExecutionType proto: %v", err)
+	}
+	opts = &PutTypeOptions{AllFieldsMustMatch: true, CanAddFields: true}
+	typeID2, err := store.PutExecutionType(wantType, opts)
+	if err != nil {
+		t.Fatalf("PutExecutionType failed: %v", err)
+	}
+	if typeID2 != typeID {
+		t.Errorf("update the type, type IDs should be the same. want: %v, got %v", typeID, typeID2)
+	}
+
+	tids := make([]ExecutionTypeID, typeID)
+	tids[0] = typeID
+	gotTypesByID, err := store.GetExecutionTypesByID(tids)
+	if err != nil {
+		t.Fatalf("GetExecutionTypesByID failed: %v", err)
+	}
+	tid := int64(typeID)
+	wantType.Id = &tid
 	if len(gotTypesByID) < 1 || !proto.Equal(wantType, gotTypesByID[0]) {
 		t.Errorf("put and get type by id mismatch, want: %v, got: %v", wantType, gotTypesByID)
 	}

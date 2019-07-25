@@ -629,6 +629,60 @@ tensorflow::Status FindAllTypeInstancesImpl(
   return FindTypes(query, query_config, metadata_source, types);
 }
 
+// Updates an existing type. A type is an ArtifactType or an ExecutionType.
+// Returns INVALID_ARGUMENT error, if name field is not given.
+// Returns INVALID_ARGUMENT error, if id field is given and is different.
+// Returns INVALID_ARGUMENT error, if any property type is unknown.
+// Returns ALREADY_EXISTS error, if any property type is different.
+// Returns detailed INTERNAL error, if query execution fails.
+template <typename Type>
+tensorflow::Status UpdateTypeImpl(const Type& type,
+                                  const MetadataSourceQueryConfig& query_config,
+                                  MetadataSource* metadata_source) {
+  if (!type.has_name()) {
+    return tensorflow::errors::InvalidArgument("No type name is specified.");
+  }
+  // find the current stored type and validate the id.
+  Type stored_type;
+  TF_RETURN_IF_ERROR(
+      FindTypeImpl(type.name(), query_config, metadata_source, &stored_type));
+  if (type.has_id() && type.id() != stored_type.id()) {
+    return tensorflow::errors::InvalidArgument(
+        "Given type id is different from the existing type: ",
+        stored_type.DebugString());
+  }
+  // updates the list of type properties
+  std::vector<Query> insert_property_queries;
+  const google::protobuf::Map<string, PropertyType>& stored_properties =
+      stored_type.properties();
+  for (const auto& p : type.properties()) {
+    const string& property_name = p.first;
+    const PropertyType property_type = p.second;
+    if (property_type == PropertyType::UNKNOWN) {
+      return tensorflow::errors::InvalidArgument(
+          "Property:", property_name, " type should not be UNKNOWN.");
+    }
+    if (stored_properties.contains(property_name)) {
+      // for stored properties, type should not be changed.
+      if (stored_properties.at(property_name) != property_type) {
+        return tensorflow::errors::AlreadyExists(
+            "Property:", property_name,
+            " type is different from the existing type: ",
+            stored_type.DebugString());
+      }
+      continue;
+    }
+    Query insert_property_query;
+    TF_RETURN_IF_ERROR(ComposeParameterizedQuery(
+        query_config.insert_type_property(),
+        {Bind(stored_type.id()), Bind(metadata_source, property_name),
+         Bind(property_type)},
+        &insert_property_query));
+    insert_property_queries.push_back(insert_property_query);
+  }
+  return ExecuteMultiQuery(insert_property_queries, metadata_source);
+}
+
 // Creates an `Node` (either `Artifact` or `Execution`), returns the assigned
 // node id. The node's id field is ignored. The node should have a `NodeType`.
 // Returns INVALID_ARGUMENT error, if the node does not align with its type.
@@ -1060,7 +1114,11 @@ tensorflow::Status MetadataAccessObject::FindTypeByName(
 }
 
 tensorflow::Status MetadataAccessObject::UpdateType(const ArtifactType& type) {
-  return tensorflow::errors::Unimplemented("Not implemented yet.");
+  return UpdateTypeImpl(type, query_config_, metadata_source_);
+}
+
+tensorflow::Status MetadataAccessObject::UpdateType(const ExecutionType& type) {
+  return UpdateTypeImpl(type, query_config_, metadata_source_);
 }
 
 tensorflow::Status MetadataAccessObject::CreateArtifact(
