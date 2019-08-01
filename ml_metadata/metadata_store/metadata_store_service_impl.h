@@ -112,6 +112,11 @@ class MetadataStoreServiceImpl final
                            ::ml_metadata::PutEventsResponse* response) override
       LOCKS_EXCLUDED(lock_);
 
+  ::grpc::Status PutExecution(::grpc::ServerContext* context,
+                              const ::ml_metadata::PutExecutionRequest* request,
+                              ::ml_metadata::PutExecutionResponse* response)
+      override LOCKS_EXCLUDED(lock_);
+
   ::grpc::Status GetEventsByArtifactIDs(
       ::grpc::ServerContext* context,
       const ::ml_metadata::GetEventsByArtifactIDsRequest* request,

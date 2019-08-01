@@ -23,7 +23,7 @@ from __future__ import division
 from __future__ import print_function
 
 from absl import logging
-from typing import List, Optional, Sequence, Text
+from typing import List, Optional, Sequence, Text, Tuple
 
 from ml_metadata.metadata_store import pywrap_tf_metadata_store_serialized as metadata_store_serialized
 from ml_metadata.proto import metadata_store_pb2
@@ -282,6 +282,41 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.PutEventsResponse()
 
     self._swig_call(metadata_store_serialized.PutEvents, request, response)
+
+  def put_execution(
+      self, execution: metadata_store_pb2.Execution,
+      artifact_and_events: Sequence[Tuple[metadata_store_pb2.Artifact,
+                                          Optional[metadata_store_pb2.Event]]]
+  ) -> Tuple[int, List[int]]:
+    """Inserts or updates an Execution with related artifacts and events.
+
+    If an execution_id or artifact_id is specified, it is an update, otherwise
+    it does an insertion.
+
+    Args:
+      execution: The execution to be created or updated.
+      artifact_and_events: a pair of Artifact and Event that the execution uses
+        or generates. The event's execution id or artifact id can be empty, as
+        the artifact or execution may not be stored beforehand. If given, the
+        ids must match with the paired Artifact and the input execution.
+
+    Returns:
+      the execution id, and the list of artifact's id.
+    """
+    request = metadata_store_service_pb2.PutExecutionRequest()
+    request.execution.CopyFrom(execution)
+    for pair in artifact_and_events:
+      artifact_and_event = request.artifact_event_pairs.add()
+      artifact_and_event.artifact.CopyFrom(pair[0])
+      if len(pair) == 2 and pair[1] is not None:
+        artifact_and_event.event.CopyFrom(pair[1])
+    response = metadata_store_service_pb2.PutExecutionResponse()
+
+    self._swig_call(metadata_store_serialized.PutExecution, request, response)
+    artifact_ids = []
+    for x in response.artifact_ids:
+      artifact_ids.append(x)
+    return response.execution_id, artifact_ids
 
   def get_artifacts_by_type(
       self, type_name: Text) -> List[metadata_store_pb2.Artifact]:

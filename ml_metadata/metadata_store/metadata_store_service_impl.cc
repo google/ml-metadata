@@ -45,8 +45,9 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   absl::WriterMutexLock l(&lock_);
   const ::grpc::Status status =
       ToGRPCStatus(metadata_store_->PutArtifactType(*request, response));
-  if (!status.ok())
+  if (!status.ok()) {
     LOG(WARNING) << "PutArtifactType failed: " << status.error_message();
+  }
   return status;
 }
 
@@ -57,8 +58,9 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   absl::WriterMutexLock l(&lock_);
   const ::grpc::Status status =
       ToGRPCStatus(metadata_store_->GetArtifactType(*request, response));
-  if (!status.ok())
+  if (!status.ok()) {
     LOG(WARNING) << "GetArtifactType failed: " << status.error_message();
+  }
   return status;
 }
 
@@ -69,8 +71,9 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   absl::WriterMutexLock l(&lock_);
   const ::grpc::Status status =
       ToGRPCStatus(metadata_store_->GetArtifactTypesByID(*request, response));
-  if (!status.ok())
+  if (!status.ok()) {
     LOG(WARNING) << "GetArtifactTypesByID failed: " << status.error_message();
+  }
   return status;
 }
 
@@ -81,8 +84,9 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   absl::WriterMutexLock l(&lock_);
   const ::grpc::Status status =
       ToGRPCStatus(metadata_store_->GetArtifactTypes(*request, response));
-  if (!status.ok())
+  if (!status.ok()) {
     LOG(WARNING) << "GetArtifactTypes failed: " << status.error_message();
+  }
   return status;
 }
 
@@ -93,8 +97,9 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   absl::WriterMutexLock l(&lock_);
   const ::grpc::Status status =
       ToGRPCStatus(metadata_store_->PutExecutionType(*request, response));
-  if (!status.ok())
+  if (!status.ok()) {
     LOG(WARNING) << "PutExecutionType failed: " << status.error_message();
+  }
   return status;
 }
 
@@ -105,8 +110,9 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   absl::WriterMutexLock l(&lock_);
   const ::grpc::Status status =
       ToGRPCStatus(metadata_store_->GetExecutionType(*request, response));
-  if (!status.ok())
+  if (!status.ok()) {
     LOG(WARNING) << "GetExecutionType failed: " << status.error_message();
+  }
   return status;
 }
 
@@ -117,8 +123,9 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   absl::WriterMutexLock l(&lock_);
   const ::grpc::Status status =
       ToGRPCStatus(metadata_store_->GetExecutionTypesByID(*request, response));
-  if (!status.ok())
+  if (!status.ok()) {
     LOG(WARNING) << "GetExecutionTypesByID failed: " << status.error_message();
+  }
   return status;
 }
 
@@ -129,8 +136,9 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   absl::WriterMutexLock l(&lock_);
   const ::grpc::Status status =
       ToGRPCStatus(metadata_store_->GetExecutionTypes(*request, response));
-  if (!status.ok())
+  if (!status.ok()) {
     LOG(WARNING) << "GetExecutionTypesByID failed: " << status.error_message();
+  }
   return status;
 }
 
@@ -141,8 +149,9 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   absl::WriterMutexLock l(&lock_);
   const ::grpc::Status status =
       ToGRPCStatus(metadata_store_->PutArtifacts(*request, response));
-  if (!status.ok())
+  if (!status.ok()) {
     LOG(WARNING) << "PutArtifacts failed: " << status.error_message();
+  }
   return status;
 }
 
@@ -153,8 +162,9 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   absl::WriterMutexLock l(&lock_);
   const ::grpc::Status status =
       ToGRPCStatus(metadata_store_->PutExecutions(*request, response));
-  if (!status.ok())
+  if (!status.ok()) {
     LOG(WARNING) << "PutExecutions failed: " << status.error_message();
+  }
   return status;
 }
 
@@ -165,8 +175,9 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   absl::WriterMutexLock l(&lock_);
   const ::grpc::Status status =
       ToGRPCStatus(metadata_store_->GetArtifactsByID(*request, response));
-  if (!status.ok())
+  if (!status.ok()) {
     LOG(WARNING) << "GetArtifactsByID failed: " << status.error_message();
+  }
   return status;
 }
 
@@ -177,8 +188,9 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   absl::WriterMutexLock l(&lock_);
   const ::grpc::Status status =
       ToGRPCStatus(metadata_store_->GetExecutionsByID(*request, response));
-  if (!status.ok())
+  if (!status.ok()) {
     LOG(WARNING) << "GetExecutionsByID failed: " << status.error_message();
+  }
   return status;
 }
 
@@ -189,8 +201,22 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   absl::WriterMutexLock l(&lock_);
   const ::grpc::Status status =
       ToGRPCStatus(metadata_store_->PutEvents(*request, response));
-  if (!status.ok())
+  if (!status.ok()) {
     LOG(WARNING) << "PutEvents failed: " << status.error_message();
+  }
+  return status;
+}
+
+::grpc::Status MetadataStoreServiceImpl::PutExecution(
+    ::grpc::ServerContext* context,
+    const ::ml_metadata::PutExecutionRequest* request,
+    ::ml_metadata::PutExecutionResponse* response) {
+  absl::WriterMutexLock l(&lock_);
+  const ::grpc::Status status =
+      ToGRPCStatus(metadata_store_->PutExecution(*request, response));
+  if (!status.ok()) {
+    LOG(WARNING) << "PutExecution failed: " << status.error_message();
+  }
   return status;
 }
 
@@ -201,8 +227,9 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   absl::WriterMutexLock l(&lock_);
   const ::grpc::Status status =
       ToGRPCStatus(metadata_store_->GetEventsByArtifactIDs(*request, response));
-  if (!status.ok())
+  if (!status.ok()) {
     LOG(WARNING) << "GetEventsByArtifactIDs failed: " << status.error_message();
+  }
   return status;
 }
 
@@ -213,9 +240,10 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   absl::WriterMutexLock l(&lock_);
   const ::grpc::Status status = ToGRPCStatus(
       metadata_store_->GetEventsByExecutionIDs(*request, response));
-  if (!status.ok())
+  if (!status.ok()) {
     LOG(WARNING) << "GetEventsByExecutionIDs failed: "
                  << status.error_message();
+  }
   return status;
 }
 
@@ -226,8 +254,9 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   absl::WriterMutexLock l(&lock_);
   const ::grpc::Status status =
       ToGRPCStatus(metadata_store_->GetArtifacts(*request, response));
-  if (!status.ok())
+  if (!status.ok()) {
     LOG(WARNING) << "GetArtifacts failed: " << status.error_message();
+  }
   return status;
 }
 
@@ -238,8 +267,9 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   absl::WriterMutexLock l(&lock_);
   const ::grpc::Status status =
       ToGRPCStatus(metadata_store_->GetArtifactsByType(*request, response));
-  if (!status.ok())
+  if (!status.ok()) {
     LOG(WARNING) << "GetArtifactsByType failed: " << status.error_message();
+  }
   return status;
 }
 
@@ -250,8 +280,9 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   absl::WriterMutexLock l(&lock_);
   const ::grpc::Status status =
       ToGRPCStatus(metadata_store_->GetArtifactsByURI(*request, response));
-  if (!status.ok())
+  if (!status.ok()) {
     LOG(WARNING) << "GetArtifactsByURI failed: " << status.error_message();
+  }
   return status;
 }
 
@@ -262,8 +293,9 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   absl::WriterMutexLock l(&lock_);
   const ::grpc::Status status =
       ToGRPCStatus(metadata_store_->GetExecutions(*request, response));
-  if (!status.ok())
+  if (!status.ok()) {
     LOG(WARNING) << "GetExecutions failed: " << status.error_message();
+  }
   return status;
 }
 
@@ -274,8 +306,9 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   absl::WriterMutexLock l(&lock_);
   const ::grpc::Status status =
       ToGRPCStatus(metadata_store_->GetExecutionsByType(*request, response));
-  if (!status.ok())
+  if (!status.ok()) {
     LOG(WARNING) << "GetExecutionsByType failed: " << status.error_message();
+  }
   return status;
 }
 

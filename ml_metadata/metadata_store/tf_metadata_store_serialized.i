@@ -193,6 +193,12 @@ PyObject* PutEvents(ml_metadata::MetadataStore* metadata_store,
       &ml_metadata::MetadataStore::PutEvents);
 }
 
+PyObject* PutExecution(ml_metadata::MetadataStore* metadata_store,
+    const string& request) {
+  return AccessMetadataStore(metadata_store, request,
+      &ml_metadata::MetadataStore::PutExecution);
+}
+
 PyObject* GetEventsByExecutionIDs(ml_metadata::MetadataStore* metadata_store,
     const string& request) {
   return AccessMetadataStore(metadata_store, request,
@@ -296,6 +302,9 @@ PyObject* GetExecutionTypesByID(ml_metadata::MetadataStore* metadata_store,
 
 PyObject* PutEvents(ml_metadata::MetadataStore* metadata_store,
                     const string& request);
+
+PyObject* PutExecution(ml_metadata::MetadataStore* metadata_store,
+                       const string& request);
 
 PyObject* GetEventsByExecutionIDs(ml_metadata::MetadataStore* metadata_store,
                                   const string& request);

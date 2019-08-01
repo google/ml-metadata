@@ -687,3 +687,76 @@ func TestPutAndGetEvents(t *testing.T) {
 		t.Errorf("GetEventsByExecutionIDs number of events mismatch, want: %v, got: %v", 0, len(gotEvents))
 	}
 }
+
+func TestPublishExecution(t *testing.T) {
+	store, err := NewStore(fakeDatabaseConfig())
+	defer store.Close()
+	if err != nil {
+		t.Fatalf("Cannot create Store: %v", err)
+	}
+	// create test types
+	atid, err := insertArtifactType(store, `name: 'artifact_type_name' `)
+	if err != nil {
+		t.Fatalf("Cannot create artifact type: %v", err)
+	}
+	etid, err := insertExecutionType(store, `name: 'execution_type_name' `)
+	if err != nil {
+		t.Fatalf("Cannot create execution type: %v", err)
+	}
+	// create an stored input artifact ia
+	as := make([]*mdpb.Artifact, 1)
+	ia := &mdpb.Artifact{TypeId: &atid}
+	as[0] = ia
+	aids, err := store.PutArtifacts(as)
+	if err != nil {
+		t.Fatalf("PutArtifacts failed: %v", err)
+	}
+	aid := int64(aids[0])
+	ia.Id = &aid
+	// prepare an execution and an output artifact, and publish input and output together with events
+	// input has no event update, output has a new event
+	e := &mdpb.Execution{TypeId: &etid}
+	aep := make([]*ArtifactAndEvent, 2)
+	aep[0] = &ArtifactAndEvent{
+		Artifact: ia,
+	}
+	oa := &mdpb.Artifact{TypeId: &atid}
+	oet := mdpb.Event_Type(mdpb.Event_OUTPUT)
+	ot := int64(100000)
+	aep[1] = &ArtifactAndEvent{
+		Artifact: oa,
+		Event: &mdpb.Event{
+			Type:                   &oet,
+			MillisecondsSinceEpoch: &ot,
+		},
+	}
+	// publish the execution and examine the results
+	reid, raids, err := store.PutExecution(e, aep)
+	if err != nil {
+		t.Fatalf("PutExecution failed: %v", err)
+	}
+	if len(raids) != 2 {
+		t.Errorf("PutExecution number of artifacts mismatch, want: %v, got: %v", 2, len(raids))
+	}
+	if raids[0] != ArtifactID(aid) {
+		t.Errorf("PutExecution returned Id for stored Artifact mismatch, want: %v, got: %v", aid, raids[0])
+	}
+	// query execution that is just stored by returned eid
+	eids := make([]ExecutionID, 1)
+	eids[0] = reid
+	gotEvents, err := store.GetEventsByExecutionIDs(eids)
+	if err != nil {
+		t.Fatalf("GetEventsByExecutionIDs failed: %v", err)
+	}
+	if len(gotEvents) != 1 {
+		t.Fatalf("GetEventsByExecutionIDs number of events mismatch, want: %v, got: %v", 1, len(gotEvents))
+	}
+	wantEvent := aep[1].Event
+	oaid := int64(raids[1])
+	eid := int64(reid)
+	wantEvent.ArtifactId = &oaid
+	wantEvent.ExecutionId = &eid
+	if !proto.Equal(gotEvents[0], wantEvent) {
+		t.Errorf("GetEventsByExecutionIDs returned events mismatch, want: %v, got: %v", wantEvent, gotEvents[0])
+	}
+}

@@ -9,6 +9,7 @@
     skipped due to cached results.
 *   Add the ability to list all instances of ArtifactType and ExecutionType.
 *   Support Type update and enforce backward compatibility.
+*   Support atomic creation and publishing of an execution.
 
 ## Bug Fixes and Other Changes
 

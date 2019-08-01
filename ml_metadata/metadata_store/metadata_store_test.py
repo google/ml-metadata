@@ -502,6 +502,30 @@ class MetadataStoreTest(absltest.TestCase):
     self.assertLen(event_result_1.path.steps, 1)
     self.assertEqual(event_result_1.path.steps[0].key, "fff")
 
+  def test_publish_execution(self):
+    store = _get_metadata_store()
+    execution_type = metadata_store_pb2.ExecutionType()
+    execution_type.name = "execution_type"
+    execution_type_id = store.put_execution_type(execution_type)
+    execution = metadata_store_pb2.Execution()
+    execution.type_id = execution_type_id
+
+    artifact_type = metadata_store_pb2.ArtifactType()
+    artifact_type.name = "artifact_type"
+    artifact_type_id = store.put_artifact_type(artifact_type)
+    input_artifact = metadata_store_pb2.Artifact()
+    input_artifact.type_id = artifact_type_id
+    output_artifact = metadata_store_pb2.Artifact()
+    output_artifact.type_id = artifact_type_id
+    output_event = metadata_store_pb2.Event()
+    output_event.type = metadata_store_pb2.Event.DECLARED_INPUT
+
+    execution_id, artifact_ids = store.put_execution(
+        execution, [[input_artifact], [output_artifact, output_event]])
+    self.assertLen(artifact_ids, 2)
+    events = store.get_events_by_execution_ids([execution_id])
+    self.assertLen(events, 1)
+
 
 if __name__ == "__main__":
   absltest.main()
