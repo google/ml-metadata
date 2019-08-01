@@ -108,7 +108,7 @@ func TestPutAndUpdateArtifactType(t *testing.T) {
 		t.Errorf("update the type, type IDs should be the same. want: %v, got %v", typeID, typeID2)
 	}
 
-	tids := make([]ArtifactTypeID, typeID)
+	tids := make([]ArtifactTypeID, 1)
 	tids[0] = typeID
 	gotTypesByID, err := store.GetArtifactTypesByID(tids)
 	if err != nil {
@@ -299,7 +299,7 @@ func TestPutAndUpdateExecutionType(t *testing.T) {
 		t.Errorf("update the type, type IDs should be the same. want: %v, got %v", typeID, typeID2)
 	}
 
-	tids := make([]ExecutionTypeID, typeID)
+	tids := make([]ExecutionTypeID, 1)
 	tids[0] = typeID
 	gotTypesByID, err := store.GetExecutionTypesByID(tids)
 	if err != nil {
