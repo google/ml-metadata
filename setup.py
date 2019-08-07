@@ -15,11 +15,25 @@
 
 from setuptools import find_packages
 from setuptools import setup
+from setuptools.command.install import install
 from setuptools.dist import Distribution
 
 
-class BinaryDistribution(Distribution):
+# MLMD is not a purelib. However because of the extension module is not built
+# by setuptools, it will be incorrectly treated as a purelib. The following
+# works around that bug.
+class _InstallPlatlib(install):
+
+  def finalize_options(self):
+    install.finalize_options(self)
+    self.install_lib = self.install_platlib
+
+
+class _BinaryDistribution(Distribution):
   """This class is needed in order to create OS specific wheels."""
+
+  def is_pure(self):
+    return False
 
   def has_ext_modules(self):
     return True
@@ -76,9 +90,7 @@ setup(
     # six, and protobuf) with TF.
     install_requires=[
         'absl-py>=0.1.6,<1',
-
         'protobuf>=3.7,<4',
-
         'six>=1.4.0,<2',
 
         # TODO(martinz): Add a method to check if we are using a
@@ -92,11 +104,12 @@ setup(
     include_package_data=True,
     package_data={'': ['*.so']},
     zip_safe=False,
-    distclass=BinaryDistribution,
+    distclass=_BinaryDistribution,
     description='A library for maintaining metadata for artifacts.',
     long_description=_LONG_DESCRIPTION,
     long_description_content_type='text/markdown',
     keywords='machine learning metadata tfx',
     url='https://github.com/google/ml-metadata',
     download_url='https://github.com/google/ml-metadata/tags',
-    requires=[])
+    requires=[],
+    cmdclass={'install': _InstallPlatlib})

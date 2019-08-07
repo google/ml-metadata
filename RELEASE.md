@@ -10,6 +10,8 @@
 *   Add the ability to list all instances of ArtifactType and ExecutionType.
 *   Support Type update and enforce backward compatibility.
 *   Support atomic creation and publishing of an execution.
+*   Support building a manylinux2010 compliant wheel in docker so that it works
+    in other linux OS outside of Ubuntu.
 
 ## Bug Fixes and Other Changes
 

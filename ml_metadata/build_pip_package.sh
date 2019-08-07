@@ -13,9 +13,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Convenience binary to build TFDV from source.
+# Convenience binary to build MLMD from source.
 
 # Put wrapped c++ files in place
+
+# Usage: build_pip_package.sh [--python_bin_path PYTHON_BIN_PATH]
+
+if [[ -z "$1" ]]; then
+  PYTHON_BIN_PATH=python
+else
+  if [[ "$1" == --python_bin_path ]]; then
+    shift
+    PYTHON_BIN_PATH=$1
+  else
+    printf "Unrecognized argument $1"
+    exit 1
+  fi
+fi
 
 set -u -x
 
@@ -35,7 +49,7 @@ cp -f ml_metadata/metadata_store/_pywrap_tf_metadata_store_serialized.so \
 # Create the wheel
 cd ${BUILD_WORKSPACE_DIRECTORY}
 
-python setup.py bdist_wheel
+${PYTHON_BIN_PATH} setup.py bdist_wheel
 
 # Cleanup
 cd -

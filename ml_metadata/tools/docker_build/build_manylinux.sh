@@ -1,0 +1,77 @@
+#!/bin/bash
+# Copyright 2019 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This script is expected to run in the docker container defined in
+# Dockerfile.manylinux2010
+# Assumptions:
+# - CentOS environment.
+# - devtoolset-8 is installed.
+# - $PWD is MLMD's project root.
+# - Python of different versions are installed at /opt/python/.
+# - patchelf, zip, bazel is installed and is in $PATH.
+
+WORKING_DIR=$PWD
+
+function setup_environment() {
+  source scl_source enable devtoolset-8
+  if [[ -z "${PYTHON_VERSION}" ]]; then
+    echo "Must set PYTHON_VERSION env to 35|36|37|27"; exit 1;
+  fi
+  # Bazel will use PYTHON_BIN_PATH to determine the right python library.
+  if [[ "${PYTHON_VERSION}" == 27 ]]; then
+    PYTHON_DIR=/opt/python/cp27-cp27mu
+  elif [[ "${PYTHON_VERSION}" == 35 ]]; then
+    PYTHON_DIR=/opt/python/cp35-cp35m
+  elif [[ "${PYTHON_VERSION}" == 36 ]]; then
+    PYTHON_DIR=/opt/python/cp36-cp36m
+  elif [[ "${PYTHON_VERSION}" == 37 ]]; then
+    PYTHON_DIR=/opt/python/cp37-cp37m
+  else
+    echo "Must set PYTHON_VERSION env to 35|36|37|27"; exit 1;
+  fi
+  export PIP_BIN="${PYTHON_DIR}"/bin/pip
+  export PYTHON_BIN_PATH="${PYTHON_DIR}"/bin/python
+  echo "PYTHON_BIN_PATH=${PYTHON_BIN_PATH}"
+  ${PIP_BIN} install --upgrade pip
+  ${PIP_BIN} install wheel
+  ${PIP_BIN} install numpy
+  # Auditwheel does not have a python2 version and auditwheel is just a binary.
+  pip3 install auditwheel
+}
+
+function bazel_build() {
+  rm -f .bazelrc
+  rm -rf dist
+  bazel run -c opt \
+    --define grpc_no_ares=true ml_metadata:build_pip_package \
+    --\
+    --python_bin_path "${PYTHON_BIN_PATH}"
+}
+
+function stamp_wheel() {
+  WHEEL_PATH="$(ls "$PWD"/dist/*.whl)"
+  WHEEL_DIR=$(dirname "${WHEEL_PATH}")
+  auditwheel repair --plat manylinux2010_x86_64 -w "${WHEEL_DIR}" "${WHEEL_PATH}"
+  rm "${WHEEL_PATH}"
+}
+
+setup_environment
+set -e
+set -x
+bazel_build
+stamp_wheel
+
+set +e
+set +x
