@@ -13,6 +13,7 @@
 *   Support building a manylinux2010 compliant wheel in docker so that it works
     in other linux OS outside of Ubuntu.
 *   Provide MLMD migration scheme to migrate out-of-date MLMD instance.
+*   Support creating and querying ContextType.
 
 ## Bug Fixes and Other Changes
 

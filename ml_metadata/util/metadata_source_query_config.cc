@@ -25,55 +25,62 @@ namespace {
 // A set of common template queries used by the MetadataAccessObject for SQLite
 // based MetadataSource.
 constexpr char kBaseQueryConfig[] = R"pb(
-  schema_version: 1
+  schema_version: 2
   drop_type_table { query: " DROP TABLE IF EXISTS `Type`; " }
   create_type_table {
     query: " CREATE TABLE IF NOT EXISTS `Type` ( "
            "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
            "   `name` VARCHAR(255) NOT NULL, "
-           "   `is_artifact_type` TINYINT(1) NOT NULL, "
+           "   `type_kind` TINYINT(1) NOT NULL, "
            "   `input_type` TEXT, "
            "   `output_type` TEXT"
            " ); "
   }
   check_type_table {
     query: " SELECT "
-           "`id`, `name`, `is_artifact_type`, `input_type`, `output_type` "
+           "`id`, `name`, `type_kind`, `input_type`, `output_type` "
            " FROM `Type` LIMIT 1; "
   }
 
   insert_artifact_type {
     query: " INSERT INTO `Type`( "
-           "   `name`, `is_artifact_type` "
+           "   `name`, `type_kind` "
            ") VALUES($0, 1);"
     parameter_num: 1
   }
 
   insert_execution_type {
     query: " INSERT INTO `Type`( "
-           "   `name`, `is_artifact_type`, `input_type`,  `output_type` "
+           "   `name`, `type_kind`, `input_type`,  `output_type` "
            ") VALUES($0, 0, $1, $2);"
     parameter_num: 3
+  }
+
+  insert_context_type {
+    query: " INSERT INTO `Type`( "
+           "   `name`, `type_kind` "
+           ") VALUES($0, 2);"
+    parameter_num: 1
   }
 
   select_type_by_id {
     query: " SELECT `id`, `name`, `input_type`, `output_type` "
            " from `Type` "
-           " WHERE id = $0 and is_artifact_type = $1; "
+           " WHERE id = $0 and type_kind = $1; "
     parameter_num: 2
   }
 
   select_type_by_name {
     query: " SELECT `id`, `name`, `input_type`, `output_type` "
            " from `Type` "
-           " WHERE name = $0 and is_artifact_type = $1; "
+           " WHERE name = $0 and type_kind = $1; "
     parameter_num: 2
   }
 
   select_all_types {
     query: " SELECT `id`, `name`, `input_type`, `output_type` "
            " from `Type` "
-           " WHERE is_artifact_type = $0; "
+           " WHERE type_kind = $0; "
     parameter_num: 1
   }
 
@@ -433,6 +440,49 @@ constexpr char kSQLiteMetadataSourceQueryConfig[] = R"pb(
       }
     }
   }
+  # In v2, to support context type, and we renamed `is_artifact_type` column in
+  # `Type` table.
+  migration_schemes {
+    key: 2
+    value: {
+      upgrade_queries {
+        query: " CREATE TABLE IF NOT EXISTS `TypeTemp` ( "
+               "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+               "   `name` VARCHAR(255) NOT NULL, "
+               "   `type_kind` TINYINT(1) NOT NULL, "
+               "   `input_type` TEXT, "
+               "   `output_type` TEXT"
+               " ); "
+      }
+      upgrade_queries {
+        query: " INSERT INTO `TypeTemp` SELECT * FROM `Type`; "
+      }
+      upgrade_queries { query: " DROP TABLE `Type`; " }
+      upgrade_queries { query: " ALTER TABLE `TypeTemp` rename to `Type`; " }
+      upgrade_verification {
+        # populate one ArtifactType and one ExecutionType.
+        previous_version_setup_queries {
+          query: " INSERT INTO `Type` (`name`, `is_artifact_type`) VALUES "
+                 " ('artifact_type', 1); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Type` "
+                 " (`name`, `is_artifact_type`, `input_type`, `output_type`) "
+                 " VALUES ('execution_type', 0, 'input', 'output'); "
+        }
+        # check after migration, the existing types are the same including id.
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `Type` WHERE "
+                 " `id` = 1 AND `type_kind` = 1 AND `name` = 'artifact_type'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `Type` WHERE "
+                 " `id` = 2 AND `type_kind` = 0 AND `name` = 'execution_type' "
+                 " AND `input_type` = 'input' AND `output_type` = 'output'; "
+        }
+      }
+    }
+  }
 )pb";
 
 // Template queries for MySQLMetadataSources.
@@ -443,7 +493,7 @@ constexpr char kMySQLMetadataSourceQueryConfig[] = R"pb(
     query: " CREATE TABLE IF NOT EXISTS `Type` ( "
            "   `id` INT PRIMARY KEY AUTO_INCREMENT, "
            "   `name` VARCHAR(255) NOT NULL, "
-           "   `is_artifact_type` TINYINT(1) NOT NULL, "
+           "   `type_kind` TINYINT(1) NOT NULL, "
            "   `input_type` TEXT, "
            "   `output_type` TEXT"
            " ); "
@@ -552,6 +602,37 @@ constexpr char kMySQLMetadataSourceQueryConfig[] = R"pb(
         # check the new table has 1 row
         post_migration_verification_queries {
           query: " SELECT count(*) = 1 FROM `MLMDEnv`; "
+        }
+      }
+    }
+  }
+  migration_schemes {
+    key: 2
+    value: {
+      upgrade_queries {
+        query: " ALTER TABLE `Type` CHANGE COLUMN "
+               " `is_artifact_type` `type_kind` TINYINT(1) NOT NULL; "
+      }
+      upgrade_verification {
+        # populate one ArtifactType and one ExecutionType.
+        previous_version_setup_queries {
+          query: " INSERT INTO `Type` (`name`, `is_artifact_type`) VALUES "
+                 " ('artifact_type', 1); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Type` "
+                 " (`name`, `is_artifact_type`, `input_type`, `output_type`) "
+                 " VALUES ('execution_type', 0, 'input', 'output'); "
+        }
+        # check after migration, the existing types are the same including id.
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `Type` WHERE "
+                 " `id` = 1 AND `type_kind` = 1 AND `name` = 'artifact_type'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `Type` WHERE "
+                 " `id` = 2 AND `type_kind` = 0 AND `name` = 'execution_type' "
+                 " AND `input_type` = 'input' AND `output_type` = 'output'; "
         }
       }
     }

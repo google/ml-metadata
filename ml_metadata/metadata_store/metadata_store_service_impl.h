@@ -84,6 +84,24 @@ class MetadataStoreServiceImpl final
       ::ml_metadata::GetExecutionTypesResponse* response) override
       LOCKS_EXCLUDED(lock_);
 
+  ::grpc::Status PutContextType(
+      ::grpc::ServerContext* context,
+      const ::ml_metadata::PutContextTypeRequest* request,
+      ::ml_metadata::PutContextTypeResponse* response) override
+      LOCKS_EXCLUDED(lock_);
+
+  ::grpc::Status GetContextType(
+      ::grpc::ServerContext* context,
+      const ::ml_metadata::GetContextTypeRequest* request,
+      ::ml_metadata::GetContextTypeResponse* response) override
+      LOCKS_EXCLUDED(lock_);
+
+  ::grpc::Status GetContextTypesByID(
+      ::grpc::ServerContext* context,
+      const ::ml_metadata::GetContextTypesByIDRequest* request,
+      ::ml_metadata::GetContextTypesByIDResponse* response) override
+      LOCKS_EXCLUDED(lock_);
+
   ::grpc::Status PutArtifacts(::grpc::ServerContext* context,
                               const ::ml_metadata::PutArtifactsRequest* request,
                               ::ml_metadata::PutArtifactsResponse* response)

@@ -142,6 +142,45 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   return status;
 }
 
+::grpc::Status MetadataStoreServiceImpl::PutContextType(
+    ::grpc::ServerContext* context,
+    const ::ml_metadata::PutContextTypeRequest* request,
+    ::ml_metadata::PutContextTypeResponse* response) {
+  absl::WriterMutexLock l(&lock_);
+  const ::grpc::Status status =
+      ToGRPCStatus(metadata_store_->PutContextType(*request, response));
+  if (!status.ok()) {
+    LOG(WARNING) << "PutContextType failed: " << status.error_message();
+  }
+  return status;
+}
+
+::grpc::Status MetadataStoreServiceImpl::GetContextType(
+    ::grpc::ServerContext* context,
+    const ::ml_metadata::GetContextTypeRequest* request,
+    ::ml_metadata::GetContextTypeResponse* response) {
+  absl::WriterMutexLock l(&lock_);
+  const ::grpc::Status status =
+      ToGRPCStatus(metadata_store_->GetContextType(*request, response));
+  if (!status.ok()) {
+    LOG(WARNING) << "GetContextType failed: " << status.error_message();
+  }
+  return status;
+}
+
+::grpc::Status MetadataStoreServiceImpl::GetContextTypesByID(
+    ::grpc::ServerContext* context,
+    const ::ml_metadata::GetContextTypesByIDRequest* request,
+    ::ml_metadata::GetContextTypesByIDResponse* response) {
+  absl::WriterMutexLock l(&lock_);
+  const ::grpc::Status status =
+      ToGRPCStatus(metadata_store_->GetContextTypesByID(*request, response));
+  if (!status.ok()) {
+    LOG(WARNING) << "GetContextTypesByID failed: " << status.error_message();
+  }
+  return status;
+}
+
 ::grpc::Status MetadataStoreServiceImpl::PutArtifacts(
     ::grpc::ServerContext* context,
     const ::ml_metadata::PutArtifactsRequest* request,

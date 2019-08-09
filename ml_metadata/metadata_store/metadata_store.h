@@ -118,6 +118,39 @@ class MetadataStore {
   tensorflow::Status PutExecutionType(const PutExecutionTypeRequest& request,
                                       PutExecutionTypeResponse* response);
 
+  // Inserts or updates a context type.
+  //
+  // If no context type exists in the database with the given name, it creates
+  // a new context type and returns the type_id.
+  //
+  // If an context type with the same name already exists (let's call it
+  // old_context_type), the method enforces all stored fields must be present
+  // in request.context_type and must have the same type, otherwise it returns
+  // ALREADY_EXISTS.
+  // If can_add_fields is false and there are more fields in
+  // request.context_type than in old_context_type, return ALREADY_EXISTS.
+  // Otherwise it returns old_context_type.type_id.
+  //
+  // For the fields of PutContextTypeRequest:
+  //   all_fields_match: must be true (otherwise returns UNIMPLEMENTED).
+  //                     it matches the given properties with the stored type,
+  //                     such that any stored property type must be the same
+  //                     with the given property.
+  //   can_delete_fields: must be false (otherwise returns UNIMPLEMENTED).
+  //   can_add_fields: when set to true, new fields can be added.
+  //                   when set to false, returns ALREADY_EXISTS if the
+  //                   stored type is different from the one given.
+  //   context_type: the type to add or update; for add, id should be empty.
+  // Returns ALREADY_EXISTS in the case listed above.
+  // Returns UNIMPLEMENTED error in the cases listed above.
+  // Returns INVALID_ARGUMENT error, if name field in request.context_type
+  //     is not given.
+  // Returns INVALID_ARGUMENT error, if any property type in
+  //     request.context_type is unknown.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status PutContextType(const PutContextTypeRequest& request,
+                                    PutContextTypeResponse* response);
+
   // Gets an execution type by name.
   // If no type exists, returns a NOT_FOUND error.
   // Returns detailed INTERNAL error, if query execution fails.
@@ -129,6 +162,12 @@ class MetadataStore {
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetArtifactType(const GetArtifactTypeRequest& request,
                                      GetArtifactTypeResponse* response);
+
+  // Gets an context type by name.
+  // If no type exists, returns a NOT_FOUND error.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status GetContextType(const GetContextTypeRequest& request,
+                                    GetContextTypeResponse* response);
 
   // Bulk inserts a list of artifact types and executions types atomically.
   // If the type with the same name already exists, it compares given properties
@@ -212,6 +251,14 @@ class MetadataStore {
   tensorflow::Status GetExecutionTypesByID(
       const GetExecutionTypesByIDRequest& request,
       GetExecutionTypesByIDResponse* response);
+
+  // Gets a list of context types by ID.
+  // If no context types with an ID exists, the context type is skipped.
+  // Sets the error field if any other internal errors are returned.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status GetContextTypesByID(
+      const GetContextTypesByIDRequest& request,
+      GetContextTypesByIDResponse* response);
 
   // Inserts events into the database.
   //

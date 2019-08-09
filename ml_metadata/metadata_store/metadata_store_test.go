@@ -312,6 +312,90 @@ func TestPutAndUpdateExecutionType(t *testing.T) {
 	}
 }
 
+func TestPutAndGetContextType(t *testing.T) {
+	store, err := NewStore(fakeDatabaseConfig())
+	defer store.Close()
+	if err != nil {
+		t.Fatalf("Cannot create Store: %v", err)
+	}
+	textType := `name: 'test_type_name' properties { key: 'p1' value: INT } `
+	wantType := &mdpb.ContextType{}
+	if err := proto.UnmarshalText(textType, wantType); err != nil {
+		t.Fatalf("Cannot parse text for ContextType proto: %v", err)
+	}
+	opts := &PutTypeOptions{AllFieldsMustMatch: true}
+	typeID, err := store.PutContextType(wantType, opts)
+	if err != nil {
+		t.Fatalf("PutContextType failed: %v", err)
+	}
+	tid := int64(typeID)
+	wantType.Id = &tid
+
+	typeName := wantType.GetName()
+	gotType, err := store.GetContextType(typeName)
+	if err != nil {
+		t.Fatalf("GetContextType failed: %v", err)
+	}
+	if !proto.Equal(wantType, gotType) {
+		t.Errorf("put and get type mismatch, want: %v, got: %v", wantType, gotType)
+	}
+
+	tids := make([]ContextTypeID, 1)
+	tids[0] = typeID
+	gotTypesByID, err := store.GetContextTypesByID(tids)
+	if err != nil {
+		t.Fatalf("GetContextTypesByID failed: %v", err)
+	}
+	if len(gotTypesByID) < 1 || !proto.Equal(wantType, gotTypesByID[0]) {
+		t.Errorf("put and get type by id mismatch, want: %v, got: %v", wantType, gotTypesByID)
+	}
+}
+
+func TestPutAndUpdateContextType(t *testing.T) {
+	store, err := NewStore(fakeDatabaseConfig())
+	defer store.Close()
+	if err != nil {
+		t.Fatalf("Cannot create Store: %v", err)
+	}
+
+	textType := `name: 'test_type_name' properties { key: 'p1' value: INT } `
+	cType := &mdpb.ContextType{}
+	if err := proto.UnmarshalText(textType, cType); err != nil {
+		t.Fatalf("Cannot parse text for ContextType proto: %v", err)
+	}
+	opts := &PutTypeOptions{AllFieldsMustMatch: true}
+	typeID, err := store.PutContextType(cType, opts)
+	if err != nil {
+		t.Fatalf("PutContextType failed: %v", err)
+	}
+
+	wantTextType := `name: 'test_type_name' properties { key: 'p1' value: INT } properties { key: 'p2' value: DOUBLE } `
+	wantType := &mdpb.ContextType{}
+	if err := proto.UnmarshalText(wantTextType, wantType); err != nil {
+		t.Fatalf("Cannot parse text for ContextType proto: %v", err)
+	}
+	opts = &PutTypeOptions{AllFieldsMustMatch: true, CanAddFields: true}
+	typeID2, err := store.PutContextType(wantType, opts)
+	if err != nil {
+		t.Fatalf("PutContextType failed: %v", err)
+	}
+	if typeID2 != typeID {
+		t.Errorf("update the type, type IDs should be the same. want: %v, got %v", typeID, typeID2)
+	}
+
+	tids := make([]ContextTypeID, 1)
+	tids[0] = typeID
+	gotTypesByID, err := store.GetContextTypesByID(tids)
+	if err != nil {
+		t.Fatalf("GetContextTypesByID failed: %v", err)
+	}
+	tid := int64(typeID)
+	wantType.Id = &tid
+	if len(gotTypesByID) < 1 || !proto.Equal(wantType, gotTypesByID[0]) {
+		t.Errorf("put and get type by id mismatch, want: %v, got: %v", wantType, gotTypesByID)
+	}
+}
+
 func insertArtifactType(s *Store, textType string) (int64, error) {
 	rst := &mdpb.ArtifactType{}
 	if err := proto.UnmarshalText(textType, rst); err != nil {

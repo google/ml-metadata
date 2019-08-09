@@ -85,18 +85,19 @@ class MetadataAccessObject {
   // Returns detailed INTERNAL error, if create schema query execution fails.
   tensorflow::Status InitMetadataSourceIfNotExists();
 
-  // Creates a type, returns the assigned type id. A type is an ArtifactType or
-  // an ExecutionType. The id field of the given type is ignored.
-  // TODO(huimiao) Enforce the id and name has 1-1 mapping.
+  // Creates a type, returns the assigned type id. A type is one of
+  // {ArtifactType, ExecutionType, ContextType}. The id field of the given type
+  // is ignored.
   // Returns INVALID_ARGUMENT error, if name field is not given.
   // Returns INVALID_ARGUMENT error, if any property type is unknown.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status CreateType(const ArtifactType& type, int64* type_id);
   tensorflow::Status CreateType(const ExecutionType& type, int64* type_id);
+  tensorflow::Status CreateType(const ContextType& type, int64* type_id);
 
-  // Updates an existing type. A type is an ArtifactType or an ExecutionType.
-  // The update should be backward compatible, i.e., existing properties should
-  // not be modified, only new properties can be added.
+  // Updates an existing type. A type is one of {ArtifactType, ExecutionType,
+  // ContextType}. The update should be backward compatible, i.e., existing
+  // properties should not be modified, only new properties can be added.
   // Returns INVALID_ARGUMENT error if name field is not given.
   // Returns INVALID_ARGUMENT error, if id field is given but differs from the
   //   the stored type with the same type name.
@@ -105,32 +106,34 @@ class MetadataAccessObject {
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status UpdateType(const ArtifactType& type);
   tensorflow::Status UpdateType(const ExecutionType& type);
+  tensorflow::Status UpdateType(const ContextType& type);
 
-  // Queries a type by an id. A type is an ArtifactType or an ExecutionType.
+  // Queries a type by an id. A type is one of
+  // {ArtifactType, ExecutionType, ContextType}
   // Returns NOT_FOUND error, if the given type_id cannot be found.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status FindTypeById(int64 type_id, ArtifactType* artifact_type);
   tensorflow::Status FindTypeById(int64 type_id, ExecutionType* execution_type);
+  tensorflow::Status FindTypeById(int64 type_id, ContextType* context_type);
 
-  // Queries a type by its name. A type is an ArtifactType or an ExecutionType.
+  // Queries a type by its name. A type is one of
+  // {ArtifactType, ExecutionType, ContextType}
   // Returns NOT_FOUND error, if the given name cannot be found.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status FindTypeByName(absl::string_view name,
                                     ArtifactType* artifact_type);
   tensorflow::Status FindTypeByName(absl::string_view name,
                                     ExecutionType* execution_type);
+  tensorflow::Status FindTypeByName(absl::string_view name,
+                                    ContextType* context_type);
 
-  // Returns a list of all known ArtifactType instances.
+  // Returns a list of all known type instances. A type is one of
+  // {ArtifactType, ExecutionType}
+  // TODO(huimiao) support ContextType when introducing the service API.
   // Returns NOT_FOUND error, if no artifact types can be found.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status FindArtifactTypes(
-      std::vector<ArtifactType>* artifact_types);
-
-  // Returns a list of all known ExecutionType instances.
-  // Returns NOT_FOUND error, if no execution types can be found.
-  // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status FindExecutionTypes(
-      std::vector<ExecutionType>* execution_types);
+  tensorflow::Status FindTypes(std::vector<ArtifactType>* artifact_types);
+  tensorflow::Status FindTypes(std::vector<ExecutionType>* execution_types);
 
   // Creates an artifact, returns the assigned artifact id. The id field of the
   // artifact is ignored.

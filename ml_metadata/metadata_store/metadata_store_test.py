@@ -64,6 +64,15 @@ def _create_example_execution_type_2():
   return execution_type
 
 
+def _create_example_context_type():
+  context_type = metadata_store_pb2.ContextType()
+  context_type.name = "test_type_1"
+  context_type.properties["foo"] = metadata_store_pb2.INT
+  context_type.properties["bar"] = metadata_store_pb2.STRING
+  context_type.properties["baz"] = metadata_store_pb2.DOUBLE
+  return context_type
+
+
 class MetadataStoreTest(absltest.TestCase):
 
   def test_unset_connection_config(self):
@@ -93,7 +102,8 @@ class MetadataStoreTest(absltest.TestCase):
                      metadata_store_pb2.INT)
     self.assertEqual(artifact_type_result.properties["bar"],
                      metadata_store_pb2.STRING)
-    self.assertEqual(artifact_type.properties["baz"], metadata_store_pb2.DOUBLE)
+    self.assertEqual(artifact_type_result.properties["baz"],
+                     metadata_store_pb2.DOUBLE)
 
   def test_put_artifact_type_with_update_get_artifact_type(self):
     store = _get_metadata_store()
@@ -525,6 +535,40 @@ class MetadataStoreTest(absltest.TestCase):
     self.assertLen(artifact_ids, 2)
     events = store.get_events_by_execution_ids([execution_id])
     self.assertLen(events, 1)
+
+  def test_put_context_type_get_context_type(self):
+    store = _get_metadata_store()
+    context_type = _create_example_context_type()
+
+    type_id = store.put_context_type(context_type)
+    context_type_result = store.get_context_type("test_type_1")
+    self.assertEqual(context_type_result.id, type_id)
+    self.assertEqual(context_type_result.name, "test_type_1")
+
+    context_types_by_id_results = store.get_context_types_by_id([type_id])
+    self.assertLen(context_types_by_id_results, 1)
+    self.assertEqual(context_types_by_id_results[0].id, type_id)
+    self.assertEqual(context_types_by_id_results[0].name, "test_type_1")
+
+  def test_put_context_type_with_update_get_context_type(self):
+    store = _get_metadata_store()
+    context_type = metadata_store_pb2.ContextType()
+    context_type.name = "test_type"
+    context_type.properties["foo"] = metadata_store_pb2.INT
+    type_id = store.put_context_type(context_type)
+
+    want_context_type = metadata_store_pb2.ContextType()
+    want_context_type.name = "test_type"
+    want_context_type.properties["foo"] = metadata_store_pb2.INT
+    want_context_type.properties["new_property"] = metadata_store_pb2.STRING
+    store.put_context_type(want_context_type, can_add_fields=True)
+
+    got_context_type = store.get_context_type("test_type")
+    self.assertEqual(got_context_type.id, type_id)
+    self.assertEqual(got_context_type.name, "test_type")
+    self.assertEqual(got_context_type.properties["foo"], metadata_store_pb2.INT)
+    self.assertEqual(got_context_type.properties["new_property"],
+                     metadata_store_pb2.STRING)
 
 
 if __name__ == "__main__":

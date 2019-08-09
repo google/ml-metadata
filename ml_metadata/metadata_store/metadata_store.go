@@ -66,6 +66,9 @@ type ArtifactTypeID int64
 // ExecutionTypeID refers the id space of ExecutionType
 type ExecutionTypeID int64
 
+// ContextTypeID refers the id space of ContextType
+type ContextTypeID int64
+
 // ArtifactID refers the id space of Artifact
 type ArtifactID int64
 
@@ -185,6 +188,51 @@ func (store *Store) GetExecutionTypesByID(tids []ExecutionTypeID) ([]*mdpb.Execu
 	resp := &apipb.GetExecutionTypesByIDResponse{}
 	err := store.callMetadataStoreWrapMethod(wrap.GetExecutionTypesByID, req, resp)
 	return resp.GetExecutionTypes(), err
+}
+
+// PutContextType inserts or updates a context type.
+// If no context type exists in the database with the given name,
+// it creates a new context type and returns the type_id.
+// If an context type with the same name already exists, and the given context
+// type match all properties (both name and value type) with the existing type,
+// it returns the original type_id.
+//
+// Valid `ctype` should not include a TypeID. `opts`.AllFieldsMustMatch must be
+// true, `opts`.CanAddFields should be true when update an stored type and
+// `opts`.CanDeleteFields must be false; otherwise error is returned.
+func (store *Store) PutContextType(ctype *mdpb.ContextType, opts *PutTypeOptions) (ContextTypeID, error) {
+	req := &apipb.PutContextTypeRequest{
+		ContextType:     ctype,
+		CanAddFields:    &opts.CanAddFields,
+		CanDeleteFields: &opts.CanDeleteFields,
+		AllFieldsMatch:  &opts.AllFieldsMustMatch,
+	}
+	resp := &apipb.PutContextTypeResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.PutContextType, req, resp)
+	return ContextTypeID(resp.GetTypeId()), err
+}
+
+// GetContextType gets a context type by name. If no type exists or query
+// execution fails, error is returned.
+func (store *Store) GetContextType(typeName string) (*mdpb.ContextType, error) {
+	req := &apipb.GetContextTypeRequest{
+		TypeName: proto.String(typeName),
+	}
+	resp := &apipb.GetContextTypeResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetContextType, req, resp)
+	return resp.GetContextType(), err
+}
+
+// GetContextTypesByID gets a list of context types by ID. If no type with an
+// ID exists, the context type is skipped. If the query execution fails, error is
+// returned.
+func (store *Store) GetContextTypesByID(tids []ContextTypeID) ([]*mdpb.ContextType, error) {
+	req := &apipb.GetContextTypesByIDRequest{
+		TypeIds: convertToInt64ArrayFromContextTypeIDs(tids),
+	}
+	resp := &apipb.GetContextTypesByIDResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetContextTypesByID, req, resp)
+	return resp.GetContextTypes(), err
 }
 
 // PutArtifacts inserts and updates artifacts into the store.
@@ -419,6 +467,14 @@ func convertToInt64ArrayFromArtifactTypeIDs(tids []ArtifactTypeID) []int64 {
 }
 
 func convertToInt64ArrayFromExecutionTypeIDs(tids []ExecutionTypeID) []int64 {
+	ids := make([]int64, len(tids))
+	for i, v := range tids {
+		ids[i] = int64(v)
+	}
+	return ids
+}
+
+func convertToInt64ArrayFromContextTypeIDs(tids []ContextTypeID) []int64 {
 	ids := make([]int64, len(tids))
 	for i, v := range tids {
 		ids[i] = int64(v)

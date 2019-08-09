@@ -84,6 +84,10 @@ message MetadataSourceQueryConfig {
   // $2 is the output_type serialized as JSON or null.
   TemplateQuery insert_execution_type = 55;
 
+  // Inserts a context type into the Type table. It has 1 parameter.
+  // $0 is the type name
+  TemplateQuery insert_context_type = 58;
+
   // Queries a type by its type id. It has 2 parameter.
   // $0 is the type id
   // $1 is the is_artifact_type

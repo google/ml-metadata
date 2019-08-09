@@ -133,6 +133,15 @@ TEST_P(MetadataAccessObjectTest, CreateType) {
   TF_EXPECT_OK(metadata_access_object_->CreateType(type3, &type3_id));
   EXPECT_NE(type1_id, type3_id);
   EXPECT_NE(type2_id, type3_id);
+
+  ContextType type4 = ParseTextProtoOrDie<ContextType>(R"(
+    name: 'test_type'
+    properties { key: 'property_1' value: STRING })");
+  int64 type4_id = -1;
+  TF_EXPECT_OK(metadata_access_object_->CreateType(type4, &type4_id));
+  EXPECT_NE(type1_id, type4_id);
+  EXPECT_NE(type2_id, type4_id);
+  EXPECT_NE(type3_id, type4_id);
 }
 
 TEST_P(MetadataAccessObjectTest, CreateTypeError) {
@@ -170,6 +179,12 @@ TEST_P(MetadataAccessObjectTest, UpdateType) {
   int64 type2_id = -1;
   TF_EXPECT_OK(metadata_access_object_->CreateType(type2, &type2_id));
 
+  ContextType type3 = ParseTextProtoOrDie<ContextType>(R"(
+    name: 'type3'
+    properties { key: 'stored_property' value: STRING })");
+  int64 type3_id = -1;
+  TF_EXPECT_OK(metadata_access_object_->CreateType(type3, &type3_id));
+
   ArtifactType want_type1;
   want_type1.set_id(type1_id);
   want_type1.set_name("type1");
@@ -192,6 +207,17 @@ TEST_P(MetadataAccessObjectTest, UpdateType) {
   want_type2.set_id(type2_id);
   (*want_type2.mutable_properties())["stored_property"] = STRING;
   EXPECT_THAT(want_type2, EqualsProto(got_type2));
+
+  // update context type
+  ContextType want_type3;
+  want_type3.set_name("type3");
+  (*want_type3.mutable_properties())["new_property"] = STRING;
+  TF_EXPECT_OK(metadata_access_object_->UpdateType(want_type3));
+  ContextType got_type3;
+  TF_EXPECT_OK(metadata_access_object_->FindTypeById(type3_id, &got_type3));
+  want_type3.set_id(type3_id);
+  (*want_type3.mutable_properties())["stored_property"] = STRING;
+  EXPECT_THAT(want_type3, EqualsProto(got_type3));
 }
 
 TEST_P(MetadataAccessObjectTest, UpdateTypeError) {
@@ -253,8 +279,39 @@ TEST_P(MetadataAccessObjectTest, FindTypeById) {
   TF_EXPECT_OK(metadata_access_object_->FindTypeById(type_id, &type));
   EXPECT_THAT(type, EqualsProto(want_type));
 
+  // type_id is for an artifact type, not an execution/context type.
   ExecutionType execution_type;
-  // type_id is for an artifact type, not an execution type.
+  EXPECT_EQ(
+      metadata_access_object_->FindTypeById(type_id, &execution_type).code(),
+      tensorflow::error::NOT_FOUND);
+  ContextType context_type;
+  EXPECT_EQ(
+      metadata_access_object_->FindTypeById(type_id, &context_type).code(),
+      tensorflow::error::NOT_FOUND);
+}
+
+TEST_P(MetadataAccessObjectTest, FindTypeByIdContext) {
+  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  ContextType want_type = ParseTextProtoOrDie<ContextType>(R"(
+    name: 'test_type'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: DOUBLE }
+    properties { key: 'property_3' value: STRING }
+  )");
+  int64 type_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(want_type, &type_id));
+  want_type.set_id(type_id);
+
+  ContextType type;
+  TF_EXPECT_OK(metadata_access_object_->FindTypeById(type_id, &type));
+  EXPECT_THAT(type, EqualsProto(want_type));
+
+  // type_id is for a context type, not an artifact/execution type.
+  ArtifactType artifact_type;
+  EXPECT_EQ(
+      metadata_access_object_->FindTypeById(type_id, &artifact_type).code(),
+      tensorflow::error::NOT_FOUND);
+  ExecutionType execution_type;
   EXPECT_EQ(
       metadata_access_object_->FindTypeById(type_id, &execution_type).code(),
       tensorflow::error::NOT_FOUND);
@@ -278,9 +335,14 @@ TEST_P(MetadataAccessObjectTest, FindTypeByIdExecution) {
   TF_EXPECT_OK(metadata_access_object_->FindTypeById(type_id, &type));
   EXPECT_THAT(type, EqualsProto(want_type));
 
+  // This type_id is an execution type, not an artifact/context type.
   ArtifactType artifact_type;
   EXPECT_EQ(
       metadata_access_object_->FindTypeById(type_id, &artifact_type).code(),
+      tensorflow::error::NOT_FOUND);
+  ContextType context_type;
+  EXPECT_EQ(
+      metadata_access_object_->FindTypeById(type_id, &context_type).code(),
       tensorflow::error::NOT_FOUND);
 }
 
@@ -301,11 +363,14 @@ TEST_P(MetadataAccessObjectTest, FindTypeByIdExecutionUnicode) {
   TF_EXPECT_OK(metadata_access_object_->FindTypeById(type_id, &type));
   EXPECT_THAT(type, EqualsProto(want_type));
 
+  // This type_id is an execution type, not an artifact/context type.
   ArtifactType artifact_type;
-  // The object with this type_id is an execution type, not an artifact
-  // type, so the method below fails.
   EXPECT_EQ(
       metadata_access_object_->FindTypeById(type_id, &artifact_type).code(),
+      tensorflow::error::NOT_FOUND);
+  ContextType context_type;
+  EXPECT_EQ(
+      metadata_access_object_->FindTypeById(type_id, &context_type).code(),
       tensorflow::error::NOT_FOUND);
 }
 
@@ -326,12 +391,14 @@ TEST_P(MetadataAccessObjectTest, FindTypeByIdExecutionNoSignature) {
   TF_EXPECT_OK(metadata_access_object_->FindTypeById(type_id, &type));
   EXPECT_THAT(type, EqualsProto(want_type));
 
+  // This type_id is an execution type, not an artifact/context type.
   ArtifactType artifact_type;
-
-  // The object with this type_id is an execution type, not an artifact
-  // type, so the method below fails.
   EXPECT_EQ(
       metadata_access_object_->FindTypeById(type_id, &artifact_type).code(),
+      tensorflow::error::NOT_FOUND);
+  ContextType context_type;
+  EXPECT_EQ(
+      metadata_access_object_->FindTypeById(type_id, &context_type).code(),
       tensorflow::error::NOT_FOUND);
 }
 
@@ -353,10 +420,13 @@ TEST_P(MetadataAccessObjectTest, FindTypeByName) {
   TF_EXPECT_OK(metadata_access_object_->FindTypeByName("test_type", &type));
   EXPECT_THAT(type, EqualsProto(want_type));
 
+  // The type with this name is an execution type, not an artifact/context type.
   ArtifactType artifact_type;
-  // The type with this name is an execution type, not an artifact type,
-  // so the method fails.
   EXPECT_EQ(metadata_access_object_->FindTypeByName("test_type", &artifact_type)
+                .code(),
+            tensorflow::error::NOT_FOUND);
+  ContextType context_type;
+  EXPECT_EQ(metadata_access_object_->FindTypeByName("test_type", &context_type)
                 .code(),
             tensorflow::error::NOT_FOUND);
 }
@@ -378,10 +448,15 @@ TEST_P(MetadataAccessObjectTest, FindTypeByNameNoSignature) {
   TF_EXPECT_OK(metadata_access_object_->FindTypeByName("test_type", &type));
   EXPECT_THAT(type, EqualsProto(want_type));
 
+  // The type with this name is an execution type, not an artifact/context type.
   ArtifactType artifact_type;
-  tensorflow::Status s =
-      metadata_access_object_->FindTypeByName("test_type", &artifact_type);
-  EXPECT_EQ(s.code(), tensorflow::error::NOT_FOUND);
+  EXPECT_EQ(metadata_access_object_->FindTypeByName("test_type", &artifact_type)
+                .code(),
+            tensorflow::error::NOT_FOUND);
+  ContextType context_type;
+  EXPECT_EQ(metadata_access_object_->FindTypeByName("test_type", &context_type)
+                .code(),
+            tensorflow::error::NOT_FOUND);
 }
 
 TEST_P(MetadataAccessObjectTest, FindAllArtifactTypes) {
@@ -415,7 +490,7 @@ TEST_P(MetadataAccessObjectTest, FindAllArtifactTypes) {
   want_type_3.set_id(type_id);
 
   std::vector<ArtifactType> got_types;
-  TF_EXPECT_OK(metadata_access_object_->FindArtifactTypes(&got_types));
+  TF_EXPECT_OK(metadata_access_object_->FindTypes(&got_types));
   EXPECT_THAT(got_types, UnorderedElementsAre(EqualsProto(want_type_1),
                                               EqualsProto(want_type_2),
                                               EqualsProto(want_type_3)));
@@ -452,7 +527,7 @@ TEST_P(MetadataAccessObjectTest, FindAllExecutionTypes) {
   want_type_3.set_id(type_id);
 
   std::vector<ExecutionType> got_types;
-  TF_EXPECT_OK(metadata_access_object_->FindExecutionTypes(&got_types));
+  TF_EXPECT_OK(metadata_access_object_->FindTypes(&got_types));
   EXPECT_THAT(got_types, UnorderedElementsAre(EqualsProto(want_type_1),
                                               EqualsProto(want_type_2),
                                               EqualsProto(want_type_3)));

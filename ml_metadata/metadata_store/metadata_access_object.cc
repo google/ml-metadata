@@ -36,6 +36,12 @@ namespace {
 
 using Query = std::string;
 
+// The node type_kind enum values used for internal storage. The enum value
+// should not be modified, in order to be backward compatible with stored types.
+// LINT.IfChange
+enum class TypeKind { EXECUTION_TYPE = 0, ARTIFACT_TYPE = 1, CONTEXT_TYPE = 2 };
+// LINT.ThenChange(../util/metadata_source_query_config.cc)
+
 // Executes multiple queries within a transaction, either using an opened one or
 // start a new one. If failed, this method returns the detailed error. This
 // method does not commit and allows executing more queries within the same
@@ -222,6 +228,9 @@ string Bind(const bool value) { return value ? "1" : "0"; }
 
 // Utility method to bind an double value to a SQL clause.
 string Bind(const double value) { return std::to_string(value); }
+
+// Utility method to bind an int value to a SQL clause.
+string Bind(const TypeKind value) { return std::to_string((int)value); }
 
 // Utility method to bind an int64 value to a SQL clause.
 string Bind(const int64 value) { return std::to_string(value); }
@@ -465,7 +474,17 @@ tensorflow::Status ComposeInsertTypeQueryImpl(
       insert_type);
 }
 
-// Creates a `Type` where acceptable types are ArtifactType and ExecutionType.
+// Creates a query to insert a context type.
+tensorflow::Status ComposeInsertTypeQueryImpl(
+    const ContextType& type, const MetadataSourceQueryConfig& query_config,
+    MetadataSource* metadata_source, Query* insert_type) {
+  return ComposeParameterizedQuery(query_config.insert_context_type(),
+                                   {Bind(metadata_source, type.name())},
+                                   insert_type);
+}
+
+// Creates a `Type` where acceptable ones are in {ArtifactType, ExecutionType,
+// ContextType}.
 // Returns INVALID_ARGUMENT error, if name field is not given.
 // Returns INVALID_ARGUMENT error, if any property type is unknown.
 // Returns detailed INTERNAL error, if query execution fails.
@@ -517,31 +536,31 @@ tensorflow::Status CreateTypeImpl(const Type& type,
 // Generates a query to find type by id
 tensorflow::Status GenerateFindTypeQuery(
     const int64 condition, const MetadataSourceQueryConfig& query_config,
-    const bool is_artifact_type, const MetadataSource* metadata_source,
+    const TypeKind type_kind, const MetadataSource* metadata_source,
     Query* query_type) {
   TF_RETURN_IF_ERROR(ComposeParameterizedQuery(
-      query_config.select_type_by_id(),
-      {Bind(condition), Bind(is_artifact_type)}, query_type));
+      query_config.select_type_by_id(), {Bind(condition), Bind(type_kind)},
+      query_type));
   return tensorflow::Status::OK();
 }
 
 // Generates a query to find type by name
 tensorflow::Status GenerateFindTypeQuery(
     absl::string_view condition, const MetadataSourceQueryConfig& query_config,
-    const bool is_artifact_type, const MetadataSource* metadata_source,
+    const TypeKind type_kind, const MetadataSource* metadata_source,
     Query* query_type) {
   TF_RETURN_IF_ERROR(ComposeParameterizedQuery(
       query_config.select_type_by_name(),
-      {Bind(metadata_source, condition), Bind(is_artifact_type)}, query_type));
+      {Bind(metadata_source, condition), Bind(type_kind)}, query_type));
   return tensorflow::Status::OK();
 }
 
 // Generates a query to find all type instances.
 tensorflow::Status GenerateFindAllTypeInstancesQuery(
-    const MetadataSourceQueryConfig& query_config, const bool is_artifact_type,
+    const MetadataSourceQueryConfig& query_config, const TypeKind type_kind,
     const MetadataSource* metadata_source, Query* query_type) {
-  TF_RETURN_IF_ERROR(ComposeParameterizedQuery(
-      query_config.select_all_types(), {Bind(is_artifact_type)}, query_type));
+  TF_RETURN_IF_ERROR(ComposeParameterizedQuery(query_config.select_all_types(),
+                                               {Bind(type_kind)}, query_type));
   return tensorflow::Status::OK();
 }
 
@@ -584,9 +603,22 @@ tensorflow::Status FindTypes(const Query& query,
   return tensorflow::Status::OK();
 }
 
-// Finds a type by query conditions. Acceptable types are ArtifactType and
-// ExecutionType (`MessageType`). The types can be queried by two kinds of query
-// conditions, which are type id (int64) or type name (string_view).
+TypeKind ResolveTypeKind(const ArtifactType* const type) {
+  return TypeKind::ARTIFACT_TYPE;
+}
+
+TypeKind ResolveTypeKind(const ExecutionType* const type) {
+  return TypeKind::EXECUTION_TYPE;
+}
+
+TypeKind ResolveTypeKind(const ContextType* const type) {
+  return TypeKind::CONTEXT_TYPE;
+}
+
+// Finds a type by query conditions. Acceptable types are {ArtifactType,
+// ExecutionType, ContextType} (`MessageType`). The types can be queried by two
+// kinds of query conditions, which are type id (int64) or type
+// name (string_view).
 // Returns NOT_FOUND error, if the given type_id cannot be found.
 // Returns detailed INTERNAL error, if query execution fails.
 template <typename QueryCondition, typename MessageType>
@@ -594,14 +626,10 @@ tensorflow::Status FindTypeImpl(const QueryCondition condition,
                                 const MetadataSourceQueryConfig& query_config,
                                 MetadataSource* metadata_source,
                                 MessageType* type) {
-  // constexpr bool is_query_by_id = std::is_same<QueryCondition, int64>::value;
-  constexpr bool is_artifact_type =
-      std::is_same<MessageType, ArtifactType>::value;
-
+  const TypeKind type_kind = ResolveTypeKind(type);
   Query query;
-  TF_RETURN_IF_ERROR(GenerateFindTypeQuery(
-      condition, query_config, is_artifact_type, metadata_source, &query));
-
+  TF_RETURN_IF_ERROR(GenerateFindTypeQuery(condition, query_config, type_kind,
+                                           metadata_source, &query));
   std::vector<MessageType> types;
   TF_RETURN_IF_ERROR(FindTypes(query, query_config, metadata_source, &types));
 
@@ -619,17 +647,17 @@ template <typename MessageType>
 tensorflow::Status FindAllTypeInstancesImpl(
     const MetadataSourceQueryConfig& query_config,
     MetadataSource* metadata_source, std::vector<MessageType>* types) {
-  constexpr bool is_artifact_type =
-      std::is_same<MessageType, ArtifactType>::value;
-
+  MessageType type;
+  const TypeKind type_kind = ResolveTypeKind(&type);
   Query query;
   TF_RETURN_IF_ERROR(GenerateFindAllTypeInstancesQuery(
-      query_config, is_artifact_type, metadata_source, &query));
+      query_config, type_kind, metadata_source, &query));
 
   return FindTypes(query, query_config, metadata_source, types);
 }
 
-// Updates an existing type. A type is an ArtifactType or an ExecutionType.
+// Updates an existing type. A type is one of the {ArtifactType, ExecutionType,
+// ContextType}
 // Returns INVALID_ARGUMENT error, if name field is not given.
 // Returns INVALID_ARGUMENT error, if id field is given and is different.
 // Returns INVALID_ARGUMENT error, if any property type is unknown.
@@ -1182,6 +1210,11 @@ tensorflow::Status MetadataAccessObject::CreateType(const ExecutionType& type,
   return CreateTypeImpl(type, query_config_, metadata_source_, type_id);
 }
 
+tensorflow::Status MetadataAccessObject::CreateType(const ContextType& type,
+                                                    int64* type_id) {
+  return CreateTypeImpl(type, query_config_, metadata_source_, type_id);
+}
+
 tensorflow::Status MetadataAccessObject::FindTypeById(
     const int64 type_id, ArtifactType* artifact_type) {
   return FindTypeImpl(type_id, query_config_, metadata_source_, artifact_type);
@@ -1192,13 +1225,18 @@ tensorflow::Status MetadataAccessObject::FindTypeById(
   return FindTypeImpl(type_id, query_config_, metadata_source_, execution_type);
 }
 
-tensorflow::Status MetadataAccessObject::FindArtifactTypes(
+tensorflow::Status MetadataAccessObject::FindTypes(
     std::vector<ArtifactType>* artifact_types) {
   return FindAllTypeInstancesImpl(query_config_, metadata_source_,
                                   artifact_types);
 }
 
-tensorflow::Status MetadataAccessObject::FindExecutionTypes(
+tensorflow::Status MetadataAccessObject::FindTypeById(
+    const int64 type_id, ContextType* context_type) {
+  return FindTypeImpl(type_id, query_config_, metadata_source_, context_type);
+}
+
+tensorflow::Status MetadataAccessObject::FindTypes(
     std::vector<ExecutionType>* execution_types) {
   return FindAllTypeInstancesImpl(query_config_, metadata_source_,
                                   execution_types);
@@ -1214,11 +1252,20 @@ tensorflow::Status MetadataAccessObject::FindTypeByName(
   return FindTypeImpl(name, query_config_, metadata_source_, execution_type);
 }
 
+tensorflow::Status MetadataAccessObject::FindTypeByName(
+    absl::string_view name, ContextType* context_type) {
+  return FindTypeImpl(name, query_config_, metadata_source_, context_type);
+}
+
 tensorflow::Status MetadataAccessObject::UpdateType(const ArtifactType& type) {
   return UpdateTypeImpl(type, query_config_, metadata_source_);
 }
 
 tensorflow::Status MetadataAccessObject::UpdateType(const ExecutionType& type) {
+  return UpdateTypeImpl(type, query_config_, metadata_source_);
+}
+
+tensorflow::Status MetadataAccessObject::UpdateType(const ContextType& type) {
   return UpdateTypeImpl(type, query_config_, metadata_source_);
 }
 

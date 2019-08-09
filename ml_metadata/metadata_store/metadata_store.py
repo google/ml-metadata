@@ -108,8 +108,9 @@ class MetadataStore(object):
                         all_fields_match: bool = True) -> int:
     """Inserts or updates an artifact type.
 
-    If no artifact type exists in the database with the given name, it creates
-    a new artifact type (and a database).
+    Similar to put execution/context type, if no artifact type exists in the
+    database with the given name, it creates a new artifact type (and a
+    database).
 
     If an artifact type with the same name already exists (let's call it
     old_artifact_type), then the impact depends upon the other options.
@@ -186,8 +187,7 @@ class MetadataStore(object):
     artifact_copy = metadata_store_pb2.Artifact()
     artifact_copy.CopyFrom(artifact)
     artifact_copy.type_id = type_id
-    [artifact_id] = self.put_artifacts([artifact_copy])
-    return artifact_id
+    return self.put_artifacts([artifact_copy])[0]
 
   def put_executions(
       self, executions: Sequence[metadata_store_pb2.Execution]) -> List[int]:
@@ -221,8 +221,9 @@ class MetadataStore(object):
                          all_fields_match: bool = True) -> int:
     """Inserts or updates an execution type.
 
-    If no execution type exists in the database with the given name, it creates
-    a new execution type (and a database).
+    Similar to put artifact/context type, if no execution type exists in the
+    database with the given name, it creates a new execution type (and a
+    database).
 
     If an execution type with the same name already exists (let's call it
     old_execution_type), then the impact depends upon the other options.
@@ -265,6 +266,62 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.PutExecutionTypeResponse()
     self._swig_call(metadata_store_serialized.PutExecutionType, request,
                     response)
+    return response.type_id
+
+  def put_context_type(self,
+                       context_type: metadata_store_pb2.ContextType,
+                       can_add_fields: bool = False,
+                       can_delete_fields: bool = False,
+                       all_fields_match: bool = True) -> int:
+    """Inserts or updates a context type.
+
+    Similar to put artifact/execution type, if no context type exists in the
+    database with the given name, it creates a new context type (and a
+    database).
+
+    If a context type with the same name already exists (let's call it
+    old_context_type), then the impact depends upon the other options.
+
+    If context_type == old_context_type, then nothing happens.
+
+    Otherwise, if there is a field where context_type and old_context_type
+    have different types, then it fails.
+
+    Otherwise, if can_add_fields is False and context_type has a field
+    old_context_type is missing, then it fails.
+
+    Otherwise, if all_fields_match is True and old_context_type has a field
+    context_type is missing, then it fails.
+
+    Otherwise, if can_delete_fields is True and old_context_type has a field
+    context_type is missing, then it deletes that field.
+
+    Otherwise, it does nothing.
+
+    Args:
+      context_type: the type to add or update.
+      can_add_fields: if true, you can add fields with this operation. If false,
+        then if there are more fields in context_type than in the database, the
+        call fails.
+      can_delete_fields: if true, you can remove fields with this operation. If
+        false, then if there are more fields in the current type, they are not
+        removed.
+      all_fields_match: if true, all fields must match, and the method fails if
+        they are not the same.
+
+    Returns:
+      the type_id of the response.
+
+    Raises:
+      InvalidArgumentError: If a constraint is violated.
+    """
+    request = metadata_store_service_pb2.PutContextTypeRequest()
+    request.can_add_fields = can_add_fields
+    request.can_delete_fields = can_delete_fields
+    request.all_fields_match = all_fields_match
+    request.context_type.CopyFrom(context_type)
+    response = metadata_store_service_pb2.PutContextTypeResponse()
+    self._swig_call(metadata_store_serialized.PutContextType, request, response)
     return response.type_id
 
   def put_events(self, events: Sequence[metadata_store_pb2.Event]) -> None:
@@ -409,7 +466,18 @@ class MetadataStore(object):
 
   def get_execution_type(
       self, type_name: Text) -> Optional[metadata_store_pb2.ExecutionType]:
-    """Gets an execution type, or None if it does not exist."""
+    """Gets an execution type by name.
+
+    Args:
+     type_name: the type with that name.
+
+    Returns:
+     The type with name type_name.
+
+    Raises:
+    tensorflow.errors.NotFoundError: if no type exists
+    tensorflow.errors.InternalError: if query execution fails
+    """
     request = metadata_store_service_pb2.GetExecutionTypeRequest()
     request.type_name = type_name
     response = metadata_store_service_pb2.GetExecutionTypeResponse()
@@ -435,6 +503,26 @@ class MetadataStore(object):
     for x in response.execution_types:
       result.append(x)
     return result
+
+  def get_context_type(
+      self, type_name: Text) -> Optional[metadata_store_pb2.ContextType]:
+    """Gets a context type by name.
+
+    Args:
+     type_name: the type with that name.
+
+    Returns:
+     The type with name type_name.
+
+    Raises:
+    tensorflow.errors.NotFoundError: if no type exists
+    tensorflow.errors.InternalError: if query execution fails
+    """
+    request = metadata_store_service_pb2.GetContextTypeRequest()
+    request.type_name = type_name
+    response = metadata_store_service_pb2.GetContextTypeResponse()
+    self._swig_call(metadata_store_serialized.GetContextType, request, response)
+    return response.context_type
 
   def get_executions_by_type(
       self, type_name: Text) -> List[metadata_store_pb2.Execution]:
@@ -508,9 +596,7 @@ class MetadataStore(object):
 
   def get_artifact_types_by_id(
       self, type_ids: Sequence[int]) -> List[metadata_store_pb2.ArtifactType]:
-    """Gets types by ID.
-
-    TODO(b/122657258): implement in gRPC
+    """Gets artifact types by ID.
 
     Args:
       type_ids: a sequence of artifact type IDs.
@@ -534,12 +620,10 @@ class MetadataStore(object):
 
   def get_execution_types_by_id(
       self, type_ids: Sequence[int]) -> List[metadata_store_pb2.ExecutionType]:
-    """Gets types by ID.
-
-    TODO(b/122657258): implement in gRPC
+    """Gets execution types by ID.
 
     Args:
-      type_ids: a sequence of artifact type IDs.
+      type_ids: a sequence of execution type IDs.
 
     Returns:
       A list of execution types.
@@ -558,6 +642,33 @@ class MetadataStore(object):
                     response)
     result = []
     for x in response.execution_types:
+      result.append(x)
+    return result
+
+  def get_context_types_by_id(
+      self, type_ids: Sequence[int]) -> List[metadata_store_pb2.ContextType]:
+    """Gets context types by ID.
+
+    Args:
+      type_ids: a sequence of context type IDs.
+
+    Returns:
+      A list of context types.
+
+    Args:
+      type_ids: ids to look for.
+
+    Raises:
+      InternalError: if query execution fails.
+    """
+    request = metadata_store_service_pb2.GetContextTypesByIDRequest()
+    response = metadata_store_service_pb2.GetContextTypesByIDResponse()
+    for x in type_ids:
+      request.type_ids.append(x)
+    self._swig_call(metadata_store_serialized.GetContextTypesByID, request,
+                    response)
+    result = []
+    for x in response.context_types:
       result.append(x)
     return result
 

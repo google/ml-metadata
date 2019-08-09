@@ -49,7 +49,7 @@ class MetadataStoreTest : public ::testing::Test {
 TEST_F(MetadataStoreTest, InitMetadataStoreIfNotExists) {
   TF_ASSERT_OK(metadata_store_->InitMetadataStoreIfNotExists());
   // This is just to check that the metadata store was initialized.
-  PutArtifactTypeRequest put_request =
+  const PutArtifactTypeRequest put_request =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
           R"(
             all_fields_match: true
@@ -62,7 +62,7 @@ TEST_F(MetadataStoreTest, InitMetadataStoreIfNotExists) {
   TF_ASSERT_OK(metadata_store_->PutArtifactType(put_request, &put_response));
   ASSERT_TRUE(put_response.has_type_id());
   TF_ASSERT_OK(metadata_store_->InitMetadataStoreIfNotExists());
-  GetArtifactTypeRequest get_request =
+  const GetArtifactTypeRequest get_request =
       ParseTextProtoOrDie<GetArtifactTypeRequest>(
           R"(
             type_name: 'test_type2'
@@ -76,7 +76,7 @@ TEST_F(MetadataStoreTest, InitMetadataStoreIfNotExists) {
 }
 
 TEST_F(MetadataStoreTest, PutArtifactTypeGetArtifactType) {
-  PutArtifactTypeRequest put_request =
+  const PutArtifactTypeRequest put_request =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
           R"(
             all_fields_match: true
@@ -88,7 +88,7 @@ TEST_F(MetadataStoreTest, PutArtifactTypeGetArtifactType) {
   PutArtifactTypeResponse put_response;
   TF_ASSERT_OK(metadata_store_->PutArtifactType(put_request, &put_response));
   ASSERT_TRUE(put_response.has_type_id());
-  GetArtifactTypeRequest get_request =
+  const GetArtifactTypeRequest get_request =
       ParseTextProtoOrDie<GetArtifactTypeRequest>(
           R"(
             type_name: 'test_type2'
@@ -162,7 +162,7 @@ TEST_F(MetadataStoreTest, GetArtifactTypesWhenNoneExist) {
 
 // Create an artifact, then try to create it again with an added property.
 TEST_F(MetadataStoreTest, PutArtifactTypeTwiceChangedAddedProperty) {
-  PutArtifactTypeRequest request_1 =
+  const PutArtifactTypeRequest request_1 =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
           R"(
             all_fields_match: true
@@ -174,7 +174,7 @@ TEST_F(MetadataStoreTest, PutArtifactTypeTwiceChangedAddedProperty) {
   PutArtifactTypeResponse response_1;
   TF_ASSERT_OK(metadata_store_->PutArtifactType(request_1, &response_1));
 
-  PutArtifactTypeRequest request_2 =
+  const PutArtifactTypeRequest request_2 =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
           R"(
             all_fields_match: true
@@ -189,7 +189,7 @@ TEST_F(MetadataStoreTest, PutArtifactTypeTwiceChangedAddedProperty) {
 }
 
 TEST_F(MetadataStoreTest, PutArtifactTypeTwiceChangedRemovedProperty) {
-  PutArtifactTypeRequest request_1 =
+  const PutArtifactTypeRequest request_1 =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
           R"(
             all_fields_match: true
@@ -202,7 +202,7 @@ TEST_F(MetadataStoreTest, PutArtifactTypeTwiceChangedRemovedProperty) {
   PutArtifactTypeResponse response_1;
   TF_ASSERT_OK(metadata_store_->PutArtifactType(request_1, &response_1));
 
-  PutArtifactTypeRequest request_2 =
+  const PutArtifactTypeRequest request_2 =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
           R"(
             all_fields_match: true
@@ -216,7 +216,7 @@ TEST_F(MetadataStoreTest, PutArtifactTypeTwiceChangedRemovedProperty) {
 }
 
 TEST_F(MetadataStoreTest, PutArtifactTypeTwiceChangedPropertyType) {
-  PutArtifactTypeRequest request_1 =
+  const PutArtifactTypeRequest request_1 =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
           R"(
             all_fields_match: true
@@ -228,7 +228,7 @@ TEST_F(MetadataStoreTest, PutArtifactTypeTwiceChangedPropertyType) {
   PutArtifactTypeResponse response_1;
   TF_ASSERT_OK(metadata_store_->PutArtifactType(request_1, &response_1));
 
-  PutArtifactTypeRequest request_2 =
+  const PutArtifactTypeRequest request_2 =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
           R"(
             all_fields_match: true
@@ -354,7 +354,7 @@ TEST_F(MetadataStoreTest, PutArtifactTypeWithUpdateErrors) {
 }
 
 TEST_F(MetadataStoreTest, PutArtifactTypeSame) {
-  PutArtifactTypeRequest request_1 =
+  const PutArtifactTypeRequest request_1 =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
           R"(
             all_fields_match: true
@@ -366,7 +366,7 @@ TEST_F(MetadataStoreTest, PutArtifactTypeSame) {
   PutArtifactTypeResponse response_1;
   TF_ASSERT_OK(metadata_store_->PutArtifactType(request_1, &response_1));
 
-  PutArtifactTypeRequest request_2 =
+  const PutArtifactTypeRequest request_2 =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
           R"(
             all_fields_match: true
@@ -382,7 +382,7 @@ TEST_F(MetadataStoreTest, PutArtifactTypeSame) {
 
 // Test for failure.
 TEST_F(MetadataStoreTest, GetArtifactTypeMissing) {
-  GetArtifactTypeRequest get_request =
+  const GetArtifactTypeRequest get_request =
       ParseTextProtoOrDie<GetArtifactTypeRequest>(
           R"(
             type_name: 'test_type2'
@@ -393,7 +393,7 @@ TEST_F(MetadataStoreTest, GetArtifactTypeMissing) {
 }
 
 TEST_F(MetadataStoreTest, PutArtifactTypeGetArtifactTypesByID) {
-  PutArtifactTypeRequest put_request =
+  const PutArtifactTypeRequest put_request =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
           R"(
             all_fields_match: true
@@ -433,7 +433,7 @@ TEST_F(MetadataStoreTest, GetArtifactTypesByIDMissing) {
 
 TEST_F(MetadataStoreTest, PutArtifactTypeGetArtifactTypesByIDTwo) {
   // Check that two artifact types can be retrieved.
-  PutArtifactTypeRequest put_request_1 =
+  const PutArtifactTypeRequest put_request_1 =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
           R"(
             all_fields_match: true
@@ -446,7 +446,7 @@ TEST_F(MetadataStoreTest, PutArtifactTypeGetArtifactTypesByIDTwo) {
   TF_ASSERT_OK(
       metadata_store_->PutArtifactType(put_request_1, &put_response_1));
   ASSERT_TRUE(put_response_1.has_type_id());
-  PutArtifactTypeRequest put_request_2 =
+  const PutArtifactTypeRequest put_request_2 =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
           R"(
             all_fields_match: true
@@ -480,7 +480,7 @@ TEST_F(MetadataStoreTest, PutArtifactTypeGetArtifactTypesByIDTwo) {
 }
 
 TEST_F(MetadataStoreTest, PutExecutionTypeGetExecutionTypesByID) {
-  PutExecutionTypeRequest put_request =
+  const PutExecutionTypeRequest put_request =
       ParseTextProtoOrDie<PutExecutionTypeRequest>(
           R"(
             all_fields_match: true
@@ -520,7 +520,7 @@ TEST_F(MetadataStoreTest, GetExecutionTypesByIDMissing) {
 
 TEST_F(MetadataStoreTest, PutExecutionTypeGetExecutionTypesByIDTwo) {
   // Check that two execution types can be retrieved.
-  PutExecutionTypeRequest put_request_1 =
+  const PutExecutionTypeRequest put_request_1 =
       ParseTextProtoOrDie<PutExecutionTypeRequest>(
           R"(
             all_fields_match: true
@@ -533,7 +533,7 @@ TEST_F(MetadataStoreTest, PutExecutionTypeGetExecutionTypesByIDTwo) {
   TF_ASSERT_OK(
       metadata_store_->PutExecutionType(put_request_1, &put_response_1));
   ASSERT_TRUE(put_response_1.has_type_id());
-  PutExecutionTypeRequest put_request_2 =
+  const PutExecutionTypeRequest put_request_2 =
       ParseTextProtoOrDie<PutExecutionTypeRequest>(
           R"(
             all_fields_match: true
@@ -748,7 +748,7 @@ TEST_F(MetadataStoreTest, PutExecutionsUpdateGetExecutionsByID) {
 }
 
 TEST_F(MetadataStoreTest, PutExecutionTypeGetExecutionType) {
-  PutExecutionTypeRequest put_request =
+  const PutExecutionTypeRequest put_request =
       ParseTextProtoOrDie<PutExecutionTypeRequest>(
           R"(
             all_fields_match: true
@@ -760,7 +760,7 @@ TEST_F(MetadataStoreTest, PutExecutionTypeGetExecutionType) {
   PutExecutionTypeResponse put_response;
   TF_ASSERT_OK(metadata_store_->PutExecutionType(put_request, &put_response));
   ASSERT_TRUE(put_response.has_type_id());
-  GetExecutionTypeRequest get_request =
+  const GetExecutionTypeRequest get_request =
       ParseTextProtoOrDie<GetExecutionTypeRequest>(
           R"(
             type_name: 'test_type2'
@@ -830,7 +830,7 @@ TEST_F(MetadataStoreTest, GetExecutionTypesWhenNoneExist) {
 }
 
 TEST_F(MetadataStoreTest, PutExecutionTypeTwiceChangedPropertyType) {
-  PutExecutionTypeRequest request_1 =
+  const PutExecutionTypeRequest request_1 =
       ParseTextProtoOrDie<PutExecutionTypeRequest>(
           R"(
             all_fields_match: true
@@ -842,7 +842,7 @@ TEST_F(MetadataStoreTest, PutExecutionTypeTwiceChangedPropertyType) {
   PutExecutionTypeResponse response_1;
   TF_ASSERT_OK(metadata_store_->PutExecutionType(request_1, &response_1));
 
-  PutExecutionTypeRequest request_2 =
+  const PutExecutionTypeRequest request_2 =
       ParseTextProtoOrDie<PutExecutionTypeRequest>(
           R"(
             all_fields_match: true
@@ -889,7 +889,7 @@ TEST_F(MetadataStoreTest, PutExecutionTypeMultipleTimesWithUpdate) {
 }
 
 TEST_F(MetadataStoreTest, PutExecutionTypeSame) {
-  PutExecutionTypeRequest request_1 =
+  const PutExecutionTypeRequest request_1 =
       ParseTextProtoOrDie<PutExecutionTypeRequest>(
           R"(
             all_fields_match: true
@@ -901,7 +901,7 @@ TEST_F(MetadataStoreTest, PutExecutionTypeSame) {
   PutExecutionTypeResponse response_1;
   TF_ASSERT_OK(metadata_store_->PutExecutionType(request_1, &response_1));
 
-  PutExecutionTypeRequest request_2 = request_1;
+  const PutExecutionTypeRequest request_2 = request_1;
   PutExecutionTypeResponse response_2;
   TF_ASSERT_OK(metadata_store_->PutExecutionType(request_2, &response_2));
   EXPECT_EQ(response_1.type_id(), response_2.type_id());
@@ -909,7 +909,7 @@ TEST_F(MetadataStoreTest, PutExecutionTypeSame) {
 
 // Test for failure.
 TEST_F(MetadataStoreTest, GetExecutionTypeMissing) {
-  GetExecutionTypeRequest get_request =
+  const GetExecutionTypeRequest get_request =
       ParseTextProtoOrDie<GetExecutionTypeRequest>(
           R"(
             type_name: 'test_type2'
@@ -1001,7 +1001,7 @@ TEST_F(MetadataStoreTest, PutExecutionsGetExecutionsWithEmptyExecution) {
                                               &put_executions_response));
   ASSERT_EQ(put_executions_response.execution_ids_size(), 1);
   const int64 execution_id = put_executions_response.execution_ids(0);
-  GetExecutionsRequest get_executions_request;
+  const GetExecutionsRequest get_executions_request;
   GetExecutionsResponse get_executions_response;
   TF_ASSERT_OK(metadata_store_->GetExecutions(get_executions_request,
                                               &get_executions_response));
@@ -1091,7 +1091,7 @@ TEST_F(MetadataStoreTest, GetArtifactByURI) {
                                                 &put_artifact_type_response));
   const int64 type_id = put_artifact_type_response.type_id();
 
-  GetArtifactsByURIRequest get_artifacts_by_uri_empty_db_request;
+  const GetArtifactsByURIRequest get_artifacts_by_uri_empty_db_request;
   GetArtifactsByURIResponse get_artifacts_by_uri_empty_db_response;
   TF_ASSERT_OK(metadata_store_->GetArtifactsByURI(
       get_artifacts_by_uri_empty_db_request,
@@ -1203,7 +1203,7 @@ TEST_F(MetadataStoreTest, PutArtifactsGetArtifactsWithEmptyArtifact) {
 }
 
 TEST_F(MetadataStoreTest, PutExecutionTypeTwiceChangedRemovedProperty) {
-  PutExecutionTypeRequest request_1 =
+  const PutExecutionTypeRequest request_1 =
       ParseTextProtoOrDie<PutExecutionTypeRequest>(
           R"(
             all_fields_match: true
@@ -1216,7 +1216,7 @@ TEST_F(MetadataStoreTest, PutExecutionTypeTwiceChangedRemovedProperty) {
   PutExecutionTypeResponse response_1;
   TF_ASSERT_OK(metadata_store_->PutExecutionType(request_1, &response_1));
 
-  PutExecutionTypeRequest request_2 =
+  const PutExecutionTypeRequest request_2 =
       ParseTextProtoOrDie<PutExecutionTypeRequest>(
           R"(
             all_fields_match: true
@@ -1231,7 +1231,7 @@ TEST_F(MetadataStoreTest, PutExecutionTypeTwiceChangedRemovedProperty) {
 }
 
 TEST_F(MetadataStoreTest, PutEventGetEvents) {
-  PutExecutionTypeRequest put_execution_type_request =
+  const PutExecutionTypeRequest put_execution_type_request =
       ParseTextProtoOrDie<PutExecutionTypeRequest>(
           R"(
             all_fields_match: true
@@ -1253,7 +1253,7 @@ TEST_F(MetadataStoreTest, PutEventGetEvents) {
                                               &put_executions_response));
   ASSERT_EQ(put_executions_response.execution_ids_size(), 1);
 
-  PutArtifactTypeRequest put_artifact_type_request =
+  const PutArtifactTypeRequest put_artifact_type_request =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
           R"(
             all_fields_match: true
@@ -1311,7 +1311,7 @@ TEST_F(MetadataStoreTest, PutEventGetEvents) {
 }
 
 TEST_F(MetadataStoreTest, PutTypesGetTypes) {
-  PutTypesRequest put_request = ParseTextProtoOrDie<PutTypesRequest>(
+  const PutTypesRequest put_request = ParseTextProtoOrDie<PutTypesRequest>(
       R"(
         artifact_types: {
           name: 'test_type1'
@@ -1459,6 +1459,166 @@ TEST_F(MetadataStoreTest, PutAndGetExecution) {
   ASSERT_EQ(get_events_response.events_size(), 2);
   EXPECT_EQ(get_events_response.events(0).artifact_id(), artifact_1.id());
   EXPECT_EQ(get_events_response.events(1).artifact_id(), artifact_2.id());
+}
+
+TEST_F(MetadataStoreTest, PutContextTypeGetContextType) {
+  const PutContextTypeRequest put_request =
+      ParseTextProtoOrDie<PutContextTypeRequest>(
+          R"(
+            all_fields_match: true
+            context_type: {
+              name: 'test_type'
+              properties { key: 'property_1' value: STRING }
+            }
+          )");
+  PutContextTypeResponse put_response;
+  TF_ASSERT_OK(metadata_store_->PutContextType(put_request, &put_response));
+  ASSERT_TRUE(put_response.has_type_id());
+
+  GetContextTypeRequest get_request =
+      ParseTextProtoOrDie<GetContextTypeRequest>("type_name: 'test_type'");
+  GetContextTypeResponse get_response;
+  TF_ASSERT_OK(metadata_store_->GetContextType(get_request, &get_response));
+  EXPECT_EQ(put_response.type_id(), get_response.context_type().id())
+      << "Type ID should be the same as the type created.";
+  EXPECT_EQ("test_type", get_response.context_type().name())
+      << "The name should be the same as the one returned.";
+}
+
+TEST_F(MetadataStoreTest, PutContextTypeGetContextTypesByID) {
+  const PutContextTypeRequest put_request =
+      ParseTextProtoOrDie<PutContextTypeRequest>(
+          R"(
+            all_fields_match: true
+            context_type: {
+              name: 'test_type'
+              properties { key: 'property_1' value: STRING }
+            }
+          )");
+  PutContextTypeResponse put_response;
+  TF_ASSERT_OK(metadata_store_->PutContextType(put_request, &put_response));
+  ASSERT_TRUE(put_response.has_type_id());
+
+  // Get types by exist and non-exist ids.
+  GetContextTypesByIDRequest get_request;
+  get_request.add_type_ids(put_response.type_id());
+  get_request.add_type_ids(put_response.type_id() + 100);
+  GetContextTypesByIDResponse get_response;
+  TF_ASSERT_OK(
+      metadata_store_->GetContextTypesByID(get_request, &get_response));
+  ASSERT_EQ(get_response.context_types_size(), 1);
+  const ContextType& result = get_response.context_types(0);
+  EXPECT_EQ(put_response.type_id(), result.id())
+      << "Type ID should be the same as the type created.";
+  ContextType expected_result = put_request.context_type();
+  expected_result.set_id(put_response.type_id());
+  EXPECT_THAT(result, testing::EqualsProto(expected_result))
+      << "The type should be the same as the one given.";
+}
+
+TEST_F(MetadataStoreTest, PutContextTypeUpsert) {
+  const PutContextTypeRequest put_request =
+      ParseTextProtoOrDie<PutContextTypeRequest>(
+          R"(
+            all_fields_match: true
+            context_type: {
+              name: 'test_type'
+              properties { key: 'property_1' value: STRING }
+              properties { key: 'property_2' value: INT }
+            }
+          )");
+  PutContextTypeResponse put_response;
+  TF_ASSERT_OK(metadata_store_->PutContextType(put_request, &put_response));
+  ASSERT_TRUE(put_response.has_type_id());
+
+  // Put the same request again, the upsert returns the same id
+  {
+    const PutContextTypeRequest same_put_request = put_request;
+    PutContextTypeResponse same_put_response;
+    TF_ASSERT_OK(
+        metadata_store_->PutContextType(same_put_request, &same_put_response));
+    ASSERT_TRUE(same_put_response.has_type_id());
+    EXPECT_EQ(same_put_response.type_id(), put_response.type_id());
+  }
+
+  // Add property when can_add_fields is set
+  {
+    const PutContextTypeRequest add_property_put_request =
+        ParseTextProtoOrDie<PutContextTypeRequest>(
+            R"(
+              all_fields_match: true
+              can_add_fields: true
+              context_type: {
+                name: 'test_type'
+                properties { key: 'property_1' value: STRING }
+                properties { key: 'property_2' value: INT }
+                properties { key: 'new_property' value: DOUBLE }
+              }
+            )");
+    PutContextTypeResponse response;
+    TF_ASSERT_OK(
+        metadata_store_->PutContextType(add_property_put_request, &response));
+    ASSERT_TRUE(response.has_type_id());
+    EXPECT_EQ(response.type_id(), put_response.type_id());
+  }
+
+  // Upsert fails if the type definition is changed by adding, removing, or
+  // changing property type.
+
+  // Add property with the same type name
+  {
+    const PutContextTypeRequest add_property_put_request =
+        ParseTextProtoOrDie<PutContextTypeRequest>(
+            R"(
+              all_fields_match: true
+              context_type: {
+                name: 'test_type'
+                properties { key: 'property_1' value: STRING }
+                properties { key: 'property_2' value: INT }
+                properties { key: 'property_3' value: DOUBLE }
+              }
+            )");
+    PutContextTypeResponse response;
+    EXPECT_FALSE(
+        metadata_store_->PutContextType(add_property_put_request, &response)
+            .ok());
+  }
+
+  // Remove property with the same type name
+  {
+    const PutContextTypeRequest missing_property_put_request =
+        ParseTextProtoOrDie<PutContextTypeRequest>(
+            R"(
+              all_fields_match: true
+              context_type: {
+                name: 'test_type'
+                properties { key: 'property_1' value: STRING }
+              }
+            )");
+    PutContextTypeResponse response;
+    EXPECT_FALSE(
+        metadata_store_->PutContextType(missing_property_put_request, &response)
+            .ok());
+  }
+
+  // Change property type with the same type name
+  {
+    const PutContextTypeRequest change_property_type_put_request =
+        ParseTextProtoOrDie<PutContextTypeRequest>(
+            R"(
+              all_fields_match: true
+              context_type: {
+                name: 'test_type'
+                properties { key: 'property_1' value: STRING }
+                properties { key: 'property_2' value: STRING }
+              }
+            )");
+    PutContextTypeResponse response;
+    EXPECT_FALSE(
+        metadata_store_
+            ->PutContextType(change_property_type_put_request, &response)
+            .ok());
+  }
 }
 
 }  // namespace
