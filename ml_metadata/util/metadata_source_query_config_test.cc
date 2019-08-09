@@ -30,11 +30,6 @@ TEST(MetadataSourceQueryConfig, GetSqliteMetadataSourceQueryConfig) {
   EXPECT_EQ(config.metadata_source_type(), SQLITE_METADATA_SOURCE);
 }
 
-TEST(MetadataSourceQueryConfig, GetFakeMetadataSourceQueryConfig) {
-  const MetadataSourceQueryConfig config = GetFakeMetadataSourceQueryConfig();
-  EXPECT_EQ(config.metadata_source_type(), FAKE_METADATA_SOURCE);
-}
-
 }  // namespace
 }  // namespace util
 }  // namespace ml_metadata

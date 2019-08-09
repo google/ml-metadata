@@ -25,6 +25,7 @@ namespace {
 // A set of common template queries used by the MetadataAccessObject for SQLite
 // based MetadataSource.
 constexpr char kBaseQueryConfig[] = R"pb(
+  schema_version: 1
   drop_type_table { query: " DROP TABLE IF EXISTS `Type`; " }
   create_type_table {
     query: " CREATE TABLE IF NOT EXISTS `Type` ( "
@@ -317,17 +318,124 @@ constexpr char kBaseQueryConfig[] = R"pb(
            " WHERE `event_id` = $0; "
     parameter_num: 1
   }
-)pb";
-
-constexpr char kFakeMetadataSourceQueryConfig[] = R"pb(
-  metadata_source_type: FAKE_METADATA_SOURCE
+  drop_mlmd_env_table { query: " DROP TABLE IF EXISTS `MLMDEnv`; " }
+  create_mlmd_env_table {
+    query: " CREATE TABLE IF NOT EXISTS `MLMDEnv` ( "
+           "   `schema_version` INTEGER PRIMARY KEY "
+           " ); "
+  }
+  check_mlmd_env_table {
+    query: " SELECT `schema_version` FROM `MLMDEnv` LIMIT 1; "
+  }
+  insert_schema_version {
+    query: " INSERT INTO `MLMDEnv`(`schema_version`) VALUES($0); "
+    parameter_num: 1
+  }
+  update_schema_version {
+    query: " UPDATE `MLMDEnv` SET `schema_version` = $0; "
+    parameter_num: 1
+  }
+  check_tables_in_v0_13_2 {
+    query: " SELECT count(*) from "
+           " `Artifact`, `Event`, `Execution`, `Type`, `ArtifactProperty`, "
+           " `EventPath`, `ExecutionProperty`, `TypeProperty` LIMIT 1; "
+  ;
+  }
 )pb";
 
 constexpr char kSQLiteMetadataSourceQueryConfig[] = R"pb(
   metadata_source_type: SQLITE_METADATA_SOURCE
+  # From 0.13.2 to v1, it creates a new MLMDEnv table to track schema_version.
+  migration_schemes {
+    key: 1
+    value: {
+      upgrade_queries {
+        query: " CREATE TABLE IF NOT EXISTS `MLMDEnv` ( "
+               "   `schema_version` INTEGER PRIMARY KEY "
+               " ); "
+      }
+      upgrade_queries {
+        query: " INSERT INTO `MLMDEnv`(`schema_version`) VALUES(0); "
+      }
+      # v0.13.2 release
+      upgrade_verification {
+        # reproduce the v0.13.2 release table setup
+        previous_version_setup_queries {
+          query: " CREATE TABLE IF NOT EXISTS `Type` ( "
+                 "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+                 "   `name` VARCHAR(255) NOT NULL, "
+                 "   `is_artifact_type` TINYINT(1) NOT NULL, "
+                 "   `input_type` TEXT, "
+                 "   `output_type` TEXT "
+                 " ); "
+        }
+        previous_version_setup_queries {
+          query: " CREATE TABLE IF NOT EXISTS `TypeProperty` ( "
+                 "   `type_id` INT NOT NULL, "
+                 "   `name` VARCHAR(255) NOT NULL, "
+                 "   `data_type` INT NULL, "
+                 " PRIMARY KEY (`type_id`, `name`)); "
+        }
+        previous_version_setup_queries {
+          query: " CREATE TABLE IF NOT EXISTS `Artifact` ( "
+                 "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+                 "   `type_id` INT NOT NULL, "
+                 "   `uri` TEXT "
+                 " ); "
+        }
+        previous_version_setup_queries {
+          query: " CREATE TABLE IF NOT EXISTS `ArtifactProperty` ( "
+                 "   `artifact_id` INT NOT NULL, "
+                 "   `name` VARCHAR(255) NOT NULL, "
+                 "   `is_custom_property` TINYINT(1) NOT NULL, "
+                 "   `int_value` INT, "
+                 "   `double_value` DOUBLE, "
+                 "   `string_value` TEXT, "
+                 " PRIMARY KEY (`artifact_id`, `name`, `is_custom_property`)); "
+        }
+        previous_version_setup_queries {
+          query: " CREATE TABLE IF NOT EXISTS `Execution` ( "
+                 "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+                 "   `type_id` INT NOT NULL "
+                 " ); "
+        }
+        previous_version_setup_queries {
+          query: " CREATE TABLE IF NOT EXISTS `ExecutionProperty` ( "
+                 "   `execution_id` INT NOT NULL, "
+                 "   `name` VARCHAR(255) NOT NULL, "
+                 "   `is_custom_property` TINYINT(1) NOT NULL, "
+                 "   `int_value` INT, "
+                 "   `double_value` DOUBLE, "
+                 "   `string_value` TEXT, "
+                 " PRIMARY KEY (`execution_id`, `name`, `is_custom_property`)); "
+        }
+        previous_version_setup_queries {
+          query: " CREATE TABLE IF NOT EXISTS `Event` ( "
+                 "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+                 "   `artifact_id` INT NOT NULL, "
+                 "   `execution_id` INT NOT NULL, "
+                 "   `type` INT NOT NULL, "
+                 "   `milliseconds_since_epoch` INT "
+                 " ); "
+        }
+        previous_version_setup_queries {
+          query: " CREATE TABLE IF NOT EXISTS `EventPath` ( "
+                 "   `event_id` INT NOT NULL, "
+                 "   `is_index_step` TINYINT(1) NOT NULL, "
+                 "   `step_index` INT, "
+                 "   `step_key` TEXT "
+                 " ); "
+        }
+        # check the new table has 1 row
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `MLMDEnv`; "
+        }
+      }
+    }
+  }
 )pb";
 
-// Template queries for  MySQLMetadataSources.
+// Template queries for MySQLMetadataSources.
 constexpr char kMySQLMetadataSourceQueryConfig[] = R"pb(
   metadata_source_type: MYSQL_METADATA_SOURCE
   select_last_insert_id { query: " SELECT last_insert_id(); " }
@@ -362,6 +470,92 @@ constexpr char kMySQLMetadataSourceQueryConfig[] = R"pb(
            "   `milliseconds_since_epoch` BIGINT "
            " ); "
   }
+  migration_schemes {
+    key: 1
+    value: {
+      upgrade_queries {
+        query: " CREATE TABLE IF NOT EXISTS `MLMDEnv` ( "
+               "   `schema_version` INTEGER PRIMARY KEY "
+               " ); "
+      }
+      upgrade_queries {
+        query: " INSERT INTO `MLMDEnv`(`schema_version`) VALUES(0); "
+      }
+      # v0.13.2 release
+      upgrade_verification {
+        previous_version_setup_queries {
+          query: " CREATE TABLE IF NOT EXISTS `Type` ( "
+                 "   `id` INT PRIMARY KEY AUTO_INCREMENT, "
+                 "   `name` VARCHAR(255) NOT NULL, "
+                 "   `is_artifact_type` TINYINT(1) NOT NULL, "
+                 "   `input_type` TEXT, "
+                 "   `output_type` TEXT"
+                 " ); "
+        }
+        previous_version_setup_queries {
+          query: " CREATE TABLE IF NOT EXISTS `TypeProperty` ( "
+                 "   `type_id` INT NOT NULL, "
+                 "   `name` VARCHAR(255) NOT NULL, "
+                 "   `data_type` INT NULL, "
+                 " PRIMARY KEY (`type_id`, `name`)); "
+        }
+        previous_version_setup_queries {
+          query: " CREATE TABLE IF NOT EXISTS `Artifact` ( "
+                 "   `id` INTEGER PRIMARY KEY AUTO_INCREMENT, "
+                 "   `type_id` INT NOT NULL, "
+                 "   `uri` TEXT "
+                 " ); "
+        }
+        previous_version_setup_queries {
+          query: " CREATE TABLE IF NOT EXISTS `ArtifactProperty` ( "
+                 "   `artifact_id` INT NOT NULL, "
+                 "   `name` VARCHAR(255) NOT NULL, "
+                 "   `is_custom_property` TINYINT(1) NOT NULL, "
+                 "   `int_value` INT, "
+                 "   `double_value` DOUBLE, "
+                 "   `string_value` TEXT, "
+                 " PRIMARY KEY (`artifact_id`, `name`, `is_custom_property`)); "
+        }
+        previous_version_setup_queries {
+          query: " CREATE TABLE IF NOT EXISTS `Execution` ( "
+                 "   `id` INTEGER PRIMARY KEY AUTO_INCREMENT, "
+                 "   `type_id` INT NOT NULL "
+                 " ); "
+        }
+        previous_version_setup_queries {
+          query: " CREATE TABLE IF NOT EXISTS `ExecutionProperty` ( "
+                 "   `execution_id` INT NOT NULL, "
+                 "   `name` VARCHAR(255) NOT NULL, "
+                 "   `is_custom_property` TINYINT(1) NOT NULL, "
+                 "   `int_value` INT, "
+                 "   `double_value` DOUBLE, "
+                 "   `string_value` TEXT, "
+                 " PRIMARY KEY (`execution_id`, `name`, `is_custom_property`)); "
+        }
+        previous_version_setup_queries {
+          query: " CREATE TABLE IF NOT EXISTS `Event` ( "
+                 "   `id` INTEGER PRIMARY KEY AUTO_INCREMENT, "
+                 "   `artifact_id` INT NOT NULL, "
+                 "   `execution_id` INT NOT NULL, "
+                 "   `type` INT NOT NULL, "
+                 "   `milliseconds_since_epoch` BIGINT "
+                 " ); "
+        }
+        previous_version_setup_queries {
+          query: " CREATE TABLE IF NOT EXISTS `EventPath` ( "
+                 "   `event_id` INT NOT NULL, "
+                 "   `is_index_step` TINYINT(1) NOT NULL, "
+                 "   `step_index` INT, "
+                 "   `step_key` TEXT "
+                 " ); "
+        }
+        # check the new table has 1 row
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `MLMDEnv`; "
+        }
+      }
+    }
+  }
 )pb";
 
 }  // namespace
@@ -389,17 +583,6 @@ MetadataSourceQueryConfig GetSqliteMetadataSourceQueryConfig() {
   CHECK(tensorflow::protobuf::TextFormat::ParseFromString(
       kSQLiteMetadataSourceQueryConfig, &sqlite_config));
   config.MergeFrom(sqlite_config);
-  return config;
-}
-
-MetadataSourceQueryConfig GetFakeMetadataSourceQueryConfig() {
-  MetadataSourceQueryConfig config;
-  CHECK(tensorflow::protobuf::TextFormat::ParseFromString(kBaseQueryConfig,
-                                                          &config));
-  MetadataSourceQueryConfig fakedb_config;
-  CHECK(tensorflow::protobuf::TextFormat::ParseFromString(
-      kFakeMetadataSourceQueryConfig, &fakedb_config));
-  config.MergeFrom(fakedb_config);
   return config;
 }
 

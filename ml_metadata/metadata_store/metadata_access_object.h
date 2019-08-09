@@ -235,13 +235,37 @@ class MetadataAccessObject {
   tensorflow::Status FindEventsByExecution(int64 execution_id,
                                            std::vector<Event>* events);
 
+  // Resolves the schema version stored in the metadata source. The `db_version`
+  // is set to 0, if it is a 0.13.2 release pre-existing database.
+  // Returns DATA_LOSS error, if schema version info table exists but its value
+  //   cannot be resolved from the database.
+  // Returns NOT_FOUND error, if the database is empty.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status GetSchemaVersion(int64* db_version);
+
   MetadataSource* metadata_source() { return metadata_source_; }
+
+  MetadataSourceQueryConfig query_config() { return query_config_; }
 
  private:
   // Constructs a MetadataAccessObject with a query config and a connected
   // MetadataSource.
   explicit MetadataAccessObject(const MetadataSourceQueryConfig& query_config,
                                 MetadataSource* connected_metadata_source);
+
+  // Upgrades the database schema version (db_v) to align with the library
+  // schema version (lib_v). It retrieves db_v from the metadata source and
+  // compares it with the lib_v in the given query_config, and runs migration
+  // queries if db_v < lib_v.
+  // Returns FAILED_PRECONDITION error, if db_v > lib_v for the case that the
+  //   user use a database produced by a newer version of the library. In that
+  //   case, downgrading the database may result in data loss. Often upgrading
+  //   the library is required.
+  // Returns DATA_LOSS error, if schema version table exists but no value found.
+  // Returns DATA_LOSS error, if the database is not a 0.13.2 release database
+  //   and the schema version cannot be resolved.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status UpgradeMetadataSourceIfOutOfDate();
 
   const MetadataSourceQueryConfig query_config_;
 

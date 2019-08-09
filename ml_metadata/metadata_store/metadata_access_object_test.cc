@@ -30,8 +30,12 @@ namespace {
 using ::ml_metadata::testing::ParseTextProtoOrDie;
 using ::testing::UnorderedElementsAre;
 
-TEST_P(MetadataAccessObjectTest, InitMetadataSource) {
+TEST_P(MetadataAccessObjectTest, InitMetadataSourceCheckSchemaVersion) {
   TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  int64 schema_version;
+  TF_ASSERT_OK(metadata_access_object_->GetSchemaVersion(&schema_version));
+  EXPECT_EQ(schema_version,
+            metadata_access_object_->query_config().schema_version());
 }
 
 TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExists) {
@@ -75,6 +79,34 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExistsErrorDataLoss) {
     tensorflow::Status s =
         metadata_access_object_->InitMetadataSourceIfNotExists();
     EXPECT_EQ(s.code(), tensorflow::error::DATA_LOSS);
+  }
+}
+
+TEST_P(MetadataAccessObjectTest, InitMetadataSourceSchemaVersionMismatch) {
+  // creates the schema and insert some records
+  TF_EXPECT_OK(metadata_access_object_->InitMetadataSourceIfNotExists());
+  {
+    // delete the schema version
+    RecordSet record_set;
+    TF_EXPECT_OK(metadata_access_object_->metadata_source()->ExecuteQuery(
+        "DELETE FROM `MLMDEnv`;", &record_set));
+    tensorflow::Status s =
+        metadata_access_object_->InitMetadataSourceIfNotExists();
+    EXPECT_EQ(s.code(), tensorflow::error::DATA_LOSS);
+  }
+
+  // reset the database by drop and recreate all tables
+  TF_EXPECT_OK(metadata_access_object_->InitMetadataSource());
+  {
+    // Change the `schema_version` to be a newer version.
+    // fails precondition, as older library cannot work with newer db.
+    RecordSet record_set;
+    TF_EXPECT_OK(metadata_access_object_->metadata_source()->ExecuteQuery(
+        "UPDATE `MLMDEnv` SET `schema_version` = `schema_version` + 1;",
+        &record_set));
+    tensorflow::Status s =
+        metadata_access_object_->InitMetadataSourceIfNotExists();
+    EXPECT_EQ(s.code(), tensorflow::error::FAILED_PRECONDITION);
   }
 }
 
@@ -1114,6 +1146,55 @@ TEST_P(MetadataAccessObjectTest, PutEventsWithPaths) {
   TF_EXPECT_OK(metadata_access_object_->FindEventsByExecution(
       execution_id, &events_with_execution));
   EXPECT_EQ(events_with_execution.size(), 2);
+}
+
+TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
+  // setup the database of previous version.
+  const int64 lib_version =
+      metadata_access_object_->query_config().schema_version();
+  for (int64 i = 1; i <= lib_version; i++) {
+    ASSERT_TRUE(
+        metadata_access_object_->query_config().migration_schemes().find(i) !=
+        metadata_access_object_->query_config().migration_schemes().end());
+    const MetadataSourceQueryConfig::MigrationScheme scheme =
+        metadata_access_object_->query_config().migration_schemes().at(i);
+    if (!scheme.has_upgrade_verification()) continue;
+    for (const MetadataSourceQueryConfig::TemplateQuery& setup_query :
+         scheme.upgrade_verification().previous_version_setup_queries()) {
+      RecordSet dummy_record_set;
+      TF_EXPECT_OK(metadata_access_object_->metadata_source()->ExecuteQuery(
+          setup_query.query(), &dummy_record_set));
+    }
+    if (i > 1) continue;
+    // when i = 0, it is v0.13.2. At that time, the MLMDEnv table does not
+    // exist, GetSchemaVersion resolves the current version as 0.
+    int64 v0_13_2_version = 100;
+    TF_EXPECT_OK(metadata_access_object_->GetSchemaVersion(&v0_13_2_version));
+    EXPECT_EQ(0, v0_13_2_version);
+  }
+  // then init the store and the migration queries runs.
+  TF_EXPECT_OK(metadata_access_object_->InitMetadataSourceIfNotExists());
+  // at the end state, schema version should becomes the library version and
+  // all migration queries should all succeed.
+  int64 curr_version = 0;
+  TF_EXPECT_OK(metadata_access_object_->GetSchemaVersion(&curr_version));
+  EXPECT_EQ(lib_version, curr_version);
+  // check the verification queries in the previous version scheme
+  const MetadataSourceQueryConfig::MigrationScheme scheme =
+      metadata_access_object_->query_config().migration_schemes().at(
+          lib_version);
+  if (scheme.has_upgrade_verification()) {
+    for (const MetadataSourceQueryConfig::TemplateQuery& verification_query :
+         scheme.upgrade_verification().post_migration_verification_queries()) {
+      RecordSet record_set;
+      TF_EXPECT_OK(metadata_access_object_->metadata_source()->ExecuteQuery(
+          verification_query.query(), &record_set));
+      ASSERT_EQ(record_set.records_size(), 1);
+      bool result = false;
+      ASSERT_TRUE(absl::SimpleAtob(record_set.records(0).values(0), &result));
+      EXPECT_TRUE(result);
+    }
+  }
 }
 
 }  // namespace

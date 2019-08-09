@@ -1017,6 +1017,16 @@ tensorflow::Status MetadataAccessObject::InitMetadataSource() {
       query_config_.drop_event_path_table().query();
   const Query& create_event_path_table =
       query_config_.create_event_path_table().query();
+  const Query& drop_mlmd_env_table =
+      query_config_.drop_mlmd_env_table().query();
+  const Query& create_mlmd_env_table =
+      query_config_.create_mlmd_env_table().query();
+  // check error, if it happens, it is an internal development error.
+  CHECK_GT(query_config_.schema_version(), 0);
+  Query insert_schema_version;
+  TF_RETURN_IF_ERROR(ComposeParameterizedQuery(
+      query_config_.insert_schema_version(),
+      {Bind(query_config_.schema_version())}, &insert_schema_version));
 
   return ExecuteMultiQuery(
       {drop_type_table, create_type_table, drop_properties_table,
@@ -1025,11 +1035,99 @@ tensorflow::Status MetadataAccessObject::InitMetadataSource() {
        drop_execution_table, create_execution_table,
        drop_execution_property_table, create_execution_property_table,
        drop_event_table, create_event_table, drop_event_path_table,
-       create_event_path_table},
+       create_event_path_table, drop_mlmd_env_table, create_mlmd_env_table,
+       insert_schema_version},
       metadata_source_);
 }
 
+// After 0.13.2 release, MLMD starts to have schema_version. The library always
+// populates the MLMDEnv table and sets the schema_version when creating a new
+// database. This method checks schema_version first, then if it exists,
+// return it as `db_version`. If error occurs when reading `schema_version` from
+// the MLMDEnv table, the database is either
+// a) an empty database.
+// b) an pre-existing database populated by 0.13.2 release.
+// For a), it returns NotFound.
+// For b), it set db_version as 0.
+tensorflow::Status MetadataAccessObject::GetSchemaVersion(int64* db_version) {
+  RecordSet record_set;
+  const Query& select_schema_version =
+      query_config_.check_mlmd_env_table().query();
+  tensorflow::Status maybe_schema_version_status =
+      metadata_source_->ExecuteQuery(select_schema_version, &record_set);
+  if (maybe_schema_version_status.ok()) {
+    if (record_set.records_size() != 1) {
+      return tensorflow::errors::DataLoss(
+          "In the given db, MLMDEnv table exists but schema_version cannot be "
+          "resolved due to there being zero or more than one rows with the "
+          "schema version. Expecting a single row.");
+    }
+    CHECK(absl::SimpleAtoi(record_set.records(0).values(0), db_version));
+    return tensorflow::Status::OK();
+  }
+  // if MLMDEnv does not exist, it may be the v0.13.2 release or an empty db.
+  const Query& check_tables_in_v0_13_2 =
+      query_config_.check_tables_in_v0_13_2().query();
+  tensorflow::Status maybe_v0_13_2_status =
+      metadata_source_->ExecuteQuery(check_tables_in_v0_13_2, &record_set);
+  if (maybe_v0_13_2_status.ok()) {
+    *db_version = 0;
+    return tensorflow::Status::OK();
+  }
+  return tensorflow::errors::NotFound("it looks an empty db is given.");
+}
+
+tensorflow::Status MetadataAccessObject::UpgradeMetadataSourceIfOutOfDate() {
+  const int64 lib_version = query_config_.schema_version();
+  int64 db_version = 0;
+  tensorflow::Status get_schema_version_status = GetSchemaVersion(&db_version);
+  // if it is an empty database, then we skip migration and create tables.
+  if (tensorflow::errors::IsNotFound(get_schema_version_status)) {
+    db_version = lib_version;
+  } else {
+    TF_RETURN_IF_ERROR(get_schema_version_status);
+  }
+  // we don't support downgrade a live database.
+  if (db_version > lib_version) {
+    return tensorflow::errors::FailedPrecondition(
+        "MLMD database version ", db_version,
+        " is greater than library version ", lib_version,
+        ". Please upgrade the library to use the given database in order to "
+        "prevent potential data loss.");
+  }
+  // migrate db_version to lib version
+  const auto& migration_schemes = query_config_.migration_schemes();
+  while (db_version < lib_version) {
+    const int64 to_version = db_version + 1;
+    if (migration_schemes.find(to_version) == migration_schemes.end()) {
+      return tensorflow::errors::Internal(
+          "Cannot find migration_schemes to version ", to_version);
+    }
+    std::vector<Query> upgrade_queries;
+    for (const MetadataSourceQueryConfig::TemplateQuery& upgrade_query :
+         migration_schemes.at(to_version).upgrade_queries()) {
+      upgrade_queries.push_back(upgrade_query.query());
+    }
+    Query update_schema_version;
+    TF_RETURN_IF_ERROR(
+        ComposeParameterizedQuery(query_config_.update_schema_version(),
+                                  {Bind(to_version)}, &update_schema_version));
+    upgrade_queries.push_back(update_schema_version);
+    std::vector<RecordSet> dummy_record_sets;
+    TF_RETURN_WITH_CONTEXT_IF_ERROR(
+        ExecuteMultiQuery(upgrade_queries, metadata_source_,
+                          &dummy_record_sets),
+        "Failed to migrate existing db; the migration transaction rolls back.");
+    db_version = to_version;
+  }
+  return tensorflow::Status::OK();
+}
+
 tensorflow::Status MetadataAccessObject::InitMetadataSourceIfNotExists() {
+  // check db version, and make it to align with the lib version.
+  TF_RETURN_IF_ERROR(UpgradeMetadataSourceIfOutOfDate());
+
+  // if lib and db versions align, we check the required tables for the lib.
   const Query& check_type_table = query_config_.check_type_table().query();
   const Query& check_properties_table =
       query_config_.check_type_property_table().query();
@@ -1044,12 +1142,15 @@ tensorflow::Status MetadataAccessObject::InitMetadataSourceIfNotExists() {
   const Query& check_event_table = query_config_.check_event_table().query();
   const Query& check_event_path_table =
       query_config_.check_event_path_table().query();
+  const Query& check_mlmd_env_table =
+      query_config_.check_mlmd_env_table().query();
 
   std::vector<Query> schema_check_queries = {
       check_type_table,      check_properties_table,
       check_artifact_table,  check_artifact_property_table,
       check_execution_table, check_execution_property_table,
-      check_event_table,     check_event_path_table};
+      check_event_table,     check_event_path_table,
+      check_mlmd_env_table};
 
   std::vector<string> missing_schema_error_messages;
   for (const Query& query : schema_check_queries) {
@@ -1058,10 +1159,10 @@ tensorflow::Status MetadataAccessObject::InitMetadataSourceIfNotExists() {
     if (!s.ok()) missing_schema_error_messages.push_back(s.error_message());
   }
 
-  // all table exists
+  // all table required by the current lib version exists
   if (missing_schema_error_messages.empty()) return tensorflow::Status::OK();
 
-  // some table exists, but not all
+  // some table exists, but not all.
   if (schema_check_queries.size() != missing_schema_error_messages.size()) {
     return tensorflow::errors::DataLoss(
         absl::StrJoin(missing_schema_error_messages, "\n"));

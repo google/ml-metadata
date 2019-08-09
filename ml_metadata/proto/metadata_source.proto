@@ -47,7 +47,7 @@ enum MetadataSourceType {
 
 // A config includes a set of SQL queries and the type of metadata source.
 // It is used by MetadataAccessObject to init backend and issue queries.
-// Next ID: 58
+// Next ID: 67
 message MetadataSourceQueryConfig {
   // the type of the metadata source
   MetadataSourceType metadata_source_type = 1;
@@ -300,4 +300,76 @@ message MetadataSourceQueryConfig {
   // Queries paths from the EventPath table. It has 1 parameter.
   // $0 is the event_i
   TemplateQuery select_event_path_by_event_id = 43;
+
+  // Drops the MLMDEnv table.
+  TemplateQuery drop_mlmd_env_table = 60;
+
+  // Creates the MLMDEnv table.
+  TemplateQuery create_mlmd_env_table = 61;
+
+  // Below is a list of fields required for metadata source migrations when
+  // the library being used having different versions from a pre-exist database.
+
+  // The version of the current query config. Increase the version by 1 in any
+  // CL that includes physical schema changes and provides a migration function
+  // that uses a list migration queries. The database stores it to indicate the
+  // current database version. When metadata source creates, it compares the
+  // given `schema_version` in query config with the `schema_version` stored in
+  // the database, and migrate the database if needed.
+  int64 schema_version = 59;
+
+  // Checks the MLMDEnv table and query the schema version.
+  // At MLMD release v0.13.2, by default it is v0.
+  TemplateQuery check_mlmd_env_table = 63;
+
+  // Insert schema_version.
+  // $0 is the schema_version
+  TemplateQuery insert_schema_version = 66;
+
+  // Update schema_version
+  // $0 is the schema_version
+  TemplateQuery update_schema_version = 64;
+
+  // Check the database is a valid database produced by 0.13.2 MLMD release.
+  // The schema version and migration are introduced after that release.
+  TemplateQuery check_tables_in_v0_13_2 = 65;
+
+  // A migration scheme that is used by a migration function to transit a
+  // database at a schema_version to schema_version + 1.
+  // DDL is often metadata source specific, if provided, each metadata source
+  // should have its own setting.
+  // TODO(b/133851472) providing downgrade capability.
+  message MigrationScheme {
+    // Sequence of queries to increase the schema version by 1.
+    repeated TemplateQuery upgrade_queries = 1;
+
+    // For test purposes, it defines the setup query and post condition
+    // invariants of a migration scheme.
+    message VerificationScheme {
+      // This optional field defines the additional details of recreating:
+      // a) the schema of previous version, as the DDL queries will not be
+      //    available in newer library versions.
+      // b) and/or the records of related tables which have schema changes.
+      // Note the setup queries is used in a sequence along with other migration
+      // schemes of previous version in order to test upgrading from all
+      // known previous versions to the library version.
+      repeated TemplateQuery previous_version_setup_queries = 1;
+
+      // This optional field defines the verification queries, each of which
+      // returns only True/False in the select to assert the state transition
+      // invariant is the same, e.g.,
+      // * conditions on number of rows
+      // * conditions on data model entities (e.g., type, artifact, property).
+      repeated TemplateQuery post_migration_verification_queries = 2;
+    }
+
+    // Details of verifying the correctness of upgrade_queries.
+    VerificationScheme upgrade_verification = 2;
+  }
+
+  // Each metadata source should provides migration schemes, each of which
+  // defines the schema change details for a particular `schema_version` (sv_i).
+  // When a migration procedure wants to upgrade to sv_i, it looks for the
+  // MigrationScheme with sv_i as map key.
+  map<int64, MigrationScheme> migration_schemes = 62;
 }
