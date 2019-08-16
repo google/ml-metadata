@@ -25,7 +25,7 @@ namespace {
 // A set of common template queries used by the MetadataAccessObject for SQLite
 // based MetadataSource.
 constexpr char kBaseQueryConfig[] = R"pb(
-  schema_version: 2
+  schema_version: 3
   drop_type_table { query: " DROP TABLE IF EXISTS `Type`; " }
   create_type_table {
     query: " CREATE TABLE IF NOT EXISTS `Type` ( "
@@ -264,6 +264,81 @@ constexpr char kBaseQueryConfig[] = R"pb(
            " WHERE `execution_id` = $0 and `name` = $1;"
     parameter_num: 2
   }
+  drop_context_table { query: " DROP TABLE IF EXISTS `Context`; " }
+  create_context_table {
+    query: " CREATE TABLE IF NOT EXISTS `Context` ( "
+           "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+           "   `type_id` INT NOT NULL, "
+           "   `name` VARCHAR(255) NOT NULL, "
+           "   UNIQUE(`type_id`, `name`) "
+           " ); "
+  }
+  check_context_table {
+    query: " SELECT `id`, `type_id`, `name` "
+           " FROM `Context` LIMIT 1; "
+  }
+  insert_context {
+    query: " INSERT INTO `Context`( "
+           "   `type_id`, `name` "
+           ") VALUES($0, $1);"
+    parameter_num: 2
+  }
+  select_context_by_id {
+    query: " SELECT `type_id`, `name` from `Context` WHERE id = $0; "
+    parameter_num: 1
+  }
+  select_contexts_by_type_id {
+    query: " SELECT `id` from `Context` WHERE `type_id` = $0; "
+    parameter_num: 1
+  }
+  update_context {
+    query: " UPDATE `Context` "
+           " SET `type_id` = $1, `name` = $2"
+           " WHERE id = $0;"
+    parameter_num: 3
+  }
+  drop_context_property_table {
+    query: " DROP TABLE IF EXISTS `ContextProperty`; "
+  }
+  create_context_property_table {
+    query: " CREATE TABLE IF NOT EXISTS `ContextProperty` ( "
+           "   `context_id` INT NOT NULL, "
+           "   `name` VARCHAR(255) NOT NULL, "
+           "   `is_custom_property` TINYINT(1) NOT NULL, "
+           "   `int_value` INT, "
+           "   `double_value` DOUBLE, "
+           "   `string_value` TEXT, "
+           " PRIMARY KEY (`context_id`, `name`, `is_custom_property`)); "
+  }
+  check_context_property_table {
+    query: " SELECT `context_id`, `name`, `is_custom_property`, "
+           "        `int_value`, `double_value`, `string_value` "
+           " FROM `ContextProperty` LIMIT 1; "
+  }
+  insert_context_property {
+    query: " INSERT INTO `ContextProperty`( "
+           "   `context_id`, `name`, `is_custom_property`, `$0` "
+           ") VALUES($1, $2, $3, $4);"
+    parameter_num: 5
+  }
+  select_context_property_by_context_id {
+    query: " SELECT `name` as `key`, `is_custom_property`, "
+           "        `int_value`, `double_value`, `string_value` "
+           " from `ContextProperty` "
+           " WHERE `context_id` = $0; "
+    parameter_num: 1
+  }
+  update_context_property {
+    query: " UPDATE `ContextProperty` "
+           " SET `$0` = $1 "
+           " WHERE `context_id` = $2 and `name` = $3;"
+    parameter_num: 4
+  }
+  delete_context_property {
+    query: " DELETE FROM `ContextProperty` "
+           " WHERE `context_id` = $0 and `name` = $1;"
+    parameter_num: 2
+  }
   drop_event_table { query: " DROP TABLE IF EXISTS `Event`; " }
   create_event_table {
     query: " CREATE TABLE IF NOT EXISTS `Event` ( "
@@ -483,6 +558,46 @@ constexpr char kSQLiteMetadataSourceQueryConfig[] = R"pb(
       }
     }
   }
+  # In v3, to support context, we added two tables `Context` and
+  # `ContextProperty`, and no change to other existing records.
+  migration_schemes {
+    key: 3
+    value: {
+      upgrade_queries {
+        query: " CREATE TABLE IF NOT EXISTS `Context` ( "
+               "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+               "   `type_id` INT NOT NULL, "
+               "   `name` VARCHAR(255) NOT NULL, "
+               "   UNIQUE(`type_id`, `name`) "
+               " ); "
+      }
+      upgrade_queries {
+        query: " CREATE TABLE IF NOT EXISTS `ContextProperty` ( "
+               "   `context_id` INT NOT NULL, "
+               "   `name` VARCHAR(255) NOT NULL, "
+               "   `is_custom_property` TINYINT(1) NOT NULL, "
+               "   `int_value` INT, "
+               "   `double_value` DOUBLE, "
+               "   `string_value` TEXT, "
+               " PRIMARY KEY (`context_id`, `name`, `is_custom_property`)); "
+      }
+      # check the expected table columns are created properly.
+      upgrade_verification {
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM ( "
+                 "   SELECT `id`, `type_id`, `name` FROM `Context` "
+                 " ); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM ( "
+                 "   SELECT `context_id`, `name`, `is_custom_property`, "
+                 "          `int_value`, `double_value`, `string_value` "
+                 "    FROM `ContextProperty` "
+                 " ); "
+        }
+      }
+    }
+  }
 )pb";
 
 // Template queries for MySQLMetadataSources.
@@ -509,6 +624,14 @@ constexpr char kMySQLMetadataSourceQueryConfig[] = R"pb(
     query: " CREATE TABLE IF NOT EXISTS `Execution` ( "
            "   `id` INTEGER PRIMARY KEY AUTO_INCREMENT, "
            "   `type_id` INT NOT NULL "
+           " ); "
+  }
+  create_context_table {
+    query: " CREATE TABLE IF NOT EXISTS `Context` ( "
+           "   `id` INTEGER PRIMARY KEY AUTO_INCREMENT, "
+           "   `type_id` INT NOT NULL, "
+           "   `name` VARCHAR(255) NOT NULL, "
+           "   UNIQUE(`type_id`, `name`) "
            " ); "
   }
   create_event_table {
@@ -633,6 +756,43 @@ constexpr char kMySQLMetadataSourceQueryConfig[] = R"pb(
           query: " SELECT count(*) = 1 FROM `Type` WHERE "
                  " `id` = 2 AND `type_kind` = 0 AND `name` = 'execution_type' "
                  " AND `input_type` = 'input' AND `output_type` = 'output'; "
+        }
+      }
+    }
+  }
+  migration_schemes {
+    key: 3
+    value: {
+      upgrade_queries {
+        query: " CREATE TABLE IF NOT EXISTS `Context` ( "
+               "   `id` INTEGER PRIMARY KEY AUTO_INCREMENT, "
+               "   `type_id` INT NOT NULL, "
+               "   `name` VARCHAR(255) NOT NULL, "
+               "   UNIQUE(`type_id`, `name`) "
+               " ); "
+      }
+      upgrade_queries {
+        query: " CREATE TABLE IF NOT EXISTS `ContextProperty` ( "
+               "   `context_id` INT NOT NULL, "
+               "   `name` VARCHAR(255) NOT NULL, "
+               "   `is_custom_property` TINYINT(1) NOT NULL, "
+               "   `int_value` INT, "
+               "   `double_value` DOUBLE, "
+               "   `string_value` TEXT, "
+               " PRIMARY KEY (`context_id`, `name`, `is_custom_property`)); "
+      }
+      upgrade_verification {
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM ( "
+                 "   SELECT `id`, `type_id`, `name` FROM `Context` "
+                 " ) as T1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM ( "
+                 "   SELECT `context_id`, `name`, `is_custom_property`, "
+                 "          `int_value`, `double_value`, `string_value` "
+                 "    FROM `ContextProperty` "
+                 " ) as T2; "
         }
       }
     }

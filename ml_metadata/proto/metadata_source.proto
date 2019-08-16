@@ -47,7 +47,7 @@ enum MetadataSourceType {
 
 // A config includes a set of SQL queries and the type of metadata source.
 // It is used by MetadataAccessObject to init backend and issue queries.
-// Next ID: 67
+// Next ID: 81
 message MetadataSourceQueryConfig {
   // the type of the metadata source
   MetadataSourceType metadata_source_type = 1;
@@ -258,6 +258,72 @@ message MetadataSourceQueryConfig {
   // $0 is the execution_id
   // $1 is the name of the execution property
   TemplateQuery delete_execution_property = 33;
+
+  // Drops the Context table.
+  TemplateQuery drop_context_table = 67;
+
+  // Creates the Context table.
+  TemplateQuery create_context_table = 68;
+
+  // Checks the existence of the Context table.
+  TemplateQuery check_context_table = 69;
+
+  // Inserts a context into the Context table. It has 2 parameters.
+  // $0 is the type_id
+  // $1 is the name of the Context
+  // TODO(huimiao) unique name?
+  TemplateQuery insert_context = 70;
+
+  // Queries a context from the Context table by its id. It has 1 parameter.
+  // $0 is the context_id
+  TemplateQuery select_context_by_id = 71;
+
+  // Queries a context from the Context table by its type_id. It has 1
+  // parameter.
+  // $0 is the context_type_id
+  TemplateQuery select_contexts_by_type_id = 72;
+
+  // Updates a context in the Context table. It has 3 parameters.
+  // $0 is the existing context id
+  // $1 is the type_id
+  // $2 is the name of the Context
+  TemplateQuery update_context = 73;
+
+  // Drops the ContextProperty table.
+  TemplateQuery drop_context_property_table = 74;
+
+  // Creates the ContextProperty table.
+  TemplateQuery create_context_property_table = 75;
+
+  // Checks the existence of the ContextProperty table.
+  TemplateQuery check_context_property_table = 76;
+
+  // Insert a property of a context from the ContextProperty table. It has 5
+  // parameters.
+  // $0 is the property data type
+  // $1 is the context_id
+  // $2 is the name of the context property
+  // $3 is the flag to indicate whether it is a custom property
+  // $4 is the value of the property
+  TemplateQuery insert_context_property = 77;
+
+  // Queries properties of a context from the ContextProperty table by the
+  // context id. It has 1 parameter.
+  // $0 is the context_id
+  TemplateQuery select_context_property_by_context_id = 78;
+
+  // Updates a property of a context in the ContextProperty table. It has 4
+  // parameters.
+  // $0 is the property data type
+  // $1 is the value of the property
+  // $2 is the context_id
+  // $3 is the name of the context property
+  TemplateQuery update_context_property = 79;
+
+  // Deletes a property of a context. It has 2 parameters.
+  // $0 is the context_id
+  // $1 is the name of the context property
+  TemplateQuery delete_context_property = 80;
 
   // Drops the Event table.
   TemplateQuery drop_event_table = 35;

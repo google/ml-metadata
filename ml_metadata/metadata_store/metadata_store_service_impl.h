@@ -176,6 +176,28 @@ class MetadataStoreServiceImpl final
       ::ml_metadata::GetExecutionsByTypeResponse* response) override
       LOCKS_EXCLUDED(lock_);
 
+  ::grpc::Status PutContexts(::grpc::ServerContext* context,
+                             const ::ml_metadata::PutContextsRequest* request,
+                             ::ml_metadata::PutContextsResponse* response)
+      override LOCKS_EXCLUDED(lock_);
+
+  ::grpc::Status GetContextsByID(
+      ::grpc::ServerContext* context,
+      const ::ml_metadata::GetContextsByIDRequest* request,
+      ::ml_metadata::GetContextsByIDResponse* response) override
+      LOCKS_EXCLUDED(lock_);
+
+  ::grpc::Status GetContexts(::grpc::ServerContext* context,
+                             const ::ml_metadata::GetContextsRequest* request,
+                             ::ml_metadata::GetContextsResponse* response)
+      override LOCKS_EXCLUDED(lock_);
+
+  ::grpc::Status GetContextsByType(
+      ::grpc::ServerContext* context,
+      const ::ml_metadata::GetContextsByTypeRequest* request,
+      ::ml_metadata::GetContextsByTypeResponse* response) override
+      LOCKS_EXCLUDED(lock_);
+
  private:
   absl::Mutex lock_;
   std::unique_ptr<MetadataStore> metadata_store_ GUARDED_BY(lock_);

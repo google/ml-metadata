@@ -629,17 +629,103 @@ func TestPutAndGetExecutions(t *testing.T) {
 	}
 
 	// test querying executions of an empty type having no execution
-	_, err = insertArtifactType(store, `name: 'test_type_name_no_execution' properties { key: 'p1' value: INT } `)
+	_, err = insertExecutionType(store, `name: 'test_type_name_no_execution' properties { key: 'p1' value: INT } `)
 	if err != nil {
-		t.Fatalf("Cannot create artifact type: %v", err)
+		t.Fatalf("Cannot create execution type: %v", err)
 	}
 	typeNameNoExecutions := "test_type_name_no_execution"
-	gotEmptyTypeArtifacts, err := store.GetExecutionsByType(typeNameNoExecutions)
+	gotEmptyTypeExecutions, err := store.GetExecutionsByType(typeNameNoExecutions)
 	if err != nil {
 		t.Fatalf("GetExecutionsByType failed: %v", err)
 	}
-	if len(gotEmptyTypeArtifacts) != 0 {
-		t.Errorf("GetExecutionsByType number of artifacts mismatch of an empty type, want: 0, got: %v", len(gotEmptyTypeArtifacts))
+	if len(gotEmptyTypeExecutions) != 0 {
+		t.Errorf("GetExecutionsByType number of artifacts mismatch of an empty type, want: 0, got: %v", len(gotEmptyTypeExecutions))
+	}
+}
+
+func insertContextType(s *Store, textType string) (int64, error) {
+	rst := &mdpb.ContextType{}
+	if err := proto.UnmarshalText(textType, rst); err != nil {
+		return 0, err
+	}
+	opts := &PutTypeOptions{AllFieldsMustMatch: true}
+	tid, err := s.PutContextType(rst, opts)
+	if err != nil {
+		return 0, err
+	}
+	return int64(tid), nil
+}
+
+// TODO(b/124764089) Separate the test.
+func TestPutAndGetContexts(t *testing.T) {
+	store, err := NewStore(fakeDatabaseConfig())
+	defer store.Close()
+	if err != nil {
+		t.Fatalf("Cannot create Store: %v", err)
+	}
+	tid, err := insertContextType(store, `name: 'test_type_name' properties { key: 'p1' value: STRING } `)
+	if err != nil {
+		t.Fatalf("Cannot create context type: %v", err)
+	}
+	cname := "context"
+	wantContext := &mdpb.Context{
+		TypeId: &tid,
+		Name:   &cname,
+		Properties: map[string]*mdpb.Value{
+			`p1`: &mdpb.Value{Value: &mdpb.Value_StringValue{StringValue: `val`}},
+		},
+		CustomProperties: map[string]*mdpb.Value{
+			`p1`: &mdpb.Value{Value: &mdpb.Value_IntValue{IntValue: 1}},
+		},
+	}
+	// insert 1 context
+	contexts := make([]*mdpb.Context, 1)
+	contexts[0] = wantContext
+	cids, err := store.PutContexts(contexts)
+	if err != nil {
+		t.Fatalf("PutContexts failed: %v", err)
+	}
+	if len(cids) != len(contexts) {
+		t.Errorf("PutContexts number of contexts mismatch, want: %v, got: %v", len(contexts), len(cids))
+	}
+	wcid := int64(cids[0])
+	wantContext.Id = &wcid
+
+	// query contexts by ids
+	gotContexts, err := store.GetContextsByID(cids[0:1])
+	if err != nil {
+		t.Fatalf("GetContextsByID failed: %v", err)
+	}
+	if len(gotContexts) != 1 {
+		t.Errorf("GetContextsByID cannot find result with id: %v", wcid)
+	}
+	if !proto.Equal(wantContext, gotContexts[0]) {
+		t.Errorf("GetContextsByID returned result is incorrect. want: %v, got: %v", wantContext, gotContexts[0])
+	}
+
+	// query all contexts
+	gotStoredContexts, err := store.GetContexts()
+	if err != nil {
+		t.Fatalf("GetContexts failed: %v", err)
+	}
+	if len(gotStoredContexts) != len(contexts) {
+		t.Errorf("GetContexts number of contexts mismatch, want: %v, got: %v", len(contexts), len(gotStoredContexts))
+	}
+	if !proto.Equal(wantContext, gotStoredContexts[0]) {
+		t.Errorf("GetContexts returned result is incorrect. want: %v, got: %v", wantContext, gotStoredContexts[0])
+	}
+
+	// query contexts of a particular type
+	typeName := "test_type_name"
+	gotContextsOfType, err := store.GetContextsByType(typeName)
+	if err != nil {
+		t.Fatalf("GetContextsByType failed: %v", err)
+	}
+	if len(gotContextsOfType) != len(contexts) {
+		t.Errorf("GetContextsByType number of contexts mismatch, want: %v, got: %v", len(contexts), len(gotContextsOfType))
+	}
+	if !proto.Equal(wantContext, gotContextsOfType[0]) {
+		t.Errorf("GetContextsByType returned result is incorrect. want: %v, got: %v", wantContext, gotContextsOfType[0])
 	}
 }
 

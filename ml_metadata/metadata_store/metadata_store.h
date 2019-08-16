@@ -194,6 +194,30 @@ class MetadataStore {
   tensorflow::Status GetExecutionTypes(const GetExecutionTypesRequest& request,
                                        GetExecutionTypesResponse* response);
 
+  // Gets a list of artifact types by ID.
+  // If no artifact types with an ID exists, the artifact type is skipped.
+  // Sets the error field if any other internal errors are returned.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status GetArtifactTypesByID(
+      const GetArtifactTypesByIDRequest& request,
+      GetArtifactTypesByIDResponse* response);
+
+  // Gets a list of execution types by ID.
+  // If no artifact types with an ID exists, the artifact type is skipped.
+  // Sets the error field if any other internal errors are returned.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status GetExecutionTypesByID(
+      const GetExecutionTypesByIDRequest& request,
+      GetExecutionTypesByIDResponse* response);
+
+  // Gets a list of context types by ID.
+  // If no context types with an ID exists, the context type is skipped.
+  // Sets the error field if any other internal errors are returned.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status GetContextTypesByID(
+      const GetContextTypesByIDRequest& request,
+      GetContextTypesByIDResponse* response);
+
   // Inserts and updates artifacts in request into the database.
   // If artifact_id is specified, an existing artifact is updated.
   // If artifact_id is not specified, a new artifact is created.
@@ -222,43 +246,22 @@ class MetadataStore {
   tensorflow::Status PutExecutions(const PutExecutionsRequest& request,
                                    PutExecutionsResponse* response);
 
-  // Gets a list of artifacts by ID.
-  // If no artifact with an ID exists, the artifact is skipped.
-  // Sets the error field if any other internal errors are returned.
+  // Inserts and updates contexts in the request into the database. Context
+  // must have none empty name, and it should be unique of a ContextType.
+  // If context_id is specified, an existing context is updated.
+  // If context_id is not specified, a new execution is created.
+  //
+  // Returns a list of context ids index-aligned with the input.
+  // Returns INVALID_ARGUMENT error, if no context is found with a given id.
+  // Returns INVALID_ARGUMENT error, if type_id is given and is different from
+  // the one stored.
+  // Returns INVALID_ARGUMENT error, if name is empty.
+  // Returns INVALID_ARGUMENT error, if given property names and types do not
+  // align with the ContextType on file.
+  // Returns ALREADY_EXISTS error, if the name exists in the context_type.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetArtifactsByID(const GetArtifactsByIDRequest& request,
-                                      GetArtifactsByIDResponse* response);
-
-  // Gets a list of executions by ID.
-  // If no execution with an ID exists, the execution is skipped.
-  // Sets the error field if any other internal errors are returned.
-  // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetExecutionsByID(const GetExecutionsByIDRequest& request,
-                                       GetExecutionsByIDResponse* response);
-
-  // Gets a list of artifact types by ID.
-  // If no artifact types with an ID exists, the artifact type is skipped.
-  // Sets the error field if any other internal errors are returned.
-  // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetArtifactTypesByID(
-      const GetArtifactTypesByIDRequest& request,
-      GetArtifactTypesByIDResponse* response);
-
-  // Gets a list of execution types by ID.
-  // If no artifact types with an ID exists, the artifact type is skipped.
-  // Sets the error field if any other internal errors are returned.
-  // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetExecutionTypesByID(
-      const GetExecutionTypesByIDRequest& request,
-      GetExecutionTypesByIDResponse* response);
-
-  // Gets a list of context types by ID.
-  // If no context types with an ID exists, the context type is skipped.
-  // Sets the error field if any other internal errors are returned.
-  // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetContextTypesByID(
-      const GetContextTypesByIDRequest& request,
-      GetContextTypesByIDResponse* response);
+  tensorflow::Status PutContexts(const PutContextsRequest& request,
+                                 PutContextsResponse* response);
 
   // Inserts events into the database.
   //
@@ -303,9 +306,16 @@ class MetadataStore {
       const GetEventsByArtifactIDsRequest& request,
       GetEventsByArtifactIDsResponse* response);
 
+  // Gets a list of artifacts by ID.
+  // If no artifact with an ID exists, the artifact is skipped.
+  // Sets the error field if any other internal errors are returned.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status GetArtifactsByID(const GetArtifactsByIDRequest& request,
+                                      GetArtifactsByIDResponse* response);
+
   // Gets all artifacts.
   // Returns detailed INTERNAL error, if query execution fails.
-  // TODO(120853124): add predicates
+  // TODO(b/120853124): add predicates
   tensorflow::Status GetArtifacts(const GetArtifactsRequest& request,
                                   GetArtifactsResponse* response);
 
@@ -322,9 +332,16 @@ class MetadataStore {
   tensorflow::Status GetArtifactsByURI(const GetArtifactsByURIRequest& request,
                                        GetArtifactsByURIResponse* response);
 
+  // Gets a list of executions by ID.
+  // If no execution with an ID exists, the execution is skipped.
+  // Sets the error field if any other internal errors are returned.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status GetExecutionsByID(const GetExecutionsByIDRequest& request,
+                                       GetExecutionsByIDResponse* response);
+
   // Gets all executions.
   // Returns detailed INTERNAL error, if query execution fails.
-  // TODO(120853124): add predicates
+  // TODO(b/120853124): add predicates
   tensorflow::Status GetExecutions(const GetExecutionsRequest& request,
                                    GetExecutionsResponse* response);
 
@@ -334,6 +351,25 @@ class MetadataStore {
   tensorflow::Status GetExecutionsByType(
       const GetExecutionsByTypeRequest& request,
       GetExecutionsByTypeResponse* response);
+
+  // Gets a list of contexts by ID.
+  // If no context with an ID exists, the context is skipped.
+  // Sets the error field if any other internal errors are returned.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status GetContextsByID(const GetContextsByIDRequest& request,
+                                     GetContextsByIDResponse* response);
+
+  // Gets all contexts.
+  // Returns detailed INTERNAL error, if query execution fails.
+  // TODO(b/120853124): add predicates
+  tensorflow::Status GetContexts(const GetContextsRequest& request,
+                                 GetContextsResponse* response);
+
+  // Gets all the contexts of a given type. If no contexts found, it returns
+  // OK and empty response.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status GetContextsByType(const GetContextsByTypeRequest& request,
+                                       GetContextsByTypeResponse* response);
 
  private:
   // To construct the object, see Create(...).

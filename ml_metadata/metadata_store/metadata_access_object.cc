@@ -42,6 +42,18 @@ using Query = std::string;
 enum class TypeKind { EXECUTION_TYPE = 0, ARTIFACT_TYPE = 1, CONTEXT_TYPE = 2 };
 // LINT.ThenChange(../util/metadata_source_query_config.cc)
 
+TypeKind ResolveTypeKind(const ArtifactType* const type) {
+  return TypeKind::ARTIFACT_TYPE;
+}
+
+TypeKind ResolveTypeKind(const ExecutionType* const type) {
+  return TypeKind::EXECUTION_TYPE;
+}
+
+TypeKind ResolveTypeKind(const ContextType* const type) {
+  return TypeKind::CONTEXT_TYPE;
+}
+
 // Executes multiple queries within a transaction, either using an opened one or
 // start a new one. If failed, this method returns the detailed error. This
 // method does not commit and allows executing more queries within the same
@@ -266,8 +278,8 @@ string Bind(const MetadataSource* metadata_source, bool present,
 }
 
 // Validates properties in a `Node` with the properties defined in a `Type`.
-// `Node` is either Artifact or Execution. `Type` is either ArtifactType or
-// ExecutionType.
+// `Node` is one of {`Artifact`, `Execution`, `Context`}. `Type` is one of
+// {`ArtifactType`, `ExecutionType`, `ContextType`}.
 // Returns INVALID_ARGUMENT error, if there is unknown or mismatched property
 // w.r.t. its definition.
 template <typename Node, typename Type>
@@ -310,19 +322,68 @@ tensorflow::Status ValidatePropertiesWithType(const Node& node,
 tensorflow::Status GenerateNodeCreationQuery(
     const Artifact& artifact, const MetadataSourceQueryConfig& query_config,
     const MetadataSource* metadata_source, Query* query) {
-  TF_RETURN_IF_ERROR(ComposeParameterizedQuery(
+  return ComposeParameterizedQuery(
       query_config.insert_artifact(),
-      {Bind(artifact.type_id()), Bind(metadata_source, artifact.uri())},
-      query));
-  return tensorflow::Status::OK();
+      {Bind(artifact.type_id()), Bind(metadata_source, artifact.uri())}, query);
 }
 
 // Generates an insert query for Execution.
 tensorflow::Status GenerateNodeCreationQuery(
     const Execution& execution, const MetadataSourceQueryConfig& query_config,
     const MetadataSource* metadata_source, Query* query) {
+  return ComposeParameterizedQuery(query_config.insert_execution(),
+                                   {Bind(execution.type_id())}, query);
+}
+
+// Generates an insert query for Context.
+tensorflow::Status GenerateNodeCreationQuery(
+    const Context& context, const MetadataSourceQueryConfig& query_config,
+    const MetadataSource* metadata_source, Query* query) {
+  if (!context.has_name() || context.name().empty()) {
+    return tensorflow::errors::InvalidArgument(
+        "Context name should not be empty");
+  }
+  return ComposeParameterizedQuery(
+      query_config.insert_context(),
+      {Bind(context.type_id()), Bind(metadata_source, context.name())}, query);
+}
+
+// Generates a select queries for an Artifact by id.
+tensorflow::Status GenerateNodeLookupQueries(
+    const Artifact& artifact, const MetadataSourceQueryConfig& query_config,
+    Query* find_node_query, Query* find_property_query) {
+  TF_RETURN_IF_ERROR(
+      ComposeParameterizedQuery(query_config.select_artifact_by_id(),
+                                {Bind(artifact.id())}, find_node_query));
   TF_RETURN_IF_ERROR(ComposeParameterizedQuery(
-      query_config.insert_execution(), {Bind(execution.type_id())}, query));
+      query_config.select_artifact_property_by_artifact_id(),
+      {Bind(artifact.id())}, find_property_query));
+  return tensorflow::Status::OK();
+}
+
+// Generates a select queries for an Execution by id.
+tensorflow::Status GenerateNodeLookupQueries(
+    const Execution& execution, const MetadataSourceQueryConfig& query_config,
+    Query* find_node_query, Query* find_property_query) {
+  TF_RETURN_IF_ERROR(
+      ComposeParameterizedQuery(query_config.select_execution_by_id(),
+                                {Bind(execution.id())}, find_node_query));
+  TF_RETURN_IF_ERROR(ComposeParameterizedQuery(
+      query_config.select_execution_property_by_execution_id(),
+      {Bind(execution.id())}, find_property_query));
+  return tensorflow::Status::OK();
+}
+
+// Generates a select queries for a Context by id.
+tensorflow::Status GenerateNodeLookupQueries(
+    const Context& context, const MetadataSourceQueryConfig& query_config,
+    Query* find_node_query, Query* find_property_query) {
+  TF_RETURN_IF_ERROR(
+      ComposeParameterizedQuery(query_config.select_context_by_id(),
+                                {Bind(context.id())}, find_node_query));
+  TF_RETURN_IF_ERROR(ComposeParameterizedQuery(
+      query_config.select_context_property_by_context_id(),
+      {Bind(context.id())}, find_property_query));
   return tensorflow::Status::OK();
 }
 
@@ -330,22 +391,131 @@ tensorflow::Status GenerateNodeCreationQuery(
 tensorflow::Status GenerateNodeUpdateQuery(
     const Artifact& artifact, const MetadataSourceQueryConfig& query_config,
     const MetadataSource* metadata_source, Query* query) {
-  TF_RETURN_IF_ERROR(
-      ComposeParameterizedQuery(query_config.update_artifact(),
-                                {Bind(artifact.id()), Bind(artifact.type_id()),
-                                 Bind(metadata_source, artifact.uri())},
-                                query));
-  return tensorflow::Status::OK();
+  return ComposeParameterizedQuery(
+      query_config.update_artifact(),
+      {Bind(artifact.id()), Bind(artifact.type_id()),
+       Bind(metadata_source, artifact.uri())},
+      query);
 }
 
 // Generates an update query for Execution.
 tensorflow::Status GenerateNodeUpdateQuery(
     const Execution& execution, const MetadataSourceQueryConfig& query_config,
     const MetadataSource* metadata_source, Query* query) {
-  TF_RETURN_IF_ERROR(ComposeParameterizedQuery(
+  return ComposeParameterizedQuery(
       query_config.update_execution(),
-      {Bind(execution.id()), Bind(execution.type_id())}, query));
-  return tensorflow::Status::OK();
+      {Bind(execution.id()), Bind(execution.type_id())}, query);
+}
+
+// Generates an update query for Context.
+tensorflow::Status GenerateNodeUpdateQuery(
+    const Context& context, const MetadataSourceQueryConfig& query_config,
+    const MetadataSource* metadata_source, Query* query) {
+  if (!context.has_name() || context.name().empty()) {
+    return tensorflow::errors::InvalidArgument(
+        "Context name should not be empty");
+  }
+  return ComposeParameterizedQuery(query_config.update_context(),
+                                   {Bind(context.id()), Bind(context.type_id()),
+                                    Bind(metadata_source, context.name())},
+                                   query);
+}
+
+// Generates a property insertion query for a NodeType.
+template <typename NodeType>
+tensorflow::Status GeneratePropertyInsertionQuery(
+    const int64 node_id, const absl::string_view name,
+    const bool is_custom_property, const string& binded_value_type,
+    const string& binded_property_value,
+    const MetadataSourceQueryConfig& query_config,
+    const MetadataSource* metadata_source, Query* query) {
+  NodeType node;
+  const TypeKind type_kind = ResolveTypeKind(&node);
+  MetadataSourceQueryConfig::TemplateQuery insert_property;
+  switch (type_kind) {
+    case TypeKind::ARTIFACT_TYPE: {
+      insert_property = query_config.insert_artifact_property();
+      break;
+    }
+    case TypeKind::EXECUTION_TYPE: {
+      insert_property = query_config.insert_execution_property();
+      break;
+    }
+    case TypeKind::CONTEXT_TYPE: {
+      insert_property = query_config.insert_context_property();
+      break;
+    }
+    default:
+      return tensorflow::errors::Internal(
+          absl::StrCat("Unsupported TypeKind: ", type_kind));
+  }
+  return ComposeParameterizedQuery(
+      insert_property,
+      {binded_value_type, Bind(node_id), Bind(metadata_source, name),
+       Bind(is_custom_property), binded_property_value},
+      query);
+}
+
+// Generates a property update query for a NodeType.
+template <typename NodeType>
+tensorflow::Status GeneratePropertyUpdateQuery(
+    const int64 node_id, const absl::string_view name,
+    const string& binded_value_type, const string& binded_property_value,
+    const MetadataSourceQueryConfig& query_config,
+    const MetadataSource* metadata_source, Query* query) {
+  NodeType node;
+  const TypeKind type_kind = ResolveTypeKind(&node);
+  MetadataSourceQueryConfig::TemplateQuery update_property;
+  switch (type_kind) {
+    case TypeKind::ARTIFACT_TYPE: {
+      update_property = query_config.update_artifact_property();
+      break;
+    }
+    case TypeKind::EXECUTION_TYPE: {
+      update_property = query_config.update_execution_property();
+      break;
+    }
+    case TypeKind::CONTEXT_TYPE: {
+      update_property = query_config.update_context_property();
+      break;
+    }
+    default:
+      return tensorflow::errors::Internal(
+          absl::StrCat("Unsupported TypeKind: ", type_kind));
+  }
+  return ComposeParameterizedQuery(update_property,
+                                   {binded_value_type, binded_property_value,
+                                    Bind(node_id), Bind(metadata_source, name)},
+                                   query);
+}
+
+// Generates a property deletion query for a NodeType.
+template <typename NodeType>
+tensorflow::Status GeneratePropertyDeletionQuery(
+    const int64 node_id, const absl::string_view name,
+    const MetadataSourceQueryConfig& query_config,
+    const MetadataSource* metadata_source, Query* query) {
+  NodeType type;
+  const TypeKind type_kind = ResolveTypeKind(&type);
+  MetadataSourceQueryConfig::TemplateQuery delete_property;
+  switch (type_kind) {
+    case TypeKind::ARTIFACT_TYPE: {
+      delete_property = query_config.delete_artifact_property();
+      break;
+    }
+    case TypeKind::EXECUTION_TYPE: {
+      delete_property = query_config.delete_execution_property();
+      break;
+    }
+    case TypeKind::CONTEXT_TYPE: {
+      delete_property = query_config.delete_context_property();
+      break;
+    }
+    default:
+      return tensorflow::errors::Internal("Unsupported TypeKind.");
+  }
+  return ComposeParameterizedQuery(
+      delete_property, {Bind(node_id), Bind(metadata_source, name)}, query);
 }
 
 // A utility method to derive the `property_type` and `property_value` in the
@@ -383,20 +553,16 @@ tensorflow::Status GetPropertyTypeAndValue(
 // b) any property in C \ P, insert query is generated.
 // c) any property in P \ C, delete query is generated.
 // The queries are composed from corresponding template queries with the given
-// `Node` (which is either Artifact or Execution) and the `is_custom_property`
-// (which indicates the space of the given properties in the `node`).
-// TODO(huimiao) Revisit idioms of query generation using checking is_artifact.
-template <typename Node>
+// `NodeType` (which is one of {`ArtifactType`, `ExecutionType`, `ContextType`}
+// and the `is_custom_property` (which indicates the space of the given
+// properties.
+template <typename NodeType>
 tensorflow::Status GeneratePropertiesModificationQueries(
     const google::protobuf::Map<string, Value>& curr_properties,
     const google::protobuf::Map<string, Value>& prev_properties, const int64 node_id,
     const bool is_custom_property,
     const MetadataSourceQueryConfig& query_config,
     const MetadataSource* metadata_source, std::vector<Query>* queries) {
-  static_assert(std::is_same<Node, Artifact>::value ||
-                    std::is_same<Node, Execution>::value,
-                "Unsupported template instantiation");
-  constexpr bool is_artifact = std::is_same<Node, Artifact>::value;
   // generates delete clauses for properties in P \ C
   for (const auto& p : prev_properties) {
     const string& name = p.first;
@@ -407,12 +573,8 @@ tensorflow::Status GeneratePropertiesModificationQueries(
       continue;
 
     Query delete_query;
-    const MetadataSourceQueryConfig::TemplateQuery& delete_property =
-        is_artifact ? query_config.delete_artifact_property()
-                    : query_config.delete_execution_property();
-    TF_RETURN_IF_ERROR(ComposeParameterizedQuery(
-        delete_property, {Bind(node_id), Bind(metadata_source, name)},
-        &delete_query));
+    TF_RETURN_IF_ERROR(GeneratePropertyDeletionQuery<NodeType>(
+        node_id, name, query_config, metadata_source, &delete_query));
     queries->push_back(delete_query);
   }
 
@@ -427,26 +589,16 @@ tensorflow::Status GeneratePropertiesModificationQueries(
         prev_properties.at(name).value_case() == p.second.value_case()) {
       // generates update clauses for properties in the intersection P & C
       Query update_query;
-      const MetadataSourceQueryConfig::TemplateQuery& update_property =
-          is_artifact ? query_config.update_artifact_property()
-                      : query_config.update_execution_property();
-      TF_RETURN_IF_ERROR(
-          ComposeParameterizedQuery(update_property,
-                                    {value_type, property_value, Bind(node_id),
-                                     Bind(metadata_source, name)},
-                                    &update_query));
+      TF_RETURN_IF_ERROR(GeneratePropertyUpdateQuery<NodeType>(
+          node_id, name, value_type, property_value, query_config,
+          metadata_source, &update_query));
       queries->push_back(update_query);
     } else {
       // generate insert clauses for properties in C \ P
       Query insert_query;
-      const MetadataSourceQueryConfig::TemplateQuery& insert_property =
-          is_artifact ? query_config.insert_artifact_property()
-                      : query_config.insert_execution_property();
-      TF_RETURN_IF_ERROR(ComposeParameterizedQuery(
-          insert_property,
-          {value_type, Bind(node_id), Bind(metadata_source, name),
-           Bind(is_custom_property), property_value},
-          &insert_query));
+      TF_RETURN_IF_ERROR(GeneratePropertyInsertionQuery<NodeType>(
+          node_id, name, is_custom_property, value_type, property_value,
+          query_config, metadata_source, &insert_query));
       queries->push_back(insert_query);
     }
   }
@@ -559,9 +711,8 @@ tensorflow::Status GenerateFindTypeQuery(
 tensorflow::Status GenerateFindAllTypeInstancesQuery(
     const MetadataSourceQueryConfig& query_config, const TypeKind type_kind,
     const MetadataSource* metadata_source, Query* query_type) {
-  TF_RETURN_IF_ERROR(ComposeParameterizedQuery(query_config.select_all_types(),
-                                               {Bind(type_kind)}, query_type));
-  return tensorflow::Status::OK();
+  return ComposeParameterizedQuery(query_config.select_all_types(),
+                                   {Bind(type_kind)}, query_type);
 }
 
 // FindType executes `query` to obtain a list of types of the type `MessageType`
@@ -601,18 +752,6 @@ tensorflow::Status FindTypes(const Query& query,
   }
 
   return tensorflow::Status::OK();
-}
-
-TypeKind ResolveTypeKind(const ArtifactType* const type) {
-  return TypeKind::ARTIFACT_TYPE;
-}
-
-TypeKind ResolveTypeKind(const ExecutionType* const type) {
-  return TypeKind::EXECUTION_TYPE;
-}
-
-TypeKind ResolveTypeKind(const ContextType* const type) {
-  return TypeKind::CONTEXT_TYPE;
 }
 
 // Finds a type by query conditions. Acceptable types are {ArtifactType,
@@ -656,7 +795,7 @@ tensorflow::Status FindAllTypeInstancesImpl(
   return FindTypes(query, query_config, metadata_source, types);
 }
 
-// Updates an existing type. A type is one of the {ArtifactType, ExecutionType,
+// Updates an existing type. A type is one of {ArtifactType, ExecutionType,
 // ContextType}
 // Returns INVALID_ARGUMENT error, if name field is not given.
 // Returns INVALID_ARGUMENT error, if id field is given and is different.
@@ -711,8 +850,10 @@ tensorflow::Status UpdateTypeImpl(const Type& type,
   return ExecuteMultiQuery(insert_property_queries, metadata_source);
 }
 
-// Creates an `Node` (either `Artifact` or `Execution`), returns the assigned
-// node id. The node's id field is ignored. The node should have a `NodeType`.
+// Creates an `Node`, which is one of {`Artifact`, `Execution`, `Context`},
+// then returns the assigned node id. The node's id field is ignored. The node
+// should have a `NodeType`, which is one of {`ArtifactType`, `ExecutionType`,
+// `ContextType`}.
 // Returns INVALID_ARGUMENT error, if the node does not align with its type.
 // Returns detailed INTERNAL error, if query execution fails.
 template <typename Node, typename NodeType>
@@ -744,38 +885,29 @@ tensorflow::Status CreateNodeImpl(const Node& node,
   // insert properties
   std::vector<Query> insert_node_property_queries;
   const google::protobuf::Map<string, Value> prev_properties;
-  TF_RETURN_IF_ERROR(GeneratePropertiesModificationQueries<Node>(
+  TF_RETURN_IF_ERROR(GeneratePropertiesModificationQueries<NodeType>(
       node.properties(), prev_properties, *node_id,
       /*is_custom_property=*/false, query_config, metadata_source,
       &insert_node_property_queries));
-  TF_RETURN_IF_ERROR(GeneratePropertiesModificationQueries<Node>(
+  TF_RETURN_IF_ERROR(GeneratePropertiesModificationQueries<NodeType>(
       node.custom_properties(), prev_properties, *node_id,
       /*is_custom_property=*/true, query_config, metadata_source,
       &insert_node_property_queries));
   return ExecuteMultiQuery(insert_node_property_queries, metadata_source);
 }
 
-// Queries a `Node` (either `Artifact` or `Execution`) by an id.
+// Queries a `Node` which is one of {`Artifact`, `Execution`, `Context`} by
+// an id.
 // Returns NOT_FOUND error, if the given id cannot be found.
 // Returns detailed INTERNAL error, if query execution fails.
 template <typename Node>
 tensorflow::Status FindNodeImpl(const int64 node_id,
                                 const MetadataSourceQueryConfig& query_config,
                                 MetadataSource* metadata_source, Node* node) {
-  constexpr bool is_artifact = std::is_same<Node, Artifact>::value;
-  Query find_node_query;
-  const MetadataSourceQueryConfig::TemplateQuery& find_node =
-      is_artifact ? query_config.select_artifact_by_id()
-                  : query_config.select_execution_by_id();
-  TF_RETURN_IF_ERROR(
-      ComposeParameterizedQuery(find_node, {Bind(node_id)}, &find_node_query));
-
-  Query find_property_query;
-  const MetadataSourceQueryConfig::TemplateQuery& find_property =
-      is_artifact ? query_config.select_artifact_property_by_artifact_id()
-                  : query_config.select_execution_property_by_execution_id();
-  TF_RETURN_IF_ERROR(ComposeParameterizedQuery(find_property, {Bind(node_id)},
-                                               &find_property_query));
+  node->set_id(node_id);
+  Query find_node_query, find_property_query;
+  TF_RETURN_IF_ERROR(GenerateNodeLookupQueries(
+      *node, query_config, &find_node_query, &find_property_query));
 
   std::vector<RecordSet> record_sets;
   TF_RETURN_IF_ERROR(ExecuteMultiQuery({find_node_query, find_property_query},
@@ -785,7 +917,6 @@ tensorflow::Status FindNodeImpl(const int64 node_id,
     return tensorflow::errors::NotFound(
         absl::StrCat("Cannot find record by given id ", node_id));
 
-  node->set_id(node_id);
   const RecordSet& node_record_set = record_sets[0];
   TF_RETURN_IF_ERROR(ParseRecordSetToMessage(node_record_set, node));
 
@@ -819,8 +950,8 @@ tensorflow::Status FindNodeImpl(const int64 node_id,
   return tensorflow::Status::OK();
 }
 
-// Queries all `Node` (either `Artifact` or `Execution`) whose id is defined by
-// the `find_node_ids_query`.
+// Queries `Node`(s) which is one of {`Artifact`, `Execution`, `Context`} whose
+// id is defined by the `find_node_ids_query`.
 // Returns NOT_FOUND error, if the given id cannot be found.
 // Returns detailed INTERNAL error, if query execution fails.
 template <typename Node>
@@ -846,36 +977,64 @@ tensorflow::Status FindNodeByIdsQueryImpl(
   return tensorflow::Status::OK();
 }
 
-template <typename Node>
 tensorflow::Status FindAllNodesImpl(
     const MetadataSourceQueryConfig& query_config,
-    MetadataSource* metadata_source, std::vector<Node>* nodes) {
-  constexpr bool is_artifact = std::is_same<Node, Artifact>::value;
-  constexpr absl::string_view find_artifacts = "select `id` from `Artifact`;";
-  constexpr absl::string_view find_executions = "select `id` from `Execution`;";
-  Query find_node_ids = Query(is_artifact ? find_artifacts : find_executions);
-
+    MetadataSource* metadata_source, std::vector<Artifact>* nodes) {
+  Query find_node_ids = "select `id` from `Artifact`;";
   return FindNodeByIdsQueryImpl(find_node_ids, query_config, metadata_source,
                                 nodes);
 }
 
-template <typename Node>
+tensorflow::Status FindAllNodesImpl(
+    const MetadataSourceQueryConfig& query_config,
+    MetadataSource* metadata_source, std::vector<Execution>* nodes) {
+  Query find_node_ids = "select `id` from `Execution`;";
+  return FindNodeByIdsQueryImpl(find_node_ids, query_config, metadata_source,
+                                nodes);
+}
+
+tensorflow::Status FindAllNodesImpl(
+    const MetadataSourceQueryConfig& query_config,
+    MetadataSource* metadata_source, std::vector<Context>* nodes) {
+  Query find_node_ids = "select `id` from `Context`;";
+  return FindNodeByIdsQueryImpl(find_node_ids, query_config, metadata_source,
+                                nodes);
+}
+
 tensorflow::Status FindNodesByTypeIdImpl(
     const int64 type_id, const MetadataSourceQueryConfig& query_config,
-    MetadataSource* metadata_source, std::vector<Node>* nodes) {
-  constexpr bool is_artifact = std::is_same<Node, Artifact>::value;
+    MetadataSource* metadata_source, std::vector<Artifact>* nodes) {
   Query find_node_ids_query;
-  const MetadataSourceQueryConfig::TemplateQuery& find_node_ids =
-      is_artifact ? query_config.select_artifacts_by_type_id()
-                  : query_config.select_executions_by_type_id();
-  TF_RETURN_IF_ERROR(ComposeParameterizedQuery(find_node_ids, {Bind(type_id)},
-                                               &find_node_ids_query));
-
+  TF_RETURN_IF_ERROR(
+      ComposeParameterizedQuery(query_config.select_artifacts_by_type_id(),
+                                {Bind(type_id)}, &find_node_ids_query));
   return FindNodeByIdsQueryImpl(find_node_ids_query, query_config,
                                 metadata_source, nodes);
 }
 
-// Updates a `Node` (either Artifact or Execution).
+tensorflow::Status FindNodesByTypeIdImpl(
+    const int64 type_id, const MetadataSourceQueryConfig& query_config,
+    MetadataSource* metadata_source, std::vector<Execution>* nodes) {
+  Query find_node_ids_query;
+  TF_RETURN_IF_ERROR(
+      ComposeParameterizedQuery(query_config.select_executions_by_type_id(),
+                                {Bind(type_id)}, &find_node_ids_query));
+  return FindNodeByIdsQueryImpl(find_node_ids_query, query_config,
+                                metadata_source, nodes);
+}
+
+tensorflow::Status FindNodesByTypeIdImpl(
+    const int64 type_id, const MetadataSourceQueryConfig& query_config,
+    MetadataSource* metadata_source, std::vector<Context>* nodes) {
+  Query find_node_ids_query;
+  TF_RETURN_IF_ERROR(
+      ComposeParameterizedQuery(query_config.select_contexts_by_type_id(),
+                                {Bind(type_id)}, &find_node_ids_query));
+  return FindNodeByIdsQueryImpl(find_node_ids_query, query_config,
+                                metadata_source, nodes);
+}
+
+// Updates a `Node` which is one of {`Artifact`, `Execution`, `Context`}.
 // Returns INVALID_ARGUMENT error, if the node cannot be found
 // Returns INVALID_ARGUMENT error, if the node does not match with its type
 // Returns detailed INTERNAL error, if query execution fails.
@@ -915,11 +1074,11 @@ tensorflow::Status UpdateNodeImpl(const Node& node,
   update_node_queries.push_back(update_node);
 
   // modify properties
-  TF_RETURN_IF_ERROR(GeneratePropertiesModificationQueries<Node>(
+  TF_RETURN_IF_ERROR(GeneratePropertiesModificationQueries<NodeType>(
       node.properties(), stored_node.properties(), node.id(),
       /*is_custom_property=*/false, query_config, metadata_source,
       &update_node_queries));
-  TF_RETURN_IF_ERROR(GeneratePropertiesModificationQueries<Node>(
+  TF_RETURN_IF_ERROR(GeneratePropertiesModificationQueries<NodeType>(
       node.custom_properties(), stored_node.custom_properties(), node.id(),
       /*is_custom_property=*/true, query_config, metadata_source,
       &update_node_queries));
@@ -1049,6 +1208,13 @@ tensorflow::Status MetadataAccessObject::InitMetadataSource() {
       query_config_.drop_mlmd_env_table().query();
   const Query& create_mlmd_env_table =
       query_config_.create_mlmd_env_table().query();
+  const Query& drop_context_table = query_config_.drop_context_table().query();
+  const Query& create_context_table =
+      query_config_.create_context_table().query();
+  const Query& drop_context_property_table =
+      query_config_.drop_context_property_table().query();
+  const Query& create_context_property_table =
+      query_config_.create_context_property_table().query();
   // check error, if it happens, it is an internal development error.
   CHECK_GT(query_config_.schema_version(), 0);
   Query insert_schema_version;
@@ -1056,16 +1222,30 @@ tensorflow::Status MetadataAccessObject::InitMetadataSource() {
       query_config_.insert_schema_version(),
       {Bind(query_config_.schema_version())}, &insert_schema_version));
 
-  return ExecuteMultiQuery(
-      {drop_type_table, create_type_table, drop_properties_table,
-       create_properties_table, drop_artifact_table, create_artifact_table,
-       drop_artifact_property_table, create_artifact_property_table,
-       drop_execution_table, create_execution_table,
-       drop_execution_property_table, create_execution_property_table,
-       drop_event_table, create_event_table, drop_event_path_table,
-       create_event_path_table, drop_mlmd_env_table, create_mlmd_env_table,
-       insert_schema_version},
-      metadata_source_);
+  return ExecuteMultiQuery({drop_type_table,
+                            create_type_table,
+                            drop_properties_table,
+                            create_properties_table,
+                            drop_artifact_table,
+                            create_artifact_table,
+                            drop_artifact_property_table,
+                            create_artifact_property_table,
+                            drop_execution_table,
+                            create_execution_table,
+                            drop_execution_property_table,
+                            create_execution_property_table,
+                            drop_event_table,
+                            create_event_table,
+                            drop_event_path_table,
+                            create_event_path_table,
+                            drop_mlmd_env_table,
+                            create_mlmd_env_table,
+                            drop_context_table,
+                            create_context_table,
+                            drop_context_property_table,
+                            create_context_property_table,
+                            insert_schema_version},
+                           metadata_source_);
 }
 
 // After 0.13.2 release, MLMD starts to have schema_version. The library always
@@ -1172,13 +1352,22 @@ tensorflow::Status MetadataAccessObject::InitMetadataSourceIfNotExists() {
       query_config_.check_event_path_table().query();
   const Query& check_mlmd_env_table =
       query_config_.check_mlmd_env_table().query();
+  const Query& check_context_table =
+      query_config_.check_context_table().query();
+  const Query& check_context_property_table =
+      query_config_.check_context_property_table().query();
 
-  std::vector<Query> schema_check_queries = {
-      check_type_table,      check_properties_table,
-      check_artifact_table,  check_artifact_property_table,
-      check_execution_table, check_execution_property_table,
-      check_event_table,     check_event_path_table,
-      check_mlmd_env_table};
+  std::vector<Query> schema_check_queries = {check_type_table,
+                                             check_properties_table,
+                                             check_artifact_table,
+                                             check_artifact_property_table,
+                                             check_execution_table,
+                                             check_execution_property_table,
+                                             check_event_table,
+                                             check_event_path_table,
+                                             check_mlmd_env_table,
+                                             check_context_table,
+                                             check_context_property_table};
 
   std::vector<string> missing_schema_error_messages;
   for (const Query& query : schema_check_queries) {
@@ -1281,6 +1470,18 @@ tensorflow::Status MetadataAccessObject::CreateExecution(
       execution, query_config_, metadata_source_, execution_id);
 }
 
+tensorflow::Status MetadataAccessObject::CreateContext(const Context& context,
+                                                       int64* context_id) {
+  tensorflow::Status status = CreateNodeImpl<Context, ContextType>(
+      context, query_config_, metadata_source_, context_id);
+  if (absl::StrContains(status.error_message(), "Duplicate") ||
+      absl::StrContains(status.error_message(), "UNIQUE")) {
+    return tensorflow::errors::AlreadyExists(
+        "Given node already exists: ", context.DebugString(), status);
+  }
+  return status;
+}
+
 tensorflow::Status MetadataAccessObject::FindArtifactById(
     const int64 artifact_id, Artifact* artifact) {
   return FindNodeImpl(artifact_id, query_config_, metadata_source_, artifact);
@@ -1289,6 +1490,11 @@ tensorflow::Status MetadataAccessObject::FindArtifactById(
 tensorflow::Status MetadataAccessObject::FindExecutionById(
     const int64 execution_id, Execution* execution) {
   return FindNodeImpl(execution_id, query_config_, metadata_source_, execution);
+}
+
+tensorflow::Status MetadataAccessObject::FindContextById(const int64 context_id,
+                                                         Context* context) {
+  return FindNodeImpl(context_id, query_config_, metadata_source_, context);
 }
 
 tensorflow::Status MetadataAccessObject::UpdateArtifact(
@@ -1301,6 +1507,11 @@ tensorflow::Status MetadataAccessObject::UpdateExecution(
     const Execution& execution) {
   return UpdateNodeImpl<Execution, ExecutionType>(execution, query_config_,
                                                   metadata_source_);
+}
+
+tensorflow::Status MetadataAccessObject::UpdateContext(const Context& context) {
+  return UpdateNodeImpl<Context, ContextType>(context, query_config_,
+                                              metadata_source_);
 }
 
 tensorflow::Status MetadataAccessObject::CreateEvent(const Event& event,
@@ -1412,6 +1623,17 @@ tensorflow::Status MetadataAccessObject::FindExecutionsByTypeId(
     const int64 type_id, std::vector<Execution>* executions) {
   return FindNodesByTypeIdImpl(type_id, query_config_, metadata_source_,
                                executions);
+}
+
+tensorflow::Status MetadataAccessObject::FindContexts(
+    std::vector<Context>* contexts) {
+  return FindAllNodesImpl(query_config_, metadata_source_, contexts);
+}
+
+tensorflow::Status MetadataAccessObject::FindContextsByTypeId(
+    const int64 type_id, std::vector<Context>* contexts) {
+  return FindNodesByTypeIdImpl(type_id, query_config_, metadata_source_,
+                               contexts);
 }
 
 tensorflow::Status MetadataAccessObject::FindArtifactsByURI(

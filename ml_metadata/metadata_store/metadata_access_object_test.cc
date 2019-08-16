@@ -1018,6 +1018,153 @@ TEST_P(MetadataAccessObjectTest, UpdateExecution) {
   EXPECT_THAT(execution, EqualsProto(want_execution));
 }
 
+TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
+  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  ContextType type1 = ParseTextProtoOrDie<ContextType>(R"(
+    name: 'test_type_with_predefined_property'
+    properties { key: 'property_1' value: INT }
+  )");
+  int64 type1_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(type1, &type1_id));
+
+  ContextType type2 = ParseTextProtoOrDie<ContextType>(R"(
+    name: 'test_type_with_no_property'
+  )");
+  int64 type2_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(type2, &type2_id));
+
+  // Creates two contexts of different types
+  Context context1 = ParseTextProtoOrDie<Context>(R"(
+    name: "my_context1"
+    properties {
+      key: 'property_1'
+      value: { int_value: 3 }
+    }
+    custom_properties {
+      key: 'custom_property_1'
+      value: { int_value: 3 }
+    }
+  )");
+  context1.set_type_id(type1_id);
+  int64 context1_id = -1;
+  TF_EXPECT_OK(metadata_access_object_->CreateContext(context1, &context1_id));
+  context1.set_id(context1_id);
+
+  Context context2;
+  context2.set_type_id(type2_id);
+  context2.set_name("my_context2");
+  int64 context2_id = -1;
+  TF_EXPECT_OK(metadata_access_object_->CreateContext(context2, &context2_id));
+  context2.set_id(context2_id);
+
+  EXPECT_NE(context1_id, context2_id);
+
+  // Find contexts
+  Context got_context1;
+  TF_EXPECT_OK(
+      metadata_access_object_->FindContextById(context1_id, &got_context1));
+  EXPECT_THAT(got_context1, EqualsProto(context1));
+
+  std::vector<Context> got_contexts;
+  TF_EXPECT_OK(metadata_access_object_->FindContexts(&got_contexts));
+  EXPECT_EQ(got_contexts.size(), 2);
+  EXPECT_THAT(got_contexts[0], EqualsProto(context1));
+  EXPECT_THAT(got_contexts[1], EqualsProto(context2));
+
+  std::vector<Context> got_type2_contexts;
+  TF_EXPECT_OK(metadata_access_object_->FindContextsByTypeId(
+      type2_id, &got_type2_contexts));
+  EXPECT_EQ(got_type2_contexts.size(), 1);
+  EXPECT_THAT(got_type2_contexts[0], EqualsProto(context2));
+}
+
+TEST_P(MetadataAccessObjectTest, CreateContextError) {
+  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  Context context;
+  int64 context_id;
+
+  // unknown type specified
+  EXPECT_EQ(metadata_access_object_->CreateContext(context, &context_id).code(),
+            tensorflow::error::INVALID_ARGUMENT);
+
+  context.set_type_id(1);
+  EXPECT_EQ(metadata_access_object_->CreateContext(context, &context_id).code(),
+            tensorflow::error::NOT_FOUND);
+
+  ContextType type = ParseTextProtoOrDie<ContextType>(R"(
+    name: 'test_type_disallow_custom_property'
+    properties { key: 'property_1' value: INT }
+  )");
+  int64 type_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
+
+  // type mismatch
+  context.set_type_id(type_id);
+  (*context.mutable_properties())["property_1"].set_string_value("3");
+  EXPECT_EQ(metadata_access_object_->CreateContext(context, &context_id).code(),
+            tensorflow::error::INVALID_ARGUMENT);
+
+  // empty name
+  (*context.mutable_properties())["property_1"].set_int_value(3);
+  EXPECT_EQ(metadata_access_object_->CreateContext(context, &context_id).code(),
+            tensorflow::error::INVALID_ARGUMENT);
+
+  // duplicated name
+  context.set_name("test context name");
+  TF_EXPECT_OK(metadata_access_object_->CreateContext(context, &context_id));
+  Context context_copy = context;
+  EXPECT_EQ(
+      metadata_access_object_->CreateContext(context_copy, &context_id).code(),
+      tensorflow::error::ALREADY_EXISTS);
+}
+
+TEST_P(MetadataAccessObjectTest, UpdateContext) {
+  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  ContextType type = ParseTextProtoOrDie<ContextType>(R"(
+    name: 'test_type'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: STRING }
+  )");
+  int64 type_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
+
+  Context context1 = ParseTextProtoOrDie<Context>(R"(
+    name: "before update name"
+    properties {
+      key: 'property_1'
+      value: { int_value: 2 }
+    }
+    custom_properties {
+      key: 'custom_property_1'
+      value: { string_value: '5' }
+    }
+  )");
+  context1.set_type_id(type_id);
+  int64 context_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateContext(context1, &context_id));
+
+  // add `property_2` and update `property_1`, and drop `custom_property_1`
+  Context want_context = ParseTextProtoOrDie<Context>(R"(
+    name: "after update name"
+    properties {
+      key: 'property_1'
+      value: { int_value: 5 }
+    }
+    properties {
+      key: 'property_2'
+      value: { string_value: 'test' }
+    }
+  )");
+  want_context.set_id(context_id);
+  want_context.set_type_id(type_id);
+  TF_EXPECT_OK(metadata_access_object_->UpdateContext(want_context));
+
+  Context context;
+  TF_EXPECT_OK(metadata_access_object_->FindContextById(context_id, &context));
+
+  EXPECT_THAT(context, EqualsProto(want_context));
+}
+
 // TODO(huimiao) Refactoring the test by setting up the types in utility methods
 TEST_P(MetadataAccessObjectTest, CreateAndFindEvent) {
   TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());

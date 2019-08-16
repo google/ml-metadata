@@ -153,7 +153,6 @@ class MetadataAccessObject {
   tensorflow::Status FindArtifactById(int64 artifact_id, Artifact* artifact);
 
   // Queries artifacts stored in the metadata source
-  // TODO(huimiao) Extends FindArtifacts/Executions with predicates/expressions.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status FindArtifacts(std::vector<Artifact>* artifacts);
 
@@ -216,6 +215,45 @@ class MetadataAccessObject {
   // align with the ExecutionType on file.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status UpdateExecution(const Execution& execution);
+
+  // Creates a context, returns the assigned context id. The id field of the
+  // context is ignored. The name field of the context must not be empty and it
+  // should be unique in the same ContextType.
+  // Returns INVALID_ARGUMENT error, if the ContextType is not given.
+  // Returns NOT_FOUND error, if the ContextType cannot be found.
+  // Returns INVALID_ARGUMENT error, if the context name is empty.
+  // Returns INVALID_ARGUMENT error, if the context contains any property
+  //  undefined in the type.
+  // Returns INVALID_ARGUMENT error, if given value of a property does not match
+  //   with its data type definition in the context type.
+  // Returns ALREADY_EXISTS error, if the ContextType has context with the name.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status CreateContext(const Context& context, int64* context_id);
+
+  // Queries a context by an id.
+  // Returns NOT_FOUND error, if the given context_id cannot be found.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status FindContextById(int64 context_id, Context* context);
+
+  // Queries contexts stored in the metadata source
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status FindContexts(std::vector<Context>* contexts);
+
+  // Queries contexts by a given type_id.
+  // Returns NOT_FOUND error, if the given context_type_id cannot be found.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status FindContextsByTypeId(int64 context_type_id,
+                                          std::vector<Context>* contexts);
+
+  // Updates a context.
+  // Returns INVALID_ARGUMENT error, if the id field is not given.
+  // Returns INVALID_ARGUMENT error, if no context is found with the given id.
+  // Returns INVALID_ARGUMENT error, if type_id is given and is different from
+  // the one stored.
+  // Returns INVALID_ARGUMENT error, if given property names and types do not
+  // align with the ContextType on file.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status UpdateContext(const Context& context);
 
   // Creates an event, returns the assigned event id. If the event occurrence
   // time is not given, the insertion time is used.

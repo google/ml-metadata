@@ -1621,5 +1621,112 @@ TEST_F(MetadataStoreTest, PutContextTypeUpsert) {
   }
 }
 
+// Test creating a context and then updating one of its properties.
+TEST_F(MetadataStoreTest, PutContextsUpdateGetContexts) {
+  // Create two context types
+  const PutContextTypeRequest put_context_type_request =
+      ParseTextProtoOrDie<PutContextTypeRequest>(R"(
+        all_fields_match: true
+        context_type: {
+          name: 'test_type'
+          properties { key: 'property' value: STRING }
+        }
+      )");
+  PutContextTypeResponse put_context_type_response;
+  TF_ASSERT_OK(metadata_store_->PutContextType(put_context_type_request,
+                                               &put_context_type_response));
+  ASSERT_TRUE(put_context_type_response.has_type_id());
+  const int64 type_id = put_context_type_response.type_id();
+
+  ContextType type2;
+  type2.set_name("type2_name");
+  PutContextTypeRequest put_context_type_request2;
+  put_context_type_request2.set_all_fields_match(true);
+  *put_context_type_request2.mutable_context_type() = type2;
+  PutContextTypeResponse put_context_type_response2;
+  TF_ASSERT_OK(metadata_store_->PutContextType(put_context_type_request2,
+                                               &put_context_type_response2));
+  ASSERT_TRUE(put_context_type_response2.has_type_id());
+  const int64 type2_id = put_context_type_response2.type_id();
+
+  PutContextsRequest put_contexts_request =
+      ParseTextProtoOrDie<PutContextsRequest>(R"(
+        contexts: {
+          name: 'context1'
+          properties {
+            key: 'property'
+            value: { string_value: '1' }
+          }
+        }
+        contexts: {
+          name: 'context2'
+          custom_properties {
+            key: 'custom'
+            value: { int_value: 2 }
+          }
+        }
+      )");
+  put_contexts_request.mutable_contexts(0)->set_type_id(type_id);
+  put_contexts_request.mutable_contexts(1)->set_type_id(type_id);
+  PutContextsResponse put_contexts_response;
+  TF_ASSERT_OK(metadata_store_->PutContexts(put_contexts_request,
+                                            &put_contexts_response));
+  ASSERT_EQ(put_contexts_response.context_ids_size(), 2);
+  const int64 id1 = put_contexts_response.context_ids(0);
+  const int64 id2 = put_contexts_response.context_ids(1);
+
+  // Now we update context1's string value from 1 to 2.
+  // and context2's int value from 2 to 3, and add a new context with type2.
+  Context want_context1 = *put_contexts_request.mutable_contexts(0);
+  want_context1.set_id(id1);
+  (*want_context1.mutable_properties())["property"].set_string_value("2");
+  Context want_context2 = *put_contexts_request.mutable_contexts(1);
+  want_context2.set_id(id2);
+  (*want_context2.mutable_custom_properties())["custom"].set_int_value(2);
+  Context want_context3;
+  want_context3.set_type_id(type2_id);
+  want_context3.set_name("context3");
+
+  PutContextsRequest put_contexts_request2;
+  *put_contexts_request2.add_contexts() = want_context1;
+  *put_contexts_request2.add_contexts() = want_context2;
+  *put_contexts_request2.add_contexts() = want_context3;
+  PutContextsResponse put_contexts_response2;
+  TF_ASSERT_OK(metadata_store_->PutContexts(put_contexts_request2,
+                                            &put_contexts_response2));
+  ASSERT_EQ(put_contexts_response2.context_ids_size(), 3);
+  want_context3.set_id(put_contexts_response2.context_ids(2));
+
+  GetContextsByIDRequest get_contexts_by_id_request;
+  get_contexts_by_id_request.add_context_ids(id1);
+  GetContextsByIDResponse get_contexts_by_id_response;
+  TF_ASSERT_OK(metadata_store_->GetContextsByID(get_contexts_by_id_request,
+                                                &get_contexts_by_id_response));
+  ASSERT_EQ(get_contexts_by_id_response.contexts_size(), 1);
+  EXPECT_THAT(get_contexts_by_id_response.contexts(0),
+              testing::EqualsProto(want_context1));
+
+  GetContextsByTypeRequest get_contexts_by_type_request;
+  get_contexts_by_type_request.set_type_name("type2_name");
+  GetContextsByTypeResponse get_contexts_by_type_response;
+  TF_ASSERT_OK(metadata_store_->GetContextsByType(
+      get_contexts_by_type_request, &get_contexts_by_type_response));
+  ASSERT_EQ(get_contexts_by_type_response.contexts_size(), 1);
+  EXPECT_THAT(get_contexts_by_type_response.contexts(0),
+              testing::EqualsProto(want_context3));
+
+  GetContextsRequest get_contexts_request;
+  GetContextsResponse get_contexts_response;
+  TF_ASSERT_OK(metadata_store_->GetContexts(get_contexts_request,
+                                            &get_contexts_response));
+  ASSERT_EQ(get_contexts_response.contexts_size(), 3);
+  EXPECT_THAT(get_contexts_response.contexts(0),
+              testing::EqualsProto(want_context1));
+  EXPECT_THAT(get_contexts_response.contexts(1),
+              testing::EqualsProto(want_context2));
+  EXPECT_THAT(get_contexts_response.contexts(2),
+              testing::EqualsProto(want_context3));
+}
+
 }  // namespace
 }  // namespace ml_metadata

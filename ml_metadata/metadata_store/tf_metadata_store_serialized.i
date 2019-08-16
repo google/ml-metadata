@@ -253,6 +253,30 @@ PyObject* GetContextTypesByID(ml_metadata::MetadataStore* metadata_store,
       &ml_metadata::MetadataStore::GetContextTypesByID);
 }
 
+PyObject* PutContexts(ml_metadata::MetadataStore* metadata_store,
+                      const string& request) {
+  return AccessMetadataStore(metadata_store, request,
+      &ml_metadata::MetadataStore::PutContexts);
+}
+
+PyObject* GetContextsByID(ml_metadata::MetadataStore* metadata_store,
+                          const string& request) {
+  return AccessMetadataStore(metadata_store, request,
+      &ml_metadata::MetadataStore::GetContextsByID);
+}
+
+PyObject* GetContexts(ml_metadata::MetadataStore* metadata_store,
+                      const string& request) {
+  return AccessMetadataStore(metadata_store, request,
+      &ml_metadata::MetadataStore::GetContexts);
+}
+
+PyObject* GetContextsByType(ml_metadata::MetadataStore* metadata_store,
+                            const string& request) {
+  return AccessMetadataStore(metadata_store, request,
+      &ml_metadata::MetadataStore::GetContextsByType);
+}
+
 %}
 
 
@@ -345,3 +369,14 @@ PyObject* GetArtifacts(ml_metadata::MetadataStore* metadata_store,
 PyObject* GetExecutions(ml_metadata::MetadataStore* metadata_store,
     const string& request);
 
+PyObject* PutContexts(ml_metadata::MetadataStore* metadata_store,
+                      const string& request);
+
+PyObject* GetContextsByID(ml_metadata::MetadataStore* metadata_store,
+                          const string& request);
+
+PyObject* GetContexts(ml_metadata::MetadataStore* metadata_store,
+                      const string& request);
+
+PyObject* GetContextsByType(ml_metadata::MetadataStore* metadata_store,
+                            const string& request);

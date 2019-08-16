@@ -253,15 +253,13 @@ message GetArtifactTypeResponse {
   optional ArtifactType artifact_type = 1;
 }
 
-message GetArtifactTypesRequest {
-}
+message GetArtifactTypesRequest {}
 
 message GetArtifactTypesResponse {
   repeated ArtifactType artifact_types = 1;
 }
 
-message GetExecutionTypesRequest {
-}
+message GetExecutionTypesRequest {}
 
 message GetExecutionTypesResponse {
   repeated ExecutionType execution_types = 1;
@@ -276,7 +274,7 @@ message GetExecutionsByTypeResponse {
 }
 
 message GetExecutionsByIDRequest {
-  //   execution_ids: A list of execution ids to retrieve.
+  // A list of execution ids to retrieve.
   repeated int64 execution_ids = 1;
 }
 
@@ -317,6 +315,8 @@ message GetArtifactTypesByIDRequest {
 }
 
 message GetArtifactTypesByIDResponse {
+  // The result is not index-aligned: if an id is not found, it is not
+  // returned.
   repeated ArtifactType artifact_types = 1;
 }
 
@@ -325,6 +325,8 @@ message GetExecutionTypesByIDRequest {
 }
 
 message GetExecutionTypesByIDResponse {
+  // The result is not index-aligned: if an id is not found, it is not
+  // returned.
   repeated ExecutionType execution_types = 1;
 }
 
@@ -342,6 +344,8 @@ message GetContextTypesByIDRequest {
 }
 
 message GetContextTypesByIDResponse {
+  // The result is not index-aligned: if an id is not found, it is not
+  // returned.
   repeated ContextType context_types = 1;
 }
 
@@ -359,6 +363,17 @@ message GetContextsByTypeRequest {
 }
 
 message GetContextsByTypeResponse {
+  repeated Context contexts = 1;
+}
+
+message GetContextsByIDRequest {
+  // A list of context ids to retrieve.
+  repeated int64 context_ids = 1;
+}
+
+message GetContextsByIDResponse {
+  // The result is not index-aligned: if an id is not found, it is not
+  // returned.
   repeated Context contexts = 1;
 }
 
@@ -673,8 +688,8 @@ service MetadataStoreService {
   //
   // Args:
   //   context_ids: A list of context ids to retrieve.
-  rpc GetContextsByID(GetExecutionsByIDRequest)
-      returns (GetExecutionsByIDResponse) {}
+  rpc GetContextsByID(GetContextsByIDRequest)
+      returns (GetContextsByIDResponse) {}
 
   // Gets all the artifacts of a given type.
   rpc GetArtifactsByType(GetArtifactsByTypeRequest)

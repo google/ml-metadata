@@ -75,6 +75,9 @@ type ArtifactID int64
 // ExecutionID refers the id space of Execution
 type ExecutionID int64
 
+// ContextID refers the id space of Context
+type ContextID int64
+
 // PutTypeOptions defines options for PutArtifactType request.
 type PutTypeOptions struct {
 	CanAddFields       bool
@@ -279,6 +282,31 @@ func (store *Store) PutExecutions(executions []*mdpb.Execution) ([]ExecutionID, 
 	return rst, err
 }
 
+// PutContexts inserts and updates contexts into the store.
+//
+// In `contexts`, if Id is specified, an existing context is updated;
+// if Id is not specified, a new context is created. It returns a list
+// of context ids index-aligned with the input.
+//
+// It returns an error if
+// a) no context is found with the given id,
+// b) the given TypeId is different from the one stored,
+// c) given property names and types, do not align with the ContextType on file,
+// d) context name is empty,
+// e) the given name already exists in the contexts of the given TypeId.
+func (store *Store) PutContexts(contexts []*mdpb.Context) ([]ContextID, error) {
+	req := &apipb.PutContextsRequest{
+		Contexts: contexts,
+	}
+	resp := &apipb.PutContextsResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.PutContexts, req, resp)
+	rst := make([]ContextID, len(resp.GetContextIds()))
+	for i, v := range resp.GetContextIds() {
+		rst[i] = ContextID(v)
+	}
+	return rst, err
+}
+
 // GetArtifactsByID gets a list of artifacts by ID.
 // If no artifact with an ID exists, the artifact id is skipped.
 // It returns an error if the query execution fails.
@@ -301,6 +329,18 @@ func (store *Store) GetExecutionsByID(eids []ExecutionID) ([]*mdpb.Execution, er
 	resp := &apipb.GetExecutionsByIDResponse{}
 	err := store.callMetadataStoreWrapMethod(wrap.GetExecutionsByID, req, resp)
 	return resp.GetExecutions(), err
+}
+
+// GetContextsByID gets a list of contexts by ID.
+// If no context with an ID exists, the context id is skipped.
+// It returns an error if the query execution fails.
+func (store *Store) GetContextsByID(cids []ContextID) ([]*mdpb.Context, error) {
+	req := &apipb.GetContextsByIDRequest{
+		ContextIds: convertToInt64ArrayFromContextIDs(cids),
+	}
+	resp := &apipb.GetContextsByIDResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetContextsByID, req, resp)
+	return resp.GetContexts(), err
 }
 
 // PutEvents inserts events into the store.
@@ -434,6 +474,26 @@ func (store *Store) GetExecutionsByType(typeName string) ([]*mdpb.Execution, err
 	return resp.GetExecutions(), err
 }
 
+// GetContexts gets all contexts.
+// It returns an error if the query execution fails.
+func (store *Store) GetContexts() ([]*mdpb.Context, error) {
+	req := &apipb.GetContextsRequest{}
+	resp := &apipb.GetContextsResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetContexts, req, resp)
+	return resp.GetContexts(), err
+}
+
+// GetContextsByType gets all contexts of a given type.
+// It returns an error if the query execution fails.
+func (store *Store) GetContextsByType(typeName string) ([]*mdpb.Context, error) {
+	req := &apipb.GetContextsByTypeRequest{
+		TypeName: proto.String(typeName),
+	}
+	resp := &apipb.GetContextsByTypeResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetContextsByType, req, resp)
+	return resp.GetContexts(), err
+}
+
 type metadataStoreMethod func(wrap.Ml_metadata_MetadataStore, string, wrap.Status) string
 
 // callMetadataStoreWrapMethod calls a `metadataStoreMethod` in cc library.
@@ -493,6 +553,14 @@ func convertToInt64ArrayFromArtifactIDs(aids []ArtifactID) []int64 {
 func convertToInt64ArrayFromExecutionIDs(eids []ExecutionID) []int64 {
 	ids := make([]int64, len(eids))
 	for i, v := range eids {
+		ids[i] = int64(v)
+	}
+	return ids
+}
+
+func convertToInt64ArrayFromContextIDs(cids []ContextID) []int64 {
+	ids := make([]int64, len(cids))
+	for i, v := range cids {
 		ids[i] = int64(v)
 	}
 	return ids

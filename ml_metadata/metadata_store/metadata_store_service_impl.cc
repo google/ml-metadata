@@ -351,4 +351,56 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   return status;
 }
 
+::grpc::Status MetadataStoreServiceImpl::PutContexts(
+    ::grpc::ServerContext* context,
+    const ::ml_metadata::PutContextsRequest* request,
+    ::ml_metadata::PutContextsResponse* response) {
+  absl::WriterMutexLock l(&lock_);
+  const ::grpc::Status status =
+      ToGRPCStatus(metadata_store_->PutContexts(*request, response));
+  if (!status.ok()) {
+    LOG(WARNING) << "PutContexts failed: " << status.error_message();
+  }
+  return status;
+}
+
+::grpc::Status MetadataStoreServiceImpl::GetContextsByID(
+    ::grpc::ServerContext* context,
+    const ::ml_metadata::GetContextsByIDRequest* request,
+    ::ml_metadata::GetContextsByIDResponse* response) {
+  absl::WriterMutexLock l(&lock_);
+  const ::grpc::Status status =
+      ToGRPCStatus(metadata_store_->GetContextsByID(*request, response));
+  if (!status.ok()) {
+    LOG(WARNING) << "GetContextsByID failed: " << status.error_message();
+  }
+  return status;
+}
+
+::grpc::Status MetadataStoreServiceImpl::GetContexts(
+    ::grpc::ServerContext* context,
+    const ::ml_metadata::GetContextsRequest* request,
+    ::ml_metadata::GetContextsResponse* response) {
+  absl::WriterMutexLock l(&lock_);
+  const ::grpc::Status status =
+      ToGRPCStatus(metadata_store_->GetContexts(*request, response));
+  if (!status.ok()) {
+    LOG(WARNING) << "GetContexts failed: " << status.error_message();
+  }
+  return status;
+}
+
+::grpc::Status MetadataStoreServiceImpl::GetContextsByType(
+    ::grpc::ServerContext* context,
+    const ::ml_metadata::GetContextsByTypeRequest* request,
+    ::ml_metadata::GetContextsByTypeResponse* response) {
+  absl::WriterMutexLock l(&lock_);
+  const ::grpc::Status status =
+      ToGRPCStatus(metadata_store_->GetContextsByType(*request, response));
+  if (!status.ok()) {
+    LOG(WARNING) << "GetContextsByType failed: " << status.error_message();
+  }
+  return status;
+}
+
 }  // namespace ml_metadata

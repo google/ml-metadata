@@ -14,6 +14,7 @@
     in other linux OS outside of Ubuntu.
 *   Provide MLMD migration scheme to migrate out-of-date MLMD instance.
 *   Support creating and querying ContextType.
+*   Support creating, updating and querying Context instances.
 
 ## Bug Fixes and Other Changes
 

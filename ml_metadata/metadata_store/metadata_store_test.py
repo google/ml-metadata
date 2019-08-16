@@ -73,6 +73,14 @@ def _create_example_context_type():
   return context_type
 
 
+def _create_example_context_type_2():
+  context_type = metadata_store_pb2.ContextType()
+  context_type.name = "test_type_2"
+  context_type.properties["foo"] = metadata_store_pb2.INT
+  context_type.properties["bar"] = metadata_store_pb2.STRING
+  return context_type
+
+
 class MetadataStoreTest(absltest.TestCase):
 
   def test_unset_connection_config(self):
@@ -377,7 +385,6 @@ class MetadataStoreTest(absltest.TestCase):
     self.assertEqual(execution_result.properties["bar"].string_value, "Goodbye")
     self.assertEqual(execution_result.properties["foo"].int_value, 12)
 
-  # TODO(b/121047373): missing artifact ID causes a crash.
   def test_put_events_get_events(self):
     store = _get_metadata_store()
     execution_type = metadata_store_pb2.ExecutionType()
@@ -569,6 +576,111 @@ class MetadataStoreTest(absltest.TestCase):
     self.assertEqual(got_context_type.properties["foo"], metadata_store_pb2.INT)
     self.assertEqual(got_context_type.properties["new_property"],
                      metadata_store_pb2.STRING)
+
+  def test_put_contexts_get_contexts_by_id(self):
+    store = _get_metadata_store()
+    context_type = _create_example_context_type()
+    type_id = store.put_context_type(context_type)
+    context = metadata_store_pb2.Context()
+    context.type_id = type_id
+    context.name = "context1"
+    context.properties["foo"].int_value = 3
+    context.custom_properties["abc"].string_value = "s"
+    [context_id] = store.put_contexts([context])
+    [context_result] = store.get_contexts_by_id([context_id])
+    self.assertEqual(context_result.name, context.name)
+    self.assertEqual(context_result.properties["foo"].int_value,
+                     context.properties["foo"].int_value)
+    self.assertEqual(context_result.custom_properties["abc"].string_value,
+                     context.custom_properties["abc"].string_value)
+
+  def test_put_contexts_get_contexts(self):
+    store = _get_metadata_store()
+    context_type = _create_example_context_type()
+    type_id = store.put_context_type(context_type)
+    context_0 = metadata_store_pb2.Context()
+    context_0.type_id = type_id
+    context_0.name = "context0"
+    context_0.properties["bar"].string_value = "Hello"
+    context_1 = metadata_store_pb2.Context()
+    context_1.name = "context1"
+    context_1.type_id = type_id
+    context_1.properties["foo"].int_value = -9
+
+    [context_id_0, context_id_1] = store.put_contexts([context_0, context_1])
+
+    context_result = store.get_contexts()
+    self.assertLen(context_result, 2)
+    self.assertEqual(context_result[0].id, context_id_0)
+    self.assertEqual(context_result[0].name, "context0")
+    self.assertEqual(context_result[0].properties["bar"].string_value, "Hello")
+    self.assertEqual(context_result[1].id, context_id_1)
+    self.assertEqual(context_result[1].name, "context1")
+    self.assertEqual(context_result[1].properties["foo"].int_value, -9)
+
+  def test_put_contexts_get_contexts_by_type(self):
+    store = _get_metadata_store()
+    context_type = _create_example_context_type()
+    type_id = store.put_context_type(context_type)
+    context_type_2 = _create_example_context_type_2()
+    type_id_2 = store.put_context_type(context_type_2)
+    context_0 = metadata_store_pb2.Context()
+    context_0.type_id = type_id
+    context_0.name = "context_name"
+    context_1 = metadata_store_pb2.Context()
+    context_1.type_id = type_id_2
+    context_1.name = "context_name"
+
+    [_, context_id_1] = store.put_contexts([context_0, context_1])
+    context_result = store.get_contexts_by_type(context_type_2.name)
+    self.assertLen(context_result, 1)
+    self.assertEqual(context_result[0].id, context_id_1)
+
+  def test_puts_contexts_empty_name(self):
+    store = _get_metadata_store()
+    with self.assertRaises(errors.InvalidArgumentError):
+      context_type = _create_example_context_type()
+      type_id = store.put_context_type(context_type)
+      context_0 = metadata_store_pb2.Context()
+      context_0.type_id = type_id
+      store.put_contexts([context_0])
+
+  def test_puts_contexts_duplicated_name_with_the_same_type(self):
+    store = _get_metadata_store()
+    with self.assertRaises(errors.AlreadyExistsError):
+      context_type = _create_example_context_type()
+      type_id = store.put_context_type(context_type)
+      context_0 = metadata_store_pb2.Context()
+      context_0.type_id = type_id
+      context_0.name = "the_same_name"
+      context_1 = metadata_store_pb2.Context()
+      context_1.type_id = type_id
+      context_1.name = "the_same_name"
+      store.put_contexts([context_0, context_1])
+
+  def test_update_context_get_context(self):
+    store = _get_metadata_store()
+    context_type = _create_example_context_type()
+    type_id = store.put_context_type(context_type)
+    context = metadata_store_pb2.Context()
+    context.type_id = type_id
+    context.name = "context1"
+    context.properties["bar"].string_value = "Hello"
+    [context_id] = store.put_contexts([context])
+
+    context_2 = metadata_store_pb2.Context()
+    context_2.id = context_id
+    context_2.name = "context2"
+    context_2.type_id = type_id
+    context_2.properties["foo"].int_value = 12
+    context_2.properties["bar"].string_value = "Goodbye"
+    [context_id_2] = store.put_contexts([context_2])
+    self.assertEqual(context_id, context_id_2)
+
+    [context_result] = store.get_contexts_by_id([context_id])
+    self.assertEqual(context_result.name, context_2.name)
+    self.assertEqual(context_result.properties["bar"].string_value, "Goodbye")
+    self.assertEqual(context_result.properties["foo"].int_value, 12)
 
 
 if __name__ == "__main__":

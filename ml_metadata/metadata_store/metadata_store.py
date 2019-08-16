@@ -268,6 +268,33 @@ class MetadataStore(object):
                     response)
     return response.type_id
 
+  def put_contexts(self,
+                   contexts: Sequence[metadata_store_pb2.Context]) -> List[int]:
+    """Inserts or updates contexts in the database.
+
+    If an context_id is specified for an context, it is an update.
+    If an context_id is unspecified, it will insert a new context.
+    For new contexts, type must be specified.
+    For old contexts, type must be unchanged or unspecified.
+    The name of a context cannot be empty, and it should be unique among
+    contexts of the same ContextType.
+
+    Args:
+      contexts: A list of contexts to insert or update.
+
+    Returns:
+      A list of context ids index-aligned with the input.
+    """
+    request = metadata_store_service_pb2.PutContextsRequest()
+    for x in contexts:
+      request.contexts.add().CopyFrom(x)
+    response = metadata_store_service_pb2.PutContextsResponse()
+    self._swig_call(metadata_store_serialized.PutContexts, request, response)
+    result = []
+    for x in response.context_ids:
+      result.append(x)
+    return result
+
   def put_context_type(self,
                        context_type: metadata_store_pb2.ContextType,
                        can_add_fields: bool = False,
@@ -591,6 +618,59 @@ class MetadataStore(object):
     self._swig_call(metadata_store_serialized.GetArtifacts, request, response)
     result = []
     for x in response.artifacts:
+      result.append(x)
+    return result
+
+  def get_contexts(self) -> List[metadata_store_pb2.Context]:
+    """Gets all contexts.
+
+    Returns:
+      A list of all contexts.
+
+    Raises:
+      InternalError: if query execution fails.
+    """
+    request = metadata_store_service_pb2.GetContextsRequest()
+    response = metadata_store_service_pb2.GetContextsResponse()
+    self._swig_call(metadata_store_serialized.GetContexts, request, response)
+    result = []
+    for x in response.contexts:
+      result.append(x)
+    return result
+
+  def get_contexts_by_id(
+      self, context_ids: Sequence[int]) -> List[metadata_store_pb2.Context]:
+    """Gets all contexts with matching ids.
+
+    The result is not index-aligned: if an id is not found, it is not returned.
+
+    Args:
+      context_ids: A list of context ids to retrieve.
+
+    Returns:
+      Contexts with matching ids.
+    """
+    request = metadata_store_service_pb2.GetContextsByIDRequest()
+    for x in context_ids:
+      request.context_ids.append(x)
+    response = metadata_store_service_pb2.GetContextsByIDResponse()
+    self._swig_call(metadata_store_serialized.GetContextsByID, request,
+                    response)
+    result = []
+    for x in response.contexts:
+      result.append(x)
+    return result
+
+  def get_contexts_by_type(self,
+                           type_name: Text) -> List[metadata_store_pb2.Context]:
+    """Gets all the contexts of a given type."""
+    request = metadata_store_service_pb2.GetContextsByTypeRequest()
+    request.type_name = type_name
+    response = metadata_store_service_pb2.GetContextsByTypeResponse()
+    self._swig_call(metadata_store_serialized.GetContextsByType, request,
+                    response)
+    result = []
+    for x in response.contexts:
       result.append(x)
     return result
 
