@@ -1152,6 +1152,162 @@ tensorflow::Status FindEventsByNodeImpl(
   return tensorflow::Status::OK();
 }
 
+// Generates the execution node query given an association edge.
+tensorflow::Status GenerateNodeSelectionQuery(
+    const Association& association,
+    const MetadataSourceQueryConfig& query_config, Query* query) {
+  if (!association.has_execution_id())
+    return tensorflow::errors::InvalidArgument("No execution id is specified.");
+  return ComposeParameterizedQuery(query_config.select_execution_by_id(),
+                                   {Bind(association.execution_id())}, query);
+}
+
+// Generates the artifact node query given an attribution edge.
+tensorflow::Status GenerateNodeSelectionQuery(
+    const Attribution& attribution,
+    const MetadataSourceQueryConfig& query_config, Query* query) {
+  if (!attribution.has_artifact_id())
+    return tensorflow::errors::InvalidArgument("No artifact id is specified.");
+  return ComposeParameterizedQuery(query_config.select_artifact_by_id(),
+                                   {Bind(attribution.artifact_id())}, query);
+}
+
+// Generates the context edge insertion query.
+tensorflow::Status GenerateContextEdgeInsertionQuery(
+    const Association& association,
+    const MetadataSourceQueryConfig& query_config, Query* query) {
+  return ComposeParameterizedQuery(
+      query_config.insert_association(),
+      {Bind(association.context_id()), Bind(association.execution_id())},
+      query);
+}
+
+// Generates the context edge insertion query.
+tensorflow::Status GenerateContextEdgeInsertionQuery(
+    const Attribution& attribution,
+    const MetadataSourceQueryConfig& query_config, Query* query) {
+  return ComposeParameterizedQuery(
+      query_config.insert_attribution(),
+      {Bind(attribution.context_id()), Bind(attribution.artifact_id())}, query);
+}
+
+// Creates an `edge` and returns it id. The Edge is either `Association` between
+// context and execution, or `Attribution` between context and artifact.
+// Returns INVALID_ARGUMENT error, if any node in the edge cannot be matched.
+// Returns INTERNAL error, if the same edge already exists.
+template <typename Edge>
+tensorflow::Status CreateContextEdgeImpl(
+    const Edge& edge, const MetadataSourceQueryConfig& query_config,
+    MetadataSource* metadata_source, int64* edge_id) {
+  if (!edge.has_context_id())
+    return tensorflow::errors::InvalidArgument("No context id is specified.");
+  Query find_context;
+  TF_RETURN_IF_ERROR(
+      ComposeParameterizedQuery(query_config.select_context_by_id(),
+                                {Bind(edge.context_id())}, &find_context));
+  Query find_node;
+  TF_RETURN_IF_ERROR(
+      GenerateNodeSelectionQuery(edge, query_config, &find_node));
+
+  std::vector<RecordSet> record_sets;
+  TF_RETURN_IF_ERROR(ExecuteMultiQuery({find_context, find_node},
+                                       metadata_source, &record_sets));
+  if (record_sets[0].records_size() == 0 ||
+      record_sets[1].records_size() == 0) {
+    return tensorflow::errors::InvalidArgument(
+        "No node found with the given id ", edge.DebugString());
+  }
+
+  Query insert_edge;
+  TF_RETURN_IF_ERROR(
+      GenerateContextEdgeInsertionQuery(edge, query_config, &insert_edge));
+  const Query& last_edge_id = query_config.select_last_insert_id().query();
+  record_sets.clear();
+  tensorflow::Status status = ExecuteMultiQuery({insert_edge, last_edge_id},
+                                                metadata_source, &record_sets);
+  if (absl::StrContains(status.error_message(), "Duplicate") ||
+      absl::StrContains(status.error_message(), "UNIQUE")) {
+    return tensorflow::errors::AlreadyExists(
+        "Given relationship already exists: ", edge.DebugString(), status);
+  }
+  TF_RETURN_IF_ERROR(status);
+  CHECK(absl::SimpleAtoi(record_sets.back().records(0).values(0), edge_id));
+  return tensorflow::Status::OK();
+}
+
+// Queries `contexts` related to a `Node` (either `Artifact` or `Execution`)
+// by the node id.
+// Returns INVALID_ARGUMENT error, if the `contexts` is null.
+template <typename Node>
+tensorflow::Status FindContextsByNodeImpl(
+    const int64 node_id, const MetadataSourceQueryConfig& query_config,
+    MetadataSource* metadata_source, std::vector<Context>* contexts) {
+  if (contexts == nullptr)
+    return tensorflow::errors::InvalidArgument("Given contexts is NULL.");
+
+  constexpr bool is_artifact = std::is_same<Node, Artifact>::value;
+
+  // find context ids with the given node id
+  Query find_context_ids_query;
+  const MetadataSourceQueryConfig::TemplateQuery& find_context_ids =
+      is_artifact ? query_config.select_attribution_by_artifact_id()
+                  : query_config.select_association_by_execution_id();
+  TF_RETURN_IF_ERROR(ComposeParameterizedQuery(
+      find_context_ids, {Bind(node_id)}, &find_context_ids_query));
+
+  // get the context and its properties.
+  std::vector<RecordSet> record_sets;
+  TF_RETURN_IF_ERROR(ExecuteMultiQuery({find_context_ids_query},
+                                       metadata_source, &record_sets));
+  contexts->clear();
+  for (const RecordSet::Record& record : record_sets.front().records()) {
+    contexts->push_back(Context());
+    Context& curr_context = contexts->back();
+    TF_RETURN_IF_ERROR(
+        ParseValueToField(curr_context.descriptor()->FindFieldByName("id"),
+                          record.values(1), &curr_context));
+    TF_RETURN_IF_ERROR(FindNodeImpl(curr_context.id(), query_config,
+                                    metadata_source, &curr_context));
+  }
+  return tensorflow::Status::OK();
+}
+
+// Queries nodes related to a context. Node is either `Artifact` or `Execution`.
+// Returns INVALID_ARGUMENT error, if the `nodes` is null.
+template <typename Node>
+tensorflow::Status FindNodesByContextImpl(
+    const int64 context_id, const MetadataSourceQueryConfig& query_config,
+    MetadataSource* metadata_source, std::vector<Node>* nodes) {
+  if (nodes == nullptr)
+    return tensorflow::errors::InvalidArgument("Given array is NULL.");
+
+  constexpr bool is_artifact = std::is_same<Node, Artifact>::value;
+
+  // find node ids with the given context id
+  Query find_node_ids_query;
+  const MetadataSourceQueryConfig::TemplateQuery& find_node_ids =
+      is_artifact ? query_config.select_attribution_by_context_id()
+                  : query_config.select_association_by_context_id();
+  TF_RETURN_IF_ERROR(ComposeParameterizedQuery(
+      find_node_ids, {Bind(context_id)}, &find_node_ids_query));
+
+  // get the context and its properties.
+  std::vector<RecordSet> record_sets;
+  TF_RETURN_IF_ERROR(
+      ExecuteMultiQuery({find_node_ids_query}, metadata_source, &record_sets));
+  nodes->clear();
+  for (const RecordSet::Record& record : record_sets.front().records()) {
+    nodes->push_back(Node());
+    Node& curr_node = nodes->back();
+    TF_RETURN_IF_ERROR(
+        ParseValueToField(curr_node.descriptor()->FindFieldByName("id"),
+                          record.values(2), &curr_node));
+    TF_RETURN_IF_ERROR(FindNodeImpl(curr_node.id(), query_config,
+                                    metadata_source, &curr_node));
+  }
+  return tensorflow::Status::OK();
+}
+
 }  // namespace
 
 tensorflow::Status MetadataAccessObject::Create(
@@ -1215,6 +1371,14 @@ tensorflow::Status MetadataAccessObject::InitMetadataSource() {
       query_config_.drop_context_property_table().query();
   const Query& create_context_property_table =
       query_config_.create_context_property_table().query();
+  const Query& drop_association_table =
+      query_config_.drop_association_table().query();
+  const Query& create_association_table =
+      query_config_.create_association_table().query();
+  const Query& drop_attribution_table =
+      query_config_.drop_attribution_table().query();
+  const Query& create_attribution_table =
+      query_config_.create_attribution_table().query();
   // check error, if it happens, it is an internal development error.
   CHECK_GT(query_config_.schema_version(), 0);
   Query insert_schema_version;
@@ -1244,6 +1408,10 @@ tensorflow::Status MetadataAccessObject::InitMetadataSource() {
                             create_context_table,
                             drop_context_property_table,
                             create_context_property_table,
+                            drop_association_table,
+                            create_association_table,
+                            drop_attribution_table,
+                            create_attribution_table,
                             insert_schema_version},
                            metadata_source_);
 }
@@ -1356,6 +1524,10 @@ tensorflow::Status MetadataAccessObject::InitMetadataSourceIfNotExists() {
       query_config_.check_context_table().query();
   const Query& check_context_property_table =
       query_config_.check_context_property_table().query();
+  const Query& check_association_table =
+      query_config_.check_association_table().query();
+  const Query& check_attribution_table =
+      query_config_.check_attribution_table().query();
 
   std::vector<Query> schema_check_queries = {check_type_table,
                                              check_properties_table,
@@ -1367,7 +1539,9 @@ tensorflow::Status MetadataAccessObject::InitMetadataSourceIfNotExists() {
                                              check_event_path_table,
                                              check_mlmd_env_table,
                                              check_context_table,
-                                             check_context_property_table};
+                                             check_context_property_table,
+                                             check_association_table,
+                                             check_attribution_table};
 
   std::vector<string> missing_schema_error_messages;
   for (const Query& query : schema_check_queries) {
@@ -1601,6 +1775,42 @@ tensorflow::Status MetadataAccessObject::FindEventsByExecution(
     const int64 execution_id, std::vector<Event>* events) {
   return FindEventsByNodeImpl<Execution>(execution_id, query_config_,
                                          metadata_source_, events);
+}
+
+tensorflow::Status MetadataAccessObject::CreateAssociation(
+    const Association& association, int64* association_id) {
+  return CreateContextEdgeImpl(association, query_config_, metadata_source_,
+                               association_id);
+}
+
+tensorflow::Status MetadataAccessObject::FindContextsByExecution(
+    int64 execution_id, std::vector<Context>* contexts) {
+  return FindContextsByNodeImpl<Execution>(execution_id, query_config_,
+                                           metadata_source_, contexts);
+}
+
+tensorflow::Status MetadataAccessObject::FindExecutionsByContext(
+    int64 context_id, std::vector<Execution>* executions) {
+  return FindNodesByContextImpl(context_id, query_config_, metadata_source_,
+                                executions);
+}
+
+tensorflow::Status MetadataAccessObject::CreateAttribution(
+    const Attribution& attribution, int64* attribution_id) {
+  return CreateContextEdgeImpl(attribution, query_config_, metadata_source_,
+                               attribution_id);
+}
+
+tensorflow::Status MetadataAccessObject::FindContextsByArtifact(
+    int64 artifact_id, std::vector<Context>* contexts) {
+  return FindContextsByNodeImpl<Artifact>(artifact_id, query_config_,
+                                          metadata_source_, contexts);
+}
+
+tensorflow::Status MetadataAccessObject::FindArtifactsByContext(
+    int64 context_id, std::vector<Artifact>* artifacts) {
+  return FindNodesByContextImpl(context_id, query_config_, metadata_source_,
+                                artifacts);
 }
 
 tensorflow::Status MetadataAccessObject::FindArtifacts(

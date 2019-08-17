@@ -47,7 +47,7 @@ enum MetadataSourceType {
 
 // A config includes a set of SQL queries and the type of metadata source.
 // It is used by MetadataAccessObject to init backend and issue queries.
-// Next ID: 81
+// Next ID: 93
 message MetadataSourceQueryConfig {
   // the type of the metadata source
   MetadataSourceType metadata_source_type = 1;
@@ -339,7 +339,6 @@ message MetadataSourceQueryConfig {
   // $1 is the execution_id
   // $2 is the event type
   // $3 is the event time
-  // TODO(huimiao) support insert path context as blob
   TemplateQuery insert_event = 37;
 
   // Queries events from the Event table by its artifact id. It has 1 parameter.
@@ -370,6 +369,54 @@ message MetadataSourceQueryConfig {
   // Queries paths from the EventPath table. It has 1 parameter.
   // $0 is the event_i
   TemplateQuery select_event_path_by_event_id = 43;
+
+  // Drops the Association table.
+  TemplateQuery drop_association_table = 81;
+
+  // Creates the Association table.
+  TemplateQuery create_association_table = 82;
+
+  // Checks the existence of the Association table.
+  TemplateQuery check_association_table = 83;
+
+  // Inserts an association into the Association table. It has 2 parameters.
+  // $0 is the context_id
+  // $1 is the execution_id
+  TemplateQuery insert_association = 84;
+
+  // Queries association from the Association table by its context id.
+  // It has 1 parameter.
+  // $0 is the context_id
+  TemplateQuery select_association_by_context_id = 85;
+
+  // Queries association from the Association table by its execution id.
+  // It has 1 parameter.
+  // $0 is the execution_id
+  TemplateQuery select_association_by_execution_id = 86;
+
+  // Drops the Attribution table.
+  TemplateQuery drop_attribution_table = 87;
+
+  // Creates the Attribution table.
+  TemplateQuery create_attribution_table = 88;
+
+  // Checks the existence of the Attribution table.
+  TemplateQuery check_attribution_table = 89;
+
+  // Inserts an attribution into the Attribution table. It has 2 parameters.
+  // $0 is the context_id
+  // $1 is the artifact_id
+  TemplateQuery insert_attribution = 90;
+
+  // Queries attribution from the Attribution table by its context id.
+  // It has 1 parameter.
+  // $0 is the context_id
+  TemplateQuery select_attribution_by_context_id = 91;
+
+  // Queries attribution from the Attribution table by its artifact id.
+  // It has 1 parameter.
+  // $0 is the artifact_id
+  TemplateQuery select_attribution_by_artifact_id = 92;
 
   // Drops the MLMDEnv table.
   TemplateQuery drop_mlmd_env_table = 60;

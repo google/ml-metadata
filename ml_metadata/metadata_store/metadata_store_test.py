@@ -682,6 +682,90 @@ class MetadataStoreTest(absltest.TestCase):
     self.assertEqual(context_result.properties["bar"].string_value, "Goodbye")
     self.assertEqual(context_result.properties["foo"].int_value, 12)
 
+  def test_put_and_use_attributions_and_associations(self):
+    store = _get_metadata_store()
+    context_type = _create_example_context_type()
+    context_type_id = store.put_context_type(context_type)
+    want_context = metadata_store_pb2.Context()
+    want_context.type_id = context_type_id
+    want_context.name = "context"
+    [context_id] = store.put_contexts([want_context])
+    want_context.id = context_id
+
+    execution_type = _create_example_execution_type()
+    execution_type_id = store.put_execution_type(execution_type)
+    want_execution = metadata_store_pb2.Execution()
+    want_execution.type_id = execution_type_id
+    want_execution.properties["foo"].int_value = 3
+    [execution_id] = store.put_executions([want_execution])
+    want_execution.id = execution_id
+
+    artifact_type = _create_example_artifact_type()
+    artifact_type_id = store.put_artifact_type(artifact_type)
+    want_artifact = metadata_store_pb2.Artifact()
+    want_artifact.type_id = artifact_type_id
+    want_artifact.uri = "testuri"
+    [artifact_id] = store.put_artifacts([want_artifact])
+    want_artifact.id = artifact_id
+
+    # insert attribution and association and test querying the relationship
+    attribution = metadata_store_pb2.Attribution()
+    attribution.artifact_id = want_artifact.id
+    attribution.context_id = want_context.id
+    association = metadata_store_pb2.Association()
+    association.execution_id = want_execution.id
+    association.context_id = want_context.id
+    store.put_attributions_and_associations([attribution], [association])
+
+    # test querying the relationship
+    got_contexts = store.get_contexts_by_artifact(want_artifact.id)
+    self.assertLen(got_contexts, 1)
+    self.assertEqual(got_contexts[0].id, want_context.id)
+    self.assertEqual(got_contexts[0].name, want_context.name)
+    got_arifacts = store.get_artifacts_by_context(want_context.id)
+    self.assertLen(got_arifacts, 1)
+    self.assertEqual(got_arifacts[0].uri, want_artifact.uri)
+    got_executions = store.get_executions_by_context(want_context.id)
+    self.assertLen(got_executions, 1)
+    self.assertEqual(got_executions[0].properties["foo"],
+                     want_execution.properties["foo"])
+    got_contexts = store.get_contexts_by_execution(want_execution.id)
+    self.assertLen(got_contexts, 1)
+    self.assertEqual(got_contexts[0].id, want_context.id)
+    self.assertEqual(got_contexts[0].name, want_context.name)
+
+  def test_put_duplicated_attributions_and_empty_associations(self):
+    store = _get_metadata_store()
+    context_type = _create_example_context_type()
+    context_type_id = store.put_context_type(context_type)
+    want_context = metadata_store_pb2.Context()
+    want_context.type_id = context_type_id
+    want_context.name = "context"
+    [context_id] = store.put_contexts([want_context])
+    want_context.id = context_id
+
+    artifact_type = _create_example_artifact_type()
+    artifact_type_id = store.put_artifact_type(artifact_type)
+    want_artifact = metadata_store_pb2.Artifact()
+    want_artifact.type_id = artifact_type_id
+    want_artifact.uri = "testuri"
+    [artifact_id] = store.put_artifacts([want_artifact])
+    want_artifact.id = artifact_id
+
+    attribution = metadata_store_pb2.Attribution()
+    attribution.artifact_id = want_artifact.id
+    attribution.context_id = want_context.id
+    store.put_attributions_and_associations([attribution, attribution], [])
+
+    got_contexts = store.get_contexts_by_artifact(want_artifact.id)
+    self.assertLen(got_contexts, 1)
+    self.assertEqual(got_contexts[0].id, want_context.id)
+    self.assertEqual(got_contexts[0].name, want_context.name)
+    got_arifacts = store.get_artifacts_by_context(want_context.id)
+    self.assertLen(got_arifacts, 1)
+    self.assertEqual(got_arifacts[0].uri, want_artifact.uri)
+    self.assertEmpty(store.get_executions_by_context(want_context.id))
+
 
 if __name__ == "__main__":
   absltest.main()

@@ -343,6 +343,70 @@ func (store *Store) GetContextsByID(cids []ContextID) ([]*mdpb.Context, error) {
 	return resp.GetContexts(), err
 }
 
+// PutAttributionsAndAssociations inserts attribution and association relationships in the database.
+//
+// In `attributions` and `associations`, the ArtifactId, ExecutionId and ConextId must already exist.
+// Once added, the relationships cannot be modified. If the relationship exists, this call does nothing.
+//
+// It returns an error if any artifact, execution or context cannot be found with the given id.
+func (store *Store) PutAttributionsAndAssociations(attributions []*mdpb.Attribution, associations []*mdpb.Association) error {
+	req := &apipb.PutAttributionsAndAssociationsRequest{
+		Attributions: attributions,
+		Associations: associations,
+	}
+	resp := &apipb.PutAttributionsAndAssociationsResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.PutAttributionsAndAssociations, req, resp)
+	return err
+}
+
+// GetContextsByArtifact gets all context that an artifact is attributed to.
+// It returns an error if query execution fails.
+func (store *Store) GetContextsByArtifact(aid ArtifactID) ([]*mdpb.Context, error) {
+	rid := int64(aid)
+	req := &apipb.GetContextsByArtifactRequest{
+		ArtifactId: &rid,
+	}
+	resp := &apipb.GetContextsByArtifactResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetContextsByArtifact, req, resp)
+	return resp.GetContexts(), err
+}
+
+// GetContextsByExecution gets all context that an execution is associated with.
+// It returns an error if query execution fails.
+func (store *Store) GetContextsByExecution(eid ExecutionID) ([]*mdpb.Context, error) {
+	rid := int64(eid)
+	req := &apipb.GetContextsByExecutionRequest{
+		ExecutionId: &rid,
+	}
+	resp := &apipb.GetContextsByExecutionResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetContextsByExecution, req, resp)
+	return resp.GetContexts(), err
+}
+
+// GetArtifactsByContext gets all direct artifacts that a context attributes to.
+// It returns an error if query execution fails.
+func (store *Store) GetArtifactsByContext(cid ContextID) ([]*mdpb.Artifact, error) {
+	rid := int64(cid)
+	req := &apipb.GetArtifactsByContextRequest{
+		ContextId: &rid,
+	}
+	resp := &apipb.GetArtifactsByContextResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetArtifactsByContext, req, resp)
+	return resp.GetArtifacts(), err
+}
+
+// GetExecutionsByContext gets all direct executions that a context associates with.
+// It returns an error if query execution fails.
+func (store *Store) GetExecutionsByContext(cid ContextID) ([]*mdpb.Execution, error) {
+	rid := int64(cid)
+	req := &apipb.GetExecutionsByContextRequest{
+		ContextId: &rid,
+	}
+	resp := &apipb.GetExecutionsByContextResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetExecutionsByContext, req, resp)
+	return resp.GetExecutions(), err
+}
+
 // PutEvents inserts events into the store.
 //
 // In `events`, the ExecutionId and ArtifactId must already exist. Once created,

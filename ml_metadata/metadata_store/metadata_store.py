@@ -358,7 +358,7 @@ class MetadataStore(object):
     Once created, events cannot be modified.
 
     Args:
-      events: A list of events to insert or update.
+      events: A list of events to insert.
     """
     request = metadata_store_service_pb2.PutEventsRequest()
     for x in events:
@@ -749,6 +749,114 @@ class MetadataStore(object):
                     response)
     result = []
     for x in response.context_types:
+      result.append(x)
+    return result
+
+  def put_attributions_and_associations(
+      self, attributions: Sequence[metadata_store_pb2.Attribution],
+      associations: Sequence[metadata_store_pb2.Association]) -> None:
+    """Inserts attribution and association relationships in the database.
+
+    The context_id, artifact_id, and execution_id must already exist.
+    If the relationship exists, this call does nothing. Once added, the
+    relationships cannot be modified.
+
+    Args:
+      attributions: A list of attributions to insert.
+      associations: A list of associations to insert.
+    """
+    request = metadata_store_service_pb2.PutAttributionsAndAssociationsRequest()
+    for x in attributions:
+      request.attributions.add().CopyFrom(x)
+    for x in associations:
+      request.associations.add().CopyFrom(x)
+    response = metadata_store_service_pb2.PutAttributionsAndAssociationsResponse(
+    )
+
+    self._swig_call(metadata_store_serialized.PutAttributionsAndAssociations,
+                    request, response)
+
+  def get_contexts_by_artifact(
+      self, artifact_id: int) -> List[metadata_store_pb2.Context]:
+    """Gets all context that an artifact is attributed to.
+
+    Args:
+      artifact_id: The id of the querying artifact
+
+    Returns:
+      Contexts that the artifact is attributed to.
+    """
+    request = metadata_store_service_pb2.GetContextsByArtifactRequest()
+    request.artifact_id = artifact_id
+    response = metadata_store_service_pb2.GetContextsByArtifactResponse()
+
+    self._swig_call(metadata_store_serialized.GetContextsByArtifact, request,
+                    response)
+    result = []
+    for x in response.contexts:
+      result.append(x)
+    return result
+
+  def get_contexts_by_execution(
+      self, execution_id: int) -> List[metadata_store_pb2.Context]:
+    """Gets all context that an execution is associated with.
+
+    Args:
+      execution_id: The id of the querying execution
+
+    Returns:
+      Contexts that the execution is associated with.
+    """
+    request = metadata_store_service_pb2.GetContextsByExecutionRequest()
+    request.execution_id = execution_id
+    response = metadata_store_service_pb2.GetContextsByExecutionResponse()
+
+    self._swig_call(metadata_store_serialized.GetContextsByExecution, request,
+                    response)
+    result = []
+    for x in response.contexts:
+      result.append(x)
+    return result
+
+  def get_artifacts_by_context(
+      self, context_id: int) -> List[metadata_store_pb2.Artifact]:
+    """Gets all direct artifacts that a context attributes to.
+
+    Args:
+      context_id: The id of the querying context
+
+    Returns:
+      Artifacts attributing to the context.
+    """
+    request = metadata_store_service_pb2.GetArtifactsByContextRequest()
+    request.context_id = context_id
+    response = metadata_store_service_pb2.GetArtifactsByContextResponse()
+
+    self._swig_call(metadata_store_serialized.GetArtifactsByContext, request,
+                    response)
+    result = []
+    for x in response.artifacts:
+      result.append(x)
+    return result
+
+  def get_executions_by_context(
+      self, context_id: int) -> List[metadata_store_pb2.Execution]:
+    """Gets all direct executions that a context associates with.
+
+    Args:
+      context_id: The id of the querying context
+
+    Returns:
+      Executions associating with the context.
+    """
+    request = metadata_store_service_pb2.GetExecutionsByContextRequest()
+    request.context_id = context_id
+    response = metadata_store_service_pb2.GetExecutionsByContextResponse()
+
+    self._swig_call(metadata_store_serialized.GetExecutionsByContext, request,
+                    response)
+    result = []
+    for x in response.executions:
       result.append(x)
     return result
 

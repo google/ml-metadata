@@ -1165,6 +1165,161 @@ TEST_P(MetadataAccessObjectTest, UpdateContext) {
   EXPECT_THAT(context, EqualsProto(want_context));
 }
 
+TEST_P(MetadataAccessObjectTest, CreateAndUseAssociation) {
+  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  ExecutionType execution_type =
+      ParseTextProtoOrDie<ExecutionType>("name: 'execution_type'");
+  ContextType context_type =
+      ParseTextProtoOrDie<ContextType>("name: 'context_type'");
+  int64 execution_type_id, context_type_id;
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateType(execution_type, &execution_type_id));
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateType(context_type, &context_type_id));
+
+  Execution execution;
+  execution.set_type_id(execution_type_id);
+  (*execution.mutable_custom_properties())["custom"].set_int_value(3);
+  Context context = ParseTextProtoOrDie<Context>("name: 'context_instance'");
+  context.set_type_id(context_type_id);
+
+  int64 execution_id, context_id;
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateExecution(execution, &execution_id));
+  execution.set_id(execution_id);
+  TF_ASSERT_OK(metadata_access_object_->CreateContext(context, &context_id));
+  context.set_id(context_id);
+
+  Association association;
+  association.set_execution_id(execution_id);
+  association.set_context_id(context_id);
+
+  int64 association_id;
+  TF_EXPECT_OK(
+      metadata_access_object_->CreateAssociation(association, &association_id));
+
+  std::vector<Context> got_contexts;
+  TF_EXPECT_OK(metadata_access_object_->FindContextsByExecution(execution_id,
+                                                                &got_contexts));
+  ASSERT_EQ(got_contexts.size(), 1);
+  EXPECT_THAT(got_contexts[0], EqualsProto(context));
+
+  std::vector<Execution> got_executions;
+  TF_EXPECT_OK(metadata_access_object_->FindExecutionsByContext(
+      context_id, &got_executions));
+  ASSERT_EQ(got_executions.size(), 1);
+  EXPECT_THAT(got_executions[0], EqualsProto(execution));
+
+  std::vector<Artifact> got_artifacts;
+  TF_EXPECT_OK(metadata_access_object_->FindArtifactsByContext(context_id,
+                                                               &got_artifacts));
+  EXPECT_EQ(got_artifacts.size(), 0);
+}
+
+TEST_P(MetadataAccessObjectTest, CreateAssociationError) {
+  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  Association association;
+  int64 association_id;
+  // no context id
+  EXPECT_EQ(
+      metadata_access_object_->CreateAssociation(association, &association_id)
+          .code(),
+      tensorflow::error::INVALID_ARGUMENT);
+  // no execution id
+  association.set_context_id(100);
+  EXPECT_EQ(
+      metadata_access_object_->CreateAssociation(association, &association_id)
+          .code(),
+      tensorflow::error::INVALID_ARGUMENT);
+  // the context or execution cannot be found
+  association.set_execution_id(100);
+  EXPECT_EQ(
+      metadata_access_object_->CreateAssociation(association, &association_id)
+          .code(),
+      tensorflow::error::INVALID_ARGUMENT);
+
+  // duplicated association
+  ExecutionType execution_type =
+      ParseTextProtoOrDie<ExecutionType>("name: 'execution_type'");
+  ContextType context_type =
+      ParseTextProtoOrDie<ContextType>("name: 'context_type'");
+  int64 execution_type_id, context_type_id;
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateType(execution_type, &execution_type_id));
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateType(context_type, &context_type_id));
+  Execution execution;
+  execution.set_type_id(execution_type_id);
+  Context context = ParseTextProtoOrDie<Context>("name: 'context_instance'");
+  context.set_type_id(context_type_id);
+  int64 execution_id, context_id;
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateExecution(execution, &execution_id));
+  TF_ASSERT_OK(metadata_access_object_->CreateContext(context, &context_id));
+  association.set_execution_id(execution_id);
+  association.set_context_id(context_id);
+
+  // first insertion succeeds
+  TF_EXPECT_OK(
+      metadata_access_object_->CreateAssociation(association, &association_id));
+  // second insertion fails
+  EXPECT_EQ(
+      metadata_access_object_->CreateAssociation(association, &association_id)
+          .code(),
+      tensorflow::error::ALREADY_EXISTS);
+}
+
+TEST_P(MetadataAccessObjectTest, CreateAndUseAttribution) {
+  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  ArtifactType artifact_type =
+      ParseTextProtoOrDie<ArtifactType>("name: 'artifact_type'");
+  ContextType context_type =
+      ParseTextProtoOrDie<ContextType>("name: 'context_type'");
+  int64 artifact_type_id, context_type_id;
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateType(artifact_type, &artifact_type_id));
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateType(context_type, &context_type_id));
+
+  Artifact artifact;
+  artifact.set_uri("testuri");
+  artifact.set_type_id(artifact_type_id);
+  (*artifact.mutable_custom_properties())["custom"].set_string_value("str");
+  Context context = ParseTextProtoOrDie<Context>("name: 'context_instance'");
+  context.set_type_id(context_type_id);
+
+  int64 artifact_id, context_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateArtifact(artifact, &artifact_id));
+  artifact.set_id(artifact_id);
+  TF_ASSERT_OK(metadata_access_object_->CreateContext(context, &context_id));
+  context.set_id(context_id);
+
+  Attribution attribution;
+  attribution.set_artifact_id(artifact_id);
+  attribution.set_context_id(context_id);
+
+  int64 attribution_id;
+  TF_EXPECT_OK(
+      metadata_access_object_->CreateAttribution(attribution, &attribution_id));
+
+  std::vector<Context> got_contexts;
+  TF_EXPECT_OK(metadata_access_object_->FindContextsByArtifact(artifact_id,
+                                                               &got_contexts));
+  ASSERT_EQ(got_contexts.size(), 1);
+  EXPECT_THAT(got_contexts[0], EqualsProto(context));
+
+  std::vector<Artifact> got_artifacts;
+  TF_EXPECT_OK(metadata_access_object_->FindArtifactsByContext(context_id,
+                                                               &got_artifacts));
+  ASSERT_EQ(got_artifacts.size(), 1);
+  EXPECT_THAT(got_artifacts[0], EqualsProto(artifact));
+
+  std::vector<Execution> got_executions;
+  TF_EXPECT_OK(metadata_access_object_->FindExecutionsByContext(
+      context_id, &got_executions));
+  EXPECT_EQ(got_executions.size(), 0);
+}
+
 // TODO(huimiao) Refactoring the test by setting up the types in utility methods
 TEST_P(MetadataAccessObjectTest, CreateAndFindEvent) {
   TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());

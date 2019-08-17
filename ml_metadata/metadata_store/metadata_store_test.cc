@@ -1728,5 +1728,116 @@ TEST_F(MetadataStoreTest, PutContextsUpdateGetContexts) {
               testing::EqualsProto(want_context3));
 }
 
+TEST_F(MetadataStoreTest, PutAndUseAttributionsAndAssociations) {
+  const PutTypesRequest put_types_request =
+      ParseTextProtoOrDie<PutTypesRequest>(R"(
+        artifact_types: { name: 'artifact_type' }
+        execution_types: {
+          name: 'execution_type'
+          properties { key: 'property' value: STRING }
+        })");
+  PutTypesResponse put_types_response;
+  TF_ASSERT_OK(
+      metadata_store_->PutTypes(put_types_request, &put_types_response));
+  int64 artifact_type_id = put_types_response.artifact_type_ids(0);
+  int64 execution_type_id = put_types_response.execution_type_ids(0);
+
+  const PutContextTypeRequest put_context_type_request =
+      ParseTextProtoOrDie<PutContextTypeRequest>(R"(
+        all_fields_match: true
+        context_type: { name: 'context_type' }
+      )");
+  PutContextTypeResponse put_context_type_response;
+  TF_ASSERT_OK(metadata_store_->PutContextType(put_context_type_request,
+                                               &put_context_type_response));
+  int64 context_type_id = put_context_type_response.type_id();
+
+  Execution want_execution;
+  want_execution.set_type_id(execution_type_id);
+  (*want_execution.mutable_properties())["property"].set_string_value("1");
+  PutExecutionsRequest put_executions_request;
+  *put_executions_request.add_executions() = want_execution;
+  PutExecutionsResponse put_executions_response;
+  TF_ASSERT_OK(metadata_store_->PutExecutions(put_executions_request,
+                                              &put_executions_response));
+  ASSERT_EQ(put_executions_response.execution_ids_size(), 1);
+  want_execution.set_id(put_executions_response.execution_ids(0));
+
+  Artifact want_artifact;
+  want_artifact.set_uri("testuri");
+  want_artifact.set_type_id(artifact_type_id);
+  (*want_artifact.mutable_custom_properties())["custom"].set_int_value(1);
+  PutArtifactsRequest put_artifacts_request;
+  *put_artifacts_request.add_artifacts() = want_artifact;
+  PutArtifactsResponse put_artifacts_response;
+  TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request,
+                                             &put_artifacts_response));
+  ASSERT_EQ(put_artifacts_response.artifact_ids_size(), 1);
+  want_artifact.set_id(put_artifacts_response.artifact_ids(0));
+
+  Context want_context;
+  want_context.set_name("context");
+  want_context.set_type_id(context_type_id);
+  PutContextsRequest put_contexts_request;
+  *put_contexts_request.add_contexts() = want_context;
+  PutContextsResponse put_contexts_response;
+  TF_ASSERT_OK(metadata_store_->PutContexts(put_contexts_request,
+                                            &put_contexts_response));
+  ASSERT_EQ(put_contexts_response.context_ids_size(), 1);
+  want_context.set_id(put_contexts_response.context_ids(0));
+
+  // insert an attribution
+  PutAttributionsAndAssociationsRequest request;
+  Attribution* attribution = request.add_attributions();
+  attribution->set_artifact_id(want_artifact.id());
+  attribution->set_context_id(want_context.id());
+  PutAttributionsAndAssociationsResponse response;
+  TF_EXPECT_OK(
+      metadata_store_->PutAttributionsAndAssociations(request, &response));
+
+  GetContextsByArtifactRequest get_contexts_by_artifact_request;
+  get_contexts_by_artifact_request.set_artifact_id(want_artifact.id());
+  GetContextsByArtifactResponse get_contexts_by_artifact_response;
+  TF_EXPECT_OK(metadata_store_->GetContextsByArtifact(
+      get_contexts_by_artifact_request, &get_contexts_by_artifact_response));
+  ASSERT_EQ(get_contexts_by_artifact_response.contexts_size(), 1);
+  EXPECT_THAT(get_contexts_by_artifact_response.contexts(0),
+              testing::EqualsProto(want_context));
+
+  GetArtifactsByContextRequest get_artifacts_by_context_request;
+  get_artifacts_by_context_request.set_context_id(want_context.id());
+  GetArtifactsByContextResponse get_artifacts_by_context_response;
+  TF_EXPECT_OK(metadata_store_->GetArtifactsByContext(
+      get_artifacts_by_context_request, &get_artifacts_by_context_response));
+  ASSERT_EQ(get_artifacts_by_context_response.artifacts_size(), 1);
+  EXPECT_THAT(get_artifacts_by_context_response.artifacts(0),
+              testing::EqualsProto(want_artifact));
+
+  // append the association and reinsert the existing attribution.
+  Association* association = request.add_associations();
+  association->set_execution_id(want_execution.id());
+  association->set_context_id(want_context.id());
+  TF_ASSERT_OK(
+      metadata_store_->PutAttributionsAndAssociations(request, &response));
+
+  GetContextsByExecutionRequest get_contexts_by_execution_request;
+  get_contexts_by_execution_request.set_execution_id(want_execution.id());
+  GetContextsByExecutionResponse get_contexts_by_execution_response;
+  TF_ASSERT_OK(metadata_store_->GetContextsByExecution(
+      get_contexts_by_execution_request, &get_contexts_by_execution_response));
+  ASSERT_EQ(get_contexts_by_execution_response.contexts_size(), 1);
+  EXPECT_THAT(get_contexts_by_execution_response.contexts(0),
+              testing::EqualsProto(want_context));
+
+  GetExecutionsByContextRequest get_executions_by_context_request;
+  get_executions_by_context_request.set_context_id(want_context.id());
+  GetExecutionsByContextResponse get_executions_by_context_response;
+  TF_ASSERT_OK(metadata_store_->GetExecutionsByContext(
+      get_executions_by_context_request, &get_executions_by_context_response));
+  ASSERT_EQ(get_executions_by_context_response.executions_size(), 1);
+  EXPECT_THAT(get_executions_by_context_response.executions(0),
+              testing::EqualsProto(want_execution));
+}
+
 }  // namespace
 }  // namespace ml_metadata

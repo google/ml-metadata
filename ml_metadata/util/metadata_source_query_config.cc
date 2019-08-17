@@ -25,7 +25,7 @@ namespace {
 // A set of common template queries used by the MetadataAccessObject for SQLite
 // based MetadataSource.
 constexpr char kBaseQueryConfig[] = R"pb(
-  schema_version: 3
+  schema_version: 4
   drop_type_table { query: " DROP TABLE IF EXISTS `Type`; " }
   create_type_table {
     query: " CREATE TABLE IF NOT EXISTS `Type` ( "
@@ -400,6 +400,68 @@ constexpr char kBaseQueryConfig[] = R"pb(
            " WHERE `event_id` = $0; "
     parameter_num: 1
   }
+  drop_association_table { query: " DROP TABLE IF EXISTS `Association`; " }
+  create_association_table {
+    query: " CREATE TABLE IF NOT EXISTS `Association` ( "
+           "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+           "   `context_id` INT NOT NULL, "
+           "   `execution_id` INT NOT NULL, "
+           "   UNIQUE(`context_id`, `execution_id`) "
+           " ); "
+  }
+  check_association_table {
+    query: " SELECT `id`, `context_id`, `execution_id` "
+           " FROM `Association` LIMIT 1; "
+  }
+  insert_association {
+    query: " INSERT INTO `Association`( "
+           "   `context_id`, `execution_id` "
+           ") VALUES($0, $1);"
+    parameter_num: 2
+  }
+  select_association_by_context_id {
+    query: " SELECT `id`, `context_id`, `execution_id` "
+           " from `Association` "
+           " WHERE `context_id` = $0; "
+    parameter_num: 1
+  }
+  select_association_by_execution_id {
+    query: " SELECT `id`, `context_id`, `execution_id` "
+           " from `Association` "
+           " WHERE `execution_id` = $0; "
+    parameter_num: 1
+  }
+  drop_attribution_table { query: " DROP TABLE IF EXISTS `Attribution`; " }
+  create_attribution_table {
+    query: " CREATE TABLE IF NOT EXISTS `Attribution` ( "
+           "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+           "   `context_id` INT NOT NULL, "
+           "   `artifact_id` INT NOT NULL, "
+           "   UNIQUE(`context_id`, `artifact_id`) "
+           " ); "
+  }
+  check_attribution_table {
+    query: " SELECT `id`, `context_id`, `artifact_id` "
+           " FROM `Attribution` LIMIT 1; "
+  }
+  insert_attribution {
+    query: " INSERT INTO `Attribution`( "
+           "   `context_id`, `artifact_id` "
+           ") VALUES($0, $1);"
+    parameter_num: 2
+  }
+  select_attribution_by_context_id {
+    query: " SELECT `id`, `context_id`, `artifact_id` "
+           " from `Attribution` "
+           " WHERE `context_id` = $0; "
+    parameter_num: 1
+  }
+  select_attribution_by_artifact_id {
+    query: " SELECT `id`, `context_id`, `artifact_id` "
+           " from `Attribution` "
+           " WHERE `artifact_id` = $0; "
+    parameter_num: 1
+  }
   drop_mlmd_env_table { query: " DROP TABLE IF EXISTS `MLMDEnv`; " }
   create_mlmd_env_table {
     query: " CREATE TABLE IF NOT EXISTS `MLMDEnv` ( "
@@ -559,7 +621,7 @@ constexpr char kSQLiteMetadataSourceQueryConfig[] = R"pb(
     }
   }
   # In v3, to support context, we added two tables `Context` and
-  # `ContextProperty`, and no change to other existing records.
+  # `ContextProperty`, and made no change to other existing records.
   migration_schemes {
     key: 3
     value: {
@@ -593,6 +655,45 @@ constexpr char kSQLiteMetadataSourceQueryConfig[] = R"pb(
                  "   SELECT `context_id`, `name`, `is_custom_property`, "
                  "          `int_value`, `double_value`, `string_value` "
                  "    FROM `ContextProperty` "
+                 " ); "
+        }
+      }
+    }
+  }
+  # In v4, to support context-execution association and context-artifact
+  # attribution, we added two tables `Association` and `Attribution` and made
+  # no change to other existing records.
+  migration_schemes {
+    key: 4
+    value: {
+      upgrade_queries {
+        query: " CREATE TABLE IF NOT EXISTS `Association` ( "
+               "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+               "   `context_id` INT NOT NULL, "
+               "   `execution_id` INT NOT NULL, "
+               "   UNIQUE(`context_id`, `execution_id`) "
+               " ); "
+      }
+      upgrade_queries {
+        query: " CREATE TABLE IF NOT EXISTS `Attribution` ( "
+               "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+               "   `context_id` INT NOT NULL, "
+               "   `artifact_id` INT NOT NULL, "
+               "   UNIQUE(`context_id`, `artifact_id`) "
+               " ); "
+      }
+      # check the expected table columns are created properly.
+      upgrade_verification {
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM ( "
+                 "   SELECT `id`, `context_id`, `execution_id` "
+                 "   FROM `Association` "
+                 " ); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM ( "
+                 "   SELECT `id`, `context_id`, `artifact_id` "
+                 "   FROM `Attribution` "
                  " ); "
         }
       }
@@ -641,6 +742,22 @@ constexpr char kMySQLMetadataSourceQueryConfig[] = R"pb(
            "   `execution_id` INT NOT NULL, "
            "   `type` INT NOT NULL, "
            "   `milliseconds_since_epoch` BIGINT "
+           " ); "
+  }
+  create_association_table {
+    query: " CREATE TABLE IF NOT EXISTS `Association` ( "
+           "   `id` INTEGER PRIMARY KEY AUTO_INCREMENT, "
+           "   `context_id` INT NOT NULL, "
+           "   `execution_id` INT NOT NULL, "
+           "   UNIQUE(`context_id`, `execution_id`) "
+           " ); "
+  }
+  create_attribution_table {
+    query: " CREATE TABLE IF NOT EXISTS `Attribution` ( "
+           "   `id` INTEGER PRIMARY KEY AUTO_INCREMENT, "
+           "   `context_id` INT NOT NULL, "
+           "   `artifact_id` INT NOT NULL, "
+           "   UNIQUE(`context_id`, `artifact_id`) "
            " ); "
   }
   migration_schemes {
@@ -793,6 +910,41 @@ constexpr char kMySQLMetadataSourceQueryConfig[] = R"pb(
                  "          `int_value`, `double_value`, `string_value` "
                  "    FROM `ContextProperty` "
                  " ) as T2; "
+        }
+      }
+    }
+  }
+  migration_schemes {
+    key: 4
+    value: {
+      upgrade_queries {
+        query: " CREATE TABLE IF NOT EXISTS `Association` ( "
+               "   `id` INTEGER PRIMARY KEY AUTO_INCREMENT, "
+               "   `context_id` INT NOT NULL, "
+               "   `execution_id` INT NOT NULL, "
+               "   UNIQUE(`context_id`, `execution_id`) "
+               " ); "
+      }
+      upgrade_queries {
+        query: " CREATE TABLE IF NOT EXISTS `Attribution` ( "
+               "   `id` INTEGER PRIMARY KEY AUTO_INCREMENT, "
+               "   `context_id` INT NOT NULL, "
+               "   `artifact_id` INT NOT NULL, "
+               "   UNIQUE(`context_id`, `artifact_id`) "
+               " ); "
+      }
+      upgrade_verification {
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM ( "
+                 "   SELECT `id`, `context_id`, `execution_id` "
+                 "   FROM `Association` "
+                 " ) as T1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM ( "
+                 "   SELECT `id`, `context_id`, `artifact_id` "
+                 "   FROM `Attribution` "
+                 " ) as T1; "
         }
       }
     }

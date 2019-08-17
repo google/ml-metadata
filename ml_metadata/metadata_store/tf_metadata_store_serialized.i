@@ -277,6 +277,36 @@ PyObject* GetContextsByType(ml_metadata::MetadataStore* metadata_store,
       &ml_metadata::MetadataStore::GetContextsByType);
 }
 
+PyObject* PutAttributionsAndAssociations(
+    ml_metadata::MetadataStore* metadata_store, const string& request) {
+  return AccessMetadataStore(metadata_store, request,
+      &ml_metadata::MetadataStore::PutAttributionsAndAssociations);
+}
+
+PyObject* GetContextsByArtifact(ml_metadata::MetadataStore* metadata_store,
+                                const string& request) {
+  return AccessMetadataStore(metadata_store, request,
+      &ml_metadata::MetadataStore::GetContextsByArtifact);
+}
+
+PyObject* GetContextsByExecution(ml_metadata::MetadataStore* metadata_store,
+                                 const string& request) {
+  return AccessMetadataStore(metadata_store, request,
+      &ml_metadata::MetadataStore::GetContextsByExecution);
+}
+
+PyObject* GetArtifactsByContext(ml_metadata::MetadataStore* metadata_store,
+                                const string& request) {
+  return AccessMetadataStore(metadata_store, request,
+      &ml_metadata::MetadataStore::GetArtifactsByContext);
+}
+
+PyObject* GetExecutionsByContext(ml_metadata::MetadataStore* metadata_store,
+                                 const string& request) {
+  return AccessMetadataStore(metadata_store, request,
+      &ml_metadata::MetadataStore::GetExecutionsByContext);
+}
+
 %}
 
 
@@ -380,3 +410,19 @@ PyObject* GetContexts(ml_metadata::MetadataStore* metadata_store,
 
 PyObject* GetContextsByType(ml_metadata::MetadataStore* metadata_store,
                             const string& request);
+
+PyObject* PutAttributionsAndAssociations(
+    ml_metadata::MetadataStore* metadata_store, const string& request);
+
+PyObject* GetContextsByArtifact(ml_metadata::MetadataStore* metadata_store,
+                                const string& request);
+
+PyObject* GetContextsByExecution(ml_metadata::MetadataStore* metadata_store,
+                                 const string& request);
+
+PyObject* GetArtifactsByContext(ml_metadata::MetadataStore* metadata_store,
+                                const string& request);
+
+PyObject* GetExecutionsByContext(ml_metadata::MetadataStore* metadata_store,
+                                 const string& request);
+

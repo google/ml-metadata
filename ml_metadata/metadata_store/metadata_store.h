@@ -371,6 +371,41 @@ class MetadataStore {
   tensorflow::Status GetContextsByType(const GetContextsByTypeRequest& request,
                                        GetContextsByTypeResponse* response);
 
+  // Inserts attribution and association relationships in the database.
+  // The context_id, artifact_id, and execution_id must already exist.
+  // If the relationship exists, this call does nothing. Once added, the
+  // relationships cannot be modified.
+  //
+  // Returns INVALID_ARGUMENT error, if no artifact, execution or context
+  //   matches the given id.
+  tensorflow::Status PutAttributionsAndAssociations(
+      const PutAttributionsAndAssociationsRequest& request,
+      PutAttributionsAndAssociationsResponse* response);
+
+  // Gets all context that an artifact is attributed to.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status GetContextsByArtifact(
+      const GetContextsByArtifactRequest& request,
+      GetContextsByArtifactResponse* response);
+
+  // Gets all context that an execution is associated with.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status GetContextsByExecution(
+      const GetContextsByExecutionRequest& request,
+      GetContextsByExecutionResponse* response);
+
+  // Gets all direct artifacts that a context attributes to.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status GetArtifactsByContext(
+      const GetArtifactsByContextRequest& request,
+      GetArtifactsByContextResponse* response);
+
+  // Gets all direct executions that a context associates with.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status GetExecutionsByContext(
+      const GetExecutionsByContextRequest& request,
+      GetExecutionsByContextResponse* response);
+
  private:
   // To construct the object, see Create(...).
   MetadataStore(std::unique_ptr<MetadataSource> metadata_source,

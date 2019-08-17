@@ -930,3 +930,204 @@ func TestPublishExecution(t *testing.T) {
 		t.Errorf("GetEventsByExecutionIDs returned events mismatch, want: %v, got: %v", wantEvent, gotEvents[0])
 	}
 }
+
+func insertContext(s *Store, ctid int64, textContext string) (*mdpb.Context, error) {
+	c := &mdpb.Context{}
+	if err := proto.UnmarshalText(textContext, c); err != nil {
+		return nil, err
+	}
+	c.TypeId = &ctid
+	contexts := make([]*mdpb.Context, 1)
+	contexts[0] = c
+	cids, err := s.PutContexts(contexts)
+	if err != nil {
+		return nil, err
+	}
+	cid := int64(cids[0])
+	c.Id = &cid
+	return c, nil
+}
+
+func insertExecution(s *Store, etid int64, textExecution string) (*mdpb.Execution, error) {
+	e := &mdpb.Execution{}
+	if err := proto.UnmarshalText(textExecution, e); err != nil {
+		return nil, err
+	}
+	e.TypeId = &etid
+	executions := make([]*mdpb.Execution, 1)
+	executions[0] = e
+	eids, err := s.PutExecutions(executions)
+	if err != nil {
+		return nil, err
+	}
+	eid := int64(eids[0])
+	e.Id = &eid
+	return e, nil
+}
+
+func insertArtifact(s *Store, atid int64, textArtifact string) (*mdpb.Artifact, error) {
+	a := &mdpb.Artifact{}
+	if err := proto.UnmarshalText(textArtifact, a); err != nil {
+		return nil, err
+	}
+	a.TypeId = &atid
+	artifacts := make([]*mdpb.Artifact, 1)
+	artifacts[0] = a
+	aids, err := s.PutArtifacts(artifacts)
+	if err != nil {
+		return nil, err
+	}
+	aid := int64(aids[0])
+	a.Id = &aid
+	return a, nil
+}
+
+func TestPutAndUseAttributionsAndAssociations(t *testing.T) {
+	store, err := NewStore(fakeDatabaseConfig())
+	defer store.Close()
+	if err != nil {
+		t.Fatalf("Cannot create Store: %v", err)
+	}
+	// prepare types
+	ctid, err := insertContextType(store, `name: 'context_type_name'`)
+	if err != nil {
+		t.Fatalf("Cannot create context type: %v", err)
+	}
+	etid, err := insertExecutionType(store, `name: 'execution_type_name' `)
+	if err != nil {
+		t.Fatalf("Cannot create execution type: %v", err)
+	}
+	atid, err := insertArtifactType(store, `name: 'artifact_type_name' properties { key: 'p1' value: STRING } `)
+	if err != nil {
+		t.Fatalf("Cannot create artifact type: %v", err)
+	}
+	// prepare instances
+	wantContext, err := insertContext(store, ctid, ` name: 'context' `)
+	if err != nil {
+		t.Fatalf("Cannot create context: %v", err)
+	}
+	wantExecution, err := insertExecution(store, etid, `custom_properties { key: 'p1' value: { int_value: 1 } }`)
+	if err != nil {
+		t.Fatalf("Cannot create execution: %v", err)
+	}
+	wantArtifact, err := insertArtifact(store, atid, ` uri: 'test uri' properties { key: 'p1' value: { string_value: 's' } }`)
+	if err != nil {
+		t.Fatalf("Cannot create execution: %v", err)
+	}
+	// insert attributions and associations
+	attributions := make([]*mdpb.Attribution, 1)
+	attributions[0] = &mdpb.Attribution{
+		ArtifactId: wantArtifact.Id,
+		ContextId:  wantContext.Id,
+	}
+	associations := make([]*mdpb.Association, 1)
+	associations[0] = &mdpb.Association{
+		ExecutionId: wantExecution.Id,
+		ContextId:   wantContext.Id,
+	}
+	if err = store.PutAttributionsAndAssociations(attributions, associations); err != nil {
+		t.Fatalf("PutAttributionsAndAssociations failed: %v", err)
+	}
+
+	// query contexts from artifact and execution
+	gotContexts, err := store.GetContextsByArtifact(ArtifactID(*wantArtifact.Id))
+	if err != nil {
+		t.Fatalf("GetContextsByArtifact failed: %v", err)
+	}
+	if len(gotContexts) != 1 {
+		t.Errorf("GetContextsByArtifact returned number of results is incorrect. want: %v, got: %v", 1, len(gotContexts))
+	}
+	if !proto.Equal(wantContext, gotContexts[0]) {
+		t.Errorf("GetContextsByArtifact returned result is incorrect. want: %v, got: %v", wantContext, gotContexts[0])
+	}
+	gotContexts, err = store.GetContextsByExecution(ExecutionID(*wantExecution.Id))
+	if err != nil {
+		t.Fatalf("GetContextsByExecution failed: %v", err)
+	}
+	if len(gotContexts) != 1 {
+		t.Errorf("GetContextsByExecution returned number of results is incorrect. want: %v, got: %v", 1, len(gotContexts))
+	}
+	if !proto.Equal(wantContext, gotContexts[0]) {
+		t.Errorf("GetContextsByExecution returned result is incorrect. want: %v, got: %v", wantContext, gotContexts[0])
+	}
+	// query execution and artifact from context
+	gotArtifacts, err := store.GetArtifactsByContext(ContextID(*wantContext.Id))
+	if err != nil {
+		t.Fatalf("GetArtifactsByContext failed: %v", err)
+	}
+	if len(gotArtifacts) != 1 {
+		t.Errorf("GetArtifactsByContext returned number of results is incorrect. want: %v, got: %v", 1, len(gotArtifacts))
+	}
+	if !proto.Equal(wantArtifact, gotArtifacts[0]) {
+		t.Errorf("GetArtifactsByContext returned result is incorrect. want: %v, got: %v", wantArtifact, gotArtifacts[0])
+	}
+	gotExecutions, err := store.GetExecutionsByContext(ContextID(*wantContext.Id))
+	if err != nil {
+		t.Fatalf("GetExecutionsByContext failed: %v", err)
+	}
+	if len(gotExecutions) != 1 {
+		t.Errorf("GetExecutionsByContext returned number of results is incorrect. want: %v, got: %v", 1, len(gotArtifacts))
+	}
+	if !proto.Equal(wantExecution, gotExecutions[0]) {
+		t.Errorf("GetExecutionsByContext returned result is incorrect. want: %v, got: %v", wantExecution, gotExecutions[0])
+	}
+}
+
+func TestPutDuplicatedAttributionsAndEmptyAssociations(t *testing.T) {
+	store, err := NewStore(fakeDatabaseConfig())
+	defer store.Close()
+	if err != nil {
+		t.Fatalf("Cannot create Store: %v", err)
+	}
+	ctid, err := insertContextType(store, `name: 'context_type_name'`)
+	if err != nil {
+		t.Fatalf("Cannot create context type: %v", err)
+	}
+	atid, err := insertArtifactType(store, `name: 'artifact_type_name' properties { key: 'p1' value: STRING } `)
+	if err != nil {
+		t.Fatalf("Cannot create artifact type: %v", err)
+	}
+	wantContext, err := insertContext(store, ctid, ` name: 'context' `)
+	if err != nil {
+		t.Fatalf("Cannot create context: %v", err)
+	}
+	wantArtifact, err := insertArtifact(store, atid, ` uri: 'test uri' properties { key: 'p1' value: { string_value: 's' } }`)
+	if err != nil {
+		t.Fatalf("Cannot create execution: %v", err)
+	}
+	// insert duplicated attributions and no associations
+	attributions := make([]*mdpb.Attribution, 2)
+	attributions[0] = &mdpb.Attribution{
+		ArtifactId: wantArtifact.Id,
+		ContextId:  wantContext.Id,
+	}
+	attributions[1] = &mdpb.Attribution{
+		ArtifactId: wantArtifact.Id,
+		ContextId:  wantContext.Id,
+	}
+	if err = store.PutAttributionsAndAssociations(attributions, nil); err != nil {
+		t.Fatalf("PutAttributionsAndAssociations failed: %v", err)
+	}
+	// query contexts and artifacts
+	gotContexts, err := store.GetContextsByArtifact(ArtifactID(*wantArtifact.Id))
+	if err != nil {
+		t.Fatalf("GetContextsByArtifact failed: %v", err)
+	}
+	if len(gotContexts) != 1 {
+		t.Errorf("GetContextsByArtifact returned number of results is incorrect. want: %v, got: %v", 1, len(gotContexts))
+	}
+	if !proto.Equal(wantContext, gotContexts[0]) {
+		t.Errorf("GetContextsByArtifact returned result is incorrect. want: %v, got: %v", wantContext, gotContexts[0])
+	}
+	// query execution and artifact from context
+	gotArtifacts, err := store.GetArtifactsByContext(ContextID(*wantContext.Id))
+	if err != nil {
+		t.Fatalf("GetArtifactsByContext failed: %v", err)
+	}
+	if len(gotArtifacts) != 1 {
+		t.Errorf("GetArtifactsByContext returned number of results is incorrect. want: %v, got: %v", 1, len(gotArtifacts))
+	}
+	if !proto.Equal(wantArtifact, gotArtifacts[0]) {
+		t.Errorf("GetArtifactsByContext returned result is incorrect. want: %v, got: %v", wantArtifact, gotArtifacts[0])
+	}
+}

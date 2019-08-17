@@ -555,11 +555,52 @@ string GetContextsByType(ml_metadata::MetadataStore *metadata_store,
                              request, status);
 }
 
+string PutAttributionsAndAssociations(
+    ml_metadata::MetadataStore *metadata_store, const string &request,
+    tensorflow::Status *status) {
+  return AccessMetadataStore(
+      metadata_store,
+      &ml_metadata::MetadataStore::PutAttributionsAndAssociations, request,
+      status);
+}
+
+string GetContextsByArtifact(ml_metadata::MetadataStore *metadata_store,
+                             const string &request,
+                             tensorflow::Status *status) {
+  return AccessMetadataStore(metadata_store,
+                             &ml_metadata::MetadataStore::GetContextsByArtifact,
+                             request, status);
+}
+
+string GetContextsByExecution(ml_metadata::MetadataStore *metadata_store,
+                              const string &request,
+                              tensorflow::Status *status) {
+  return AccessMetadataStore(
+      metadata_store, &ml_metadata::MetadataStore::GetContextsByExecution,
+      request, status);
+}
+
+string GetArtifactsByContext(ml_metadata::MetadataStore *metadata_store,
+                             const string &request,
+                             tensorflow::Status *status) {
+  return AccessMetadataStore(metadata_store,
+                             &ml_metadata::MetadataStore::GetArtifactsByContext,
+                             request, status);
+}
+
+string GetExecutionsByContext(ml_metadata::MetadataStore *metadata_store,
+                              const string &request,
+                              tensorflow::Status *status) {
+  return AccessMetadataStore(
+      metadata_store, &ml_metadata::MetadataStore::GetExecutionsByContext,
+      request, status);
+}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void _wrap_Swig_free_metadata_store_go_wrap_97d576ca6b33ad45(void *_swig_go_0) {
+void _wrap_Swig_free_metadata_store_go_wrap_905274bbd26170fb(void *_swig_go_0) {
   void *arg1 = (void *) 0 ;
   
   arg1 = *(void **)&_swig_go_0; 
@@ -567,7 +608,7 @@ void _wrap_Swig_free_metadata_store_go_wrap_97d576ca6b33ad45(void *_swig_go_0) {
   Swig_free(arg1);
 }
 
-void *_wrap_Swig_malloc_metadata_store_go_wrap_97d576ca6b33ad45(
+void *_wrap_Swig_malloc_metadata_store_go_wrap_905274bbd26170fb(
     intgo _swig_go_0) {
   int arg1 ;
   void *result = 0 ;
@@ -581,7 +622,7 @@ void *_wrap_Swig_malloc_metadata_store_go_wrap_97d576ca6b33ad45(
 }
 
 ml_metadata::MetadataStore *
-_wrap_CreateMetadataStore_metadata_store_go_wrap_97d576ca6b33ad45(
+_wrap_CreateMetadataStore_metadata_store_go_wrap_905274bbd26170fb(
     _gostring_ _swig_go_0, tensorflow::Status *_swig_go_1) {
   string *arg1 = 0 ;
   tensorflow::Status *arg2 = (tensorflow::Status *) 0 ;
@@ -599,7 +640,7 @@ _wrap_CreateMetadataStore_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-void _wrap_DestroyMetadataStore_metadata_store_go_wrap_97d576ca6b33ad45(
+void _wrap_DestroyMetadataStore_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *) 0 ;
   
@@ -608,7 +649,7 @@ void _wrap_DestroyMetadataStore_metadata_store_go_wrap_97d576ca6b33ad45(
   DestroyMetadataStore(arg1);
 }
 
-_gostring_ _wrap_PutArtifactType_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_PutArtifactType_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *) 0 ;
@@ -629,7 +670,7 @@ _gostring_ _wrap_PutArtifactType_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_GetArtifactType_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_GetArtifactType_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *) 0 ;
@@ -650,7 +691,7 @@ _gostring_ _wrap_GetArtifactType_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_GetArtifactTypes_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_GetArtifactTypes_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *)0;
@@ -671,7 +712,7 @@ _gostring_ _wrap_GetArtifactTypes_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_GetArtifactTypesByID_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_GetArtifactTypesByID_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *) 0 ;
@@ -692,7 +733,7 @@ _gostring_ _wrap_GetArtifactTypesByID_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_PutExecutionType_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_PutExecutionType_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *) 0 ;
@@ -713,7 +754,7 @@ _gostring_ _wrap_PutExecutionType_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_GetExecutionType_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_GetExecutionType_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *) 0 ;
@@ -734,7 +775,7 @@ _gostring_ _wrap_GetExecutionType_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_GetExecutionTypes_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_GetExecutionTypes_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *) 0 ;
@@ -755,7 +796,7 @@ _gostring_ _wrap_GetExecutionTypes_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_GetExecutionTypesByID_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_GetExecutionTypesByID_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *) 0 ;
@@ -776,7 +817,7 @@ _gostring_ _wrap_GetExecutionTypesByID_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_PutContextType_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_PutContextType_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *)0;
@@ -797,7 +838,7 @@ _gostring_ _wrap_PutContextType_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_GetContextType_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_GetContextType_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *)0;
@@ -818,7 +859,7 @@ _gostring_ _wrap_GetContextType_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_GetContextTypesByID_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_GetContextTypesByID_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *)0;
@@ -839,7 +880,7 @@ _gostring_ _wrap_GetContextTypesByID_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_PutArtifacts_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_PutArtifacts_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *) 0 ;
@@ -860,7 +901,7 @@ _gostring_ _wrap_PutArtifacts_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_PutExecutions_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_PutExecutions_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *) 0 ;
@@ -881,7 +922,7 @@ _gostring_ _wrap_PutExecutions_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_GetArtifactsByID_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_GetArtifactsByID_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *) 0 ;
@@ -902,7 +943,7 @@ _gostring_ _wrap_GetArtifactsByID_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_GetExecutionsByID_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_GetExecutionsByID_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *) 0 ;
@@ -923,7 +964,7 @@ _gostring_ _wrap_GetExecutionsByID_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_PutEvents_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_PutEvents_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *) 0 ;
@@ -944,7 +985,7 @@ _gostring_ _wrap_PutEvents_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_PutExecution_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_PutExecution_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *)0;
@@ -965,7 +1006,7 @@ _gostring_ _wrap_PutExecution_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_GetEventsByArtifactIDs_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_GetEventsByArtifactIDs_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *) 0 ;
@@ -987,7 +1028,7 @@ _gostring_ _wrap_GetEventsByArtifactIDs_metadata_store_go_wrap_97d576ca6b33ad45(
 }
 
 _gostring_
-_wrap_GetEventsByExecutionIDs_metadata_store_go_wrap_97d576ca6b33ad45(
+_wrap_GetEventsByExecutionIDs_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *) 0 ;
@@ -1008,7 +1049,7 @@ _wrap_GetEventsByExecutionIDs_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_GetArtifacts_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_GetArtifacts_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *) 0 ;
@@ -1029,7 +1070,7 @@ _gostring_ _wrap_GetArtifacts_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_GetArtifactsByType_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_GetArtifactsByType_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *) 0 ;
@@ -1050,7 +1091,7 @@ _gostring_ _wrap_GetArtifactsByType_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_GetArtifactsByURI_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_GetArtifactsByURI_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *) 0 ;
@@ -1071,7 +1112,7 @@ _gostring_ _wrap_GetArtifactsByURI_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_GetExecutions_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_GetExecutions_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *) 0 ;
@@ -1092,7 +1133,7 @@ _gostring_ _wrap_GetExecutions_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_GetExecutionsByType_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_GetExecutionsByType_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *) 0 ;
@@ -1113,7 +1154,7 @@ _gostring_ _wrap_GetExecutionsByType_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_PutContexts_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_PutContexts_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *)0;
@@ -1134,7 +1175,7 @@ _gostring_ _wrap_PutContexts_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_GetContextsByID_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_GetContextsByID_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *)0;
@@ -1155,7 +1196,7 @@ _gostring_ _wrap_GetContextsByID_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_GetContexts_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_GetContexts_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *)0;
@@ -1176,7 +1217,7 @@ _gostring_ _wrap_GetContexts_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_GetContextsByType_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_GetContextsByType_metadata_store_go_wrap_905274bbd26170fb(
     ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
     tensorflow::Status *_swig_go_2) {
   ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *)0;
@@ -1197,8 +1238,114 @@ _gostring_ _wrap_GetContextsByType_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
+_gostring_
+_wrap_PutAttributionsAndAssociations_metadata_store_go_wrap_905274bbd26170fb(
+    ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
+    tensorflow::Status *_swig_go_2) {
+  ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *)0;
+  string *arg2 = 0;
+  tensorflow::Status *arg3 = (tensorflow::Status *)0;
+  string result;
+  _gostring_ _swig_go_result;
+
+  arg1 = *(ml_metadata::MetadataStore **)&_swig_go_0;
+
+  string arg2_str(_swig_go_1.p, _swig_go_1.n);
+  arg2 = &arg2_str;
+
+  arg3 = *(tensorflow::Status **)&_swig_go_2;
+
+  result = PutAttributionsAndAssociations(arg1, (string const &)*arg2, arg3);
+  _swig_go_result = Swig_AllocateString((&result)->data(), (&result)->length());
+  return _swig_go_result;
+}
+
+_gostring_ _wrap_GetContextsByArtifact_metadata_store_go_wrap_905274bbd26170fb(
+    ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
+    tensorflow::Status *_swig_go_2) {
+  ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *)0;
+  string *arg2 = 0;
+  tensorflow::Status *arg3 = (tensorflow::Status *)0;
+  string result;
+  _gostring_ _swig_go_result;
+
+  arg1 = *(ml_metadata::MetadataStore **)&_swig_go_0;
+
+  string arg2_str(_swig_go_1.p, _swig_go_1.n);
+  arg2 = &arg2_str;
+
+  arg3 = *(tensorflow::Status **)&_swig_go_2;
+
+  result = GetContextsByArtifact(arg1, (string const &)*arg2, arg3);
+  _swig_go_result = Swig_AllocateString((&result)->data(), (&result)->length());
+  return _swig_go_result;
+}
+
+_gostring_ _wrap_GetContextsByExecution_metadata_store_go_wrap_905274bbd26170fb(
+    ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
+    tensorflow::Status *_swig_go_2) {
+  ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *)0;
+  string *arg2 = 0;
+  tensorflow::Status *arg3 = (tensorflow::Status *)0;
+  string result;
+  _gostring_ _swig_go_result;
+
+  arg1 = *(ml_metadata::MetadataStore **)&_swig_go_0;
+
+  string arg2_str(_swig_go_1.p, _swig_go_1.n);
+  arg2 = &arg2_str;
+
+  arg3 = *(tensorflow::Status **)&_swig_go_2;
+
+  result = GetContextsByExecution(arg1, (string const &)*arg2, arg3);
+  _swig_go_result = Swig_AllocateString((&result)->data(), (&result)->length());
+  return _swig_go_result;
+}
+
+_gostring_ _wrap_GetArtifactsByContext_metadata_store_go_wrap_905274bbd26170fb(
+    ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
+    tensorflow::Status *_swig_go_2) {
+  ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *)0;
+  string *arg2 = 0;
+  tensorflow::Status *arg3 = (tensorflow::Status *)0;
+  string result;
+  _gostring_ _swig_go_result;
+
+  arg1 = *(ml_metadata::MetadataStore **)&_swig_go_0;
+
+  string arg2_str(_swig_go_1.p, _swig_go_1.n);
+  arg2 = &arg2_str;
+
+  arg3 = *(tensorflow::Status **)&_swig_go_2;
+
+  result = GetArtifactsByContext(arg1, (string const &)*arg2, arg3);
+  _swig_go_result = Swig_AllocateString((&result)->data(), (&result)->length());
+  return _swig_go_result;
+}
+
+_gostring_ _wrap_GetExecutionsByContext_metadata_store_go_wrap_905274bbd26170fb(
+    ml_metadata::MetadataStore *_swig_go_0, _gostring_ _swig_go_1,
+    tensorflow::Status *_swig_go_2) {
+  ml_metadata::MetadataStore *arg1 = (ml_metadata::MetadataStore *)0;
+  string *arg2 = 0;
+  tensorflow::Status *arg3 = (tensorflow::Status *)0;
+  string result;
+  _gostring_ _swig_go_result;
+
+  arg1 = *(ml_metadata::MetadataStore **)&_swig_go_0;
+
+  string arg2_str(_swig_go_1.p, _swig_go_1.n);
+  arg2 = &arg2_str;
+
+  arg3 = *(tensorflow::Status **)&_swig_go_2;
+
+  result = GetExecutionsByContext(arg1, (string const &)*arg2, arg3);
+  _swig_go_result = Swig_AllocateString((&result)->data(), (&result)->length());
+  return _swig_go_result;
+}
+
 tensorflow::Status *
-_wrap_new_Status__SWIG_0_metadata_store_go_wrap_97d576ca6b33ad45() {
+_wrap_new_Status__SWIG_0_metadata_store_go_wrap_905274bbd26170fb() {
   tensorflow::Status *result = 0 ;
   tensorflow::Status *_swig_go_result;
   
@@ -1209,7 +1356,7 @@ _wrap_new_Status__SWIG_0_metadata_store_go_wrap_97d576ca6b33ad45() {
 }
 
 tensorflow::Status *
-_wrap_new_Status__SWIG_1_metadata_store_go_wrap_97d576ca6b33ad45(
+_wrap_new_Status__SWIG_1_metadata_store_go_wrap_905274bbd26170fb(
     tensorflow::error::Code *_swig_go_0, tensorflow::StringPiece *_swig_go_1) {
   tensorflow::error::Code arg1 ;
   tensorflow::StringPiece arg2 ;
@@ -1239,7 +1386,7 @@ _wrap_new_Status__SWIG_1_metadata_store_go_wrap_97d576ca6b33ad45(
 }
 
 tensorflow::Status *
-_wrap_new_Status__SWIG_2_metadata_store_go_wrap_97d576ca6b33ad45(
+_wrap_new_Status__SWIG_2_metadata_store_go_wrap_905274bbd26170fb(
     tensorflow::Status *_swig_go_0) {
   tensorflow::Status *arg1 = 0 ;
   tensorflow::Status *result = 0 ;
@@ -1252,7 +1399,7 @@ _wrap_new_Status__SWIG_2_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-bool _wrap_Status_ok_metadata_store_go_wrap_97d576ca6b33ad45(
+bool _wrap_Status_ok_metadata_store_go_wrap_905274bbd26170fb(
     tensorflow::Status *_swig_go_0) {
   tensorflow::Status *arg1 = (tensorflow::Status *) 0 ;
   bool result;
@@ -1266,7 +1413,7 @@ bool _wrap_Status_ok_metadata_store_go_wrap_97d576ca6b33ad45(
 }
 
 tensorflow::error::Code *
-_wrap_Status_code_metadata_store_go_wrap_97d576ca6b33ad45(
+_wrap_Status_code_metadata_store_go_wrap_905274bbd26170fb(
     tensorflow::Status *_swig_go_0) {
   tensorflow::Status *arg1 = (tensorflow::Status *) 0 ;
   tensorflow::error::Code result;
@@ -1279,7 +1426,7 @@ _wrap_Status_code_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-_gostring_ _wrap_Status_error_message_metadata_store_go_wrap_97d576ca6b33ad45(
+_gostring_ _wrap_Status_error_message_metadata_store_go_wrap_905274bbd26170fb(
     tensorflow::Status *_swig_go_0) {
   tensorflow::Status *arg1 = (tensorflow::Status *) 0 ;
   string *result = 0 ;
@@ -1292,7 +1439,7 @@ _gostring_ _wrap_Status_error_message_metadata_store_go_wrap_97d576ca6b33ad45(
   return _swig_go_result;
 }
 
-void _wrap_delete_Status_metadata_store_go_wrap_97d576ca6b33ad45(
+void _wrap_delete_Status_metadata_store_go_wrap_905274bbd26170fb(
     tensorflow::Status *_swig_go_0) {
   tensorflow::Status *arg1 = (tensorflow::Status *) 0 ;
   

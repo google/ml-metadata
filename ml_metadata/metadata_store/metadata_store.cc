@@ -640,6 +640,79 @@ tensorflow::Status MetadataStore::GetContextsByType(
   return transaction.Commit();
 }
 
+tensorflow::Status MetadataStore::PutAttributionsAndAssociations(
+    const PutAttributionsAndAssociationsRequest& request,
+    PutAttributionsAndAssociationsResponse* response) {
+  ScopedTransaction transaction(metadata_source_.get());
+  for (const Attribution& attribution : request.attributions()) {
+    int64 dummy_attribution_id;
+    tensorflow::Status status = metadata_access_object_->CreateAttribution(
+        attribution, &dummy_attribution_id);
+    if (tensorflow::errors::IsAlreadyExists(status)) continue;
+    TF_RETURN_IF_ERROR(status);
+  }
+  for (const Association& association : request.associations()) {
+    int64 dummy_assocation_id;
+    tensorflow::Status status = metadata_access_object_->CreateAssociation(
+        association, &dummy_assocation_id);
+    if (tensorflow::errors::IsAlreadyExists(status)) continue;
+    TF_RETURN_IF_ERROR(status);
+  }
+  return transaction.Commit();
+}
+
+tensorflow::Status MetadataStore::GetContextsByArtifact(
+    const GetContextsByArtifactRequest& request,
+    GetContextsByArtifactResponse* response) {
+  ScopedTransaction transaction(metadata_source_.get());
+  std::vector<Context> contexts;
+  TF_RETURN_IF_ERROR(metadata_access_object_->FindContextsByArtifact(
+      request.artifact_id(), &contexts));
+  for (const Context& context : contexts) {
+    *response->mutable_contexts()->Add() = context;
+  }
+  return transaction.Commit();
+}
+
+tensorflow::Status MetadataStore::GetContextsByExecution(
+    const GetContextsByExecutionRequest& request,
+    GetContextsByExecutionResponse* response) {
+  ScopedTransaction transaction(metadata_source_.get());
+  std::vector<Context> contexts;
+  TF_RETURN_IF_ERROR(metadata_access_object_->FindContextsByExecution(
+      request.execution_id(), &contexts));
+  for (const Context& context : contexts) {
+    *response->mutable_contexts()->Add() = context;
+  }
+  return transaction.Commit();
+}
+
+tensorflow::Status MetadataStore::GetArtifactsByContext(
+    const GetArtifactsByContextRequest& request,
+    GetArtifactsByContextResponse* response) {
+  ScopedTransaction transaction(metadata_source_.get());
+  std::vector<Artifact> artifacts;
+  TF_RETURN_IF_ERROR(metadata_access_object_->FindArtifactsByContext(
+      request.context_id(), &artifacts));
+  for (const Artifact& artifact : artifacts) {
+    *response->mutable_artifacts()->Add() = artifact;
+  }
+  return transaction.Commit();
+}
+
+tensorflow::Status MetadataStore::GetExecutionsByContext(
+    const GetExecutionsByContextRequest& request,
+    GetExecutionsByContextResponse* response) {
+  ScopedTransaction transaction(metadata_source_.get());
+  std::vector<Execution> executions;
+  TF_RETURN_IF_ERROR(metadata_access_object_->FindExecutionsByContext(
+      request.context_id(), &executions));
+  for (const Execution& execution : executions) {
+    *response->mutable_executions()->Add() = execution;
+  }
+  return transaction.Commit();
+}
+
 MetadataStore::MetadataStore(
     std::unique_ptr<MetadataSource> metadata_source,
     std::unique_ptr<MetadataAccessObject> metadata_access_object)

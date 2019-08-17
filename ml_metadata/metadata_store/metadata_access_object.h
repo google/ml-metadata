@@ -257,7 +257,6 @@ class MetadataAccessObject {
 
   // Creates an event, returns the assigned event id. If the event occurrence
   // time is not given, the insertion time is used.
-  // TODO(huimiao) Support Event::Path as a blob when inserting an event.
   // TODO(huimiao) Allow to have a unknown event time.
   // Returns INVALID_ARGUMENT error, if no artifact matches the artifact_id.
   // Returns INVALID_ARGUMENT error, if no execution matches the execution_id.
@@ -275,6 +274,40 @@ class MetadataAccessObject {
   // Returns NOT_FOUND error, if there are no events found with the `execution`.
   tensorflow::Status FindEventsByExecution(int64 execution_id,
                                            std::vector<Event>* events);
+
+  // Creates an association, returns the assigned association id.
+  // Returns INVALID_ARGUMENT error, if no context matches the context_id.
+  // Returns INVALID_ARGUMENT error, if no execution matches the execution_id.
+  // Returns INTERNAL error, if the same association already exists.
+  tensorflow::Status CreateAssociation(const Association& association,
+                                       int64* association_id);
+
+  // Queries the contexts that an execution_id is associated with.
+  // Returns INVALID_ARGUMENT error, if the `contexts` is null.
+  tensorflow::Status FindContextsByExecution(int64 execution_id,
+                                             std::vector<Context>* contexts);
+
+  // Queries the executions associated with a context_id.
+  // Returns INVALID_ARGUMENT error, if the `executions` is null.
+  tensorflow::Status FindExecutionsByContext(
+      int64 context_id, std::vector<Execution>* executions);
+
+  // Creates an attribution, returns the assigned attribution id.
+  // Returns INVALID_ARGUMENT error, if no context matches the context_id.
+  // Returns INVALID_ARGUMENT error, if no artifact matches the artifact_id.
+  // Returns INTERNAL error, if the same attribution already exists.
+  tensorflow::Status CreateAttribution(const Attribution& attribution,
+                                       int64* attribution_id);
+
+  // Queries the contexts that an artifact_id is attributed to.
+  // Returns INVALID_ARGUMENT error, if the `contexts` is null.
+  tensorflow::Status FindContextsByArtifact(int64 artifact_id,
+                                            std::vector<Context>* contexts);
+
+  // Queries the artifacts attributed to a context_id.
+  // Returns INVALID_ARGUMENT error, if the `artifacts` is null.
+  tensorflow::Status FindArtifactsByContext(int64 context_id,
+                                            std::vector<Artifact>* artifacts);
 
   // Resolves the schema version stored in the metadata source. The `db_version`
   // is set to 0, if it is a 0.13.2 release pre-existing database.

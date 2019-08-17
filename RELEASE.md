@@ -15,6 +15,8 @@
 *   Provide MLMD migration scheme to migrate out-of-date MLMD instance.
 *   Support creating and querying ContextType.
 *   Support creating, updating and querying Context instances.
+*   Support grouping artifact and executions into contexts.
+*   Support querying related artifacts and executions through contexts.
 
 ## Bug Fixes and Other Changes
 

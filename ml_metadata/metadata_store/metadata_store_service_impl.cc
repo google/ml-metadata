@@ -403,4 +403,70 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   return status;
 }
 
+::grpc::Status MetadataStoreServiceImpl::PutAttributionsAndAssociations(
+    ::grpc::ServerContext* context,
+    const ::ml_metadata::PutAttributionsAndAssociationsRequest* request,
+    ::ml_metadata::PutAttributionsAndAssociationsResponse* response) {
+  absl::WriterMutexLock l(&lock_);
+  const ::grpc::Status status = ToGRPCStatus(
+      metadata_store_->PutAttributionsAndAssociations(*request, response));
+  if (!status.ok()) {
+    LOG(WARNING) << "PutAttributionsAndAssociations failed: "
+                 << status.error_message();
+  }
+  return status;
+}
+
+::grpc::Status MetadataStoreServiceImpl::GetContextsByArtifact(
+    ::grpc::ServerContext* context,
+    const ::ml_metadata::GetContextsByArtifactRequest* request,
+    ::ml_metadata::GetContextsByArtifactResponse* response) {
+  absl::WriterMutexLock l(&lock_);
+  const ::grpc::Status status =
+      ToGRPCStatus(metadata_store_->GetContextsByArtifact(*request, response));
+  if (!status.ok()) {
+    LOG(WARNING) << "GetContextsByArtifact failed: " << status.error_message();
+  }
+  return status;
+}
+
+::grpc::Status MetadataStoreServiceImpl::GetContextsByExecution(
+    ::grpc::ServerContext* context,
+    const ::ml_metadata::GetContextsByExecutionRequest* request,
+    ::ml_metadata::GetContextsByExecutionResponse* response) {
+  absl::WriterMutexLock l(&lock_);
+  const ::grpc::Status status =
+      ToGRPCStatus(metadata_store_->GetContextsByExecution(*request, response));
+  if (!status.ok()) {
+    LOG(WARNING) << "GetContextsByExecution failed: " << status.error_message();
+  }
+  return status;
+}
+
+::grpc::Status MetadataStoreServiceImpl::GetArtifactsByContext(
+    ::grpc::ServerContext* context,
+    const ::ml_metadata::GetArtifactsByContextRequest* request,
+    ::ml_metadata::GetArtifactsByContextResponse* response) {
+  absl::WriterMutexLock l(&lock_);
+  const ::grpc::Status status =
+      ToGRPCStatus(metadata_store_->GetArtifactsByContext(*request, response));
+  if (!status.ok()) {
+    LOG(WARNING) << "GetArtifactsByContext failed: " << status.error_message();
+  }
+  return status;
+}
+
+::grpc::Status MetadataStoreServiceImpl::GetExecutionsByContext(
+    ::grpc::ServerContext* context,
+    const ::ml_metadata::GetExecutionsByContextRequest* request,
+    ::ml_metadata::GetExecutionsByContextResponse* response) {
+  absl::WriterMutexLock l(&lock_);
+  const ::grpc::Status status =
+      ToGRPCStatus(metadata_store_->GetExecutionsByContext(*request, response));
+  if (!status.ok()) {
+    LOG(WARNING) << "GetExecutionsByContext failed: " << status.error_message();
+  }
+  return status;
+}
+
 }  // namespace ml_metadata
