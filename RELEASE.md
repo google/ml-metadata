@@ -1,4 +1,4 @@
-# Current version (not yet released; still in development)
+# Release 0.14.0
 
 ## Major Features and Improvements
 
@@ -24,7 +24,7 @@
 
 ## Deprecations
 
-# Version 0.13.2
+# Release 0.13.2
 
 ## Major Features and Improvements
 
