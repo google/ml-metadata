@@ -69,16 +69,18 @@ struct WaitThenRetryOptions {
 // to abort the query and returns a SQLITE_BUSY error. The function takes a
 // WaitThenRetryOptions (`options`), waits for a lock and then indicates sqlite3
 // to retry. The default values for sleep is 100 millisecond (`sleep_time`)
-// for each wait and 2 times at maximum (`max_retried_time`/`sleep_time`).
+// for each wait and 5 times at maximum (`max_retried_time`/`sleep_time`).
 // (see https://www.sqlite.org/c3ref/busy_handler.html for details)
 int WaitThenRetry(void* options, int retried_times) {
   static constexpr WaitThenRetryOptions kDefaultWaitThenRetryOptions = {
-      absl::Milliseconds(100), absl::Milliseconds(200)};
+      absl::Milliseconds(100), absl::Milliseconds(500)};
   const WaitThenRetryOptions* opts =
       (options != nullptr) ? static_cast<WaitThenRetryOptions*>(options)
                            : &kDefaultWaitThenRetryOptions;
   // aborts the query with SQLITE_BUSY
-  if (retried_times >= opts->max_retried_time / opts->sleep_time) return 0;
+  if (retried_times >= opts->max_retried_time / opts->sleep_time) {
+    return 0;
+  }
   absl::SleepFor(opts->sleep_time);
   // allow further retry
   return 1;
@@ -131,8 +133,12 @@ tensorflow::Status SqliteMetadataSource::RunStatement(
                    results, &error_message) != SQLITE_OK) {
     string error_details = error_message;
     sqlite3_free(error_message);
+    if (absl::StrContains(error_details, "database is locked")) {
+      return tensorflow::errors::Aborted(
+          "Concurrent writes aborted after max number of retries.");
+    }
     return tensorflow::errors::Internal(
-        "Error when executing query: ", error_details, "query: ", query);
+        "Error when executing query: ", error_details, " query: ", query);
   }
   return tensorflow::Status::OK();
 }
