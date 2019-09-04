@@ -2,6 +2,8 @@
 
 ## Major Features and Improvements
 
+*   Add Dockerfile for building a containerized version of the MLMD gRPC server.
+
 ## Bug Fixes and Other Changes
 
 ## Breaking Changes
