@@ -40,7 +40,8 @@ class MySqlMetadataAccessObjectContainer
  public:
   MySqlMetadataAccessObjectContainer() : MetadataAccessObjectContainer() {
     metadata_source_initializer_ = GetTestMySqlMetadataSourceInitializer();
-    metadata_source_ = metadata_source_initializer_->Init();
+    metadata_source_ = metadata_source_initializer_->Init(
+        TestMySqlMetadataSourceInitializer::ConnectionType::kTcp);
     TF_CHECK_OK(MetadataAccessObject::Create(
         util::GetMySqlMetadataSourceQueryConfig(), metadata_source_,
         &metadata_access_object_));
@@ -58,7 +59,8 @@ class MySqlMetadataAccessObjectContainer
  private:
   // An unowned TestMySqlMetadataSourceInitializer from a call to
   // GetTestMySqlMetadataSourceInitializer().
-  TestMySqlMetadataSourceInitializer* metadata_source_initializer_;
+  std::unique_ptr<TestMySqlMetadataSourceInitializer>
+      metadata_source_initializer_;
   // An unowned MySqlMetadataSource from a call to
   // metadata_source_initializer->Init().
   MySqlMetadataSource* metadata_source_;

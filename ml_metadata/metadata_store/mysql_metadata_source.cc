@@ -77,8 +77,8 @@ Status ThreadInitAccess() {
 // Checks if config is valid.
 Status CheckConfig(const MySQLDatabaseConfig& config) {
   std::vector<string> config_errors;
-  if (config.host().empty()) {
-    config_errors.push_back("host must not be empty");
+  if (config.host().empty() == config.socket().empty()) {
+    config_errors.push_back("exactly one of host or socket must be specified");
   }
   if (config.database().empty()) {
     config_errors.push_back("database must not be empty");
@@ -109,20 +109,14 @@ Status MySqlMetadataSource::ConnectImpl() {
   // Explicitly setup the thread-local initializer.
   TF_RETURN_IF_ERROR(ThreadInitAccess());
 
-  // Connect via TCP.
-  int protocol = MYSQL_PROTOCOL_TCP;
-  if (mysql_options(db_, MYSQL_OPT_PROTOCOL, &protocol)) {
-    return errors::Internal(
-        "Failed to set connection protocol to MYSQL_PROTOCOL_TCP");
-  }
-
   // Connect to the MYSQL server.
   if (!mysql_real_connect(
-          db_, config_.host().c_str(),
+          db_, config_.host().empty() ? nullptr : config_.host().c_str(),
           config_.user().empty() ? nullptr : config_.user().c_str(),
           config_.password().empty() ? nullptr : config_.password().c_str(),
           /*db=*/nullptr, config_.port(),
-          /*unix_socket=*/nullptr, /*clientflag=*/0UL)) {
+          config_.socket().empty() ? nullptr : config_.socket().c_str(),
+          /*clientflag=*/0UL)) {
     return errors::Internal("mysql_real_connect failed: errno: ",
                             mysql_errno(db_), ", error: ", mysql_error(db_));
   }

@@ -30,6 +30,8 @@ limitations under the License.
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
 
+DEFINE_bool(enable_sockets, true, "Whether to run socket tests.");
+
 namespace ml_metadata {
 namespace testing {
 namespace {
@@ -40,7 +42,10 @@ class MySqlMetadataSourceTest : public ::testing::Test {
  protected:
   void SetUp() override {
     metadata_source_initializer_ = GetTestMySqlMetadataSourceInitializer();
-    metadata_source_ = metadata_source_initializer_->Init();
+    // Use TCP by default. Tests that need other connection types should not use
+    // this test fixture.
+    metadata_source_ = metadata_source_initializer_->Init(
+        TestMySqlMetadataSourceInitializer::ConnectionType::kTcp);
   }
 
   void TearDown() override { metadata_source_initializer_->Cleanup(); }
@@ -67,11 +72,32 @@ class MySqlMetadataSourceTest : public ::testing::Test {
 
   // An unowned TestMySqlMetadataSourceInitializer from a call to
   // GetTestMySqlMetadataSourceInitializer().
-  TestMySqlMetadataSourceInitializer* metadata_source_initializer_;
+  std::unique_ptr<TestMySqlMetadataSourceInitializer>
+      metadata_source_initializer_;
   // An unowned MySqlMetadataSource from a call to
   // metadata_source_initializer->Init().
   MySqlMetadataSource* metadata_source_;
 };
+
+// This test is to verify we can connect to the DB using sockets.
+// We use a fixtureless test to avoid conflicting with the default
+// metadata_source_initializer defined in MySqlMetadataSourceTest.
+TEST(MySqlMetadataSourceSocketTest, TestConnectBySocket) {
+  // TODO(b/140584643) Fix MacOS Kokoro test to enable connecting via sockets.
+  if (!FLAGS_enable_sockets) {
+    GTEST_SKIP() << "Socket tests disabled.";
+  }
+
+  auto metadata_source_initializer = GetTestMySqlMetadataSourceInitializer();
+  auto metadata_source = metadata_source_initializer->Init(
+      TestMySqlMetadataSourceInitializer::ConnectionType::kSocket);
+  TF_ASSERT_OK(metadata_source->Connect());
+  TF_ASSERT_OK(metadata_source->Begin());
+  TF_ASSERT_OK(metadata_source->ExecuteQuery(
+      "CREATE TABLE t1 (c1 INT, c2 VARCHAR(255));", nullptr));
+  TF_ASSERT_OK(metadata_source->Commit());
+  metadata_source_initializer->Cleanup();
+}
 
 TEST_F(MySqlMetadataSourceTest, TestQueryWithoutConnect) {
   Status s =

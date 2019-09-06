@@ -3,6 +3,7 @@
 ## Major Features and Improvements
 
 *   Add Dockerfile for building a containerized version of the MLMD gRPC server.
+*   Add support for connecting to a MYSQL Metadata Source via Unix sockets.
 
 ## Bug Fixes and Other Changes
 

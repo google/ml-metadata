@@ -31,7 +31,8 @@ namespace testing {
 //  protected:
 //   void SetUp() override {
 //     metadata_source_initializer_ = GetTestMySqlMetadataSourceInitializer();
-//     metadata_source_ = metadata_source_initializer_->Init();
+//     metadata_source_ = metadata_source_initializer_->Init(
+//       TestMysqlMetadataSourceInitializer::ConnectionType::kTcp);
 //   }
 //   void TearDown() override { metadata_source_initializer_->Cleanup(); }
 //
@@ -40,10 +41,12 @@ namespace testing {
 // };
 class TestMySqlMetadataSourceInitializer {
  public:
+  enum class ConnectionType { kTcp, kSocket };
+
   virtual ~TestMySqlMetadataSourceInitializer() = default;
 
   // Creates or initializes a MySqlMetadataSource.
-  virtual MySqlMetadataSource* Init() = 0;
+  virtual MySqlMetadataSource* Init(ConnectionType connection_type) = 0;
 
   // Removes any existing MySqlMetadataSource.
   virtual void Cleanup() = 0;
@@ -51,7 +54,8 @@ class TestMySqlMetadataSourceInitializer {
 
 // Returns a TestMySqlMetadataSourceInitializer to init/cleanup a
 // MySqlMetadataSource in tests.
-TestMySqlMetadataSourceInitializer* GetTestMySqlMetadataSourceInitializer();
+std::unique_ptr<TestMySqlMetadataSourceInitializer>
+GetTestMySqlMetadataSourceInitializer();
 
 }  // namespace testing
 }  // namespace ml_metadata

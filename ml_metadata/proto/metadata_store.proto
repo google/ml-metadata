@@ -345,7 +345,10 @@ message DictArtifactStructType {
 message FakeDatabaseConfig {}
 
 message MySQLDatabaseConfig {
-  // The hostname or IP address of the MYSQL server. Must be specified.
+  // The hostname or IP address of the MYSQL server:
+  // * If unspecified, a connection to the local host is assumed.
+  //   The client connects using a Unix socket specified by `socket`.
+  // * Otherwise, TCP/IP is used.
   // Currently a replicated MYSQL backend is not supported.
   optional string host = 1;
   // The TCP Port number that the MYSQL server accepts connections on.
@@ -361,6 +364,9 @@ message MySQLDatabaseConfig {
   // The password to use for `user`. If empty, only MYSQL user ids that don't
   // have a password set are allowed to connect.
   optional string password = 5;
+  // The Unix socket to use to connect to the server. If unspecified, a
+  // `host` must be provided.
+  optional string socket = 6;
 }
 
 // A config contains the parameters when using with SqliteMetadatSource.

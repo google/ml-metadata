@@ -31,6 +31,7 @@ DEFINE_string(host_name, "", "Host name or IP address of the MYSQL server.");
 DEFINE_int32(port, 3306,
              "TCP port number that the MYSQL server accepts connection on. If "
              "not set, the default MYSQL port (3306) is used.");
+DEFINE_string(socket, "", "Unix socket file for connecting to MYSQL server.");
 
 namespace ml_metadata {
 namespace testing {
@@ -44,13 +45,23 @@ class TestStandaloneMySqlMetadataSourceInitializer
   TestStandaloneMySqlMetadataSourceInitializer() = default;
   ~TestStandaloneMySqlMetadataSourceInitializer() override = default;
 
-  MySqlMetadataSource* Init() override {
+  MySqlMetadataSource* Init(ConnectionType connection_type) override {
     MySQLDatabaseConfig config;
     config.set_database(FLAGS_db_name);
     config.set_user(FLAGS_user_name);
     config.set_password(FLAGS_password);
-    config.set_host(FLAGS_host_name);
-    config.set_port(FLAGS_port);
+    switch (connection_type) {
+      case ConnectionType::kTcp:
+        config.set_port(FLAGS_port);
+        config.set_host(FLAGS_host_name);
+        break;
+      case ConnectionType::kSocket:
+        config.set_socket(FLAGS_socket);
+        break;
+      default:
+        QCHECK(false) << "Invalid connection_type: "
+                      << static_cast<int>(connection_type);
+    }
 
     metadata_source_ = absl::make_unique<MySqlMetadataSource>(config);
     TF_CHECK_OK(metadata_source_->Connect());
@@ -68,10 +79,9 @@ class TestStandaloneMySqlMetadataSourceInitializer
   std::unique_ptr<MySqlMetadataSource> metadata_source_;
 };
 
-TestMySqlMetadataSourceInitializer* GetTestMySqlMetadataSourceInitializer() {
-  static auto* const kInitializer =
-      new TestStandaloneMySqlMetadataSourceInitializer();
-  return kInitializer;
+std::unique_ptr<TestMySqlMetadataSourceInitializer>
+GetTestMySqlMetadataSourceInitializer() {
+  return absl::make_unique<TestStandaloneMySqlMetadataSourceInitializer>();
 }
 
 }  // namespace testing
