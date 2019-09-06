@@ -27,9 +27,14 @@ RUN bazel build -c opt --action_env=PATH \
   --define=grpc_no_ares=true \
   //ml_metadata/metadata_store:metadata_store_server
 
+# copying libmysqlclient source onto THIRD_PARTY folder.
+RUN mkdir -p /mlmd-src/third_party
+RUN cp -RL /mlmd-src/bazel-mlmd-src/external/libmysqlclient /mlmd-src/third_party/mariadb-connector-c
+
 FROM ubuntu:18.04
 
 COPY --from=builder /mlmd-src/bazel-bin/ml_metadata/metadata_store/metadata_store_server /bin/metadata_store_server
+COPY --from=builder /mlmd-src/third_party /mlmd-src/third_party
 
 ENV GRPC_PORT "8080"
 ENV METADATA_STORE_SERVER_CONFIG_FILE ""
