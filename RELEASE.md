@@ -4,6 +4,8 @@
 
 *   Add Dockerfile for building a containerized version of the MLMD gRPC server.
 *   Add support for connecting to a MYSQL Metadata Source via Unix sockets.
+*   Add support to pass mysql connection configuration as command line
+    parameters to the MLMD gRPC server.
 
 ## Bug Fixes and Other Changes
 

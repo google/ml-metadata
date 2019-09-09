@@ -75,15 +75,47 @@ void AddGrpcChannelArgs(const string& channel_arguments_str,
   }
 }
 
-// Parses an ascii MetadataStoreServerConfig protobuf from 'file'.
-ml_metadata::MetadataStoreServerConfig ParseMetadataStoreServerConfig(
-    const string& file) {
-  ml_metadata::MetadataStoreServerConfig server_config;
-  TF_CHECK_OK(tensorflow::ReadTextProto(tensorflow::Env::Default(), file,
-                                        &server_config));
-  return server_config;
+// Parses config file if provided and returns true if it is successful in
+// populating service_config.
+bool ParseMetadataStoreServerConfigOrDie(
+    const std::string& filename,
+    ml_metadata::MetadataStoreServerConfig* server_config) {
+  if (filename.empty()) {
+    return false;
+  }
+
+  TF_CHECK_OK(tensorflow::ReadTextProto(tensorflow::Env::Default(), filename,
+                                        server_config));
+  return true;
 }
 
+// Returns true if passed parameters were used to construct mysql connection
+// config and set it to service_config. Returns false if host, port and database
+// were set and dies if only some of them were provided.
+bool ParseMySQLFlagsBasedServerConfigOrDie(
+    const std::string& host, const int port, const std::string& database,
+    const std::string& user, const std::string& password,
+    ml_metadata::MetadataStoreServerConfig* server_config) {
+  if (host.empty() && database.empty() && port == 0) {
+    return false;
+  }
+
+  CHECK(!host.empty() && database.empty() && port > 0)
+      << "To use mysql store, all of --mysql_config_host, "
+         "--mysql_config_port, --mysql_config "
+         "database needs to be provided";
+
+  ml_metadata::ConnectionConfig* connection_config =
+      server_config->mutable_connection_config();
+  ml_metadata::MySQLDatabaseConfig* config = connection_config->mutable_mysql();
+  config->set_host(host);
+  config->set_port(port);
+  config->set_database(database);
+  config->set_user(user);
+  config->set_password(password);
+
+  return true;
+}
 }  // namespace
 
 // gRPC server options
@@ -96,7 +128,26 @@ DEFINE_string(grpc_channel_arguments, "",
 DEFINE_string(metadata_store_server_config_file, "",
               "If non-empty, read an ascii MetadataStoreServerConfig protobuf "
               "from the file name to connect to the specified metadata source "
-              "and set up a secure gRPC channel");
+              "and set up a secure gRPC channel. If provided overrides the "
+              "--mysql* configuration");
+
+// MySQL config command line options
+DEFINE_string(mysql_config_host, "",
+              "The mysql hostname to use. If non-empty, works in conjunction "
+              "with --mysql_config_port & "
+              "--mysql_config_database, to provide MySQL configuration");
+DEFINE_int32(mysql_config_port, 0,
+             "The mysql port to use. If non-empty, works in conjunction with "
+             "--mysql_config_host & "
+             "--mysql_config_database, to provide mysql store configuration");
+DEFINE_string(mysql_config_database, "",
+              "The mysql database to use. If non-empty, works in conjunction "
+              "with --mysql_config_host & "
+              "--mysql_config_port, to provide MySQL configuration");
+DEFINE_string(mysql_config_user, "",
+              "The mysql user name to use (Optional parameter)");
+DEFINE_string(mysql_config_password, "",
+              "The mysql user password to use (Optional parameter)");
 
 int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -108,18 +159,18 @@ int main(int argc, char** argv) {
 
   ml_metadata::MetadataStoreServerConfig server_config;
   ml_metadata::ConnectionConfig connection_config;
-  // try to create the server config from the given file
-  if (!FLAGS_metadata_store_server_config_file.empty()) {
-    server_config =
-        ParseMetadataStoreServerConfig(FLAGS_metadata_store_server_config_file);
-  }
 
-  if (server_config.has_connection_config()) {
-    connection_config = server_config.connection_config();
-  } else {
+  if (!ParseMetadataStoreServerConfigOrDie(
+          FLAGS_metadata_store_server_config_file, &server_config) &&
+      !ParseMySQLFlagsBasedServerConfigOrDie(
+          FLAGS_mysql_config_host, FLAGS_mysql_config_port,
+          FLAGS_mysql_config_database, FLAGS_mysql_config_user,
+          FLAGS_mysql_config_password, &server_config)) {
     LOG(WARNING) << "The connection_config is not given. Using in memory fake "
                     "database, any metadata will not be persistent";
     connection_config.mutable_fake_database();
+  } else {
+    connection_config = server_config.connection_config();
   }
 
   std::unique_ptr<ml_metadata::MetadataStore> metadata_store;
