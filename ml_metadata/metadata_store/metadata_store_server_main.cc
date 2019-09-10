@@ -100,7 +100,7 @@ bool ParseMySQLFlagsBasedServerConfigOrDie(
     return false;
   }
 
-  CHECK(!host.empty() && database.empty() && port > 0)
+  CHECK(!host.empty() && !database.empty() && port > 0)
       << "To use mysql store, all of --mysql_config_host, "
          "--mysql_config_port, --mysql_config "
          "database needs to be provided";
