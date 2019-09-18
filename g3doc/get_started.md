@@ -116,7 +116,8 @@ from the storage backend.
     projects, pipeline runs, experiments, owners.
 *   `Context` is an instances of a `ContextType`. It captures the shared
     information within the group. For example: project name, changelist commit
-    id, experiment annotations.
+    id, experiment annotations. It has a user-defined unique name within its
+    `ContextType`.
 *   `Attribution` is a record of the relationship between Artifacts and
     Contexts.
 *   `Association` is a record of the relationship between Executions and
@@ -243,7 +244,9 @@ experiment_type_id = store.put_context_type(experiment_type)
 
 # Group the model and the trainer run to an experiment.
 my_experiment = metadata_store_pb2.Context()
-my_experiment.type_id = experiment_type_id;
+my_experiment.type_id = experiment_type_id
+# Give the experiment a name
+my_experiment.name = "exp1"
 my_experiment.properties["note"].string_value = "My first experiment."
 experiment_id = store.put_contexts([my_experiment])
 
