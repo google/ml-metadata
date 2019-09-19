@@ -79,7 +79,8 @@ def ml_metadata_proto_library_py(
         deps = [],
         visibility = None,
         testonly = 0,
-        oss_deps = []):
+        oss_deps = [],
+        use_grpc_plugin = False):
     """Opensource py_proto_library."""
     _ignore = [proto_library, api_version, oss_deps]
     py_proto_library(
@@ -91,6 +92,7 @@ def ml_metadata_proto_library_py(
         protoc = "@protobuf_archive//:protoc",
         visibility = visibility,
         testonly = testonly,
+        use_grpc_plugin = use_grpc_plugin,
     )
 
 def ml_metadata_proto_library_go(

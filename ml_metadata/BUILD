@@ -8,5 +8,6 @@ sh_binary(
         "//ml_metadata/metadata_store:pywrap_tf_metadata_store_serialized.py",
         "//ml_metadata/proto:metadata_store_pb2.py",
         "//ml_metadata/proto:metadata_store_service_pb2.py",
+        "//ml_metadata/proto:metadata_store_service_pb2_grpc.py",
     ],
 )

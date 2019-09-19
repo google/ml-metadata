@@ -23,11 +23,13 @@ from __future__ import division
 from __future__ import print_function
 
 from absl import logging
-from typing import List, Optional, Sequence, Text, Tuple
+import grpc
+from typing import List, Optional, Sequence, Text, Tuple, Union
 
 from ml_metadata.metadata_store import pywrap_tf_metadata_store_serialized as metadata_store_serialized
 from ml_metadata.proto import metadata_store_pb2
 from ml_metadata.proto import metadata_store_service_pb2
+from ml_metadata.proto import metadata_store_service_pb2_grpc
 from tensorflow.python.framework import errors
 
 
@@ -43,14 +45,85 @@ def _make_exception(message, error_code):
 class MetadataStore(object):
   """A store for the artifact metadata."""
 
-  def __init__(self, config: metadata_store_pb2.ConnectionConfig):
-    self._metadata_store = metadata_store_serialized.CreateMetadataStore(
-        config.SerializeToString())
-    # If you remove this line, errors are not thrown correctly.
-    logging.log(logging.INFO, "MetadataStore initialized")
+  def __init__(self,
+               config: Union[metadata_store_pb2.ConnectionConfig,
+                             metadata_store_pb2.MetadataStoreClientConfig]):
+    """Initialize the MetadataStore.
+
+    MetadataStore can directly connect to either the metadata database or
+    the metadata store server.
+
+    Args:
+      config: metadata_store_pb2.ConnectionConfig or
+        metadata_store_pb2.MetadataStoreClientConfig. Configuration to
+        connect to the database or the metadata store server.
+    """
+    if isinstance(config, metadata_store_pb2.ConnectionConfig):
+      self._using_db_connection = True
+      self._metadata_store = metadata_store_serialized.CreateMetadataStore(
+          config.SerializeToString())
+      # If you remove this line, errors are not thrown correctly.
+      logging.log(logging.INFO, 'MetadataStore with DB connection initialized')
+      return
+    if not isinstance(config, metadata_store_pb2.MetadataStoreClientConfig):
+      raise ValueError('MetadataStore is expecting either'
+                       'metadata_store_pb2.ConnectionConfig or'
+                       'metadata_store_pb2.MetadataStoreClientConfig')
+    self._using_db_connection = False
+    target = ':'.join([config.host, str(config.port)])
+    channel = self._get_channel(config, target)
+    self._metadata_store_stub = (metadata_store_service_pb2_grpc.
+                                 MetadataStoreServiceStub(channel))
+    logging.log(logging.INFO, 'MetadataStore with gRPC connection initialized')
+
+  def _get_channel(self, config: metadata_store_pb2.MetadataStoreClientConfig,
+                   target: Text):
+    """Configures the channel, which could be secure or insecure.
+
+    It returns a channel that can be specified to be secure or insecure,
+    depending on whether ssl_config is specified in the config.
+
+    Args:
+      config: metadata_store_pb2.MetadataStoreClientConfig.
+      target: target host with port.
+
+    Returns:
+      an initialized gRPC channel.
+    """
+    if not config.HasField('ssl_config'):
+      return grpc.insecure_channel(target)
+
+    root_certificates = None
+    private_key = None
+    certificate_chain = None
+    if config.ssl_config.HasField('custom_ca'):
+      root_certificates = config.ssl_config.custom_ca
+    if config.ssl_config.HasField('client_key'):
+      private_key = config.ssl_config.client_key
+    if config.ssl_config.HasField('server_cert'):
+      certificate_chain = config.ssl_config.server_cert
+    credentials = grpc.ssl_channel_credentials(root_certificates, private_key,
+                                               certificate_chain)
+    return grpc.secure_channel(target, credentials)
 
   def __del__(self):
-    metadata_store_serialized.DestroyMetadataStore(self._metadata_store)
+    if self._using_db_connection:
+      metadata_store_serialized.DestroyMetadataStore(self._metadata_store)
+
+  def _call(self, method_name, request, response) -> None:
+    """Calls method using SWIG or gRPC.
+
+    Args:
+      method_name: the method to call in SWIG or gRPC.
+      request: a protobuf message, serialized and sent to the method.
+      response: a protobuf message, filled from the return value of the method.
+    """
+    if self._using_db_connection:
+      swig_method = getattr(metadata_store_serialized, method_name)
+      self._swig_call(swig_method, request, response)
+    else:
+      grpc_method = getattr(self._metadata_store_stub, method_name)
+      response = grpc_method(request)
 
   def _swig_call(self, method, request, response) -> None:
     """Calls method, serializing and deserializing inputs and outputs.
@@ -95,7 +168,8 @@ class MetadataStore(object):
     for x in artifacts:
       request.artifacts.add().CopyFrom(x)
     response = metadata_store_service_pb2.PutArtifactsResponse()
-    self._swig_call(metadata_store_serialized.PutArtifacts, request, response)
+
+    self._call('PutArtifacts', request, response)
     result = []
     for x in response.artifact_ids:
       result.append(x)
@@ -154,8 +228,8 @@ class MetadataStore(object):
     request.all_fields_match = all_fields_match
     request.artifact_type.CopyFrom(artifact_type)
     response = metadata_store_service_pb2.PutArtifactTypeResponse()
-    self._swig_call(metadata_store_serialized.PutArtifactType, request,
-                    response)
+
+    self._call('PutArtifactType', request, response)
     return response.type_id
 
   def create_artifact_with_type(
@@ -208,7 +282,8 @@ class MetadataStore(object):
     for x in executions:
       request.executions.add().CopyFrom(x)
     response = metadata_store_service_pb2.PutExecutionsResponse()
-    self._swig_call(metadata_store_serialized.PutExecutions, request, response)
+
+    self._call('PutExecutions', request, response)
     result = []
     for x in response.execution_ids:
       result.append(x)
@@ -264,8 +339,8 @@ class MetadataStore(object):
     request.all_fields_match = all_fields_match
     request.execution_type.CopyFrom(execution_type)
     response = metadata_store_service_pb2.PutExecutionTypeResponse()
-    self._swig_call(metadata_store_serialized.PutExecutionType, request,
-                    response)
+
+    self._call('PutExecutionType', request, response)
     return response.type_id
 
   def put_contexts(self,
@@ -289,7 +364,8 @@ class MetadataStore(object):
     for x in contexts:
       request.contexts.add().CopyFrom(x)
     response = metadata_store_service_pb2.PutContextsResponse()
-    self._swig_call(metadata_store_serialized.PutContexts, request, response)
+
+    self._call('PutContexts', request, response)
     result = []
     for x in response.context_ids:
       result.append(x)
@@ -348,7 +424,7 @@ class MetadataStore(object):
     request.all_fields_match = all_fields_match
     request.context_type.CopyFrom(context_type)
     response = metadata_store_service_pb2.PutContextTypeResponse()
-    self._swig_call(metadata_store_serialized.PutContextType, request, response)
+    self._call('PutContextType', request, response)
     return response.type_id
 
   def put_events(self, events: Sequence[metadata_store_pb2.Event]) -> None:
@@ -365,7 +441,7 @@ class MetadataStore(object):
       request.events.add().CopyFrom(x)
     response = metadata_store_service_pb2.PutEventsResponse()
 
-    self._swig_call(metadata_store_serialized.PutEvents, request, response)
+    self._call('PutEvents', request, response)
 
   def put_execution(
       self, execution: metadata_store_pb2.Execution,
@@ -396,7 +472,7 @@ class MetadataStore(object):
         artifact_and_event.event.CopyFrom(pair[1])
     response = metadata_store_service_pb2.PutExecutionResponse()
 
-    self._swig_call(metadata_store_serialized.PutExecution, request, response)
+    self._call('PutExecution', request, response)
     artifact_ids = []
     for x in response.artifact_ids:
       artifact_ids.append(x)
@@ -408,8 +484,8 @@ class MetadataStore(object):
     request = metadata_store_service_pb2.GetArtifactsByTypeRequest()
     request.type_name = type_name
     response = metadata_store_service_pb2.GetArtifactsByTypeResponse()
-    self._swig_call(metadata_store_serialized.GetArtifactsByType, request,
-                    response)
+
+    self._call('GetArtifactsByType', request, response)
     result = []
     for x in response.artifacts:
       result.append(x)
@@ -421,8 +497,8 @@ class MetadataStore(object):
     request = metadata_store_service_pb2.GetArtifactsByURIRequest()
     request.uri = uri
     response = metadata_store_service_pb2.GetArtifactsByURIResponse()
-    self._swig_call(metadata_store_serialized.GetArtifactsByURI, request,
-                    response)
+
+    self._call('GetArtifactsByURI', request, response)
     result = []
     for x in response.artifacts:
       result.append(x)
@@ -444,8 +520,8 @@ class MetadataStore(object):
     for x in artifact_ids:
       request.artifact_ids.append(x)
     response = metadata_store_service_pb2.GetArtifactsByIDResponse()
-    self._swig_call(metadata_store_serialized.GetArtifactsByID, request,
-                    response)
+
+    self._call('GetArtifactsByID', request, response)
     result = []
     for x in response.artifacts:
       result.append(x)
@@ -468,8 +544,8 @@ class MetadataStore(object):
     request = metadata_store_service_pb2.GetArtifactTypeRequest()
     request.type_name = type_name
     response = metadata_store_service_pb2.GetArtifactTypeResponse()
-    self._swig_call(metadata_store_serialized.GetArtifactType, request,
-                    response)
+
+    self._call('GetArtifactType', request, response)
     return response.artifact_type
 
   def get_artifact_types(self) -> List[metadata_store_pb2.ArtifactType]:
@@ -483,9 +559,8 @@ class MetadataStore(object):
     """
     request = metadata_store_service_pb2.GetArtifactTypesRequest()
     response = metadata_store_service_pb2.GetArtifactTypesResponse()
-    self._swig_call(metadata_store_serialized.GetArtifactTypes, request,
-                    response)
 
+    self._call('GetArtifactTypes', request, response)
     result = []
     for x in response.artifact_types:
       result.append(x)
@@ -508,8 +583,8 @@ class MetadataStore(object):
     request = metadata_store_service_pb2.GetExecutionTypeRequest()
     request.type_name = type_name
     response = metadata_store_service_pb2.GetExecutionTypeResponse()
-    self._swig_call(metadata_store_serialized.GetExecutionType, request,
-                    response)
+
+    self._call('GetExecutionType', request, response)
     return response.execution_type
 
   def get_execution_types(self) -> List[metadata_store_pb2.ExecutionType]:
@@ -523,9 +598,8 @@ class MetadataStore(object):
     """
     request = metadata_store_service_pb2.GetExecutionTypesRequest()
     response = metadata_store_service_pb2.GetExecutionTypesResponse()
-    self._swig_call(metadata_store_serialized.GetExecutionTypes, request,
-                    response)
 
+    self._call('GetExecutionTypes', request, response)
     result = []
     for x in response.execution_types:
       result.append(x)
@@ -548,7 +622,8 @@ class MetadataStore(object):
     request = metadata_store_service_pb2.GetContextTypeRequest()
     request.type_name = type_name
     response = metadata_store_service_pb2.GetContextTypeResponse()
-    self._swig_call(metadata_store_serialized.GetContextType, request, response)
+
+    self._call('GetContextType', request, response)
     return response.context_type
 
   def get_executions_by_type(
@@ -557,8 +632,8 @@ class MetadataStore(object):
     request = metadata_store_service_pb2.GetExecutionsByTypeRequest()
     request.type_name = type_name
     response = metadata_store_service_pb2.GetExecutionsByTypeResponse()
-    self._swig_call(metadata_store_serialized.GetExecutionsByType, request,
-                    response)
+
+    self._call('GetExecutionsByType', request, response)
     result = []
     for x in response.executions:
       result.append(x)
@@ -580,8 +655,8 @@ class MetadataStore(object):
     for x in execution_ids:
       request.execution_ids.append(x)
     response = metadata_store_service_pb2.GetExecutionsByIDResponse()
-    self._swig_call(metadata_store_serialized.GetExecutionsByID, request,
-                    response)
+
+    self._call('GetExecutionsByID', request, response)
     result = []
     for x in response.executions:
       result.append(x)
@@ -598,7 +673,8 @@ class MetadataStore(object):
     """
     request = metadata_store_service_pb2.GetExecutionsRequest()
     response = metadata_store_service_pb2.GetExecutionsResponse()
-    self._swig_call(metadata_store_serialized.GetExecutions, request, response)
+
+    self._call('GetExecutions', request, response)
     result = []
     for x in response.executions:
       result.append(x)
@@ -615,7 +691,8 @@ class MetadataStore(object):
     """
     request = metadata_store_service_pb2.GetArtifactsRequest()
     response = metadata_store_service_pb2.GetArtifactsResponse()
-    self._swig_call(metadata_store_serialized.GetArtifacts, request, response)
+
+    self._call('GetArtifacts', request, response)
     result = []
     for x in response.artifacts:
       result.append(x)
@@ -632,7 +709,8 @@ class MetadataStore(object):
     """
     request = metadata_store_service_pb2.GetContextsRequest()
     response = metadata_store_service_pb2.GetContextsResponse()
-    self._swig_call(metadata_store_serialized.GetContexts, request, response)
+
+    self._call('GetContexts', request, response)
     result = []
     for x in response.contexts:
       result.append(x)
@@ -654,8 +732,8 @@ class MetadataStore(object):
     for x in context_ids:
       request.context_ids.append(x)
     response = metadata_store_service_pb2.GetContextsByIDResponse()
-    self._swig_call(metadata_store_serialized.GetContextsByID, request,
-                    response)
+
+    self._call('GetContextsByID', request, response)
     result = []
     for x in response.contexts:
       result.append(x)
@@ -667,8 +745,8 @@ class MetadataStore(object):
     request = metadata_store_service_pb2.GetContextsByTypeRequest()
     request.type_name = type_name
     response = metadata_store_service_pb2.GetContextsByTypeResponse()
-    self._swig_call(metadata_store_serialized.GetContextsByType, request,
-                    response)
+
+    self._call('GetContextsByType', request, response)
     result = []
     for x in response.contexts:
       result.append(x)
@@ -691,8 +769,8 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetArtifactTypesByIDResponse()
     for x in type_ids:
       request.type_ids.append(x)
-    self._swig_call(metadata_store_serialized.GetArtifactTypesByID, request,
-                    response)
+
+    self._call('GetArtifactTypesByID', request, response)
     result = []
     for x in response.artifact_types:
       result.append(x)
@@ -718,8 +796,8 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetExecutionTypesByIDResponse()
     for x in type_ids:
       request.type_ids.append(x)
-    self._swig_call(metadata_store_serialized.GetExecutionTypesByID, request,
-                    response)
+
+    self._call('GetExecutionTypesByID', request, response)
     result = []
     for x in response.execution_types:
       result.append(x)
@@ -745,8 +823,8 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetContextTypesByIDResponse()
     for x in type_ids:
       request.type_ids.append(x)
-    self._swig_call(metadata_store_serialized.GetContextTypesByID, request,
-                    response)
+
+    self._call('GetContextTypesByID', request, response)
     result = []
     for x in response.context_types:
       result.append(x)
@@ -772,9 +850,7 @@ class MetadataStore(object):
       request.associations.add().CopyFrom(x)
     response = metadata_store_service_pb2.PutAttributionsAndAssociationsResponse(
     )
-
-    self._swig_call(metadata_store_serialized.PutAttributionsAndAssociations,
-                    request, response)
+    self._call('PutAttributionsAndAssociations', request, response)
 
   def get_contexts_by_artifact(
       self, artifact_id: int) -> List[metadata_store_pb2.Context]:
@@ -790,8 +866,7 @@ class MetadataStore(object):
     request.artifact_id = artifact_id
     response = metadata_store_service_pb2.GetContextsByArtifactResponse()
 
-    self._swig_call(metadata_store_serialized.GetContextsByArtifact, request,
-                    response)
+    self._call('GetContextsByArtifact', request, response)
     result = []
     for x in response.contexts:
       result.append(x)
@@ -811,8 +886,7 @@ class MetadataStore(object):
     request.execution_id = execution_id
     response = metadata_store_service_pb2.GetContextsByExecutionResponse()
 
-    self._swig_call(metadata_store_serialized.GetContextsByExecution, request,
-                    response)
+    self._call('GetContextsByExecution', request, response)
     result = []
     for x in response.contexts:
       result.append(x)
@@ -832,8 +906,7 @@ class MetadataStore(object):
     request.context_id = context_id
     response = metadata_store_service_pb2.GetArtifactsByContextResponse()
 
-    self._swig_call(metadata_store_serialized.GetArtifactsByContext, request,
-                    response)
+    self._call('GetArtifactsByContext', request, response)
     result = []
     for x in response.artifacts:
       result.append(x)
@@ -853,8 +926,7 @@ class MetadataStore(object):
     request.context_id = context_id
     response = metadata_store_service_pb2.GetExecutionsByContextResponse()
 
-    self._swig_call(metadata_store_serialized.GetExecutionsByContext, request,
-                    response)
+    self._call('GetExecutionsByContext', request, response)
     result = []
     for x in response.executions:
       result.append(x)
@@ -877,8 +949,8 @@ class MetadataStore(object):
     for x in execution_ids:
       request.execution_ids.append(x)
     response = metadata_store_service_pb2.GetEventsByExecutionIDsResponse()
-    self._swig_call(metadata_store_serialized.GetEventsByExecutionIDs, request,
-                    response)
+
+    self._call('GetEventsByExecutionIDs', request, response)
     result = []
     for x in response.events:
       result.append(x)
@@ -902,8 +974,8 @@ class MetadataStore(object):
     for x in artifact_ids:
       request.artifact_ids.append(x)
     response = metadata_store_service_pb2.GetEventsByArtifactIDsResponse()
-    self._swig_call(metadata_store_serialized.GetEventsByArtifactIDs, request,
-                    response)
+
+    self._call('GetEventsByArtifactIDs', request, response)
     result = []
     for x in response.events:
       result.append(x)

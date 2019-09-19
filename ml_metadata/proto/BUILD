@@ -58,6 +58,7 @@ ml_metadata_proto_library_py(
     api_version = 2,
     oss_deps = [":metadata_store_py_pb2"],
     proto_library = "metadata_store_service_proto",
+    use_grpc_plugin = True,
 )
 
 ml_metadata_proto_library_go(

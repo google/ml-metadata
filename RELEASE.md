@@ -6,6 +6,9 @@
 *   Add support for connecting to a MYSQL Metadata Source via Unix sockets.
 *   Add support to pass mysql connection configuration as command line
     parameters to the MLMD gRPC server.
+*   Provides the ability for metadata_store.py to communicate with the MLMD gRPC
+    server, as an alternative to connecting directly with a database.
+
 
 ## Bug Fixes and Other Changes
 

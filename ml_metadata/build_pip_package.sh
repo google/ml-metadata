@@ -39,6 +39,8 @@ cp -f ml_metadata/proto/metadata_store_pb2.py \
   ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
 cp -f ml_metadata/proto/metadata_store_service_pb2.py \
   ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
+cp -f ml_metadata/proto/metadata_store_service_pb2_grpc.py \
+  ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
 
 cp -f ml_metadata
   ${BUILD_WORKSPACE_DIRECTORY}/src

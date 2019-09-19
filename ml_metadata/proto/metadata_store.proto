@@ -411,6 +411,28 @@ message ConnectionConfig {
   }
 }
 
+// Configuration for the gRPC metadata store client.
+message MetadataStoreClientConfig {
+  // The hostname or IP address of the gRPC server. Must be specified.
+  optional string host = 1;
+  // The TCP Port number that the gRPC server accepts connections on.
+  // Must be specified.
+  optional uint32 port = 2;
+
+  message SSLConfig {
+    // Private client key for SSL
+    optional string client_key = 1;
+    // Public server certificate
+    optional string server_cert = 2;
+    // Custom certificate authority
+    optional string custom_ca = 3;
+  }
+
+  // Configuration for a secure gRPC channel.
+  // If not given, insecure connection is used.
+  optional SSLConfig ssl_config = 3;
+}
+
 // Configuration for the gRPC metadata store server.
 message MetadataStoreServerConfig {
   // Configuration to connect the metadata source backend.
