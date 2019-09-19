@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 from absl.testing import absltest
-
 from ml_metadata.metadata_store import metadata_store
 from ml_metadata.proto import metadata_store_pb2
 from tensorflow.python.framework import errors
