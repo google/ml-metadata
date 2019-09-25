@@ -181,7 +181,7 @@ run
 ```python
 # Register the Execution of a Trainer run
 trainer_run = metadata_store_pb2.Execution()
-trainer_run.type_id = trainer_type_id;
+trainer_run.type_id = trainer_type_id
 trainer_run.properties["state"].string_value = "RUNNING"
 run_id = store.put_executions([trainer_run])
 ```
