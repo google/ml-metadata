@@ -123,7 +123,7 @@ class MetadataStore(object):
       self._swig_call(swig_method, request, response)
     else:
       grpc_method = getattr(self._metadata_store_stub, method_name)
-      response = grpc_method(request)
+      response.CopyFrom(grpc_method(request))
 
   def _swig_call(self, method, request, response) -> None:
     """Calls method, serializing and deserializing inputs and outputs.
