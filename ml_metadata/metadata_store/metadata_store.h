@@ -169,10 +169,10 @@ class MetadataStore {
   tensorflow::Status GetContextType(const GetContextTypeRequest& request,
                                     GetContextTypeResponse* response);
 
-  // Bulk inserts a list of artifact types and executions types atomically.
-  // If the type with the same name already exists, it compares given properties
-  // in the existed type. If all property matches, then the existing id is
-  // returned.
+  // Bulk inserts a list of types atomically. The types could be artifact
+  // type, execution type, or context type. If the type with the same name
+  // already exists, it compares given properties in the existed type. If all
+  // property matches, then the existing id is returned.
   // Returns ALREADY_EXISTS if any of the type to be inserted is different from
   //     the type with the same name existed.
   // Returns INVALID_ARGUMENT if the given type message has no name, or the

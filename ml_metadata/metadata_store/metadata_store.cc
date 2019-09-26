@@ -101,19 +101,31 @@ tensorflow::Status MetadataStore::InitMetadataStoreIfNotExists() {
 
 tensorflow::Status MetadataStore::PutTypes(const PutTypesRequest& request,
                                            PutTypesResponse* response) {
+  if (request.can_delete_fields()) {
+    return tensorflow::errors::Unimplemented("Cannot remove fields.");
+  }
+  if (!request.all_fields_match()) {
+    return tensorflow::errors::Unimplemented("Must match all fields.");
+  }
   ScopedTransaction transaction(metadata_source_.get());
   for (const ArtifactType& artifact_type : request.artifact_types()) {
     int64 artifact_type_id;
     TF_RETURN_IF_ERROR(UpsertType(metadata_access_object_.get(), artifact_type,
-                                  /*can_add_fields=*/false, &artifact_type_id));
+                                  request.can_add_fields(), &artifact_type_id));
     response->add_artifact_type_ids(artifact_type_id);
   }
   for (const ExecutionType& execution_type : request.execution_types()) {
     int64 execution_type_id;
     TF_RETURN_IF_ERROR(UpsertType(metadata_access_object_.get(), execution_type,
-                                  /*can_add_fields=*/false,
+                                  request.can_add_fields(),
                                   &execution_type_id));
     response->add_execution_type_ids(execution_type_id);
+  }
+  for (const ContextType& context_type : request.context_types()) {
+    int64 context_type_id;
+    TF_RETURN_IF_ERROR(UpsertType(metadata_access_object_.get(), context_type,
+                                  request.can_add_fields(), &context_type_id));
+    response->add_context_type_ids(context_type_id);
   }
   return transaction.Commit();
 }

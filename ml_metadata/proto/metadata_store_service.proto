@@ -72,7 +72,7 @@ message PutArtifactTypeRequest {
 
   // if true, and an artifact type with the same name exists, then all
   // fields must match.
-  optional bool all_fields_match = 4;
+  optional bool all_fields_match = 4 [default = true];
 }
 
 message PutArtifactTypeResponse {
@@ -103,7 +103,7 @@ message PutExecutionTypeRequest {
 
   // if true, and an artifact type with the same name exists, then all
   // fields must match.
-  optional bool all_fields_match = 4;
+  optional bool all_fields_match = 4 [default = true];
 }
 
 message PutExecutionTypeResponse {
@@ -147,6 +147,19 @@ message PutExecutionResponse {
 message PutTypesRequest {
   repeated ArtifactType artifact_types = 1;
   repeated ExecutionType execution_types = 2;
+  repeated ContextType context_types = 3;
+
+  // if true, you can add fields with this operation. If false,
+  // then if there are more fields of the type in the database, the call fails.
+  optional bool can_add_fields = 4;
+
+  // if true, you can remove fields with this operation. If false, then if
+  // there are more fields.
+  optional bool can_delete_fields = 5;
+
+  // if true, and an artifact type with the same name exists, then all fields
+  // must match.
+  optional bool all_fields_match = 6 [default = true];
 }
 
 message PutTypesResponse {
@@ -154,6 +167,8 @@ message PutTypesResponse {
   repeated int64 artifact_type_ids = 1;
   // The type ids of the execution type.
   repeated int64 execution_type_ids = 2;
+  // The type ids of the context type.
+  repeated int64 context_type_ids = 3;
 }
 
 message PutContextTypeRequest {
@@ -169,7 +184,7 @@ message PutContextTypeRequest {
 
   // if true, and a context_type with the same name exists, then all fields
   // must match.
-  optional bool all_fields_match = 4;
+  optional bool all_fields_match = 4 [default = true];
 }
 
 message PutContextTypeResponse {

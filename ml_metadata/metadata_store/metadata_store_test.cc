@@ -31,6 +31,7 @@ namespace ml_metadata {
 namespace {
 
 using ::ml_metadata::testing::ParseTextProtoOrDie;
+using ::testing::SizeIs;
 
 class MetadataStoreTest : public ::testing::Test {
  protected:
@@ -410,7 +411,7 @@ TEST_F(MetadataStoreTest, PutArtifactTypeGetArtifactTypesByID) {
   get_request.add_type_ids(put_response.type_id());
   TF_ASSERT_OK(
       metadata_store_->GetArtifactTypesByID(get_request, &get_response));
-  ASSERT_EQ(get_response.artifact_types_size(), 1);
+  ASSERT_THAT(get_response.artifact_types(), SizeIs(1));
   const ArtifactType& result = get_response.artifact_types(0);
   EXPECT_EQ(put_response.type_id(), result.id())
       << "Type ID should be the same as the type created.";
@@ -428,7 +429,7 @@ TEST_F(MetadataStoreTest, GetArtifactTypesByIDMissing) {
   get_request.add_type_ids(12);
   TF_ASSERT_OK(
       metadata_store_->GetArtifactTypesByID(get_request, &get_response));
-  ASSERT_EQ(get_response.artifact_types_size(), 0);
+  ASSERT_THAT(get_response.artifact_types(), SizeIs(0));
 }
 
 TEST_F(MetadataStoreTest, PutArtifactTypeGetArtifactTypesByIDTwo) {
@@ -465,7 +466,7 @@ TEST_F(MetadataStoreTest, PutArtifactTypeGetArtifactTypesByIDTwo) {
   get_request.add_type_ids(put_response_2.type_id());
   TF_ASSERT_OK(
       metadata_store_->GetArtifactTypesByID(get_request, &get_response));
-  ASSERT_EQ(get_response.artifact_types_size(), 2);
+  ASSERT_THAT(get_response.artifact_types(), SizeIs(2));
   const ArtifactType& result_1 = get_response.artifact_types(0);
   const ArtifactType& result_2 = get_response.artifact_types(1);
   ArtifactType expected_result_1 = put_request_1.artifact_type();
@@ -497,7 +498,7 @@ TEST_F(MetadataStoreTest, PutExecutionTypeGetExecutionTypesByID) {
   get_request.add_type_ids(put_response.type_id());
   TF_ASSERT_OK(
       metadata_store_->GetExecutionTypesByID(get_request, &get_response));
-  ASSERT_EQ(get_response.execution_types_size(), 1);
+  ASSERT_THAT(get_response.execution_types(), SizeIs(1));
   const ExecutionType& result = get_response.execution_types(0);
   EXPECT_EQ(put_response.type_id(), result.id())
       << "Type ID should be the same as the type created.";
@@ -515,7 +516,7 @@ TEST_F(MetadataStoreTest, GetExecutionTypesByIDMissing) {
   get_request.add_type_ids(12);
   TF_ASSERT_OK(
       metadata_store_->GetExecutionTypesByID(get_request, &get_response));
-  ASSERT_EQ(get_response.execution_types_size(), 0);
+  ASSERT_THAT(get_response.execution_types(), SizeIs(0));
 }
 
 TEST_F(MetadataStoreTest, PutExecutionTypeGetExecutionTypesByIDTwo) {
@@ -552,7 +553,7 @@ TEST_F(MetadataStoreTest, PutExecutionTypeGetExecutionTypesByIDTwo) {
   get_request.add_type_ids(put_response_2.type_id());
   TF_ASSERT_OK(
       metadata_store_->GetExecutionTypesByID(get_request, &get_response));
-  ASSERT_EQ(get_response.execution_types_size(), 2);
+  ASSERT_THAT(get_response.execution_types(), SizeIs(2));
   const ExecutionType& result_1 = get_response.execution_types(0);
   const ExecutionType& result_2 = get_response.execution_types(1);
   ExecutionType expected_result_1 = put_request_1.execution_type();
@@ -598,7 +599,7 @@ TEST_F(MetadataStoreTest, PutArtifactsGetArtifactsByID) {
 
   TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request,
                                              &put_artifacts_response));
-  ASSERT_EQ(put_artifacts_response.artifact_ids_size(), 1);
+  ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(1));
   const int64 artifact_id = put_artifacts_response.artifact_ids(0);
   GetArtifactsByIDRequest get_artifacts_by_id_request;
   get_artifacts_by_id_request.add_artifact_ids(artifact_id);
@@ -643,7 +644,7 @@ TEST_F(MetadataStoreTest, PutArtifactsUpdateGetArtifactsByID) {
   PutArtifactsResponse put_artifacts_response;
   TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request,
                                              &put_artifacts_response));
-  ASSERT_EQ(put_artifacts_response.artifact_ids_size(), 1);
+  ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(1));
   const int64 artifact_id = put_artifacts_response.artifact_ids(0);
 
   // Now we change 3 to 2.
@@ -669,7 +670,7 @@ TEST_F(MetadataStoreTest, PutArtifactsUpdateGetArtifactsByID) {
   GetArtifactsByIDResponse get_artifacts_by_id_response;
   TF_ASSERT_OK(metadata_store_->GetArtifactsByID(
       get_artifacts_by_id_request, &get_artifacts_by_id_response));
-  ASSERT_EQ(get_artifacts_by_id_response.artifacts_size(), 1);
+  ASSERT_THAT(get_artifacts_by_id_response.artifacts(), SizeIs(1));
   EXPECT_THAT(get_artifacts_by_id_response.artifacts(0),
               testing::EqualsProto(put_artifacts_request_2.artifacts(0)));
 }
@@ -705,7 +706,7 @@ TEST_F(MetadataStoreTest, PutExecutionsUpdateGetExecutionsByID) {
   PutExecutionsResponse put_executions_response;
   TF_ASSERT_OK(metadata_store_->PutExecutions(put_executions_request,
                                               &put_executions_response));
-  ASSERT_EQ(put_executions_response.execution_ids_size(), 1);
+  ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(1));
   const int64 execution_id = put_executions_response.execution_ids(0);
 
   // Now we change 3 to 2.
@@ -958,7 +959,7 @@ TEST_F(MetadataStoreTest, PutExecutionsGetExecutionByID) {
 
   TF_ASSERT_OK(metadata_store_->PutExecutions(put_executions_request,
                                               &put_executions_response));
-  ASSERT_EQ(put_executions_response.execution_ids_size(), 2);
+  ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(2));
   const int64 execution_id_0 = put_executions_response.execution_ids(0);
   const int64 execution_id_1 = put_executions_response.execution_ids(1);
 
@@ -968,7 +969,7 @@ TEST_F(MetadataStoreTest, PutExecutionsGetExecutionByID) {
   GetExecutionsByIDResponse get_executions_by_id_response;
   TF_ASSERT_OK(metadata_store_->GetExecutionsByID(
       get_executions_by_id_request, &get_executions_by_id_response));
-  ASSERT_EQ(get_executions_by_id_response.executions_size(), 2);
+  ASSERT_THAT(get_executions_by_id_response.executions(), SizeIs(2));
   GetExecutionsByIDResponse expected;
   *expected.mutable_executions() = put_executions_request.executions();
   expected.mutable_executions(0)->set_id(execution_id_0);
@@ -999,7 +1000,7 @@ TEST_F(MetadataStoreTest, PutExecutionsGetExecutionsWithEmptyExecution) {
 
   TF_ASSERT_OK(metadata_store_->PutExecutions(put_executions_request,
                                               &put_executions_response));
-  ASSERT_EQ(put_executions_response.execution_ids_size(), 1);
+  ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(1));
   const int64 execution_id = put_executions_response.execution_ids(0);
   const GetExecutionsRequest get_executions_request;
   GetExecutionsResponse get_executions_response;
@@ -1015,7 +1016,7 @@ TEST_F(MetadataStoreTest, PutExecutionsGetExecutionsWithEmptyExecution) {
   get_executions_by_type_request.set_type_name("test_type2");
   TF_ASSERT_OK(metadata_store_->GetExecutionsByType(
       get_executions_by_type_request, &get_executions_by_type_response));
-  ASSERT_EQ(get_executions_by_type_response.executions_size(), 1);
+  ASSERT_THAT(get_executions_by_type_response.executions(), SizeIs(1));
   EXPECT_EQ(get_executions_by_type_response.executions(0).id(), execution_id);
 
   GetExecutionsByTypeRequest get_executions_by_not_exist_type_request;
@@ -1024,7 +1025,8 @@ TEST_F(MetadataStoreTest, PutExecutionsGetExecutionsWithEmptyExecution) {
   TF_ASSERT_OK(metadata_store_->GetExecutionsByType(
       get_executions_by_not_exist_type_request,
       &get_executions_by_not_exist_type_response));
-  EXPECT_EQ(get_executions_by_not_exist_type_response.executions_size(), 0);
+  EXPECT_THAT(get_executions_by_not_exist_type_response.executions(),
+              SizeIs(0));
 }
 
 TEST_F(MetadataStoreTest, GetArtifactAndExecutionByTypesWithEmptyDatabase) {
@@ -1034,7 +1036,7 @@ TEST_F(MetadataStoreTest, GetArtifactAndExecutionByTypesWithEmptyDatabase) {
   TF_ASSERT_OK(metadata_store_->GetArtifactsByType(
       get_artifacts_by_not_exist_type_request,
       &get_artifacts_by_not_exist_type_response));
-  EXPECT_EQ(get_artifacts_by_not_exist_type_response.artifacts_size(), 0);
+  EXPECT_THAT(get_artifacts_by_not_exist_type_response.artifacts(), SizeIs(0));
 
   GetExecutionsByTypeRequest get_executions_by_not_exist_type_request;
   GetExecutionsByTypeResponse get_executions_by_not_exist_type_response;
@@ -1042,7 +1044,8 @@ TEST_F(MetadataStoreTest, GetArtifactAndExecutionByTypesWithEmptyDatabase) {
   TF_ASSERT_OK(metadata_store_->GetExecutionsByType(
       get_executions_by_not_exist_type_request,
       &get_executions_by_not_exist_type_response));
-  EXPECT_EQ(get_executions_by_not_exist_type_response.executions_size(), 0);
+  EXPECT_THAT(get_executions_by_not_exist_type_response.executions(),
+              SizeIs(0));
 }
 
 TEST_F(MetadataStoreTest, GetArtifactAndExecutionByTypesWithEmptyType) {
@@ -1061,7 +1064,7 @@ TEST_F(MetadataStoreTest, GetArtifactAndExecutionByTypesWithEmptyType) {
   TF_ASSERT_OK(metadata_store_->GetArtifactsByType(
       get_artifacts_by_empty_type_request,
       &get_artifacts_by_empty_type_response));
-  EXPECT_EQ(get_artifacts_by_empty_type_response.artifacts_size(), 0);
+  EXPECT_THAT(get_artifacts_by_empty_type_response.artifacts(), SizeIs(0));
 
   const PutExecutionTypeRequest put_execution_type_request =
       ParseTextProtoOrDie<PutExecutionTypeRequest>(
@@ -1078,7 +1081,7 @@ TEST_F(MetadataStoreTest, GetArtifactAndExecutionByTypesWithEmptyType) {
   TF_ASSERT_OK(metadata_store_->GetExecutionsByType(
       get_executions_by_empty_type_request,
       &get_executions_by_empty_type_response));
-  EXPECT_EQ(get_executions_by_empty_type_response.executions_size(), 0);
+  EXPECT_THAT(get_executions_by_empty_type_response.executions(), SizeIs(0));
 }
 
 TEST_F(MetadataStoreTest, GetArtifactByURI) {
@@ -1096,7 +1099,7 @@ TEST_F(MetadataStoreTest, GetArtifactByURI) {
   TF_ASSERT_OK(metadata_store_->GetArtifactsByURI(
       get_artifacts_by_uri_empty_db_request,
       &get_artifacts_by_uri_empty_db_response));
-  EXPECT_EQ(get_artifacts_by_uri_empty_db_response.artifacts_size(), 0);
+  EXPECT_THAT(get_artifacts_by_uri_empty_db_response.artifacts(), SizeIs(0));
 
   PutArtifactsRequest put_artifacts_request =
       ParseTextProtoOrDie<PutArtifactsRequest>(R"(
@@ -1113,7 +1116,7 @@ TEST_F(MetadataStoreTest, GetArtifactByURI) {
   PutArtifactsResponse put_artifacts_response;
   TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request,
                                              &put_artifacts_response));
-  ASSERT_EQ(put_artifacts_response.artifact_ids_size(), 6);
+  ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(6));
 
   {
     GetArtifactsByURIRequest get_artifacts_by_uri_request;
@@ -1121,7 +1124,7 @@ TEST_F(MetadataStoreTest, GetArtifactByURI) {
     get_artifacts_by_uri_request.set_uri("testuri://with_one_artifact");
     TF_ASSERT_OK(metadata_store_->GetArtifactsByURI(
         get_artifacts_by_uri_request, &get_artifacts_by_uri_response));
-    EXPECT_EQ(get_artifacts_by_uri_response.artifacts_size(), 1);
+    EXPECT_THAT(get_artifacts_by_uri_response.artifacts(), SizeIs(1));
   }
 
   {
@@ -1130,7 +1133,7 @@ TEST_F(MetadataStoreTest, GetArtifactByURI) {
     get_artifacts_by_uri_request.set_uri("testuri://with_multiple_artifacts");
     TF_ASSERT_OK(metadata_store_->GetArtifactsByURI(
         get_artifacts_by_uri_request, &get_artifacts_by_uri_response));
-    EXPECT_EQ(get_artifacts_by_uri_response.artifacts_size(), 2);
+    EXPECT_THAT(get_artifacts_by_uri_response.artifacts(), SizeIs(2));
   }
 
   {
@@ -1139,7 +1142,7 @@ TEST_F(MetadataStoreTest, GetArtifactByURI) {
     GetArtifactsByURIResponse get_artifacts_by_uri_response;
     TF_ASSERT_OK(metadata_store_->GetArtifactsByURI(
         get_artifacts_by_uri_request, &get_artifacts_by_uri_response));
-    EXPECT_EQ(get_artifacts_by_uri_response.artifacts_size(), 3);
+    EXPECT_THAT(get_artifacts_by_uri_response.artifacts(), SizeIs(3));
   }
 
   {
@@ -1149,7 +1152,7 @@ TEST_F(MetadataStoreTest, GetArtifactByURI) {
     get_artifacts_by_uri_request.set_uri("unknown_uri");
     TF_ASSERT_OK(metadata_store_->GetArtifactsByURI(
         get_artifacts_by_uri_request, &get_artifacts_by_uri_response));
-    EXPECT_EQ(get_artifacts_by_uri_response.artifacts_size(), 0);
+    EXPECT_THAT(get_artifacts_by_uri_response.artifacts(), SizeIs(0));
   }
 }
 
@@ -1176,13 +1179,13 @@ TEST_F(MetadataStoreTest, PutArtifactsGetArtifactsWithEmptyArtifact) {
 
   TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request,
                                              &put_artifacts_response));
-  ASSERT_EQ(put_artifacts_response.artifact_ids_size(), 1);
+  ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(1));
   const int64 artifact_id = put_artifacts_response.artifact_ids(0);
   GetArtifactsRequest get_artifacts_request;
   GetArtifactsResponse get_artifacts_response;
   TF_ASSERT_OK(metadata_store_->GetArtifacts(get_artifacts_request,
                                              &get_artifacts_response));
-  ASSERT_EQ(get_artifacts_response.artifacts_size(), 1);
+  ASSERT_THAT(get_artifacts_response.artifacts(), SizeIs(1));
   EXPECT_EQ(get_artifacts_response.artifacts(0).id(), artifact_id);
 
   GetArtifactsByTypeRequest get_artifacts_by_type_request;
@@ -1190,7 +1193,7 @@ TEST_F(MetadataStoreTest, PutArtifactsGetArtifactsWithEmptyArtifact) {
   get_artifacts_by_type_request.set_type_name("test_type2");
   TF_ASSERT_OK(metadata_store_->GetArtifactsByType(
       get_artifacts_by_type_request, &get_artifacts_by_type_response));
-  ASSERT_EQ(get_artifacts_by_type_response.artifacts_size(), 1);
+  ASSERT_THAT(get_artifacts_by_type_response.artifacts(), SizeIs(1));
   EXPECT_EQ(get_artifacts_by_type_response.artifacts(0).id(), artifact_id);
 
   GetArtifactsByTypeRequest get_artifacts_by_not_exist_type_request;
@@ -1199,7 +1202,7 @@ TEST_F(MetadataStoreTest, PutArtifactsGetArtifactsWithEmptyArtifact) {
   TF_ASSERT_OK(metadata_store_->GetArtifactsByType(
       get_artifacts_by_not_exist_type_request,
       &get_artifacts_by_not_exist_type_response));
-  EXPECT_EQ(get_artifacts_by_not_exist_type_response.artifacts_size(), 0);
+  EXPECT_THAT(get_artifacts_by_not_exist_type_response.artifacts(), SizeIs(0));
 }
 
 TEST_F(MetadataStoreTest, PutExecutionTypeTwiceChangedRemovedProperty) {
@@ -1251,7 +1254,7 @@ TEST_F(MetadataStoreTest, PutEventGetEvents) {
   PutExecutionsResponse put_executions_response;
   TF_ASSERT_OK(metadata_store_->PutExecutions(put_executions_request,
                                               &put_executions_response));
-  ASSERT_EQ(put_executions_response.execution_ids_size(), 1);
+  ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(1));
 
   const PutArtifactTypeRequest put_artifact_type_request =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
@@ -1272,7 +1275,7 @@ TEST_F(MetadataStoreTest, PutEventGetEvents) {
   PutArtifactsResponse put_artifacts_response;
   TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request,
                                              &put_artifacts_response));
-  ASSERT_EQ(put_artifacts_response.artifact_ids_size(), 1);
+  ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(1));
 
   PutEventsRequest put_events_request = ParseTextProtoOrDie<PutEventsRequest>(
       R"(
@@ -1294,7 +1297,7 @@ TEST_F(MetadataStoreTest, PutEventGetEvents) {
   TF_ASSERT_OK(metadata_store_->GetEventsByArtifactIDs(
       get_events_by_artifact_ids_request,
       &get_events_by_artifact_ids_response));
-  ASSERT_EQ(get_events_by_artifact_ids_response.events_size(), 1);
+  ASSERT_THAT(get_events_by_artifact_ids_response.events(), SizeIs(1));
   ASSERT_EQ(get_events_by_artifact_ids_response.events(0).execution_id(),
             put_executions_response.execution_ids(0));
 
@@ -1305,7 +1308,7 @@ TEST_F(MetadataStoreTest, PutEventGetEvents) {
   TF_ASSERT_OK(metadata_store_->GetEventsByExecutionIDs(
       get_events_by_execution_ids_request,
       &get_events_by_execution_ids_response));
-  ASSERT_EQ(get_events_by_execution_ids_response.events_size(), 1);
+  ASSERT_THAT(get_events_by_execution_ids_response.events(), SizeIs(1));
   EXPECT_EQ(get_events_by_artifact_ids_response.events(0).artifact_id(),
             put_artifacts_response.artifact_ids(0));
 }
@@ -1327,21 +1330,27 @@ TEST_F(MetadataStoreTest, PutTypesGetTypes) {
         }
         execution_types: {
           name: 'test_type2'
-          properties { key: 'property_1' value: STRING }
+          properties { key: 'property_1' value: DOUBLE }
+        }
+        context_types: {
+          name: 'test_type1'
+          properties { key: 'property_1' value: INT }
         }
       )");
   PutTypesResponse put_response;
   TF_ASSERT_OK(metadata_store_->PutTypes(put_request, &put_response));
-  ASSERT_EQ(put_response.artifact_type_ids().size(), 2);
+  ASSERT_THAT(put_response.artifact_type_ids(), SizeIs(2));
   // Two identical artifact types are inserted. The returned ids are the same.
   EXPECT_EQ(put_response.artifact_type_ids(0),
             put_response.artifact_type_ids(1));
-  ASSERT_EQ(put_response.execution_type_ids().size(), 2);
+  ASSERT_THAT(put_response.execution_type_ids(), SizeIs(2));
   // Two different execution types are inserted. The returned ids are different.
   EXPECT_NE(put_response.execution_type_ids(0),
             put_response.execution_type_ids(1));
+  // Context type can be inserted too.
+  EXPECT_THAT(put_response.context_type_ids(), SizeIs(1));
 
-  GetArtifactTypeRequest get_artifact_type_request =
+  const GetArtifactTypeRequest get_artifact_type_request =
       ParseTextProtoOrDie<GetArtifactTypeRequest>("type_name: 'test_type1'");
   GetArtifactTypeResponse get_artifact_type_response;
   TF_ASSERT_OK(metadata_store_->GetArtifactType(get_artifact_type_request,
@@ -1356,6 +1365,53 @@ TEST_F(MetadataStoreTest, PutTypesGetTypes) {
                                                  &get_execution_type_response));
   EXPECT_EQ(put_response.execution_type_ids(1),
             get_execution_type_response.execution_type().id());
+
+  const GetContextTypeRequest get_context_type_request =
+      ParseTextProtoOrDie<GetContextTypeRequest>("type_name: 'test_type1'");
+  GetContextTypeResponse get_context_type_response;
+  TF_ASSERT_OK(metadata_store_->GetContextType(get_context_type_request,
+                                               &get_context_type_response));
+  EXPECT_EQ(put_response.context_type_ids(0),
+            get_context_type_response.context_type().id());
+}
+
+TEST_F(MetadataStoreTest, PutTypesUpdateTypes) {
+  // Insert a type first, then update it.
+  const PutTypesRequest put_request = ParseTextProtoOrDie<PutTypesRequest>(
+      R"(
+        artifact_types: {
+          name: 'test_type1'
+          properties { key: 'property_1' value: STRING }
+        }
+      )");
+  PutTypesResponse put_response;
+  TF_ASSERT_OK(metadata_store_->PutTypes(put_request, &put_response));
+  ASSERT_THAT(put_response.artifact_type_ids(), SizeIs(1));
+
+  const PutTypesRequest update_request = ParseTextProtoOrDie<PutTypesRequest>(
+      R"(
+        artifact_types: {
+          name: 'test_type1'
+          properties { key: 'property_1' value: STRING }
+          properties { key: 'property_2' value: STRING }
+        }
+        can_add_fields: true
+      )");
+  PutTypesResponse update_response;
+  TF_ASSERT_OK(metadata_store_->PutTypes(update_request, &update_response));
+  ASSERT_THAT(update_response.artifact_type_ids(), SizeIs(1));
+  EXPECT_EQ(update_response.artifact_type_ids(0),
+            put_response.artifact_type_ids(0));
+
+  const GetArtifactTypeRequest get_artifact_type_request =
+      ParseTextProtoOrDie<GetArtifactTypeRequest>("type_name: 'test_type1'");
+  GetArtifactTypeResponse get_artifact_type_response;
+  TF_ASSERT_OK(metadata_store_->GetArtifactType(get_artifact_type_request,
+                                                &get_artifact_type_response));
+  ArtifactType want_artifact_type = update_request.artifact_types(0);
+  want_artifact_type.set_id(update_response.artifact_type_ids(0));
+  EXPECT_THAT(get_artifact_type_response.artifact_type(),
+              testing::EqualsProto(want_artifact_type));
 }
 
 TEST_F(MetadataStoreTest, PutAndGetExecution) {
@@ -1382,7 +1438,7 @@ TEST_F(MetadataStoreTest, PutAndGetExecution) {
   TF_ASSERT_OK(metadata_store_->PutExecution(put_execution_request_1,
                                              &put_execution_response_1));
   execution.set_id(put_execution_response_1.execution_id());
-  EXPECT_EQ(put_execution_response_1.artifact_ids_size(), 0);
+  EXPECT_THAT(put_execution_response_1.artifact_ids(), SizeIs(0));
 
   // 2. Update an existing execution with an input artifact but no event
   PutExecutionRequest put_execution_request_2;
@@ -1398,7 +1454,7 @@ TEST_F(MetadataStoreTest, PutAndGetExecution) {
                                              &put_execution_response_2));
   // The persistent id of the execution should be the same.
   EXPECT_EQ(put_execution_response_2.execution_id(), execution.id());
-  EXPECT_EQ(put_execution_response_2.artifact_ids_size(), 1);
+  EXPECT_THAT(put_execution_response_2.artifact_ids(), SizeIs(1));
   artifact_1.set_id(put_execution_response_2.artifact_ids(0));
 
   // 3. Update an existing execution with existing/new artifacts with events.
@@ -1428,7 +1484,7 @@ TEST_F(MetadataStoreTest, PutAndGetExecution) {
   TF_ASSERT_OK(metadata_store_->PutExecution(put_execution_request_3,
                                              &put_execution_response_3));
   EXPECT_EQ(put_execution_response_3.execution_id(), execution.id());
-  EXPECT_EQ(put_execution_response_3.artifact_ids_size(), 2);
+  EXPECT_THAT(put_execution_response_3.artifact_ids(), SizeIs(2));
   EXPECT_EQ(put_execution_response_3.artifact_ids(0), artifact_1.id());
   artifact_2.set_id(put_execution_response_3.artifact_ids(1));
 
@@ -1437,7 +1493,7 @@ TEST_F(MetadataStoreTest, PutAndGetExecution) {
   GetArtifactsResponse get_artifacts_response;
   TF_ASSERT_OK(metadata_store_->GetArtifacts(get_artifacts_request,
                                              &get_artifacts_response));
-  ASSERT_EQ(get_artifacts_response.artifacts_size(), 2);
+  ASSERT_THAT(get_artifacts_response.artifacts(), SizeIs(2));
   EXPECT_THAT(get_artifacts_response.artifacts(0),
               testing::EqualsProto(artifact_1));
   EXPECT_THAT(get_artifacts_response.artifacts(1),
@@ -1447,7 +1503,7 @@ TEST_F(MetadataStoreTest, PutAndGetExecution) {
   GetExecutionsResponse get_executions_response;
   TF_ASSERT_OK(metadata_store_->GetExecutions(get_executions_request,
                                               &get_executions_response));
-  ASSERT_EQ(get_executions_response.executions_size(), 1);
+  ASSERT_THAT(get_executions_response.executions(), SizeIs(1));
   EXPECT_THAT(get_executions_response.executions(0),
               testing::EqualsProto(execution));
 
@@ -1456,7 +1512,7 @@ TEST_F(MetadataStoreTest, PutAndGetExecution) {
   GetEventsByExecutionIDsResponse get_events_response;
   TF_ASSERT_OK(metadata_store_->GetEventsByExecutionIDs(get_events_request,
                                                         &get_events_response));
-  ASSERT_EQ(get_events_response.events_size(), 2);
+  ASSERT_THAT(get_events_response.events(), SizeIs(2));
   EXPECT_EQ(get_events_response.events(0).artifact_id(), artifact_1.id());
   EXPECT_EQ(get_events_response.events(1).artifact_id(), artifact_2.id());
 }
@@ -1506,7 +1562,7 @@ TEST_F(MetadataStoreTest, PutContextTypeGetContextTypesByID) {
   GetContextTypesByIDResponse get_response;
   TF_ASSERT_OK(
       metadata_store_->GetContextTypesByID(get_request, &get_response));
-  ASSERT_EQ(get_response.context_types_size(), 1);
+  ASSERT_THAT(get_response.context_types(), SizeIs(1));
   const ContextType& result = get_response.context_types(0);
   EXPECT_EQ(put_response.type_id(), result.id())
       << "Type ID should be the same as the type created.";
@@ -1671,7 +1727,7 @@ TEST_F(MetadataStoreTest, PutContextsUpdateGetContexts) {
   PutContextsResponse put_contexts_response;
   TF_ASSERT_OK(metadata_store_->PutContexts(put_contexts_request,
                                             &put_contexts_response));
-  ASSERT_EQ(put_contexts_response.context_ids_size(), 2);
+  ASSERT_THAT(put_contexts_response.context_ids(), SizeIs(2));
   const int64 id1 = put_contexts_response.context_ids(0);
   const int64 id2 = put_contexts_response.context_ids(1);
 
@@ -1694,7 +1750,7 @@ TEST_F(MetadataStoreTest, PutContextsUpdateGetContexts) {
   PutContextsResponse put_contexts_response2;
   TF_ASSERT_OK(metadata_store_->PutContexts(put_contexts_request2,
                                             &put_contexts_response2));
-  ASSERT_EQ(put_contexts_response2.context_ids_size(), 3);
+  ASSERT_THAT(put_contexts_response2.context_ids(), SizeIs(3));
   want_context3.set_id(put_contexts_response2.context_ids(2));
 
   GetContextsByIDRequest get_contexts_by_id_request;
@@ -1702,7 +1758,7 @@ TEST_F(MetadataStoreTest, PutContextsUpdateGetContexts) {
   GetContextsByIDResponse get_contexts_by_id_response;
   TF_ASSERT_OK(metadata_store_->GetContextsByID(get_contexts_by_id_request,
                                                 &get_contexts_by_id_response));
-  ASSERT_EQ(get_contexts_by_id_response.contexts_size(), 1);
+  ASSERT_THAT(get_contexts_by_id_response.contexts(), SizeIs(1));
   EXPECT_THAT(get_contexts_by_id_response.contexts(0),
               testing::EqualsProto(want_context1));
 
@@ -1711,7 +1767,7 @@ TEST_F(MetadataStoreTest, PutContextsUpdateGetContexts) {
   GetContextsByTypeResponse get_contexts_by_type_response;
   TF_ASSERT_OK(metadata_store_->GetContextsByType(
       get_contexts_by_type_request, &get_contexts_by_type_response));
-  ASSERT_EQ(get_contexts_by_type_response.contexts_size(), 1);
+  ASSERT_THAT(get_contexts_by_type_response.contexts(), SizeIs(1));
   EXPECT_THAT(get_contexts_by_type_response.contexts(0),
               testing::EqualsProto(want_context3));
 
@@ -1719,7 +1775,7 @@ TEST_F(MetadataStoreTest, PutContextsUpdateGetContexts) {
   GetContextsResponse get_contexts_response;
   TF_ASSERT_OK(metadata_store_->GetContexts(get_contexts_request,
                                             &get_contexts_response));
-  ASSERT_EQ(get_contexts_response.contexts_size(), 3);
+  ASSERT_THAT(get_contexts_response.contexts(), SizeIs(3));
   EXPECT_THAT(get_contexts_response.contexts(0),
               testing::EqualsProto(want_context1));
   EXPECT_THAT(get_contexts_response.contexts(1),
@@ -1760,7 +1816,7 @@ TEST_F(MetadataStoreTest, PutAndUseAttributionsAndAssociations) {
   PutExecutionsResponse put_executions_response;
   TF_ASSERT_OK(metadata_store_->PutExecutions(put_executions_request,
                                               &put_executions_response));
-  ASSERT_EQ(put_executions_response.execution_ids_size(), 1);
+  ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(1));
   want_execution.set_id(put_executions_response.execution_ids(0));
 
   Artifact want_artifact;
@@ -1772,7 +1828,7 @@ TEST_F(MetadataStoreTest, PutAndUseAttributionsAndAssociations) {
   PutArtifactsResponse put_artifacts_response;
   TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request,
                                              &put_artifacts_response));
-  ASSERT_EQ(put_artifacts_response.artifact_ids_size(), 1);
+  ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(1));
   want_artifact.set_id(put_artifacts_response.artifact_ids(0));
 
   Context want_context;
@@ -1783,7 +1839,7 @@ TEST_F(MetadataStoreTest, PutAndUseAttributionsAndAssociations) {
   PutContextsResponse put_contexts_response;
   TF_ASSERT_OK(metadata_store_->PutContexts(put_contexts_request,
                                             &put_contexts_response));
-  ASSERT_EQ(put_contexts_response.context_ids_size(), 1);
+  ASSERT_THAT(put_contexts_response.context_ids(), SizeIs(1));
   want_context.set_id(put_contexts_response.context_ids(0));
 
   // insert an attribution
@@ -1800,7 +1856,7 @@ TEST_F(MetadataStoreTest, PutAndUseAttributionsAndAssociations) {
   GetContextsByArtifactResponse get_contexts_by_artifact_response;
   TF_EXPECT_OK(metadata_store_->GetContextsByArtifact(
       get_contexts_by_artifact_request, &get_contexts_by_artifact_response));
-  ASSERT_EQ(get_contexts_by_artifact_response.contexts_size(), 1);
+  ASSERT_THAT(get_contexts_by_artifact_response.contexts(), SizeIs(1));
   EXPECT_THAT(get_contexts_by_artifact_response.contexts(0),
               testing::EqualsProto(want_context));
 
@@ -1809,7 +1865,7 @@ TEST_F(MetadataStoreTest, PutAndUseAttributionsAndAssociations) {
   GetArtifactsByContextResponse get_artifacts_by_context_response;
   TF_EXPECT_OK(metadata_store_->GetArtifactsByContext(
       get_artifacts_by_context_request, &get_artifacts_by_context_response));
-  ASSERT_EQ(get_artifacts_by_context_response.artifacts_size(), 1);
+  ASSERT_THAT(get_artifacts_by_context_response.artifacts(), SizeIs(1));
   EXPECT_THAT(get_artifacts_by_context_response.artifacts(0),
               testing::EqualsProto(want_artifact));
 
@@ -1825,7 +1881,7 @@ TEST_F(MetadataStoreTest, PutAndUseAttributionsAndAssociations) {
   GetContextsByExecutionResponse get_contexts_by_execution_response;
   TF_ASSERT_OK(metadata_store_->GetContextsByExecution(
       get_contexts_by_execution_request, &get_contexts_by_execution_response));
-  ASSERT_EQ(get_contexts_by_execution_response.contexts_size(), 1);
+  ASSERT_THAT(get_contexts_by_execution_response.contexts(), SizeIs(1));
   EXPECT_THAT(get_contexts_by_execution_response.contexts(0),
               testing::EqualsProto(want_context));
 
@@ -1834,7 +1890,7 @@ TEST_F(MetadataStoreTest, PutAndUseAttributionsAndAssociations) {
   GetExecutionsByContextResponse get_executions_by_context_response;
   TF_ASSERT_OK(metadata_store_->GetExecutionsByContext(
       get_executions_by_context_request, &get_executions_by_context_response));
-  ASSERT_EQ(get_executions_by_context_response.executions_size(), 1);
+  ASSERT_THAT(get_executions_by_context_response.executions(), SizeIs(1));
   EXPECT_THAT(get_executions_by_context_response.executions(0),
               testing::EqualsProto(want_execution));
 }
