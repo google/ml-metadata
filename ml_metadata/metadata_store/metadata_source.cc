@@ -111,4 +111,22 @@ tensorflow::Status ScopedTransaction::Commit() {
   return status;
 }
 
+tensorflow::Status ExecuteTransaction(
+    MetadataSource* metadata_source,
+    const std::function<tensorflow::Status()>& transaction) {
+  if (metadata_source == nullptr || !metadata_source->is_connected()) {
+    return tensorflow::errors::FailedPrecondition(
+        "To use ExecuteTransaction, the metadata_source should be created and "
+        "connected");
+  }
+  TF_RETURN_IF_ERROR(metadata_source->Begin());
+  tensorflow::Status transaction_status = transaction();
+  if (!transaction_status.ok()) {
+    transaction_status.Update(metadata_source->Rollback());
+  } else {
+    transaction_status.Update(metadata_source->Commit());
+  }
+  return transaction_status;
+}
+
 }  // namespace ml_metadata

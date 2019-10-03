@@ -15,12 +15,12 @@ limitations under the License.
 #ifndef ML_METADATA_METADATA_STORE_METADATA_SOURCE_H_
 #define ML_METADATA_METADATA_STORE_METADATA_SOURCE_H_
 
+#include <functional>
 #include <memory>
 #include <string>
 
 #include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
-
 #include "tensorflow/core/lib/core/status.h"
 
 namespace ml_metadata {
@@ -174,6 +174,22 @@ class ScopedTransaction {
   // Used for beginning, rolling back, and committing a transaction.
   MetadataSource* metadata_source_;
 };
+
+// A utility function runs a `transaction`. When the `transaction` returns
+// OK, it calls Commit, otherwise it calls Rollback.
+// Comparing with ScopedTransaction, it always propagates Begin/Commit/Rollback
+// error, whereas ScopedTranscation may have check failures during construction
+// or deconstruction.
+// The caller should own a connected `metadata_source`, and the given
+// `transaction` issues ExecuteQuery with the same `metadata_source`.
+// Similar to ScopedTransaction, MetadataSource::Commit/Rollback/Close should
+// not be called within the `transaction` callback.
+//
+// Returns FAILED_PRECONDITION if metadata_source is null or not connected.
+// Returns detailed internal errors of transaction, Begin, Rollback and Commit.
+tensorflow::Status ExecuteTransaction(
+    MetadataSource* metadata_source,
+    const std::function<tensorflow::Status()>& transaction);
 
 }  // namespace ml_metadata
 

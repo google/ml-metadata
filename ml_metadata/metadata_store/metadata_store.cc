@@ -88,15 +88,17 @@ tensorflow::Status UpsertType(MetadataAccessObject* metadata_access_object,
 }  // namespace
 
 tensorflow::Status MetadataStore::InitMetadataStore() {
-  ScopedTransaction transaction(metadata_source_.get());
-  TF_RETURN_IF_ERROR(metadata_access_object_->InitMetadataSource());
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(), [this]() -> tensorflow::Status {
+        return metadata_access_object_->InitMetadataSource();
+      });
 }
 
 tensorflow::Status MetadataStore::InitMetadataStoreIfNotExists() {
-  ScopedTransaction transaction(metadata_source_.get());
-  TF_RETURN_IF_ERROR(metadata_access_object_->InitMetadataSourceIfNotExists());
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(), [this]() -> tensorflow::Status {
+        return metadata_access_object_->InitMetadataSourceIfNotExists();
+      });
 }
 
 tensorflow::Status MetadataStore::PutTypes(const PutTypesRequest& request,
@@ -107,27 +109,32 @@ tensorflow::Status MetadataStore::PutTypes(const PutTypesRequest& request,
   if (!request.all_fields_match()) {
     return tensorflow::errors::Unimplemented("Must match all fields.");
   }
-  ScopedTransaction transaction(metadata_source_.get());
-  for (const ArtifactType& artifact_type : request.artifact_types()) {
-    int64 artifact_type_id;
-    TF_RETURN_IF_ERROR(UpsertType(metadata_access_object_.get(), artifact_type,
-                                  request.can_add_fields(), &artifact_type_id));
-    response->add_artifact_type_ids(artifact_type_id);
-  }
-  for (const ExecutionType& execution_type : request.execution_types()) {
-    int64 execution_type_id;
-    TF_RETURN_IF_ERROR(UpsertType(metadata_access_object_.get(), execution_type,
-                                  request.can_add_fields(),
-                                  &execution_type_id));
-    response->add_execution_type_ids(execution_type_id);
-  }
-  for (const ContextType& context_type : request.context_types()) {
-    int64 context_type_id;
-    TF_RETURN_IF_ERROR(UpsertType(metadata_access_object_.get(), context_type,
-                                  request.can_add_fields(), &context_type_id));
-    response->add_context_type_ids(context_type_id);
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        for (const ArtifactType& artifact_type : request.artifact_types()) {
+          int64 artifact_type_id;
+          TF_RETURN_IF_ERROR(UpsertType(metadata_access_object_.get(),
+                                        artifact_type, request.can_add_fields(),
+                                        &artifact_type_id));
+          response->add_artifact_type_ids(artifact_type_id);
+        }
+        for (const ExecutionType& execution_type : request.execution_types()) {
+          int64 execution_type_id;
+          TF_RETURN_IF_ERROR(
+              UpsertType(metadata_access_object_.get(), execution_type,
+                         request.can_add_fields(), &execution_type_id));
+          response->add_execution_type_ids(execution_type_id);
+        }
+        for (const ContextType& context_type : request.context_types()) {
+          int64 context_type_id;
+          TF_RETURN_IF_ERROR(UpsertType(metadata_access_object_.get(),
+                                        context_type, request.can_add_fields(),
+                                        &context_type_id));
+          response->add_context_type_ids(context_type_id);
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::PutArtifactType(
@@ -138,13 +145,16 @@ tensorflow::Status MetadataStore::PutArtifactType(
   if (!request.all_fields_match()) {
     return tensorflow::errors::Unimplemented("Must match all fields.");
   }
-  ScopedTransaction transaction(metadata_source_.get());
-  int64 type_id;
-  TF_RETURN_IF_ERROR(UpsertType(metadata_access_object_.get(),
-                                request.artifact_type(),
-                                request.can_add_fields(), &type_id));
-  response->set_type_id(type_id);
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        int64 type_id;
+        TF_RETURN_IF_ERROR(UpsertType(metadata_access_object_.get(),
+                                      request.artifact_type(),
+                                      request.can_add_fields(), &type_id));
+        response->set_type_id(type_id);
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::PutExecutionType(
@@ -156,13 +166,16 @@ tensorflow::Status MetadataStore::PutExecutionType(
   if (!request.all_fields_match()) {
     return tensorflow::errors::Unimplemented("Must match all fields.");
   }
-  ScopedTransaction transaction(metadata_source_.get());
-  int64 type_id;
-  TF_RETURN_IF_ERROR(UpsertType(metadata_access_object_.get(),
-                                request.execution_type(),
-                                request.can_add_fields(), &type_id));
-  response->set_type_id(type_id);
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        int64 type_id;
+        TF_RETURN_IF_ERROR(UpsertType(metadata_access_object_.get(),
+                                      request.execution_type(),
+                                      request.can_add_fields(), &type_id));
+        response->set_type_id(type_id);
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::PutContextType(
@@ -173,192 +186,229 @@ tensorflow::Status MetadataStore::PutContextType(
   if (!request.all_fields_match()) {
     return tensorflow::errors::Unimplemented("Must match all fields.");
   }
-  ScopedTransaction transaction(metadata_source_.get());
-  int64 type_id;
-  TF_RETURN_IF_ERROR(UpsertType(metadata_access_object_.get(),
-                                request.context_type(),
-                                request.can_add_fields(), &type_id));
-  response->set_type_id(type_id);
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        int64 type_id;
+        TF_RETURN_IF_ERROR(UpsertType(metadata_access_object_.get(),
+                                      request.context_type(),
+                                      request.can_add_fields(), &type_id));
+        response->set_type_id(type_id);
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::GetArtifactType(
     const GetArtifactTypeRequest& request, GetArtifactTypeResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  TF_RETURN_IF_ERROR(metadata_access_object_->FindTypeByName(
-      request.type_name(), response->mutable_artifact_type()));
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        return metadata_access_object_->FindTypeByName(
+            request.type_name(), response->mutable_artifact_type());
+      });
 }
 
 tensorflow::Status MetadataStore::GetExecutionType(
     const GetExecutionTypeRequest& request,
     GetExecutionTypeResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  const tensorflow::Status result = metadata_access_object_->FindTypeByName(
-      request.type_name(), response->mutable_execution_type());
-  TF_RETURN_IF_ERROR(result);
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        return metadata_access_object_->FindTypeByName(
+            request.type_name(), response->mutable_execution_type());
+      });
 }
 
 tensorflow::Status MetadataStore::GetContextType(
     const GetContextTypeRequest& request, GetContextTypeResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  const tensorflow::Status result = metadata_access_object_->FindTypeByName(
-      request.type_name(), response->mutable_context_type());
-  TF_RETURN_IF_ERROR(result);
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        return metadata_access_object_->FindTypeByName(
+            request.type_name(), response->mutable_context_type());
+      });
 }
 
 tensorflow::Status MetadataStore::GetArtifactTypesByID(
     const GetArtifactTypesByIDRequest& request,
     GetArtifactTypesByIDResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  for (const int64 type_id : request.type_ids()) {
-    ArtifactType artifact_type;
-    const tensorflow::Status status =
-        metadata_access_object_->FindTypeById(type_id, &artifact_type);
-    if (status.ok()) {
-      *response->mutable_artifact_types()->Add() = artifact_type;
-    } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
-      return status;
-    }
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        for (const int64 type_id : request.type_ids()) {
+          ArtifactType artifact_type;
+          const tensorflow::Status status =
+              metadata_access_object_->FindTypeById(type_id, &artifact_type);
+          if (status.ok()) {
+            *response->mutable_artifact_types()->Add() = artifact_type;
+          } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
+            return status;
+          }
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::GetExecutionTypesByID(
     const GetExecutionTypesByIDRequest& request,
     GetExecutionTypesByIDResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  for (const int64 type_id : request.type_ids()) {
-    ExecutionType execution_type;
-    const tensorflow::Status status =
-        metadata_access_object_->FindTypeById(type_id, &execution_type);
-    if (status.ok()) {
-      *response->mutable_execution_types()->Add() = execution_type;
-    } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
-      return status;
-    }
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        for (const int64 type_id : request.type_ids()) {
+          ExecutionType execution_type;
+          const tensorflow::Status status =
+              metadata_access_object_->FindTypeById(type_id, &execution_type);
+          if (status.ok()) {
+            *response->mutable_execution_types()->Add() = execution_type;
+          } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
+            return status;
+          }
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::GetContextTypesByID(
     const GetContextTypesByIDRequest& request,
     GetContextTypesByIDResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  for (const int64 type_id : request.type_ids()) {
-    ContextType context_type;
-    const tensorflow::Status status =
-        metadata_access_object_->FindTypeById(type_id, &context_type);
-    if (status.ok()) {
-      *response->mutable_context_types()->Add() = context_type;
-    } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
-      return status;
-    }
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        for (const int64 type_id : request.type_ids()) {
+          ContextType context_type;
+          const tensorflow::Status status =
+              metadata_access_object_->FindTypeById(type_id, &context_type);
+          if (status.ok()) {
+            *response->mutable_context_types()->Add() = context_type;
+          } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
+            return status;
+          }
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::GetArtifactsByID(
     const GetArtifactsByIDRequest& request,
     GetArtifactsByIDResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  for (const int64 artifact_id : request.artifact_ids()) {
-    Artifact artifact;
-    const tensorflow::Status status =
-        metadata_access_object_->FindArtifactById(artifact_id, &artifact);
-    if (status.ok()) {
-      *response->mutable_artifacts()->Add() = artifact;
-    } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
-      return status;
-    }
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        for (const int64 artifact_id : request.artifact_ids()) {
+          Artifact artifact;
+          const tensorflow::Status status =
+              metadata_access_object_->FindArtifactById(artifact_id, &artifact);
+          if (status.ok()) {
+            *response->mutable_artifacts()->Add() = artifact;
+          } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
+            return status;
+          }
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::GetExecutionsByID(
     const GetExecutionsByIDRequest& request,
     GetExecutionsByIDResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  for (const int64 execution_id : request.execution_ids()) {
-    Execution execution;
-    const tensorflow::Status status =
-        metadata_access_object_->FindExecutionById(execution_id, &execution);
-    if (status.ok()) {
-      *response->mutable_executions()->Add() = execution;
-    } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
-      return status;
-    }
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        for (const int64 execution_id : request.execution_ids()) {
+          Execution execution;
+          const tensorflow::Status status =
+              metadata_access_object_->FindExecutionById(execution_id,
+                                                         &execution);
+          if (status.ok()) {
+            *response->mutable_executions()->Add() = execution;
+          } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
+            return status;
+          }
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::GetContextsByID(
     const GetContextsByIDRequest& request, GetContextsByIDResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  for (const int64 context_id : request.context_ids()) {
-    Context context;
-    const tensorflow::Status status =
-        metadata_access_object_->FindContextById(context_id, &context);
-    if (status.ok()) {
-      *response->mutable_contexts()->Add() = context;
-    } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
-      return status;
-    }
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        for (const int64 context_id : request.context_ids()) {
+          Context context;
+          const tensorflow::Status status =
+              metadata_access_object_->FindContextById(context_id, &context);
+          if (status.ok()) {
+            *response->mutable_contexts()->Add() = context;
+          } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
+            return status;
+          }
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::PutArtifacts(
     const PutArtifactsRequest& request, PutArtifactsResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  for (const Artifact& artifact : request.artifacts()) {
-    if (artifact.has_id()) {
-      TF_RETURN_IF_ERROR(metadata_access_object_->UpdateArtifact(artifact));
-      response->add_artifact_ids(artifact.id());
-    } else {
-      int64 artifact_id;
-      TF_RETURN_IF_ERROR(
-          metadata_access_object_->CreateArtifact(artifact, &artifact_id));
-      response->add_artifact_ids(artifact_id);
-    }
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        for (const Artifact& artifact : request.artifacts()) {
+          if (artifact.has_id()) {
+            TF_RETURN_IF_ERROR(
+                metadata_access_object_->UpdateArtifact(artifact));
+            response->add_artifact_ids(artifact.id());
+          } else {
+            int64 artifact_id;
+            TF_RETURN_IF_ERROR(metadata_access_object_->CreateArtifact(
+                artifact, &artifact_id));
+            response->add_artifact_ids(artifact_id);
+          }
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::PutExecutions(
     const PutExecutionsRequest& request, PutExecutionsResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  for (const Execution& execution : request.executions()) {
-    if (execution.has_id()) {
-      TF_RETURN_IF_ERROR(metadata_access_object_->UpdateExecution(execution));
-      response->add_execution_ids(execution.id());
-    } else {
-      int64 execution_id;
-      TF_RETURN_IF_ERROR(
-          metadata_access_object_->CreateExecution(execution, &execution_id));
-      response->add_execution_ids(execution_id);
-    }
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        for (const Execution& execution : request.executions()) {
+          if (execution.has_id()) {
+            TF_RETURN_IF_ERROR(
+                metadata_access_object_->UpdateExecution(execution));
+            response->add_execution_ids(execution.id());
+          } else {
+            int64 execution_id;
+            TF_RETURN_IF_ERROR(metadata_access_object_->CreateExecution(
+                execution, &execution_id));
+            response->add_execution_ids(execution_id);
+          }
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::PutContexts(const PutContextsRequest& request,
                                               PutContextsResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  for (const Context& context : request.contexts()) {
-    if (context.has_id()) {
-      TF_RETURN_IF_ERROR(metadata_access_object_->UpdateContext(context));
-      response->add_context_ids(context.id());
-    } else {
-      int64 context_id;
-      TF_RETURN_IF_ERROR(
-          metadata_access_object_->CreateContext(context, &context_id));
-      response->add_context_ids(context_id);
-    }
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        for (const Context& context : request.contexts()) {
+          if (context.has_id()) {
+            TF_RETURN_IF_ERROR(metadata_access_object_->UpdateContext(context));
+            response->add_context_ids(context.id());
+          } else {
+            int64 context_id;
+            TF_RETURN_IF_ERROR(
+                metadata_access_object_->CreateContext(context, &context_id));
+            response->add_context_ids(context_id);
+          }
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::Create(
@@ -375,354 +425,408 @@ tensorflow::Status MetadataStore::Create(
 
 tensorflow::Status MetadataStore::PutEvents(const PutEventsRequest& request,
                                             PutEventsResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  for (const Event& event : request.events()) {
-    int64 dummy_event_id;
-    TF_RETURN_IF_ERROR(
-        metadata_access_object_->CreateEvent(event, &dummy_event_id));
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(), [this, &request]() -> tensorflow::Status {
+        for (const Event& event : request.events()) {
+          int64 dummy_event_id;
+          TF_RETURN_IF_ERROR(
+              metadata_access_object_->CreateEvent(event, &dummy_event_id));
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::PutExecution(
     const PutExecutionRequest& request, PutExecutionResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  if (!request.has_execution()) {
-    return tensorflow::errors::InvalidArgument("No execution is found: ",
-                                               request.DebugString());
-  }
-  // 1. Upsert Execution
-  const Execution& execution = request.execution();
-  int64 execution_id = -1;
-  if (execution.has_id()) {
-    TF_RETURN_IF_ERROR(metadata_access_object_->UpdateExecution(execution));
-    execution_id = execution.id();
-  } else {
-    TF_RETURN_IF_ERROR(
-        metadata_access_object_->CreateExecution(execution, &execution_id));
-  }
-  response->set_execution_id(execution_id);
-  // 2. Upsert Artifacts and insert events
-  for (const PutExecutionRequest::ArtifactAndEvent& artifact_and_event :
-       request.artifact_event_pairs()) {
-    if (!artifact_and_event.has_artifact()) {
-      return tensorflow::errors::InvalidArgument("Request has no artifact: ",
-                                                 request.DebugString());
-    }
-    const Artifact& artifact = artifact_and_event.artifact();
-    int64 artifact_id = -1;
-    if (artifact.has_id()) {
-      TF_RETURN_IF_ERROR(metadata_access_object_->UpdateArtifact(artifact));
-      artifact_id = artifact.id();
-    } else {
-      TF_RETURN_IF_ERROR(
-          metadata_access_object_->CreateArtifact(artifact, &artifact_id));
-    }
-    response->add_artifact_ids(artifact_id);
-    // insert event if any
-    if (!artifact_and_event.has_event()) {
-      continue;
-    }
-    Event event = artifact_and_event.event();
-    if ((event.has_artifact_id() && !artifact.has_id()) ||
-        (event.has_artifact_id() && artifact_id != event.artifact_id())) {
-      return tensorflow::errors::InvalidArgument(
-          "Request's event.artifact_id does not match with the given "
-          "artifact: ",
-          request.DebugString());
-    }
-    event.set_artifact_id(artifact_id);
-    if ((event.has_execution_id() && !execution.has_id()) ||
-        (event.has_execution_id() && execution_id != event.execution_id())) {
-      return tensorflow::errors::InvalidArgument(
-          "Request's event.execution_id does not match with the given "
-          "execution: ",
-          request.DebugString());
-    }
-    event.set_execution_id(execution_id);
-    int64 dummy_event_id = -1;
-    TF_RETURN_IF_ERROR(
-        metadata_access_object_->CreateEvent(event, &dummy_event_id));
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        if (!request.has_execution()) {
+          return tensorflow::errors::InvalidArgument("No execution is found: ",
+                                                     request.DebugString());
+        }
+        // 1. Upsert Execution
+        const Execution& execution = request.execution();
+        int64 execution_id = -1;
+        if (execution.has_id()) {
+          TF_RETURN_IF_ERROR(
+              metadata_access_object_->UpdateExecution(execution));
+          execution_id = execution.id();
+        } else {
+          TF_RETURN_IF_ERROR(metadata_access_object_->CreateExecution(
+              execution, &execution_id));
+        }
+        response->set_execution_id(execution_id);
+        // 2. Upsert Artifacts and insert events
+        for (const PutExecutionRequest::ArtifactAndEvent& artifact_and_event :
+             request.artifact_event_pairs()) {
+          if (!artifact_and_event.has_artifact()) {
+            return tensorflow::errors::InvalidArgument(
+                "Request has no artifact: ", request.DebugString());
+          }
+          const Artifact& artifact = artifact_and_event.artifact();
+          int64 artifact_id = -1;
+          if (artifact.has_id()) {
+            TF_RETURN_IF_ERROR(
+                metadata_access_object_->UpdateArtifact(artifact));
+            artifact_id = artifact.id();
+          } else {
+            TF_RETURN_IF_ERROR(metadata_access_object_->CreateArtifact(
+                artifact, &artifact_id));
+          }
+          response->add_artifact_ids(artifact_id);
+          // insert event if any
+          if (!artifact_and_event.has_event()) {
+            continue;
+          }
+          Event event = artifact_and_event.event();
+          if ((event.has_artifact_id() && !artifact.has_id()) ||
+              (event.has_artifact_id() && artifact_id != event.artifact_id())) {
+            return tensorflow::errors::InvalidArgument(
+                "Request's event.artifact_id does not match with the given "
+                "artifact: ",
+                request.DebugString());
+          }
+          event.set_artifact_id(artifact_id);
+          if ((event.has_execution_id() && !execution.has_id()) ||
+              (event.has_execution_id() &&
+               execution_id != event.execution_id())) {
+            return tensorflow::errors::InvalidArgument(
+                "Request's event.execution_id does not match with the given "
+                "execution: ",
+                request.DebugString());
+          }
+          event.set_execution_id(execution_id);
+          int64 dummy_event_id = -1;
+          TF_RETURN_IF_ERROR(
+              metadata_access_object_->CreateEvent(event, &dummy_event_id));
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::GetEventsByExecutionIDs(
     const GetEventsByExecutionIDsRequest& request,
     GetEventsByExecutionIDsResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-
-  for (const int64 execution_id : request.execution_ids()) {
-    std::vector<Event> events;
-    const tensorflow::Status status =
-        metadata_access_object_->FindEventsByExecution(execution_id, &events);
-    if (status.ok()) {
-      for (const Event& event : events) {
-        *response->mutable_events()->Add() = event;
-      }
-    } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
-      return status;
-    }
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        for (const int64 execution_id : request.execution_ids()) {
+          std::vector<Event> events;
+          const tensorflow::Status status =
+              metadata_access_object_->FindEventsByExecution(execution_id,
+                                                             &events);
+          if (status.ok()) {
+            for (const Event& event : events) {
+              *response->mutable_events()->Add() = event;
+            }
+          } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
+            return status;
+          }
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::GetEventsByArtifactIDs(
     const GetEventsByArtifactIDsRequest& request,
     GetEventsByArtifactIDsResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-
-  for (const int64 artifact_id : request.artifact_ids()) {
-    std::vector<Event> events;
-    const tensorflow::Status status =
-        metadata_access_object_->FindEventsByArtifact(artifact_id, &events);
-    if (status.ok()) {
-      for (const Event& event : events) {
-        *response->mutable_events()->Add() = event;
-      }
-    } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
-      return status;
-    }
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        for (const int64 artifact_id : request.artifact_ids()) {
+          std::vector<Event> events;
+          const tensorflow::Status status =
+              metadata_access_object_->FindEventsByArtifact(artifact_id,
+                                                            &events);
+          if (status.ok()) {
+            for (const Event& event : events) {
+              *response->mutable_events()->Add() = event;
+            }
+          } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
+            return status;
+          }
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::GetExecutions(
     const GetExecutionsRequest& request, GetExecutionsResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  std::vector<Execution> executions;
-  TF_RETURN_IF_ERROR(metadata_access_object_->FindExecutions(&executions));
-  for (const Execution& execution : executions) {
-    *response->mutable_executions()->Add() = execution;
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(), [this, &response]() -> tensorflow::Status {
+        std::vector<Execution> executions;
+        TF_RETURN_IF_ERROR(
+            metadata_access_object_->FindExecutions(&executions));
+        for (const Execution& execution : executions) {
+          *response->mutable_executions()->Add() = execution;
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::GetArtifacts(
     const GetArtifactsRequest& request, GetArtifactsResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  std::vector<Artifact> artifacts;
-  TF_RETURN_IF_ERROR(metadata_access_object_->FindArtifacts(&artifacts));
-  for (const Artifact& artifact : artifacts) {
-    *response->mutable_artifacts()->Add() = artifact;
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(), [this, &response]() -> tensorflow::Status {
+        std::vector<Artifact> artifacts;
+        TF_RETURN_IF_ERROR(metadata_access_object_->FindArtifacts(&artifacts));
+        for (const Artifact& artifact : artifacts) {
+          *response->mutable_artifacts()->Add() = artifact;
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::GetContexts(const GetContextsRequest& request,
                                               GetContextsResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  std::vector<Context> contexts;
-  TF_RETURN_IF_ERROR(metadata_access_object_->FindContexts(&contexts));
-  for (const Context& context : contexts) {
-    *response->mutable_contexts()->Add() = context;
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(), [this, &response]() -> tensorflow::Status {
+        std::vector<Context> contexts;
+        TF_RETURN_IF_ERROR(metadata_access_object_->FindContexts(&contexts));
+        for (const Context& context : contexts) {
+          *response->mutable_contexts()->Add() = context;
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::GetArtifactTypes(
     const GetArtifactTypesRequest& request,
     GetArtifactTypesResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  std::vector<ArtifactType> artifact_types;
-  const tensorflow::Status status =
-      metadata_access_object_->FindTypes(&artifact_types);
-  if (status.code() == ::tensorflow::error::NOT_FOUND) {
-    return tensorflow::Status::OK();
-  } else if (!status.ok()) {
-    return status;
-  }
-  for (const ArtifactType& artifact_type : artifact_types) {
-    *response->mutable_artifact_types()->Add() = artifact_type;
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(), [this, &response]() -> tensorflow::Status {
+        std::vector<ArtifactType> artifact_types;
+        const tensorflow::Status status =
+            metadata_access_object_->FindTypes(&artifact_types);
+        if (status.code() == ::tensorflow::error::NOT_FOUND) {
+          return tensorflow::Status::OK();
+        } else if (!status.ok()) {
+          return status;
+        }
+        for (const ArtifactType& artifact_type : artifact_types) {
+          *response->mutable_artifact_types()->Add() = artifact_type;
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::GetExecutionTypes(
     const GetExecutionTypesRequest& request,
     GetExecutionTypesResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  std::vector<ExecutionType> execution_types;
-  const tensorflow::Status status =
-      metadata_access_object_->FindTypes(&execution_types);
-  if (status.code() == ::tensorflow::error::NOT_FOUND) {
-    return tensorflow::Status::OK();
-  } else if (!status.ok()) {
-    return status;
-  }
-  for (const ExecutionType& execution_type : execution_types) {
-    *response->mutable_execution_types()->Add() = execution_type;
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(), [this, &response]() -> tensorflow::Status {
+        std::vector<ExecutionType> execution_types;
+        const tensorflow::Status status =
+            metadata_access_object_->FindTypes(&execution_types);
+        if (status.code() == ::tensorflow::error::NOT_FOUND) {
+          return tensorflow::Status::OK();
+        } else if (!status.ok()) {
+          return status;
+        }
+        for (const ExecutionType& execution_type : execution_types) {
+          *response->mutable_execution_types()->Add() = execution_type;
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::GetArtifactsByURI(
     const GetArtifactsByURIRequest& request,
     GetArtifactsByURIResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  std::vector<Artifact> artifacts;
-  const tensorflow::Status status =
-      metadata_access_object_->FindArtifactsByURI(request.uri(), &artifacts);
-  if (status.code() == ::tensorflow::error::NOT_FOUND) {
-    return tensorflow::Status::OK();
-  } else if (!status.ok()) {
-    return status;
-  }
-  for (const Artifact& artifact : artifacts) {
-    *response->mutable_artifacts()->Add() = artifact;
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        std::vector<Artifact> artifacts;
+        const tensorflow::Status status =
+            metadata_access_object_->FindArtifactsByURI(request.uri(),
+                                                        &artifacts);
+        if (status.code() == ::tensorflow::error::NOT_FOUND) {
+          return tensorflow::Status::OK();
+        } else if (!status.ok()) {
+          return status;
+        }
+        for (const Artifact& artifact : artifacts) {
+          *response->mutable_artifacts()->Add() = artifact;
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::GetArtifactsByType(
     const GetArtifactsByTypeRequest& request,
     GetArtifactsByTypeResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  ArtifactType artifact_type;
-  tensorflow::Status status = metadata_access_object_->FindTypeByName(
-      request.type_name(), &artifact_type);
-  if (status.code() == ::tensorflow::error::NOT_FOUND) {
-    return tensorflow::Status::OK();
-  } else if (!status.ok()) {
-    return status;
-  }
-  std::vector<Artifact> artifacts;
-  status = metadata_access_object_->FindArtifactsByTypeId(artifact_type.id(),
-                                                          &artifacts);
-  if (status.code() == ::tensorflow::error::NOT_FOUND) {
-    return tensorflow::Status::OK();
-  } else if (!status.ok()) {
-    return status;
-  }
-  for (const Artifact& artifact : artifacts) {
-    *response->mutable_artifacts()->Add() = artifact;
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        ArtifactType artifact_type;
+        tensorflow::Status status = metadata_access_object_->FindTypeByName(
+            request.type_name(), &artifact_type);
+        if (status.code() == ::tensorflow::error::NOT_FOUND) {
+          return tensorflow::Status::OK();
+        } else if (!status.ok()) {
+          return status;
+        }
+        std::vector<Artifact> artifacts;
+        status = metadata_access_object_->FindArtifactsByTypeId(
+            artifact_type.id(), &artifacts);
+        if (status.code() == ::tensorflow::error::NOT_FOUND) {
+          return tensorflow::Status::OK();
+        } else if (!status.ok()) {
+          return status;
+        }
+        for (const Artifact& artifact : artifacts) {
+          *response->mutable_artifacts()->Add() = artifact;
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::GetExecutionsByType(
     const GetExecutionsByTypeRequest& request,
     GetExecutionsByTypeResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  ExecutionType execution_type;
-  tensorflow::Status status = metadata_access_object_->FindTypeByName(
-      request.type_name(), &execution_type);
-  if (status.code() == ::tensorflow::error::NOT_FOUND) {
-    return tensorflow::Status::OK();
-  } else if (!status.ok()) {
-    return status;
-  }
-  std::vector<Execution> executions;
-  status = metadata_access_object_->FindExecutionsByTypeId(execution_type.id(),
-                                                           &executions);
-  if (status.code() == ::tensorflow::error::NOT_FOUND) {
-    return tensorflow::Status::OK();
-  } else if (!status.ok()) {
-    return status;
-  }
-  for (const Execution& execution : executions) {
-    *response->mutable_executions()->Add() = execution;
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        ExecutionType execution_type;
+        tensorflow::Status status = metadata_access_object_->FindTypeByName(
+            request.type_name(), &execution_type);
+        if (status.code() == ::tensorflow::error::NOT_FOUND) {
+          return tensorflow::Status::OK();
+        } else if (!status.ok()) {
+          return status;
+        }
+        std::vector<Execution> executions;
+        status = metadata_access_object_->FindExecutionsByTypeId(
+            execution_type.id(), &executions);
+        if (status.code() == ::tensorflow::error::NOT_FOUND) {
+          return tensorflow::Status::OK();
+        } else if (!status.ok()) {
+          return status;
+        }
+        for (const Execution& execution : executions) {
+          *response->mutable_executions()->Add() = execution;
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::GetContextsByType(
     const GetContextsByTypeRequest& request,
     GetContextsByTypeResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  ContextType context_type;
-  tensorflow::Status status = metadata_access_object_->FindTypeByName(
-      request.type_name(), &context_type);
-  if (status.code() == ::tensorflow::error::NOT_FOUND) {
-    return tensorflow::Status::OK();
-  } else if (!status.ok()) {
-    return status;
-  }
-  std::vector<Context> contexts;
-  status = metadata_access_object_->FindContextsByTypeId(context_type.id(),
-                                                         &contexts);
-  if (status.code() == ::tensorflow::error::NOT_FOUND) {
-    return tensorflow::Status::OK();
-  } else if (!status.ok()) {
-    return status;
-  }
-  for (const Context& context : contexts) {
-    *response->mutable_contexts()->Add() = context;
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        ContextType context_type;
+        tensorflow::Status status = metadata_access_object_->FindTypeByName(
+            request.type_name(), &context_type);
+        if (status.code() == ::tensorflow::error::NOT_FOUND) {
+          return tensorflow::Status::OK();
+        } else if (!status.ok()) {
+          return status;
+        }
+        std::vector<Context> contexts;
+        status = metadata_access_object_->FindContextsByTypeId(
+            context_type.id(), &contexts);
+        if (status.code() == ::tensorflow::error::NOT_FOUND) {
+          return tensorflow::Status::OK();
+        } else if (!status.ok()) {
+          return status;
+        }
+        for (const Context& context : contexts) {
+          *response->mutable_contexts()->Add() = context;
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::PutAttributionsAndAssociations(
     const PutAttributionsAndAssociationsRequest& request,
     PutAttributionsAndAssociationsResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  for (const Attribution& attribution : request.attributions()) {
-    int64 dummy_attribution_id;
-    tensorflow::Status status = metadata_access_object_->CreateAttribution(
-        attribution, &dummy_attribution_id);
-    if (tensorflow::errors::IsAlreadyExists(status)) continue;
-    TF_RETURN_IF_ERROR(status);
-  }
-  for (const Association& association : request.associations()) {
-    int64 dummy_assocation_id;
-    tensorflow::Status status = metadata_access_object_->CreateAssociation(
-        association, &dummy_assocation_id);
-    if (tensorflow::errors::IsAlreadyExists(status)) continue;
-    TF_RETURN_IF_ERROR(status);
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(), [this, &request]() -> tensorflow::Status {
+        for (const Attribution& attribution : request.attributions()) {
+          int64 dummy_attribution_id;
+          tensorflow::Status status =
+              metadata_access_object_->CreateAttribution(attribution,
+                                                         &dummy_attribution_id);
+          if (tensorflow::errors::IsAlreadyExists(status)) continue;
+          TF_RETURN_IF_ERROR(status);
+        }
+        for (const Association& association : request.associations()) {
+          int64 dummy_assocation_id;
+          tensorflow::Status status =
+              metadata_access_object_->CreateAssociation(association,
+                                                         &dummy_assocation_id);
+          if (tensorflow::errors::IsAlreadyExists(status)) continue;
+          TF_RETURN_IF_ERROR(status);
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::GetContextsByArtifact(
     const GetContextsByArtifactRequest& request,
     GetContextsByArtifactResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  std::vector<Context> contexts;
-  TF_RETURN_IF_ERROR(metadata_access_object_->FindContextsByArtifact(
-      request.artifact_id(), &contexts));
-  for (const Context& context : contexts) {
-    *response->mutable_contexts()->Add() = context;
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        std::vector<Context> contexts;
+        TF_RETURN_IF_ERROR(metadata_access_object_->FindContextsByArtifact(
+            request.artifact_id(), &contexts));
+        for (const Context& context : contexts) {
+          *response->mutable_contexts()->Add() = context;
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::GetContextsByExecution(
     const GetContextsByExecutionRequest& request,
     GetContextsByExecutionResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  std::vector<Context> contexts;
-  TF_RETURN_IF_ERROR(metadata_access_object_->FindContextsByExecution(
-      request.execution_id(), &contexts));
-  for (const Context& context : contexts) {
-    *response->mutable_contexts()->Add() = context;
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        std::vector<Context> contexts;
+        TF_RETURN_IF_ERROR(metadata_access_object_->FindContextsByExecution(
+            request.execution_id(), &contexts));
+        for (const Context& context : contexts) {
+          *response->mutable_contexts()->Add() = context;
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::GetArtifactsByContext(
     const GetArtifactsByContextRequest& request,
     GetArtifactsByContextResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  std::vector<Artifact> artifacts;
-  TF_RETURN_IF_ERROR(metadata_access_object_->FindArtifactsByContext(
-      request.context_id(), &artifacts));
-  for (const Artifact& artifact : artifacts) {
-    *response->mutable_artifacts()->Add() = artifact;
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        std::vector<Artifact> artifacts;
+        TF_RETURN_IF_ERROR(metadata_access_object_->FindArtifactsByContext(
+            request.context_id(), &artifacts));
+        for (const Artifact& artifact : artifacts) {
+          *response->mutable_artifacts()->Add() = artifact;
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::GetExecutionsByContext(
     const GetExecutionsByContextRequest& request,
     GetExecutionsByContextResponse* response) {
-  ScopedTransaction transaction(metadata_source_.get());
-  std::vector<Execution> executions;
-  TF_RETURN_IF_ERROR(metadata_access_object_->FindExecutionsByContext(
-      request.context_id(), &executions));
-  for (const Execution& execution : executions) {
-    *response->mutable_executions()->Add() = execution;
-  }
-  return transaction.Commit();
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        std::vector<Execution> executions;
+        TF_RETURN_IF_ERROR(metadata_access_object_->FindExecutionsByContext(
+            request.context_id(), &executions));
+        for (const Execution& execution : executions) {
+          *response->mutable_executions()->Add() = execution;
+        }
+        return tensorflow::Status::OK();
+      });
 }
 
 MetadataStore::MetadataStore(

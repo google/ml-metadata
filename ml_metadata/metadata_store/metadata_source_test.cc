@@ -17,6 +17,7 @@ limitations under the License.
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "ml_metadata/proto/metadata_source.pb.h"
+#include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
 
 namespace ml_metadata {
@@ -173,6 +174,62 @@ TEST(MetadataSourceTest, TestBeginWithoutConnect) {
   MockMetadataSource mock_metadata_source;
   EXPECT_CALL(mock_metadata_source, BeginImpl()).Times(0);
   tensorflow::Status s = mock_metadata_source.Begin();
+  EXPECT_EQ(s.code(), tensorflow::error::FAILED_PRECONDITION);
+}
+
+TEST(MetadataSourceTest, TestExecuteTransactionCommit) {
+  MockMetadataSource mock_metadata_source;
+  TF_EXPECT_OK(mock_metadata_source.Connect());
+  string query = "some query";
+  RecordSet result;
+
+  EXPECT_CALL(mock_metadata_source, BeginImpl()).Times(1);
+  EXPECT_CALL(mock_metadata_source, ExecuteQueryImpl(query, &result)).Times(1);
+  EXPECT_CALL(mock_metadata_source, CommitImpl()).Times(1);
+  EXPECT_CALL(mock_metadata_source, RollbackImpl()).Times(0);
+  TF_EXPECT_OK(ExecuteTransaction(
+      &mock_metadata_source,
+      [&mock_metadata_source, &query, &result]() -> tensorflow::Status {
+        return mock_metadata_source.ExecuteQuery(query, &result);
+      }));
+}
+
+TEST(MetadataSourceTest, TestExecuteTransactionRollback) {
+  MockMetadataSource mock_metadata_source;
+  TF_EXPECT_OK(mock_metadata_source.Connect());
+  string query = "some query";
+  RecordSet result;
+  tensorflow::Status want_status =
+      tensorflow::errors::Internal("Some internal error afterwards");
+
+  EXPECT_CALL(mock_metadata_source, BeginImpl()).Times(1);
+  EXPECT_CALL(mock_metadata_source, ExecuteQueryImpl(query, &result))
+      .WillOnce(::testing::Return(want_status));
+  EXPECT_CALL(mock_metadata_source, CommitImpl()).Times(0);
+  EXPECT_CALL(mock_metadata_source, RollbackImpl())
+      .WillOnce(
+          ::testing::Return(tensorflow::errors::Unknown("Rollback failed.")));
+  tensorflow::Status got_status = ExecuteTransaction(
+      &mock_metadata_source,
+      [&mock_metadata_source, &query, &result]() -> tensorflow::Status {
+        return mock_metadata_source.ExecuteQuery(query, &result);
+      });
+  EXPECT_EQ(got_status.code(), want_status.code());
+}
+
+TEST(MetadataSourceTest, TestExecuteTransactionError) {
+  MockMetadataSource mock_metadata_source;
+  string query = "some query";
+  RecordSet result;
+  EXPECT_CALL(mock_metadata_source, BeginImpl()).Times(0);
+  EXPECT_CALL(mock_metadata_source, ExecuteQueryImpl(query, &result)).Times(0);
+  EXPECT_CALL(mock_metadata_source, CommitImpl()).Times(0);
+  EXPECT_CALL(mock_metadata_source, RollbackImpl()).Times(0);
+  tensorflow::Status s = ExecuteTransaction(
+      &mock_metadata_source,
+      [&mock_metadata_source, &query, &result]() -> tensorflow::Status {
+        return mock_metadata_source.ExecuteQuery(query, &result);
+      });
   EXPECT_EQ(s.code(), tensorflow::error::FAILED_PRECONDITION);
 }
 

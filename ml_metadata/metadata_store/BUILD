@@ -62,6 +62,7 @@ ml_metadata_cc_test(
         ":metadata_source",
         "@com_google_googletest//:gtest_main",
         "//ml_metadata/proto:metadata_source_proto",
+        "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:test",
     ],
 )
