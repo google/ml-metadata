@@ -17,8 +17,13 @@
 # WORKSPACE file.
 FROM l.gcr.io/google/bazel:0.24.1 as builder
 
-RUN apt-get update -y && \
-  apt-get install --no-install-recommends -y -q make cmake clang musl-dev openssl
+RUN apt-get update -y --option Acquire::Retries=3 && \
+  apt-get install --no-install-recommends -y -q --option Acquire::Retries=3 \
+  clang \
+  cmake \
+  make \
+  musl-dev \
+  openssl
 
 ADD . /mlmd-src
 WORKDIR /mlmd-src
