@@ -121,10 +121,12 @@ tensorflow::Status ExecuteTransaction(
   }
   TF_RETURN_IF_ERROR(metadata_source->Begin());
   tensorflow::Status transaction_status = transaction();
+  if (transaction_status.ok()) {
+    transaction_status.Update(metadata_source->Commit());
+  }
+  // Commit may fail as well, if so, we do rollback to allow the caller retry.
   if (!transaction_status.ok()) {
     transaction_status.Update(metadata_source->Rollback());
-  } else {
-    transaction_status.Update(metadata_source->Commit());
   }
   return transaction_status;
 }
