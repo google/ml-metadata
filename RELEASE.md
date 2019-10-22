@@ -1,4 +1,4 @@
-# Current version (not yet released; still in development)
+# Release 0.15.0
 
 ## Major Features and Improvements
 
@@ -8,7 +8,6 @@
     parameters to the MLMD gRPC server.
 *   Provides the ability for metadata_store.py to communicate with the MLMD gRPC
     server, as an alternative to connecting directly with a database.
-
 
 ## Bug Fixes and Other Changes
 
