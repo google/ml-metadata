@@ -31,22 +31,37 @@ else
   fi
 fi
 
+PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
+function is_windows() {
+  if [[ "${PLATFORM}" =~ (cygwin|mingw32|mingw64|msys)_nt* ]]; then
+    true
+  else
+    false
+  fi
+}
+
 set -u -x
 
-cp -f ml_metadata/metadata_store/pywrap_tf_metadata_store_serialized.py \
+cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-bin/ml_metadata/metadata_store/pywrap_tf_metadata_store_serialized.py \
   ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/metadata_store
-cp -f ml_metadata/proto/metadata_store_pb2.py \
+cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-genfiles/ml_metadata/proto/metadata_store_pb2.py \
   ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
-cp -f ml_metadata/proto/metadata_store_service_pb2.py \
+cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-genfiles/ml_metadata/proto/metadata_store_service_pb2.py \
   ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
-cp -f ml_metadata/proto/metadata_store_service_pb2_grpc.py \
+cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-genfiles/ml_metadata/proto/metadata_store_service_pb2_grpc.py \
   ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
 
-cp -f ml_metadata
+mkdir -p ${BUILD_WORKSPACE_DIRECTORY}/src
+cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-bin/ml_metadata
   ${BUILD_WORKSPACE_DIRECTORY}/src
 
-cp -f ml_metadata/metadata_store/_pywrap_tf_metadata_store_serialized.so \
-  ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/metadata_store
+if is_windows; then
+  cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-out/x64_windows-opt/genfiles/ml_metadata/metadata_store/_pywrap_tf_metadata_store_serialized.pyd \
+    ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/metadata_store
+else
+  cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-bin/ml_metadata/metadata_store/_pywrap_tf_metadata_store_serialized.so \
+    ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/metadata_store
+fi
 
 # Create the wheel
 cd ${BUILD_WORKSPACE_DIRECTORY}

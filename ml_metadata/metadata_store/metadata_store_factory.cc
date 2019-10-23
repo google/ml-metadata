@@ -16,16 +16,18 @@ limitations under the License.
 
 #include "absl/memory/memory.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
+#ifndef _WIN32
 #include "ml_metadata/metadata_store/mysql_metadata_source.h"
+#endif
 #include "ml_metadata/metadata_store/sqlite_metadata_source.h"
 #include "ml_metadata/util/metadata_source_query_config.h"
 #include "tensorflow/core/lib/core/errors.h"
-
 
 namespace ml_metadata {
 
 namespace {
 
+#ifndef _WIN32
 tensorflow::Status CreateMySQLMetadataStore(
     const MySQLDatabaseConfig& config, std::unique_ptr<MetadataStore>* result) {
   TF_RETURN_IF_ERROR(MetadataStore::Create(
@@ -33,6 +35,14 @@ tensorflow::Status CreateMySQLMetadataStore(
       absl::make_unique<MySqlMetadataSource>(config), result));
   return (*result)->InitMetadataStoreIfNotExists();
 }
+#else
+tensorflow::Status CreateMySQLMetadataStore(
+    const MySQLDatabaseConfig& config,
+    std::unique_ptr<MetadataStore>* result) {
+  return tensorflow::errors::Unimplemented(
+             "MySQL is not supported in Windows yet");
+}
+#endif
 
 tensorflow::Status CreateSqliteMetadataStore(
     const SqliteMetadataSourceConfig& config,

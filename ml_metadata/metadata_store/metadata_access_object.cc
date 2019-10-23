@@ -12,7 +12,10 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
+
+#ifndef _WIN32
 #include "ml_metadata/metadata_store/metadata_access_object.h"
+#endif
 
 #include <string>
 #include <vector>
@@ -27,6 +30,9 @@ limitations under the License.
 #include "absl/strings/substitute.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#ifdef _WIN32
+#include "ml_metadata/metadata_store/metadata_access_object.h" // NOLINT
+#endif
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status.h"
@@ -229,7 +235,7 @@ tensorflow::Status ParseRecordSetToMapField(const RecordSet& record_set,
   return tensorflow::Status::OK();
 }
 
-#ifndef __APPLE__
+#if (!defined(__APPLE__) && !defined(_WIN32))
 string Bind(const google::protobuf::int64 value) {
   return std::to_string(value);
 }

@@ -428,7 +428,7 @@ tensorflow::Status MetadataStore::PutEvents(const PutEventsRequest& request,
   return ExecuteTransaction(
       metadata_source_.get(), [this, &request]() -> tensorflow::Status {
         for (const Event& event : request.events()) {
-          int64 dummy_event_id;
+          int64 dummy_event_id = -1;
           TF_RETURN_IF_ERROR(
               metadata_access_object_->CreateEvent(event, &dummy_event_id));
         }

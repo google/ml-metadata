@@ -8,6 +8,8 @@
     parameters to the MLMD gRPC server.
 *   Provides the ability for metadata_store.py to communicate with the MLMD gRPC
     server, as an alternative to connecting directly with a database.
+*   Supports Sqlite for Windows and adds scripts to build wheels for python3 in
+    Windows.
 
 ## Bug Fixes and Other Changes
 
