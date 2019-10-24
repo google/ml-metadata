@@ -626,6 +626,24 @@ class MetadataStore(object):
     self._call('GetContextType', request, response)
     return response.context_type
 
+  def get_context_types(self) -> List[metadata_store_pb2.ContextType]:
+    """Gets all context types.
+
+    Returns:
+     A list of all known ContextTypes.
+
+    Raises:
+    tensorflow.errors.InternalError: if query execution fails
+    """
+    request = metadata_store_service_pb2.GetContextTypesRequest()
+    response = metadata_store_service_pb2.GetContextTypesResponse()
+
+    self._call('GetContextTypes', request, response)
+    result = []
+    for x in response.context_types:
+      result.append(x)
+    return result
+
   def get_executions_by_type(
       self, type_name: Text) -> List[metadata_store_pb2.Execution]:
     """Gets all the executions of a given type."""

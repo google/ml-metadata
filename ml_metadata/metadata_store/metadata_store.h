@@ -194,6 +194,12 @@ class MetadataStore {
   tensorflow::Status GetExecutionTypes(const GetExecutionTypesRequest& request,
                                        GetExecutionTypesResponse* response);
 
+  // Gets all context types. If no context types found, it returns OK and
+  // empty response.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status GetContextTypes(const GetContextTypesRequest& request,
+                                     GetContextTypesResponse* response);
+
   // Gets a list of artifact types by ID.
   // If no artifact types with an ID exists, the artifact type is skipped.
   // Sets the error field if any other internal errors are returned.

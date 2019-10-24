@@ -38,10 +38,10 @@ func fakeDatabaseConfig() *mdpb.ConnectionConfig {
 
 func TestPutArtifactType(t *testing.T) {
 	store, err := NewStore(fakeDatabaseConfig())
-	defer store.Close()
 	if err != nil {
 		t.Fatalf("Cannot create Store: %v", err)
 	}
+	defer store.Close()
 
 	typeName := `test_type_name`
 	aType := &mdpb.ArtifactType{Name: &typeName}
@@ -75,10 +75,10 @@ func TestPutArtifactType(t *testing.T) {
 
 func TestPutAndUpdateArtifactType(t *testing.T) {
 	store, err := NewStore(fakeDatabaseConfig())
-	defer store.Close()
 	if err != nil {
 		t.Fatalf("Cannot create Store: %v", err)
 	}
+	defer store.Close()
 
 	textType := `name: 'test_type_name' properties { key: 'p1' value: INT } `
 	aType := &mdpb.ArtifactType{}
@@ -123,10 +123,10 @@ func TestPutAndUpdateArtifactType(t *testing.T) {
 
 func TestGetArtifactType(t *testing.T) {
 	store, err := NewStore(fakeDatabaseConfig())
-	defer store.Close()
 	if err != nil {
 		t.Fatalf("Cannot create Store: %v", err)
 	}
+	defer store.Close()
 
 	typeName := `test_type_name`
 	wantType := &mdpb.ArtifactType{Name: &typeName}
@@ -161,10 +161,10 @@ func TestGetArtifactType(t *testing.T) {
 
 func TestGetArtifactTypes(t *testing.T) {
 	store, err := NewStore(fakeDatabaseConfig())
-	defer store.Close()
 	if err != nil {
 		t.Fatalf("Cannot create Store: %v", err)
 	}
+	defer store.Close()
 
 	wantType1 := &mdpb.ArtifactType{Name: proto.String("test_type_1")}
 	opts := &PutTypeOptions{AllFieldsMustMatch: true}
@@ -194,10 +194,10 @@ func TestGetArtifactTypes(t *testing.T) {
 
 func TestGetExecutionTypes(t *testing.T) {
 	store, err := NewStore(fakeDatabaseConfig())
-	defer store.Close()
 	if err != nil {
 		t.Fatalf("Cannot create Store: %v", err)
 	}
+	defer store.Close()
 
 	wantType1 := &mdpb.ExecutionType{Name: proto.String("test_type_1")}
 	opts := &PutTypeOptions{AllFieldsMustMatch: true}
@@ -227,10 +227,11 @@ func TestGetExecutionTypes(t *testing.T) {
 
 func TestPutAndGetExecutionType(t *testing.T) {
 	store, err := NewStore(fakeDatabaseConfig())
-	defer store.Close()
 	if err != nil {
 		t.Fatalf("Cannot create Store: %v", err)
 	}
+	defer store.Close()
+
 	textType := `name: 'test_type_name' properties { key: 'p1' value: INT } `
 	wantType := &mdpb.ExecutionType{}
 	if err := proto.UnmarshalText(textType, wantType); err != nil {
@@ -266,10 +267,10 @@ func TestPutAndGetExecutionType(t *testing.T) {
 
 func TestPutAndUpdateExecutionType(t *testing.T) {
 	store, err := NewStore(fakeDatabaseConfig())
-	defer store.Close()
 	if err != nil {
 		t.Fatalf("Cannot create Store: %v", err)
 	}
+	defer store.Close()
 
 	textType := `name: 'test_type_name' properties { key: 'p1' value: INT } `
 	eType := &mdpb.ExecutionType{}
@@ -312,12 +313,46 @@ func TestPutAndUpdateExecutionType(t *testing.T) {
 	}
 }
 
-func TestPutAndGetContextType(t *testing.T) {
+func TestGetContextTypes(t *testing.T) {
 	store, err := NewStore(fakeDatabaseConfig())
-	defer store.Close()
 	if err != nil {
 		t.Fatalf("Cannot create Store: %v", err)
 	}
+	defer store.Close()
+
+	wantType1 := &mdpb.ContextType{Name: proto.String("test_type_1")}
+	opts := &PutTypeOptions{AllFieldsMustMatch: true}
+	typeID, err := store.PutContextType(wantType1, opts)
+	if err != nil {
+		t.Fatalf("PutContextType failed: %v", err)
+	}
+	wantType1.Id = proto.Int64(int64(typeID))
+
+	wantType2 := &mdpb.ContextType{Name: proto.String("test_type_2")}
+	typeID, err = store.PutContextType(wantType2, opts)
+	if err != nil {
+		t.Fatalf("PutContextType failed: %v", err)
+	}
+	wantType2.Id = proto.Int64(int64(typeID))
+
+	wantTypes := []*mdpb.ContextType{wantType1, wantType2}
+	gotTypes, err := store.GetContextTypes()
+	if err != nil {
+		t.Fatalf("GetContextTypes failed: %v", err)
+	}
+
+	if !cmp.Equal(wantTypes, gotTypes, cmp.Comparer(proto.Equal)) {
+		t.Errorf("GetContextTypes() mismatch, want: %v\n got: %v\nDiff:\n%s", wantTypes, gotTypes, cmp.Diff(gotTypes, wantTypes))
+	}
+}
+
+func TestPutAndGetContextType(t *testing.T) {
+	store, err := NewStore(fakeDatabaseConfig())
+	if err != nil {
+		t.Fatalf("Cannot create Store: %v", err)
+	}
+	defer store.Close()
+
 	textType := `name: 'test_type_name' properties { key: 'p1' value: INT } `
 	wantType := &mdpb.ContextType{}
 	if err := proto.UnmarshalText(textType, wantType); err != nil {
@@ -353,10 +388,10 @@ func TestPutAndGetContextType(t *testing.T) {
 
 func TestPutAndUpdateContextType(t *testing.T) {
 	store, err := NewStore(fakeDatabaseConfig())
-	defer store.Close()
 	if err != nil {
 		t.Fatalf("Cannot create Store: %v", err)
 	}
+	defer store.Close()
 
 	textType := `name: 'test_type_name' properties { key: 'p1' value: INT } `
 	cType := &mdpb.ContextType{}
@@ -412,10 +447,10 @@ func insertArtifactType(s *Store, textType string) (int64, error) {
 // TODO(b/124764089) Separate the test.
 func TestPutAndGetArtifacts(t *testing.T) {
 	store, err := NewStore(fakeDatabaseConfig())
-	defer store.Close()
 	if err != nil {
 		t.Fatalf("Cannot create Store: %v", err)
 	}
+	defer store.Close()
 	tid, err := insertArtifactType(store, `name: 'test_type_name' properties { key: 'p1' value: INT } `)
 	if err != nil {
 		t.Fatalf("Cannot create artifact type: %v", err)
@@ -551,10 +586,10 @@ func insertExecutionType(s *Store, textType string) (int64, error) {
 // TODO(b/124764089) Separate the test.
 func TestPutAndGetExecutions(t *testing.T) {
 	store, err := NewStore(fakeDatabaseConfig())
-	defer store.Close()
 	if err != nil {
 		t.Fatalf("Cannot create Store: %v", err)
 	}
+	defer store.Close()
 	tid, err := insertExecutionType(store, `name: 'test_type_name' properties { key: 'p1' value: DOUBLE } `)
 	if err != nil {
 		t.Fatalf("Cannot create execution type: %v", err)
@@ -659,10 +694,10 @@ func insertContextType(s *Store, textType string) (int64, error) {
 // TODO(b/124764089) Separate the test.
 func TestPutAndGetContexts(t *testing.T) {
 	store, err := NewStore(fakeDatabaseConfig())
-	defer store.Close()
 	if err != nil {
 		t.Fatalf("Cannot create Store: %v", err)
 	}
+	defer store.Close()
 	tid, err := insertContextType(store, `name: 'test_type_name' properties { key: 'p1' value: STRING } `)
 	if err != nil {
 		t.Fatalf("Cannot create context type: %v", err)
@@ -731,10 +766,10 @@ func TestPutAndGetContexts(t *testing.T) {
 
 func TestPutAndGetEvents(t *testing.T) {
 	store, err := NewStore(fakeDatabaseConfig())
-	defer store.Close()
 	if err != nil {
 		t.Fatalf("Cannot create Store: %v", err)
 	}
+	defer store.Close()
 	atid, err := insertArtifactType(store, `name: 'artifact_type_name' `)
 	if err != nil {
 		t.Fatalf("Cannot create artifact type: %v", err)
@@ -860,10 +895,10 @@ func TestPutAndGetEvents(t *testing.T) {
 
 func TestPublishExecution(t *testing.T) {
 	store, err := NewStore(fakeDatabaseConfig())
-	defer store.Close()
 	if err != nil {
 		t.Fatalf("Cannot create Store: %v", err)
 	}
+	defer store.Close()
 	// create test types
 	atid, err := insertArtifactType(store, `name: 'artifact_type_name' `)
 	if err != nil {
@@ -984,10 +1019,10 @@ func insertArtifact(s *Store, atid int64, textArtifact string) (*mdpb.Artifact, 
 
 func TestPutAndUseAttributionsAndAssociations(t *testing.T) {
 	store, err := NewStore(fakeDatabaseConfig())
-	defer store.Close()
 	if err != nil {
 		t.Fatalf("Cannot create Store: %v", err)
 	}
+	defer store.Close()
 	// prepare types
 	ctid, err := insertContextType(store, `name: 'context_type_name'`)
 	if err != nil {
@@ -1075,10 +1110,10 @@ func TestPutAndUseAttributionsAndAssociations(t *testing.T) {
 
 func TestPutDuplicatedAttributionsAndEmptyAssociations(t *testing.T) {
 	store, err := NewStore(fakeDatabaseConfig())
-	defer store.Close()
 	if err != nil {
 		t.Fatalf("Cannot create Store: %v", err)
 	}
+	defer store.Close()
 	ctid, err := insertContextType(store, `name: 'context_type_name'`)
 	if err != nil {
 		t.Fatalf("Cannot create context type: %v", err)

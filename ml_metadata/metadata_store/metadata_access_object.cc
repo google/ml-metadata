@@ -1596,21 +1596,27 @@ tensorflow::Status MetadataAccessObject::FindTypeById(
   return FindTypeImpl(type_id, query_config_, metadata_source_, execution_type);
 }
 
-tensorflow::Status MetadataAccessObject::FindTypes(
-    std::vector<ArtifactType>* artifact_types) {
-  return FindAllTypeInstancesImpl(query_config_, metadata_source_,
-                                  artifact_types);
-}
-
 tensorflow::Status MetadataAccessObject::FindTypeById(
     const int64 type_id, ContextType* context_type) {
   return FindTypeImpl(type_id, query_config_, metadata_source_, context_type);
 }
 
 tensorflow::Status MetadataAccessObject::FindTypes(
+    std::vector<ArtifactType>* artifact_types) {
+  return FindAllTypeInstancesImpl(query_config_, metadata_source_,
+                                  artifact_types);
+}
+
+tensorflow::Status MetadataAccessObject::FindTypes(
     std::vector<ExecutionType>* execution_types) {
   return FindAllTypeInstancesImpl(query_config_, metadata_source_,
                                   execution_types);
+}
+
+tensorflow::Status MetadataAccessObject::FindTypes(
+    std::vector<ContextType>* context_types) {
+  return FindAllTypeInstancesImpl(query_config_, metadata_source_,
+                                  context_types);
 }
 
 tensorflow::Status MetadataAccessObject::FindTypeByName(

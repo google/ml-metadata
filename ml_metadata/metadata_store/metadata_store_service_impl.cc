@@ -181,6 +181,19 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   return status;
 }
 
+::grpc::Status MetadataStoreServiceImpl::GetContextTypes(
+    ::grpc::ServerContext* context,
+    const ::ml_metadata::GetContextTypesRequest* request,
+    ::ml_metadata::GetContextTypesResponse* response) {
+  absl::WriterMutexLock l(&lock_);
+  const ::grpc::Status status =
+      ToGRPCStatus(metadata_store_->GetContextTypes(*request, response));
+  if (!status.ok()) {
+    LOG(WARNING) << "GetContextTypes failed: " << status.error_message();
+  }
+  return status;
+}
+
 ::grpc::Status MetadataStoreServiceImpl::PutArtifacts(
     ::grpc::ServerContext* context,
     const ::ml_metadata::PutArtifactsRequest* request,

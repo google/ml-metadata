@@ -118,6 +118,15 @@ func (store *Store) GetArtifactType(typeName string) (*mdpb.ArtifactType, error)
 	return resp.GetArtifactType(), err
 }
 
+// GetArtifactTypes gets all artifact types. If query execution fails, error
+// is returned.
+func (store *Store) GetArtifactTypes() ([]*mdpb.ArtifactType, error) {
+	req := &apipb.GetArtifactTypesRequest{}
+	resp := &apipb.GetArtifactTypesResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetArtifactTypes, req, resp)
+	return resp.GetArtifactTypes(), err
+}
+
 // GetArtifactTypesByID gets a list of artifact types by ID. If no type with an
 // ID exists, the artifact type is skipped. If the query execution fails, error is
 // returned.
@@ -172,15 +181,6 @@ func (store *Store) GetExecutionTypes() ([]*mdpb.ExecutionType, error) {
 	return resp.GetExecutionTypes(), err
 }
 
-// GetArtifactTypes gets all artifact types. If query execution fails, error
-// is returned.
-func (store *Store) GetArtifactTypes() ([]*mdpb.ArtifactType, error) {
-	req := &apipb.GetArtifactTypesRequest{}
-	resp := &apipb.GetArtifactTypesResponse{}
-	err := store.callMetadataStoreWrapMethod(wrap.GetArtifactTypes, req, resp)
-	return resp.GetArtifactTypes(), err
-}
-
 // GetExecutionTypesByID gets a list of execution types by ID. If no type with
 // an ID exists, the execution type is skipped. If the query execution fails, error
 // is returned.
@@ -224,6 +224,15 @@ func (store *Store) GetContextType(typeName string) (*mdpb.ContextType, error) {
 	resp := &apipb.GetContextTypeResponse{}
 	err := store.callMetadataStoreWrapMethod(wrap.GetContextType, req, resp)
 	return resp.GetContextType(), err
+}
+
+// GetContextTypes gets all context types. If query execution fails, error
+// is returned.
+func (store *Store) GetContextTypes() ([]*mdpb.ContextType, error) {
+	req := &apipb.GetContextTypesRequest{}
+	resp := &apipb.GetContextTypesResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetContextTypes, req, resp)
+	return resp.GetContextTypes(), err
 }
 
 // GetContextTypesByID gets a list of context types by ID. If no type with an

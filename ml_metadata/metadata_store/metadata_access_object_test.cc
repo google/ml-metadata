@@ -533,6 +533,43 @@ TEST_P(MetadataAccessObjectTest, FindAllExecutionTypes) {
                                               EqualsProto(want_type_3)));
 }
 
+TEST_P(MetadataAccessObjectTest, FindAllContextTypes) {
+  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  ContextType want_type_1 = ParseTextProtoOrDie<ContextType>(R"(
+    name: 'test_type_1'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: DOUBLE }
+    properties { key: 'property_3' value: STRING }
+    properties { key: 'property_4' value: STRING }
+  )");
+  int64 type_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(want_type_1, &type_id));
+  want_type_1.set_id(type_id);
+
+  ContextType want_type_2 = ParseTextProtoOrDie<ContextType>(R"(
+    name: 'test_type_2'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: DOUBLE }
+    properties { key: 'property_3' value: STRING }
+    properties { key: 'property_5' value: STRING }
+  )");
+  TF_ASSERT_OK(metadata_access_object_->CreateType(want_type_2, &type_id));
+  want_type_2.set_id(type_id);
+
+  // No properties.
+  ContextType want_type_3 = ParseTextProtoOrDie<ContextType>(R"(
+    name: 'no_properties_type'
+  )");
+  TF_ASSERT_OK(metadata_access_object_->CreateType(want_type_3, &type_id));
+  want_type_3.set_id(type_id);
+
+  std::vector<ContextType> got_types;
+  TF_EXPECT_OK(metadata_access_object_->FindTypes(&got_types));
+  EXPECT_THAT(got_types, UnorderedElementsAre(EqualsProto(want_type_1),
+                                              EqualsProto(want_type_2),
+                                              EqualsProto(want_type_3)));
+}
+
 TEST_P(MetadataAccessObjectTest, CreateArtifact) {
   TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(

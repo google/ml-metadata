@@ -128,12 +128,12 @@ class MetadataAccessObject {
                                     ContextType* context_type);
 
   // Returns a list of all known type instances. A type is one of
-  // {ArtifactType, ExecutionType}
-  // TODO(huimiao) support ContextType when introducing the service API.
-  // Returns NOT_FOUND error, if no artifact types can be found.
+  // {ArtifactType, ExecutionType, ContextType}
+  // Returns NOT_FOUND error, if no types can be found.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status FindTypes(std::vector<ArtifactType>* artifact_types);
   tensorflow::Status FindTypes(std::vector<ExecutionType>* execution_types);
+  tensorflow::Status FindTypes(std::vector<ContextType>* context_types);
 
   // Creates an artifact, returns the assigned artifact id. The id field of the
   // artifact is ignored.

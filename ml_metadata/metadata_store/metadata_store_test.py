@@ -159,6 +159,20 @@ class MetadataStoreTest(absltest.TestCase):
     got_types.sort(key=lambda x: x.id)
     self.assertListEqual([execution_type_1, execution_type_2], got_types)
 
+  def test_get_context_types(self):
+    store = _get_metadata_store()
+    context_type_1 = _create_example_context_type()
+    context_type_2 = _create_example_context_type_2()
+
+    type_id_1 = store.put_context_type(context_type_1)
+    context_type_1.id = type_id_1
+    type_id_2 = store.put_context_type(context_type_2)
+    context_type_2.id = type_id_2
+
+    got_types = store.get_context_types()
+    got_types.sort(key=lambda x: x.id)
+    self.assertListEqual([context_type_1, context_type_2], got_types)
+
   def test_put_artifacts_get_artifacts_by_id(self):
     store = _get_metadata_store()
     artifact_type = _create_example_artifact_type()

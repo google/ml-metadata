@@ -631,6 +631,25 @@ tensorflow::Status MetadataStore::GetExecutionTypes(
       });
 }
 
+tensorflow::Status MetadataStore::GetContextTypes(
+    const GetContextTypesRequest& request, GetContextTypesResponse* response) {
+  return ExecuteTransaction(
+      metadata_source_.get(), [this, &response]() -> tensorflow::Status {
+        std::vector<ContextType> context_types;
+        const tensorflow::Status status =
+            metadata_access_object_->FindTypes(&context_types);
+        if (status.code() == ::tensorflow::error::NOT_FOUND) {
+          return tensorflow::Status::OK();
+        } else if (!status.ok()) {
+          return status;
+        }
+        for (const ContextType& context_type : context_types) {
+          *response->mutable_context_types()->Add() = context_type;
+        }
+        return tensorflow::Status::OK();
+      });
+}
+
 tensorflow::Status MetadataStore::GetArtifactsByURI(
     const GetArtifactsByURIRequest& request,
     GetArtifactsByURIResponse* response) {

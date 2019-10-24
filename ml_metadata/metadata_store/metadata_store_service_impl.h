@@ -102,6 +102,12 @@ class MetadataStoreServiceImpl final
       ::ml_metadata::GetContextTypesByIDResponse* response) override
       ABSL_LOCKS_EXCLUDED(lock_);
 
+  ::grpc::Status GetContextTypes(
+      ::grpc::ServerContext* context,
+      const ::ml_metadata::GetContextTypesRequest* request,
+      ::ml_metadata::GetContextTypesResponse* response) override
+      ABSL_LOCKS_EXCLUDED(lock_);
+
   ::grpc::Status PutArtifacts(::grpc::ServerContext* context,
                               const ::ml_metadata::PutArtifactsRequest* request,
                               ::ml_metadata::PutArtifactsResponse* response)

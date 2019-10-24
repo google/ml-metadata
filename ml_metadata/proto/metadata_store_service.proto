@@ -280,6 +280,12 @@ message GetExecutionTypesResponse {
   repeated ExecutionType execution_types = 1;
 }
 
+message GetContextTypesRequest {}
+
+message GetContextTypesResponse {
+  repeated ContextType context_types = 1;
+}
+
 message GetExecutionsByTypeRequest {
   optional string type_name = 1;
 }
@@ -666,6 +672,10 @@ service MetadataStoreService {
   // If no context types with an ID exists, the context type is skipped.
   rpc GetContextTypesByID(GetContextTypesByIDRequest)
       returns (GetContextTypesByIDResponse) {}
+
+  // Gets a list of all context types.
+  rpc GetContextTypes(GetContextTypesRequest)
+      returns (GetContextTypesResponse) {}
 
   // Gets all the artifacts.
   rpc GetArtifacts(GetArtifactsRequest) returns (GetArtifactsResponse) {}

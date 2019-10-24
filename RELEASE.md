@@ -10,6 +10,7 @@
     server, as an alternative to connecting directly with a database.
 *   Supports Sqlite for Windows and adds scripts to build wheels for python3 in
     Windows.
+*   Provides GetContextTypes to list all Context Types.
 
 ## Bug Fixes and Other Changes
 

@@ -1541,6 +1541,63 @@ TEST_F(MetadataStoreTest, PutContextTypeGetContextType) {
       << "The name should be the same as the one returned.";
 }
 
+TEST_F(MetadataStoreTest, PutContextTypesGetContextTypes) {
+  const PutContextTypeRequest put_request_1 =
+      ParseTextProtoOrDie<PutContextTypeRequest>(
+          R"(
+            all_fields_match: true
+            context_type: {
+              name: 'test_type_1'
+              properties { key: 'property_1' value: STRING }
+            }
+          )");
+  PutContextTypeResponse put_response;
+  TF_ASSERT_OK(metadata_store_->PutContextType(put_request_1, &put_response));
+  ASSERT_TRUE(put_response.has_type_id());
+  ContextType type_1 = ParseTextProtoOrDie<ContextType>(
+      R"(
+        name: 'test_type_1'
+        properties { key: 'property_1' value: STRING }
+      )");
+  type_1.set_id(put_response.type_id());
+
+  const PutContextTypeRequest put_request_2 =
+      ParseTextProtoOrDie<PutContextTypeRequest>(
+          R"(
+            all_fields_match: true
+            context_type: {
+              name: 'test_type_2'
+              properties { key: 'property_2' value: INT }
+            }
+          )");
+  TF_ASSERT_OK(metadata_store_->PutContextType(put_request_2, &put_response));
+  ASSERT_TRUE(put_response.has_type_id());
+  ContextType type_2 = ParseTextProtoOrDie<ContextType>(
+      R"(
+        name: 'test_type_2'
+        properties { key: 'property_2' value: INT }
+      )");
+  type_2.set_id(put_response.type_id());
+
+  GetContextTypesRequest get_request;
+  GetContextTypesResponse got_response;
+  TF_ASSERT_OK(metadata_store_->GetContextTypes(get_request, &got_response));
+  GetContextTypesResponse want_response;
+  *want_response.add_context_types() = type_1;
+  *want_response.add_context_types() = type_2;
+  EXPECT_THAT(got_response, testing::EqualsProto(want_response));
+}
+
+TEST_F(MetadataStoreTest, GetContextTypesWhenNoneExist) {
+  GetContextTypesRequest get_request;
+  GetContextTypesResponse got_response;
+
+  // Expect OK status and empty response.
+  TF_ASSERT_OK(metadata_store_->GetContextTypes(get_request, &got_response));
+  const GetContextTypesResponse want_response;
+  EXPECT_THAT(got_response, testing::EqualsProto(want_response));
+}
+
 TEST_F(MetadataStoreTest, PutContextTypeGetContextTypesByID) {
   const PutContextTypeRequest put_request =
       ParseTextProtoOrDie<PutContextTypeRequest>(
