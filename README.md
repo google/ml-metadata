@@ -104,5 +104,6 @@ bazel build -c opt --define grpc_no_ares=true  //ml_metadata/metadata_store:meta
 
 MLMD is built and tested on the following 64-bit operating systems:
 
-  * macOS 10.12.6 (Sierra) or later.
-  * Ubuntu 16.04 or later.
+*   macOS 10.12.6 (Sierra) or later.
+*   Ubuntu 16.04 or later.
+*   Windows 7 or later.

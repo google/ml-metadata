@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@protobuf_archive//:protobuf.bzl", "cc_proto_library")
-load("@protobuf_archive//:protobuf.bzl", "py_proto_library")
+load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library")
+load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 
@@ -63,9 +63,9 @@ def ml_metadata_proto_library(
         name = name,
         srcs = srcs,
         deps = deps,
-        cc_libs = ["@protobuf_archive//:protobuf"],
-        protoc = "@protobuf_archive//:protoc",
-        default_runtime = "@protobuf_archive//:protobuf",
+        cc_libs = ["@com_google_protobuf//:protobuf"],
+        protoc = "@com_google_protobuf//:protoc",
+        default_runtime = "@com_google_protobuf//:protobuf",
         use_grpc_plugin = use_grpc_plugin,
         testonly = testonly,
         visibility = visibility,
@@ -87,9 +87,9 @@ def ml_metadata_proto_library_py(
         name = name,
         srcs = srcs,
         srcs_version = "PY2AND3",
-        deps = ["@protobuf_archive//:protobuf_python"] + deps + oss_deps,
-        default_runtime = "@protobuf_archive//:protobuf_python",
-        protoc = "@protobuf_archive//:protoc",
+        deps = ["@com_google_protobuf//:protobuf_python"] + deps + oss_deps,
+        default_runtime = "@com_google_protobuf//:protobuf_python",
+        protoc = "@com_google_protobuf//:protoc",
         visibility = visibility,
         testonly = testonly,
         use_grpc_plugin = use_grpc_plugin,

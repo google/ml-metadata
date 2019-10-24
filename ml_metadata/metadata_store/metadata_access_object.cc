@@ -30,9 +30,11 @@ limitations under the License.
 #include "absl/strings/substitute.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+// clang-format off
 #ifdef _WIN32
 #include "ml_metadata/metadata_store/metadata_access_object.h" // NOLINT
 #endif
+// clang-format on
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status.h"
@@ -835,7 +837,7 @@ tensorflow::Status UpdateTypeImpl(const Type& type,
       return tensorflow::errors::InvalidArgument(
           "Property:", property_name, " type should not be UNKNOWN.");
     }
-    if (stored_properties.contains(property_name)) {
+    if (stored_properties.find(property_name) != stored_properties.end()) {
       // for stored properties, type should not be changed.
       if (stored_properties.at(property_name) != property_type) {
         return tensorflow::errors::AlreadyExists(

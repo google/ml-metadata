@@ -84,12 +84,8 @@ setup(
         'absl-py>=0.7,<1',
         'protobuf>=3.7,<4',
         'six>=1.10,<2',
-
-        # TODO(martinz): Add a method to check if we are using a
-        # compatible TF version. If not, fail with a clear error.
-        # TODO(martinz): Uncomment this once TF can automatically
-        # select between CPU and GPU installation.
-        # 'tensorflow>=1.14,<2',
+        # TODO(b/143236826) revisit TF dependencies when absl status is ready.
+        'tensorflow>=1.15,<3',
     ],
     python_requires='>=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,<4',
     packages=find_packages(),

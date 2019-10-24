@@ -31,7 +31,7 @@ cc_library(
     hdrs = ["metadata_access_object.h"],
     deps = [
         ":metadata_source",
-        "@protobuf_archive//:protobuf",
+        "@com_google_protobuf//:protobuf",
         
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
@@ -177,7 +177,7 @@ cc_library(
     hdrs = ["test_util.h"],
     deps = [
         ":types",
-        "@protobuf_archive//:protobuf",
+        "@com_google_protobuf//:protobuf",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/strings",
         "@org_tensorflow//tensorflow/core:lib",
@@ -300,7 +300,7 @@ cc_library(
         ":mysql_metadata_source",
         ":test_mysql_metadata_source_initializer",
         ":test_util",
-        "@protobuf_archive//:protobuf",
+        "@com_google_protobuf//:protobuf",
         "@com_google_googletest//:gtest",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
