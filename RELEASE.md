@@ -14,6 +14,15 @@
 
 ## Bug Fixes and Other Changes
 
+*   Depended on `tensorflow>=1.15,<3`
+  * Starting from 1.15, package
+    `tensorflow` comes with GPU support. Users won't need to choose between
+    `tensorflow` and `tensorflow-gpu`.
+  * Caveat: `tensorflow` 2.0.0 is an exception and does not have GPU
+    support. If `tensorflow-gpu` 2.0.0 is installed before installing
+    `ml_metadata`, it will be replaced with `tensorflow` 2.0.0.
+    Re-install `tensorflow-gpu` 2.0.0 if needed.
+
 ## Breaking Changes
 
 ## Deprecations
