@@ -39,28 +39,39 @@ tensorflow::Status ParseProto(const string& input, ProtoType* proto) {
       "Could not parse proto");
 }
 
-
-
 %}
 
 %{
 
-ml_metadata::MetadataStore* CreateMetadataStore(const string& connection_config) {
+static char create_metadata_store_err_msg[1024];
+
+void set_exception_msg(const std::string& error_message) {
+  size_t len = error_message.size();
+  if (len > 1024) len = 1024;
+  strncpy(create_metadata_store_err_msg, error_message.c_str(), len);
+  create_metadata_store_err_msg[len] = '\0';
+}
+
+ml_metadata::MetadataStore* CreateMetadataStore(
+    const string& connection_config, const string& migration_options) {
   ml_metadata::ConnectionConfig proto_connection_config;
-  const tensorflow::Status parse_proto_result =
+  ml_metadata::MigrationOptions proto_migration_options;
+  tensorflow::Status parse_proto_result =
       ParseProto(connection_config, &proto_connection_config);
+  parse_proto_result.Update(
+      ParseProto(migration_options, &proto_migration_options));
   if (!parse_proto_result.ok()) {
-    PyErr_SetString(PyExc_RuntimeError, parse_proto_result.error_message().c_str());
+    set_exception_msg(parse_proto_result.error_message());
     return NULL;
   }
-
 
   std::unique_ptr<ml_metadata::MetadataStore> metadata_store;
   tensorflow::Status status = ml_metadata::CreateMetadataStore(
       proto_connection_config,
+      proto_migration_options,
       &metadata_store);
   if (!status.ok()) {
-    PyErr_SetString(PyExc_RuntimeError, status.error_message().c_str());
+    set_exception_msg(status.error_message());
     return NULL;
   }
   return metadata_store.release();
@@ -325,12 +336,19 @@ PyObject* GetExecutionsByContext(ml_metadata::MetadataStore* metadata_store,
   $1 = &temp;
 }
 
-
-
 %newobject CreateMetadataStore;
 %delobject DestroyMetadataStore;
 
-ml_metadata::MetadataStore* CreateMetadataStore(const string& connection_config);
+%exception CreateMetadataStore {
+  $action
+  if (!result) {
+    PyErr_SetString(PyExc_RuntimeError, create_metadata_store_err_msg);
+    return NULL;
+  }
+}
+
+ml_metadata::MetadataStore* CreateMetadataStore(
+    const string& connection_config, const string& migration_options);
 
 void DestroyMetadataStore(ml_metadata::MetadataStore* metadata_store);
 

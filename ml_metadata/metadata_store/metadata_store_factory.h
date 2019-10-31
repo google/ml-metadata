@@ -25,9 +25,12 @@ namespace ml_metadata {
 // Creates a MetadataStore.
 // If the method returns OK, the method MUST set result to contain
 // a non-null pointer.
-tensorflow::Status CreateMetadataStore(
-    const ConnectionConfig& config,
-    std::unique_ptr<MetadataStore>* result);
+tensorflow::Status CreateMetadataStore(const ConnectionConfig& config,
+                                       std::unique_ptr<MetadataStore>* result);
+
+tensorflow::Status CreateMetadataStore(const ConnectionConfig& config,
+                                       const MigrationOptions& options,
+                                       std::unique_ptr<MetadataStore>* result);
 
 }  // namespace ml_metadata
 

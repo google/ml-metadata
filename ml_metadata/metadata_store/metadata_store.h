@@ -30,16 +30,17 @@ namespace ml_metadata {
 // Each method is an atomic operation.
 class MetadataStore {
  public:
-  // Factory method, if the return value is ok, 'result' is populated with an
-  // object that can be used to access metadata with the given config and
-  // metadata_source.
+  // Factory method that creates a MetadataStore in result. The result is owned
+  // by the caller, and metadata_source is owned by result.
+  // If the return value is ok, 'result' is populated with an object that can be
+  // used to access metadata with the given config and metadata_source.
   // Returns INVALID_ARGUMENT error, if query_config is not valid.
+  // Returns INVALID_ARGUMENT error, if migration options are invalid.
+  // Returns CANCELLED error, if downgrade migration is performed.
   // Returns detailed INTERNAL error, if the MetadataSource cannot be connected.
-  // Creates a MetadataStore in result.
-  // result is owned by the caller.
-  // metadata_source is owned by result.
   static tensorflow::Status Create(
       const MetadataSourceQueryConfig& query_config,
+      const MigrationOptions& migration_options,
       std::unique_ptr<MetadataSource> metadata_source,
       std::unique_ptr<MetadataStore>* result);
 
@@ -52,8 +53,11 @@ class MetadataStore {
   // Returns OK and does nothing, if all required schema exist.
   // Returns OK and creates schema, if no schema exists yet.
   // Returns DATA_LOSS error, if any required schema is missing.
+  // Returns FAILED_PRECONDITION error, if library and db have incompatible
+  //   schema versions, and upgrade migrations are disallowed.
   // Returns detailed INTERNAL error, if create schema query execution fails.
-  tensorflow::Status InitMetadataStoreIfNotExists();
+  tensorflow::Status InitMetadataStoreIfNotExists(
+      bool disable_upgrade_migration = false);
 
   // Inserts or updates an artifact type.
   //

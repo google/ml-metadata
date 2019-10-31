@@ -82,8 +82,19 @@ class MetadataAccessObject {
   // Returns OK and does nothing, if all required schema exist.
   // Returns OK and creates schema, if no schema exists yet.
   // Returns DATA_LOSS error, if any required schema is missing.
+  // Returns FAILED_PRECONDITION error, if library and db have incompatible
+  //   schema versions, and upgrade migrations are disallowed.
   // Returns detailed INTERNAL error, if create schema query execution fails.
-  tensorflow::Status InitMetadataSourceIfNotExists();
+  tensorflow::Status InitMetadataSourceIfNotExists(
+      bool disable_upgrade_migration = false);
+
+  // Downgrades the schema to `to_schema_version` in the given metadata source.
+  // Returns INVALID_ARGUMENT, if `to_schema_version` is less than 0, or newer
+  //   than the library version.
+  // Returns FAILED_PRECONDITION, if db schema version is newer than the
+  //   library version.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status DowngradeMetadataSource(int64 to_schema_version);
 
   // Creates a type, returns the assigned type id. A type is one of
   // {ArtifactType, ExecutionType, ContextType}. The id field of the given type
@@ -330,16 +341,19 @@ class MetadataAccessObject {
   // Upgrades the database schema version (db_v) to align with the library
   // schema version (lib_v). It retrieves db_v from the metadata source and
   // compares it with the lib_v in the given query_config, and runs migration
-  // queries if db_v < lib_v.
+  // queries if db_v < lib_v. If `disable_migration`, it only compares the
+  // db_v with lib_v and does not change the db schema.
   // Returns FAILED_PRECONDITION error, if db_v > lib_v for the case that the
   //   user use a database produced by a newer version of the library. In that
   //   case, downgrading the database may result in data loss. Often upgrading
   //   the library is required.
+  // Returns FAILED_PRECONDITION error, if db_v < lib_v and `disable_migration`
+  //   is set to true.
   // Returns DATA_LOSS error, if schema version table exists but no value found.
   // Returns DATA_LOSS error, if the database is not a 0.13.2 release database
   //   and the schema version cannot be resolved.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status UpgradeMetadataSourceIfOutOfDate();
+  tensorflow::Status UpgradeMetadataSourceIfOutOfDate(bool disable_migration);
 
   const MetadataSourceQueryConfig query_config_;
 

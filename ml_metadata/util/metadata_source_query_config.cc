@@ -483,12 +483,26 @@ constexpr char kBaseQueryConfig[] = R"pb(
     query: " SELECT count(*) from "
            " `Artifact`, `Event`, `Execution`, `Type`, `ArtifactProperty`, "
            " `EventPath`, `ExecutionProperty`, `TypeProperty` LIMIT 1; "
-  ;
   }
 )pb";
 
 constexpr char kSQLiteMetadataSourceQueryConfig[] = R"pb(
   metadata_source_type: SQLITE_METADATA_SOURCE
+  # downgrade to 0.13.2 (i.e., v0), and drop the MLMDEnv table.
+  migration_schemes {
+    key: 0
+    value: {
+      # downgrade queries from version 1
+      downgrade_queries { query: " DROP TABLE IF EXISTS `MLMDEnv`; " }
+      # check the tables are deleted properly
+      downgrade_verification {
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `sqlite_master` "
+                 " WHERE `tbl_name` = 'MLMDEnv'; "
+        }
+      }
+    }
+  }
   # From 0.13.2 to v1, it creates a new MLMDEnv table to track schema_version.
   migration_schemes {
     key: 1
@@ -575,6 +589,54 @@ constexpr char kSQLiteMetadataSourceQueryConfig[] = R"pb(
           query: " SELECT count(*) = 1 FROM `MLMDEnv`; "
         }
       }
+      # downgrade queries from version 2, drop all ContextTypes and rename the
+      # the `type_kind` back to `is_artifact_type` column.
+      downgrade_queries { query: " DELETE FROM `Type` WHERE `type_kind` = 2; " }
+      downgrade_queries {
+        query: " CREATE TABLE IF NOT EXISTS `TypeTemp` ( "
+               "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+               "   `name` VARCHAR(255) NOT NULL, "
+               "   `is_artifact_type` TINYINT(1) NOT NULL, "
+               "   `input_type` TEXT, "
+               "   `output_type` TEXT"
+               " ); "
+      }
+      downgrade_queries {
+        query: " INSERT INTO `TypeTemp` SELECT * FROM `Type`; "
+      }
+      downgrade_queries { query: " DROP TABLE `Type`; " }
+      downgrade_queries { query: " ALTER TABLE `TypeTemp` rename to `Type`; " }
+      # check the tables are deleted properly
+      downgrade_verification {
+        # populate the `Type` table with context types.
+        previous_version_setup_queries {
+          query: " INSERT INTO `Type` "
+                 " (`name`, `type_kind`, `input_type`, `output_type`) "
+                 " VALUES ('execution_type', 0, 'input', 'output'); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Type` "
+                 " (`name`, `type_kind`, `input_type`, `output_type`) "
+                 " VALUES ('artifact_type', 1, 'input', 'output'); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Type` "
+                 " (`name`, `type_kind`, `input_type`, `output_type`) "
+                 " VALUES ('context_type', 2, 'input', 'output'); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `Type` "
+                 " WHERE `is_artifact_type` = 2; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `Type` "
+                 " WHERE `is_artifact_type` = 1 AND `name` = 'artifact_type'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `Type` "
+                 " WHERE `is_artifact_type` = 0 AND `name` = 'execution_type'; "
+        }
+      }
     }
   }
   # In v2, to support context type, and we renamed `is_artifact_type` column in
@@ -618,6 +680,20 @@ constexpr char kSQLiteMetadataSourceQueryConfig[] = R"pb(
                  " AND `input_type` = 'input' AND `output_type` = 'output'; "
         }
       }
+      # downgrade queries from version 3
+      downgrade_queries { query: " DROP TABLE IF EXISTS `Context`; " }
+      downgrade_queries { query: " DROP TABLE IF EXISTS `ContextProperty`; " }
+      # check the tables are deleted properly
+      downgrade_verification {
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `sqlite_master` "
+                 " WHERE `tbl_name` = 'Context'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `sqlite_master` "
+                 " WHERE `tbl_name` = 'ContextProperty'; "
+        }
+      }
     }
   }
   # In v3, to support context, we added two tables `Context` and
@@ -656,6 +732,20 @@ constexpr char kSQLiteMetadataSourceQueryConfig[] = R"pb(
                  "          `int_value`, `double_value`, `string_value` "
                  "    FROM `ContextProperty` "
                  " ); "
+        }
+      }
+      # downgrade queries from version 4
+      downgrade_queries { query: " DROP TABLE IF EXISTS `Association`; " }
+      downgrade_queries { query: " DROP TABLE IF EXISTS `Attribution`; " }
+      # check the tables are deleted properly
+      downgrade_verification {
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `sqlite_master` "
+                 " WHERE `tbl_name` = 'Association'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `sqlite_master` "
+                 " WHERE `tbl_name` = 'Attribution'; "
         }
       }
     }
@@ -760,6 +850,22 @@ constexpr char kMySQLMetadataSourceQueryConfig[] = R"pb(
            "   UNIQUE(`context_id`, `artifact_id`) "
            " ); "
   }
+  # downgrade to 0.13.2 (i.e., v0), and drops the MLMDEnv table.
+  migration_schemes {
+    key: 0
+    value: {
+      # downgrade queries from version 1
+      downgrade_queries { query: " DROP TABLE IF EXISTS `MLMDEnv`; " }
+      # check the tables are deleted properly
+      downgrade_verification {
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `information_schema`.`tables` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) and "
+                 "       `table_name` = 'MLMDEnv'; "
+        }
+      }
+    }
+  }
   migration_schemes {
     key: 1
     value: {
@@ -844,6 +950,44 @@ constexpr char kMySQLMetadataSourceQueryConfig[] = R"pb(
           query: " SELECT count(*) = 1 FROM `MLMDEnv`; "
         }
       }
+      # downgrade queries from version 2, drop all ContextTypes and rename the
+      # the `type_kind` back to `is_artifact_type` column.
+      downgrade_queries { query: " DELETE FROM `Type` WHERE `type_kind` = 2; " }
+      downgrade_queries {
+        query: " ALTER TABLE `Type` CHANGE COLUMN "
+               " `type_kind` `is_artifact_type` TINYINT(1) NOT NULL; "
+      }
+      # check the tables are deleted properly
+      downgrade_verification {
+        # populate the `Type` table with context types.
+        previous_version_setup_queries {
+          query: " INSERT INTO `Type` "
+                 " (`name`, `type_kind`, `input_type`, `output_type`) "
+                 " VALUES ('execution_type', 0, 'input', 'output'); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Type` "
+                 " (`name`, `type_kind`, `input_type`, `output_type`) "
+                 " VALUES ('artifact_type', 1, 'input', 'output'); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Type` "
+                 " (`name`, `type_kind`, `input_type`, `output_type`) "
+                 " VALUES ('context_type', 2, 'input', 'output'); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `Type` "
+                 " WHERE `is_artifact_type` = 2; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `Type` "
+                 " WHERE `is_artifact_type` = 1 AND `name` = 'artifact_type'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `Type` "
+                 " WHERE `is_artifact_type` = 0 AND `name` = 'execution_type'; "
+        }
+      }
     }
   }
   migration_schemes {
@@ -873,6 +1017,22 @@ constexpr char kMySQLMetadataSourceQueryConfig[] = R"pb(
           query: " SELECT count(*) = 1 FROM `Type` WHERE "
                  " `id` = 2 AND `type_kind` = 0 AND `name` = 'execution_type' "
                  " AND `input_type` = 'input' AND `output_type` = 'output'; "
+        }
+      }
+      # downgrade queries from version 3
+      downgrade_queries { query: " DROP TABLE IF EXISTS `Context`; " }
+      downgrade_queries { query: " DROP TABLE IF EXISTS `ContextProperty`; " }
+      # check the tables are deleted properly
+      downgrade_verification {
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `information_schema`.`tables` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) and "
+                 "       `table_name` = 'Context'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `information_schema`.`tables` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) and "
+                 "       `table_name` = 'ContextProperty'; "
         }
       }
     }
@@ -910,6 +1070,22 @@ constexpr char kMySQLMetadataSourceQueryConfig[] = R"pb(
                  "          `int_value`, `double_value`, `string_value` "
                  "    FROM `ContextProperty` "
                  " ) as T2; "
+        }
+      }
+      # downgrade queries from version 4
+      downgrade_queries { query: " DROP TABLE IF EXISTS `Association`; " }
+      downgrade_queries { query: " DROP TABLE IF EXISTS `Attribution`; " }
+      # check the tables are deleted properly
+      downgrade_verification {
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `information_schema`.`tables` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) and "
+                 "       `table_name` = 'Association'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `information_schema`.`tables` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) and "
+                 "       `table_name` = 'Attribution'; "
         }
       }
     }

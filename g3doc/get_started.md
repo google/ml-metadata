@@ -324,6 +324,56 @@ version of the MLMD library (`library_version`) with the schema version
     case, please report issues for a fix or downgrade library to work with the
     database.
 
-*   If `library_version` is older than `db_version`, MLMD library returns errors
-    to prevent any data loss. In this case, the user should upgrade the library
-    version before using that database.
+*   If `library_version` is older than `db_version`, by default MLMD library
+    returns errors to prevent any data loss. In this case, the user should
+    upgrade the library version before using that database.
+
+#### Turn-off upgrade migration during connection
+
+If the upgrade migration during connection is not appropriate in the deployment
+setting, the feature can be turned-off explicitly by setting the migration
+options `disable_upgrade_migration` when creating the metadata store. MLMD will
+only check the compatibility and raise errors when the versions are
+incompatible.
+
+For example:
+
+```python
+connection_config = metadata_store_pb2.ConnectionConfig()
+connection_config.sqlite.filename_uri = '...'
+store = metadata_store.MetadataStore(connection_config,
+                                     disable_upgrade_migration = True)
+```
+
+#### Downgrade the database schema
+
+A misconfiguration in the deployment of MLMD may cause an accidental upgrade,
+e.g., when an engineer tries out a new version of the library and accidentally
+connects to the production instance of MLMD. To recover from these situations,
+MLMD provides a downgrade feature. During connection, if the migration options
+specify the `downgrade_to_schema_version`, MLMD will run a downgrade transaction
+to revert the schema version and migrate the data, then terminate the
+connection. Since the update is transactional, any failure will cause a full
+rollback of the downgrade. Once the downgrade is done, the user needs to use the
+older version of the library to connect to the database.
+
+For example:
+
+```python
+connection_config = metadata_store_pb2.ConnectionConfig()
+connection_config.sqlite.filename_uri = '...'
+metadata_store.downgrade_schema(connection_config,
+                                downgrade_to_schema_version = 0)
+```
+
+NOTE: When downgrading, MLMD prevents data loss as much as possible. However,
+newer schema versions might be inherently more expressive and hence a downgrade
+can introduce data loss.
+
+The list of `schema_version` used in MLMD releases are:
+
+ml-metadata (MLMD) | schema_version
+------------------ | --------------
+0.15.0             | 4
+0.14.0             | 4
+0.13.2             | 0

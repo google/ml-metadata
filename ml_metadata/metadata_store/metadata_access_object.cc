@@ -1461,7 +1461,8 @@ tensorflow::Status MetadataAccessObject::GetSchemaVersion(int64* db_version) {
   return tensorflow::errors::NotFound("it looks an empty db is given.");
 }
 
-tensorflow::Status MetadataAccessObject::UpgradeMetadataSourceIfOutOfDate() {
+tensorflow::Status MetadataAccessObject::UpgradeMetadataSourceIfOutOfDate(
+    const bool disable_migration) {
   const int64 lib_version = query_config_.schema_version();
   int64 db_version = 0;
   tensorflow::Status get_schema_version_status = GetSchemaVersion(&db_version);
@@ -1471,14 +1472,27 @@ tensorflow::Status MetadataAccessObject::UpgradeMetadataSourceIfOutOfDate() {
   } else {
     TF_RETURN_IF_ERROR(get_schema_version_status);
   }
-  // we don't support downgrade a live database.
+  // we don't know how to downgrade a newer live database to the current
+  // library version as the newer schema is in a later version of the library.
   if (db_version > lib_version) {
     return tensorflow::errors::FailedPrecondition(
         "MLMD database version ", db_version,
         " is greater than library version ", lib_version,
         ". Please upgrade the library to use the given database in order to "
-        "prevent potential data loss.");
+        "prevent potential data loss. If data loss is acceptable, please"
+        " downgrade the database using a newer version of library.");
   }
+  // returns error if upgrade is explicitly disabled, as we are missing schema
+  // and cannot continue with this library version.
+  if (db_version < lib_version && disable_migration) {
+    return tensorflow::errors::FailedPrecondition(
+        "MLMD database version ", db_version, " is older than library version ",
+        lib_version,
+        ". Schema migration is disabled. Please upgrade the database then use"
+        " the library version; or switch to a older library version to use the"
+        " current database.");
+  }
+
   // migrate db_version to lib version
   const auto& migration_schemes = query_config_.migration_schemes();
   while (db_version < lib_version) {
@@ -1497,19 +1511,73 @@ tensorflow::Status MetadataAccessObject::UpgradeMetadataSourceIfOutOfDate() {
         ComposeParameterizedQuery(query_config_.update_schema_version(),
                                   {Bind(to_version)}, &update_schema_version));
     upgrade_queries.push_back(update_schema_version);
-    std::vector<RecordSet> dummy_record_sets;
     TF_RETURN_WITH_CONTEXT_IF_ERROR(
-        ExecuteMultiQuery(upgrade_queries, metadata_source_,
-                          &dummy_record_sets),
+        ExecuteMultiQuery(upgrade_queries, metadata_source_),
         "Failed to migrate existing db; the migration transaction rolls back.");
     db_version = to_version;
   }
   return tensorflow::Status::OK();
 }
 
-tensorflow::Status MetadataAccessObject::InitMetadataSourceIfNotExists() {
+tensorflow::Status MetadataAccessObject::DowngradeMetadataSource(
+    const int64 to_schema_version) {
+  const int64 lib_version = query_config_.schema_version();
+  if (to_schema_version < 0 || to_schema_version > lib_version) {
+    return tensorflow::errors::InvalidArgument(
+        "MLMD cannot be downgraded to schema_version: ", to_schema_version,
+        ". The target version should be greater or equal to 0, and the current"
+        " library version: ",
+        lib_version, " needs to be greater than the target version.");
+  }
+  int64 db_version = 0;
+  tensorflow::Status get_schema_version_status = GetSchemaVersion(&db_version);
+  // if it is an empty database, then we skip downgrade and returns.
+  if (tensorflow::errors::IsNotFound(get_schema_version_status)) {
+    return tensorflow::errors::InvalidArgument(
+        "Empty database is given. Downgrade operation is not needed.");
+  }
+  TF_RETURN_IF_ERROR(get_schema_version_status);
+  if (db_version > lib_version) {
+    return tensorflow::errors::FailedPrecondition(
+        "MLMD database version ", db_version,
+        " is greater than library version ", lib_version,
+        ". The current library does not know how to downgrade it. "
+        "Please upgrade the library to downgrade the schema.");
+  }
+  // perform downgrade
+  const auto& migration_schemes = query_config_.migration_schemes();
+  while (db_version > to_schema_version) {
+    const int64 to_version = db_version - 1;
+    if (migration_schemes.find(to_version) == migration_schemes.end()) {
+      return tensorflow::errors::Internal(
+          "Cannot find migration_schemes to version ", to_version);
+    }
+    std::vector<Query> migration_queries;
+    for (const MetadataSourceQueryConfig::TemplateQuery& downgrade_query :
+         migration_schemes.at(to_version).downgrade_queries()) {
+      migration_queries.push_back(downgrade_query.query());
+    }
+    // at version 0, v0.13.2, there is no schema version information.
+    if (to_version > 0) {
+      Query update_schema_version;
+      TF_RETURN_IF_ERROR(ComposeParameterizedQuery(
+          query_config_.update_schema_version(), {Bind(to_version)},
+          &update_schema_version));
+      migration_queries.push_back(update_schema_version);
+    }
+    TF_RETURN_WITH_CONTEXT_IF_ERROR(
+        ExecuteMultiQuery(migration_queries, metadata_source_),
+        "Failed to migrate existing db; the migration transaction rolls back.");
+    db_version = to_version;
+  }
+  return tensorflow::Status::OK();
+}
+
+tensorflow::Status MetadataAccessObject::InitMetadataSourceIfNotExists(
+    const bool disable_upgrade_migration) {
   // check db version, and make it to align with the lib version.
-  TF_RETURN_IF_ERROR(UpgradeMetadataSourceIfOutOfDate());
+  TF_RETURN_IF_ERROR(
+      UpgradeMetadataSourceIfOutOfDate(disable_upgrade_migration));
 
   // if lib and db versions align, we check the required tables for the lib.
   const Query& check_type_table = query_config_.check_type_table().query();

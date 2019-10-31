@@ -455,10 +455,12 @@ message MetadataSourceQueryConfig {
   // database at a schema_version to schema_version + 1.
   // DDL is often metadata source specific, if provided, each metadata source
   // should have its own setting.
-  // TODO(b/133851472) providing downgrade capability.
   message MigrationScheme {
     // Sequence of queries to increase the schema version by 1.
     repeated TemplateQuery upgrade_queries = 1;
+
+    // Sequence of queries to decrease the schema version by 1.
+    repeated TemplateQuery downgrade_queries = 3;
 
     // For test purposes, it defines the setup query and post condition
     // invariants of a migration scheme.
@@ -482,6 +484,9 @@ message MetadataSourceQueryConfig {
 
     // Details of verifying the correctness of upgrade_queries.
     VerificationScheme upgrade_verification = 2;
+
+    // Details of verifying the correctness of downgrade_queries.
+    VerificationScheme downgrade_verification = 4;
   }
 
   // Each metadata source should provides migration schemes, each of which

@@ -1586,6 +1586,13 @@ TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
     TF_EXPECT_OK(metadata_access_object_->GetSchemaVersion(&v0_13_2_version));
     EXPECT_EQ(0, v0_13_2_version);
   }
+  // expect to have error when connecting an older database version without
+  // allowing upgrade migration
+  tensorflow::Status status =
+      metadata_access_object_->InitMetadataSourceIfNotExists(
+          /*disable_upgrade_migration=*/true);
+  EXPECT_EQ(status.code(), tensorflow::error::FAILED_PRECONDITION);
+
   // then init the store and the migration queries runs.
   TF_EXPECT_OK(metadata_access_object_->InitMetadataSourceIfNotExists());
   // at the end state, schema version should becomes the library version and
@@ -1608,6 +1615,58 @@ TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
       ASSERT_TRUE(absl::SimpleAtob(record_set.records(0).values(0), &result));
       EXPECT_TRUE(result);
     }
+  }
+}
+
+TEST_P(MetadataAccessObjectTest, DowngradeToV0FromCurrentLibVersion) {
+  // should not use downgrade when the database is empty.
+  EXPECT_EQ(metadata_access_object_
+                ->DowngradeMetadataSource(
+                    /*to_schema_version=*/0)
+                .code(),
+            tensorflow::error::INVALID_ARGUMENT);
+  // init the database to the current library version.
+  TF_EXPECT_OK(metadata_access_object_->InitMetadataSourceIfNotExists());
+  const int64 lib_version =
+      metadata_access_object_->query_config().schema_version();
+  int64 curr_version = 0;
+  TF_EXPECT_OK(metadata_access_object_->GetSchemaVersion(&curr_version));
+  EXPECT_EQ(curr_version, lib_version);
+
+  // downgrade one version at a time and verify the state.
+  for (int i = lib_version - 1; i >= 0; i--) {
+    // set the pre-migration states of i+1 version.
+    ASSERT_TRUE(
+        metadata_access_object_->query_config().migration_schemes().find(i) !=
+        metadata_access_object_->query_config().migration_schemes().end());
+    const MetadataSourceQueryConfig::MigrationScheme scheme =
+        metadata_access_object_->query_config().migration_schemes().at(i);
+    if (!scheme.has_downgrade_verification()) continue;
+    for (const MetadataSourceQueryConfig::TemplateQuery& setup_query :
+         scheme.downgrade_verification().previous_version_setup_queries()) {
+      RecordSet dummy_record_set;
+      TF_EXPECT_OK(metadata_access_object_->metadata_source()->ExecuteQuery(
+          setup_query.query(), &dummy_record_set));
+    }
+
+    // downgrade
+    TF_ASSERT_OK(metadata_access_object_->DowngradeMetadataSource(i));
+
+    // verify the state of the schema
+    for (const MetadataSourceQueryConfig::TemplateQuery& verification_query :
+         scheme.downgrade_verification()
+             .post_migration_verification_queries()) {
+      RecordSet record_set;
+      TF_EXPECT_OK(metadata_access_object_->metadata_source()->ExecuteQuery(
+          verification_query.query(), &record_set));
+      ASSERT_EQ(record_set.records_size(), 1);
+      bool result = false;
+      ASSERT_TRUE(absl::SimpleAtob(record_set.records(0).values(0), &result));
+      EXPECT_TRUE(result);
+    }
+    // verify the db schema version
+    TF_EXPECT_OK(metadata_access_object_->GetSchemaVersion(&curr_version));
+    EXPECT_EQ(curr_version, i);
   }
 }
 

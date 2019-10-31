@@ -25,6 +25,7 @@ limitations under the License.
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/util/metadata_source_query_config.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
+#include "tensorflow/core/platform/env.h"
 #include "tensorflow/core/lib/core/error_codes.pb.h"
 
 namespace ml_metadata {
@@ -37,7 +38,7 @@ class MetadataStoreTest : public ::testing::Test {
  protected:
   MetadataStoreTest() {
     TF_CHECK_OK(MetadataStore::Create(
-        util::GetSqliteMetadataSourceQueryConfig(),
+        util::GetSqliteMetadataSourceQueryConfig(), {},
         absl::make_unique<SqliteMetadataSource>(SqliteMetadataSourceConfig()),
         &metadata_store_));
     TF_CHECK_OK(metadata_store_->InitMetadataStore());
@@ -74,6 +75,51 @@ TEST_F(MetadataStoreTest, InitMetadataStoreIfNotExists) {
       << "Type ID should be the same as the type created.";
   EXPECT_EQ("test_type2", get_response.artifact_type().name())
       << "The name should be the same as the one returned.";
+}
+
+TEST_F(MetadataStoreTest, SpecifyDowngradeMigrationWhenCreate) {
+  // create the metadata store first, and init the schema to
+  // the library version
+  const MetadataSourceQueryConfig& query_config =
+      util::GetSqliteMetadataSourceQueryConfig();
+  string filename_uri = absl::StrCat(::testing::TempDir(), "test_shared.db");
+  SqliteMetadataSourceConfig connection_config;
+  connection_config.set_filename_uri(filename_uri);
+
+  std::unique_ptr<MetadataStore> metadata_store;
+  TF_EXPECT_OK(MetadataStore::Create(
+      query_config, {},
+      absl::make_unique<SqliteMetadataSource>(connection_config),
+      &metadata_store));
+  TF_ASSERT_OK(metadata_store->InitMetadataStore());
+
+  // Create another metadata store, and test when migration_options are given
+  {
+    std::unique_ptr<MetadataStore> other_metadata_store;
+    MigrationOptions options;
+    options.set_downgrade_to_schema_version(query_config.schema_version() + 1);
+    tensorflow::Status s = MetadataStore::Create(
+        query_config, options,
+        absl::make_unique<SqliteMetadataSource>(connection_config),
+        &other_metadata_store);
+    EXPECT_EQ(s.code(), tensorflow::error::INVALID_ARGUMENT);
+    EXPECT_EQ(other_metadata_store, nullptr);
+  }
+
+  {
+    std::unique_ptr<MetadataStore> other_metadata_store;
+    MigrationOptions options;
+    options.set_downgrade_to_schema_version(0);
+    tensorflow::Status s = MetadataStore::Create(
+        query_config, options,
+        absl::make_unique<SqliteMetadataSource>(connection_config),
+        &other_metadata_store);
+    EXPECT_EQ(s.code(), tensorflow::error::CANCELLED);
+    EXPECT_TRUE(absl::StrContains(s.error_message(),
+                                  "Downgrade migration was performed."));
+    EXPECT_EQ(other_metadata_store, nullptr);
+  }
+  TF_EXPECT_OK(tensorflow::Env::Default()->DeleteFile(filename_uri));
 }
 
 TEST_F(MetadataStoreTest, PutArtifactTypeGetArtifactType) {

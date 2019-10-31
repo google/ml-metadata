@@ -29,15 +29,19 @@ namespace {
 
 #ifndef _WIN32
 tensorflow::Status CreateMySQLMetadataStore(
-    const MySQLDatabaseConfig& config, std::unique_ptr<MetadataStore>* result) {
+    const MySQLDatabaseConfig& config,
+    const MigrationOptions& migration_options,
+    std::unique_ptr<MetadataStore>* result) {
   TF_RETURN_IF_ERROR(MetadataStore::Create(
-      util::GetMySqlMetadataSourceQueryConfig(),
+      util::GetMySqlMetadataSourceQueryConfig(), migration_options,
       absl::make_unique<MySqlMetadataSource>(config), result));
-  return (*result)->InitMetadataStoreIfNotExists();
+  return (*result)->InitMetadataStoreIfNotExists(
+      migration_options.disable_upgrade_migration());
 }
 #else
 tensorflow::Status CreateMySQLMetadataStore(
     const MySQLDatabaseConfig& config,
+    const MigrationOptions& migration_options,
     std::unique_ptr<MetadataStore>* result) {
   return tensorflow::errors::Unimplemented(
              "MySQL is not supported in Windows yet");
@@ -46,17 +50,20 @@ tensorflow::Status CreateMySQLMetadataStore(
 
 tensorflow::Status CreateSqliteMetadataStore(
     const SqliteMetadataSourceConfig& config,
+    const MigrationOptions& migration_options,
     std::unique_ptr<MetadataStore>* result) {
   TF_RETURN_IF_ERROR(MetadataStore::Create(
-      util::GetSqliteMetadataSourceQueryConfig(),
+      util::GetSqliteMetadataSourceQueryConfig(), migration_options,
       absl::make_unique<SqliteMetadataSource>(config), result));
-  return (*result)->InitMetadataStoreIfNotExists();
+  return (*result)->InitMetadataStoreIfNotExists(
+      migration_options.disable_upgrade_migration());
 }
 
 
 }  // namespace
 
 tensorflow::Status CreateMetadataStore(const ConnectionConfig& config,
+                                       const MigrationOptions& options,
                                        std::unique_ptr<MetadataStore>* result) {
   switch (config.config_case()) {
     case ConnectionConfig::CONFIG_NOT_SET:
@@ -65,14 +72,20 @@ tensorflow::Status CreateMetadataStore(const ConnectionConfig& config,
       return tensorflow::errors::InvalidArgument("Unset");
     case ConnectionConfig::kFakeDatabase:
       // Creates an in-memory SQLite database for testing.
-      return CreateSqliteMetadataStore(SqliteMetadataSourceConfig(), result);
+      return CreateSqliteMetadataStore(SqliteMetadataSourceConfig(), options,
+                                       result);
     case ConnectionConfig::kMysql:
-      return CreateMySQLMetadataStore(config.mysql(), result);
+      return CreateMySQLMetadataStore(config.mysql(), options, result);
     case ConnectionConfig::kSqlite:
-      return CreateSqliteMetadataStore(config.sqlite(), result);
+      return CreateSqliteMetadataStore(config.sqlite(), options, result);
     default:
       return tensorflow::errors::Unimplemented("Unknown database type.");
   }
+}
+
+tensorflow::Status CreateMetadataStore(const ConnectionConfig& config,
+                                       std::unique_ptr<MetadataStore>* result) {
+  return CreateMetadataStore(config, {}, result);
 }
 
 }  // namespace ml_metadata

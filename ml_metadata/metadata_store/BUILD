@@ -94,6 +94,7 @@ ml_metadata_cc_test(
         "@com_google_absl//absl/memory",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/util:metadata_source_query_config",
+        "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:protos_all_cc",
         "@org_tensorflow//tensorflow/core:test",
     ],

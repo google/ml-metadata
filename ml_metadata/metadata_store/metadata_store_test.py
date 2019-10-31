@@ -17,6 +17,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
+
 from absl.testing import absltest
 from ml_metadata.metadata_store import metadata_store
 from ml_metadata.proto import metadata_store_pb2
@@ -84,18 +86,9 @@ class MetadataStoreTest(absltest.TestCase):
 
   def test_unset_connection_config(self):
     connection_config = metadata_store_pb2.ConnectionConfig()
-    for _ in range(100):
-      # It will throw a SystemError or RuntimeError, depending upon the version
-      # of Python.
-      try:
+    for _ in range(3):
+      with self.assertRaises(RuntimeError):
         metadata_store.MetadataStore(connection_config)
-        raise ValueError("Should have already thrown an exception.")
-      except RuntimeError:
-        # Raises a RuntimeError in Python 2.7.
-        pass
-      except SystemError:
-        # Raises a SystemError in Python 3.6.
-        pass
 
   def test_put_artifact_type_get_artifact_type(self):
     store = _get_metadata_store()
@@ -778,6 +771,48 @@ class MetadataStoreTest(absltest.TestCase):
     self.assertLen(got_arifacts, 1)
     self.assertEqual(got_arifacts[0].uri, want_artifact.uri)
     self.assertEmpty(store.get_executions_by_context(want_context.id))
+
+  def test_downgrade_metadata_store(self):
+    # create a metadata store and init to the current library version
+    connection_config = metadata_store_pb2.ConnectionConfig()
+    db_file = os.path.join(absltest.get_default_test_tmpdir(), "test.db")
+    connection_config.sqlite.filename_uri = db_file
+    metadata_store.MetadataStore(connection_config)
+
+    # wrong downgrade_to_schema_version
+    with self.assertRaisesRegex(errors.InvalidArgumentError,
+                                "downgrade_to_schema_version not specified"):
+      metadata_store.downgrade_schema(connection_config, -1)
+
+    # invalid argument for the downgrade_to_schema_version
+    with self.assertRaisesRegex(errors.InvalidArgumentError,
+                                "MLMD cannot be downgraded to schema_version"):
+      downgrade_to_version = 999999
+      metadata_store.downgrade_schema(connection_config, downgrade_to_version)
+
+    # downgrade the metadata store to v0.13.2 where schema version is 0
+    metadata_store.downgrade_schema(
+        connection_config, downgrade_to_schema_version=0)
+    os.remove(db_file)
+
+  def test_disable_metadata_store_upgrade_migration(self):
+    # create a metadata store and downgrade to version 0
+    db_file = os.path.join(absltest.get_default_test_tmpdir(), "test.db")
+    connection_config = metadata_store_pb2.ConnectionConfig()
+    connection_config.sqlite.filename_uri = db_file
+    metadata_store.MetadataStore(connection_config)
+    metadata_store.downgrade_schema(connection_config, 0)
+
+    upgrade_conn_config = metadata_store_pb2.ConnectionConfig()
+    upgrade_conn_config.sqlite.filename_uri = db_file
+    with self.assertRaisesRegex(RuntimeError, "Schema migration is disabled."):
+      # if disabled then the store cannot be used.
+      metadata_store.MetadataStore(
+          upgrade_conn_config, disable_upgrade_migration=True)
+
+    # if enable, then the store can be created
+    metadata_store.MetadataStore(upgrade_conn_config)
+    os.remove(db_file)
 
 
 if __name__ == "__main__":

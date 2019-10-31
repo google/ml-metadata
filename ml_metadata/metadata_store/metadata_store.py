@@ -33,21 +33,13 @@ from ml_metadata.proto import metadata_store_service_pb2_grpc
 from tensorflow.python.framework import errors
 
 
-# See  _make_specific_exception in tensorflow.python.framework.errors
-def _make_exception(message, error_code):
-  try:
-    exc_type = errors.exception_type_from_error_code(error_code)
-    return exc_type(None, None, message)
-  except KeyError:
-    return errors.UnknownError(None, None, message, error_code)
-
-
 class MetadataStore(object):
   """A store for the artifact metadata."""
 
   def __init__(self,
                config: Union[metadata_store_pb2.ConnectionConfig,
-                             metadata_store_pb2.MetadataStoreClientConfig]):
+                             metadata_store_pb2.MetadataStoreClientConfig],
+               disable_upgrade_migration: bool = False):
     """Initialize the MetadataStore.
 
     MetadataStore can directly connect to either the metadata database or
@@ -57,11 +49,16 @@ class MetadataStore(object):
       config: metadata_store_pb2.ConnectionConfig or
         metadata_store_pb2.MetadataStoreClientConfig. Configuration to
         connect to the database or the metadata store server.
+      disable_upgrade_migration: if set to True, the library does not upgrades
+        the db schema and migrates all data if it connects to an old version
+        backend.
     """
     if isinstance(config, metadata_store_pb2.ConnectionConfig):
       self._using_db_connection = True
+      migration_options = metadata_store_pb2.MigrationOptions()
+      migration_options.disable_upgrade_migration = disable_upgrade_migration
       self._metadata_store = metadata_store_serialized.CreateMetadataStore(
-          config.SerializeToString())
+          config.SerializeToString(), migration_options.SerializeToString())
       # If you remove this line, errors are not thrown correctly.
       logging.log(logging.INFO, 'MetadataStore with DB connection initialized')
       return
@@ -999,26 +996,53 @@ class MetadataStore(object):
       result.append(x)
     return result
 
-  def make_artifact_live(self, artifact_id: int) -> None:
-    """Changes the state of each artifact to LIVE.
 
-    The artifact state must be NEW or CREATABLE.
+def downgrade_schema(config: metadata_store_pb2.ConnectionConfig,
+                     downgrade_to_schema_version: int) -> None:
+  """Downgrades the db specified in the connection config to a schema version.
 
-    Args:
-      artifact_id: the ID of the artifact.
-    """
-    raise NotImplementedError()
+  If `downgrade_to_schema_version` is greater or equals to zero and less than
+  the current library's schema version, it runs a downgrade transaction to
+  revert the db schema and migrate the data. The update is transactional, and
+  any failure will cause a full rollback of the downgrade. Once the downgrade
+  is done, the user needs to use the older version of the library to connect to
+  the database.
 
-  # TODO(b/121041332) consider at the same time as artifact/execution creation.
-  def complete_execution(self, execution_id: int,
-                         artifact_ids: Sequence[int]) -> None:
-    """Changes the state of an execution to COMPLETE and the artifacts to LIVE.
+  Args:
+    config: a metadata_store_pb2.ConnectionConfig having the connection params
+    downgrade_to_schema_version: downgrades the given database to a specific
+      version. For v0.13.2 release, the schema_version is 0. For 0.14.0 and
+      0.15.0 release, the schema_version is 4. More details are described in
+      g3doc/get_start.md#upgrade-mlmd-library
 
-    The execution state must be NEW or RUNNING.
-    The artifacts must be NEW or CREATABLE.
+  Raises:
+    InvalidArgumentError: if the `downgrade_to_schema_version` is not given or
+      it is negative or greater than the library version.
+    RuntimeError: if the downgrade is not finished, return detailed error.
+  """
+  if downgrade_to_schema_version < 0:
+    raise _make_exception('downgrade_to_schema_version not specified',
+                          errors.INVALID_ARGUMENT)
 
-    Args:
-      execution_id: the execution to change to COMPLETE.
-      artifact_ids: the artifacts to change to LIVE.
-    """
-    raise NotImplementedError()
+  try:
+    migration_options = metadata_store_pb2.MigrationOptions()
+    migration_options.disable_upgrade_migration = True
+    migration_options.downgrade_to_schema_version = downgrade_to_schema_version
+    metadata_store_serialized.CreateMetadataStore(
+        config.SerializeToString(), migration_options.SerializeToString())
+  except RuntimeError as e:
+    if str(e).startswith('MLMD cannot be downgraded to schema_version'):
+      raise _make_exception(str(e), errors.INVALID_ARGUMENT)
+    if not str(e).startswith('Downgrade migration was performed.'):
+      raise e
+    # downgrade is done.
+    logging.log(logging.INFO, str(e))
+
+
+# See  _make_specific_exception in tensorflow.python.framework.errors
+def _make_exception(message, error_code):
+  try:
+    exc_type = errors.exception_type_from_error_code(error_code)
+    return exc_type(None, None, message)
+  except KeyError:
+    return errors.UnknownError(None, None, message, error_code)

@@ -94,10 +94,13 @@ tensorflow::Status MetadataStore::InitMetadataStore() {
       });
 }
 
-tensorflow::Status MetadataStore::InitMetadataStoreIfNotExists() {
+tensorflow::Status MetadataStore::InitMetadataStoreIfNotExists(
+    const bool disable_upgrade_migration) {
   return ExecuteTransaction(
-      metadata_source_.get(), [this]() -> tensorflow::Status {
-        return metadata_access_object_->InitMetadataSourceIfNotExists();
+      metadata_source_.get(),
+      [this, &disable_upgrade_migration]() -> tensorflow::Status {
+        return metadata_access_object_->InitMetadataSourceIfNotExists(
+            disable_upgrade_migration);
       });
 }
 
@@ -413,11 +416,27 @@ tensorflow::Status MetadataStore::PutContexts(const PutContextsRequest& request,
 
 tensorflow::Status MetadataStore::Create(
     const MetadataSourceQueryConfig& query_config,
+    const MigrationOptions& migration_options,
     unique_ptr<MetadataSource> metadata_source,
     unique_ptr<MetadataStore>* result) {
   unique_ptr<MetadataAccessObject> metadata_access_object;
   TF_RETURN_IF_ERROR(MetadataAccessObject::Create(
       query_config, metadata_source.get(), &metadata_access_object));
+  // if downgrade migration is specified
+  if (migration_options.downgrade_to_schema_version() >= 0) {
+    TF_RETURN_IF_ERROR(ExecuteTransaction(
+        metadata_source.get(),
+        [&migration_options, &metadata_access_object]() -> tensorflow::Status {
+          return metadata_access_object->DowngradeMetadataSource(
+              migration_options.downgrade_to_schema_version());
+        }));
+    return tensorflow::errors::Cancelled(
+        "Downgrade migration was performed. Connection to the downgraded "
+        "database is Cancelled. Now the database is at schema version ",
+        migration_options.downgrade_to_schema_version(),
+        ". Please refer to the migration guide and use lower version of the "
+        "library to connect to the metadata store.");
+  }
   *result = absl::WrapUnique(new MetadataStore(
       std::move(metadata_source), std::move(metadata_access_object)));
   return tensorflow::Status::OK();

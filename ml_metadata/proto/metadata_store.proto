@@ -402,8 +402,33 @@ message SqliteMetadataSourceConfig {
 }
 
 
-// Configuration for a new connection.
+message MigrationOptions {
+  // If the field is not set or false, by default, MLMD performs upgrade
+  // migration when possible, as we believe the physical schema changes are
+  // MLMD internal details. It upgrades the database schema version (db_v) to
+  // align with the library schema version (lib_v) in a transaction when
+  // connecting to the database. When using MLMD with multiple concurrent
+  // clients that migrate the database, only one of them will succeed.
+  // When the filed is set to true, the upgrade migration is disabled. MLMD
+  // only compares db_v with the lib_v, and raise error if the two do not align.
+  optional bool disable_upgrade_migration = 1;
+
+  // Downgrade the given database to the specified schema version.
+  // For v0.13.2 release, the schema_version is 0.
+  // For 0.14.0 and 0.15.0 release, the schema_version is 4.
+  // More details are described in g3doc/get_start.md#upgrade-mlmd-library
+  // Set this field only when a database is accidentally upgraded by a newer
+  // version library. Each library version only knows how to downgrade to
+  // previous schema versions. As downgrade migrations inevitably introduce
+  // data loss, please consider taking a backup of the database before
+  // downgrading schema.
+  // After downgrade migration, the database connection is canceled. The user
+  // needs to downgrade the library to use the database.
+  optional int64 downgrade_to_schema_version = 2 [default = -1];
+}
+
 message ConnectionConfig {
+  // Configuration for a new connection.
   oneof config {
     FakeDatabaseConfig fake_database = 1;
     MySQLDatabaseConfig mysql = 2;

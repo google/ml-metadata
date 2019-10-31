@@ -11,6 +11,8 @@
 *   Supports Sqlite for Windows and adds scripts to build wheels for python3 in
     Windows.
 *   Provides GetContextTypes to list all Context Types.
+*   MLMD ConnectionConfig provides an option to disable an automatic upgrade.
+*   Supports downgrade of the database schema version to older versions.
 
 ## Bug Fixes and Other Changes
 
