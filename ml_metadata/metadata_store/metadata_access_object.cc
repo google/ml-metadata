@@ -1462,7 +1462,7 @@ tensorflow::Status MetadataAccessObject::GetSchemaVersion(int64* db_version) {
 }
 
 tensorflow::Status MetadataAccessObject::UpgradeMetadataSourceIfOutOfDate(
-    const bool disable_migration) {
+    const bool enable_migration) {
   const int64 lib_version = query_config_.schema_version();
   int64 db_version = 0;
   tensorflow::Status get_schema_version_status = GetSchemaVersion(&db_version);
@@ -1484,7 +1484,7 @@ tensorflow::Status MetadataAccessObject::UpgradeMetadataSourceIfOutOfDate(
   }
   // returns error if upgrade is explicitly disabled, as we are missing schema
   // and cannot continue with this library version.
-  if (db_version < lib_version && disable_migration) {
+  if (db_version < lib_version && !enable_migration) {
     return tensorflow::errors::FailedPrecondition(
         "MLMD database version ", db_version, " is older than library version ",
         lib_version,
@@ -1574,10 +1574,10 @@ tensorflow::Status MetadataAccessObject::DowngradeMetadataSource(
 }
 
 tensorflow::Status MetadataAccessObject::InitMetadataSourceIfNotExists(
-    const bool disable_upgrade_migration) {
+    const bool enable_upgrade_migration) {
   // check db version, and make it to align with the lib version.
   TF_RETURN_IF_ERROR(
-      UpgradeMetadataSourceIfOutOfDate(disable_upgrade_migration));
+      UpgradeMetadataSourceIfOutOfDate(enable_upgrade_migration));
 
   // if lib and db versions align, we check the required tables for the lib.
   const Query& check_type_table = query_config_.check_type_table().query();

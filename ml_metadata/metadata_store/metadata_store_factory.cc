@@ -36,7 +36,7 @@ tensorflow::Status CreateMySQLMetadataStore(
       util::GetMySqlMetadataSourceQueryConfig(), migration_options,
       absl::make_unique<MySqlMetadataSource>(config), result));
   return (*result)->InitMetadataStoreIfNotExists(
-      migration_options.disable_upgrade_migration());
+      migration_options.enable_upgrade_migration());
 }
 #else
 tensorflow::Status CreateMySQLMetadataStore(
@@ -56,7 +56,7 @@ tensorflow::Status CreateSqliteMetadataStore(
       util::GetSqliteMetadataSourceQueryConfig(), migration_options,
       absl::make_unique<SqliteMetadataSource>(config), result));
   return (*result)->InitMetadataStoreIfNotExists(
-      migration_options.disable_upgrade_migration());
+      migration_options.enable_upgrade_migration());
 }
 
 

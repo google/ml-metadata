@@ -54,10 +54,10 @@ class MetadataStore {
   // Returns OK and creates schema, if no schema exists yet.
   // Returns DATA_LOSS error, if any required schema is missing.
   // Returns FAILED_PRECONDITION error, if library and db have incompatible
-  //   schema versions, and upgrade migrations are disallowed.
+  //   schema versions, and upgrade migrations are not enabled.
   // Returns detailed INTERNAL error, if create schema query execution fails.
   tensorflow::Status InitMetadataStoreIfNotExists(
-      bool disable_upgrade_migration = false);
+      bool enable_upgrade_migration = false);
 
   // Inserts or updates an artifact type.
   //

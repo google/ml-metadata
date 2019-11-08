@@ -305,56 +305,72 @@ stub.PutArtifactType(request)
 When using a new MLMD release or your own build with an existing MLMD database,
 there may be database schema changes. Unless a breaking change is explicitly
 mentioned in the release note, all MLMD database schema changes are transparent
-for the MLMD API users.
+for the MLMD API users. If there is a breaking change notice, then old databases
+can still be upgraded to use the new MLMD library.
 
 When the MLMD library connects to the database, it compares the expected schema
 version of the MLMD library (`library_version`) with the schema version
-(`db_version`) recorded in the given database.
+(`db_version`) recorded in the given database. By default, MLMD will check the
+compatibility and raise errors when the versions are incompatible.
 
 *   If `library_version` is compatible with `db_version`, nothing happens.
-*   If `library_version` is newer than `db_version`, it runs a single migration
-    transaction to evolve the database by executing a series of migration
-    scripts. The migration script is provided together with any schema change
-    commit and enforced by change reviews and verified by continuous tests.
+*   If `library_version` is newer than `db_version`, and auto-migration is not
+    enabled, then MLMD raises a failed precondition error with the following
+    message:
 
-    NOTE: If the migration transaction has errors, the transaction will rollback
-    and keep the original database unchanged. If this case happens, it is
-    possible that other concurrent transaction ran in the same database, or the
-    migration script's test fails to capture all cases. If it is the latter
-    case, please report issues for a fix or downgrade library to work with the
-    database.
+        MLMD database version $db_version is older than library version
+        $library_version. Schema migration is disabled. Please upgrade the
+        database then use the library version; or switch to a older library
+        version to use the current database.
 
 *   If `library_version` is older than `db_version`, by default MLMD library
     returns errors to prevent any data loss. In this case, the user should
     upgrade the library version before using that database.
 
-#### Turn-off upgrade migration during connection
+#### Upgrade the database schema
 
-If the upgrade migration during connection is not appropriate in the deployment
-setting, the feature can be turned-off explicitly by setting the migration
-options `disable_upgrade_migration` when creating the metadata store. MLMD will
-only check the compatibility and raise errors when the versions are
-incompatible.
+MLMD provides utilities to upgrade the database version.
 
-For example:
+For example, when connecting to a backend with python library:
 
-```python
+<pre>
 connection_config = metadata_store_pb2.ConnectionConfig()
 connection_config.sqlite.filename_uri = '...'
 store = metadata_store.MetadataStore(connection_config,
-                                     disable_upgrade_migration = True)
-```
+                                     <b>enable_upgrade_migration = True</b>)
+</pre>
+
+Or when using gRPC server, set the MetadataStoreServerConfig as follows:
+
+<pre>
+connection_config {
+    ...
+}
+migration_options {
+    <b>enable_upgrade_migration: true</b>
+}
+</pre>
+
+MLMD then evolves the database by executing a series of migration scripts. If
+the backend supports DDL queries within a transaction (e.g., SQLite), MLMD runs
+the steps together within a single transaction, and the transaction is
+rolled-back when error happens. The migration script is provided together with
+any schema-change commit and verified through testing.
+
+WARNING: The migration DDLs in MySQL are not transactional. When using MySQL,
+there should be only one single connection with the upgrade migration enabled to
+use the old database. Take a backup of the database before upgrading to prevent
+potential data losses.
 
 #### Downgrade the database schema
 
 A misconfiguration in the deployment of MLMD may cause an accidental upgrade,
 e.g., when an engineer tries out a new version of the library and accidentally
-connects to the production instance of MLMD. To recover from these situations,
-MLMD provides a downgrade feature. During connection, if the migration options
-specify the `downgrade_to_schema_version`, MLMD will run a downgrade transaction
-to revert the schema version and migrate the data, then terminate the
-connection. Since the update is transactional, any failure will cause a full
-rollback of the downgrade. Once the downgrade is done, the user needs to use the
+connects to the production instance of MLMD and upgrade the database. To recover
+from these situations, MLMD provides a downgrade feature. During connection, if
+the migration options specify the `downgrade_to_schema_version`, MLMD will run a
+downgrade transaction to revert the schema version and migrate the data, then
+terminate the connection. Once the downgrade is done, the user needs to use the
 older version of the library to connect to the database.
 
 For example:
@@ -366,9 +382,11 @@ metadata_store.downgrade_schema(connection_config,
                                 downgrade_to_schema_version = 0)
 ```
 
-NOTE: When downgrading, MLMD prevents data loss as much as possible. However,
+WARNING: When downgrading, MLMD prevents data loss as much as possible. However,
 newer schema versions might be inherently more expressive and hence a downgrade
-can introduce data loss.
+can introduce data loss. When using backends that do not support DDL
+transactions (e.g., MySQL), the database should be backed up before downgrading
+and the downgrade script should be the only MLMD connection to the database.
 
 The list of `schema_version` used in MLMD releases are:
 

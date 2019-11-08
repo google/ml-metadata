@@ -35,7 +35,8 @@ using testing::ParseTextProtoOrDie;
 // artifact type.
 void TestPutAndGetArtifactType(const ConnectionConfig& connection_config) {
   std::unique_ptr<MetadataStore> store;
-  TF_ASSERT_OK(CreateMetadataStore(connection_config, &store));
+  const MigrationOptions opts;
+  TF_ASSERT_OK(CreateMetadataStore(connection_config, opts, &store));
 
   PutArtifactTypeRequest put_request =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(

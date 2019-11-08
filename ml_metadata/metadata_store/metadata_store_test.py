@@ -795,7 +795,7 @@ class MetadataStoreTest(absltest.TestCase):
         connection_config, downgrade_to_schema_version=0)
     os.remove(db_file)
 
-  def test_disable_metadata_store_upgrade_migration(self):
+  def test_enable_metadata_store_upgrade_migration(self):
     # create a metadata store and downgrade to version 0
     db_file = os.path.join(absltest.get_default_test_tmpdir(), "test.db")
     connection_config = metadata_store_pb2.ConnectionConfig()
@@ -807,11 +807,11 @@ class MetadataStoreTest(absltest.TestCase):
     upgrade_conn_config.sqlite.filename_uri = db_file
     with self.assertRaisesRegex(RuntimeError, "Schema migration is disabled."):
       # if disabled then the store cannot be used.
-      metadata_store.MetadataStore(
-          upgrade_conn_config, disable_upgrade_migration=True)
+      metadata_store.MetadataStore(upgrade_conn_config)
 
     # if enable, then the store can be created
-    metadata_store.MetadataStore(upgrade_conn_config)
+    metadata_store.MetadataStore(
+        upgrade_conn_config, enable_upgrade_migration=True)
     os.remove(db_file)
 
 

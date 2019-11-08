@@ -403,15 +403,14 @@ message SqliteMetadataSourceConfig {
 
 
 message MigrationOptions {
-  // If the field is not set or false, by default, MLMD performs upgrade
-  // migration when possible, as we believe the physical schema changes are
-  // MLMD internal details. It upgrades the database schema version (db_v) to
-  // align with the library schema version (lib_v) in a transaction when
-  // connecting to the database. When using MLMD with multiple concurrent
-  // clients that migrate the database, only one of them will succeed.
-  // When the filed is set to true, the upgrade migration is disabled. MLMD
-  // only compares db_v with the lib_v, and raise error if the two do not align.
-  optional bool disable_upgrade_migration = 1;
+  // If not set, by default the upgrade migration is disabled. MLMD only
+  // compares db_v with the lib_v, and raise error if the two do not align.
+  // If the field is set to true, MLMD performs upgrade migration. It upgrades
+  // the database schema version (db_v) to align with the library schema
+  // version (lib_v) when connecting to the database.
+  // Schema migration should not be run concurrently with multiple clients to
+  // prevent data races.
+  optional bool enable_upgrade_migration = 3;
 
   // Downgrade the given database to the specified schema version.
   // For v0.13.2 release, the schema_version is 0.
@@ -425,6 +424,8 @@ message MigrationOptions {
   // After downgrade migration, the database connection is canceled. The user
   // needs to downgrade the library to use the database.
   optional int64 downgrade_to_schema_version = 2 [default = -1];
+
+  reserved 1;
 }
 
 message ConnectionConfig {
@@ -462,6 +463,9 @@ message MetadataStoreClientConfig {
 message MetadataStoreServerConfig {
   // Configuration to connect the metadata source backend.
   optional ConnectionConfig connection_config = 1;
+
+  // Configuration for upgrade and downgrade migrations the metadata source.
+  optional MigrationOptions migration_options = 3;
 
   message SSLConfig {
     // Private server key for SSL

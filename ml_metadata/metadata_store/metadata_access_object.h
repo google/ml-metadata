@@ -83,10 +83,10 @@ class MetadataAccessObject {
   // Returns OK and creates schema, if no schema exists yet.
   // Returns DATA_LOSS error, if any required schema is missing.
   // Returns FAILED_PRECONDITION error, if library and db have incompatible
-  //   schema versions, and upgrade migrations are disallowed.
+  //   schema versions, and upgrade migrations are not enabled.
   // Returns detailed INTERNAL error, if create schema query execution fails.
   tensorflow::Status InitMetadataSourceIfNotExists(
-      bool disable_upgrade_migration = false);
+      bool enable_upgrade_migration = false);
 
   // Downgrades the schema to `to_schema_version` in the given metadata source.
   // Returns INVALID_ARGUMENT, if `to_schema_version` is less than 0, or newer

@@ -1,12 +1,19 @@
-# Current version (not yet released; still in development)
+# Release 0.15.1
 
 ## Major Features and Improvements
+
+*   Add migration options to gRPC MetadataStoreServerConfig.
+*   Disable auto schema migration by default during connection. The user needs
+    to explicitly enable it when connecting an older database.
 
 ## Bug Fixes and Other Changes
 
 ## Breaking Changes
 
 ## Deprecations
+
+*   Deprecates proto field MigrationOptions.disable_upgrade_migration.
+*   Deprecates `disable_upgrade_migration` in python MetadataStore constructor.
 
 # Release 0.15.0
 

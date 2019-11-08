@@ -95,12 +95,12 @@ tensorflow::Status MetadataStore::InitMetadataStore() {
 }
 
 tensorflow::Status MetadataStore::InitMetadataStoreIfNotExists(
-    const bool disable_upgrade_migration) {
+    const bool enable_upgrade_migration) {
   return ExecuteTransaction(
       metadata_source_.get(),
-      [this, &disable_upgrade_migration]() -> tensorflow::Status {
+      [this, &enable_upgrade_migration]() -> tensorflow::Status {
         return metadata_access_object_->InitMetadataSourceIfNotExists(
-            disable_upgrade_migration);
+            enable_upgrade_migration);
       });
 }
 

@@ -1587,14 +1587,14 @@ TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
     EXPECT_EQ(0, v0_13_2_version);
   }
   // expect to have error when connecting an older database version without
-  // allowing upgrade migration
+  // enabling upgrade migration
   tensorflow::Status status =
-      metadata_access_object_->InitMetadataSourceIfNotExists(
-          /*disable_upgrade_migration=*/true);
+      metadata_access_object_->InitMetadataSourceIfNotExists();
   EXPECT_EQ(status.code(), tensorflow::error::FAILED_PRECONDITION);
 
   // then init the store and the migration queries runs.
-  TF_EXPECT_OK(metadata_access_object_->InitMetadataSourceIfNotExists());
+  TF_EXPECT_OK(metadata_access_object_->InitMetadataSourceIfNotExists(
+      /*enable_upgrade_migration=*/true));
   // at the end state, schema version should becomes the library version and
   // all migration queries should all succeed.
   int64 curr_version = 0;
@@ -1668,6 +1668,23 @@ TEST_P(MetadataAccessObjectTest, DowngradeToV0FromCurrentLibVersion) {
     TF_EXPECT_OK(metadata_access_object_->GetSchemaVersion(&curr_version));
     EXPECT_EQ(curr_version, i);
   }
+}
+
+TEST_P(MetadataAccessObjectTest, AutoMigrationTurnedOffByDefault) {
+  // init the database to the current library version.
+  TF_EXPECT_OK(metadata_access_object_->InitMetadataSourceIfNotExists());
+  // downgrade when the database to version 0.
+  int64 to_schema_version =
+      metadata_access_object_->query_config().schema_version() - 1;
+  TF_EXPECT_OK(
+      metadata_access_object_->DowngradeMetadataSource(to_schema_version));
+  int64 db_version = -1;
+  TF_EXPECT_OK(metadata_access_object_->GetSchemaVersion(&db_version));
+  EXPECT_EQ(db_version, to_schema_version);
+  // connect earlier version db by default should fail with FailedPrecondition.
+  tensorflow::Status status =
+      metadata_access_object_->InitMetadataSourceIfNotExists();
+  EXPECT_EQ(status.code(), tensorflow::error::FAILED_PRECONDITION);
 }
 
 }  // namespace

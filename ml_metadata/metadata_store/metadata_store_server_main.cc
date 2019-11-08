@@ -174,8 +174,8 @@ int main(int argc, char** argv) {
   }
 
   std::unique_ptr<ml_metadata::MetadataStore> metadata_store;
-  TF_CHECK_OK(
-      ml_metadata::CreateMetadataStore(connection_config, &metadata_store))
+  TF_CHECK_OK(ml_metadata::CreateMetadataStore(
+      connection_config, server_config.migration_options(), &metadata_store))
       << "MetadataStore cannot be created with the given connection config.";
 
   ml_metadata::MetadataStoreServiceImpl metadata_store_service(

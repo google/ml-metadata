@@ -39,7 +39,7 @@ class MetadataStore(object):
   def __init__(self,
                config: Union[metadata_store_pb2.ConnectionConfig,
                              metadata_store_pb2.MetadataStoreClientConfig],
-               disable_upgrade_migration: bool = False):
+               enable_upgrade_migration: bool = False):
     """Initialize the MetadataStore.
 
     MetadataStore can directly connect to either the metadata database or
@@ -49,17 +49,16 @@ class MetadataStore(object):
       config: metadata_store_pb2.ConnectionConfig or
         metadata_store_pb2.MetadataStoreClientConfig. Configuration to
         connect to the database or the metadata store server.
-      disable_upgrade_migration: if set to True, the library does not upgrades
-        the db schema and migrates all data if it connects to an old version
-        backend.
+      enable_upgrade_migration: if set to True, the library upgrades the db
+        schema and migrates all data if it connects to an old version backend.
+        It is ignored when using GRPC client connection config.
     """
     if isinstance(config, metadata_store_pb2.ConnectionConfig):
       self._using_db_connection = True
       migration_options = metadata_store_pb2.MigrationOptions()
-      migration_options.disable_upgrade_migration = disable_upgrade_migration
+      migration_options.enable_upgrade_migration = enable_upgrade_migration
       self._metadata_store = metadata_store_serialized.CreateMetadataStore(
           config.SerializeToString(), migration_options.SerializeToString())
-      # If you remove this line, errors are not thrown correctly.
       logging.log(logging.INFO, 'MetadataStore with DB connection initialized')
       return
     if not isinstance(config, metadata_store_pb2.MetadataStoreClientConfig):
@@ -67,6 +66,10 @@ class MetadataStore(object):
                        'metadata_store_pb2.ConnectionConfig or'
                        'metadata_store_pb2.MetadataStoreClientConfig')
     self._using_db_connection = False
+    if enable_upgrade_migration:
+      raise ValueError('Upgrade migration is not allowed when using gRPC '
+                       'connection client. Upgrade needs to be performed on '
+                       'the server side.')
     target = ':'.join([config.host, str(config.port)])
     channel = self._get_channel(config, target)
     self._metadata_store_stub = (metadata_store_service_pb2_grpc.
@@ -1026,7 +1029,6 @@ def downgrade_schema(config: metadata_store_pb2.ConnectionConfig,
 
   try:
     migration_options = metadata_store_pb2.MigrationOptions()
-    migration_options.disable_upgrade_migration = True
     migration_options.downgrade_to_schema_version = downgrade_to_schema_version
     metadata_store_serialized.CreateMetadataStore(
         config.SerializeToString(), migration_options.SerializeToString())
