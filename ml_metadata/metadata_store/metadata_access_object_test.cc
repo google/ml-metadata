@@ -54,7 +54,7 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExists) {
   EXPECT_THAT(type, EqualsProto(want_type));
 }
 
-TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExistsErrorDataLoss) {
+TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExistsErrorAborted) {
   // creates the schema and insert some records
   TF_EXPECT_OK(metadata_access_object_->InitMetadataSourceIfNotExists());
 
@@ -65,10 +65,10 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExistsErrorDataLoss) {
         "DROP TABLE IF EXISTS `Type`;", &record_set));
     tensorflow::Status s =
         metadata_access_object_->InitMetadataSourceIfNotExists();
-    EXPECT_EQ(s.code(), tensorflow::error::DATA_LOSS);
+    EXPECT_EQ(s.code(), tensorflow::error::ABORTED);
   }
 
-  // reset the database by drop and recreate all tables
+  // reset the database by recreating all missing tables
   TF_EXPECT_OK(metadata_access_object_->InitMetadataSource());
 
   {
@@ -78,7 +78,7 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExistsErrorDataLoss) {
         "DROP TABLE `Artifact`;", &record_set));
     tensorflow::Status s =
         metadata_access_object_->InitMetadataSourceIfNotExists();
-    EXPECT_EQ(s.code(), tensorflow::error::DATA_LOSS);
+    EXPECT_EQ(s.code(), tensorflow::error::ABORTED);
   }
 }
 
@@ -92,10 +92,10 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceSchemaVersionMismatch) {
         "DELETE FROM `MLMDEnv`;", &record_set));
     tensorflow::Status s =
         metadata_access_object_->InitMetadataSourceIfNotExists();
-    EXPECT_EQ(s.code(), tensorflow::error::DATA_LOSS);
+    EXPECT_EQ(s.code(), tensorflow::error::ABORTED);
   }
 
-  // reset the database by drop and recreate all tables
+  // reset the database by recreating all missing tables
   TF_EXPECT_OK(metadata_access_object_->InitMetadataSource());
   {
     // Change the `schema_version` to be a newer version.

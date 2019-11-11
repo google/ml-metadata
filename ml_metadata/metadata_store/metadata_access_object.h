@@ -81,7 +81,8 @@ class MetadataAccessObject {
   // Initializes the metadata source and creates schema.
   // Returns OK and does nothing, if all required schema exist.
   // Returns OK and creates schema, if no schema exists yet.
-  // Returns DATA_LOSS error, if any required schema is missing.
+  // Returns DATA_LOSS error, if the MLMDENv has more than one schema version.
+  // Returns ABORTED error, if any required schema is missing.
   // Returns FAILED_PRECONDITION error, if library and db have incompatible
   //   schema versions, and upgrade migrations are not enabled.
   // Returns detailed INTERNAL error, if create schema query execution fails.

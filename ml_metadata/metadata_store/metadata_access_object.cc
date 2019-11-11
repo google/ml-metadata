@@ -1340,88 +1340,78 @@ MetadataAccessObject::MetadataAccessObject(
       metadata_source_(connected_metadata_source) {}
 
 tensorflow::Status MetadataAccessObject::InitMetadataSource() {
-  const Query& drop_type_table = query_config_.drop_type_table().query();
   const Query& create_type_table = query_config_.create_type_table().query();
-  const Query& drop_properties_table =
-      query_config_.drop_type_property_table().query();
   const Query& create_properties_table =
       query_config_.create_type_property_table().query();
-  const Query& drop_artifact_table =
-      query_config_.drop_artifact_table().query();
   const Query& create_artifact_table =
       query_config_.create_artifact_table().query();
-  const Query& drop_artifact_property_table =
-      query_config_.drop_artifact_property_table().query();
   const Query& create_artifact_property_table =
       query_config_.create_artifact_property_table().query();
-  const Query& drop_execution_table =
-      query_config_.drop_execution_table().query();
   const Query& create_execution_table =
       query_config_.create_execution_table().query();
-  const Query& drop_execution_property_table =
-      query_config_.drop_execution_property_table().query();
   const Query& create_execution_property_table =
       query_config_.create_execution_property_table().query();
-  const Query& drop_event_table = query_config_.drop_event_table().query();
   const Query& create_event_table = query_config_.create_event_table().query();
-  const Query& drop_event_path_table =
-      query_config_.drop_event_path_table().query();
   const Query& create_event_path_table =
       query_config_.create_event_path_table().query();
-  const Query& drop_mlmd_env_table =
-      query_config_.drop_mlmd_env_table().query();
   const Query& create_mlmd_env_table =
       query_config_.create_mlmd_env_table().query();
-  const Query& drop_context_table = query_config_.drop_context_table().query();
   const Query& create_context_table =
       query_config_.create_context_table().query();
-  const Query& drop_context_property_table =
-      query_config_.drop_context_property_table().query();
   const Query& create_context_property_table =
       query_config_.create_context_property_table().query();
-  const Query& drop_association_table =
-      query_config_.drop_association_table().query();
   const Query& create_association_table =
       query_config_.create_association_table().query();
-  const Query& drop_attribution_table =
-      query_config_.drop_attribution_table().query();
   const Query& create_attribution_table =
       query_config_.create_attribution_table().query();
+
+  TF_RETURN_IF_ERROR(ExecuteMultiQuery(
+      {create_type_table, create_properties_table, create_artifact_table,
+       create_artifact_property_table, create_execution_table,
+       create_execution_property_table, create_event_table,
+       create_event_path_table, create_mlmd_env_table, create_context_table,
+       create_context_property_table, create_association_table,
+       create_attribution_table},
+      metadata_source_));
+
   // check error, if it happens, it is an internal development error.
   CHECK_GT(query_config_.schema_version(), 0);
+  // split the schema_version insertion code into two statements to address
+  // lack of DDL within transaction support of MySQL.
+  RecordSet record_set;
   Query insert_schema_version;
   TF_RETURN_IF_ERROR(ComposeParameterizedQuery(
       query_config_.insert_schema_version(),
       {Bind(query_config_.schema_version())}, &insert_schema_version));
-
-  return ExecuteMultiQuery({drop_type_table,
-                            create_type_table,
-                            drop_properties_table,
-                            create_properties_table,
-                            drop_artifact_table,
-                            create_artifact_table,
-                            drop_artifact_property_table,
-                            create_artifact_property_table,
-                            drop_execution_table,
-                            create_execution_table,
-                            drop_execution_property_table,
-                            create_execution_property_table,
-                            drop_event_table,
-                            create_event_table,
-                            drop_event_path_table,
-                            create_event_path_table,
-                            drop_mlmd_env_table,
-                            create_mlmd_env_table,
-                            drop_context_table,
-                            create_context_table,
-                            drop_context_property_table,
-                            create_context_property_table,
-                            drop_association_table,
-                            create_association_table,
-                            drop_attribution_table,
-                            create_attribution_table,
-                            insert_schema_version},
-                           metadata_source_);
+  const tensorflow::Status insert_schema_version_status =
+      metadata_source_->ExecuteQuery(insert_schema_version, &record_set);
+  if (!insert_schema_version_status.ok()) {
+    RecordSet record_set;
+    const Query& select_schema_version =
+        query_config_.check_mlmd_env_table().query();
+    TF_RETURN_IF_ERROR(
+        metadata_source_->ExecuteQuery(select_schema_version, &record_set));
+    if (record_set.records_size() != 1) {
+      return tensorflow::errors::DataLoss(
+          "The database is corrupted. In the given db, there are multiple "
+          "schema_verion numbers registered in the MLMDEnv table. This may "
+          "have resulted from a data race condition caused by other concurrent "
+          " MLMD's migration procedures: ",
+          record_set.DebugString());
+    }
+    int64 db_version = -1;
+    CHECK(absl::SimpleAtoi(record_set.records(0).values(0), &db_version));
+    if (db_version != query_config_.schema_version()) {
+      return tensorflow::errors::DataLoss(
+          "The database cannot be initialized with the schema_version in the "
+          "current library. Current library version: ",
+          query_config_.schema_version(),
+          ", the db version on record is: ", db_version,
+          ". It may result from a data race condition caused by other "
+          "concurrent MLMD's migration procedures.");
+    }
+  }
+  return tensorflow::Status::OK();
 }
 
 // After 0.13.2 release, MLMD starts to have schema_version. The library always
@@ -1440,11 +1430,18 @@ tensorflow::Status MetadataAccessObject::GetSchemaVersion(int64* db_version) {
   tensorflow::Status maybe_schema_version_status =
       metadata_source_->ExecuteQuery(select_schema_version, &record_set);
   if (maybe_schema_version_status.ok()) {
-    if (record_set.records_size() != 1) {
+    if (record_set.records_size() == 0) {
+      return tensorflow::errors::Aborted(
+          "In the given db, MLMDEnv table exists but no schema_version can be "
+          "found. This may be due to concurrent connection to the empty "
+          "database. Please retry connection.");
+
+    } else if (record_set.records_size() > 1) {
       return tensorflow::errors::DataLoss(
           "In the given db, MLMDEnv table exists but schema_version cannot be "
-          "resolved due to there being zero or more than one rows with the "
-          "schema version. Expecting a single row.");
+          "resolved due to there being more than one rows with the schema "
+          "version. Expecting a single row: ",
+          record_set.DebugString());
     }
     CHECK(absl::SimpleAtoi(record_set.records(0).values(0), db_version));
     return tensorflow::Status::OK();
@@ -1631,7 +1628,11 @@ tensorflow::Status MetadataAccessObject::InitMetadataSourceIfNotExists(
 
   // some table exists, but not all.
   if (schema_check_queries.size() != missing_schema_error_messages.size()) {
-    return tensorflow::errors::DataLoss(
+    // there may be other concurrent connections.
+    return tensorflow::errors::Aborted(
+        "There are a subset of tables in MLMD instance. This may be due to "
+        "concurrent connection to the empty database. Please retry connection. "
+        "The following expected tables are missing: ",
         absl::StrJoin(missing_schema_error_messages, "\n"));
   }
 

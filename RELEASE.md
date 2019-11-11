@@ -8,6 +8,10 @@
 
 ## Bug Fixes and Other Changes
 
+*   Fixes MySQL errors with concurrent connection to an empty database. Now,
+    MLMD returns Aborted when concurrent connection error happens and the caller
+    can retry appropriately.
+
 ## Breaking Changes
 
 ## Deprecations

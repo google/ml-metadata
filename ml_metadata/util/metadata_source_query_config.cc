@@ -468,9 +468,7 @@ constexpr char kBaseQueryConfig[] = R"pb(
            "   `schema_version` INTEGER PRIMARY KEY "
            " ); "
   }
-  check_mlmd_env_table {
-    query: " SELECT `schema_version` FROM `MLMDEnv` LIMIT 1; "
-  }
+  check_mlmd_env_table { query: " SELECT `schema_version` FROM `MLMDEnv`; " }
   insert_schema_version {
     query: " INSERT INTO `MLMDEnv`(`schema_version`) VALUES($0); "
     parameter_num: 1
@@ -480,7 +478,7 @@ constexpr char kBaseQueryConfig[] = R"pb(
     parameter_num: 1
   }
   check_tables_in_v0_13_2 {
-    query: " SELECT count(*) from "
+    query: " SELECT `Type`.`is_artifact_type` from "
            " `Artifact`, `Event`, `Execution`, `Type`, `ArtifactProperty`, "
            " `EventPath`, `ExecutionProperty`, `TypeProperty` LIMIT 1; "
   }
