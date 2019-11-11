@@ -20,7 +20,7 @@
 # drop this version of the file.
 # GOOGLE END-INTERNAL
 
-load("//ml_metadata:ml_metadata.bzl", "ml_metadata_proto_library", "ml_metadata_proto_library_py", "ml_metadata_proto_library_go")
+load("//ml_metadata:ml_metadata.bzl", "ml_metadata_proto_library", "ml_metadata_proto_library_go", "ml_metadata_proto_library_py")
 
 package(default_visibility = ["//visibility:public"])
 
