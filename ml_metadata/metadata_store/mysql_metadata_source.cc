@@ -107,7 +107,20 @@ Status MySqlMetadataSource::ConnectImpl() {
   }
 
   // Explicitly setup the thread-local initializer.
-  TF_RETURN_IF_ERROR(ThreadInitAccess());
+  TF_RETURN_WITH_CONTEXT_IF_ERROR(ThreadInitAccess(),
+                                  "MySql thread init failed at ConnectImpl");
+
+  // Set connection options
+  if (config_.has_ssl_options()) {
+    const MySQLDatabaseConfig::SSLOptions& ssl = config_.ssl_options();
+    // The method set mysql_options, and always return 0. The connection options
+    // are used in the `mysql_real_connect`.
+    mysql_ssl_set(db_, ssl.key().empty() ? nullptr : ssl.key().c_str(),
+                  ssl.cert().empty() ? nullptr : ssl.cert().c_str(),
+                  ssl.ca().empty() ? nullptr : ssl.ca().c_str(),
+                  ssl.capath().empty() ? nullptr : ssl.capath().c_str(),
+                  ssl.cipher().empty() ? nullptr : ssl.cipher().c_str());
+  }
 
   // Connect to the MYSQL server.
   if (!mysql_real_connect(
@@ -152,7 +165,8 @@ Status MySqlMetadataSource::CloseImpl() {
 
 Status MySqlMetadataSource::ExecuteQueryImpl(const string& query,
                                              RecordSet* results) {
-  TF_RETURN_WITH_CONTEXT_IF_ERROR(ThreadInitAccess(), "ExecuteQueryImpl");
+  TF_RETURN_WITH_CONTEXT_IF_ERROR(
+      ThreadInitAccess(), "MySql thread init failed at ExecuteQueryImpl");
 
   // Run the query.
   Status status = RunQuery(query);
@@ -169,20 +183,22 @@ Status MySqlMetadataSource::ExecuteQueryImpl(const string& query,
 
 Status MySqlMetadataSource::CommitImpl() {
   constexpr char kCommitTransaction[] = "COMMIT";
-
-  TF_RETURN_WITH_CONTEXT_IF_ERROR(ThreadInitAccess(), "CommitImpl");
+  TF_RETURN_WITH_CONTEXT_IF_ERROR(ThreadInitAccess(),
+                                  "MySql thread init failed at CommitImpl");
   return RunQuery(kCommitTransaction);
 }
 
 Status MySqlMetadataSource::RollbackImpl() {
   constexpr char kRollbackTransaction[] = "ROLLBACK";
-
-  TF_RETURN_WITH_CONTEXT_IF_ERROR(ThreadInitAccess(), "RollbackImpl");
+  TF_RETURN_WITH_CONTEXT_IF_ERROR(ThreadInitAccess(),
+                                  "MySql thread init failed at RollbackImpl");
   return RunQuery(kRollbackTransaction);
 }
 
 Status MySqlMetadataSource::BeginImpl() {
   constexpr char kBeginTransaction[] = "START TRANSACTION";
+  TF_RETURN_WITH_CONTEXT_IF_ERROR(ThreadInitAccess(),
+                                  "MySql thread init failed at BeginImpl");
   return RunQuery(kBeginTransaction);
 }
 

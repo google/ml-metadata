@@ -5,6 +5,7 @@
 *   Add migration options to gRPC MetadataStoreServerConfig.
 *   Disable auto schema migration by default during connection. The user needs
     to explicitly enable it when connecting an older database.
+*   Support SSL options when using MySQL metadata source.
 
 ## Bug Fixes and Other Changes
 

@@ -367,6 +367,24 @@ message MySQLDatabaseConfig {
   // The Unix socket to use to connect to the server. If unspecified, a
   // `host` must be provided.
   optional string socket = 6;
+
+  // The options to establish encrypted connections to MySQL using SSL.
+  message SSLOptions {
+    // The path name of the client private key file.
+    optional string key = 1;
+    // The path name of the client public key certificate file.
+    optional string cert = 2;
+    // The path name of the CA certificate file.
+    optional string ca = 3;
+    // The path name of the directory that contains trusted SSL CA certificates.
+    optional string capath = 4;
+    // The list of permissible ciphers for SSL encryption.
+    optional string cipher = 5;
+  }
+  // If the field is set, the ssl options are set in mysql_options before
+  // establishing a connection. It is ignored if the mysql server does not
+  // enable SSL.
+  optional SSLOptions ssl_options = 7;
 }
 
 // A config contains the parameters when using with SqliteMetadatSource.
