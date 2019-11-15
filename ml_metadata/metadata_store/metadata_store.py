@@ -97,11 +97,13 @@ class MetadataStore(object):
     private_key = None
     certificate_chain = None
     if config.ssl_config.HasField('custom_ca'):
-      root_certificates = config.ssl_config.custom_ca
+      root_certificates = bytes(
+          str(config.ssl_config.custom_ca).encode('ascii'))
     if config.ssl_config.HasField('client_key'):
-      private_key = config.ssl_config.client_key
+      private_key = bytes(str(config.ssl_config.client_key).encode('ascii'))
     if config.ssl_config.HasField('server_cert'):
-      certificate_chain = config.ssl_config.server_cert
+      certificate_chain = bytes(
+          str(config.ssl_config.server_cert).encode('ascii'))
     credentials = grpc.ssl_channel_credentials(root_certificates, private_key,
                                                certificate_chain)
     return grpc.secure_channel(target, credentials)

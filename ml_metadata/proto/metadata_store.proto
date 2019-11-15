@@ -464,11 +464,14 @@ message MetadataStoreClientConfig {
   optional uint32 port = 2;
 
   message SSLConfig {
-    // Private client key for SSL
+    // The PEM-encoded private key as a byte string, or Empty if no private key
+    // should be used.
     optional string client_key = 1;
-    // Public server certificate
+    // The PEM-encoded certificate chain as a byte string to use or or Empty if
+    // no certificate chain should be used.
     optional string server_cert = 2;
-    // Custom certificate authority
+    // The PEM-encoded root certificates as a byte string, or Empty to retrieve
+    // them from a default location chosen by gRPC runtime.
     optional string custom_ca = 3;
   }
 
