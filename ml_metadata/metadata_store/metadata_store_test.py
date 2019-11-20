@@ -18,8 +18,9 @@ from __future__ import division
 from __future__ import print_function
 
 import os
-
 from absl.testing import absltest
+import grpc
+
 from ml_metadata.metadata_store import metadata_store
 from ml_metadata.proto import metadata_store_pb2
 from tensorflow.python.framework import errors
@@ -80,6 +81,13 @@ def _create_example_context_type_2():
   context_type.properties["foo"] = metadata_store_pb2.INT
   context_type.properties["bar"] = metadata_store_pb2.STRING
   return context_type
+
+
+def _create_grpc_error_with_code(error_code):
+  e = grpc.RpcError()
+  e.code = lambda: error_code
+  e.details = lambda: "mock_error"
+  raise e
 
 
 class MetadataStoreTest(absltest.TestCase):
@@ -813,6 +821,88 @@ class MetadataStoreTest(absltest.TestCase):
     metadata_store.MetadataStore(
         upgrade_conn_config, enable_upgrade_migration=True)
     os.remove(db_file)
+
+  def test_error_code_generation(self):
+    with self.assertRaises(errors.CancelledError):
+      try:
+        _create_grpc_error_with_code(grpc.StatusCode.CANCELLED)
+      except grpc.RpcError as e:
+        raise metadata_store._make_exception(e.details(), e.code().value[0])
+    with self.assertRaises(errors.UnknownError):
+      try:
+        _create_grpc_error_with_code(grpc.StatusCode.UNKNOWN)
+      except grpc.RpcError as e:
+        raise metadata_store._make_exception(e.details(), e.code().value[0])
+    with self.assertRaises(errors.InvalidArgumentError):
+      try:
+        _create_grpc_error_with_code(grpc.StatusCode.INVALID_ARGUMENT)
+      except grpc.RpcError as e:
+        raise metadata_store._make_exception(e.details(), e.code().value[0])
+    with self.assertRaises(errors.DeadlineExceededError):
+      try:
+        _create_grpc_error_with_code(grpc.StatusCode.DEADLINE_EXCEEDED)
+      except grpc.RpcError as e:
+        raise metadata_store._make_exception(e.details(), e.code().value[0])
+    with self.assertRaises(errors.NotFoundError):
+      try:
+        _create_grpc_error_with_code(grpc.StatusCode.NOT_FOUND)
+      except grpc.RpcError as e:
+        raise metadata_store._make_exception(e.details(), e.code().value[0])
+    with self.assertRaises(errors.AlreadyExistsError):
+      try:
+        _create_grpc_error_with_code(grpc.StatusCode.ALREADY_EXISTS)
+      except grpc.RpcError as e:
+        raise metadata_store._make_exception(e.details(), e.code().value[0])
+    with self.assertRaises(errors.PermissionDeniedError):
+      try:
+        _create_grpc_error_with_code(grpc.StatusCode.PERMISSION_DENIED)
+      except grpc.RpcError as e:
+        raise metadata_store._make_exception(e.details(), e.code().value[0])
+    with self.assertRaises(errors.UnauthenticatedError):
+      try:
+        _create_grpc_error_with_code(grpc.StatusCode.UNAUTHENTICATED)
+      except grpc.RpcError as e:
+        raise metadata_store._make_exception(e.details(), e.code().value[0])
+    with self.assertRaises(errors.ResourceExhaustedError):
+      try:
+        _create_grpc_error_with_code(grpc.StatusCode.RESOURCE_EXHAUSTED)
+      except grpc.RpcError as e:
+        raise metadata_store._make_exception(e.details(), e.code().value[0])
+    with self.assertRaises(errors.FailedPreconditionError):
+      try:
+        _create_grpc_error_with_code(grpc.StatusCode.FAILED_PRECONDITION)
+      except grpc.RpcError as e:
+        raise metadata_store._make_exception(e.details(), e.code().value[0])
+    with self.assertRaises(errors.AbortedError):
+      try:
+        _create_grpc_error_with_code(grpc.StatusCode.ABORTED)
+      except grpc.RpcError as e:
+        raise metadata_store._make_exception(e.details(), e.code().value[0])
+    with self.assertRaises(errors.OutOfRangeError):
+      try:
+        _create_grpc_error_with_code(grpc.StatusCode.OUT_OF_RANGE)
+      except grpc.RpcError as e:
+        raise metadata_store._make_exception(e.details(), e.code().value[0])
+    with self.assertRaises(errors.UnimplementedError):
+      try:
+        _create_grpc_error_with_code(grpc.StatusCode.UNIMPLEMENTED)
+      except grpc.RpcError as e:
+        raise metadata_store._make_exception(e.details(), e.code().value[0])
+    with self.assertRaises(errors.InternalError):
+      try:
+        _create_grpc_error_with_code(grpc.StatusCode.INTERNAL)
+      except grpc.RpcError as e:
+        raise metadata_store._make_exception(e.details(), e.code().value[0])
+    with self.assertRaises(errors.UnavailableError):
+      try:
+        _create_grpc_error_with_code(grpc.StatusCode.UNAVAILABLE)
+      except grpc.RpcError as e:
+        raise metadata_store._make_exception(e.details(), e.code().value[0])
+    with self.assertRaises(errors.DataLossError):
+      try:
+        _create_grpc_error_with_code(grpc.StatusCode.DATA_LOSS)
+      except grpc.RpcError as e:
+        raise metadata_store._make_exception(e.details(), e.code().value[0])
 
 
 if __name__ == "__main__":

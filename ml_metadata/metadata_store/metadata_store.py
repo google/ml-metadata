@@ -124,8 +124,15 @@ class MetadataStore(object):
       swig_method = getattr(metadata_store_serialized, method_name)
       self._swig_call(swig_method, request, response)
     else:
+      # TODO(b/144590158): Add E2E tests to verify grpc support.
       grpc_method = getattr(self._metadata_store_stub, method_name)
-      response.CopyFrom(grpc_method(request))
+      try:
+        response.CopyFrom(grpc_method(request))
+      except grpc.RpcError as e:
+        # RpcError code uses a tuple to specify error code and short
+        # description.
+        # https://grpc.github.io/grpc/python/_modules/grpc.html#StatusCode
+        raise _make_exception(e.details(), e.code().value[0])
 
   def _swig_call(self, method, request, response) -> None:
     """Calls method, serializing and deserializing inputs and outputs.
