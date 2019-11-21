@@ -120,6 +120,8 @@ Status MySqlMetadataSource::ConnectImpl() {
                   ssl.ca().empty() ? nullptr : ssl.ca().c_str(),
                   ssl.capath().empty() ? nullptr : ssl.capath().c_str(),
                   ssl.cipher().empty() ? nullptr : ssl.cipher().c_str());
+    my_bool verify_server_cert = ssl.verify_server_cert() ? 1 : 0;
+    mysql_options(db_, MYSQL_OPT_SSL_VERIFY_SERVER_CERT, &verify_server_cert);
   }
 
   // Connect to the MYSQL server.

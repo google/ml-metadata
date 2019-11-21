@@ -380,6 +380,9 @@ message MySQLDatabaseConfig {
     optional string capath = 4;
     // The list of permissible ciphers for SSL encryption.
     optional string cipher = 5;
+    // If set, enable verification of the server certificate against the host
+    // name used when connecting to the server.
+    optional bool verify_server_cert = 6;
   }
   // If the field is set, the ssl options are set in mysql_options before
   // establishing a connection. It is ignored if the mysql server does not
