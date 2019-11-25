@@ -315,7 +315,7 @@ def _set_custom_value(result: metadata_store_pb2.Value,
     raise ValueError("unknown property type")
 
 
-class _NodeAndType(object):
+class _NodeAndType(object):  # pytype: disable=ignored-metaclass
   """A base type for Artifact and Execution."""
   __metaclass__ = abc.ABCMeta
 
@@ -654,7 +654,7 @@ def create_json(artifact_struct: ArtifactStruct) -> Text:
   return json.dumps(_create_pre_json(artifact_struct))
 
 
-class ArtifactStructType(object):
+class ArtifactStructType(object):  # pytype: disable=ignored-metaclass
   """The base type for all type structures.
 
   At present, there is one method, is_instance. This is a useful place to
