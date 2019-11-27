@@ -413,7 +413,8 @@ message SqliteMetadataSourceConfig {
     // Connect a metadata source in read/write mode. Connection fail if the
     // sqlite3 database at the `filename` does not exist.
     READWRITE = 2;
-    // Similar to READWRITE. In addition, it creates the database if not exits.
+    // Similar to READWRITE. In addition, it creates the database if it does not
+    // exist.
     READWRITE_OPENCREATE = 3;
   }
 
