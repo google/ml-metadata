@@ -32,6 +32,7 @@ namespace ml_metadata {
 namespace {
 
 using ::ml_metadata::testing::ParseTextProtoOrDie;
+using ::testing::ElementsAre;
 using ::testing::SizeIs;
 
 class MetadataStoreTest : public ::testing::Test {
@@ -1561,6 +1562,74 @@ TEST_F(MetadataStoreTest, PutAndGetExecution) {
   ASSERT_THAT(get_events_response.events(), SizeIs(2));
   EXPECT_EQ(get_events_response.events(0).artifact_id(), artifact_1.id());
   EXPECT_EQ(get_events_response.events(1).artifact_id(), artifact_2.id());
+}
+
+// Put an execution with contexts.
+// Setup: the test prepares a subgraph of 1 execution, 1 artifact and 2
+//   contexts, then inserts them atomically with PutExecution.
+// Expectation: the end state has 2 associations and 2 attributions.
+TEST_F(MetadataStoreTest, PutAndGetExecutionWithContext) {
+  // prepares input that consists of 1 execution, 1 artifact and 2 contexts,
+  PutTypesRequest put_types_request = ParseTextProtoOrDie<PutTypesRequest>(R"(
+    artifact_types: { name: 'artifact_type' }
+    context_types: { name: 'context_type' }
+    execution_types: { name: 'execution_type' })");
+  PutTypesResponse put_types_response;
+  TF_ASSERT_OK(
+      metadata_store_->PutTypes(put_types_request, &put_types_response));
+  Context context1;
+  context1.set_type_id(put_types_response.context_type_ids(0));
+  context1.set_name("context1");
+  Context context2;
+  context2.set_type_id(put_types_response.context_type_ids(0));
+  context2.set_name("context2");
+
+  PutExecutionRequest put_execution_request;
+  put_execution_request.mutable_execution()->set_type_id(
+      put_types_response.execution_type_ids(0));
+  put_execution_request.add_artifact_event_pairs()
+      ->mutable_artifact()
+      ->set_type_id(put_types_response.artifact_type_ids(0));
+  *put_execution_request.add_contexts() = context1;
+  *put_execution_request.add_contexts() = context2;
+
+  // calls PutExecution and test end states.
+  PutExecutionResponse put_execution_response;
+  TF_ASSERT_OK(metadata_store_->PutExecution(put_execution_request,
+                                             &put_execution_response));
+  // check the nodes of the end state graph
+  ASSERT_GE(put_execution_response.execution_id(), 0);
+  ASSERT_THAT(put_execution_response.artifact_ids(), SizeIs(1));
+  ASSERT_THAT(put_execution_response.context_ids(), SizeIs(2));
+  context1.set_id(put_execution_response.context_ids(0));
+  context2.set_id(put_execution_response.context_ids(1));
+  GetContextsResponse get_contexts_response;
+  TF_ASSERT_OK(metadata_store_->GetContexts({}, &get_contexts_response));
+  EXPECT_THAT(get_contexts_response.contexts(),
+              ElementsAre(testing::EqualsProto(context1),
+                          testing::EqualsProto(context2)));
+
+  // check attributions and associations of each context.
+  for (const int64 context_id : put_execution_response.context_ids()) {
+    GetArtifactsByContextRequest get_artifacts_by_context_request;
+    get_artifacts_by_context_request.set_context_id(context_id);
+    GetArtifactsByContextResponse get_artifacts_by_context_response;
+    TF_ASSERT_OK(metadata_store_->GetArtifactsByContext(
+        get_artifacts_by_context_request, &get_artifacts_by_context_response));
+    ASSERT_THAT(get_artifacts_by_context_response.artifacts(), SizeIs(1));
+    EXPECT_EQ(get_artifacts_by_context_response.artifacts(0).id(),
+              put_execution_response.artifact_ids(0));
+
+    GetExecutionsByContextRequest get_executions_by_context_request;
+    get_executions_by_context_request.set_context_id(context_id);
+    GetExecutionsByContextResponse get_executions_by_context_response;
+    TF_ASSERT_OK(metadata_store_->GetExecutionsByContext(
+        get_executions_by_context_request,
+        &get_executions_by_context_response));
+    ASSERT_THAT(get_executions_by_context_response.executions(), SizeIs(1));
+    EXPECT_EQ(get_executions_by_context_response.executions(0).id(),
+              put_execution_response.execution_id());
+  }
 }
 
 TEST_F(MetadataStoreTest, PutContextTypeGetContextType) {

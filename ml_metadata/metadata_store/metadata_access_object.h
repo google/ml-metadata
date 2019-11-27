@@ -307,7 +307,7 @@ class MetadataAccessObject {
   // Creates an attribution, returns the assigned attribution id.
   // Returns INVALID_ARGUMENT error, if no context matches the context_id.
   // Returns INVALID_ARGUMENT error, if no artifact matches the artifact_id.
-  // Returns INTERNAL error, if the same attribution already exists.
+  // Returns AlreadyExists error, if the same attribution already exists.
   tensorflow::Status CreateAttribution(const Attribution& attribution,
                                        int64* attribution_id);
 
