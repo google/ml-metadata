@@ -1,8 +1,12 @@
-# Current version (not yet released; still in development)
+# Release 0.15.2
 
 ## Major Features and Improvements
 
 ## Bug Fixes and Other Changes
+
+*   Passes bytes instead of string to grpc.ssl_channel_credentials.
+*   Align GRPC python client stub error code with swig client error code.
+*   Add verify_server_cert support to MySQL source SSL options.
 
 ## Breaking Changes
 
