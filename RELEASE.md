@@ -2,6 +2,8 @@
 
 ## Major Features and Improvements
 
+*  Adding artifact states.
+
 ## Bug Fixes and Other Changes
 
 ## Breaking Changes

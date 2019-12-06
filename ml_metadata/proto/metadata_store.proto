@@ -41,6 +41,22 @@ message Artifact {
   map<string, Value> properties = 4;
   // User provided custom properties which are not defined by its type.
   map<string, Value> custom_properties = 5;
+
+  enum State {
+    UNKNOWN = 0;
+    // A state indicating that the artifact may exist.
+    PENDING = 1;
+    // A state indicating that the artifact should exist, unless something
+    // external to the system deletes it.
+    LIVE = 2;
+    // A state indicating that the artifact should be deleted.
+    MARKED_FOR_DELETION = 3;
+    // A state indicating that the artifact has been deleted.
+    DELETED = 4;
+  }
+
+  // Currently not supported: support coming soon (see b/145751019).
+  optional State state = 6;
 }
 
 // TODO(martinz): consider moving this inside some message, to avoid having
