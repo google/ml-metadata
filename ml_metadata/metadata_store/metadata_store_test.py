@@ -18,6 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 import os
+
+from absl import flags
 from absl.testing import absltest
 import grpc
 
@@ -25,8 +27,29 @@ from ml_metadata.metadata_store import metadata_store
 from ml_metadata.proto import metadata_store_pb2
 from tensorflow.python.framework import errors
 
+FLAGS = flags.FLAGS
+
+# TODO(b/145819288) to add SSL related configurations.
+flags.DEFINE_boolean(
+    "use_grpc_backend", False,
+    "Set this to true to use gRPC instead of sqlLite backend.")
+flags.DEFINE_string(
+    "grpc_host", None,
+    "The gRPC host name to use when use_grpc_backed is set to 'True'")
+flags.DEFINE_integer(
+    "grpc_port", 0,
+    "The gRPC port number to use when use_grpc_backed is set to 'True'")
+
 
 def _get_metadata_store():
+  if FLAGS.use_grpc_backend:
+    grpc_connection_config = metadata_store_pb2.MetadataStoreClientConfig()
+    assert FLAGS.grpc_host is not None
+    grpc_connection_config.host = FLAGS.grpc_host
+    assert FLAGS.grpc_port
+    grpc_connection_config.port = FLAGS.grpc_ports
+    return metadata_store.MetadataStore(grpc_connection_config)
+
   connection_config = metadata_store_pb2.ConnectionConfig()
   connection_config.sqlite.SetInParent()
   return metadata_store.MetadataStore(connection_config)
