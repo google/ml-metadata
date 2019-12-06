@@ -108,6 +108,13 @@ class MetadataSource {
 
   bool is_connected() const { return is_connected_; }
 
+ protected:
+  bool transaction_open() const { return transaction_open_; }
+
+  void set_transaction_open(bool transaction_open) {
+    transaction_open_ = transaction_open;
+  }
+
  private:
   // Implementation of connecting to a backend.
   virtual tensorflow::Status ConnectImpl() = 0;
