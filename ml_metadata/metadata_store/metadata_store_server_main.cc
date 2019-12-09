@@ -28,6 +28,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/metadata_store_service_impl.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "tensorflow/core/lib/core/errors.h"
+#include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/lib/strings/numbers.h"
 #include "tensorflow/core/lib/strings/str_util.h"
 #include "tensorflow/core/platform/env.h"
@@ -130,6 +131,9 @@ DEFINE_string(metadata_store_server_config_file, "",
               "from the file name to connect to the specified metadata source "
               "and set up a secure gRPC channel. If provided overrides the "
               "--mysql* configuration");
+DEFINE_int32(
+    metadata_store_connection_retries, 5,
+    "The max number of retries when connecting to the given metadata source");
 
 // MySQL config command line options
 DEFINE_string(mysql_config_host, "",
@@ -174,8 +178,18 @@ int main(int argc, char** argv) {
   }
 
   std::unique_ptr<ml_metadata::MetadataStore> metadata_store;
-  TF_CHECK_OK(ml_metadata::CreateMetadataStore(
-      connection_config, server_config.migration_options(), &metadata_store))
+  tensorflow::Status status = ml_metadata::CreateMetadataStore(
+      connection_config, server_config.migration_options(), &metadata_store);
+  for (int i = 0; i < FLAGS_metadata_store_connection_retries; i++) {
+    if (status.ok() || !tensorflow::errors::IsAborted(status)) {
+      break;
+    }
+    LOG(WARNING) << "Connection Aborted with error: " << status;
+    LOG(INFO) << "Retry attempt " << i;
+    status = ml_metadata::CreateMetadataStore(
+        connection_config, server_config.migration_options(), &metadata_store);
+  }
+  TF_CHECK_OK(status)
       << "MetadataStore cannot be created with the given connection config.";
 
   ml_metadata::MetadataStoreServiceImpl metadata_store_service(

@@ -2,7 +2,8 @@
 
 ## Major Features and Improvements
 
-*  Adding artifact states.
+*   Adding artifact states.
+*   Supports connection retries to gRPC server.
 
 ## Bug Fixes and Other Changes
 
