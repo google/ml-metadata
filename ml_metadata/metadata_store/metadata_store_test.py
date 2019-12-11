@@ -556,7 +556,7 @@ class MetadataStoreTest(absltest.TestCase):
     self.assertLen(event_result_1.path.steps, 1)
     self.assertEqual(event_result_1.path.steps[0].key, "fff")
 
-  def test_publish_execution(self):
+  def test_put_execution_without_context(self):
     store = _get_metadata_store()
     execution_type = metadata_store_pb2.ExecutionType()
     execution_type.name = "execution_type"
@@ -574,11 +574,67 @@ class MetadataStoreTest(absltest.TestCase):
     output_event = metadata_store_pb2.Event()
     output_event.type = metadata_store_pb2.Event.DECLARED_INPUT
 
-    execution_id, artifact_ids = store.put_execution(
-        execution, [[input_artifact], [output_artifact, output_event]])
+    execution_id, artifact_ids, context_ids = store.put_execution(
+        execution, [[input_artifact], [output_artifact, output_event]], [])
     self.assertLen(artifact_ids, 2)
     events = store.get_events_by_execution_ids([execution_id])
     self.assertLen(events, 1)
+    self.assertEmpty(context_ids)
+
+  def test_put_execution_with_context(self):
+    store = _get_metadata_store()
+    execution_type = metadata_store_pb2.ExecutionType()
+    execution_type.name = "execution_type"
+    execution_type_id = store.put_execution_type(execution_type)
+    execution = metadata_store_pb2.Execution()
+    execution.type_id = execution_type_id
+
+    artifact_type = metadata_store_pb2.ArtifactType()
+    artifact_type.name = "artifact_type"
+    artifact_type_id = store.put_artifact_type(artifact_type)
+    input_artifact = metadata_store_pb2.Artifact()
+    input_artifact.type_id = artifact_type_id
+    output_artifact = metadata_store_pb2.Artifact()
+    output_artifact.type_id = artifact_type_id
+    output_event = metadata_store_pb2.Event()
+    output_event.type = metadata_store_pb2.Event.DECLARED_INPUT
+
+    context_type = metadata_store_pb2.ContextType()
+    context_type.name = "context_type"
+    context_type_id = store.put_context_type(context_type)
+    context = metadata_store_pb2.Context()
+    context.type_id = context_type_id
+    context.name = "test_context"
+
+    execution_id, artifact_ids, context_ids = store.put_execution(
+        execution, [[input_artifact], [output_artifact, output_event]],
+        [context])
+
+    # Test artifacts & events are correctly inserted.
+    self.assertLen(artifact_ids, 2)
+    events = store.get_events_by_execution_ids([execution_id])
+    self.assertLen(events, 1)
+
+    # Test the context is correctly inserted.
+    got_contexts = store.get_contexts_by_id(context_ids)
+    self.assertLen(context_ids, 1)
+    self.assertLen(got_contexts, 1)
+
+    # Test the association link between execution and the context is correct.
+    contexts_by_execution_id = store.get_contexts_by_execution(execution_id)
+    self.assertLen(contexts_by_execution_id, 1)
+    self.assertEqual(contexts_by_execution_id[0].name, "test_context")
+    self.assertEqual(contexts_by_execution_id[0].type_id, context_type_id)
+    executions_by_context = store.get_executions_by_context(context_ids[0])
+    self.assertLen(executions_by_context, 1)
+
+    # Test the attribution links between artifacts and the context are correct.
+    contexts_by_artifact_id = store.get_contexts_by_artifact(artifact_ids[0])
+    self.assertLen(contexts_by_artifact_id, 1)
+    self.assertEqual(contexts_by_artifact_id[0].name, "test_context")
+    self.assertEqual(contexts_by_artifact_id[0].type_id, context_type_id)
+    artifacts_by_context = store.get_artifacts_by_context(context_ids[0])
+    self.assertLen(artifacts_by_context, 2)
 
   def test_put_context_type_get_context_type(self):
     store = _get_metadata_store()

@@ -455,12 +455,13 @@ class MetadataStore(object):
   def put_execution(
       self, execution: metadata_store_pb2.Execution,
       artifact_and_events: Sequence[Tuple[metadata_store_pb2.Artifact,
-                                          Optional[metadata_store_pb2.Event]]]
-  ) -> Tuple[int, List[int]]:
-    """Inserts or updates an Execution with related artifacts and events.
+                                          Optional[metadata_store_pb2.Event]]],
+      contexts: Optional[Sequence[metadata_store_pb2.Context]]
+  ) -> Tuple[int, List[int], List[int]]:
+    """Inserts or updates an Execution with artifacts, events and contexts.
 
-    If an execution_id or artifact_id is specified, it is an update, otherwise
-    it does an insertion.
+    If an execution_id, artifact_id or context_id is specified, it is an update,
+    otherwise it does an insertion.
 
     Args:
       execution: The execution to be created or updated.
@@ -468,24 +469,30 @@ class MetadataStore(object):
         or generates. The event's execution id or artifact id can be empty, as
         the artifact or execution may not be stored beforehand. If given, the
         ids must match with the paired Artifact and the input execution.
+      contexts: The Contexts that the execution should be assotiated with and
+        the artifacts should be attributed to.
 
     Returns:
-      the execution id, and the list of artifact's id.
+      the execution id, the list of artifact's id, and the list of context's id.
     """
     request = metadata_store_service_pb2.PutExecutionRequest()
     request.execution.CopyFrom(execution)
+    # Add artifact_and_event pairs to the request.
     for pair in artifact_and_events:
       artifact_and_event = request.artifact_event_pairs.add()
       artifact_and_event.artifact.CopyFrom(pair[0])
       if len(pair) == 2 and pair[1] is not None:
         artifact_and_event.event.CopyFrom(pair[1])
+    # Add contexts to the request.
+    for context in contexts:
+      context_to_add = request.contexts.add()
+      context_to_add.CopyFrom(context)
     response = metadata_store_service_pb2.PutExecutionResponse()
 
     self._call('PutExecution', request, response)
-    artifact_ids = []
-    for x in response.artifact_ids:
-      artifact_ids.append(x)
-    return response.execution_id, artifact_ids
+    artifact_ids = [x for x in response.artifact_ids]
+    context_ids = [x for x in response.context_ids]
+    return response.execution_id, artifact_ids, context_ids
 
   def get_artifacts_by_type(
       self, type_name: Text) -> List[metadata_store_pb2.Artifact]:
