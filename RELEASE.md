@@ -8,6 +8,9 @@
 
 ## Bug Fixes and Other Changes
 
+*   Adding a new execution state: CANCELED. This indicates an execution being
+    canceled.
+
 ## Breaking Changes
 
 *   The Python API put_execution will need an extra input argument to pass in

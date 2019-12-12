@@ -150,8 +150,12 @@ message Execution {
   // The ExecutionType must be specified and cannot be changed.
   optional int64 type_id = 2;
   // The state of the Execution. The state transitions are
-  //   NEW -> RUNNING -> COMPLETE | CACHED | FAILED
+  //   NEW -> RUNNING -> COMPLETE | CACHED | FAILED | CANCELED
   // CACHED means the execution is skipped due to cached results.
+  // CANCELED means the execution is skipped due to precondition not met. It is
+  // different from CACHED in that a CANCELED execution will not have any event
+  // associated with it. It is different from FAILED in that there is no
+  // unexpected error happened and it is regarded as a normal state.
   enum State {
     UNKNOWN = 0;
     NEW = 1;
@@ -159,6 +163,7 @@ message Execution {
     COMPLETE = 3;
     FAILED = 4;
     CACHED = 5;
+    CANCELED = 6;
   }
   // The last known state of an execution.
   optional State last_known_state = 3;
