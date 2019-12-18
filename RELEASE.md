@@ -4,7 +4,8 @@
 
 *   Adding artifact states.
 *   Supports connection retries to gRPC server.
-*   Allow the Python API put_execution to update or insert related contexts.
+*   Allow the Python and Go API put_execution to update or insert related
+    contexts.
 
 ## Bug Fixes and Other Changes
 
@@ -13,9 +14,9 @@
 
 ## Breaking Changes
 
-*   The Python API put_execution will need an extra input argument to pass in
-    contexts and return updated context_ids. Users using the old API could pass
-    in None or an empty list as context and add another variable to hold the
+*   The Python and Go API put_execution will need an extra input argument to
+    pass in contexts and return updated context_ids. Users using the old API
+    could pass in an empty list as context and add another variable to hold the
     returned context_ids to migrate.
 
 ## Deprecations

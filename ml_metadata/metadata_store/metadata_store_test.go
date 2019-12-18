@@ -893,7 +893,7 @@ func TestPutAndGetEvents(t *testing.T) {
 	}
 }
 
-func TestPublishExecution(t *testing.T) {
+func TestPutExecutionWithoutContext(t *testing.T) {
 	store, err := NewStore(fakeDatabaseConfig())
 	if err != nil {
 		t.Fatalf("Cannot create Store: %v", err)
@@ -936,9 +936,12 @@ func TestPublishExecution(t *testing.T) {
 		},
 	}
 	// publish the execution and examine the results
-	reid, raids, err := store.PutExecution(e, aep)
+	reid, raids, rcids, err := store.PutExecution(e, aep, nil)
 	if err != nil {
 		t.Fatalf("PutExecution failed: %v", err)
+	}
+	if len(rcids) != 0 {
+		t.Fatalf("PutExecution number of contexts mismatch, want: %v, got: %v", 1, len(rcids))
 	}
 	if len(raids) != 2 {
 		t.Errorf("PutExecution number of artifacts mismatch, want: %v, got: %v", 2, len(raids))
@@ -963,6 +966,99 @@ func TestPublishExecution(t *testing.T) {
 	wantEvent.ExecutionId = &eid
 	if !proto.Equal(gotEvents[0], wantEvent) {
 		t.Errorf("GetEventsByExecutionIDs returned events mismatch, want: %v, got: %v", wantEvent, gotEvents[0])
+	}
+}
+
+func TestPutExecutionWithContext(t *testing.T) {
+	store, err := NewStore(fakeDatabaseConfig())
+	if err != nil {
+		t.Fatalf("Cannot create Store: %v", err)
+	}
+	defer store.Close()
+	// create test types
+	atid, err := insertArtifactType(store, `name: 'artifact_type_name' `)
+	if err != nil {
+		t.Fatalf("Cannot create artifact type: %v", err)
+	}
+	etid, err := insertExecutionType(store, `name: 'execution_type_name' `)
+	if err != nil {
+		t.Fatalf("Cannot create execution type: %v", err)
+	}
+	ctid, err := insertContextType(store, `name: 'context_type_name' `)
+	if err != nil {
+		t.Fatalf("Cannot create context type: %v", err)
+	}
+	// create an stored input artifact ia
+	as := make([]*mdpb.Artifact, 1)
+	ia := &mdpb.Artifact{TypeId: &atid}
+	as[0] = ia
+	aids, err := store.PutArtifacts(as)
+	if err != nil {
+		t.Fatalf("PutArtifacts failed: %v", err)
+	}
+	aid := int64(aids[0])
+	ia.Id = &aid
+	// prepare an execution and an output artifact, and publish input and output together with events
+	// input has no event update, output has a new event
+	e := &mdpb.Execution{TypeId: &etid}
+	aep := make([]*ArtifactAndEvent, 1)
+	aep[0] = &ArtifactAndEvent{
+		Artifact: ia,
+	}
+	// prepare an context.
+	cname := "context_name"
+	c := &mdpb.Context{TypeId: &ctid, Name: &cname}
+	ic := make([]*mdpb.Context, 1)
+	ic[0] = c
+	// publish the execution and examine the results
+	reid, raids, rcids, err := store.PutExecution(e, aep, ic)
+	if err != nil {
+		t.Fatalf("PutExecution failed: %v", err)
+	}
+	if len(rcids) != 1 {
+		t.Fatalf("PutExecution number of contexts mismatch, want: %v, got: %v", 1, len(rcids))
+	}
+	if len(raids) != 1 {
+		t.Errorf("PutExecution number of artifacts mismatch, want: %v, got: %v", 2, len(raids))
+	}
+	if raids[0] != ArtifactID(aid) {
+		t.Errorf("PutExecution returned Id for stored Artifact mismatch, want: %v, got: %v", aid, raids[0])
+	}
+	// test the attribution links between artifacts and the context are correct.
+	rcid := int64(rcids[0])
+	c.Id = &rcid
+	gotContexts, err := store.GetContextsByArtifact(aids[0])
+	if err != nil {
+		t.Fatalf("GetContextsByArtifact failed: %v", err)
+	}
+	if len(gotContexts) != 1 {
+		t.Errorf("GetContextsByArtifact returned number of results is incorrect. want: %v, got: %v", 1, len(gotContexts))
+	}
+	if !proto.Equal(c, gotContexts[0]) {
+		t.Errorf("GetContextsByArtifact returned result is incorrect. want: %v, got: %v", c, gotContexts[0])
+	}
+	// test the association link between the execution and the context is correct.
+	gotContexts, err = store.GetContextsByExecution(reid)
+	if err != nil {
+		t.Fatalf("GetContextsByExecution failed: %v", err)
+	}
+	if len(gotContexts) != 1 {
+		t.Errorf("GetContextsByExecution returned number of results is incorrect. want: %v, got: %v", 1, len(gotContexts))
+	}
+	if !proto.Equal(c, gotContexts[0]) {
+		t.Errorf("GetContextsByExecution returned result is incorrect. want: %v, got: %v", c, gotContexts[0])
+	}
+	eid := int64(reid)
+	e.Id = &eid
+	gotExecutions, err := store.GetExecutionsByContext(rcids[0])
+	if err != nil {
+		t.Fatalf("GetExecutionsByContext failed: %v", err)
+	}
+	if len(gotExecutions) != 1 {
+		t.Errorf("GetExecutionsByContext returned number of results is incorrect. want: %v, got: %v", 1, len(gotContexts))
+	}
+	if !proto.Equal(e, gotExecutions[0]) {
+		t.Errorf("GetExecutionsByContext returned result is incorrect. want: %v, got: %v", e, gotExecutions[0])
 	}
 }
 

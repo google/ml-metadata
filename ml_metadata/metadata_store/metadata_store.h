@@ -295,8 +295,10 @@ class MetadataStore {
   // , otherwise it does an insertion. For insertion, type must be specified.
   // If event.timestamp is not set, it will be set to the current time.
   //
-  // Returns a list of execution and artifact ids index-aligned with the input.
-  // Returns INVALID_ARGUMENT error, if no artifact or execution matches the id.
+  // Returns a list of execution, artifact, and context ids index-aligned with
+  // the input.
+  // Returns INVALID_ARGUMENT error, if no artifact, execution, or context
+  // matches the id.
   // Returns INVALID_ARGUMENT error, if type_id is different from stored one.
   // Returns INVALID_ARGUMENT error, if property names and types do not align.
   // Returns INVALID_ARGUMENT error, if the event.type field is UNKNOWN.
