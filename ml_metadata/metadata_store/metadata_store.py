@@ -703,6 +703,7 @@ class MetadataStore(object):
       A list of all executions.
 
     Raises:
+      tensorflow.errors.NotFoundError: if no execution exists
       InternalError: if query execution fails.
     """
     request = metadata_store_service_pb2.GetExecutionsRequest()
@@ -721,6 +722,7 @@ class MetadataStore(object):
       A list of all artifacts.
 
     Raises:
+      tensorflow.errors.NotFoundError: if no artifact exists
       InternalError: if query execution fails.
     """
     request = metadata_store_service_pb2.GetArtifactsRequest()
@@ -739,6 +741,7 @@ class MetadataStore(object):
       A list of all contexts.
 
     Raises:
+      tensorflow.errors.NotFoundError: if no contexts exists
       InternalError: if query execution fails.
     """
     request = metadata_store_service_pb2.GetContextsRequest()
