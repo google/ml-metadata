@@ -81,28 +81,74 @@ message ArtifactType {
   map<string, PropertyType> properties = 3;
 }
 
-// An event represents a relationship between an artifact ID and an
-// execution.
-// There are four kinds of events, relating to both input and output, as
-// well as declared versus undeclared.
-// For example, the DECLARED_INPUT events are part of the signature of an
-// execution. For example, consider:
-// my_execution({"data":[3,7],"schema":8})
-// Where 3, 7, and 8 are artifact_ids. Assuming execution_id is 12, this
-// becomes:
-// {artifact_id:3, execution_id: 12, type:DECLARED_INPUT,
-//  path:{step:[{"key":"data"},{"index":0}]}}
-// {artifact_id:7, execution_id: 12, type:DECLARED_INPUT,
-//  path:{step:[{"key":"data"},{"index":1}]}}
-// {artifact_id:8, execution_id: 12, type:DECLARED_INPUT,
-//  path:{step:[{"key":"schema"}]}}
-// The INPUT is an artifact actually read by the execution.
-// The OUTPUT is an artifact actually written by the execution.
-// The DECLARED_OUTPUT are the artifacts that are the "official" output.
-// For example, the trainer may output multiple caches of the parameters
-// (as OUTPUT objects),
-// but then finally write the SavedModel as a DECLARED_OUTPUT.
-// TODO(martinz): add a type for Event, similar to ArtifactType.
+// An event represents a relationship between an artifact and an execution.
+// There are different kinds of events, relating to both input and output, as
+// well as how they are used by the mlmd powered system.
+// For example, the DECLARED_INPUT and DECLARED_OUTPUT events are part of the
+// signature of an execution. For example, consider:
+//
+//   my_result = my_execution({"data":[3,7],"schema":8})
+//
+// Where 3, 7, and 8 are artifact_ids, Assuming execution_id of my_execution is
+// 12 and artifact_id of my_result is 15, the events are:
+//   {
+//       artifact_id:3,
+//       execution_id: 12,
+//       type:DECLARED_INPUT,
+//       path:{step:[{"key":"data"},{"index":0}]}
+//   }
+//   {
+//       artifact_id:7,
+//       execution_id: 12,
+//       type:DECLARED_INPUT,
+//       path:{step:[{"key":"data"},{"index":1}]}
+//   }
+//   {
+//       artifact_id:8,
+//       execution_id: 12,
+//       type:DECLARED_INPUT,
+//       path:{step:[{"key":"schema"}]}
+//   }
+//   {
+//       artifact_id:15,
+//       execution_id: 12,
+//       type:DECLARED_OUTPUT,
+//       path:{step:[{"key":"my_result"}]}
+//   }
+// Other event types include INPUT/OUTPUT and INTERNAL_INPUT/_OUTPUT.
+// * The INPUT/OUTPUT is an event that actually reads/writes an artifact by an
+//   execution. The input/output artifacts may not declared in the signature,
+//   For example, the trainer may output multiple caches of the parameters
+//   (as an OUTPUT), then finally write the SavedModel as a DECLARED_OUTPUT.
+// * The INTERNAL_INPUT/_OUTPUT are event types which are only meaningful to
+//   an orchestration system to keep track of the details for later debugging.
+//   For example, a fork happened conditioning on an artifact, then an execution
+//   is triggered, such fork implementating may need to log the read and write
+//   of artifacts and may not be worth displaying to the users.
+//
+// For instance, in the above example,
+//
+//   my_result = my_execution({"data":[3,7],"schema":8})
+//
+// there is another execution (id: 15), which represents a `garbage_collection`
+// step in an orchestration system
+//
+//   gc_result = garbage_collection(my_result)
+//
+// that cleans `my_result` if needed. The details should be invisible to the
+// end users and lineage tracking. The orchestrator can emit following events:
+//
+//   {
+//       artifact_id: 15,
+//       execution_id: 15,
+//       type:INTERNAL_INPUT,
+//   }
+//   {
+//       artifact_id:16,  // New artifact containing the GC job result.
+//       execution_id: 15,
+//       type:INTERNAL_OUTPUT,
+//       path:{step:[{"key":"gc_result"}]}
+//   }
 message Event {
   // A simple path (e.g. {step{key:"foo"}}) can name an artifact in the context
   // of an execution.
@@ -127,6 +173,8 @@ message Event {
     DECLARED_INPUT = 2;   // A declared input of the execution.
     INPUT = 3;            // An input of the execution.
     OUTPUT = 4;           // An output of the execution.
+    INTERNAL_INPUT = 5;   // An internal input of the execution.
+    INTERNAL_OUTPUT = 6;  // An internal output of the execution.
   }
   // The artifact id is required for an event, and should refer to an
   // existing artifact.
