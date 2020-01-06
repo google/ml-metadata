@@ -767,6 +767,34 @@ class MetadataStoreTest(absltest.TestCase):
     self.assertEqual(context_result_1.name, context_1_name)
     self.assertEqual(context_result_1.properties["foo"].int_value, -9)
 
+  def test_put_contexts_get_context_by_type_and_name(self):
+    # Prepare test data.
+    store = _get_metadata_store()
+    context_type = _create_example_context_type(self._get_test_type_name())
+    type_id = store.put_context_type(context_type)
+    context = metadata_store_pb2.Context()
+    context.type_id = type_id
+    context.name = self._get_test_type_name()
+    [context_id] = store.put_contexts([context])
+
+    # Test Context found case.
+    got_context = store.get_context_by_type_and_name(
+        context_type.name, context.name)
+    self.assertEqual(got_context.id, context_id)
+    self.assertEqual(got_context.type_id, type_id)
+    self.assertEqual(got_context.name, context.name)
+
+    # Test Context not found cases.
+    empty_context = store.get_context_by_type_and_name("random_name",
+                                                       context.name)
+    self.assertEqual(empty_context, None)
+    empty_context = store.get_context_by_type_and_name(context_type.name,
+                                                       "random_name")
+    self.assertEqual(empty_context, None)
+    empty_context = store.get_context_by_type_and_name("random_name",
+                                                       "random_name")
+    self.assertEqual(empty_context, None)
+
   def test_put_contexts_get_contexts_by_type(self):
     store = _get_metadata_store()
     context_type = _create_example_context_type(self._get_test_type_name())

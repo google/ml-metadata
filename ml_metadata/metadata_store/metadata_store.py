@@ -778,7 +778,14 @@ class MetadataStore(object):
 
   def get_contexts_by_type(self,
                            type_name: Text) -> List[metadata_store_pb2.Context]:
-    """Gets all the contexts of a given type."""
+    """Gets all the contexts of a given type.
+
+    Args:
+      type_name: The context type name to look for.
+
+    Returns:
+      Contexts that matches the context type name.
+    """
     request = metadata_store_service_pb2.GetContextsByTypeRequest()
     request.type_name = type_name
     response = metadata_store_service_pb2.GetContextsByTypeResponse()
@@ -788,6 +795,35 @@ class MetadataStore(object):
     for x in response.contexts:
       result.append(x)
     return result
+
+  def get_context_by_type_and_name(
+      self, type_name: Text,
+      context_name: Text) -> Optional[metadata_store_pb2.Context]:
+    """Get the context of the given type and context name.
+
+    The API fails if more than one contexts are found.
+
+    Args:
+      type_name: The context type name to look for.
+      context_name: The context name to look for.
+
+    Returns:
+      The Context matching the type and context name.
+      None if no matched Context found.
+    """
+    # TODO(b/139092990): Change get logic to the new C++ API once implemented.
+    request = metadata_store_service_pb2.GetContextsByTypeRequest()
+    request.type_name = type_name
+    response = metadata_store_service_pb2.GetContextsByTypeResponse()
+
+    self._call('GetContextsByType', request, response)
+    result = [c for c in response.contexts
+              if c.HasField('name') and c.name == context_name]
+
+    assert len(result) <= 1, 'Found more than one contexts with input.'
+    if not result:
+      return None
+    return result[0]
 
   def get_artifact_types_by_id(
       self, type_ids: Sequence[int]) -> List[metadata_store_pb2.ArtifactType]:
