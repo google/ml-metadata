@@ -324,7 +324,7 @@ tensorflow::Status MetadataStore::GetArtifactTypesByID(
               metadata_access_object_->FindTypeById(type_id, &artifact_type);
           if (status.ok()) {
             *response->mutable_artifact_types()->Add() = artifact_type;
-          } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
+          } else if (!tensorflow::errors::IsNotFound(status)) {
             return status;
           }
         }
@@ -344,7 +344,7 @@ tensorflow::Status MetadataStore::GetExecutionTypesByID(
               metadata_access_object_->FindTypeById(type_id, &execution_type);
           if (status.ok()) {
             *response->mutable_execution_types()->Add() = execution_type;
-          } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
+          } else if (!tensorflow::errors::IsNotFound(status)) {
             return status;
           }
         }
@@ -364,7 +364,7 @@ tensorflow::Status MetadataStore::GetContextTypesByID(
               metadata_access_object_->FindTypeById(type_id, &context_type);
           if (status.ok()) {
             *response->mutable_context_types()->Add() = context_type;
-          } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
+          } else if (!tensorflow::errors::IsNotFound(status)) {
             return status;
           }
         }
@@ -384,7 +384,7 @@ tensorflow::Status MetadataStore::GetArtifactsByID(
               metadata_access_object_->FindArtifactById(artifact_id, &artifact);
           if (status.ok()) {
             *response->mutable_artifacts()->Add() = artifact;
-          } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
+          } else if (!tensorflow::errors::IsNotFound(status)) {
             return status;
           }
         }
@@ -405,7 +405,7 @@ tensorflow::Status MetadataStore::GetExecutionsByID(
                                                          &execution);
           if (status.ok()) {
             *response->mutable_executions()->Add() = execution;
-          } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
+          } else if (!tensorflow::errors::IsNotFound(status)) {
             return status;
           }
         }
@@ -424,7 +424,7 @@ tensorflow::Status MetadataStore::GetContextsByID(
               metadata_access_object_->FindContextById(context_id, &context);
           if (status.ok()) {
             *response->mutable_contexts()->Add() = context;
-          } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
+          } else if (!tensorflow::errors::IsNotFound(status)) {
             return status;
           }
         }
@@ -604,7 +604,7 @@ tensorflow::Status MetadataStore::GetEventsByExecutionIDs(
             for (const Event& event : events) {
               *response->mutable_events()->Add() = event;
             }
-          } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
+          } else if (!tensorflow::errors::IsNotFound(status)) {
             return status;
           }
         }
@@ -627,7 +627,7 @@ tensorflow::Status MetadataStore::GetEventsByArtifactIDs(
             for (const Event& event : events) {
               *response->mutable_events()->Add() = event;
             }
-          } else if (status.code() != ::tensorflow::error::NOT_FOUND) {
+          } else if (!tensorflow::errors::IsNotFound(status)) {
             return status;
           }
         }
@@ -683,7 +683,7 @@ tensorflow::Status MetadataStore::GetArtifactTypes(
         std::vector<ArtifactType> artifact_types;
         const tensorflow::Status status =
             metadata_access_object_->FindTypes(&artifact_types);
-        if (status.code() == ::tensorflow::error::NOT_FOUND) {
+        if (tensorflow::errors::IsNotFound(status)) {
           return tensorflow::Status::OK();
         } else if (!status.ok()) {
           return status;
@@ -703,7 +703,7 @@ tensorflow::Status MetadataStore::GetExecutionTypes(
         std::vector<ExecutionType> execution_types;
         const tensorflow::Status status =
             metadata_access_object_->FindTypes(&execution_types);
-        if (status.code() == ::tensorflow::error::NOT_FOUND) {
+        if (tensorflow::errors::IsNotFound(status)) {
           return tensorflow::Status::OK();
         } else if (!status.ok()) {
           return status;
@@ -722,7 +722,7 @@ tensorflow::Status MetadataStore::GetContextTypes(
         std::vector<ContextType> context_types;
         const tensorflow::Status status =
             metadata_access_object_->FindTypes(&context_types);
-        if (status.code() == ::tensorflow::error::NOT_FOUND) {
+        if (tensorflow::errors::IsNotFound(status)) {
           return tensorflow::Status::OK();
         } else if (!status.ok()) {
           return status;
@@ -744,7 +744,7 @@ tensorflow::Status MetadataStore::GetArtifactsByURI(
         const tensorflow::Status status =
             metadata_access_object_->FindArtifactsByURI(request.uri(),
                                                         &artifacts);
-        if (status.code() == ::tensorflow::error::NOT_FOUND) {
+        if (tensorflow::errors::IsNotFound(status)) {
           return tensorflow::Status::OK();
         } else if (!status.ok()) {
           return status;
@@ -765,7 +765,7 @@ tensorflow::Status MetadataStore::GetArtifactsByType(
         ArtifactType artifact_type;
         tensorflow::Status status = metadata_access_object_->FindTypeByName(
             request.type_name(), &artifact_type);
-        if (status.code() == ::tensorflow::error::NOT_FOUND) {
+        if (tensorflow::errors::IsNotFound(status)) {
           return tensorflow::Status::OK();
         } else if (!status.ok()) {
           return status;
@@ -773,7 +773,7 @@ tensorflow::Status MetadataStore::GetArtifactsByType(
         std::vector<Artifact> artifacts;
         status = metadata_access_object_->FindArtifactsByTypeId(
             artifact_type.id(), &artifacts);
-        if (status.code() == ::tensorflow::error::NOT_FOUND) {
+        if (tensorflow::errors::IsNotFound(status)) {
           return tensorflow::Status::OK();
         } else if (!status.ok()) {
           return status;
@@ -794,7 +794,7 @@ tensorflow::Status MetadataStore::GetExecutionsByType(
         ExecutionType execution_type;
         tensorflow::Status status = metadata_access_object_->FindTypeByName(
             request.type_name(), &execution_type);
-        if (status.code() == ::tensorflow::error::NOT_FOUND) {
+        if (tensorflow::errors::IsNotFound(status)) {
           return tensorflow::Status::OK();
         } else if (!status.ok()) {
           return status;
@@ -802,7 +802,7 @@ tensorflow::Status MetadataStore::GetExecutionsByType(
         std::vector<Execution> executions;
         status = metadata_access_object_->FindExecutionsByTypeId(
             execution_type.id(), &executions);
-        if (status.code() == ::tensorflow::error::NOT_FOUND) {
+        if (tensorflow::errors::IsNotFound(status)) {
           return tensorflow::Status::OK();
         } else if (!status.ok()) {
           return status;
@@ -823,7 +823,7 @@ tensorflow::Status MetadataStore::GetContextsByType(
         ContextType context_type;
         tensorflow::Status status = metadata_access_object_->FindTypeByName(
             request.type_name(), &context_type);
-        if (status.code() == ::tensorflow::error::NOT_FOUND) {
+        if (tensorflow::errors::IsNotFound(status)) {
           return tensorflow::Status::OK();
         } else if (!status.ok()) {
           return status;
@@ -831,7 +831,7 @@ tensorflow::Status MetadataStore::GetContextsByType(
         std::vector<Context> contexts;
         status = metadata_access_object_->FindContextsByTypeId(
             context_type.id(), &contexts);
-        if (status.code() == ::tensorflow::error::NOT_FOUND) {
+        if (tensorflow::errors::IsNotFound(status)) {
           return tensorflow::Status::OK();
         } else if (!status.ok()) {
           return status;
