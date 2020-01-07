@@ -96,6 +96,7 @@ bool ParseMetadataStoreServerConfigOrDie(
 bool ParseMySQLFlagsBasedServerConfigOrDie(
     const std::string& host, const int port, const std::string& database,
     const std::string& user, const std::string& password,
+    const bool enable_database_upgrade, const int64 downgrade_db_schema_version,
     ml_metadata::MetadataStoreServerConfig* server_config) {
   if (host.empty() && database.empty() && port == 0) {
     return false;
@@ -114,6 +115,23 @@ bool ParseMySQLFlagsBasedServerConfigOrDie(
   config->set_database(database);
   config->set_user(user);
   config->set_password(password);
+
+  CHECK(!enable_database_upgrade || downgrade_db_schema_version < 0)
+      << "Both --enable_database_upgraded=true and downgrade_db_schema_version "
+         ">= 0 cannot be set together. Only one of the flags needs to be set";
+
+  if (enable_database_upgrade) {
+    ml_metadata::MigrationOptions* migration_config =
+        server_config->mutable_migration_options();
+    migration_config->set_enable_upgrade_migration(enable_database_upgrade);
+  }
+
+  if (downgrade_db_schema_version >= 0) {
+    ml_metadata::MigrationOptions* migration_config =
+        server_config->mutable_migration_options();
+    migration_config->set_downgrade_to_schema_version(
+        downgrade_db_schema_version);
+  }
 
   return true;
 }
@@ -152,6 +170,14 @@ DEFINE_string(mysql_config_user, "",
               "The mysql user name to use (Optional parameter)");
 DEFINE_string(mysql_config_password, "",
               "The mysql user password to use (Optional parameter)");
+DEFINE_bool(
+    enable_database_upgrade, false,
+    "Flag specifying database upgrade option. If set to true, it enables "
+    "database migration during initialization(Optional parameter");
+DEFINE_int64(downgrade_db_schema_version, -1,
+             "Database downgrade schema version value. If set the database "
+             "schema version is downgraded to the set value during "
+             "initialization(Optional Parameter)");
 
 int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -169,7 +195,8 @@ int main(int argc, char** argv) {
       !ParseMySQLFlagsBasedServerConfigOrDie(
           FLAGS_mysql_config_host, FLAGS_mysql_config_port,
           FLAGS_mysql_config_database, FLAGS_mysql_config_user,
-          FLAGS_mysql_config_password, &server_config)) {
+          FLAGS_mysql_config_password, FLAGS_enable_database_upgrade,
+          FLAGS_downgrade_db_schema_version, &server_config)) {
     LOG(WARNING) << "The connection_config is not given. Using in memory fake "
                     "database, any metadata will not be persistent";
     connection_config.mutable_fake_database();

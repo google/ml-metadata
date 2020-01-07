@@ -9,6 +9,8 @@
     canceled.
 *   Adding two event types: INTERNAL_INPUT and INTERNAL_OUTPUT indended to be
     used by mlmd powered systems (e.g., orchestrator).
+*   Add support to pass migration options as command line parameters to the MLMD
+    gRPC server.
 
 ## Bug Fixes and Other Changes
 
