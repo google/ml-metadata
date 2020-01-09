@@ -1929,6 +1929,29 @@ tensorflow::Status MetadataAccessObject::FindContextsByTypeId(
                                contexts);
 }
 
+tensorflow::Status MetadataAccessObject::FindContextByTypeIdAndName(
+    int64 type_id, absl::string_view name, Context* context) {
+  std::vector<Context> contexts;
+  Query find_node_ids_query;
+  TF_RETURN_IF_ERROR(
+      ComposeParameterizedQuery(
+          query_config_.select_context_by_type_id_and_name(),
+          {Bind(type_id), Bind(metadata_source_, name)}, &find_node_ids_query));
+  TF_RETURN_IF_ERROR(
+      FindNodeByIdsQueryImpl(find_node_ids_query, query_config_,
+                             metadata_source_, &contexts));
+
+  // By design, a <type_id, name> pair uniquely identifies a context.
+  // Returns ok status and updates the input context if one context is found.
+  // Returns NotFound error and does nothing if no context is found.
+  // Fails if multiple contexts are found.
+  CHECK(contexts.size() == 1) << absl::StrCat(
+      "Found more than one contexts with type_id: ", std::to_string(type_id),
+      " and context name: ", name);
+  *context = contexts[0];
+  return tensorflow::Status::OK();
+}
+
 tensorflow::Status MetadataAccessObject::FindArtifactsByURI(
     const absl::string_view uri, std::vector<Artifact>* artifacts) {
   Query find_node_ids_query;

@@ -252,10 +252,16 @@ class MetadataAccessObject {
   tensorflow::Status FindContexts(std::vector<Context>* contexts);
 
   // Queries contexts by a given type_id.
-  // Returns NOT_FOUND error, if the given context_type_id cannot be found.
+  // Returns NOT_FOUND error, if no context can be found.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status FindContextsByTypeId(int64 context_type_id,
                                           std::vector<Context>* contexts);
+
+  // Queries a context by a type_id and a context name.
+  // Returns NOT_FOUND error, if no context can be found.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status FindContextByTypeIdAndName(
+      int64 type_id, absl::string_view name, Context* context);
 
   // Updates a context.
   // Returns INVALID_ARGUMENT error, if the id field is not given.

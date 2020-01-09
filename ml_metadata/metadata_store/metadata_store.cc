@@ -843,6 +843,33 @@ tensorflow::Status MetadataStore::GetContextsByType(
       });
 }
 
+tensorflow::Status MetadataStore::GetContextByTypeAndName(
+    const GetContextByTypeAndNameRequest& request,
+    GetContextByTypeAndNameResponse* response) {
+  return ExecuteTransaction(
+      metadata_source_.get(),
+      [this, &request, &response]() -> tensorflow::Status {
+        ContextType context_type;
+        tensorflow::Status status = metadata_access_object_->FindTypeByName(
+            request.type_name(), &context_type);
+        if (tensorflow::errors::IsNotFound(status)) {
+          return tensorflow::Status::OK();
+        } else if (!status.ok()) {
+          return status;
+        }
+        Context* context = new Context;
+        status = metadata_access_object_->FindContextByTypeIdAndName(
+            context_type.id(), request.context_name(), context);
+        if (tensorflow::errors::IsNotFound(status)) {
+          return tensorflow::Status::OK();
+        } else if (!status.ok()) {
+          return status;
+        }
+        response->set_allocated_context(context);
+        return tensorflow::Status::OK();
+      });
+}
+
 tensorflow::Status MetadataStore::PutAttributionsAndAssociations(
     const PutAttributionsAndAssociationsRequest& request,
     PutAttributionsAndAssociationsResponse* response) {

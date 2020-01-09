@@ -383,6 +383,13 @@ class MetadataStore {
   tensorflow::Status GetContextsByType(const GetContextsByTypeRequest& request,
                                        GetContextsByTypeResponse* response);
 
+  // Gets the context of a given type and name. If no context found, it returns
+  // OK and empty response. If more than one contexts matchs the type and name,
+  // the query execution fails.
+  tensorflow::Status GetContextByTypeAndName(
+      const GetContextByTypeAndNameRequest& request,
+      GetContextByTypeAndNameResponse* response);
+
   // Inserts attribution and association relationships in the database.
   // The context_id, artifact_id, and execution_id must already exist.
   // If the relationship exists, this call does nothing. Once added, the

@@ -291,6 +291,10 @@ constexpr char kBaseQueryConfig[] = R"pb(
     query: " SELECT `id` from `Context` WHERE `type_id` = $0; "
     parameter_num: 1
   }
+  select_context_by_type_id_and_name {
+    query: " SELECT `id` from `Context` WHERE `type_id` = $0 and `name` = $1; "
+    parameter_num: 2
+  }
   update_context {
     query: " UPDATE `Context` "
            " SET `type_id` = $1, `name` = $2"

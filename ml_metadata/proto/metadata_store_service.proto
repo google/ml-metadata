@@ -397,6 +397,15 @@ message GetContextsByTypeResponse {
   repeated Context contexts = 1;
 }
 
+message GetContextByTypeAndNameRequest {
+  optional string type_name = 1;
+  optional string context_name = 2;
+}
+
+message GetContextByTypeAndNameResponse {
+  optional Context context = 1;
+}
+
 message GetContextsByIDRequest {
   // A list of context ids to retrieve.
   repeated int64 context_ids = 1;

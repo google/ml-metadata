@@ -1113,6 +1113,21 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
       type2_id, &got_type2_contexts));
   EXPECT_EQ(got_type2_contexts.size(), 1);
   EXPECT_THAT(got_type2_contexts[0], EqualsProto(context2));
+
+  Context got_context_from_type_and_name1;
+  TF_EXPECT_OK(metadata_access_object_->FindContextByTypeIdAndName(
+      type1_id, "my_context1", &got_context_from_type_and_name1));
+  EXPECT_THAT(got_context_from_type_and_name1, EqualsProto(context1));
+  Context got_context_from_type_and_name2;
+  TF_EXPECT_OK(metadata_access_object_->FindContextByTypeIdAndName(
+      type2_id, "my_context2", &got_context_from_type_and_name2));
+  EXPECT_THAT(got_context_from_type_and_name2, EqualsProto(context2));
+  Context got_empty_context;
+  EXPECT_EQ(metadata_access_object_->FindContextByTypeIdAndName(
+      type1_id, "my_context2", &got_empty_context).code(),
+            tensorflow::error::NOT_FOUND);
+  EXPECT_THAT(got_empty_context,
+              EqualsProto(ParseTextProtoOrDie<Context>(R"()")));
 }
 
 TEST_P(MetadataAccessObjectTest, CreateContextError) {

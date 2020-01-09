@@ -1956,6 +1956,62 @@ TEST_F(MetadataStoreTest, PutContextsUpdateGetContexts) {
               testing::EqualsProto(want_context3));
 }
 
+// Test creating a context and then getting it by its type and context name.
+TEST_F(MetadataStoreTest, PutContextGetContextsByTypeAndName) {
+  // Create a context type
+  const PutContextTypeRequest put_context_type_request =
+      ParseTextProtoOrDie<PutContextTypeRequest>(R"(
+        all_fields_match: true
+        context_type: {
+          name: 'test_type'
+        }
+      )");
+  PutContextTypeResponse put_context_type_response;
+  TF_ASSERT_OK(metadata_store_->PutContextType(put_context_type_request,
+                                               &put_context_type_response));
+  ASSERT_TRUE(put_context_type_response.has_type_id());
+  const int64 type_id = put_context_type_response.type_id();
+
+  // Create a context
+  PutContextsRequest put_contexts_request =
+      ParseTextProtoOrDie<PutContextsRequest>(R"(
+        contexts: {
+          name: 'context_name'
+        }
+      )");
+  put_contexts_request.mutable_contexts(0)->set_type_id(type_id);
+  PutContextsResponse put_contexts_response;
+  TF_ASSERT_OK(metadata_store_->PutContexts(put_contexts_request,
+                                            &put_contexts_response));
+  ASSERT_THAT(put_contexts_response.context_ids(), SizeIs(1));
+  const int64 id1 = put_contexts_response.context_ids(0);
+
+  // Test the returned context is the same as the created one.
+  Context want_context1 = *put_contexts_request.mutable_contexts(0);
+  want_context1.set_id(id1);
+
+  GetContextByTypeAndNameRequest get_context_by_type_and_name_request;
+  get_context_by_type_and_name_request.set_type_name("test_type");
+  get_context_by_type_and_name_request.set_context_name("context_name");
+  GetContextByTypeAndNameResponse get_context_by_type_and_name_response;
+  TF_ASSERT_OK(metadata_store_->GetContextByTypeAndName(
+      get_context_by_type_and_name_request,
+      &get_context_by_type_and_name_response));
+  ASSERT_TRUE(get_context_by_type_and_name_response.has_context());
+  EXPECT_THAT(get_context_by_type_and_name_response.context(),
+              testing::EqualsProto(want_context1));
+
+  // Test that no context is found given the input type and name.
+  GetContextByTypeAndNameRequest get_no_context_by_type_and_name_request;
+  get_context_by_type_and_name_request.set_type_name("test_type1");
+  get_context_by_type_and_name_request.set_context_name("context3");
+  GetContextByTypeAndNameResponse get_no_context_by_type_and_name_response;
+  TF_ASSERT_OK(metadata_store_->GetContextByTypeAndName(
+      get_no_context_by_type_and_name_request,
+      &get_no_context_by_type_and_name_response));
+  EXPECT_FALSE(get_no_context_by_type_and_name_response.has_context());
+}
+
 TEST_F(MetadataStoreTest, PutAndUseAttributionsAndAssociations) {
   const PutTypesRequest put_types_request =
       ParseTextProtoOrDie<PutTypesRequest>(R"(
