@@ -752,6 +752,10 @@ service MetadataStoreService {
   rpc GetContextsByType(GetContextsByTypeRequest)
       returns (GetContextsByTypeResponse) {}
 
+  // Gets the context of the given type and context name.
+  rpc GetContextByTypeAndName(GetContextByTypeAndNameRequest)
+      returns (GetContextByTypeAndNameResponse) {}
+
   // Gets all the artifacts of a given uri.
   rpc GetArtifactsByURI(GetArtifactsByURIRequest)
       returns (GetArtifactsByURIResponse) {}

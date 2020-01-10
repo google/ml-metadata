@@ -11,6 +11,8 @@
     used by mlmd powered systems (e.g., orchestrator).
 *   Add support to pass migration options as command line parameters to the MLMD
     gRPC server.
+*   Adding a new Python API get_context_by_type_and_name to allow querying a
+    context by its type and context name at the same time.
 
 ## Bug Fixes and Other Changes
 

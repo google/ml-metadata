@@ -294,6 +294,12 @@ PyObject* GetContextsByType(ml_metadata::MetadataStore* metadata_store,
       &ml_metadata::MetadataStore::GetContextsByType);
 }
 
+PyObject* GetContextByTypeAndName(ml_metadata::MetadataStore* metadata_store,
+                                  const string& request) {
+  return AccessMetadataStore(metadata_store, request,
+      &ml_metadata::MetadataStore::GetContextByTypeAndName);
+}
+
 PyObject* PutAttributionsAndAssociations(
     ml_metadata::MetadataStore* metadata_store, const string& request) {
   return AccessMetadataStore(metadata_store, request,
@@ -439,6 +445,9 @@ PyObject* GetContexts(ml_metadata::MetadataStore* metadata_store,
 
 PyObject* GetContextsByType(ml_metadata::MetadataStore* metadata_store,
                             const string& request);
+
+PyObject* GetContextByTypeAndName(ml_metadata::MetadataStore* metadata_store,
+                                  const string& request);
 
 PyObject* PutAttributionsAndAssociations(
     ml_metadata::MetadataStore* metadata_store, const string& request);

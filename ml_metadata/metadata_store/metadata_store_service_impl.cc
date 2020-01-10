@@ -416,6 +416,20 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   return status;
 }
 
+::grpc::Status MetadataStoreServiceImpl::GetContextByTypeAndName(
+      ::grpc::ServerContext* context,
+      const ::ml_metadata::GetContextByTypeAndNameRequest* request,
+      ::ml_metadata::GetContextByTypeAndNameResponse* response) {
+  absl::WriterMutexLock l(&lock_);
+  const ::grpc::Status status = ToGRPCStatus(
+      metadata_store_->GetContextByTypeAndName(*request, response));
+  if (!status.ok()) {
+    LOG(WARNING) << "GetContextByTypeAndName failed: "
+        << status.error_message();
+  }
+  return status;
+}
+
 ::grpc::Status MetadataStoreServiceImpl::PutAttributionsAndAssociations(
     ::grpc::ServerContext* context,
     const ::ml_metadata::PutAttributionsAndAssociationsRequest* request,

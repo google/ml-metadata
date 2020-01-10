@@ -811,19 +811,15 @@ class MetadataStore(object):
       The Context matching the type and context name.
       None if no matched Context found.
     """
-    # TODO(b/139092990): Change get logic to the new C++ API once implemented.
-    request = metadata_store_service_pb2.GetContextsByTypeRequest()
+    request = metadata_store_service_pb2.GetContextByTypeAndNameRequest()
     request.type_name = type_name
-    response = metadata_store_service_pb2.GetContextsByTypeResponse()
+    request.context_name = context_name
+    response = metadata_store_service_pb2.GetContextByTypeAndNameResponse()
 
-    self._call('GetContextsByType', request, response)
-    result = [c for c in response.contexts
-              if c.HasField('name') and c.name == context_name]
-
-    assert len(result) <= 1, 'Found more than one contexts with input.'
-    if not result:
+    self._call('GetContextByTypeAndName', request, response)
+    if not response.HasField('context'):
       return None
-    return result[0]
+    return response.context
 
   def get_artifact_types_by_id(
       self, type_ids: Sequence[int]) -> List[metadata_store_pb2.ArtifactType]:

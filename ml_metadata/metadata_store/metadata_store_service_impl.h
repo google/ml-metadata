@@ -204,6 +204,12 @@ class MetadataStoreServiceImpl final
       ::ml_metadata::GetContextsByTypeResponse* response) override
       ABSL_LOCKS_EXCLUDED(lock_);
 
+  ::grpc::Status GetContextByTypeAndName(
+      ::grpc::ServerContext* context,
+      const ::ml_metadata::GetContextByTypeAndNameRequest* request,
+      ::ml_metadata::GetContextByTypeAndNameResponse* response) override
+      ABSL_LOCKS_EXCLUDED(lock_);
+
   ::grpc::Status PutAttributionsAndAssociations(
       ::grpc::ServerContext* context,
       const ::ml_metadata::PutAttributionsAndAssociationsRequest* request,
