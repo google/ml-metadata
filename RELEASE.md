@@ -2,7 +2,12 @@
 
 ## Major Features and Improvements
 
+*   Refactoring MetadataAccessObject to allow for more flexibility.
+
 ## Bug Fixes and Other Changes
+
+*   GetArtifacts/Executions/Contexts returns OK instead of NotFound to align
+    with other listing APIs.
 
 ## Breaking changes
 
@@ -25,8 +30,6 @@
     context by its type and context name at the same time.
 
 ## Bug Fixes and Other Changes
-
-*   Refactoring MetadataAccessObject to allow for more flexibility.
 
 ## Breaking Changes
 

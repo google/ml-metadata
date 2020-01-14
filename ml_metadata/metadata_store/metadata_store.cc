@@ -641,8 +641,13 @@ tensorflow::Status MetadataStore::GetExecutions(
   return ExecuteTransaction(
       metadata_source_.get(), [this, &response]() -> tensorflow::Status {
         std::vector<Execution> executions;
-        TF_RETURN_IF_ERROR(
-            metadata_access_object_->FindExecutions(&executions));
+        const tensorflow::Status status =
+            metadata_access_object_->FindExecutions(&executions);
+        if (tensorflow::errors::IsNotFound(status)) {
+          return tensorflow::Status::OK();
+        } else if (!status.ok()) {
+          return status;
+        }
         for (const Execution& execution : executions) {
           *response->mutable_executions()->Add() = execution;
         }
@@ -655,7 +660,13 @@ tensorflow::Status MetadataStore::GetArtifacts(
   return ExecuteTransaction(
       metadata_source_.get(), [this, &response]() -> tensorflow::Status {
         std::vector<Artifact> artifacts;
-        TF_RETURN_IF_ERROR(metadata_access_object_->FindArtifacts(&artifacts));
+        const tensorflow::Status status =
+            metadata_access_object_->FindArtifacts(&artifacts);
+        if (tensorflow::errors::IsNotFound(status)) {
+          return tensorflow::Status::OK();
+        } else if (!status.ok()) {
+          return status;
+        }
         for (const Artifact& artifact : artifacts) {
           *response->mutable_artifacts()->Add() = artifact;
         }
@@ -668,7 +679,13 @@ tensorflow::Status MetadataStore::GetContexts(const GetContextsRequest& request,
   return ExecuteTransaction(
       metadata_source_.get(), [this, &response]() -> tensorflow::Status {
         std::vector<Context> contexts;
-        TF_RETURN_IF_ERROR(metadata_access_object_->FindContexts(&contexts));
+        const tensorflow::Status status =
+            metadata_access_object_->FindContexts(&contexts);
+        if (tensorflow::errors::IsNotFound(status)) {
+          return tensorflow::Status::OK();
+        } else if (!status.ok()) {
+          return status;
+        }
         for (const Context& context : contexts) {
           *response->mutable_contexts()->Add() = context;
         }
