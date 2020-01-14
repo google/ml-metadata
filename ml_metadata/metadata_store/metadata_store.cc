@@ -15,6 +15,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/metadata_store.h"
 
 #include "absl/memory/memory.h"
+#include "ml_metadata/metadata_store/metadata_access_object_factory.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
 #include "tensorflow/core/lib/core/errors.h"
 
@@ -483,7 +484,7 @@ tensorflow::Status MetadataStore::Create(
     unique_ptr<MetadataSource> metadata_source,
     unique_ptr<MetadataStore>* result) {
   unique_ptr<MetadataAccessObject> metadata_access_object;
-  TF_RETURN_IF_ERROR(MetadataAccessObject::Create(
+  TF_RETURN_IF_ERROR(CreateMetadataAccessObject(
       query_config, metadata_source.get(), &metadata_access_object));
   // if downgrade migration is specified
   if (migration_options.downgrade_to_schema_version() >= 0) {

@@ -21,6 +21,7 @@ limitations under the License.
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "ml_metadata/metadata_store/metadata_access_object.h"
+#include "ml_metadata/proto/metadata_source.pb.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
 
 namespace ml_metadata {
@@ -37,6 +38,62 @@ class MetadataAccessObjectContainer {
 
   // MetadataAccessObject is owned by MetadataAccessObjectContainer.
   virtual MetadataAccessObject* GetMetadataAccessObject() = 0;
+
+  // Test if there is upgrade verification.
+  virtual bool HasUpgradeVerification(int64 version) = 0;
+
+  // Test if there is upgrade verification.
+  virtual bool HasDowngradeVerification(int64 version) = 0;
+
+  // Initialize the previous version of the database for downgrade.
+  virtual tensorflow::Status SetupPreviousVersionForDowngrade(
+      int64 version) = 0;
+
+  // Verify that a database has been downgraded to version.
+  virtual tensorflow::Status DowngradeVerification(int64 version) = 0;
+
+  // Initialize the previous version of the database for upgrade.
+  virtual tensorflow::Status SetupPreviousVersionForUpgrade(int64 version) = 0;
+
+  // Verify that a database has been upgraded to version.
+  virtual tensorflow::Status UpgradeVerification(int64 version) = 0;
+};
+
+// An Interface to generate and retrieve a MetadataAccessObject, where there
+// is an associated MetadataSourceQueryConfig.
+class QueryConfigMetadataAccessObjectContainer
+    : public MetadataAccessObjectContainer {
+ public:
+  QueryConfigMetadataAccessObjectContainer(
+      const MetadataSourceQueryConfig& config)
+      : config_(config) {}
+
+  virtual ~QueryConfigMetadataAccessObjectContainer() = default;
+
+  bool HasUpgradeVerification(int64 version) final;
+
+  bool HasDowngradeVerification(int64 version) final;
+
+  tensorflow::Status SetupPreviousVersionForDowngrade(int64 version) final;
+
+  tensorflow::Status DowngradeVerification(int64 version) final;
+
+  tensorflow::Status SetupPreviousVersionForUpgrade(int64 version) final;
+
+  tensorflow::Status UpgradeVerification(int64 version) final;
+
+ private:
+  // Get a migration scheme, or return NOT_FOUND.
+  tensorflow::Status GetMigrationScheme(
+      int64 version,
+      MetadataSourceQueryConfig::MigrationScheme* migration_scheme);
+
+  // Verify that a sequence of queries return true.
+  tensorflow::Status Verification(
+      const google::protobuf::RepeatedPtrField<MetadataSourceQueryConfig::TemplateQuery>&
+          queries);
+
+  MetadataSourceQueryConfig config_;
 };
 
 // Represents the type of the Gunit Test param for the parameterized

@@ -19,6 +19,7 @@ limitations under the License.
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/memory/memory.h"
+#include "ml_metadata/metadata_store/metadata_access_object_factory.h"
 #include "ml_metadata/metadata_store/metadata_access_object_test.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/metadata_store/mysql_metadata_source.h"
@@ -36,15 +37,17 @@ namespace {
 // to generate and retrieve a MetadataAccessObject based off a
 // MySqlMetadataSource.
 class MySqlMetadataAccessObjectContainer
-    : public MetadataAccessObjectContainer {
+    : public QueryConfigMetadataAccessObjectContainer {
  public:
-  MySqlMetadataAccessObjectContainer() : MetadataAccessObjectContainer() {
+  MySqlMetadataAccessObjectContainer()
+      : QueryConfigMetadataAccessObjectContainer(
+            util::GetMySqlMetadataSourceQueryConfig()) {
     metadata_source_initializer_ = GetTestMySqlMetadataSourceInitializer();
     metadata_source_ = metadata_source_initializer_->Init(
         TestMySqlMetadataSourceInitializer::ConnectionType::kTcp);
-    TF_CHECK_OK(MetadataAccessObject::Create(
-        util::GetMySqlMetadataSourceQueryConfig(), metadata_source_,
-        &metadata_access_object_));
+    TF_CHECK_OK(
+        CreateMetadataAccessObject(util::GetMySqlMetadataSourceQueryConfig(),
+                                   metadata_source_, &metadata_access_object_));
   }
 
   ~MySqlMetadataAccessObjectContainer() override {

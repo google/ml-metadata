@@ -19,6 +19,7 @@ limitations under the License.
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/memory/memory.h"
+#include "ml_metadata/metadata_store/metadata_access_object_factory.h"
 #include "ml_metadata/metadata_store/metadata_access_object_test.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/metadata_store/sqlite_metadata_source.h"
@@ -35,12 +36,14 @@ namespace {
 // to generate and retrieve a MetadataAccessObject based on a
 // SqliteMetadataSource.
 class SqliteMetadataAccessObjectContainer
-    : public MetadataAccessObjectContainer {
+    : public QueryConfigMetadataAccessObjectContainer {
  public:
-  SqliteMetadataAccessObjectContainer() : MetadataAccessObjectContainer() {
+  SqliteMetadataAccessObjectContainer()
+      : QueryConfigMetadataAccessObjectContainer(
+            util::GetSqliteMetadataSourceQueryConfig()) {
     SqliteMetadataSourceConfig config;
     metadata_source_ = absl::make_unique<SqliteMetadataSource>(config);
-    TF_CHECK_OK(MetadataAccessObject::Create(
+    TF_CHECK_OK(CreateMetadataAccessObject(
         util::GetSqliteMetadataSourceQueryConfig(), metadata_source_.get(),
         &metadata_access_object_));
   }

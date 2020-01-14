@@ -17,14 +17,121 @@ limitations under the License.
 #include <memory>
 
 #include "gflags/gflags.h"
+#include "google/protobuf/repeated_field.h"
 #include <gmock/gmock.h>
 #include "absl/time/time.h"
 #include "ml_metadata/metadata_store/test_util.h"
+#include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
+#include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
 
 namespace ml_metadata {
 namespace testing {
+
+// Get a migration scheme, or return NOT_FOUND.
+
+tensorflow::Status QueryConfigMetadataAccessObjectContainer::GetMigrationScheme(
+    int64 version,
+    MetadataSourceQueryConfig::MigrationScheme* migration_scheme) {
+  if (config_.migration_schemes().find(version) ==
+      config_.migration_schemes().end()) {
+    LOG(ERROR) << "Could not find migration scheme for version " << version;
+    return tensorflow::errors::NotFound(
+        "Could not find migration scheme for version ", version);
+  }
+  *migration_scheme = config_.migration_schemes().at(version);
+  return tensorflow::Status::OK();
+}
+
+bool QueryConfigMetadataAccessObjectContainer::HasUpgradeVerification(
+    int64 version) {
+  MetadataSourceQueryConfig::MigrationScheme migration_scheme;
+  if (!GetMigrationScheme(version, &migration_scheme).ok()) {
+    return false;
+  }
+  return migration_scheme.has_upgrade_verification();
+}
+
+bool QueryConfigMetadataAccessObjectContainer::HasDowngradeVerification(
+    int64 version) {
+  MetadataSourceQueryConfig::MigrationScheme migration_scheme;
+  if (!GetMigrationScheme(version, &migration_scheme).ok()) {
+    return false;
+  }
+  return migration_scheme.has_downgrade_verification();
+}
+
+tensorflow::Status
+QueryConfigMetadataAccessObjectContainer::SetupPreviousVersionForUpgrade(
+    int64 version) {
+  MetadataSourceQueryConfig::MigrationScheme migration_scheme;
+  TF_RETURN_IF_ERROR(GetMigrationScheme(version, &migration_scheme));
+  for (const auto& query : migration_scheme.upgrade_verification()
+                               .previous_version_setup_queries()) {
+    RecordSet dummy_record_set;
+    TF_RETURN_IF_ERROR(
+        GetMetadataSource()->ExecuteQuery(query.query(), &dummy_record_set));
+  }
+  return tensorflow::Status::OK();
+}
+
+tensorflow::Status
+QueryConfigMetadataAccessObjectContainer::SetupPreviousVersionForDowngrade(
+    int64 version) {
+  MetadataSourceQueryConfig::MigrationScheme migration_scheme;
+  TF_RETURN_IF_ERROR(GetMigrationScheme(version, &migration_scheme));
+  for (const auto& query : migration_scheme.downgrade_verification()
+                               .previous_version_setup_queries()) {
+    RecordSet dummy_record_set;
+    TF_RETURN_IF_ERROR(
+        GetMetadataSource()->ExecuteQuery(query.query(), &dummy_record_set));
+  }
+  return tensorflow::Status::OK();
+}
+
+tensorflow::Status
+QueryConfigMetadataAccessObjectContainer::DowngradeVerification(int64 version) {
+  MetadataSourceQueryConfig::MigrationScheme migration_scheme;
+  TF_RETURN_IF_ERROR(GetMigrationScheme(version, &migration_scheme));
+  return Verification(migration_scheme.downgrade_verification()
+                          .post_migration_verification_queries());
+}
+
+tensorflow::Status
+QueryConfigMetadataAccessObjectContainer::UpgradeVerification(int64 version) {
+  MetadataSourceQueryConfig::MigrationScheme migration_scheme;
+  TF_RETURN_IF_ERROR(GetMigrationScheme(version, &migration_scheme));
+  return Verification(migration_scheme.upgrade_verification()
+                          .post_migration_verification_queries());
+}
+
+tensorflow::Status QueryConfigMetadataAccessObjectContainer::Verification(
+    const google::protobuf::RepeatedPtrField<MetadataSourceQueryConfig::TemplateQuery>&
+        queries) {
+  for (const auto& query : queries) {
+    RecordSet record_set;
+    TF_RETURN_IF_ERROR(
+        GetMetadataSource()->ExecuteQuery(query.query(), &record_set));
+    if (record_set.records_size() != 1) {
+      return tensorflow::errors::Internal("Verification failed on query ",
+                                          query.query());
+    }
+    bool result = false;
+    if (!absl::SimpleAtob(record_set.records(0).values(0), &result)) {
+      return tensorflow::errors::Internal(
+          "Value incorrect:", record_set.records(0).DebugString(), " on query ",
+          query.query());
+    }
+    if (!result) {
+      return tensorflow::errors::Internal("Value false ",
+                                          record_set.records(0).DebugString(),
+                                          " on query ", query.query());
+    }
+  }
+  return tensorflow::Status::OK();
+}
+
 namespace {
 
 using ::ml_metadata::testing::ParseTextProtoOrDie;
@@ -34,8 +141,10 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceCheckSchemaVersion) {
   TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
   int64 schema_version;
   TF_ASSERT_OK(metadata_access_object_->GetSchemaVersion(&schema_version));
-  EXPECT_EQ(schema_version,
-            metadata_access_object_->query_config().schema_version());
+  int64 local_schema_version;
+  TF_ASSERT_OK(
+      metadata_access_object_->GetLibraryVersion(&local_schema_version));
+  EXPECT_EQ(schema_version, local_schema_version);
 }
 
 TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExists) {
@@ -1579,21 +1688,16 @@ TEST_P(MetadataAccessObjectTest, PutEventsWithPaths) {
 
 TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
   // setup the database of previous version.
-  const int64 lib_version =
-      metadata_access_object_->query_config().schema_version();
+  int64 lib_version;
+  TF_ASSERT_OK(metadata_access_object_->GetLibraryVersion(&lib_version));
   for (int64 i = 1; i <= lib_version; i++) {
-    ASSERT_TRUE(
-        metadata_access_object_->query_config().migration_schemes().find(i) !=
-        metadata_access_object_->query_config().migration_schemes().end());
-    const MetadataSourceQueryConfig::MigrationScheme scheme =
-        metadata_access_object_->query_config().migration_schemes().at(i);
-    if (!scheme.has_upgrade_verification()) continue;
-    for (const MetadataSourceQueryConfig::TemplateQuery& setup_query :
-         scheme.upgrade_verification().previous_version_setup_queries()) {
-      RecordSet dummy_record_set;
-      TF_EXPECT_OK(metadata_access_object_->metadata_source()->ExecuteQuery(
-          setup_query.query(), &dummy_record_set));
+    EXPECT_TRUE(metadata_access_object_container_->HasUpgradeVerification(i))
+        << "No upgrade verification for version " << i;
+    if (!metadata_access_object_container_->HasUpgradeVerification(i)) {
+      continue;
     }
+    TF_ASSERT_OK(
+        metadata_access_object_container_->SetupPreviousVersionForUpgrade(i));
     if (i > 1) continue;
     // when i = 0, it is v0.13.2. At that time, the MLMDEnv table does not
     // exist, GetSchemaVersion resolves the current version as 0.
@@ -1601,7 +1705,7 @@ TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
     TF_EXPECT_OK(metadata_access_object_->GetSchemaVersion(&v0_13_2_version));
     EXPECT_EQ(0, v0_13_2_version);
   }
-  // expect to have error when connecting an older database version without
+  // expect to have an error when connecting an older database version without
   // enabling upgrade migration
   tensorflow::Status status =
       metadata_access_object_->InitMetadataSourceIfNotExists();
@@ -1616,20 +1720,9 @@ TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
   TF_EXPECT_OK(metadata_access_object_->GetSchemaVersion(&curr_version));
   EXPECT_EQ(lib_version, curr_version);
   // check the verification queries in the previous version scheme
-  const MetadataSourceQueryConfig::MigrationScheme scheme =
-      metadata_access_object_->query_config().migration_schemes().at(
-          lib_version);
-  if (scheme.has_upgrade_verification()) {
-    for (const MetadataSourceQueryConfig::TemplateQuery& verification_query :
-         scheme.upgrade_verification().post_migration_verification_queries()) {
-      RecordSet record_set;
-      TF_EXPECT_OK(metadata_access_object_->metadata_source()->ExecuteQuery(
-          verification_query.query(), &record_set));
-      ASSERT_EQ(record_set.records_size(), 1);
-      bool result = false;
-      ASSERT_TRUE(absl::SimpleAtob(record_set.records(0).values(0), &result));
-      EXPECT_TRUE(result);
-    }
+  if (metadata_access_object_container_->HasUpgradeVerification(lib_version)) {
+    TF_EXPECT_OK(
+        metadata_access_object_container_->UpgradeVerification(lib_version));
   }
 }
 
@@ -1642,8 +1735,8 @@ TEST_P(MetadataAccessObjectTest, DowngradeToV0FromCurrentLibVersion) {
             tensorflow::error::INVALID_ARGUMENT);
   // init the database to the current library version.
   TF_EXPECT_OK(metadata_access_object_->InitMetadataSourceIfNotExists());
-  const int64 lib_version =
-      metadata_access_object_->query_config().schema_version();
+  int64 lib_version;
+  TF_ASSERT_OK(metadata_access_object_->GetLibraryVersion(&lib_version));
   int64 curr_version = 0;
   TF_EXPECT_OK(metadata_access_object_->GetSchemaVersion(&curr_version));
   EXPECT_EQ(curr_version, lib_version);
@@ -1651,34 +1744,15 @@ TEST_P(MetadataAccessObjectTest, DowngradeToV0FromCurrentLibVersion) {
   // downgrade one version at a time and verify the state.
   for (int i = lib_version - 1; i >= 0; i--) {
     // set the pre-migration states of i+1 version.
-    ASSERT_TRUE(
-        metadata_access_object_->query_config().migration_schemes().find(i) !=
-        metadata_access_object_->query_config().migration_schemes().end());
-    const MetadataSourceQueryConfig::MigrationScheme scheme =
-        metadata_access_object_->query_config().migration_schemes().at(i);
-    if (!scheme.has_downgrade_verification()) continue;
-    for (const MetadataSourceQueryConfig::TemplateQuery& setup_query :
-         scheme.downgrade_verification().previous_version_setup_queries()) {
-      RecordSet dummy_record_set;
-      TF_EXPECT_OK(metadata_access_object_->metadata_source()->ExecuteQuery(
-          setup_query.query(), &dummy_record_set));
+    if (!metadata_access_object_container_->HasDowngradeVerification(i)) {
+      continue;
     }
-
+    TF_ASSERT_OK(
+        metadata_access_object_container_->SetupPreviousVersionForDowngrade(i));
     // downgrade
     TF_ASSERT_OK(metadata_access_object_->DowngradeMetadataSource(i));
 
-    // verify the state of the schema
-    for (const MetadataSourceQueryConfig::TemplateQuery& verification_query :
-         scheme.downgrade_verification()
-             .post_migration_verification_queries()) {
-      RecordSet record_set;
-      TF_EXPECT_OK(metadata_access_object_->metadata_source()->ExecuteQuery(
-          verification_query.query(), &record_set));
-      ASSERT_EQ(record_set.records_size(), 1);
-      bool result = false;
-      ASSERT_TRUE(absl::SimpleAtob(record_set.records(0).values(0), &result));
-      EXPECT_TRUE(result);
-    }
+    TF_ASSERT_OK(metadata_access_object_container_->DowngradeVerification(i));
     // verify the db schema version
     TF_EXPECT_OK(metadata_access_object_->GetSchemaVersion(&curr_version));
     EXPECT_EQ(curr_version, i);
@@ -1687,15 +1761,17 @@ TEST_P(MetadataAccessObjectTest, DowngradeToV0FromCurrentLibVersion) {
 
 TEST_P(MetadataAccessObjectTest, AutoMigrationTurnedOffByDefault) {
   // init the database to the current library version.
-  TF_EXPECT_OK(metadata_access_object_->InitMetadataSourceIfNotExists());
+  TF_ASSERT_OK(metadata_access_object_->InitMetadataSourceIfNotExists());
   // downgrade when the database to version 0.
-  int64 to_schema_version =
-      metadata_access_object_->query_config().schema_version() - 1;
-  TF_EXPECT_OK(
+  int64 current_library_version;
+  TF_ASSERT_OK(
+      metadata_access_object_->GetLibraryVersion(&current_library_version));
+  const int64 to_schema_version = current_library_version - 1;
+  TF_ASSERT_OK(
       metadata_access_object_->DowngradeMetadataSource(to_schema_version));
   int64 db_version = -1;
-  TF_EXPECT_OK(metadata_access_object_->GetSchemaVersion(&db_version));
-  EXPECT_EQ(db_version, to_schema_version);
+  TF_ASSERT_OK(metadata_access_object_->GetSchemaVersion(&db_version));
+  ASSERT_EQ(db_version, to_schema_version);
   // connect earlier version db by default should fail with FailedPrecondition.
   tensorflow::Status status =
       metadata_access_object_->InitMetadataSourceIfNotExists();

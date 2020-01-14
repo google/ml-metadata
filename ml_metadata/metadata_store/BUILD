@@ -26,9 +26,10 @@ config_setting(
 )
 
 cc_library(
-    name = "metadata_access_object",
-    srcs = ["metadata_access_object.cc"],
-    hdrs = ["metadata_access_object.h"],
+    name = "metadata_access_object_base",
+    hdrs = [
+        "metadata_access_object.h",
+    ],
     deps = [
         ":metadata_source",
         "@com_google_protobuf//:protobuf",
@@ -43,12 +44,106 @@ cc_library(
 )
 
 cc_library(
+    name = "type_kind",
+    hdrs = [
+        "type_kind.h",
+    ],
+)
+
+cc_library(
+    name = "rdbms_metadata_access_object",
+    srcs = [
+        "rdbms_metadata_access_object.cc",
+    ],
+    hdrs = [
+        "rdbms_metadata_access_object.h",
+    ],
+    deps = [
+        ":metadata_access_object_base",
+        ":metadata_source",
+        ":query_executor",
+        ":type_kind",
+        "@com_google_protobuf//:protobuf",
+        
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_store_proto",
+        "@org_tensorflow//tensorflow/core:lib",
+    ],
+)
+
+cc_library(
+    name = "query_executor",
+    hdrs = [
+        "query_executor.h",
+    ],
+    deps = [
+        ":metadata_access_object_base",
+        ":metadata_source",
+        ":type_kind",
+        "@com_google_protobuf//:protobuf",
+        
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_store_proto",
+        "@org_tensorflow//tensorflow/core:lib",
+    ],
+)
+
+cc_library(
+    name = "query_config_executor",
+    srcs = [
+        "query_config_executor.cc",
+    ],
+    hdrs = [
+        "query_config_executor.h",
+    ],
+    deps = [
+        ":metadata_access_object_base",
+        ":metadata_source",
+        ":query_executor",
+        "@com_google_protobuf//:protobuf",
+        
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_store_proto",
+        "@org_tensorflow//tensorflow/core:lib",
+    ],
+)
+
+cc_library(
+    name = "metadata_access_object_factory",
+    srcs = [
+        "metadata_access_object_factory.cc",
+    ],
+    hdrs = [
+        "metadata_access_object.h",
+        "metadata_access_object_factory.h",
+    ],
+    deps = [
+        ":metadata_access_object_base",
+        ":metadata_source",
+        ":query_config_executor",
+        ":rdbms_metadata_access_object",
+        "@com_google_absl//absl/memory",
+        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_store_proto",
+        "@org_tensorflow//tensorflow/core:lib",
+    ],
+)
+
+cc_library(
     name = "metadata_source",
     srcs = ["metadata_source.cc"],
     hdrs = ["metadata_source.h"],
     deps = [
         ":types",
-        "@com_google_absl//absl/strings",
         "//ml_metadata/proto:metadata_source_proto",
         "@org_tensorflow//tensorflow/core:lib",
     ],
@@ -72,7 +167,7 @@ cc_library(
     srcs = ["metadata_store.cc"],
     hdrs = ["metadata_store.h"],
     deps = [
-        ":metadata_access_object",
+        ":metadata_access_object_factory",
         ":metadata_source",
         "@com_google_absl//absl/memory",
         "//ml_metadata/proto:metadata_store_proto",
@@ -86,7 +181,7 @@ ml_metadata_cc_test(
     name = "metadata_store_cc_test",
     srcs = ["metadata_store_test.cc"],
     deps = [
-        ":metadata_access_object",
+        ":metadata_access_object_factory",
         ":metadata_store",
         ":sqlite_metadata_source",
         ":test_util",
@@ -120,7 +215,7 @@ ml_metadata_cc_test(
     name = "metadata_store_factory_test",
     srcs = ["metadata_store_factory_test.cc"],
     deps = [
-        ":metadata_access_object",
+        ":metadata_access_object_factory",
         ":metadata_store",
         ":metadata_store_factory",
         ":test_util",
@@ -257,11 +352,14 @@ cc_library(
     srcs = ["metadata_access_object_test.cc"],
     hdrs = ["metadata_access_object_test.h"],
     deps = [
-        ":metadata_access_object",
+        ":metadata_access_object_factory",
         ":test_util",
+        "@com_google_protobuf//:protobuf",
         "@com_google_googletest//:gtest",
         "@com_google_absl//absl/time",
+        "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
+        "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:test",
         "@com_github_gflags_gflags//:gflags_nothreads",
     ],
@@ -343,6 +441,7 @@ ml_metadata_cc_test(
     size = "small",
     srcs = ["sqlite_metadata_access_object_test.cc"],
     deps = [
+        ":metadata_access_object_factory",
         ":metadata_access_object_test",
         ":metadata_source",
         ":sqlite_metadata_source",
@@ -359,6 +458,7 @@ cc_library(
     testonly = 1,
     srcs = ["mysql_metadata_access_object_test.cc"],
     deps = [
+        ":metadata_access_object_factory",
         ":metadata_access_object_test",
         ":metadata_source",
         ":mysql_metadata_source",
@@ -391,6 +491,22 @@ cc_test(
     deps = [
         ":mysql_metadata_access_object_test",
         ":test_standalone_mysql_metadata_source_initializer",
+    ],
+)
+
+cc_test(
+    name = "metadata_access_object_factory_test",
+    srcs = ["metadata_access_object_factory_test.cc"],
+    deps = [
+        ":metadata_access_object_factory",
+        ":metadata_access_object_test",
+        ":metadata_source",
+        ":sqlite_metadata_source",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/memory",
+        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/util:metadata_source_query_config",
+        "@org_tensorflow//tensorflow/core:test",
     ],
 )
 
