@@ -62,8 +62,8 @@ class MetadataStore(object):
       logging.log(logging.INFO, 'MetadataStore with DB connection initialized')
       return
     if not isinstance(config, metadata_store_pb2.MetadataStoreClientConfig):
-      raise ValueError('MetadataStore is expecting either'
-                       'metadata_store_pb2.ConnectionConfig or'
+      raise ValueError('MetadataStore is expecting either '
+                       'metadata_store_pb2.ConnectionConfig or '
                        'metadata_store_pb2.MetadataStoreClientConfig')
     self._using_db_connection = False
     if enable_upgrade_migration:
