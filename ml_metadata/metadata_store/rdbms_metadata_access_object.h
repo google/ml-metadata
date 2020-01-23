@@ -185,9 +185,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
     return executor_->GetSchemaVersion(db_version);
   }
 
-  tensorflow::Status GetLibraryVersion(int64* schema_version) final {
-    return executor_->GetLibraryVersion(schema_version);
-  }
+  int64 GetLibraryVersion() final { return executor_->GetLibraryVersion(); }
 
  private:
   ///////// These methods are implementations details //////////////////////////

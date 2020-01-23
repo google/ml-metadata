@@ -141,9 +141,7 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceCheckSchemaVersion) {
   TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
   int64 schema_version;
   TF_ASSERT_OK(metadata_access_object_->GetSchemaVersion(&schema_version));
-  int64 local_schema_version;
-  TF_ASSERT_OK(
-      metadata_access_object_->GetLibraryVersion(&local_schema_version));
+  int64 local_schema_version = metadata_access_object_->GetLibraryVersion();
   EXPECT_EQ(schema_version, local_schema_version);
 }
 
@@ -174,7 +172,8 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExistsErrorAborted) {
         "DROP TABLE IF EXISTS `Type`;", &record_set));
     tensorflow::Status s =
         metadata_access_object_->InitMetadataSourceIfNotExists();
-    EXPECT_EQ(s.code(), tensorflow::error::ABORTED);
+    EXPECT_EQ(s.code(), tensorflow::error::ABORTED)
+        << "Expected ABORTED but got: " << s.error_message();
   }
 
   // reset the database by recreating all missing tables
@@ -187,7 +186,8 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExistsErrorAborted) {
         "DROP TABLE `Artifact`;", &record_set));
     tensorflow::Status s =
         metadata_access_object_->InitMetadataSourceIfNotExists();
-    EXPECT_EQ(s.code(), tensorflow::error::ABORTED);
+    EXPECT_EQ(s.code(), tensorflow::error::ABORTED)
+        << "Expected ABORTED but got: " << s.error_message();
   }
 }
 
@@ -201,17 +201,22 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceSchemaVersionMismatch) {
         "DELETE FROM `MLMDEnv`;", &record_set));
     tensorflow::Status s =
         metadata_access_object_->InitMetadataSourceIfNotExists();
-    EXPECT_EQ(s.code(), tensorflow::error::ABORTED);
+    EXPECT_EQ(s.code(), tensorflow::error::ABORTED)
+        << "Expected ABORTED but got " << s.error_message();
   }
+}
 
+TEST_P(MetadataAccessObjectTest, InitMetadataSourceSchemaVersionMismatch2) {
   // reset the database by recreating all missing tables
   TF_EXPECT_OK(metadata_access_object_->InitMetadataSource());
   {
     // Change the `schema_version` to be a newer version.
     // fails precondition, as older library cannot work with newer db.
+    // Note: at present, Version 4 is compatible with Version 5, so I bump
+    // this to Version 6.
     RecordSet record_set;
     TF_EXPECT_OK(metadata_access_object_->metadata_source()->ExecuteQuery(
-        "UPDATE `MLMDEnv` SET `schema_version` = `schema_version` + 1;",
+        "UPDATE `MLMDEnv` SET `schema_version` = `schema_version` + 2;",
         &record_set));
     tensorflow::Status s =
         metadata_access_object_->InitMetadataSourceIfNotExists();
@@ -1688,8 +1693,7 @@ TEST_P(MetadataAccessObjectTest, PutEventsWithPaths) {
 
 TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
   // setup the database of previous version.
-  int64 lib_version;
-  TF_ASSERT_OK(metadata_access_object_->GetLibraryVersion(&lib_version));
+  int64 lib_version = metadata_access_object_->GetLibraryVersion();
   for (int64 i = 1; i <= lib_version; i++) {
     EXPECT_TRUE(metadata_access_object_container_->HasUpgradeVerification(i))
         << "No upgrade verification for version " << i;
@@ -1735,8 +1739,7 @@ TEST_P(MetadataAccessObjectTest, DowngradeToV0FromCurrentLibVersion) {
             tensorflow::error::INVALID_ARGUMENT);
   // init the database to the current library version.
   TF_EXPECT_OK(metadata_access_object_->InitMetadataSourceIfNotExists());
-  int64 lib_version;
-  TF_ASSERT_OK(metadata_access_object_->GetLibraryVersion(&lib_version));
+  int64 lib_version = metadata_access_object_->GetLibraryVersion();
   int64 curr_version = 0;
   TF_EXPECT_OK(metadata_access_object_->GetSchemaVersion(&curr_version));
   EXPECT_EQ(curr_version, lib_version);
@@ -1763,9 +1766,7 @@ TEST_P(MetadataAccessObjectTest, AutoMigrationTurnedOffByDefault) {
   // init the database to the current library version.
   TF_ASSERT_OK(metadata_access_object_->InitMetadataSourceIfNotExists());
   // downgrade when the database to version 0.
-  int64 current_library_version;
-  TF_ASSERT_OK(
-      metadata_access_object_->GetLibraryVersion(&current_library_version));
+  int64 current_library_version = metadata_access_object_->GetLibraryVersion();
   const int64 to_schema_version = current_library_version - 1;
   TF_ASSERT_OK(
       metadata_access_object_->DowngradeMetadataSource(to_schema_version));

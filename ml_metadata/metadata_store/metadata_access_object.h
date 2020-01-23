@@ -347,7 +347,7 @@ class MetadataAccessObject {
   // the database it can compare the given library `schema_version` in the query
   // config with the `schema_version` stored in the database, and migrate the
   // database if needed.
-  virtual tensorflow::Status GetLibraryVersion(int64* library_version) = 0;
+  virtual int64 GetLibraryVersion() = 0;
 };
 
 }  // namespace ml_metadata

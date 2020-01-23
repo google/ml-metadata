@@ -8,7 +8,6 @@
 
 *   GetArtifacts/Executions/Contexts returns OK instead of NotFound to align
     with other listing APIs.
-
 ## Breaking changes
 
 ## Deprecations

@@ -86,8 +86,10 @@ class QueryExecutor {
 
   // Resolves the schema version stored in the metadata source. The `db_version`
   // is set to 0, if it is a 0.13.2 release pre-existing database.
-  // Returns DATA_LOSS error, if schema version info table exists but its value
-  //   cannot be resolved from the database.
+  // Returns DATA_LOSS error, if schema version info table exists but there is
+  // more than one value in the database.
+  // Returns ABORT error, if schema version info table exists but there is
+  // more than one value in the database.
   // Returns NOT_FOUND error, if the database is empty.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual tensorflow::Status GetSchemaVersion(int64* db_version) = 0;
@@ -99,7 +101,7 @@ class QueryExecutor {
   // compares the given local `schema_version` in query config with the
   // `schema_version` stored in the database, and migrate the database if
   // needed.
-  virtual tensorflow::Status GetLibraryVersion(int64* library_version) = 0;
+  virtual int64 GetLibraryVersion() = 0;
 
   // Each of the following methods roughly corresponds to a query (or two).
   virtual tensorflow::Status CheckTypeTable() = 0;

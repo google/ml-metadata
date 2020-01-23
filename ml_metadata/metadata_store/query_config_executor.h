@@ -442,10 +442,9 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery("select `id` from `Context`;", set);
   }
 
-  tensorflow::Status GetLibraryVersion(int64* library_version) final {
+  int64 GetLibraryVersion() final {
     CHECK_GT(query_config_.schema_version(), 0);
-    *library_version = query_config_.schema_version();
-    return tensorflow::Status::OK();
+    return query_config_.schema_version();
   }
 
   MetadataSource* metadata_source() final { return metadata_source_; }
@@ -550,6 +549,14 @@ class QueryConfigExecutor : public QueryExecutor {
   // Returns FAILED_PRECONDITION error, if a transaction has not begun.
   // Returns INTERNAL error, if it cannot find the last insert ID.
   tensorflow::Status ExecuteQuery(const string& query);
+
+  // Tests if the database version is compatible with the library version.
+  // The database version and library version must be from the current
+  // database.
+  //
+  // Returns OK.
+  tensorflow::Status IsCompatible(int64 db_version, int64 lib_version,
+                                  bool* is_compatible);
 
   // Upgrades the database schema version (db_v) to align with the library
   // schema version (lib_v). It retrieves db_v from the metadata source and

@@ -978,7 +978,7 @@ class MetadataStoreTest(absltest.TestCase):
 
     upgrade_conn_config = metadata_store_pb2.ConnectionConfig()
     upgrade_conn_config.sqlite.filename_uri = db_file
-    with self.assertRaisesRegex(RuntimeError, "Schema migration is disabled."):
+    with self.assertRaisesRegex(RuntimeError, "chema migration is disabled"):
       # if disabled then the store cannot be used.
       metadata_store.MetadataStore(upgrade_conn_config)
 

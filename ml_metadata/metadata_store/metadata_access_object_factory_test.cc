@@ -44,8 +44,7 @@ TEST(MetadataAccessObjectFactory, CreateMetadataAccessObject) {
   TF_ASSERT_OK(metadata_access_object->GetSchemaVersion(&schema_version));
   TF_ASSERT_OK(metadata_source->Commit());
 
-  int64 library_version;
-  TF_ASSERT_OK(metadata_access_object->GetLibraryVersion(&library_version));
+  int64 library_version = metadata_access_object->GetLibraryVersion();
   EXPECT_EQ(schema_version, library_version);
 }
 

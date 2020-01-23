@@ -85,18 +85,20 @@ tensorflow::Status QueryConfigExecutor::GetSchemaVersion(int64* db_version) {
 
 tensorflow::Status QueryConfigExecutor::UpgradeMetadataSourceIfOutOfDate(
     bool enable_migration) {
-  const int64 lib_version = query_config_.schema_version();
   int64 db_version = 0;
   tensorflow::Status get_schema_version_status = GetSchemaVersion(&db_version);
-  // if it is an empty database, then we skip migration and create tables.
+  int64 lib_version = GetLibraryVersion();
   if (tensorflow::errors::IsNotFound(get_schema_version_status)) {
     db_version = lib_version;
   } else {
     TF_RETURN_IF_ERROR(get_schema_version_status);
   }
 
-  // we don't know how to downgrade a newer live database to the current
-  // library version as the newer schema is in a later version of the library.
+  bool is_compatible;
+  TF_RETURN_IF_ERROR(IsCompatible(db_version, lib_version, &is_compatible));
+  if (is_compatible) {
+    return tensorflow::Status::OK();
+  }
   if (db_version > lib_version) {
     return tensorflow::errors::FailedPrecondition(
         "MLMD database version ", db_version,
@@ -330,6 +332,17 @@ tensorflow::Status QueryConfigExecutor::ExecuteQuery(
       absl::StrReplaceAll(template_query.query(), replacements), record_set);
 }
 
+tensorflow::Status QueryConfigExecutor::IsCompatible(int64 db_version,
+                                                     int64 lib_version,
+                                                     bool* is_compatible) {
+  // TODO(martinz): temporary hack to make this library work with
+  // the next schema version of the database. Remove when database
+  // version 5 is introduced.
+  *is_compatible =
+      (db_version == 5 && lib_version == 4) || (db_version == lib_version);
+  return tensorflow::Status::OK();
+}
+
 tensorflow::Status QueryConfigExecutor::InitMetadataSource() {
   TF_RETURN_IF_ERROR(ExecuteQuery(query_config_.create_type_table()));
   TF_RETURN_IF_ERROR(ExecuteQuery(query_config_.create_type_property_table()));
@@ -348,8 +361,7 @@ tensorflow::Status QueryConfigExecutor::InitMetadataSource() {
   TF_RETURN_IF_ERROR(ExecuteQuery(query_config_.create_association_table()));
   TF_RETURN_IF_ERROR(ExecuteQuery(query_config_.create_attribution_table()));
 
-  int64 library_version;
-  TF_RETURN_IF_ERROR(GetLibraryVersion(&library_version));
+  int64 library_version = GetLibraryVersion();
   tensorflow::Status insert_schema_version_status =
       InsertSchemaVersion(library_version);
   if (!insert_schema_version_status.ok()) {
