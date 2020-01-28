@@ -33,6 +33,10 @@ namespace errors = tensorflow::errors;
 
 using ::tensorflow::Status;
 
+constexpr char kBeginTransaction[] = "START TRANSACTION";
+constexpr char kCommitTransaction[] = "COMMIT";
+constexpr char kRollbackTransaction[] = "ROLLBACK";
+
 // A class that invokes mysql_thread_init() when constructed, and
 // mysql_thread_end() when destructed.  It can be used as a
 // thread_local to ensure that this happens exactly once per thread
@@ -184,21 +188,18 @@ Status MySqlMetadataSource::ExecuteQueryImpl(const string& query,
 }
 
 Status MySqlMetadataSource::CommitImpl() {
-  constexpr char kCommitTransaction[] = "COMMIT";
   TF_RETURN_WITH_CONTEXT_IF_ERROR(ThreadInitAccess(),
                                   "MySql thread init failed at CommitImpl");
   return RunQuery(kCommitTransaction);
 }
 
 Status MySqlMetadataSource::RollbackImpl() {
-  constexpr char kRollbackTransaction[] = "ROLLBACK";
   TF_RETURN_WITH_CONTEXT_IF_ERROR(ThreadInitAccess(),
                                   "MySql thread init failed at RollbackImpl");
   return RunQuery(kRollbackTransaction);
 }
 
 Status MySqlMetadataSource::BeginImpl() {
-  constexpr char kBeginTransaction[] = "START TRANSACTION";
   TF_RETURN_WITH_CONTEXT_IF_ERROR(ThreadInitAccess(),
                                   "MySql thread init failed at BeginImpl");
   return RunQuery(kBeginTransaction);
@@ -232,9 +233,19 @@ Status MySqlMetadataSource::CheckTransactionSupport() {
 Status MySqlMetadataSource::RunQuery(const string& query) {
   DiscardResultSet();
 
-  if (mysql_query(db_, query.c_str())) {
-    return errors::Internal("mysql_query failed: errno: ", mysql_errno(db_),
-                            ", error: ", mysql_error(db_));
+  int query_status = mysql_query(db_, query.c_str());
+  if (query_status) {
+    int64 error_number = mysql_errno(db_);
+    // 2006: sever closes the connection due to inactive client;
+    // client reports server has gone away, we reconnect the server for the
+    // client if the query is begin transaction.
+    if (!(error_number == 2006 && query == kBeginTransaction)) {
+      return errors::Internal("mysql_query failed: errno: ", error_number,
+                              ", error: ", mysql_error(db_));
+    }
+    TF_RETURN_IF_ERROR(CloseImpl());
+    TF_RETURN_IF_ERROR(ConnectImpl());
+    return RunQuery(query);
   }
 
   result_set_ = mysql_store_result(db_);

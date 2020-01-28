@@ -8,6 +8,8 @@
 
 *   GetArtifacts/Executions/Contexts returns OK instead of NotFound to align
     with other listing APIs.
+*   Handles mysql stale connection error 2006 by client-side reconnection.
+
 ## Breaking changes
 
 ## Deprecations
