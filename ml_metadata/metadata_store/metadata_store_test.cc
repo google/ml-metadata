@@ -26,7 +26,6 @@ limitations under the License.
 #include "ml_metadata/util/metadata_source_query_config.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
 #include "tensorflow/core/platform/env.h"
-#include "tensorflow/core/lib/core/error_codes.pb.h"
 
 namespace ml_metadata {
 namespace {
