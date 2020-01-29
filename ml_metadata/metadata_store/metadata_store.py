@@ -1093,6 +1093,7 @@ def downgrade_schema(config: metadata_store_pb2.ConnectionConfig,
 def _make_exception(message, error_code):
   try:
     exc_type = errors.exception_type_from_error_code(error_code)
+    logging.log(logging.ERROR, 'mlmd client %s: %s', exc_type.__name__, message)
     return exc_type(None, None, message)
   except KeyError:
     return errors.UnknownError(None, None, message, error_code)
