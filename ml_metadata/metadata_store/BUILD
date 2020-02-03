@@ -169,6 +169,7 @@ cc_library(
     deps = [
         ":metadata_access_object_factory",
         ":metadata_source",
+        "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/memory",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/proto:metadata_store_service_proto",

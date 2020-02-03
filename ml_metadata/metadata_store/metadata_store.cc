@@ -14,6 +14,7 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/metadata_store.h"
 
+#include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "ml_metadata/metadata_store/metadata_access_object_factory.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
@@ -758,17 +759,20 @@ tensorflow::Status MetadataStore::GetArtifactsByURI(
   return ExecuteTransaction(
       metadata_source_.get(),
       [this, &request, &response]() -> tensorflow::Status {
-        std::vector<Artifact> artifacts;
-        const tensorflow::Status status =
-            metadata_access_object_->FindArtifactsByURI(request.uri(),
-                                                        &artifacts);
-        if (tensorflow::errors::IsNotFound(status)) {
-          return tensorflow::Status::OK();
-        } else if (!status.ok()) {
-          return status;
-        }
-        for (const Artifact& artifact : artifacts) {
-          *response->mutable_artifacts()->Add() = artifact;
+        absl::flat_hash_set<std::string> uris(request.uris().begin(),
+                                              request.uris().end());
+        for (const std::string& uri : uris) {
+          std::vector<Artifact> artifacts;
+          const tensorflow::Status status =
+              metadata_access_object_->FindArtifactsByURI(uri, &artifacts);
+          if (!status.ok() && !tensorflow::errors::IsNotFound(status)) {
+            // If any none NotFound error returned, we do early stopping as
+            // the query execution has internal db errors.
+            return status;
+          }
+          for (const Artifact& artifact : artifacts) {
+            *response->mutable_artifacts()->Add() = artifact;
+          }
         }
         return tensorflow::Status::OK();
       });

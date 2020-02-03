@@ -511,7 +511,7 @@ class MetadataStore(object):
                            uri: Text) -> List[metadata_store_pb2.Artifact]:
     """Gets all the artifacts of a given uri."""
     request = metadata_store_service_pb2.GetArtifactsByURIRequest()
-    request.uri = uri
+    request.uris.append(uri)
     response = metadata_store_service_pb2.GetArtifactsByURIResponse()
 
     self._call('GetArtifactsByURI', request, response)

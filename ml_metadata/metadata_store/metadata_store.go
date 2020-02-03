@@ -530,7 +530,7 @@ func (store *Store) GetArtifactsByType(typeName string) ([]*mdpb.Artifact, error
 // It returns an error if the query execution fails.
 func (store *Store) GetArtifactsByURI(uri string) ([]*mdpb.Artifact, error) {
 	req := &apipb.GetArtifactsByURIRequest{
-		Uri: proto.String(uri),
+		Uris: []string{uri},
 	}
 	resp := &apipb.GetArtifactsByURIResponse{}
 	err := store.callMetadataStoreWrapMethod(wrap.GetArtifactsByURI, req, resp)

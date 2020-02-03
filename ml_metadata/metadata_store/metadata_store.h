@@ -338,8 +338,8 @@ class MetadataStore {
       const GetArtifactsByTypeRequest& request,
       GetArtifactsByTypeResponse* response);
 
-  // Gets all the artifacts of a given URI. If no artifacts found, it returns
-  // OK and empty response.
+  // Gets all the artifacts matching the given URIs. If no artifacts found, it
+  // returns OK and empty response.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetArtifactsByURI(const GetArtifactsByURIRequest& request,
                                        GetArtifactsByURIResponse* response);

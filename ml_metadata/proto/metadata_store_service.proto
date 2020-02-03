@@ -253,7 +253,10 @@ message GetArtifactsResponse {
 }
 
 message GetArtifactsByURIRequest {
-  optional string uri = 1;
+  // A list of artifact uris to retrieve.
+  repeated string uris = 2;
+
+  reserved 1;
 }
 
 message GetArtifactsByURIResponse {
@@ -756,7 +759,7 @@ service MetadataStoreService {
   rpc GetContextByTypeAndName(GetContextByTypeAndNameRequest)
       returns (GetContextByTypeAndNameResponse) {}
 
-  // Gets all the artifacts of a given uri.
+  // Gets all the artifacts with matching uris.
   rpc GetArtifactsByURI(GetArtifactsByURIRequest)
       returns (GetArtifactsByURIResponse) {}
 

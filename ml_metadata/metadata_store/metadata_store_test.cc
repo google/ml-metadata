@@ -1167,7 +1167,7 @@ TEST_F(MetadataStoreTest, GetArtifactByURI) {
   {
     GetArtifactsByURIRequest get_artifacts_by_uri_request;
     GetArtifactsByURIResponse get_artifacts_by_uri_response;
-    get_artifacts_by_uri_request.set_uri("testuri://with_one_artifact");
+    get_artifacts_by_uri_request.add_uris("testuri://with_one_artifact");
     TF_ASSERT_OK(metadata_store_->GetArtifactsByURI(
         get_artifacts_by_uri_request, &get_artifacts_by_uri_response));
     EXPECT_THAT(get_artifacts_by_uri_response.artifacts(), SizeIs(1));
@@ -1176,7 +1176,7 @@ TEST_F(MetadataStoreTest, GetArtifactByURI) {
   {
     GetArtifactsByURIRequest get_artifacts_by_uri_request;
     GetArtifactsByURIResponse get_artifacts_by_uri_response;
-    get_artifacts_by_uri_request.set_uri("testuri://with_multiple_artifacts");
+    get_artifacts_by_uri_request.add_uris("testuri://with_multiple_artifacts");
     TF_ASSERT_OK(metadata_store_->GetArtifactsByURI(
         get_artifacts_by_uri_request, &get_artifacts_by_uri_response));
     EXPECT_THAT(get_artifacts_by_uri_response.artifacts(), SizeIs(2));
@@ -1185,6 +1185,7 @@ TEST_F(MetadataStoreTest, GetArtifactByURI) {
   {
     // empty uri
     GetArtifactsByURIRequest get_artifacts_by_uri_request;
+    get_artifacts_by_uri_request.add_uris("");
     GetArtifactsByURIResponse get_artifacts_by_uri_response;
     TF_ASSERT_OK(metadata_store_->GetArtifactsByURI(
         get_artifacts_by_uri_request, &get_artifacts_by_uri_response));
@@ -1195,10 +1196,26 @@ TEST_F(MetadataStoreTest, GetArtifactByURI) {
     // query uri that does not exist
     GetArtifactsByURIRequest get_artifacts_by_uri_request;
     GetArtifactsByURIResponse get_artifacts_by_uri_response;
-    get_artifacts_by_uri_request.set_uri("unknown_uri");
+    get_artifacts_by_uri_request.add_uris("unknown_uri");
     TF_ASSERT_OK(metadata_store_->GetArtifactsByURI(
         get_artifacts_by_uri_request, &get_artifacts_by_uri_response));
     EXPECT_THAT(get_artifacts_by_uri_response.artifacts(), SizeIs(0));
+  }
+
+  {
+    // query multiple uris with duplicates
+    GetArtifactsByURIRequest get_artifacts_by_uri_request;
+    GetArtifactsByURIResponse get_artifacts_by_uri_response;
+    get_artifacts_by_uri_request.add_uris("unknown_uri");
+    get_artifacts_by_uri_request.add_uris("testuri://with_one_artifact");
+    get_artifacts_by_uri_request.add_uris("testuri://with_one_artifact");
+    get_artifacts_by_uri_request.add_uris("unknown_uri_2");
+    get_artifacts_by_uri_request.add_uris("testuri://with_multiple_artifacts");
+    get_artifacts_by_uri_request.add_uris("");
+
+    TF_ASSERT_OK(metadata_store_->GetArtifactsByURI(
+        get_artifacts_by_uri_request, &get_artifacts_by_uri_response));
+    EXPECT_THAT(get_artifacts_by_uri_response.artifacts(), SizeIs(6));
   }
 }
 
