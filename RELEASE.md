@@ -9,6 +9,7 @@
 *   GetArtifacts/Executions/Contexts returns OK instead of NotFound to align
     with other listing APIs.
 *   Handles mysql stale connection error 2006 by client-side reconnection.
+*   Handles mysql innodb deadlock error (1213) via client-side retry.
 
 ## Breaking changes
 

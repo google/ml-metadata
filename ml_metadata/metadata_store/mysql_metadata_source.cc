@@ -239,13 +239,19 @@ Status MySqlMetadataSource::RunQuery(const string& query) {
     // 2006: sever closes the connection due to inactive client;
     // client reports server has gone away, we reconnect the server for the
     // client if the query is begin transaction.
-    if (!(error_number == 2006 && query == kBeginTransaction)) {
-      return errors::Internal("mysql_query failed: errno: ", error_number,
-                              ", error: ", mysql_error(db_));
+    if (error_number == 2006 && query == kBeginTransaction) {
+      TF_RETURN_IF_ERROR(CloseImpl());
+      TF_RETURN_IF_ERROR(ConnectImpl());
+      return RunQuery(query);
     }
-    TF_RETURN_IF_ERROR(CloseImpl());
-    TF_RETURN_IF_ERROR(ConnectImpl());
-    return RunQuery(query);
+    // 1213: inno db aborts deadlock when running concurrent transactions.
+    // returns Aborted for client side to retry.
+    if (error_number == 1213) {
+      return errors::Aborted("mysql_query aborted: errno: ", error_number,
+                             ", error: ", mysql_error(db_));
+    }
+    return errors::Internal("mysql_query failed: errno: ", error_number,
+                            ", error: ", mysql_error(db_));
   }
 
   result_set_ = mysql_store_result(db_);

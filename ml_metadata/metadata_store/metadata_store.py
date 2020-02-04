@@ -22,6 +22,9 @@ from __future__ import division
 
 from __future__ import print_function
 
+import random
+import time
+
 from absl import logging
 import grpc
 from typing import List, Optional, Sequence, Text, Tuple, Union
@@ -112,7 +115,31 @@ class MetadataStore(object):
     if self._using_db_connection:
       metadata_store_serialized.DestroyMetadataStore(self._metadata_store)
 
+  # TODO(huimiao) surface the retry config to user-facing api.
   def _call(self, method_name, request, response) -> None:
+    """Calls method with retry when Aborted error is returned.
+
+    Args:
+      method_name: the method to call.
+      request: the request protobuf message.
+      response: the response protobuf message.
+    """
+    max_retries = num_retries = 5
+    avg_delay_sec = 2
+    while True:
+      try:
+        return self._call_method(method_name, request, response)
+      except errors.AbortedError:
+        num_retries -= 1
+        if num_retries == 0:
+          logging.log(logging.ERROR, '%s failed after retrying %d times.',
+                      method_name, max_retries)
+          raise
+        wait_seconds = random.expovariate(1.0 / avg_delay_sec)
+        logging.log(logging.INFO, 'mlmd client retry in %f secs', wait_seconds)
+        time.sleep(wait_seconds)
+
+  def _call_method(self, method_name, request, response) -> None:
     """Calls method using SWIG or gRPC.
 
     Args:
