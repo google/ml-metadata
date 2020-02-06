@@ -987,5 +987,18 @@ class MetadataStoreTest(absltest.TestCase):
         upgrade_conn_config, enable_upgrade_migration=True)
     os.remove(db_file)
 
+  def test_put_invalid_artifact(self):
+    store = _get_metadata_store()
+    artifact_type = _create_example_artifact_type(self._get_test_type_name())
+    artifact_type_id = store.put_artifact_type(artifact_type)
+    artifact = metadata_store_pb2.Artifact()
+    artifact.type_id = artifact_type_id
+    artifact.uri = "testuri"
+    # Create the Value message for "foo" but don't populate its value.
+    artifact.properties["foo"]  # pylint: disable=pointless-statement
+    with self.assertRaisesRegex(errors.InvalidArgumentError,
+                                "Found unmatched property type: foo"):
+      store.put_artifacts([artifact])
+
 if __name__ == "__main__":
   absltest.main()

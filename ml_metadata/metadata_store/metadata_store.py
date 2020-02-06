@@ -182,7 +182,7 @@ class MetadataStore(object):
     [response_str, error_message, status_code] = method(
         self._metadata_store, request.SerializeToString())
     if status_code != 0:
-      raise _make_exception(error_message, status_code)
+      raise _make_exception(error_message.decode('utf-8'), status_code)
     response.ParseFromString(response_str)
 
   def put_artifacts(
