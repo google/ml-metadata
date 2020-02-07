@@ -40,7 +40,6 @@ limitations under the License.
 
 namespace ml_metadata {
 namespace {
-using Query = std::string;
 
 TypeKind ResolveTypeKind(const ArtifactType* const type) {
   return TypeKind::ARTIFACT_TYPE;
@@ -399,11 +398,9 @@ tensorflow::Status RDBMSMetadataAccessObject::ModifyProperties(
     if (prev_properties.find(name) != prev_properties.end() &&
         prev_properties.at(name).value_case() == p.second.value_case()) {
       // generates update clauses for properties in the intersection P & C
-      Query update_query;
       TF_RETURN_IF_ERROR(UpdateProperty<NodeType>(node_id, name, value));
     } else {
       // generate insert clauses for properties in C \ P
-      Query insert_query;
       TF_RETURN_IF_ERROR(
           InsertProperty<NodeType>(node_id, name, is_custom_property, value));
     }
@@ -452,7 +449,6 @@ tensorflow::Status RDBMSMetadataAccessObject::CreateTypeImpl(const Type& type,
   TF_RETURN_IF_ERROR(InsertTypeID(type, type_id));
 
   // insert type properties and commit
-  std::vector<Query> insert_property_queries;
   for (const auto& property : type_properties) {
     const string& property_name = property.first;
     const PropertyType property_type = property.second;
@@ -461,7 +457,6 @@ tensorflow::Status RDBMSMetadataAccessObject::CreateTypeImpl(const Type& type,
       return tensorflow::errors::InvalidArgument(
           absl::StrCat("Property ", property_name, " is UNKNOWN."));
     }
-    Query insert_property;
     TF_RETURN_IF_ERROR(
         executor_->InsertTypeProperty(*type_id, property_name, property_type));
   }
@@ -590,7 +585,6 @@ tensorflow::Status RDBMSMetadataAccessObject::UpdateTypeImpl(const Type& type) {
       }
       continue;
     }
-    Query insert_property_query;
     TF_RETURN_IF_ERROR(executor_->InsertTypeProperty(
         stored_type.id(), property_name, property_type));
   }
@@ -617,11 +611,9 @@ tensorflow::Status RDBMSMetadataAccessObject::CreateNodeImpl(const Node& node,
   TF_RETURN_IF_ERROR(ValidatePropertiesWithType(node, node_type));
 
   // insert a node and get the assigned id
-  Query insert_node;
   TF_RETURN_IF_ERROR(CreateBasicNode(node, node_id));
 
   // insert properties
-  std::vector<Query> insert_node_property_queries;
   const google::protobuf::Map<string, Value> prev_properties;
   TF_RETURN_IF_ERROR(ModifyProperties<NodeType>(node.properties(),
                                                 prev_properties, *node_id,
@@ -726,7 +718,6 @@ tensorflow::Status RDBMSMetadataAccessObject::UpdateNodeImpl(const Node& node) {
   TF_RETURN_IF_ERROR(ValidatePropertiesWithType(node, stored_type));
 
   // update artifacts, and update, insert, delete properties
-  std::vector<Query> update_node_queries;
   TF_RETURN_IF_ERROR(RunNodeUpdate(node));
 
   // modify properties
@@ -790,7 +781,6 @@ tensorflow::Status RDBMSMetadataAccessObject::FindContextsByNodeImpl(
   constexpr bool is_artifact = std::is_same<Node, Artifact>::value;
 
   // find context ids with the given node id
-  Query find_context_ids_query;
   RecordSet node_ids;
   if (is_artifact) {
     TF_RETURN_IF_ERROR(
@@ -997,7 +987,6 @@ tensorflow::Status RDBMSMetadataAccessObject::CreateEvent(const Event& event,
         absl::StrCat("No execution with the given id ", event.execution_id()));
 
   // insert an event and get its given id
-  Query insert_event;
   int64 event_time = event.has_milliseconds_since_epoch()
                          ? event.milliseconds_since_epoch()
                          : absl::ToUnixMillis(absl::Now());
@@ -1161,7 +1150,6 @@ tensorflow::Status RDBMSMetadataAccessObject::FindContextsByTypeId(
 
 tensorflow::Status RDBMSMetadataAccessObject::FindArtifactsByURI(
     const absl::string_view uri, std::vector<Artifact>* artifacts) {
-  Query find_node_ids_query;
   RecordSet record_set;
   TF_RETURN_IF_ERROR(executor_->SelectArtifactsByURI(uri, &record_set));
   return FindManyNodesImpl(record_set, artifacts);
