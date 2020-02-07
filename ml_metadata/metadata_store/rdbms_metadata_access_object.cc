@@ -21,6 +21,7 @@ limitations under the License.
 
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/util/json_util.h"
+#include "google/protobuf/util/message_differencer.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
@@ -395,10 +396,14 @@ tensorflow::Status RDBMSMetadataAccessObject::ModifyProperties(
   for (const auto& p : curr_properties) {
     const string& name = p.first;
     const Value& value = p.second;
-    if (prev_properties.find(name) != prev_properties.end() &&
-        prev_properties.at(name).value_case() == p.second.value_case()) {
-      // generates update clauses for properties in the intersection P & C
-      TF_RETURN_IF_ERROR(UpdateProperty<NodeType>(node_id, name, value));
+    const auto prev_value_it = prev_properties.find(name);
+    if (prev_value_it != prev_properties.end() &&
+        prev_value_it->second.value_case() == p.second.value_case()) {
+      if (!google::protobuf::util::MessageDifferencer::Equals(prev_value_it->second,
+                                                    value)) {
+        // generates update clauses for properties in the intersection P & C
+        TF_RETURN_IF_ERROR(UpdateProperty<NodeType>(node_id, name, value));
+      }
     } else {
       // generate insert clauses for properties in C \ P
       TF_RETURN_IF_ERROR(
@@ -717,8 +722,13 @@ tensorflow::Status RDBMSMetadataAccessObject::UpdateNodeImpl(const Node& node) {
   TF_RETURN_IF_ERROR(FindTypeImpl(type_id, &stored_type));
   TF_RETURN_IF_ERROR(ValidatePropertiesWithType(node, stored_type));
 
-  // update artifacts, and update, insert, delete properties
-  TF_RETURN_IF_ERROR(RunNodeUpdate(node));
+  // update nodes, and update, insert, delete properties
+  google::protobuf::util::MessageDifferencer diff;
+  diff.IgnoreField(Node::descriptor()->FindFieldByName("properties"));
+  diff.IgnoreField(Node::descriptor()->FindFieldByName("custom_properties"));
+  if (!diff.Compare(node, stored_node)) {
+    TF_RETURN_IF_ERROR(RunNodeUpdate(node));
+  }
 
   // modify properties
   TF_RETURN_IF_ERROR(ModifyProperties<NodeType>(

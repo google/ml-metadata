@@ -10,6 +10,7 @@
     with other listing APIs.
 *   Handles mysql stale connection error 2006 by client-side reconnection.
 *   Handles mysql innodb deadlock error (1213) via client-side retry.
+*   Avoids update node or properties without changes.
 
 ## Breaking changes
 
