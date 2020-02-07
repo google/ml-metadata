@@ -246,7 +246,7 @@ Status MySqlMetadataSource::RunQuery(const string& query) {
     }
     // 1213: inno db aborts deadlock when running concurrent transactions.
     // returns Aborted for client side to retry.
-    if (error_number == 1213) {
+    if (error_number == 1213 || error_number == 1205) {
       return errors::Aborted("mysql_query aborted: errno: ", error_number,
                              ", error: ", mysql_error(db_));
     }
