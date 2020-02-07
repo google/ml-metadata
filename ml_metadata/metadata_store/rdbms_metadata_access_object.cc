@@ -605,6 +605,8 @@ tensorflow::Status RDBMSMetadataAccessObject::UpdateTypeImpl(const Type& type) {
 template <typename Node, typename NodeType>
 tensorflow::Status RDBMSMetadataAccessObject::CreateNodeImpl(const Node& node,
                                                              int64* node_id) {
+  // clear node id
+  *node_id = 0;
   // validate type
   if (!node.has_type_id())
     return tensorflow::errors::InvalidArgument("Type id is missing.");
