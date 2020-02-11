@@ -3,6 +3,7 @@
 ## Major Features and Improvements
 
 *   Refactoring MetadataAccessObject to allow for more flexibility.
+*   Release a script to generate Python API documentation.
 
 ## Bug Fixes and Other Changes
 
