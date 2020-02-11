@@ -463,7 +463,7 @@ cc_library(
         ":metadata_source",
         ":mysql_metadata_source",
         ":test_mysql_metadata_source_initializer",
-        "@com_google_googletest//:gtest_main",
+        "@com_google_googletest//:gtest",
         "@com_google_absl//absl/memory",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/util:metadata_source_query_config",
@@ -491,6 +491,7 @@ cc_test(
     deps = [
         ":mysql_metadata_access_object_test",
         ":test_standalone_mysql_metadata_source_initializer",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 

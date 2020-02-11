@@ -65,20 +65,20 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(query_config_.check_type_table());
   }
 
-  tensorflow::Status InsertArtifactType(const string& name,
+  tensorflow::Status InsertArtifactType(const std::string& name,
                                         int64* artifact_type_id) final {
     return ExecuteQuerySelectLastInsertID(query_config_.insert_artifact_type(),
                                           {Bind(name)}, artifact_type_id);
   }
 
-  tensorflow::Status InsertExecutionType(const string& type_name,
+  tensorflow::Status InsertExecutionType(const std::string& type_name,
                                          bool has_input_type,
                                          const google::protobuf::Message& input_type,
                                          bool has_output_type,
                                          const google::protobuf::Message& output_type,
                                          int64* execution_type_id) final;
 
-  tensorflow::Status InsertContextType(const string& type_name,
+  tensorflow::Status InsertContextType(const std::string& type_name,
                                        int64* context_id) final {
     return ExecuteQuerySelectLastInsertID(query_config_.insert_context_type(),
                                           {Bind(type_name)}, context_id);
@@ -128,7 +128,8 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(query_config_.check_artifact_table());
   }
 
-  tensorflow::Status InsertArtifact(int64 type_id, const string& artifact_uri,
+  tensorflow::Status InsertArtifact(int64 type_id,
+                                    const std::string& artifact_uri,
                                     int64* artifact_id) final {
     return ExecuteQuerySelectLastInsertID(query_config_.insert_artifact(),
                                           {Bind(type_id), Bind(artifact_uri)},
@@ -154,7 +155,7 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   tensorflow::Status UpdateArtifactDirect(int64 artifact_id, int64 type_id,
-                                          const string& uri) final {
+                                          const std::string& uri) final {
     return ExecuteQuery(query_config_.update_artifact(),
                         {Bind(artifact_id), Bind(type_id), Bind(uri)});
   }
@@ -258,7 +259,7 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(query_config_.check_context_table());
   }
 
-  tensorflow::Status InsertContext(int64 type_id, const string& name,
+  tensorflow::Status InsertContext(int64 type_id, const std::string& name,
                                    int64* context_id) final {
     return ExecuteQuerySelectLastInsertID(query_config_.insert_context(),
                                           {Bind(type_id), Bind(name)},
@@ -277,7 +278,6 @@ class QueryConfigExecutor : public QueryExecutor {
                         {Bind(context_type_id)}, record_set);
   }
 
-
   tensorflow::Status SelectContextByTypeIDAndName(
       int64 context_type_id,
       const absl::string_view name,
@@ -286,9 +286,9 @@ class QueryConfigExecutor : public QueryExecutor {
                         {Bind(context_type_id), Bind(name)}, record_set);
   }
 
-  tensorflow::Status UpdateContextDirect(int64 existing_context_id,
-                                         int64 type_id,
-                                         const string& context_name) final {
+  tensorflow::Status UpdateContextDirect(
+      int64 existing_context_id, int64 type_id,
+      const std::string& context_name) final {
     return ExecuteQuery(
         query_config_.update_context(),
         {Bind(existing_context_id), Bind(type_id), Bind(context_name)});
@@ -454,41 +454,41 @@ class QueryConfigExecutor : public QueryExecutor {
 
  private:
   // Utility method to bind an string_view value to a SQL clause.
-  string Bind(absl::string_view value);
+  std::string Bind(absl::string_view value);
 
   // Utility method to bind an string_view value to a SQL clause.
-  string Bind(const char* value);
+  std::string Bind(const char* value);
 
   // Utility method to bind an int value to a SQL clause.
-  string Bind(int value);
+  std::string Bind(int value);
 
   // Utility method to bind an int64 value to a SQL clause.
-  string Bind(int64 value);
+  std::string Bind(int64 value);
 
   // Utility method to bind a boolean value to a SQL clause.
-  string Bind(bool value);
+  std::string Bind(bool value);
 
   // Utility method to bind an double value to a SQL clause.
-  string Bind(const double value);
+  std::string Bind(const double value);
 
   // Utility method to bind an PropertyType enum value to a SQL clause.
   // PropertyType is an enum (integer), EscapeString is not applicable.
-  string Bind(const PropertyType value);
+  std::string Bind(const PropertyType value);
 
   // Utility method to bind an Event::Type enum value to a SQL clause.
   // Event::Type is an enum (integer), EscapeString is not applicable.
-  string Bind(const Event::Type value);
+  std::string Bind(const Event::Type value);
 
   // Bind the value to a SQL clause.
-  string BindValue(const Value& value);
-  string BindDataType(const Value& value);
-  string Bind(bool exists, const google::protobuf::Message& message);
+  std::string BindValue(const Value& value);
+  std::string BindDataType(const Value& value);
+  std::string Bind(bool exists, const google::protobuf::Message& message);
   // Utility method to bind an TypeKind to a SQL clause.
   // TypeKind is an enum (integer), EscapeString is not applicable.
-  string Bind(TypeKind value);
+  std::string Bind(TypeKind value);
 
   #if (!defined(__APPLE__) && !defined(_WIN32))
-  string Bind(const google::protobuf::int64 value);
+  std::string Bind(const google::protobuf::int64 value);
   #endif
 
   // Execute a template query. All strings in parameters should already be
@@ -500,7 +500,7 @@ class QueryConfigExecutor : public QueryExecutor {
   // Returns FAILED_PRECONDITION error, if a transaction has not begun.
   tensorflow::Status ExecuteQuery(
       const MetadataSourceQueryConfig::TemplateQuery& template_query,
-      const std::vector<string>& parameters, RecordSet* record_set);
+      const std::vector<std::string>& parameters, RecordSet* record_set);
 
   // Execute a template query and ignore the result.
   // All strings in parameters should already be in a format appropriate for the
@@ -510,7 +510,7 @@ class QueryConfigExecutor : public QueryExecutor {
   // Returns FAILED_PRECONDITION error, if a transaction has not begun.
   tensorflow::Status ExecuteQuery(
       const MetadataSourceQueryConfig::TemplateQuery& template_query,
-      const std::vector<string>& parameters) {
+      const std::vector<std::string>& parameters) {
     RecordSet record_set;
     return ExecuteQuery(template_query, parameters, &record_set);
   }
@@ -531,7 +531,7 @@ class QueryConfigExecutor : public QueryExecutor {
   // Returns INTERNAL error, if it cannot find the last insert ID.
   tensorflow::Status ExecuteQuerySelectLastInsertID(
       const MetadataSourceQueryConfig::TemplateQuery& query,
-      const std::vector<string>& arguments, int64* last_insert_id) {
+      const std::vector<std::string>& arguments, int64* last_insert_id) {
     TF_RETURN_IF_ERROR(ExecuteQuery(query, arguments));
     return SelectLastInsertID(last_insert_id);
   }
@@ -541,14 +541,15 @@ class QueryConfigExecutor : public QueryExecutor {
   // Returns FAILED_PRECONDITION error, if Connection() is not opened.
   // Returns detailed INTERNAL error, if query execution fails.
   // Returns FAILED_PRECONDITION error, if a transaction has not begun.
-  tensorflow::Status ExecuteQuery(const string& query, RecordSet* record_set);
+  tensorflow::Status ExecuteQuery(const std::string& query,
+                                  RecordSet* record_set);
 
   // Execute a query without arguments and ignore the result.
   // Returns FAILED_PRECONDITION error, if Connection() is not opened.
   // Returns detailed INTERNAL error, if query execution fails.
   // Returns FAILED_PRECONDITION error, if a transaction has not begun.
   // Returns INTERNAL error, if it cannot find the last insert ID.
-  tensorflow::Status ExecuteQuery(const string& query);
+  tensorflow::Status ExecuteQuery(const std::string& query);
 
   // Tests if the database version is compatible with the library version.
   // The database version and library version must be from the current

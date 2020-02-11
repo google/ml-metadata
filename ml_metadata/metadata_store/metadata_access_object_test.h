@@ -39,24 +39,50 @@ class MetadataAccessObjectContainer {
   // MetadataAccessObject is owned by MetadataAccessObjectContainer.
   virtual MetadataAccessObject* GetMetadataAccessObject() = 0;
 
-  // Test if there is upgrade verification.
+  virtual tensorflow::Status Init() {
+    return GetMetadataAccessObject()->InitMetadataSource();
+  }
+  // Tests if there is upgrade verification.
   virtual bool HasUpgradeVerification(int64 version) = 0;
 
-  // Test if there is upgrade verification.
+  // Tests if there is upgrade verification.
   virtual bool HasDowngradeVerification(int64 version) = 0;
 
-  // Initialize the previous version of the database for downgrade.
+  // Initializes the previous version of the database for downgrade.
   virtual tensorflow::Status SetupPreviousVersionForDowngrade(
       int64 version) = 0;
 
-  // Verify that a database has been downgraded to version.
+  // Verifies that a database has been downgraded to version.
   virtual tensorflow::Status DowngradeVerification(int64 version) = 0;
 
-  // Initialize the previous version of the database for upgrade.
+  // Initializes the previous version of the database for upgrade.
   virtual tensorflow::Status SetupPreviousVersionForUpgrade(int64 version) = 0;
 
-  // Verify that a database has been upgraded to version.
+  // Verifies that a database has been upgraded to version.
   virtual tensorflow::Status UpgradeVerification(int64 version) = 0;
+
+  // Drops the type table (or some other table) to test the behavior of
+  // InitMetadataSourceIfNotExists when a database is partially created.
+  virtual tensorflow::Status DropTypeTable() = 0;
+
+  // Drops the artiface table (or some other table) to test the behavior of
+  // InitMetadataSourceIfNotExists when a database is partially created.
+  virtual tensorflow::Status DropArtifactTable() = 0;
+
+  // Deletes the schema version from MLMDVersion: this corrupts the database.
+  virtual tensorflow::Status DeleteSchemaVersion() = 0;
+
+  // Sets the schema version to an incompatible version in the future,
+  virtual tensorflow::Status SetDatabaseVersionIncompatible() = 0;
+
+  // Returns the minimum version to test for upgrades and downgrades.
+  virtual int64 MinimumVersion() = 0;
+
+  // If returns true, should perform tests that rely on some implementation
+  // details of the database. Specifically, these tests rely on having a
+  // MLMDEnv table, being able to not specify a schema version, and having
+  // Init() be able to reset the database.
+  virtual bool PerformExtendedTests() = 0;
 };
 
 // An Interface to generate and retrieve a MetadataAccessObject, where there
@@ -81,6 +107,18 @@ class QueryConfigMetadataAccessObjectContainer
   tensorflow::Status SetupPreviousVersionForUpgrade(int64 version) final;
 
   tensorflow::Status UpgradeVerification(int64 version) final;
+
+  tensorflow::Status DropTypeTable() final;
+
+  tensorflow::Status DropArtifactTable() final;
+
+  tensorflow::Status DeleteSchemaVersion() final;
+
+  tensorflow::Status SetDatabaseVersionIncompatible() final;
+
+  bool PerformExtendedTests() final { return true; }
+
+  int64 MinimumVersion() final;
 
  private:
   // Get a migration scheme, or return NOT_FOUND.
@@ -142,6 +180,9 @@ class MetadataAccessObjectTest
     metadata_access_object_container_ = nullptr;
   }
 
+  tensorflow::Status Init() {
+    return metadata_access_object_container_->Init();
+  }
   std::unique_ptr<MetadataAccessObjectContainer>
       metadata_access_object_container_;
 

@@ -132,13 +132,44 @@ tensorflow::Status QueryConfigMetadataAccessObjectContainer::Verification(
   return tensorflow::Status::OK();
 }
 
+int64 QueryConfigMetadataAccessObjectContainer::MinimumVersion() { return 1; }
+
+tensorflow::Status QueryConfigMetadataAccessObjectContainer::DropTypeTable() {
+  RecordSet record_set;
+  return GetMetadataSource()->ExecuteQuery("DROP TABLE IF EXISTS `Type`;",
+                                           &record_set);
+}
+
+tensorflow::Status
+QueryConfigMetadataAccessObjectContainer::DropArtifactTable() {
+  RecordSet record_set;
+  return GetMetadataSource()->ExecuteQuery("DROP TABLE `Artifact`;",
+                                           &record_set);
+}
+
+tensorflow::Status
+QueryConfigMetadataAccessObjectContainer::DeleteSchemaVersion() {
+  RecordSet record_set;
+  return GetMetadataSource()->ExecuteQuery("DELETE FROM `MLMDEnv`;",
+                                           &record_set);
+}
+
+tensorflow::Status
+QueryConfigMetadataAccessObjectContainer::SetDatabaseVersionIncompatible() {
+  RecordSet record_set;
+  TF_RETURN_IF_ERROR(GetMetadataSource()->ExecuteQuery(
+      "UPDATE `MLMDEnv` SET `schema_version` = `schema_version` + 2;",
+      &record_set));
+  return tensorflow::Status::OK();
+}
+
 namespace {
 
 using ::ml_metadata::testing::ParseTextProtoOrDie;
 using ::testing::UnorderedElementsAre;
 
 TEST_P(MetadataAccessObjectTest, InitMetadataSourceCheckSchemaVersion) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   int64 schema_version;
   TF_ASSERT_OK(metadata_access_object_->GetSchemaVersion(&schema_version));
   int64 local_schema_version = metadata_access_object_->GetLibraryVersion();
@@ -163,27 +194,34 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExists) {
 
 TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExistsErrorAborted) {
   // creates the schema and insert some records
-  TF_EXPECT_OK(metadata_access_object_->InitMetadataSourceIfNotExists());
-
+  TF_ASSERT_OK(metadata_access_object_->InitMetadataSourceIfNotExists());
   {
-    // delete some table
-    RecordSet record_set;
-    TF_EXPECT_OK(metadata_access_object_->metadata_source()->ExecuteQuery(
-        "DROP TABLE IF EXISTS `Type`;", &record_set));
+    TF_ASSERT_OK(metadata_access_object_container_->DropTypeTable());
     tensorflow::Status s =
         metadata_access_object_->InitMetadataSourceIfNotExists();
     EXPECT_EQ(s.code(), tensorflow::error::ABORTED)
         << "Expected ABORTED but got: " << s.error_message();
   }
+}
 
-  // reset the database by recreating all missing tables
+TEST_P(MetadataAccessObjectTest, InitForReset) {
+  // Tests if Init() can reset a corrupted database.
+  // Not applicable to all databases.
+  if (!metadata_access_object_container_->PerformExtendedTests()) {
+    return;
+  }
+  TF_ASSERT_OK(metadata_access_object_->InitMetadataSourceIfNotExists());
+  { TF_ASSERT_OK(metadata_access_object_container_->DropTypeTable()); }
   TF_EXPECT_OK(metadata_access_object_->InitMetadataSource());
+}
 
+TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExistsErrorAborted2) {
+  // Drop the artifact table (or artifact property table).
+  TF_EXPECT_OK(Init());
   {
     // drop a table.
     RecordSet record_set;
-    TF_ASSERT_OK(metadata_access_object_->metadata_source()->ExecuteQuery(
-        "DROP TABLE `Artifact`;", &record_set));
+    TF_ASSERT_OK(metadata_access_object_container_->DropArtifactTable());
     tensorflow::Status s =
         metadata_access_object_->InitMetadataSourceIfNotExists();
     EXPECT_EQ(s.code(), tensorflow::error::ABORTED)
@@ -192,13 +230,14 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExistsErrorAborted) {
 }
 
 TEST_P(MetadataAccessObjectTest, InitMetadataSourceSchemaVersionMismatch) {
+  if (!metadata_access_object_container_->PerformExtendedTests()) {
+    return;
+  }
   // creates the schema and insert some records
-  TF_EXPECT_OK(metadata_access_object_->InitMetadataSourceIfNotExists());
+  TF_ASSERT_OK(metadata_access_object_->InitMetadataSourceIfNotExists());
   {
     // delete the schema version
-    RecordSet record_set;
-    TF_EXPECT_OK(metadata_access_object_->metadata_source()->ExecuteQuery(
-        "DELETE FROM `MLMDEnv`;", &record_set));
+    TF_ASSERT_OK(metadata_access_object_container_->DeleteSchemaVersion());
     tensorflow::Status s =
         metadata_access_object_->InitMetadataSourceIfNotExists();
     EXPECT_EQ(s.code(), tensorflow::error::ABORTED)
@@ -208,16 +247,14 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceSchemaVersionMismatch) {
 
 TEST_P(MetadataAccessObjectTest, InitMetadataSourceSchemaVersionMismatch2) {
   // reset the database by recreating all missing tables
-  TF_EXPECT_OK(metadata_access_object_->InitMetadataSource());
+  TF_EXPECT_OK(Init());
   {
     // Change the `schema_version` to be a newer version.
     // fails precondition, as older library cannot work with newer db.
     // Note: at present, Version 4 is compatible with Version 5, so I bump
     // this to Version 6.
-    RecordSet record_set;
-    TF_EXPECT_OK(metadata_access_object_->metadata_source()->ExecuteQuery(
-        "UPDATE `MLMDEnv` SET `schema_version` = `schema_version` + 2;",
-        &record_set));
+    TF_ASSERT_OK(
+        metadata_access_object_container_->SetDatabaseVersionIncompatible());
     tensorflow::Status s =
         metadata_access_object_->InitMetadataSourceIfNotExists();
     EXPECT_EQ(s.code(), tensorflow::error::FAILED_PRECONDITION);
@@ -225,7 +262,7 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceSchemaVersionMismatch2) {
 }
 
 TEST_P(MetadataAccessObjectTest, CreateType) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ArtifactType type1 = ParseTextProtoOrDie<ArtifactType>("name: 'test_type'");
   int64 type1_id = -1;
   TF_EXPECT_OK(metadata_access_object_->CreateType(type1, &type1_id));
@@ -259,7 +296,7 @@ TEST_P(MetadataAccessObjectTest, CreateType) {
 }
 
 TEST_P(MetadataAccessObjectTest, CreateTypeError) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   {
     ArtifactType wrong_type;
     int64 type_id;
@@ -280,7 +317,7 @@ TEST_P(MetadataAccessObjectTest, CreateTypeError) {
 }
 
 TEST_P(MetadataAccessObjectTest, UpdateType) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ArtifactType type1 = ParseTextProtoOrDie<ArtifactType>(R"(
     name: 'type1'
     properties { key: 'stored_property' value: STRING })");
@@ -335,7 +372,7 @@ TEST_P(MetadataAccessObjectTest, UpdateType) {
 }
 
 TEST_P(MetadataAccessObjectTest, UpdateTypeError) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
     name: 'stored_type'
     properties { key: 'stored_property' value: STRING })");
@@ -378,7 +415,7 @@ TEST_P(MetadataAccessObjectTest, UpdateTypeError) {
 }
 
 TEST_P(MetadataAccessObjectTest, FindTypeById) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ArtifactType want_type = ParseTextProtoOrDie<ArtifactType>(R"(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
@@ -405,7 +442,7 @@ TEST_P(MetadataAccessObjectTest, FindTypeById) {
 }
 
 TEST_P(MetadataAccessObjectTest, FindTypeByIdContext) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ContextType want_type = ParseTextProtoOrDie<ContextType>(R"(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
@@ -432,7 +469,7 @@ TEST_P(MetadataAccessObjectTest, FindTypeByIdContext) {
 }
 
 TEST_P(MetadataAccessObjectTest, FindTypeByIdExecution) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ExecutionType want_type = ParseTextProtoOrDie<ExecutionType>(R"(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
@@ -461,7 +498,7 @@ TEST_P(MetadataAccessObjectTest, FindTypeByIdExecution) {
 }
 
 TEST_P(MetadataAccessObjectTest, FindTypeByIdExecutionUnicode) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ExecutionType want_type;
   want_type.set_name("пример_типа");
   (*want_type.mutable_properties())["привет"] = INT;
@@ -490,7 +527,7 @@ TEST_P(MetadataAccessObjectTest, FindTypeByIdExecutionUnicode) {
 
 // Test if an execution type can be stored without input_type and output_type.
 TEST_P(MetadataAccessObjectTest, FindTypeByIdExecutionNoSignature) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ExecutionType want_type = ParseTextProtoOrDie<ExecutionType>(R"(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
@@ -517,7 +554,7 @@ TEST_P(MetadataAccessObjectTest, FindTypeByIdExecutionNoSignature) {
 }
 
 TEST_P(MetadataAccessObjectTest, FindTypeByName) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ExecutionType want_type = ParseTextProtoOrDie<ExecutionType>(R"(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
@@ -547,7 +584,7 @@ TEST_P(MetadataAccessObjectTest, FindTypeByName) {
 
 // Test if an execution type can be stored without input_type and output_type.
 TEST_P(MetadataAccessObjectTest, FindTypeByNameNoSignature) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ExecutionType want_type = ParseTextProtoOrDie<ExecutionType>(R"(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
@@ -574,7 +611,7 @@ TEST_P(MetadataAccessObjectTest, FindTypeByNameNoSignature) {
 }
 
 TEST_P(MetadataAccessObjectTest, FindAllArtifactTypes) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ArtifactType want_type_1 = ParseTextProtoOrDie<ArtifactType>(R"(
     name: 'test_type_1'
     properties { key: 'property_1' value: INT }
@@ -611,7 +648,7 @@ TEST_P(MetadataAccessObjectTest, FindAllArtifactTypes) {
 }
 
 TEST_P(MetadataAccessObjectTest, FindAllExecutionTypes) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ExecutionType want_type_1 = ParseTextProtoOrDie<ExecutionType>(R"(
     name: 'test_type_1'
     properties { key: 'property_1' value: INT }
@@ -648,7 +685,7 @@ TEST_P(MetadataAccessObjectTest, FindAllExecutionTypes) {
 }
 
 TEST_P(MetadataAccessObjectTest, FindAllContextTypes) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ContextType want_type_1 = ParseTextProtoOrDie<ContextType>(R"(
     name: 'test_type_1'
     properties { key: 'property_1' value: INT }
@@ -685,7 +722,7 @@ TEST_P(MetadataAccessObjectTest, FindAllContextTypes) {
 }
 
 TEST_P(MetadataAccessObjectTest, CreateArtifact) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
     name: 'test_type_with_predefined_property'
     properties { key: 'property_1' value: INT }
@@ -722,7 +759,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifact) {
 }
 
 TEST_P(MetadataAccessObjectTest, CreateArtifactWithCustomProperty) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
     name: 'test_type_with_custom_property'
   )");
@@ -756,7 +793,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithCustomProperty) {
 }
 
 TEST_P(MetadataAccessObjectTest, CreateArtifactError) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
 
   // unknown type specified
   Artifact artifact;
@@ -788,7 +825,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactError) {
 }
 
 TEST_P(MetadataAccessObjectTest, FindArtifactById) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
@@ -831,7 +868,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactById) {
 }
 
 TEST_P(MetadataAccessObjectTest, FindAllArtifacts) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
@@ -882,7 +919,7 @@ TEST_P(MetadataAccessObjectTest, FindAllArtifacts) {
 }
 
 TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIds) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>("name: 'test_type'");
   int64 type_id;
   TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
@@ -920,7 +957,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIds) {
 }
 
 TEST_P(MetadataAccessObjectTest, FindArtifactsByURI) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>("name: 'test_type'");
   int64 type_id;
   TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
@@ -948,7 +985,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByURI) {
 }
 
 TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
@@ -1006,7 +1043,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
 }
 
 TEST_P(MetadataAccessObjectTest, UpdateArtifactError) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
@@ -1053,7 +1090,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactError) {
 }
 
 TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ExecutionType type = ParseTextProtoOrDie<ExecutionType>(R"(
     name: 'test_type_with_predefined_property'
     properties { key: 'property_1' value: INT }
@@ -1123,7 +1160,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
 }
 
 TEST_P(MetadataAccessObjectTest, UpdateExecution) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ExecutionType type = ParseTextProtoOrDie<ExecutionType>(R"(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
@@ -1170,7 +1207,7 @@ TEST_P(MetadataAccessObjectTest, UpdateExecution) {
 }
 
 TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ContextType type1 = ParseTextProtoOrDie<ContextType>(R"(
     name: 'test_type_with_predefined_property'
     properties { key: 'property_1' value: INT }
@@ -1237,15 +1274,17 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
       type2_id, "my_context2", &got_context_from_type_and_name2));
   EXPECT_THAT(got_context_from_type_and_name2, EqualsProto(context2));
   Context got_empty_context;
-  EXPECT_EQ(metadata_access_object_->FindContextByTypeIdAndName(
-      type1_id, "my_context2", &got_empty_context).code(),
+  EXPECT_EQ(metadata_access_object_
+                ->FindContextByTypeIdAndName(type1_id, "my_context2",
+                                             &got_empty_context)
+                .code(),
             tensorflow::error::NOT_FOUND);
   EXPECT_THAT(got_empty_context,
               EqualsProto(ParseTextProtoOrDie<Context>(R"()")));
 }
 
 TEST_P(MetadataAccessObjectTest, CreateContextError) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   Context context;
   int64 context_id;
 
@@ -1274,18 +1313,38 @@ TEST_P(MetadataAccessObjectTest, CreateContextError) {
   (*context.mutable_properties())["property_1"].set_int_value(3);
   EXPECT_EQ(metadata_access_object_->CreateContext(context, &context_id).code(),
             tensorflow::error::INVALID_ARGUMENT);
+}
+// When there is an index issue, in spanner both the individual command
+// fails, as well as the commit operation in the end.
+// TODO(martinz): uncomment.
+TEST_P(MetadataAccessObjectTest, CreateContextError2) {
+  TF_ASSERT_OK(Init());
+  Context context;
+  int64 context_id;
+
+  ContextType type = ParseTextProtoOrDie<ContextType>(R"(
+    name: 'test_type_disallow_custom_property'
+    properties { key: 'property_1' value: INT }
+  )");
+  int64 type_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
+
+  context.set_type_id(type_id);
 
   // duplicated name
   context.set_name("test context name");
   TF_EXPECT_OK(metadata_access_object_->CreateContext(context, &context_id));
   Context context_copy = context;
-  EXPECT_EQ(
+  ASSERT_EQ(
       metadata_access_object_->CreateContext(context_copy, &context_id).code(),
       tensorflow::error::ALREADY_EXISTS);
+
+  TF_ASSERT_OK(metadata_source_->Rollback());
+  TF_ASSERT_OK(metadata_source_->Begin());
 }
 
 TEST_P(MetadataAccessObjectTest, UpdateContext) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ContextType type = ParseTextProtoOrDie<ContextType>(R"(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
@@ -1332,7 +1391,7 @@ TEST_P(MetadataAccessObjectTest, UpdateContext) {
 }
 
 TEST_P(MetadataAccessObjectTest, CreateAndUseAssociation) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ExecutionType execution_type =
       ParseTextProtoOrDie<ExecutionType>("name: 'execution_type'");
   ContextType context_type =
@@ -1383,7 +1442,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndUseAssociation) {
 }
 
 TEST_P(MetadataAccessObjectTest, CreateAssociationError) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   Association association;
   int64 association_id;
   // no context id
@@ -1403,7 +1462,12 @@ TEST_P(MetadataAccessObjectTest, CreateAssociationError) {
       metadata_access_object_->CreateAssociation(association, &association_id)
           .code(),
       tensorflow::error::INVALID_ARGUMENT);
+}
 
+TEST_P(MetadataAccessObjectTest, CreateAssociationError2) {
+  TF_ASSERT_OK(Init());
+  Association association;
+  int64 association_id;
   // duplicated association
   ExecutionType execution_type =
       ParseTextProtoOrDie<ExecutionType>("name: 'execution_type'");
@@ -1433,10 +1497,12 @@ TEST_P(MetadataAccessObjectTest, CreateAssociationError) {
       metadata_access_object_->CreateAssociation(association, &association_id)
           .code(),
       tensorflow::error::ALREADY_EXISTS);
+  TF_ASSERT_OK(metadata_source_->Rollback());
+  TF_ASSERT_OK(metadata_source_->Begin());
 }
 
 TEST_P(MetadataAccessObjectTest, CreateAndUseAttribution) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ArtifactType artifact_type =
       ParseTextProtoOrDie<ArtifactType>("name: 'artifact_type'");
   ContextType context_type =
@@ -1488,7 +1554,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndUseAttribution) {
 
 // TODO(huimiao) Refactoring the test by setting up the types in utility methods
 TEST_P(MetadataAccessObjectTest, CreateAndFindEvent) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ArtifactType artifact_type;
   artifact_type.set_name("test_artifact_type");
   int64 artifact_type_id;
@@ -1560,7 +1626,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindEvent) {
 }
 
 TEST_P(MetadataAccessObjectTest, CreateEventError) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
 
   // no artifact id
   {
@@ -1617,7 +1683,7 @@ TEST_P(MetadataAccessObjectTest, CreateEventError) {
 }
 
 TEST_P(MetadataAccessObjectTest, PutEventsWithPaths) {
-  TF_ASSERT_OK(metadata_access_object_->InitMetadataSource());
+  TF_ASSERT_OK(Init());
   ArtifactType artifact_type;
   artifact_type.set_name("test_artifact_type");
   int64 artifact_type_id;
@@ -1694,9 +1760,8 @@ TEST_P(MetadataAccessObjectTest, PutEventsWithPaths) {
 TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
   // setup the database of previous version.
   int64 lib_version = metadata_access_object_->GetLibraryVersion();
-  for (int64 i = 1; i <= lib_version; i++) {
-    EXPECT_TRUE(metadata_access_object_container_->HasUpgradeVerification(i))
-        << "No upgrade verification for version " << i;
+  for (int64 i = metadata_access_object_container_->MinimumVersion();
+       i <= lib_version; i++) {
     if (!metadata_access_object_container_->HasUpgradeVerification(i)) {
       continue;
     }
@@ -1709,24 +1774,28 @@ TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
     TF_EXPECT_OK(metadata_access_object_->GetSchemaVersion(&v0_13_2_version));
     EXPECT_EQ(0, v0_13_2_version);
   }
-  // expect to have an error when connecting an older database version without
-  // enabling upgrade migration
-  tensorflow::Status status =
-      metadata_access_object_->InitMetadataSourceIfNotExists();
-  EXPECT_EQ(status.code(), tensorflow::error::FAILED_PRECONDITION);
+  // If there is only one version, then the following tests don't make sense.
+  if (metadata_access_object_container_->MinimumVersion() < lib_version) {
+    // expect to have an error when connecting an older database version without
+    // enabling upgrade migration
+    tensorflow::Status status =
+        metadata_access_object_->InitMetadataSourceIfNotExists();
+    EXPECT_EQ(status.code(), tensorflow::error::FAILED_PRECONDITION);
 
-  // then init the store and the migration queries runs.
-  TF_EXPECT_OK(metadata_access_object_->InitMetadataSourceIfNotExists(
-      /*enable_upgrade_migration=*/true));
-  // at the end state, schema version should becomes the library version and
-  // all migration queries should all succeed.
-  int64 curr_version = 0;
-  TF_EXPECT_OK(metadata_access_object_->GetSchemaVersion(&curr_version));
-  EXPECT_EQ(lib_version, curr_version);
-  // check the verification queries in the previous version scheme
-  if (metadata_access_object_container_->HasUpgradeVerification(lib_version)) {
-    TF_EXPECT_OK(
-        metadata_access_object_container_->UpgradeVerification(lib_version));
+    // then init the store and the migration queries runs.
+    TF_EXPECT_OK(metadata_access_object_->InitMetadataSourceIfNotExists(
+        /*enable_upgrade_migration=*/true));
+    // at the end state, schema version should becomes the library version and
+    // all migration queries should all succeed.
+    int64 curr_version = 0;
+    TF_EXPECT_OK(metadata_access_object_->GetSchemaVersion(&curr_version));
+    EXPECT_EQ(lib_version, curr_version);
+    // check the verification queries in the previous version scheme
+    if (metadata_access_object_container_->HasUpgradeVerification(
+            lib_version)) {
+      TF_EXPECT_OK(
+          metadata_access_object_container_->UpgradeVerification(lib_version));
+    }
   }
 }
 
@@ -1767,6 +1836,10 @@ TEST_P(MetadataAccessObjectTest, AutoMigrationTurnedOffByDefault) {
   TF_ASSERT_OK(metadata_access_object_->InitMetadataSourceIfNotExists());
   // downgrade when the database to version 0.
   int64 current_library_version = metadata_access_object_->GetLibraryVersion();
+  if (current_library_version ==
+      metadata_access_object_container_->MinimumVersion()) {
+    return;
+  }
   const int64 to_schema_version = current_library_version - 1;
   TF_ASSERT_OK(
       metadata_access_object_->DowngradeMetadataSource(to_schema_version));

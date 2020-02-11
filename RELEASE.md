@@ -36,6 +36,8 @@
 
 ## Bug Fixes and Other Changes
 
+*   Refactoring MetadataAccessObject to allow for more flexibility.
+
 ## Breaking Changes
 
 *   The Python API put_execution will need an extra input argument to pass in

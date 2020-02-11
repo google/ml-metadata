@@ -270,6 +270,7 @@ class QueryExecutor {
       int64 context_type_id,
       const absl::string_view name,
       RecordSet* record_set) = 0;
+
   // Updates a context in the Context table.
   virtual tensorflow::Status UpdateContextDirect(
       int64 existing_context_id, int64 type_id, const string& context_name) = 0;
