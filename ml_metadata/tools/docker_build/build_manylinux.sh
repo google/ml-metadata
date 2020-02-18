@@ -26,6 +26,7 @@ WORKING_DIR=$PWD
 
 function setup_environment() {
   source scl_source enable devtoolset-8
+  source scl_source enable rh-python36
   if [[ -z "${PYTHON_VERSION}" ]]; then
     echo "Must set PYTHON_VERSION env to 35|36|37|27"; exit 1;
   fi
