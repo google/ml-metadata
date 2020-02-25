@@ -113,6 +113,9 @@ class MetadataStoreTest(absltest.TestCase):
   def _get_test_type_name(self):
     return "test_type_{}".format(uuid.uuid4())
 
+  def _get_test_db_name(self):
+    return "test_mlmd_{}.db".format(uuid.uuid4())
+
   def test_unset_connection_config(self):
     connection_config = metadata_store_pb2.ConnectionConfig()
     for _ in range(3):
@@ -943,11 +946,13 @@ class MetadataStoreTest(absltest.TestCase):
     self.assertEqual(got_arifacts[0].uri, want_artifact.uri)
     self.assertEmpty(store.get_executions_by_context(want_context.id))
 
-  # TODO(b/284370894): Add E2E to test upgrade & downgrade scenarios.
   def test_downgrade_metadata_store(self):
     # create a metadata store and init to the current library version
+    db_file = os.path.join(absltest.get_default_test_tmpdir(),
+                           self._get_test_db_name())
+    if os.path.exists(db_file):
+      os.remove(db_file)
     connection_config = metadata_store_pb2.ConnectionConfig()
-    db_file = os.path.join(absltest.get_default_test_tmpdir(), "test.db")
     connection_config.sqlite.filename_uri = db_file
     metadata_store.MetadataStore(connection_config)
 
@@ -967,10 +972,12 @@ class MetadataStoreTest(absltest.TestCase):
         connection_config, downgrade_to_schema_version=0)
     os.remove(db_file)
 
-  # TODO(b/284370894): Add E2E to test upgrade & downgrade scenarios.
   def test_enable_metadata_store_upgrade_migration(self):
     # create a metadata store and downgrade to version 0
-    db_file = os.path.join(absltest.get_default_test_tmpdir(), "test.db")
+    db_file = os.path.join(absltest.get_default_test_tmpdir(),
+                           self._get_test_db_name())
+    if os.path.exists(db_file):
+      os.remove(db_file)
     connection_config = metadata_store_pb2.ConnectionConfig()
     connection_config.sqlite.filename_uri = db_file
     metadata_store.MetadataStore(connection_config)
