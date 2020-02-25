@@ -1117,10 +1117,10 @@ def downgrade_schema(config: metadata_store_pb2.ConnectionConfig,
 
 
 # See  _make_specific_exception in tensorflow.python.framework.errors
-def _make_exception(message, error_code):
+def _make_exception(msg, error_code):
   try:
     exc_type = errors.exception_type_from_error_code(error_code)
-    logging.log(logging.ERROR, 'mlmd client %s: %s', exc_type.__name__, message)
-    return exc_type(None, None, message)
+    logging.log(logging.WARNING, 'mlmd client %s: %s', exc_type.__name__, msg)
+    return exc_type(None, None, msg)
   except KeyError:
-    return errors.UnknownError(None, None, message, error_code)
+    return errors.UnknownError(None, None, msg, error_code)
