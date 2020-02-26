@@ -85,7 +85,7 @@ setup(
         'protobuf>=3.7,<4',
         'six>=1.10,<2',
         # TODO(b/143236826) revisit TF dependencies when absl status is ready.
-        'tensorflow>=1.15,!=2.0.*,<3',
+        'tensorflow>=1.15,!=2.0.*,<=2.1',
     ],
     python_requires='>=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,<4',
     packages=find_packages(),
