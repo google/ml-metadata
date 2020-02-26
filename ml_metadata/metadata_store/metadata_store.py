@@ -1120,7 +1120,9 @@ def downgrade_schema(config: metadata_store_pb2.ConnectionConfig,
 def _make_exception(msg, error_code):
   try:
     exc_type = errors.exception_type_from_error_code(error_code)
-    logging.log(logging.WARNING, 'mlmd client %s: %s', exc_type.__name__, msg)
+    # log internal backend engine errors only.
+    if error_code == errors.INTERNAL:
+      logging.log(logging.WARNING, 'mlmd client %s: %s', exc_type.__name__, msg)
     return exc_type(None, None, msg)
   except KeyError:
     return errors.UnknownError(None, None, msg, error_code)
