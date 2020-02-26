@@ -109,7 +109,7 @@ class QueryExecutor {
   // Inserts an artifact type into the database.
   // name is the name of the type.
   // type_id is the ID of the artifact type,
-  virtual tensorflow::Status InsertArtifactType(const string& name,
+  virtual tensorflow::Status InsertArtifactType(const std::string& name,
                                                 int64* type_id) = 0;
 
   // Inserts an execution type into the database.
@@ -118,14 +118,14 @@ class QueryExecutor {
   // if has_output_type is true, output_type must be a valid protocol buffer.
   // type_id is the resulting type of the execution.
   virtual tensorflow::Status InsertExecutionType(
-      const string& type_name, bool has_input_type,
+      const std::string& type_name, bool has_input_type,
       const google::protobuf::Message& input_type, bool has_output_type,
       const google::protobuf::Message& output_type, int64* type_id) = 0;
 
   // Inserts a context type into the database.
   // type_name is the name of the type.
   // type_id is the ID of the context type.
-  virtual tensorflow::Status InsertContextType(const string& type_name,
+  virtual tensorflow::Status InsertContextType(const std::string& type_name,
                                                int64* type_id) = 0;
 
   // Queries a type by its type id.
@@ -165,7 +165,7 @@ class QueryExecutor {
 
   // Inserts an artifact into the database.
   virtual tensorflow::Status InsertArtifact(int64 type_id,
-                                            const string& artifact_uri,
+                                            const std::string& artifact_uri,
                                             int64* artifact_id) = 0;
 
   // Queries an artifact from the Artifact table by its id.
@@ -186,7 +186,7 @@ class QueryExecutor {
   // Updates an artifact in the database.
   virtual tensorflow::Status UpdateArtifactDirect(int64 artifact_id,
                                                   int64 type_id,
-                                                  const string& uri) = 0;
+                                                  const std::string& uri) = 0;
 
   // Checks the existence of the ArtifactProperty table.
   virtual tensorflow::Status CheckArtifactPropertyTable() = 0;
@@ -254,7 +254,8 @@ class QueryExecutor {
   virtual tensorflow::Status CheckContextTable() = 0;
 
   // Inserts a context into the database.
-  virtual tensorflow::Status InsertContext(int64 type_id, const string& name,
+  virtual tensorflow::Status InsertContext(int64 type_id,
+                                           const std::string& name,
                                            int64* context_id) = 0;
 
   // Queries a context from the database by its id.
@@ -273,7 +274,8 @@ class QueryExecutor {
 
   // Updates a context in the Context table.
   virtual tensorflow::Status UpdateContextDirect(
-      int64 existing_context_id, int64 type_id, const string& context_name) = 0;
+      int64 existing_context_id, int64 type_id,
+      const std::string& context_name) = 0;
 
   // Checks the existence of the ContextProperty table.
   virtual tensorflow::Status CheckContextPropertyTable() = 0;

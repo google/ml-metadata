@@ -38,7 +38,7 @@ class SqliteMetadataSource : public MetadataSource {
   SqliteMetadataSource& operator=(const SqliteMetadataSource&) = delete;
 
   // Escape strings having single quotes using built-in printf in Sqlite3 C API.
-  string EscapeString(absl::string_view value) const final;
+  std::string EscapeString(absl::string_view value) const final;
 
  private:
   // Creates an in memory db.
@@ -49,7 +49,7 @@ class SqliteMetadataSource : public MetadataSource {
   tensorflow::Status CloseImpl() final;
 
   // Executes a SQL statement and returns the rows if any.
-  tensorflow::Status ExecuteQueryImpl(const string& query,
+  tensorflow::Status ExecuteQueryImpl(const std::string& query,
                                       RecordSet* results) final;
 
   // Commits a transaction.
@@ -62,7 +62,7 @@ class SqliteMetadataSource : public MetadataSource {
   tensorflow::Status BeginImpl() final;
 
   // Util methods to execute query.
-  tensorflow::Status RunStatement(const string& query, RecordSet* results);
+  tensorflow::Status RunStatement(const std::string& query, RecordSet* results);
 
   // The sqlite3 handle to a database.
   sqlite3* db_ = nullptr;

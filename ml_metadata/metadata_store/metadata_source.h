@@ -81,7 +81,7 @@ class MetadataSource {
   // Returns FAILED_PRECONDITION error, if Connection() is not opened.
   // Returns detailed INTERNAL error, if query execution fails.
   // Returns FAILED_PRECONDITION error, if a transaction has not begun.
-  tensorflow::Status ExecuteQuery(const string& query, RecordSet* results);
+  tensorflow::Status ExecuteQuery(const std::string& query, RecordSet* results);
 
   // Begins (opens) a transaction.
   // Returns FAILED_PRECONDITION error, if Connection() is not opened.
@@ -104,7 +104,7 @@ class MetadataSource {
   // Utility method to escape characters specific to the metadata source. The
   // returned string is used to bind text parameters for query composition. The
   // escaping characters and method depends on the metadata source backend.
-  virtual string EscapeString(absl::string_view value) const = 0;
+  virtual std::string EscapeString(absl::string_view value) const = 0;
 
   bool is_connected() const { return is_connected_; }
 
@@ -123,7 +123,7 @@ class MetadataSource {
   virtual tensorflow::Status CloseImpl() = 0;
 
   // Implementation of executing queries.
-  virtual tensorflow::Status ExecuteQueryImpl(const string& query,
+  virtual tensorflow::Status ExecuteQueryImpl(const std::string& query,
                                               RecordSet* results) = 0;
 
   // Implementation of opening a transaction.

@@ -217,37 +217,43 @@ tensorflow::Status QueryConfigExecutor::DowngradeMetadataSource(
   return tensorflow::Status::OK();
 }
 
-string QueryConfigExecutor::Bind(const char* value) {
+std::string QueryConfigExecutor::Bind(const char* value) {
   return absl::StrCat("'", metadata_source_->EscapeString(value), "'");
 }
 
-string QueryConfigExecutor::Bind(absl::string_view value) {
+std::string QueryConfigExecutor::Bind(absl::string_view value) {
   return absl::StrCat("'", metadata_source_->EscapeString(value), "'");
 }
 
-string QueryConfigExecutor::Bind(int value) { return std::to_string(value); }
-
-string QueryConfigExecutor::Bind(int64 value) { return std::to_string(value); }
-
-string QueryConfigExecutor::Bind(double value) { return std::to_string(value); }
-
-string QueryConfigExecutor::Bind(bool value) { return value ? "1" : "0"; }
-
-// Utility method to bind an Event::Type enum value to a SQL clause.
-// Event::Type is an enum (integer), EscapeString is not applicable.
-string QueryConfigExecutor::Bind(const Event::Type value) {
+std::string QueryConfigExecutor::Bind(int value) {
   return std::to_string(value);
 }
 
-string QueryConfigExecutor::Bind(PropertyType value) {
+std::string QueryConfigExecutor::Bind(int64 value) {
+  return std::to_string(value);
+}
+
+std::string QueryConfigExecutor::Bind(double value) {
+  return std::to_string(value);
+}
+
+std::string QueryConfigExecutor::Bind(bool value) { return value ? "1" : "0"; }
+
+// Utility method to bind an Event::Type enum value to a SQL clause.
+// Event::Type is an enum (integer), EscapeString is not applicable.
+std::string QueryConfigExecutor::Bind(const Event::Type value) {
+  return std::to_string(value);
+}
+
+std::string QueryConfigExecutor::Bind(PropertyType value) {
   return std::to_string((int)value);
 }
 
-string QueryConfigExecutor::Bind(TypeKind value) {
+std::string QueryConfigExecutor::Bind(TypeKind value) {
   return std::to_string((int)value);
 }
 
-string QueryConfigExecutor::BindValue(const Value& value) {
+std::string QueryConfigExecutor::BindValue(const Value& value) {
   switch (value.value_case()) {
     case PropertyType::INT:
       return Bind(value.int_value());
@@ -263,7 +269,7 @@ string QueryConfigExecutor::BindValue(const Value& value) {
   }
 }
 
-string QueryConfigExecutor::BindDataType(const Value& value) {
+std::string QueryConfigExecutor::BindDataType(const Value& value) {
   switch (value.value_case()) {
     case PropertyType::INT: {
       return "int_value";
@@ -283,9 +289,10 @@ string QueryConfigExecutor::BindDataType(const Value& value) {
   }
 }
 
-string QueryConfigExecutor::Bind(bool exists, const google::protobuf::Message& message) {
+std::string QueryConfigExecutor::Bind(bool exists,
+                                      const google::protobuf::Message& message) {
   if (exists) {
-    string json_output;
+    std::string json_output;
     CHECK(::google::protobuf::util::MessageToJsonString(message, &json_output).ok())
         << "Could not write proto to JSON: " << message.DebugString();
     return Bind(json_output);
@@ -301,19 +308,19 @@ string QueryConfigExecutor::Bind(
 }
 #endif
 
-tensorflow::Status QueryConfigExecutor::ExecuteQuery(const string& query) {
+tensorflow::Status QueryConfigExecutor::ExecuteQuery(const std::string& query) {
   RecordSet record_set;
   return metadata_source_->ExecuteQuery(query, &record_set);
 }
 
-tensorflow::Status QueryConfigExecutor::ExecuteQuery(const string& query,
+tensorflow::Status QueryConfigExecutor::ExecuteQuery(const std::string& query,
                                                      RecordSet* record_set) {
   return metadata_source_->ExecuteQuery(query, record_set);
 }
 
 tensorflow::Status QueryConfigExecutor::ExecuteQuery(
     const MetadataSourceQueryConfig::TemplateQuery& template_query,
-    const std::vector<string>& parameters, RecordSet* record_set) {
+    const std::vector<std::string>& parameters, RecordSet* record_set) {
   if (parameters.size() > 10) {
     return tensorflow::errors::InvalidArgument(
         "Template query has too many parameters (at most 10 is supported).");
@@ -323,7 +330,7 @@ tensorflow::Status QueryConfigExecutor::ExecuteQuery(
                << "parameters size (" << parameters.size()
                << "): " << template_query.DebugString();
   }
-  std::vector<std::pair<const string, const string>> replacements;
+  std::vector<std::pair<const std::string, const std::string>> replacements;
   replacements.reserve(parameters.size());
   for (int i = 0; i < parameters.size(); i++) {
     replacements.push_back({absl::StrCat("$", i), parameters[i]});
@@ -400,7 +407,7 @@ tensorflow::Status QueryConfigExecutor::InitMetadataSourceIfNotExists(
   checks.push_back(CheckContextPropertyTable());
   checks.push_back(CheckAssociationTable());
   checks.push_back(CheckAttributionTable());
-  std::vector<string> missing_schema_error_messages;
+  std::vector<std::string> missing_schema_error_messages;
   for (tensorflow::Status check : checks) {
     if (!check.ok()) {
       missing_schema_error_messages.push_back(check.error_message());
@@ -424,7 +431,7 @@ tensorflow::Status QueryConfigExecutor::InitMetadataSourceIfNotExists(
 }
 
 tensorflow::Status QueryConfigExecutor::InsertExecutionType(
-    const string& type_name, bool has_input_type,
+    const std::string& type_name, bool has_input_type,
     const google::protobuf::Message& input_type, bool has_output_type,
     const google::protobuf::Message& output_type, int64* execution_type_id) {
   return ExecuteQuerySelectLastInsertID(

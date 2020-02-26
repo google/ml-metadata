@@ -44,7 +44,7 @@ using tensorflow::protobuf::TextFormat;
 
 class ProtoStringMatcher {
  public:
-  explicit ProtoStringMatcher(const string& expected);
+  explicit ProtoStringMatcher(const std::string& expected);
   explicit ProtoStringMatcher(const ::tensorflow::protobuf::Message& expected);
 
   template <typename Message>
@@ -57,11 +57,11 @@ class ProtoStringMatcher {
   }
 
  private:
-  const string expected_;
+  const std::string expected_;
 };
 
 template <typename T>
-T CreateProto(const string& textual_proto) {
+T CreateProto(const std::string& textual_proto) {
   T proto;
   CHECK(TextFormat::ParseFromString(textual_proto, &proto));
   return proto;
@@ -76,7 +76,7 @@ bool ProtoStringMatcher::MatchAndExplain(
 
 // Polymorphic matcher to compare any two protos.
 inline ::testing::PolymorphicMatcher<ProtoStringMatcher> EqualsProto(
-    const string& x) {
+    const std::string& x) {
   return ::testing::MakePolymorphicMatcher(ProtoStringMatcher(x));
 }
 
@@ -88,7 +88,7 @@ inline ::testing::PolymorphicMatcher<ProtoStringMatcher> EqualsProto(
 
 // Parse input string as a protocol buffer.
 template <typename T>
-T ParseTextProtoOrDie(const string& input) {
+T ParseTextProtoOrDie(const std::string& input) {
   T result;
   CHECK(TextFormat::ParseFromString(input, &result))
       << "Failed to parse: " << input;

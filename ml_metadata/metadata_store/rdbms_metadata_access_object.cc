@@ -64,9 +64,9 @@ tensorflow::Status ParseValueToField(
   switch (field_descriptor->cpp_type()) {
     case google::protobuf::FieldDescriptor::CppType::CPPTYPE_STRING: {
       if (field_descriptor->is_repeated())
-        reflection->AddString(message, field_descriptor, string(value));
+        reflection->AddString(message, field_descriptor, std::string(value));
       else
-        reflection->SetString(message, field_descriptor, string(value));
+        reflection->SetString(message, field_descriptor, std::string(value));
       break;
     }
     case google::protobuf::FieldDescriptor::CppType::CPPTYPE_INT64: {
@@ -103,7 +103,7 @@ tensorflow::Status ParseValueToField(
         ::google::protobuf::Message* sub_message =
             reflection->MutableMessage(message, field_descriptor);
         if (!::google::protobuf::util::JsonStringToMessage(
-                 string(value.begin(), value.size()), sub_message)
+                 std::string(value.begin(), value.size()), sub_message)
                  .ok()) {
           return tensorflow::errors::Internal(
               ::absl::StrCat("Failed to parse proto: ", value));
@@ -129,11 +129,11 @@ tensorflow::Status ParseRecordSetToMessage(const RecordSet& record_set,
   CHECK_LT(record_index, record_set.records_size());
   const google::protobuf::Descriptor* descriptor = message->descriptor();
   for (int i = 0; i < record_set.column_names_size(); i++) {
-    const string& column_name = record_set.column_names(i);
+    const std::string& column_name = record_set.column_names(i);
     const google::protobuf::FieldDescriptor* field_descriptor =
         descriptor->FindFieldByName(column_name);
     if (field_descriptor != nullptr) {
-      const string& value = record_set.records(record_index).values(i);
+      const std::string& value = record_set.records(record_index).values(i);
       TF_RETURN_IF_ERROR(ParseValueToField(field_descriptor, value, message));
     }
   }
@@ -157,7 +157,7 @@ tensorflow::Status ParseRecordSetToMessageArray(
 // message's map field with field_name using the rows in the given record_set.
 template <typename MessageType>
 tensorflow::Status ParseRecordSetToMapField(const RecordSet& record_set,
-                                            const string& field_name,
+                                            const std::string& field_name,
                                             MessageType* message) {
   const google::protobuf::Descriptor* descriptor = message->descriptor();
   const google::protobuf::Reflection* reflection = message->GetReflection();
@@ -176,8 +176,8 @@ tensorflow::Status ParseRecordSetToMapField(const RecordSet& record_set,
   for (const RecordSet::Record& record : record_set.records()) {
     google::protobuf::Message* map_field_message =
         reflection->AddMessage(message, map_field_descriptor);
-    const string& key = record.values(0);
-    const string& value = record.values(1);
+    const std::string& key = record.values(0);
+    const std::string& value = record.values(1);
     TF_RETURN_IF_ERROR(
         ParseValueToField(key_descriptor, key, map_field_message));
     TF_RETURN_IF_ERROR(
@@ -195,9 +195,10 @@ tensorflow::Status ParseRecordSetToMapField(const RecordSet& record_set,
 template <typename Node, typename Type>
 tensorflow::Status ValidatePropertiesWithType(const Node& node,
                                               const Type& type) {
-  const google::protobuf::Map<string, PropertyType>& type_properties = type.properties();
+  const google::protobuf::Map<std::string, PropertyType>& type_properties =
+      type.properties();
   for (const auto& p : node.properties()) {
-    const string& property_name = p.first;
+    const std::string& property_name = p.first;
     const Value& property_value = p.second;
     // Note that this is a google::protobuf::Map, not a std::map.
     if (type_properties.find(property_name) == type_properties.end())
@@ -378,12 +379,12 @@ tensorflow::Status RDBMSMetadataAccessObject::DeleteProperty(
 // properties.
 template <typename NodeType>
 tensorflow::Status RDBMSMetadataAccessObject::ModifyProperties(
-    const google::protobuf::Map<string, Value>& curr_properties,
-    const google::protobuf::Map<string, Value>& prev_properties, const int64 node_id,
+    const google::protobuf::Map<std::string, Value>& curr_properties,
+    const google::protobuf::Map<std::string, Value>& prev_properties, const int64 node_id,
     const bool is_custom_property) {
   // generates delete clauses for properties in P \ C
   for (const auto& p : prev_properties) {
-    const string& name = p.first;
+    const std::string& name = p.first;
     const Value& value = p.second;
     // check the 2-tuple (name, value_type) in prev_properties
     if (curr_properties.find(name) != curr_properties.end() &&
@@ -394,7 +395,7 @@ tensorflow::Status RDBMSMetadataAccessObject::ModifyProperties(
   }
 
   for (const auto& p : curr_properties) {
-    const string& name = p.first;
+    const std::string& name = p.first;
     const Value& value = p.second;
     const auto prev_value_it = prev_properties.find(name);
     if (prev_value_it != prev_properties.end() &&
@@ -441,8 +442,9 @@ tensorflow::Status RDBMSMetadataAccessObject::InsertTypeID(
 template <typename Type>
 tensorflow::Status RDBMSMetadataAccessObject::CreateTypeImpl(const Type& type,
                                                              int64* type_id) {
-  const string& type_name = type.name();
-  const google::protobuf::Map<string, PropertyType>& type_properties = type.properties();
+  const std::string& type_name = type.name();
+  const google::protobuf::Map<std::string, PropertyType>& type_properties =
+      type.properties();
 
   // validate the given type
   if (type_name.empty())
@@ -455,7 +457,7 @@ tensorflow::Status RDBMSMetadataAccessObject::CreateTypeImpl(const Type& type,
 
   // insert type properties and commit
   for (const auto& property : type_properties) {
-    const string& property_name = property.first;
+    const std::string& property_name = property.first;
     const PropertyType property_type = property.second;
     if (property_type == PropertyType::UNKNOWN) {
       LOG(ERROR) << "Property " << property_name << "'s value type is UNKNOWN.";
@@ -571,10 +573,10 @@ tensorflow::Status RDBMSMetadataAccessObject::UpdateTypeImpl(const Type& type) {
         stored_type.DebugString());
   }
   // updates the list of type properties
-  const google::protobuf::Map<string, PropertyType>& stored_properties =
+  const google::protobuf::Map<std::string, PropertyType>& stored_properties =
       stored_type.properties();
   for (const auto& p : type.properties()) {
-    const string& property_name = p.first;
+    const std::string& property_name = p.first;
     const PropertyType property_type = p.second;
     if (property_type == PropertyType::UNKNOWN) {
       return tensorflow::errors::InvalidArgument(
@@ -621,7 +623,7 @@ tensorflow::Status RDBMSMetadataAccessObject::CreateNodeImpl(const Node& node,
   TF_RETURN_IF_ERROR(CreateBasicNode(node, node_id));
 
   // insert properties
-  const google::protobuf::Map<string, Value> prev_properties;
+  const google::protobuf::Map<std::string, Value> prev_properties;
   TF_RETURN_IF_ERROR(ModifyProperties<NodeType>(node.properties(),
                                                 prev_properties, *node_id,
                                                 /*is_custom_property=*/false));
@@ -657,7 +659,7 @@ tensorflow::Status RDBMSMetadataAccessObject::FindNodeImpl(const int64 node_id,
   // if there are properties associated with the node, parse the returned values
   CHECK_EQ(properties_record_set.column_names_size(), 5);
   for (const RecordSet::Record& record : properties_record_set.records()) {
-    const string& property_name = record.values(0);
+    const std::string& property_name = record.values(0);
     bool is_custom_property;
     CHECK(absl::SimpleAtob(record.values(1), &is_custom_property));
     auto& property_value =
@@ -673,7 +675,7 @@ tensorflow::Status RDBMSMetadataAccessObject::FindNodeImpl(const int64 node_id,
       CHECK(absl::SimpleAtod(record.values(3), &double_value));
       property_value.set_double_value(double_value);
     } else {
-      const string& string_value = record.values(4);
+      const std::string& string_value = record.values(4);
       property_value.set_string_value(string_value);
     }
   }

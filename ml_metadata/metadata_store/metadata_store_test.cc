@@ -82,7 +82,8 @@ TEST_F(MetadataStoreTest, SpecifyDowngradeMigrationWhenCreate) {
   // the library version
   const MetadataSourceQueryConfig& query_config =
       util::GetSqliteMetadataSourceQueryConfig();
-  string filename_uri = absl::StrCat(::testing::TempDir(), "test_shared.db");
+  std::string filename_uri =
+      absl::StrCat(::testing::TempDir(), "test_shared.db");
   SqliteMetadataSourceConfig connection_config;
   connection_config.set_filename_uri(filename_uri);
 

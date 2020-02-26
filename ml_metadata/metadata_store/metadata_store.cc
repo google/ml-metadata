@@ -38,7 +38,7 @@ bool CheckFieldsConsistent(const T& stored_type, const T& other_type,
   }
   // Make sure every property in a is in b, and has the same type.
   for (const auto& pair : stored_type.properties()) {
-    const string& key = pair.first;
+    const std::string& key = pair.first;
     const PropertyType value = pair.second;
     const auto other_iter = other_type.properties().find(key);
     if (other_iter == other_type.properties().end()) {

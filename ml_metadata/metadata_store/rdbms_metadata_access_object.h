@@ -248,9 +248,9 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // `is_custom_property` (which indicates the space of the given properties.
   template <typename NodeType>
   tensorflow::Status ModifyProperties(
-      const google::protobuf::Map<string, Value>& curr_properties,
-      const google::protobuf::Map<string, Value>& prev_properties, const int64 node_id,
-      const bool is_custom_property);
+      const google::protobuf::Map<std::string, Value>& curr_properties,
+      const google::protobuf::Map<std::string, Value>& prev_properties,
+      const int64 node_id, const bool is_custom_property);
 
   // Creates a query to insert an artifact type.
   tensorflow::Status InsertTypeID(const ArtifactType& type, int64* type_id);

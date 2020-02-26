@@ -70,7 +70,7 @@ class SqliteMetadataSourceTest : public ::testing::Test {
   // by default, use a in-memory Sqlite3 metadata source for each tes
   std::unique_ptr<MetadataSource> metadata_source_;
 
-  string filename_uri_;
+  std::string filename_uri_;
 };
 
 TEST_F(SqliteMetadataSourceTest, TestQueryWithoutConnect) {

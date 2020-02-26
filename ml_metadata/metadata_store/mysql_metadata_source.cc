@@ -80,7 +80,7 @@ Status ThreadInitAccess() {
 
 // Checks if config is valid.
 Status CheckConfig(const MySQLDatabaseConfig& config) {
-  std::vector<string> config_errors;
+  std::vector<std::string> config_errors;
   if (config.host().empty() == config.socket().empty()) {
     config_errors.push_back("exactly one of host or socket must be specified");
   }
@@ -146,12 +146,12 @@ Status MySqlMetadataSource::ConnectImpl() {
       "checking transaction support of default storage engine");
 
   // Create the database if not already present and switch to it.
-  const string create_database_cmd =
+  const std::string create_database_cmd =
       absl::StrCat("CREATE DATABASE IF NOT EXISTS ", config_.database());
   TF_RETURN_WITH_CONTEXT_IF_ERROR(RunQuery(create_database_cmd),
                                   "Creating database ", config_.database(),
                                   " in ConnectImpl");
-  const string use_database_cmd = absl::StrCat("USE ", config_.database());
+  const std::string use_database_cmd = absl::StrCat("USE ", config_.database());
   TF_RETURN_WITH_CONTEXT_IF_ERROR(RunQuery(use_database_cmd),
                                   "Changing to database ", config_.database(),
                                   " in ConnectImpl");
@@ -169,7 +169,7 @@ Status MySqlMetadataSource::CloseImpl() {
   return Status::OK();
 }
 
-Status MySqlMetadataSource::ExecuteQueryImpl(const string& query,
+Status MySqlMetadataSource::ExecuteQueryImpl(const std::string& query,
                                              RecordSet* results) {
   TF_RETURN_WITH_CONTEXT_IF_ERROR(
       ThreadInitAccess(), "MySql thread init failed at ExecuteQueryImpl");
@@ -230,7 +230,7 @@ Status MySqlMetadataSource::CheckTransactionSupport() {
   return Status::OK();
 }
 
-Status MySqlMetadataSource::RunQuery(const string& query) {
+Status MySqlMetadataSource::RunQuery(const std::string& query) {
   DiscardResultSet();
 
   int query_status = mysql_query(db_, query.c_str());
@@ -289,7 +289,7 @@ Status MySqlMetadataSource::ConvertMySqlRowSetToRecordSet(
   MYSQL_ROW row;
   while ((row = mysql_fetch_row(result_set_)) != nullptr) {
     RecordSet::Record record;
-    std::vector<string> col_names;
+    std::vector<std::string> col_names;
 
     uint32 num_cols = mysql_num_fields(result_set_);
     for (uint32 col = 0; col < num_cols; ++col) {
@@ -298,7 +298,7 @@ Status MySqlMetadataSource::ConvertMySqlRowSetToRecordSet(
         return errors::Internal(
             "Error in retrieving column description for index ", col);
       }
-      const string col_name(field->org_name);
+      const std::string col_name(field->org_name);
       if (record_set.column_names().empty()) {
         col_names.push_back(col_name);
       }
@@ -322,7 +322,7 @@ Status MySqlMetadataSource::ConvertMySqlRowSetToRecordSet(
   return Status::OK();
 }
 
-string MySqlMetadataSource::EscapeString(absl::string_view value) const {
+std::string MySqlMetadataSource::EscapeString(absl::string_view value) const {
   CHECK(db_ != nullptr);
   // in the worst case, each character needs to be escaped by backslash, and the
   // string is appended an additional terminating null character.
@@ -330,7 +330,7 @@ string MySqlMetadataSource::EscapeString(absl::string_view value) const {
   CHECK(mysql_real_escape_string(db_, buffer, value.data(), value.length()) !=
         -1UL)
       << "NO_BACKSLASH_ESCAPES SQL mode should not be enabled.";
-  string result(buffer);
+  std::string result(buffer);
   delete[] buffer;
   return result;
 }

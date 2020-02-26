@@ -27,11 +27,11 @@ class MockMetadataSource : public MetadataSource {
   MOCK_METHOD0(ConnectImpl, tensorflow::Status());
   MOCK_METHOD0(CloseImpl, tensorflow::Status());
   MOCK_METHOD0(BeginImpl, tensorflow::Status());
-  MOCK_METHOD2(ExecuteQueryImpl,
-               tensorflow::Status(const string& query, RecordSet* results));
+  MOCK_METHOD2(ExecuteQueryImpl, tensorflow::Status(const std::string& query,
+                                                    RecordSet* results));
   MOCK_METHOD0(CommitImpl, tensorflow::Status());
   MOCK_METHOD0(RollbackImpl, tensorflow::Status());
-  MOCK_CONST_METHOD1(EscapeString, string(absl::string_view value));
+  MOCK_CONST_METHOD1(EscapeString, std::string(absl::string_view value));
 };
 
 TEST(MetadataSourceTest, ConnectAgainWithoutClose) {
@@ -67,7 +67,7 @@ TEST(MetadataSourceTest, ConnectThenCloseThenConnectAgain) {
 
 TEST(MetadataSourceTest, TestExecuteQueryWithoutConnect) {
   MockMetadataSource mock_metadata_source;
-  string query = "some query";
+  std::string query = "some query";
   RecordSet result;
   EXPECT_CALL(mock_metadata_source, ExecuteQueryImpl(query, &result)).Times(0);
   tensorflow::Status s = mock_metadata_source.ExecuteQuery(query, &result);
@@ -76,7 +76,7 @@ TEST(MetadataSourceTest, TestExecuteQueryWithoutConnect) {
 
 TEST(MetadataSourceTest, TestExecuteQueryWithoutBegin) {
   MockMetadataSource mock_metadata_source;
-  string query = "some query";
+  std::string query = "some query";
   RecordSet result;
   EXPECT_CALL(mock_metadata_source, ExecuteQueryImpl(query, &result)).Times(0);
   TF_EXPECT_OK(mock_metadata_source.Connect());
@@ -180,7 +180,7 @@ TEST(MetadataSourceTest, TestBeginWithoutConnect) {
 TEST(MetadataSourceTest, TestExecuteTransactionCommit) {
   MockMetadataSource mock_metadata_source;
   TF_EXPECT_OK(mock_metadata_source.Connect());
-  string query = "some query";
+  std::string query = "some query";
   RecordSet result;
 
   EXPECT_CALL(mock_metadata_source, BeginImpl()).Times(1);
@@ -197,7 +197,7 @@ TEST(MetadataSourceTest, TestExecuteTransactionCommit) {
 TEST(MetadataSourceTest, TestExecuteTransactionRollback) {
   MockMetadataSource mock_metadata_source;
   TF_EXPECT_OK(mock_metadata_source.Connect());
-  string query = "some query";
+  std::string query = "some query";
   RecordSet result;
   tensorflow::Status want_status =
       tensorflow::errors::Internal("Some internal error afterwards");
@@ -219,7 +219,7 @@ TEST(MetadataSourceTest, TestExecuteTransactionRollback) {
 
 TEST(MetadataSourceTest, TestExecuteTransactionError) {
   MockMetadataSource mock_metadata_source;
-  string query = "some query";
+  std::string query = "some query";
   RecordSet result;
   EXPECT_CALL(mock_metadata_source, BeginImpl()).Times(0);
   EXPECT_CALL(mock_metadata_source, ExecuteQueryImpl(query, &result)).Times(0);

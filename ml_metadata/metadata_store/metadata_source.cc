@@ -38,7 +38,7 @@ tensorflow::Status MetadataSource::Close() {
   return tensorflow::Status::OK();
 }
 
-tensorflow::Status MetadataSource::ExecuteQuery(const string& query,
+tensorflow::Status MetadataSource::ExecuteQuery(const std::string& query,
                                                 RecordSet* results) {
   if (!is_connected_)
     return tensorflow::errors::FailedPrecondition(

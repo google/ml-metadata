@@ -42,7 +42,7 @@ class MySqlMetadataSource : public MetadataSource {
   // Escape strings with backslashes for special characters for mysql. The
   // implementation uses mysql_real_escape_string in MySql C API. It aborts if
   // the metadata source is not connected.
-  string EscapeString(absl::string_view value) const final;
+  std::string EscapeString(absl::string_view value) const final;
 
  private:
   // Connects to the MYSQL backend specified in options_.
@@ -58,7 +58,7 @@ class MySqlMetadataSource : public MetadataSource {
 
   // Executes a SQL statement and returns the rows if any.
   // Returns an INTERNAL error upon any errors from the MYSQL backend.
-  tensorflow::Status ExecuteQueryImpl(const string& query,
+  tensorflow::Status ExecuteQueryImpl(const std::string& query,
                                       RecordSet* results) final;
 
   // Commits the currently open transaction.
@@ -75,7 +75,7 @@ class MySqlMetadataSource : public MetadataSource {
   // Any existing MYSQL_RES in `result_set_` is cleaned up prior to issuing
   // the given query.
   // Returns an INTERNAL error upon any errors from the MYSQL backend.
-  tensorflow::Status RunQuery(const string& query);
+  tensorflow::Status RunQuery(const std::string& query);
 
   // Discards any existing MYSQL_RES in `result_set_`.
   void DiscardResultSet();

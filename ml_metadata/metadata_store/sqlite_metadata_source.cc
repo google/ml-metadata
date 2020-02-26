@@ -103,7 +103,7 @@ SqliteMetadataSource::~SqliteMetadataSource() { TF_CHECK_OK(CloseImpl()); }
 tensorflow::Status SqliteMetadataSource::ConnectImpl() {
   if (sqlite3_open_v2(config_.filename_uri().c_str(), &db_,
                       GetConnectionFlag(config_), nullptr) != SQLITE_OK) {
-    string error_message = sqlite3_errmsg(db_);
+    std::string error_message = sqlite3_errmsg(db_);
     sqlite3_close(db_);
     db_ = nullptr;
     return tensorflow::errors::Internal("Cannot connect sqlite3 database: ",
@@ -127,11 +127,11 @@ tensorflow::Status SqliteMetadataSource::CloseImpl() {
 }
 
 tensorflow::Status SqliteMetadataSource::RunStatement(
-    const string& query, RecordSet* results = nullptr) {
+    const std::string& query, RecordSet* results = nullptr) {
   char* error_message;
   if (sqlite3_exec(db_, query.c_str(), &ConvertSqliteResultsToRecordSet,
                    results, &error_message) != SQLITE_OK) {
-    string error_details = error_message;
+    std::string error_details = error_message;
     sqlite3_free(error_message);
     if (absl::StrContains(error_details, "database is locked")) {
       return tensorflow::errors::Aborted(
@@ -143,8 +143,8 @@ tensorflow::Status SqliteMetadataSource::RunStatement(
   return tensorflow::Status::OK();
 }
 
-tensorflow::Status SqliteMetadataSource::ExecuteQueryImpl(const string& query,
-                                                          RecordSet* results) {
+tensorflow::Status SqliteMetadataSource::ExecuteQueryImpl(
+    const std::string& query, RecordSet* results) {
   return RunStatement(query, results);
 }
 
@@ -160,7 +160,7 @@ tensorflow::Status SqliteMetadataSource::RollbackImpl() {
   return RunStatement(kRollbackTransaction);
 }
 
-string SqliteMetadataSource::EscapeString(absl::string_view value) const {
+std::string SqliteMetadataSource::EscapeString(absl::string_view value) const {
   return SqliteEscapeString(value);
 }
 
