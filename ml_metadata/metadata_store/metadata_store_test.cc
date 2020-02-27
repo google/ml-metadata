@@ -32,6 +32,7 @@ namespace {
 
 using ::ml_metadata::testing::ParseTextProtoOrDie;
 using ::testing::ElementsAre;
+using ::testing::UnorderedElementsAre;
 using ::testing::SizeIs;
 
 class MetadataStoreTest : public ::testing::Test {
@@ -2138,6 +2139,38 @@ TEST_F(MetadataStoreTest, PutAndUseAttributionsAndAssociations) {
   ASSERT_THAT(get_executions_by_context_response.executions(), SizeIs(1));
   EXPECT_THAT(get_executions_by_context_response.executions(0),
               testing::EqualsProto(want_execution));
+
+  // Add another artifact.
+  Artifact want_artifact_2;
+  want_artifact_2.set_uri("testuri2");
+  want_artifact_2.set_type_id(artifact_type_id);
+  PutArtifactsRequest put_artifacts_request_2;
+  *put_artifacts_request_2.add_artifacts() = want_artifact_2;
+  PutArtifactsResponse put_artifacts_response_2;
+  TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request_2,
+                                             &put_artifacts_response_2));
+  ASSERT_THAT(put_artifacts_response_2.artifact_ids(), SizeIs(1));
+  want_artifact_2.set_id(put_artifacts_response_2.artifact_ids(0));
+
+  // Reinsert association and append another attribution for the new Artifact.
+  // Notice that the request now contains one existing association, one existing
+  // attribution and a new attribution.
+  Attribution* attribution_2 = request.add_attributions();
+  attribution_2->set_artifact_id(want_artifact_2.id());
+  attribution_2->set_context_id(want_context.id());
+  TF_EXPECT_OK(
+      metadata_store_->PutAttributionsAndAssociations(request, &response));
+
+  // The new Artifact can also be retrieved.
+  GetArtifactsByContextResponse get_artifacts_by_context_response_2;
+  TF_EXPECT_OK(metadata_store_->GetArtifactsByContext(
+      get_artifacts_by_context_request,
+      &get_artifacts_by_context_response_2));
+  ASSERT_THAT(get_artifacts_by_context_response_2.artifacts(), SizeIs(2));
+  EXPECT_THAT(get_artifacts_by_context_response_2.artifacts(),
+              UnorderedElementsAre(
+                  testing::EqualsProto(want_artifact),
+                  testing::EqualsProto(want_artifact_2)));
 }
 
 }  // namespace

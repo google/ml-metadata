@@ -29,6 +29,7 @@ MetadataSourceQueryConfig GetSqliteMetadataSourceQueryConfig();
 // Gets the MetadataSourceQueryConfig for FakeMetadataSource.
 MetadataSourceQueryConfig GetFakeMetadataSourceQueryConfig();
 
+
 }  // namespace util
 }  // namespace ml_metadata
 #endif  // ML_METADATA_UTIL_METADATA_SOURCE_QUERY_CONFIG_H_

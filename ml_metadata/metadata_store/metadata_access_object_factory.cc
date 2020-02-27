@@ -24,21 +24,44 @@ limitations under the License.
 
 namespace ml_metadata {
 
+namespace {
+// Creates MetadataAccessObject (MAO) with the input query config and the
+// MetadataSource and returns the created MAO pointer.
+// The query config has template queries and other config information.
+// The MetadataSource is used to execute specific queries.
+tensorflow::Status CreateRDBMSMetadataAccessObject(
+    const MetadataSourceQueryConfig& query_config,
+    MetadataSource* const metadata_source,
+    std::unique_ptr<MetadataAccessObject>* result) {
+  if (!metadata_source->is_connected())
+    TF_RETURN_IF_ERROR(metadata_source->Connect());
+  std::unique_ptr<QueryExecutor> executor = absl::WrapUnique(
+        new QueryConfigExecutor(query_config, metadata_source));
+  *result =
+      absl::WrapUnique(new RDBMSMetadataAccessObject(std::move(executor)));
+  return tensorflow::Status::OK();
+}
+
+
+}  // namespace
+
 tensorflow::Status CreateMetadataAccessObject(
     const MetadataSourceQueryConfig& query_config,
     MetadataSource* const metadata_source,
     std::unique_ptr<MetadataAccessObject>* result) {
-  // validates query config
-  if (query_config.metadata_source_type() == UNKNOWN_METADATA_SOURCE)
-    return tensorflow::errors::InvalidArgument(
-        "Metadata source type is not specified.");
-  if (!metadata_source->is_connected())
-    TF_RETURN_IF_ERROR(metadata_source->Connect());
-  std::unique_ptr<QueryExecutor> executor =
-      absl::WrapUnique(new QueryConfigExecutor(query_config, metadata_source));
-  *result =
-      absl::WrapUnique(new RDBMSMetadataAccessObject(std::move(executor)));
-  return tensorflow::Status::OK();
+  switch (query_config.metadata_source_type()) {
+    case UNKNOWN_METADATA_SOURCE:
+      return tensorflow::errors::InvalidArgument(
+          "Metadata source type is not specified.");
+    case MYSQL_METADATA_SOURCE:
+      return CreateRDBMSMetadataAccessObject(query_config, metadata_source,
+                                             result);
+    case SQLITE_METADATA_SOURCE:
+      return CreateRDBMSMetadataAccessObject(query_config, metadata_source,
+                                             result);
+    default:
+      return tensorflow::errors::Unimplemented("Unknown Metadata source type.");
+  }
 }
 
 }  // namespace ml_metadata

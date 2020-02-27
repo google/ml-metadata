@@ -1157,5 +1157,6 @@ MetadataSourceQueryConfig GetSqliteMetadataSourceQueryConfig() {
   return config;
 }
 
+
 }  // namespace util
 }  // namespace ml_metadata

@@ -177,7 +177,6 @@ cc_library(
     ],
 )
 
-# Added cc to name to not collide with python.
 ml_metadata_cc_test(
     name = "metadata_store_cc_test",
     srcs = ["metadata_store_test.cc"],

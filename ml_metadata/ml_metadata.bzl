@@ -23,7 +23,9 @@ def ml_metadata_cc_test(
         deps = [],
         tags = [],
         args = [],
-        size = None):
+        size = None,
+        data = None):
+    _ignore = [data]
     native.cc_test(
         name = name,
         srcs = srcs,

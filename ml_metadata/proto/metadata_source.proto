@@ -40,7 +40,7 @@ enum MetadataSourceType {
   FAKE_METADATA_SOURCE = 1;
   // a MYSQL metadata source.
   MYSQL_METADATA_SOURCE = 2;
-  // A Sqlite metadata source
+  // A Sqlite metadata source.
   SQLITE_METADATA_SOURCE = 3;
 
 }
