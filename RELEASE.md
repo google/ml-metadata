@@ -1,8 +1,10 @@
-# Current version (not yet released; still in development)
+# Release 0.21.2
 
 ## Major Features and Improvements
 
 ## Bug Fixes and Other Changes
+
+*   Updates logging level for python mlmd client.
 
 ## Breaking changes
 
