@@ -27,12 +27,18 @@ message Value {
 }
 
 message Artifact {
-  // The id of the artifact.
+  // Output only. The globally unique server generated id of the artifact.
   optional int64 id = 1;
-  // The id of an ArtifactType.
-  // Type must be specified when an artifact is created, and it cannot be
-  // changed.
+  // The client provided name of the artifact. If set, it must be unique among
+  // all the artifacts of the same artifact type within a database instance and
+  // cannot be changed. If not set, it will be filled by a system-generated
+  // default name.
+  optional string name = 7;
+  // The id of an ArtifactType. This needs to be specified when an artifact is
+  // created, and it cannot be changed.
   optional int64 type_id = 2;
+  // Output only. The name of an ArtifactType.
+  optional string type_name = 8;
   // The uniform resource identifier of the physical artifact.
   // May be empty if there is no physical artifact.
   optional string uri = 3;
@@ -192,11 +198,19 @@ message Event {
 }
 
 message Execution {
-  // The id of the execution.
+  // Output only. The globally unique server generated id of the execution.
   optional int64 id = 1;
+  // The client provided name of the execution. If set, it must be unique among
+  // all the executions of the same artifact type within a database instance and
+  // cannot be changed. If not set, it will be filled by a system-generated
+  // default name.
+  optional string name = 6;
+  // The id of an ExecutionType. This needs to be specified when an execution is
+  // created, and it cannot be changed.
   // The id of an ExecutionType.
-  // The ExecutionType must be specified and cannot be changed.
   optional int64 type_id = 2;
+  // Output only. The name of an ExecutionType.
+  optional string type_name = 7;
   // The state of the Execution. The state transitions are
   //   NEW -> RUNNING -> COMPLETE | CACHED | FAILED | CANCELED
   // CACHED means the execution is skipped due to cached results.
@@ -268,13 +282,16 @@ message ContextType {
 }
 
 message Context {
-  // The id of the context instance.
+  // Output Only. The globally unique server generated id of the context.
   optional int64 id = 1;
-  // The id of its ContextType. ContextType must be specified when a context is
+  // The client provided name of the context. It must be unique within a
+  // database instance.
+  optional string name = 3;
+  // The id of a ContextType. This needs to be specified when a context is
   // created, and it cannot be changed.
   optional int64 type_id = 2;
-  // The unique user given name of the Context.
-  optional string name = 3;
+  // Output only. The name of a ContextType.
+  optional int64 type_name = 6;
   // Values of the properties, which must be specified in the ContextType.
   map<string, Value> properties = 4;
   // User provided custom properties which are not defined by its type.
