@@ -79,11 +79,6 @@ class QueryExecutor {
   virtual tensorflow::Status DowngradeMetadataSource(
       int64 to_schema_version) = 0;
 
-  // TODO(martinz): drop this. Since the QueryExecutor
-  // does not own the metadata source, it makes it complicated that it allows
-  // others to store a pointer to it as well (see ExecuteTransaction).
-  virtual MetadataSource* metadata_source() = 0;
-
   // Resolves the schema version stored in the metadata source. The `db_version`
   // is set to 0, if it is a 0.13.2 release pre-existing database.
   // Returns DATA_LOSS error, if schema version info table exists but there is

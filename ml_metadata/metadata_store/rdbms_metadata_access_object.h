@@ -177,10 +177,6 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   tensorflow::Status FindArtifactsByContext(
       int64 context_id, std::vector<Artifact>* artifacts) final;
 
-  MetadataSource* metadata_source() final {
-    return executor_->metadata_source();
-  }
-
   tensorflow::Status GetSchemaVersion(int64* db_version) final {
     return executor_->GetSchemaVersion(db_version);
   }

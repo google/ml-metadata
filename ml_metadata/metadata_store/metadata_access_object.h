@@ -327,10 +327,6 @@ class MetadataAccessObject {
   virtual tensorflow::Status FindArtifactsByContext(
       int64 context_id, std::vector<Artifact>* artifacts) = 0;
 
-  // TODO(martinz): drop this. Since the MetadataAccessObject
-  // does not own the metadata source, it makes it complicated that it allows
-  // others to store a pointer to it as well (see ExecuteTransaction).
-  virtual MetadataSource* metadata_source() = 0;
 
   // Resolves the schema version stored in the metadata source. The `db_version`
   // is set to 0, if it is a 0.13.2 release pre-existing database.

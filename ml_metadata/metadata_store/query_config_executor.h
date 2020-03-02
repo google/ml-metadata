@@ -447,8 +447,6 @@ class QueryConfigExecutor : public QueryExecutor {
     return query_config_.schema_version();
   }
 
-  MetadataSource* metadata_source() final { return metadata_source_; }
-
   tensorflow::Status DowngradeMetadataSource(
       const int64 to_schema_version) final;
 
