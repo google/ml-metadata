@@ -196,6 +196,23 @@ ml_metadata_cc_test(
 )
 
 cc_library(
+    name = "metadata_store_headers",
+    hdrs = [
+        "metadata_access_object.h",
+        "metadata_source.h",
+        "metadata_store.h",
+        "metadata_store_factory.h",
+    ],
+    deps = [
+        ":types",
+        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_service_proto",
+        "@org_tensorflow//tensorflow/core:lib",
+    ],
+)
+
+cc_library(
     name = "metadata_store_factory",
     srcs = ["metadata_store_factory.cc"],
     hdrs = ["metadata_store_factory.h"],
