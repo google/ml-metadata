@@ -159,7 +159,7 @@ class MetadataStore(object):
         # RpcError code uses a tuple to specify error code and short
         # description.
         # https://grpc.github.io/grpc/python/_modules/grpc.html#StatusCode
-        raise _make_exception(e.details(), e.code().value[0])
+        raise _make_exception(e.details(), e.code().value[0])  # pytype: disable=attribute-error
 
   def _swig_call(self, method, request, response) -> None:
     """Calls method, serializing and deserializing inputs and outputs.
