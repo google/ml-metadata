@@ -35,8 +35,8 @@ tensorflow::Status CreateRDBMSMetadataAccessObject(
     std::unique_ptr<MetadataAccessObject>* result) {
   if (!metadata_source->is_connected())
     TF_RETURN_IF_ERROR(metadata_source->Connect());
-  std::unique_ptr<QueryExecutor> executor = absl::WrapUnique(
-        new QueryConfigExecutor(query_config, metadata_source));
+  std::unique_ptr<QueryExecutor> executor =
+      absl::WrapUnique(new QueryConfigExecutor(query_config, metadata_source));
   *result =
       absl::WrapUnique(new RDBMSMetadataAccessObject(std::move(executor)));
   return tensorflow::Status::OK();
