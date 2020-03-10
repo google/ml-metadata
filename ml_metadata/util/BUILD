@@ -9,6 +9,7 @@ cc_library(
     srcs = ["metadata_source_query_config.cc"],
     hdrs = ["metadata_source_query_config.h"],
     deps = [
+        "@com_google_absl//absl/strings",
         "//ml_metadata/proto:metadata_source_proto",
         "@org_tensorflow//tensorflow/core:lib",
     ],

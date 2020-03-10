@@ -2,6 +2,13 @@
 
 ## Major Features and Improvements
 
+*   Upgrades MLMD schema version to 5.
+    -   Added state columns to persistent Artifact.state,
+        Execution.last_known_state
+    -   Added user-given unique name per type column to Artifact and Execution.
+    -   Added create_time_since_epoch, last_update_time_since_epoch to all
+        Nodes.
+
 ## Bug Fixes and Other Changes
 
 ## Breaking changes

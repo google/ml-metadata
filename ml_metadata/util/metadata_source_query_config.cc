@@ -14,6 +14,7 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/util/metadata_source_query_config.h"
 
+#include "absl/strings/str_cat.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "tensorflow/core/platform/logging.h"
 #include "tensorflow/core/platform/protobuf.h"
@@ -24,8 +25,10 @@ namespace {
 
 // A set of common template queries used by the MetadataAccessObject for SQLite
 // based MetadataSource.
-constexpr char kBaseQueryConfig[] = R"pb(
-  schema_version: 4
+// no-lint to support vc (C2026) 16380 max length for char[].
+const std::string kBaseQueryConfig = absl::StrCat( // NOLINT
+R"pb(
+  schema_version: 5
   drop_type_table { query: " DROP TABLE IF EXISTS `Type`; " }
   create_type_table {
     query: " CREATE TABLE IF NOT EXISTS `Type` ( "
@@ -83,7 +86,6 @@ constexpr char kBaseQueryConfig[] = R"pb(
            " WHERE type_kind = $0; "
     parameter_num: 1
   }
-
   drop_type_property_table { query: " DROP TABLE IF EXISTS `TypeProperty`; " }
   create_type_property_table {
     query: " CREATE TABLE IF NOT EXISTS `TypeProperty` ( "
@@ -109,16 +111,24 @@ constexpr char kBaseQueryConfig[] = R"pb(
     parameter_num: 1
   }
   select_last_insert_id { query: " SELECT last_insert_rowid(); " }
+)pb",
+R"pb(
   drop_artifact_table { query: " DROP TABLE IF EXISTS `Artifact`; " }
   create_artifact_table {
     query: " CREATE TABLE IF NOT EXISTS `Artifact` ( "
            "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
            "   `type_id` INT NOT NULL, "
-           "   `uri` TEXT "
+           "   `uri` TEXT, "
+           "   `state` INT, "
+           "   `name` VARCHAR(255), "
+           "   `create_time_since_epoch` INT NOT NULL DEFAULT 0, "
+           "   `last_update_time_since_epoch` INT NOT NULL DEFAULT 0, "
+           "   UNIQUE(`type_id`, `name`) "
            " ); "
   }
   check_artifact_table {
-    query: " SELECT `id`, `type_id`, `uri` "
+    query: " SELECT `id`, `type_id`, `uri`, `state`, `name`, "
+           "        `create_time_since_epoch`, `last_update_time_since_epoch` "
            " FROM `Artifact` LIMIT 1; "
   }
   insert_artifact {
@@ -189,15 +199,23 @@ constexpr char kBaseQueryConfig[] = R"pb(
            " WHERE `artifact_id` = $0 and `name` = $1;"
     parameter_num: 2
   }
+)pb",
+R"pb(
   drop_execution_table { query: " DROP TABLE IF EXISTS `Execution`; " }
   create_execution_table {
     query: " CREATE TABLE IF NOT EXISTS `Execution` ( "
            "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
-           "   `type_id` INT NOT NULL "
+           "   `type_id` INT NOT NULL, "
+           "   `last_known_state` INT, "
+           "   `name` VARCHAR(255), "
+           "   `create_time_since_epoch` INT NOT NULL DEFAULT 0, "
+           "   `last_update_time_since_epoch` INT NOT NULL DEFAULT 0, "
+           "   UNIQUE(`type_id`, `name`) "
            " ); "
   }
   check_execution_table {
-    query: " SELECT `id`, `type_id` "
+    query: " SELECT `id`, `type_id`, `last_known_state`, `name`, "
+           "        `create_time_since_epoch`, `last_update_time_since_epoch` "
            " FROM `Execution` LIMIT 1; "
   }
   insert_execution {
@@ -264,17 +282,22 @@ constexpr char kBaseQueryConfig[] = R"pb(
            " WHERE `execution_id` = $0 and `name` = $1;"
     parameter_num: 2
   }
+)pb",
+R"pb(
   drop_context_table { query: " DROP TABLE IF EXISTS `Context`; " }
   create_context_table {
     query: " CREATE TABLE IF NOT EXISTS `Context` ( "
            "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
            "   `type_id` INT NOT NULL, "
            "   `name` VARCHAR(255) NOT NULL, "
+           "   `create_time_since_epoch` INT NOT NULL DEFAULT 0, "
+           "   `last_update_time_since_epoch` INT NOT NULL DEFAULT 0, "
            "   UNIQUE(`type_id`, `name`) "
            " ); "
   }
   check_context_table {
-    query: " SELECT `id`, `type_id`, `name` "
+    query: " SELECT `id`, `type_id`, `name`, "
+           "        `create_time_since_epoch`, `last_update_time_since_epoch` "
            " FROM `Context` LIMIT 1; "
   }
   insert_context {
@@ -343,6 +366,8 @@ constexpr char kBaseQueryConfig[] = R"pb(
            " WHERE `context_id` = $0 and `name` = $1;"
     parameter_num: 2
   }
+)pb",
+R"pb(
   drop_event_table { query: " DROP TABLE IF EXISTS `Event`; " }
   create_event_table {
     query: " CREATE TABLE IF NOT EXISTS `Event` ( "
@@ -404,6 +429,8 @@ constexpr char kBaseQueryConfig[] = R"pb(
            " WHERE `event_id` = $0; "
     parameter_num: 1
   }
+)pb",
+R"pb(
   drop_association_table { query: " DROP TABLE IF EXISTS `Association`; " }
   create_association_table {
     query: " CREATE TABLE IF NOT EXISTS `Association` ( "
@@ -486,9 +513,11 @@ constexpr char kBaseQueryConfig[] = R"pb(
            " `Artifact`, `Event`, `Execution`, `Type`, `ArtifactProperty`, "
            " `EventPath`, `ExecutionProperty`, `TypeProperty` LIMIT 1; "
   }
-)pb";
+)pb");
 
-constexpr char kSQLiteMetadataSourceQueryConfig[] = R"pb(
+// no-lint to support vc (C2026) 16380 max length for char[].
+const std::string kSQLiteMetadataSourceQueryConfig = absl::StrCat( // NOLINT
+R"pb(
   metadata_source_type: SQLITE_METADATA_SOURCE
   # downgrade to 0.13.2 (i.e., v0), and drop the MLMDEnv table.
   migration_schemes {
@@ -505,6 +534,8 @@ constexpr char kSQLiteMetadataSourceQueryConfig[] = R"pb(
       }
     }
   }
+)pb",
+R"pb(
   # From 0.13.2 to v1, it creates a new MLMDEnv table to track schema_version.
   migration_schemes {
     key: 1
@@ -641,6 +672,8 @@ constexpr char kSQLiteMetadataSourceQueryConfig[] = R"pb(
       }
     }
   }
+)pb",
+R"pb(
   # In v2, to support context type, and we renamed `is_artifact_type` column in
   # `Type` table.
   migration_schemes {
@@ -698,6 +731,8 @@ constexpr char kSQLiteMetadataSourceQueryConfig[] = R"pb(
       }
     }
   }
+)pb",
+R"pb(
   # In v3, to support context, we added two tables `Context` and
   # `ContextProperty`, and made no change to other existing records.
   migration_schemes {
@@ -752,6 +787,8 @@ constexpr char kSQLiteMetadataSourceQueryConfig[] = R"pb(
       }
     }
   }
+)pb",
+R"pb(
   # In v4, to support context-execution association and context-artifact
   # attribution, we added two tables `Association` and `Attribution` and made
   # no change to other existing records.
@@ -789,12 +826,239 @@ constexpr char kSQLiteMetadataSourceQueryConfig[] = R"pb(
                  " ); "
         }
       }
+      # downgrade queries from version 5
+      downgrade_queries {
+        query: " CREATE TABLE `ArtifactTemp` ( "
+               "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+               "   `type_id` INT NOT NULL, "
+               "   `uri` TEXT "
+               " ); "
+      }
+      downgrade_queries {
+        query: " INSERT INTO `ArtifactTemp` "
+               " SELECT `id`, `type_id`, `uri` FROM `Artifact`; "
+      }
+      downgrade_queries { query: " DROP TABLE `Artifact`; " }
+      downgrade_queries {
+        query: " ALTER TABLE `ArtifactTemp` RENAME TO `Artifact`; "
+      }
+      downgrade_queries {
+        query: " CREATE TABLE `ExecutionTemp` ( "
+               "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+               "   `type_id` INT NOT NULL "
+               " ); "
+      }
+      downgrade_queries {
+        query: " INSERT INTO `ExecutionTemp` "
+               " SELECT `id`, `type_id` FROM `Execution`; "
+      }
+      downgrade_queries { query: " DROP TABLE `Execution`; " }
+      downgrade_queries {
+        query: " ALTER TABLE `ExecutionTemp` RENAME TO `Execution`; "
+      }
+      downgrade_queries {
+        query: " CREATE TABLE `ContextTemp` ( "
+               "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+               "   `type_id` INT NOT NULL, "
+               "   `name` VARCHAR(255) NOT NULL, "
+               "   UNIQUE(`type_id`, `name`) "
+               " ); "
+      }
+      downgrade_queries {
+        query: " INSERT INTO `ContextTemp` "
+               " SELECT `id`, `type_id`, `name` FROM `Context`; "
+      }
+      downgrade_queries { query: " DROP TABLE `Context`; " }
+      downgrade_queries {
+        query: " ALTER TABLE `ContextTemp` RENAME TO `Context`; "
+      }
+      # verify if the downgrading keeps the existing columns
+      downgrade_verification {
+        previous_version_setup_queries { query: "DELETE FROM `Artifact`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Artifact` "
+                 " (`id`, `type_id`, `uri`, `state`, `name`, "
+                 "  `create_time_since_epoch`, `last_update_time_since_epoch`) "
+                 " VALUES (1, 2, 'uri1', 1, NULL, 0, 1); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Artifact` "
+                 " (`id`, `type_id`, `uri`, `state`, `name`, "
+                 "  `create_time_since_epoch`, `last_update_time_since_epoch`) "
+                 " VALUES (2, 3, 'uri2', NULL, 'name2', 1, 0); "
+        }
+        previous_version_setup_queries { query: "DELETE FROM `Execution`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Execution` "
+                 " (`id`, `type_id`, `last_known_state`, `name`, "
+                 "  `create_time_since_epoch`, `last_update_time_since_epoch`) "
+                 " VALUES (1, 2, 1, NULL, 0, 1); "
+        }
+        previous_version_setup_queries { query: "DELETE FROM `Context`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Context` "
+                 " (`id`, `type_id`, `name`, "
+                 "  `create_time_since_epoch`, `last_update_time_since_epoch`) "
+                 " VALUES (1, 2, 'name1', 1, 0); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 2 FROM `Artifact`; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM ( "
+                 "   SELECT * FROM `Artifact` "
+                 "   WHERE `id` = 1 and `type_id` = 2 and `uri` = 'uri1' "
+                 " ); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM ( "
+                 "   SELECT * FROM `Artifact` "
+                 "   WHERE `id` = 2 and `type_id` = 3 and `uri` = 'uri2' "
+                 " ); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `Execution`; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM ( "
+                 "   SELECT * FROM `Execution` "
+                 "   WHERE `id` = 1 and `type_id` = 2 "
+                 " ); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM ( "
+                 "   SELECT * FROM `Context` "
+                 "   WHERE `id` = 1 and `type_id` = 2 "
+                 " ); "
+        }
+      }
     }
   }
-)pb";
+)pb",
+R"pb(
+  # In v5, to support MLMD based orchestration better, we added state, time-
+  # stamps, as well as user generated unique name per type to Artifact,
+  # Execution and Context.
+  migration_schemes {
+    key: 5
+    value: {
+      # upgrade Artifact table
+      upgrade_queries {
+        query: " CREATE TABLE `ArtifactTemp` ( "
+               "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+               "   `type_id` INT NOT NULL, "
+               "   `uri` TEXT, "
+               "   `state` INT, "
+               "   `name` VARCHAR(255), "
+               "   `create_time_since_epoch` INT NOT NULL DEFAULT 0, "
+               "   `last_update_time_since_epoch` INT NOT NULL DEFAULT 0, "
+               "   UNIQUE(`type_id`, `name`) "
+               " ); "
+      }
+      upgrade_queries {
+        query: " INSERT INTO `ArtifactTemp` (`id`, `type_id`, `uri`) "
+               " SELECT * FROM `Artifact`; "
+      }
+      upgrade_queries { query: " DROP TABLE `Artifact`; " }
+      upgrade_queries {
+        query: " ALTER TABLE `ArtifactTemp` RENAME TO `Artifact`; "
+      }
+      # upgrade Execution table
+      upgrade_queries {
+        query: " CREATE TABLE `ExecutionTemp` ( "
+               "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+               "   `type_id` INT NOT NULL, "
+               "   `last_known_state` INT, "
+               "   `name` VARCHAR(255), "
+               "   `create_time_since_epoch` INT NOT NULL DEFAULT 0, "
+               "   `last_update_time_since_epoch` INT NOT NULL DEFAULT 0, "
+               "   UNIQUE(`type_id`, `name`) "
+               " ); "
+      }
+      upgrade_queries {
+        query: " INSERT INTO `ExecutionTemp` (`id`, `type_id`) "
+               " SELECT * FROM `Execution`; "
+      }
+      upgrade_queries { query: " DROP TABLE `Execution`; " }
+      upgrade_queries {
+        query: " ALTER TABLE `ExecutionTemp` RENAME TO `Execution`; "
+      }
+      # upgrade Context table
+      upgrade_queries {
+        query: " ALTER TABLE `Context` "
+               " ADD COLUMN `create_time_since_epoch` INT NOT NULL DEFAULT 0; "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `Context` "
+               " ADD COLUMN "
+               "     `last_update_time_since_epoch` INT NOT NULL DEFAULT 0; "
+      }
+      # check the expected table columns are created properly.
+      upgrade_verification {
+        previous_version_setup_queries { query: "DELETE FROM `Artifact`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Artifact` "
+                 " (`id`, `type_id`, `uri`) VALUES (1, 2, 'uri1'); "
+        }
+        previous_version_setup_queries { query: "DELETE FROM `Execution`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Execution` "
+                 " (`id`, `type_id`) VALUES (1, 3); "
+        }
+        previous_version_setup_queries {
+          query: " CREATE TABLE `Context` ( "
+                 "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+                 "   `type_id` INT NOT NULL, "
+                 "   `name` VARCHAR(255) NOT NULL, "
+                 "   UNIQUE(`type_id`, `name`) "
+                 " ); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Context` "
+                 " (`id`, `type_id`, `name`) VALUES (1, 2, 'name1'); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM ( "
+                 "   SELECT `id`, `type_id`, `uri`, `state`, `name`, "
+                 "          `create_time_since_epoch`, "
+                 "          `last_update_time_since_epoch` "
+                 "   FROM `Artifact` "
+                 "   WHERE `id` = 1 AND `type_id` = 2 AND `uri` = 'uri1' AND "
+                 "         `create_time_since_epoch` = 0 AND "
+                 "         `last_update_time_since_epoch` = 0 "
+                 " ) as T1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM ( "
+                 "   SELECT `id`, `type_id`, `last_known_state`, `name`, "
+                 "          `create_time_since_epoch`, "
+                 "          `last_update_time_since_epoch` "
+                 "   FROM `Execution` "
+                 "   WHERE `id` = 1 AND `type_id` = 3 AND "
+                 "         `create_time_since_epoch` = 0 AND "
+                 "         `last_update_time_since_epoch` = 0 "
+                 " ) as T1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM ( "
+                 "   SELECT `id`, `type_id`, `name`, "
+                 "          `create_time_since_epoch`, "
+                 "          `last_update_time_since_epoch` "
+                 "   FROM `Context` "
+                 "   WHERE `id` = 1 AND `type_id` = 2 AND `name` = 'name1' AND "
+                 "         `create_time_since_epoch` = 0 AND "
+                 "         `last_update_time_since_epoch` = 0 "
+                 " ) as T1; "
+        }
+      }
+    }
+  }
+)pb");
 
 // Template queries for MySQLMetadataSources.
-constexpr char kMySQLMetadataSourceQueryConfig[] = R"pb(
+// no-lint to support vc (C2026) 16380 max length for char[].
+const std::string kMySQLMetadataSourceQueryConfig = absl::StrCat( // NOLINT
+R"pb(
   metadata_source_type: MYSQL_METADATA_SOURCE
   select_last_insert_id { query: " SELECT last_insert_id(); " }
   create_type_table {
@@ -810,13 +1074,23 @@ constexpr char kMySQLMetadataSourceQueryConfig[] = R"pb(
     query: " CREATE TABLE IF NOT EXISTS `Artifact` ( "
            "   `id` INTEGER PRIMARY KEY AUTO_INCREMENT, "
            "   `type_id` INT NOT NULL, "
-           "   `uri` TEXT "
+           "   `uri` TEXT, "
+           "   `state` INT, "
+           "   `name` VARCHAR(255), "
+           "   `create_time_since_epoch` BIGINT NOT NULL DEFAULT 0, "
+           "   `last_update_time_since_epoch` BIGINT NOT NULL DEFAULT 0, "
+           "   CONSTRAINT UniqueArtifactTypeName UNIQUE(`type_id`, `name`) "
            " ); "
   }
   create_execution_table {
     query: " CREATE TABLE IF NOT EXISTS `Execution` ( "
            "   `id` INTEGER PRIMARY KEY AUTO_INCREMENT, "
-           "   `type_id` INT NOT NULL "
+           "   `type_id` INT NOT NULL, "
+           "   `last_known_state` INT, "
+           "   `name` VARCHAR(255), "
+           "   `create_time_since_epoch` BIGINT NOT NULL DEFAULT 0, "
+           "   `last_update_time_since_epoch` BIGINT NOT NULL DEFAULT 0, "
+           "   CONSTRAINT UniqueExecutionTypeName UNIQUE(`type_id`, `name`) "
            " ); "
   }
   create_context_table {
@@ -824,6 +1098,8 @@ constexpr char kMySQLMetadataSourceQueryConfig[] = R"pb(
            "   `id` INTEGER PRIMARY KEY AUTO_INCREMENT, "
            "   `type_id` INT NOT NULL, "
            "   `name` VARCHAR(255) NOT NULL, "
+           "   `create_time_since_epoch` BIGINT NOT NULL DEFAULT 0, "
+           "   `last_update_time_since_epoch` BIGINT NOT NULL DEFAULT 0, "
            "   UNIQUE(`type_id`, `name`) "
            " ); "
   }
@@ -868,6 +1144,8 @@ constexpr char kMySQLMetadataSourceQueryConfig[] = R"pb(
       }
     }
   }
+)pb",
+R"pb(
   migration_schemes {
     key: 1
     value: {
@@ -992,6 +1270,8 @@ constexpr char kMySQLMetadataSourceQueryConfig[] = R"pb(
       }
     }
   }
+)pb",
+R"pb(
   migration_schemes {
     key: 2
     value: {
@@ -1039,6 +1319,8 @@ constexpr char kMySQLMetadataSourceQueryConfig[] = R"pb(
       }
     }
   }
+)pb",
+R"pb(
   migration_schemes {
     key: 3
     value: {
@@ -1092,6 +1374,8 @@ constexpr char kMySQLMetadataSourceQueryConfig[] = R"pb(
       }
     }
   }
+)pb",
+R"pb(
   migration_schemes {
     key: 4
     value: {
@@ -1125,9 +1409,191 @@ constexpr char kMySQLMetadataSourceQueryConfig[] = R"pb(
                  " ) as T1; "
         }
       }
+      # downgrade queries from version 5
+      downgrade_queries {
+        query: " ALTER TABLE `Artifact` "
+               " DROP INDEX UniqueArtifactTypeName; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `Artifact` "
+               " DROP COLUMN `state`, "
+               " DROP COLUMN `name`, "
+               " DROP COLUMN `create_time_since_epoch`, "
+               " DROP COLUMN `last_update_time_since_epoch`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `Execution` "
+               " DROP INDEX UniqueExecutionTypeName; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `Execution` "
+               " DROP COLUMN `last_known_state`, "
+               " DROP COLUMN `name`, "
+               " DROP COLUMN `create_time_since_epoch`, "
+               " DROP COLUMN `last_update_time_since_epoch`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `Context` "
+               " DROP COLUMN `create_time_since_epoch`, "
+               " DROP COLUMN `last_update_time_since_epoch`; "
+      }
+      # verify if the downgrading keeps the existing columns
+      downgrade_verification {
+        previous_version_setup_queries { query: "DELETE FROM `Artifact`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Artifact` "
+                 " (`id`, `type_id`, `uri`, `state`, `name`, "
+                 "  `create_time_since_epoch`, `last_update_time_since_epoch`) "
+                 " VALUES (1, 2, 'uri1', 1, NULL, 0, 1); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Artifact` "
+                 " (`id`, `type_id`, `uri`, `state`, `name`, "
+                 "  `create_time_since_epoch`, `last_update_time_since_epoch`) "
+                 " VALUES (2, 3, 'uri2', NULL, 'name2', 1, 0); "
+        }
+        previous_version_setup_queries { query: "DELETE FROM `Execution`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Execution` "
+                 " (`id`, `type_id`, `last_known_state`, `name`, "
+                 "  `create_time_since_epoch`, `last_update_time_since_epoch`) "
+                 " VALUES (1, 2, 1, NULL, 0, 1); "
+        }
+        previous_version_setup_queries { query: "DELETE FROM `Context`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Context` "
+                 " (`id`, `type_id`, `name`, "
+                 "  `create_time_since_epoch`, `last_update_time_since_epoch`) "
+                 " VALUES (1, 2, 'name1', 1, 0); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 2 FROM `Artifact`; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM ( "
+                 "   SELECT * FROM `Artifact` "
+                 "   WHERE `id` = 1 and `type_id` = 2 and `uri` = 'uri1' "
+                 " ) as T1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM ( "
+                 "   SELECT * FROM `Artifact` "
+                 "   WHERE `id` = 2 and `type_id` = 3 and `uri` = 'uri2' "
+                 " ) as T1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `Execution`; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM ( "
+                 "   SELECT * FROM `Execution` "
+                 "   WHERE `id` = 1 and `type_id` = 2 "
+                 " ) as T1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM ( "
+                 "   SELECT * FROM `Context` "
+                 "   WHERE `id` = 1 and `type_id` = 2 "
+                 " ) as T1; "
+        }
+      }
     }
   }
-)pb";
+)pb",
+R"pb(
+  migration_schemes {
+    key: 5
+    value: {
+      # upgrade Artifact table
+      upgrade_queries {
+        query: " ALTER TABLE `Artifact` ADD ( "
+               "   `state` INT, "
+               "   `name` VARCHAR(255), "
+               "   `create_time_since_epoch` BIGINT NOT NULL DEFAULT 0, "
+               "   `last_update_time_since_epoch` BIGINT NOT NULL DEFAULT 0 "
+               " ), "
+               " ADD CONSTRAINT UniqueArtifactTypeName "
+               " UNIQUE(`type_id`, `name`); "
+      }
+      # upgrade Execution table
+      upgrade_queries {
+        query: " ALTER TABLE `Execution` ADD ( "
+               "   `last_known_state` INT, "
+               "   `name` VARCHAR(255), "
+               "   `create_time_since_epoch` BIGINT NOT NULL DEFAULT 0, "
+               "   `last_update_time_since_epoch` BIGINT NOT NULL DEFAULT 0 "
+               " ), "
+               " ADD CONSTRAINT UniqueExecutionTypeName "
+               " UNIQUE(`type_id`, `name`); "
+      }
+      # upgrade Context table
+      upgrade_queries {
+        query: " ALTER TABLE `Context` ADD ( "
+               "   `create_time_since_epoch` BIGINT NOT NULL DEFAULT 0, "
+               "   `last_update_time_since_epoch` BIGINT NOT NULL DEFAULT 0 "
+               " ) "
+      }
+      # check the expected table columns are created properly.
+      upgrade_verification {
+        previous_version_setup_queries { query: "DELETE FROM `Artifact`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Artifact` "
+                 " (`id`, `type_id`, `uri`) VALUES (1, 2, 'uri1'); "
+        }
+        previous_version_setup_queries { query: "DELETE FROM `Execution`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Execution` "
+                 " (`id`, `type_id`) VALUES (1, 3); "
+        }
+        previous_version_setup_queries {
+          query: " CREATE TABLE IF NOT EXISTS `Context` ( "
+                 "   `id` INTEGER PRIMARY KEY AUTO_INCREMENT, "
+                 "   `type_id` INT NOT NULL, "
+                 "   `name` VARCHAR(255) NOT NULL, "
+                 "   UNIQUE(`type_id`, `name`) "
+                 " ); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Context` "
+                 " (`id`, `type_id`, `name`) VALUES (1, 2, 'name1'); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM ( "
+                 "   SELECT `id`, `type_id`, `uri`, `state`, `name`, "
+                 "          `create_time_since_epoch`, "
+                 "          `last_update_time_since_epoch` "
+                 "   FROM `Artifact` "
+                 "   WHERE `id` = 1 AND `type_id` = 2 AND `uri` = 'uri1' AND "
+                 "         `create_time_since_epoch` = 0 AND "
+                 "         `last_update_time_since_epoch` = 0 "
+                 " ) as T1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM ( "
+                 "   SELECT `id`, `type_id`, `last_known_state`, `name`, "
+                 "          `create_time_since_epoch`, "
+                 "          `last_update_time_since_epoch` "
+                 "   FROM `Execution` "
+                 "   WHERE `id` = 1 AND `type_id` = 3 AND "
+                 "         `create_time_since_epoch` = 0 AND "
+                 "         `last_update_time_since_epoch` = 0 "
+                 " ) as T1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM ( "
+                 "   SELECT `id`, `type_id`, `name`, "
+                 "          `create_time_since_epoch`, "
+                 "          `last_update_time_since_epoch` "
+                 "   FROM `Context` "
+                 "   WHERE `id` = 1 AND `type_id` = 2 AND `name` = 'name1' AND "
+                 "         `create_time_since_epoch` = 0 AND "
+                 "         `last_update_time_since_epoch` = 0 "
+                 " ) as T1; "
+        }
+      }
+    }
+  }
+)pb");
 
 }  // namespace
 
