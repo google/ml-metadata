@@ -291,7 +291,7 @@ message Context {
   // created, and it cannot be changed.
   optional int64 type_id = 2;
   // Output only. The name of a ContextType.
-  optional int64 type_name = 6;
+  optional string type_name = 6;
   // Values of the properties, which must be specified in the ContextType.
   map<string, Value> properties = 4;
   // User provided custom properties which are not defined by its type.
