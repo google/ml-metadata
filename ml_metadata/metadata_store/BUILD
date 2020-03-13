@@ -199,6 +199,7 @@ cc_library(
     name = "metadata_store_headers",
     hdrs = [
         "metadata_access_object.h",
+        "metadata_access_object_factory.h",
         "metadata_source.h",
         "metadata_store.h",
         "metadata_store_factory.h",
@@ -448,7 +449,7 @@ cc_test(
     ],
     deps = [
         ":mysql_metadata_source_test",
-        "//ml_metadata/metadata_store:test_standalone_mysql_metadata_source_initializer",
+        ":test_standalone_mysql_metadata_source_initializer",
     ],
 )
 
