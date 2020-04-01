@@ -163,12 +163,22 @@ ml_metadata_cc_test(
 )
 
 cc_library(
+    name = "metadata_store_service_interface",
+    hdrs = ["metadata_store_service_interface.h"],
+    deps = [
+        "//ml_metadata/proto:metadata_store_service_proto",
+        "@org_tensorflow//tensorflow/core:lib",
+    ],
+)
+
+cc_library(
     name = "metadata_store",
     srcs = ["metadata_store.cc"],
     hdrs = ["metadata_store.h"],
     deps = [
         ":metadata_access_object_factory",
         ":metadata_source",
+        ":metadata_store_service_interface",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/memory",
         "//ml_metadata/proto:metadata_store_proto",
@@ -203,8 +213,10 @@ cc_library(
         "metadata_source.h",
         "metadata_store.h",
         "metadata_store_factory.h",
+        "metadata_store_service_interface.h",
     ],
     deps = [
+        ":metadata_store_service_interface",
         ":types",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",

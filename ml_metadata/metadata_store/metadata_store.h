@@ -19,6 +19,7 @@ limitations under the License.
 
 #include "ml_metadata/metadata_store/metadata_access_object.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
+#include "ml_metadata/metadata_store/metadata_store_service_interface.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
 #include "tensorflow/core/lib/core/status.h"
@@ -28,7 +29,7 @@ namespace ml_metadata {
 // A metadata store.
 // Implements the API specified in MetadataStoreService.
 // Each method is an atomic operation.
-class MetadataStore {
+class MetadataStore : public MetadataStoreServiceInterface {
  public:
   // Factory method that creates a MetadataStore in result. The result is owned
   // by the caller, and metadata_source is owned by result.
@@ -86,8 +87,9 @@ class MetadataStore {
   // Returns INVALID_ARGUMENT error, if any property type in
   //     request.artifact_type is unknown.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status PutArtifactType(const PutArtifactTypeRequest& request,
-                                     PutArtifactTypeResponse* response);
+  tensorflow::Status PutArtifactType(
+      const PutArtifactTypeRequest& request,
+      PutArtifactTypeResponse* response) override;
 
   // Inserts or updates an execution type.
   //
@@ -119,8 +121,9 @@ class MetadataStore {
   // Returns INVALID_ARGUMENT error, if any property type in
   //     request.execution_type is unknown.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status PutExecutionType(const PutExecutionTypeRequest& request,
-                                      PutExecutionTypeResponse* response);
+  tensorflow::Status PutExecutionType(
+      const PutExecutionTypeRequest& request,
+      PutExecutionTypeResponse* response) override;
 
   // Inserts or updates a context type.
   //
@@ -153,25 +156,27 @@ class MetadataStore {
   //     request.context_type is unknown.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status PutContextType(const PutContextTypeRequest& request,
-                                    PutContextTypeResponse* response);
+                                    PutContextTypeResponse* response) override;
 
   // Gets an execution type by name.
   // If no type exists, returns a NOT_FOUND error.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetExecutionType(const GetExecutionTypeRequest& request,
-                                      GetExecutionTypeResponse* response);
+  tensorflow::Status GetExecutionType(
+      const GetExecutionTypeRequest& request,
+      GetExecutionTypeResponse* response) override;
 
   // Gets an artifact type by name.
   // If no type exists, returns a NOT_FOUND error.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetArtifactType(const GetArtifactTypeRequest& request,
-                                     GetArtifactTypeResponse* response);
+  tensorflow::Status GetArtifactType(
+      const GetArtifactTypeRequest& request,
+      GetArtifactTypeResponse* response) override;
 
   // Gets an context type by name.
   // If no type exists, returns a NOT_FOUND error.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetContextType(const GetContextTypeRequest& request,
-                                    GetContextTypeResponse* response);
+                                    GetContextTypeResponse* response) override;
 
   // Bulk inserts a list of types atomically. The types could be artifact
   // type, execution type, or context type. If the type with the same name
@@ -184,25 +189,28 @@ class MetadataStore {
   // Returns detailed INTERNAL error, if query execution fails.
   // TODO(huimiao) Surface the API in python/Go/gRPC.
   tensorflow::Status PutTypes(const PutTypesRequest& request,
-                              PutTypesResponse* response);
+                              PutTypesResponse* response) override;
 
   // Gets all artifact types. If no artifact types found, it returns OK and
   // empty response.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetArtifactTypes(const GetArtifactTypesRequest& request,
-                                      GetArtifactTypesResponse* response);
+  tensorflow::Status GetArtifactTypes(
+      const GetArtifactTypesRequest& request,
+      GetArtifactTypesResponse* response) override;
 
   // Gets all execution types. If no execution types found, it returns OK and
   // empty response.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetExecutionTypes(const GetExecutionTypesRequest& request,
-                                       GetExecutionTypesResponse* response);
+  tensorflow::Status GetExecutionTypes(
+      const GetExecutionTypesRequest& request,
+      GetExecutionTypesResponse* response) override;
 
   // Gets all context types. If no context types found, it returns OK and
   // empty response.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetContextTypes(const GetContextTypesRequest& request,
-                                     GetContextTypesResponse* response);
+  tensorflow::Status GetContextTypes(
+      const GetContextTypesRequest& request,
+      GetContextTypesResponse* response) override;
 
   // Gets a list of artifact types by ID.
   // If no artifact types with an ID exists, the artifact type is skipped.
@@ -210,7 +218,7 @@ class MetadataStore {
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetArtifactTypesByID(
       const GetArtifactTypesByIDRequest& request,
-      GetArtifactTypesByIDResponse* response);
+      GetArtifactTypesByIDResponse* response) override;
 
   // Gets a list of execution types by ID.
   // If no artifact types with an ID exists, the artifact type is skipped.
@@ -218,7 +226,7 @@ class MetadataStore {
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetExecutionTypesByID(
       const GetExecutionTypesByIDRequest& request,
-      GetExecutionTypesByIDResponse* response);
+      GetExecutionTypesByIDResponse* response) override;
 
   // Gets a list of context types by ID.
   // If no context types with an ID exists, the context type is skipped.
@@ -226,7 +234,7 @@ class MetadataStore {
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetContextTypesByID(
       const GetContextTypesByIDRequest& request,
-      GetContextTypesByIDResponse* response);
+      GetContextTypesByIDResponse* response) override;
 
   // Inserts and updates artifacts in request into the database.
   // If artifact_id is specified, an existing artifact is updated.
@@ -240,7 +248,7 @@ class MetadataStore {
   // align with the ArtifactType on file.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status PutArtifacts(const PutArtifactsRequest& request,
-                                  PutArtifactsResponse* response);
+                                  PutArtifactsResponse* response) override;
 
   // Inserts and updates executions in the request into the database.
   // If execution_id is specified, an existing execution is updated.
@@ -254,7 +262,7 @@ class MetadataStore {
   // align with the ExecutionType on file.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status PutExecutions(const PutExecutionsRequest& request,
-                                   PutExecutionsResponse* response);
+                                   PutExecutionsResponse* response) override;
 
   // Inserts and updates contexts in the request into the database. Context
   // must have none empty name, and it should be unique of a ContextType.
@@ -271,7 +279,7 @@ class MetadataStore {
   // Returns ALREADY_EXISTS error, if the name exists in the context_type.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status PutContexts(const PutContextsRequest& request,
-                                 PutContextsResponse* response);
+                                 PutContextsResponse* response) override;
 
   // Inserts events into the database.
   //
@@ -285,7 +293,7 @@ class MetadataStore {
   // Returns INVALID_ARGUMENT error, if the type field is UNKNOWN.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status PutEvents(const PutEventsRequest& request,
-                               PutEventsResponse* response);
+                               PutEventsResponse* response) override;
 
   // Inserts or updates an Execution and its input and output artifacts and
   // events atomically. The request includes the state changes of the Artifacts
@@ -304,91 +312,96 @@ class MetadataStore {
   // Returns INVALID_ARGUMENT error, if the event.type field is UNKNOWN.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status PutExecution(const PutExecutionRequest& request,
-                                  PutExecutionResponse* response);
+                                  PutExecutionResponse* response) override;
 
   // Gets all events with matching execution ids.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetEventsByExecutionIDs(
       const GetEventsByExecutionIDsRequest& request,
-      GetEventsByExecutionIDsResponse* response);
+      GetEventsByExecutionIDsResponse* response) override;
 
   // Gets all events with matching artifact ids.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetEventsByArtifactIDs(
       const GetEventsByArtifactIDsRequest& request,
-      GetEventsByArtifactIDsResponse* response);
+      GetEventsByArtifactIDsResponse* response) override;
 
   // Gets a list of artifacts by ID.
   // If no artifact with an ID exists, the artifact is skipped.
   // Sets the error field if any other internal errors are returned.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetArtifactsByID(const GetArtifactsByIDRequest& request,
-                                      GetArtifactsByIDResponse* response);
+  tensorflow::Status GetArtifactsByID(
+      const GetArtifactsByIDRequest& request,
+      GetArtifactsByIDResponse* response) override;
 
   // Gets all artifacts.
   // Returns detailed INTERNAL error, if query execution fails.
   // TODO(b/120853124): add predicates
   tensorflow::Status GetArtifacts(const GetArtifactsRequest& request,
-                                  GetArtifactsResponse* response);
+                                  GetArtifactsResponse* response) override;
 
   // Gets all the artifacts of a given type. If no artifacts found, it returns
   // OK and empty response.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetArtifactsByType(
       const GetArtifactsByTypeRequest& request,
-      GetArtifactsByTypeResponse* response);
+      GetArtifactsByTypeResponse* response) override;
 
   // Gets all the artifacts matching the given URIs. If no artifacts found, it
   // returns OK and empty response.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetArtifactsByURI(const GetArtifactsByURIRequest& request,
-                                       GetArtifactsByURIResponse* response);
+  tensorflow::Status GetArtifactsByURI(
+      const GetArtifactsByURIRequest& request,
+      GetArtifactsByURIResponse* response) override;
 
   // Gets a list of executions by ID.
   // If no execution with an ID exists, the execution is skipped.
   // Sets the error field if any other internal errors are returned.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetExecutionsByID(const GetExecutionsByIDRequest& request,
-                                       GetExecutionsByIDResponse* response);
+  tensorflow::Status GetExecutionsByID(
+      const GetExecutionsByIDRequest& request,
+      GetExecutionsByIDResponse* response) override;
 
   // Gets all executions.
   // Returns detailed INTERNAL error, if query execution fails.
   // TODO(b/120853124): add predicates
   tensorflow::Status GetExecutions(const GetExecutionsRequest& request,
-                                   GetExecutionsResponse* response);
+                                   GetExecutionsResponse* response) override;
 
   // Gets all the executions of a given type. If no executions found, it returns
   // OK and empty response.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetExecutionsByType(
       const GetExecutionsByTypeRequest& request,
-      GetExecutionsByTypeResponse* response);
+      GetExecutionsByTypeResponse* response) override;
 
   // Gets a list of contexts by ID.
   // If no context with an ID exists, the context is skipped.
   // Sets the error field if any other internal errors are returned.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetContextsByID(const GetContextsByIDRequest& request,
-                                     GetContextsByIDResponse* response);
+  tensorflow::Status GetContextsByID(
+      const GetContextsByIDRequest& request,
+      GetContextsByIDResponse* response) override;
 
   // Gets all contexts.
   // Returns detailed INTERNAL error, if query execution fails.
   // TODO(b/120853124): add predicates
   tensorflow::Status GetContexts(const GetContextsRequest& request,
-                                 GetContextsResponse* response);
+                                 GetContextsResponse* response) override;
 
   // Gets all the contexts of a given type. If no contexts found, it returns
   // OK and empty response.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetContextsByType(const GetContextsByTypeRequest& request,
-                                       GetContextsByTypeResponse* response);
+  tensorflow::Status GetContextsByType(
+      const GetContextsByTypeRequest& request,
+      GetContextsByTypeResponse* response) override;
 
   // Gets the context of a given type and name. If no context found, it returns
   // OK and empty response. If more than one contexts matchs the type and name,
   // the query execution fails.
   tensorflow::Status GetContextByTypeAndName(
       const GetContextByTypeAndNameRequest& request,
-      GetContextByTypeAndNameResponse* response);
+      GetContextByTypeAndNameResponse* response) override;
 
   // Inserts attribution and association relationships in the database.
   // The context_id, artifact_id, and execution_id must already exist.
@@ -399,31 +412,31 @@ class MetadataStore {
   //   matches the given id.
   tensorflow::Status PutAttributionsAndAssociations(
       const PutAttributionsAndAssociationsRequest& request,
-      PutAttributionsAndAssociationsResponse* response);
+      PutAttributionsAndAssociationsResponse* response) override;
 
   // Gets all context that an artifact is attributed to.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetContextsByArtifact(
       const GetContextsByArtifactRequest& request,
-      GetContextsByArtifactResponse* response);
+      GetContextsByArtifactResponse* response) override;
 
   // Gets all context that an execution is associated with.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetContextsByExecution(
       const GetContextsByExecutionRequest& request,
-      GetContextsByExecutionResponse* response);
+      GetContextsByExecutionResponse* response) override;
 
   // Gets all direct artifacts that a context attributes to.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetArtifactsByContext(
       const GetArtifactsByContextRequest& request,
-      GetArtifactsByContextResponse* response);
+      GetArtifactsByContextResponse* response) override;
 
   // Gets all direct executions that a context associates with.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetExecutionsByContext(
       const GetExecutionsByContextRequest& request,
-      GetExecutionsByContextResponse* response);
+      GetExecutionsByContextResponse* response) override;
 
  private:
   // To construct the object, see Create(...).
