@@ -190,8 +190,8 @@ TEST_P(MetadataSourceTestSuite, TestMultiQueryTransaction) {
 // Test Insert execution with NULL values.
 // Initialization: creates an empty table t1 (c1 INT, c2 VARCHAR(255)) with test
 // schema.
-// Execution: Insert a new row (1,NULL) into t1.
-// Expectation: all the retrieved rows in t1 are (1, $0).
+// Execution: Insert a new row (1, NULL) into t1.
+// Expectation: all the retrieved rows in t1 are (1, kMetadataSourceNull).
 TEST_P(MetadataSourceTestSuite, TestNull) {
   metadata_source_container_->InitTestSchema();
   TF_EXPECT_OK(metadata_source_->Begin());
