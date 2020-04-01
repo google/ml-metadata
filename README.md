@@ -23,6 +23,13 @@ The recommended way to install ML Metadata is to use the
 pip install ml-metadata
 ```
 
+Then import the relevant packages:
+
+```python
+from ml_metadata import metadata_store
+from ml_metadata.proto import metadata_store_pb2
+```
+
 ## Installing with Docker
 
 This is the recommended way to build ML Metadata under Linux, and is
