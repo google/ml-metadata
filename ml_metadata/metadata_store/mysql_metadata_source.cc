@@ -19,6 +19,7 @@ limitations under the License.
 
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "mysql.h"
@@ -304,7 +305,7 @@ Status MySqlMetadataSource::ConvertMySqlRowSetToRecordSet(
       }
 
       if (row[col] == nullptr && !(field->flags & NOT_NULL_FLAG)) {
-        record.add_values("");
+        record.add_values(kMetadataSourceNull);
       } else {
         record.add_values(absl::StrCat(row[col]));
       }

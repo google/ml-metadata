@@ -44,9 +44,9 @@ cc_library(
 )
 
 cc_library(
-    name = "type_kind",
+    name = "constants",
     hdrs = [
-        "type_kind.h",
+        "constants.h",
     ],
 )
 
@@ -59,10 +59,10 @@ cc_library(
         "rdbms_metadata_access_object.h",
     ],
     deps = [
+        ":constants",
         ":metadata_access_object_base",
         ":metadata_source",
         ":query_executor",
-        ":type_kind",
         "@com_google_protobuf//:protobuf",
         
         "@com_google_absl//absl/memory",
@@ -80,9 +80,9 @@ cc_library(
         "query_executor.h",
     ],
     deps = [
+        ":constants",
         ":metadata_access_object_base",
         ":metadata_source",
-        ":type_kind",
         "@com_google_protobuf//:protobuf",
         
         "@com_google_absl//absl/memory",
@@ -248,6 +248,7 @@ cc_library(
     srcs = ["sqlite_metadata_source_util.cc"],
     hdrs = ["sqlite_metadata_source_util.h"],
     deps = [
+        ":constants",
         "@com_google_absl//absl/strings",
         "//ml_metadata/proto:metadata_source_proto",
         "@org_sqlite",
@@ -274,6 +275,7 @@ ml_metadata_cc_test(
     size = "small",
     srcs = ["sqlite_metadata_source_test.cc"],
     deps = [
+        ":constants",
         ":sqlite_metadata_source",
         ":test_util",
         "@com_google_googletest//:gtest_main",
@@ -324,6 +326,7 @@ cc_library(
     srcs = ["mysql_metadata_source.cc"],
     hdrs = ["mysql_metadata_source.h"],
     deps = [
+        ":constants",
         ":metadata_source",
         ":types",
         "@com_google_absl//absl/strings",
@@ -413,6 +416,7 @@ cc_library(
         "mysql_metadata_source_test.cc",
     ],
     deps = [
+        ":constants",
         ":metadata_source",
         ":mysql_metadata_source",
         ":test_mysql_metadata_source_initializer",

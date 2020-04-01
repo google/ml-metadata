@@ -18,8 +18,8 @@ limitations under the License.
 #include <memory>
 #include <vector>
 
+#include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
-#include "ml_metadata/metadata_store/type_kind.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "tensorflow/core/lib/core/status.h"

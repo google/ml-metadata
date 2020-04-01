@@ -55,11 +55,16 @@ TypeKind ResolveTypeKind(const ContextType* const type) {
 }
 
 // Parses and converts a string value to a specific field in a message.
+// If the given string `value` is NULL (encoded as kMetadataSourceNull), then
+// leave the field unset.
 // The field should be a scalar field. The field type must be one of {string,
-// int64, bool, enum}.
+// int64, bool, enum, message}.
 tensorflow::Status ParseValueToField(
     const google::protobuf::FieldDescriptor* field_descriptor,
     const absl::string_view value, google::protobuf::Message* message) {
+  if (value == kMetadataSourceNull) {
+    return tensorflow::Status::OK();
+  }
   const google::protobuf::Reflection* reflection = message->GetReflection();
   switch (field_descriptor->cpp_type()) {
     case google::protobuf::FieldDescriptor::CppType::CPPTYPE_STRING: {
@@ -666,11 +671,11 @@ tensorflow::Status RDBMSMetadataAccessObject::FindNodeImpl(const int64 node_id,
         (is_custom_property
              ? (*node->mutable_custom_properties())[property_name]
              : (*node->mutable_properties())[property_name]);
-    if (!record.values(2).empty()) {
+    if (record.values(2) != kMetadataSourceNull) {
       int64 int_value;
       CHECK(absl::SimpleAtoi(record.values(2), &int_value));
       property_value.set_int_value(int_value);
-    } else if (!record.values(3).empty()) {
+    } else if (record.values(3) != kMetadataSourceNull) {
       double double_value;
       CHECK(absl::SimpleAtod(record.values(3), &double_value));
       property_value.set_double_value(double_value);

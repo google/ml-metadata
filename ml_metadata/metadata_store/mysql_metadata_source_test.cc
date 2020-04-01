@@ -22,6 +22,8 @@ limitations under the License.
 #include <gtest/gtest.h>
 #include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/substitute.h"
+#include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/metadata_store/test_mysql_metadata_source_initializer.h"
 #include "ml_metadata/metadata_store/test_util.h"
@@ -128,6 +130,27 @@ TEST_F(MySqlMetadataSourceTest, TestInsert) {
   EXPECT_EQ(1, query_results.records().size());
   EXPECT_THAT(query_results, EqualsProto(expected_results));
 }
+
+// TODO(b/149022372): add this test to the shared metadata_source test suite.
+TEST_F(MySqlMetadataSourceTest, TestNull) {
+  InitTestSchema();
+  TF_EXPECT_OK(metadata_source_->Begin());
+  TF_EXPECT_OK(metadata_source_->ExecuteQuery("INSERT INTO t1 VALUES (1, NULL)",
+                                              nullptr));
+  RecordSet expected_results = ParseTextProtoOrDie<RecordSet>(
+      absl::Substitute(
+        R"(column_names: "c1"
+           column_names: "c2"
+           records: { values: "1" values: "$0" })", kMetadataSourceNull));
+
+  RecordSet query_results;
+  TF_EXPECT_OK(
+      metadata_source_->ExecuteQuery("SELECT * FROM t1", &query_results));
+  TF_EXPECT_OK(metadata_source_->Commit());
+  EXPECT_EQ(1, query_results.records().size());
+  EXPECT_THAT(query_results, EqualsProto(expected_results));
+}
+
 
 TEST_F(MySqlMetadataSourceTest, TestEscapeString) {
   TF_CHECK_OK(metadata_source_->Connect());
