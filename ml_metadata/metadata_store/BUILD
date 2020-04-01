@@ -275,12 +275,11 @@ ml_metadata_cc_test(
     size = "small",
     srcs = ["sqlite_metadata_source_test.cc"],
     deps = [
-        ":constants",
+        ":metadata_source_test_suite",
         ":sqlite_metadata_source",
         ":test_util",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/memory",
-        "@com_google_absl//absl/strings",
         "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:test",
     ],
@@ -382,6 +381,24 @@ cc_library(
         "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:test",
         "@com_github_gflags_gflags//:gflags_nothreads",
+    ],
+)
+
+# An abstract type for testing MetadataSource implementations.
+cc_library(
+    name = "metadata_source_test_suite",
+    testonly = 1,
+    srcs = ["metadata_source_test_suite.cc"],
+    hdrs = ["metadata_source_test_suite.h"],
+    deps = [
+        ":constants",
+        ":metadata_source",
+        ":test_util",
+        "@com_google_googletest//:gtest",
+        "@com_google_absl//absl/strings",
+        "//ml_metadata/proto:metadata_source_proto",
+        "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:test",
     ],
 )
 
