@@ -216,7 +216,6 @@ cc_library(
         "metadata_store_service_interface.h",
     ],
     deps = [
-        ":metadata_store_service_interface",
         ":types",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
