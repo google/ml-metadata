@@ -408,7 +408,7 @@ tensorflow::Status QueryConfigExecutor::InitMetadataSourceIfNotExists(
   checks.push_back(CheckAssociationTable());
   checks.push_back(CheckAttributionTable());
   std::vector<std::string> missing_schema_error_messages;
-  for (tensorflow::Status check : checks) {
+  for (const tensorflow::Status& check : checks) {
     if (!check.ok()) {
       missing_schema_error_messages.push_back(check.error_message());
     }
