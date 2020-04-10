@@ -66,12 +66,16 @@ tensorflow::Status
 QueryConfigMetadataAccessObjectContainer::SetupPreviousVersionForUpgrade(
     int64 version) {
   MetadataSourceQueryConfig::MigrationScheme migration_scheme;
-  TF_RETURN_IF_ERROR(GetMigrationScheme(version, &migration_scheme));
+  TF_RETURN_WITH_CONTEXT_IF_ERROR(
+      GetMigrationScheme(version, &migration_scheme),
+      "Cannot find migration scheme for SetupPreviousVersionForUpgrade");
   for (const auto& query : migration_scheme.upgrade_verification()
                                .previous_version_setup_queries()) {
     RecordSet dummy_record_set;
-    TF_RETURN_IF_ERROR(
-        GetMetadataSource()->ExecuteQuery(query.query(), &dummy_record_set));
+    TF_RETURN_WITH_CONTEXT_IF_ERROR(
+        GetMetadataSource()->ExecuteQuery(query.query(), &dummy_record_set),
+        "Cannot execute query in SetupPreviousVersionForUpgrade: ",
+        query.query());
   }
   return tensorflow::Status::OK();
 }
@@ -80,12 +84,15 @@ tensorflow::Status
 QueryConfigMetadataAccessObjectContainer::SetupPreviousVersionForDowngrade(
     int64 version) {
   MetadataSourceQueryConfig::MigrationScheme migration_scheme;
-  TF_RETURN_IF_ERROR(GetMigrationScheme(version, &migration_scheme));
+  TF_RETURN_WITH_CONTEXT_IF_ERROR(
+      GetMigrationScheme(version, &migration_scheme),
+      "Cannot find migration scheme for SetupPreviousVersionForDowngrade");
   for (const auto& query : migration_scheme.downgrade_verification()
                                .previous_version_setup_queries()) {
     RecordSet dummy_record_set;
-    TF_RETURN_IF_ERROR(
-        GetMetadataSource()->ExecuteQuery(query.query(), &dummy_record_set));
+    TF_RETURN_WITH_CONTEXT_IF_ERROR(
+        GetMetadataSource()->ExecuteQuery(query.query(), &dummy_record_set),
+        "SetupPreviousVersionForDowngrade query:", query.query());
   }
   return tensorflow::Status::OK();
 }
@@ -111,8 +118,9 @@ tensorflow::Status QueryConfigMetadataAccessObjectContainer::Verification(
         queries) {
   for (const auto& query : queries) {
     RecordSet record_set;
-    TF_RETURN_IF_ERROR(
-        GetMetadataSource()->ExecuteQuery(query.query(), &record_set));
+    TF_RETURN_WITH_CONTEXT_IF_ERROR(
+        GetMetadataSource()->ExecuteQuery(query.query(), &record_set),
+        "query: ", query.query());
     if (record_set.records_size() != 1) {
       return tensorflow::errors::Internal("Verification failed on query ",
                                           query.query());
@@ -158,7 +166,7 @@ tensorflow::Status
 QueryConfigMetadataAccessObjectContainer::SetDatabaseVersionIncompatible() {
   RecordSet record_set;
   TF_RETURN_IF_ERROR(GetMetadataSource()->ExecuteQuery(
-      "UPDATE `MLMDEnv` SET `schema_version` = `schema_version` + 2;",
+      "UPDATE `MLMDEnv` SET `schema_version` = `schema_version` + 1;",
       &record_set));
   return tensorflow::Status::OK();
 }
@@ -853,6 +861,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactById) {
       key: 'custom_property_1'
       value: { string_value: '5' }
     }
+    state: LIVE
   )");
   want_artifact.set_type_id(type_id);
 
@@ -896,6 +905,7 @@ TEST_P(MetadataAccessObjectTest, FindAllArtifacts) {
       key: 'custom_property_1'
       value: { string_value: '5' }
     }
+    state: LIVE
   )");
   want_artifact1.set_type_id(type_id);
 
@@ -918,6 +928,49 @@ TEST_P(MetadataAccessObjectTest, FindAllArtifacts) {
   EXPECT_THAT(artifacts[1], EqualsProto(want_artifact2));
 }
 
+TEST_P(MetadataAccessObjectTest, DefaultArtifactState) {
+  TF_ASSERT_OK(Init());
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
+    name: 'test_type'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: DOUBLE }
+    properties { key: 'property_3' value: STRING }
+  )");
+  int64 type_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
+
+  Artifact want_artifact1 = ParseTextProtoOrDie<Artifact>(R"(
+    uri: 'testuri://testing/uri'
+    properties {
+      key: 'property_1'
+      value: { int_value: 3 }
+    }
+    properties {
+      key: 'property_2'
+      value: { double_value: 3.0 }
+    }
+    properties {
+      key: 'property_3'
+      value: { string_value: '3' }
+    }
+    custom_properties {
+      key: 'custom_property_1'
+      value: { string_value: '5' }
+    }
+  )");
+  want_artifact1.set_type_id(type_id);
+
+  int64 artifact1_id;
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateArtifact(want_artifact1, &artifact1_id));
+  want_artifact1.set_id(artifact1_id);
+  want_artifact1.set_state(Artifact::UNKNOWN);
+  std::vector<Artifact> artifacts;
+  TF_EXPECT_OK(metadata_access_object_->FindArtifacts(&artifacts));
+  EXPECT_EQ(artifacts.size(), 1);
+  EXPECT_THAT(artifacts[0], EqualsProto(want_artifact1));
+}
+
 TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIds) {
   TF_ASSERT_OK(Init());
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>("name: 'test_type'");
@@ -926,6 +979,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIds) {
   Artifact want_artifact1 =
       ParseTextProtoOrDie<Artifact>("uri: 'testuri://testing/uri1'");
   want_artifact1.set_type_id(type_id);
+  want_artifact1.set_state(Artifact::LIVE);
   int64 artifact1_id;
   TF_ASSERT_OK(
       metadata_access_object_->CreateArtifact(want_artifact1, &artifact1_id));
@@ -934,6 +988,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIds) {
   Artifact want_artifact2 =
       ParseTextProtoOrDie<Artifact>("uri: 'testuri://testing/uri2'");
   want_artifact2.set_type_id(type_id);
+  want_artifact2.set_state(Artifact::LIVE);
   int64 artifact2_id;
   TF_ASSERT_OK(
       metadata_access_object_->CreateArtifact(want_artifact2, &artifact2_id));
@@ -944,6 +999,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIds) {
   TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type2_id));
   Artifact artifact3;
   artifact3.set_type_id(type2_id);
+  artifact3.set_state(Artifact::LIVE);
   int64 artifact3_id;
   TF_ASSERT_OK(
       metadata_access_object_->CreateArtifact(artifact3, &artifact3_id));
@@ -961,16 +1017,18 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByURI) {
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>("name: 'test_type'");
   int64 type_id;
   TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
-  Artifact want_artifact1 =
-      ParseTextProtoOrDie<Artifact>("uri: 'testuri://testing/uri1'");
+  Artifact want_artifact1 = ParseTextProtoOrDie<Artifact>(
+      "uri: 'testuri://testing/uri1' "
+      "state: UNKNOWN");
   want_artifact1.set_type_id(type_id);
   int64 artifact1_id;
   TF_ASSERT_OK(
       metadata_access_object_->CreateArtifact(want_artifact1, &artifact1_id));
   want_artifact1.set_id(artifact1_id);
 
-  Artifact artifact2 =
-      ParseTextProtoOrDie<Artifact>("uri: 'testuri://testing/uri2'");
+  Artifact artifact2 = ParseTextProtoOrDie<Artifact>(
+      "uri: 'testuri://testing/uri2' "
+      "state: UNKNOWN");
   artifact2.set_type_id(type_id);
   int64 artifact2_id;
   TF_ASSERT_OK(
@@ -1009,6 +1067,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
       key: 'custom_property_1'
       value: { string_value: '5' }
     }
+    state: LIVE
   )");
   stored_artifact.set_type_id(type_id);
   int64 artifact_id;
@@ -1031,6 +1090,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
       key: 'custom_property_1'
       value: { int_value: 3 }
     }
+    state: LIVE
   )");
   want_artifact.set_id(artifact_id);
   want_artifact.set_type_id(type_id);
@@ -1057,6 +1117,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactError) {
       key: 'property_1'
       value: { int_value: 3 }
     }
+    state: UNKNOWN
   )");
   artifact.set_type_id(type_id);
   int64 artifact_id;
@@ -1113,6 +1174,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
       key: 'custom_property_1'
       value: { int_value: 3 }
     }
+    last_known_state: UNKNOWN
   )");
   execution1.set_type_id(type_id);
 
@@ -1127,6 +1189,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
   int64 type2_id;
   TF_ASSERT_OK(metadata_access_object_->CreateType(name_only_type, &type2_id));
   Execution execution2;
+  execution2.set_last_known_state(Execution::RUNNING);
   execution2.set_type_id(type2_id);
 
   int64 execution2_id = -1;
@@ -1179,6 +1242,7 @@ TEST_P(MetadataAccessObjectTest, UpdateExecution) {
       key: 'custom_property_1'
       value: { string_value: '5' }
     }
+    last_known_state: RUNNING
   )");
   stored_execution.set_type_id(type_id);
   int64 execution_id;
@@ -1195,6 +1259,7 @@ TEST_P(MetadataAccessObjectTest, UpdateExecution) {
       key: 'property_3'
       value: { string_value: '5' }
     }
+    last_known_state: RUNNING
   )");
   want_execution.set_id(execution_id);
   want_execution.set_type_id(type_id);
@@ -1403,6 +1468,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndUseAssociation) {
       metadata_access_object_->CreateType(context_type, &context_type_id));
 
   Execution execution;
+  execution.set_last_known_state(Execution::UNKNOWN);
   execution.set_type_id(execution_type_id);
   (*execution.mutable_custom_properties())["custom"].set_int_value(3);
   Context context = ParseTextProtoOrDie<Context>("name: 'context_instance'");
@@ -1515,6 +1581,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndUseAttribution) {
 
   Artifact artifact;
   artifact.set_uri("testuri");
+  artifact.set_state(Artifact::UNKNOWN);
   artifact.set_type_id(artifact_type_id);
   (*artifact.mutable_custom_properties())["custom"].set_string_value("str");
   Context context = ParseTextProtoOrDie<Context>("name: 'context_instance'");
@@ -1758,7 +1825,8 @@ TEST_P(MetadataAccessObjectTest, PutEventsWithPaths) {
 }
 
 TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
-  // setup the database of previous version.
+  // setup the database using the previous version.
+  // Calling this with the minimum version sets up the original database.
   int64 lib_version = metadata_access_object_->GetLibraryVersion();
   for (int64 i = metadata_access_object_container_->MinimumVersion();
        i <= lib_version; i++) {
@@ -1771,8 +1839,8 @@ TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
     // when i = 0, it is v0.13.2. At that time, the MLMDEnv table does not
     // exist, GetSchemaVersion resolves the current version as 0.
     int64 v0_13_2_version = 100;
-    TF_EXPECT_OK(metadata_access_object_->GetSchemaVersion(&v0_13_2_version));
-    EXPECT_EQ(0, v0_13_2_version);
+    TF_ASSERT_OK(metadata_access_object_->GetSchemaVersion(&v0_13_2_version));
+    ASSERT_EQ(0, v0_13_2_version);
   }
   // If there is only one version, then the following tests don't make sense.
   if (metadata_access_object_container_->MinimumVersion() < lib_version) {
@@ -1780,20 +1848,21 @@ TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
     // enabling upgrade migration
     tensorflow::Status status =
         metadata_access_object_->InitMetadataSourceIfNotExists();
-    EXPECT_EQ(status.code(), tensorflow::error::FAILED_PRECONDITION);
+    ASSERT_EQ(status.code(), tensorflow::error::FAILED_PRECONDITION)
+        << "Error: " << status.error_message();
 
     // then init the store and the migration queries runs.
-    TF_EXPECT_OK(metadata_access_object_->InitMetadataSourceIfNotExists(
+    TF_ASSERT_OK(metadata_access_object_->InitMetadataSourceIfNotExists(
         /*enable_upgrade_migration=*/true));
     // at the end state, schema version should becomes the library version and
     // all migration queries should all succeed.
     int64 curr_version = 0;
-    TF_EXPECT_OK(metadata_access_object_->GetSchemaVersion(&curr_version));
-    EXPECT_EQ(lib_version, curr_version);
+    TF_ASSERT_OK(metadata_access_object_->GetSchemaVersion(&curr_version));
+    ASSERT_EQ(lib_version, curr_version);
     // check the verification queries in the previous version scheme
     if (metadata_access_object_container_->HasUpgradeVerification(
             lib_version)) {
-      TF_EXPECT_OK(
+      TF_ASSERT_OK(
           metadata_access_object_container_->UpgradeVerification(lib_version));
     }
   }

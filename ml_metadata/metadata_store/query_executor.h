@@ -161,6 +161,7 @@ class QueryExecutor {
   // Inserts an artifact into the database.
   virtual tensorflow::Status InsertArtifact(int64 type_id,
                                             const std::string& artifact_uri,
+                                            Artifact::State state,
                                             int64* artifact_id) = 0;
 
   // Queries an artifact from the Artifact table by its id.
@@ -181,7 +182,8 @@ class QueryExecutor {
   // Updates an artifact in the database.
   virtual tensorflow::Status UpdateArtifactDirect(int64 artifact_id,
                                                   int64 type_id,
-                                                  const std::string& uri) = 0;
+                                                  const std::string& uri,
+                                                  Artifact::State state) = 0;
 
   // Checks the existence of the ArtifactProperty table.
   virtual tensorflow::Status CheckArtifactPropertyTable() = 0;
@@ -210,6 +212,7 @@ class QueryExecutor {
 
   // Inserts an execution into the database.
   virtual tensorflow::Status InsertExecution(int64 type_id,
+                                             Execution::State last_known_state,
                                              int64* execution_id) = 0;
 
   // Queries an execution from the database by its id. It has 1
@@ -222,8 +225,8 @@ class QueryExecutor {
       int64 execution_type_id, RecordSet* record_set) = 0;
 
   // Updates an execution in the database.
-  virtual tensorflow::Status UpdateExecutionDirect(int64 execution_id,
-                                                   int64 type_id) = 0;
+  virtual tensorflow::Status UpdateExecutionDirect(
+      int64 execution_id, int64 type_id, Execution::State last_known_state) = 0;
 
   // Checks the existence of the ExecutionProperty table.
   virtual tensorflow::Status CheckExecutionPropertyTable() = 0;
