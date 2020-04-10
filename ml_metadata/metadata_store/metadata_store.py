@@ -112,7 +112,7 @@ class MetadataStore(object):
     return grpc.secure_channel(target, credentials)
 
   def __del__(self):
-    if self._using_db_connection:
+    if self._using_db_connection and hasattr(self, '_metadata_store'):
       metadata_store_serialized.DestroyMetadataStore(self._metadata_store)
 
   # TODO(huimiao) surface the retry config to user-facing api.
