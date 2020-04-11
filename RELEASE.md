@@ -11,11 +11,6 @@
 
 ## Bug Fixes and Other Changes
 
-* Reading an Artifact where no state was specified will now have the state
-  field populated with State:UNKNOWN.
-* Reading an Execution where no last_known_state was specified will now have the
-  last_known_state field populated with State:UNKNOWN.
-
 ## Breaking changes
 
 ## Deprecations

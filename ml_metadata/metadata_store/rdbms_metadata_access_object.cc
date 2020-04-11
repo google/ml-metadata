@@ -240,15 +240,13 @@ tensorflow::Status ValidatePropertiesWithType(const Node& node,
 // Creates an Artifact (without properties).
 tensorflow::Status RDBMSMetadataAccessObject::CreateBasicNode(
     const Artifact& artifact, int64* node_id) {
-  return executor_->InsertArtifact(artifact.type_id(), artifact.uri(),
-                                   artifact.state(), node_id);
+  return executor_->InsertArtifact(artifact.type_id(), artifact.uri(), node_id);
 }
 
 // Creates an Execution (without properties).
 tensorflow::Status RDBMSMetadataAccessObject::CreateBasicNode(
     const Execution& execution, int64* node_id) {
-  return executor_->InsertExecution(execution.type_id(),
-                                    execution.last_known_state(), node_id);
+  return executor_->InsertExecution(execution.type_id(), node_id);
 }
 
 // Creates a Context (without properties).
@@ -292,14 +290,13 @@ tensorflow::Status RDBMSMetadataAccessObject::NodeLookups(
 tensorflow::Status RDBMSMetadataAccessObject::RunNodeUpdate(
     const Artifact& artifact) {
   return executor_->UpdateArtifactDirect(artifact.id(), artifact.type_id(),
-                                         artifact.uri(), artifact.state());
+                                         artifact.uri());
 }
 
 // Update an Execution's type_id.
 tensorflow::Status RDBMSMetadataAccessObject::RunNodeUpdate(
     const Execution& execution) {
-  return executor_->UpdateExecutionDirect(execution.id(), execution.type_id(),
-                                          execution.last_known_state());
+  return executor_->UpdateExecutionDirect(execution.id(), execution.type_id());
 }
 
 // Update a Context's type id and name.
@@ -1177,11 +1174,12 @@ tensorflow::Status RDBMSMetadataAccessObject::FindArtifactsByURI(
   return FindManyNodesImpl(record_set, artifacts);
 }
 
+
 tensorflow::Status RDBMSMetadataAccessObject::FindContextByTypeIdAndName(
     int64 type_id, absl::string_view name, Context* context) {
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(
-      executor_->SelectContextByTypeIDAndName(type_id, name, &record_set));
+  TF_RETURN_IF_ERROR(executor_->SelectContextByTypeIDAndName(
+      type_id, name, &record_set));
   std::vector<Context> contexts;
   TF_RETURN_IF_ERROR(FindManyNodesImpl(record_set, &contexts));
   // By design, a <type_id, name> pair uniquely identifies a context.

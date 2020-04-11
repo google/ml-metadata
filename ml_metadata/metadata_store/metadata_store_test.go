@@ -455,6 +455,7 @@ func TestPutAndGetArtifacts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Cannot create artifact type: %v", err)
 	}
+
 	// put artifacts
 	artifacts := make([]*mdpb.Artifact, 2)
 	uri1, uri2 := "test_uri1", "test_uri2"
@@ -464,7 +465,6 @@ func TestPutAndGetArtifacts(t *testing.T) {
 		CustomProperties: map[string]*mdpb.Value{
 			`p1`: &mdpb.Value{Value: &mdpb.Value_StringValue{StringValue: `val`}},
 		},
-		State: mdpb.Artifact_UNKNOWN.Enum(),
 	}
 	artifacts[1] = &mdpb.Artifact{
 		TypeId: &tid,
@@ -472,7 +472,6 @@ func TestPutAndGetArtifacts(t *testing.T) {
 		Properties: map[string]*mdpb.Value{
 			`p1`: &mdpb.Value{Value: &mdpb.Value_IntValue{IntValue: 1}},
 		},
-		State: mdpb.Artifact_UNKNOWN.Enum(),
 	}
 
 	aids, err := store.PutArtifacts(artifacts)
@@ -595,7 +594,6 @@ func TestPutAndGetExecutions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Cannot create execution type: %v", err)
 	}
-	executionStateRunning := mdpb.Execution_State(mdpb.Execution_RUNNING)
 	wantExecution := &mdpb.Execution{
 		TypeId: &tid,
 		Properties: map[string]*mdpb.Value{
@@ -604,7 +602,6 @@ func TestPutAndGetExecutions(t *testing.T) {
 		CustomProperties: map[string]*mdpb.Value{
 			`p1`: &mdpb.Value{Value: &mdpb.Value_IntValue{IntValue: 1}},
 		},
-		LastKnownState: &executionStateRunning,
 	}
 	// insert 1 execution
 	executions := make([]*mdpb.Execution, 1)
@@ -1003,10 +1000,7 @@ func TestPutExecutionWithContext(t *testing.T) {
 	ia.Id = &aid
 	// prepare an execution and an output artifact, and publish input and output together with events
 	// input has no event update, output has a new event
-	executionStateRunning := mdpb.Execution_State(mdpb.Execution_RUNNING)
-	e := &mdpb.Execution{TypeId: &etid,
-		LastKnownState: &executionStateRunning,
-	}
+	e := &mdpb.Execution{TypeId: &etid}
 	aep := make([]*ArtifactAndEvent, 1)
 	aep[0] = &ArtifactAndEvent{
 		Artifact: ia,
@@ -1143,11 +1137,11 @@ func TestPutAndUseAttributionsAndAssociations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Cannot create context: %v", err)
 	}
-	wantExecution, err := insertExecution(store, etid, `custom_properties { key: 'p1' value: { int_value: 1 } } last_known_state:RUNNING `)
+	wantExecution, err := insertExecution(store, etid, `custom_properties { key: 'p1' value: { int_value: 1 } }`)
 	if err != nil {
 		t.Fatalf("Cannot create execution: %v", err)
 	}
-	wantArtifact, err := insertArtifact(store, atid, ` uri: 'test uri' properties { key: 'p1' value: { string_value: 's' }  } state: UNKNOWN `)
+	wantArtifact, err := insertArtifact(store, atid, ` uri: 'test uri' properties { key: 'p1' value: { string_value: 's' } }`)
 	if err != nil {
 		t.Fatalf("Cannot create execution: %v", err)
 	}
@@ -1228,7 +1222,7 @@ func TestPutDuplicatedAttributionsAndEmptyAssociations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Cannot create context: %v", err)
 	}
-	wantArtifact, err := insertArtifact(store, atid, ` uri: 'test uri' properties { key: 'p1' value: { string_value: 's' } } state: UNKNOWN `)
+	wantArtifact, err := insertArtifact(store, atid, ` uri: 'test uri' properties { key: 'p1' value: { string_value: 's' } }`)
 	if err != nil {
 		t.Fatalf("Cannot create execution: %v", err)
 	}

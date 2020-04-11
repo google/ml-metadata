@@ -640,7 +640,6 @@ TEST_F(MetadataStoreTest, PutArtifactsGetArtifactsByID) {
             key: 'property'
             value: { string_value: '3' }
           }
-          state:LIVE
         }
       )");
   put_artifacts_request.mutable_artifacts(0)->set_type_id(type_id);
@@ -687,7 +686,6 @@ TEST_F(MetadataStoreTest, PutArtifactsUpdateGetArtifactsByID) {
             key: 'property'
             value: { string_value: '3' }
           }
-          state:LIVE
         }
       )");
   put_artifacts_request.mutable_artifacts(0)->set_type_id(type_id);
@@ -706,7 +704,6 @@ TEST_F(MetadataStoreTest, PutArtifactsUpdateGetArtifactsByID) {
             key: 'property'
             value: { string_value: '2' }
           }
-          state:LIVE
         }
       )");
 
@@ -751,7 +748,6 @@ TEST_F(MetadataStoreTest, PutExecutionsUpdateGetExecutionsByID) {
             key: 'property'
             value: { string_value: '3' }
           }
-          last_known_state:RUNNING
         }
       )");
   put_executions_request.mutable_executions(0)->set_type_id(type_id);
@@ -769,7 +765,6 @@ TEST_F(MetadataStoreTest, PutExecutionsUpdateGetExecutionsByID) {
             key: 'property'
             value: { string_value: '2' }
           }
-          last_known_state:CANCELED
         }
       )");
 
@@ -792,7 +787,6 @@ TEST_F(MetadataStoreTest, PutExecutionsUpdateGetExecutionsByID) {
             key: 'property'
             value: { string_value: '2' }
           }
-          last_known_state:CANCELED
         }
       )");
   expected_response.mutable_executions(0)->set_id(execution_id);
@@ -999,14 +993,12 @@ TEST_F(MetadataStoreTest, PutExecutionsGetExecutionByID) {
             key: 'property'
             value: { string_value: '3' }
           }
-          last_known_state: RUNNING
         }
         executions: {
           properties {
             key: 'property'
             value: { string_value: '2' }
           }
-          last_known_state: CANCELED
         }
       )");
   put_executions_request.mutable_executions(0)->set_type_id(type_id);
@@ -1065,8 +1057,6 @@ TEST_F(MetadataStoreTest, PutExecutionsGetExecutionsWithEmptyExecution) {
   GetExecutionsResponse expected;
   *expected.mutable_executions() = put_executions_request.executions();
   expected.mutable_executions(0)->set_id(execution_id);
-  expected.mutable_executions(0)->set_last_known_state(Execution_State_UNKNOWN);
-
   EXPECT_THAT(get_executions_response, testing::EqualsProto(expected));
 
   GetExecutionsByTypeRequest get_executions_by_type_request;
@@ -1506,7 +1496,6 @@ TEST_F(MetadataStoreTest, PutAndGetExecution) {
   Execution execution;
   execution.set_type_id(execution_type_id);
   (*execution.mutable_properties())["running_status"].set_string_value("INIT");
-  execution.set_last_known_state(Execution::NEW);
 
   PutExecutionRequest put_execution_request_1;
   *put_execution_request_1.mutable_execution() = execution;
@@ -1519,13 +1508,10 @@ TEST_F(MetadataStoreTest, PutAndGetExecution) {
   // 2. Update an existing execution with an input artifact but no event
   PutExecutionRequest put_execution_request_2;
   (*execution.mutable_properties())["running_status"].set_string_value("RUN");
-  execution.set_last_known_state(Execution::RUNNING);
   *put_execution_request_2.mutable_execution() = execution;
   Artifact artifact_1;
   artifact_1.set_uri("uri://an_input_artifact");
   artifact_1.set_type_id(artifact_type_id);
-  artifact_1.set_state(Artifact::LIVE);
-
   *put_execution_request_2.add_artifact_event_pairs()->mutable_artifact() =
       artifact_1;
   PutExecutionResponse put_execution_response_2;
@@ -1535,13 +1521,10 @@ TEST_F(MetadataStoreTest, PutAndGetExecution) {
   EXPECT_EQ(put_execution_response_2.execution_id(), execution.id());
   EXPECT_THAT(put_execution_response_2.artifact_ids(), SizeIs(1));
   artifact_1.set_id(put_execution_response_2.artifact_ids(0));
-  artifact_1.set_state(Artifact::LIVE);
 
   // 3. Update an existing execution with existing/new artifacts with events.
   PutExecutionRequest put_execution_request_3;
   (*execution.mutable_properties())["running_status"].set_string_value("DONE");
-  execution.set_last_known_state(Execution::COMPLETE);
-
   *put_execution_request_3.mutable_execution() = execution;
   *put_execution_request_3.add_artifact_event_pairs()->mutable_artifact() =
       artifact_1;
@@ -1556,8 +1539,6 @@ TEST_F(MetadataStoreTest, PutAndGetExecution) {
   Artifact artifact_2;
   artifact_2.set_uri("uri://an_output_artifact");
   artifact_2.set_type_id(artifact_type_id);
-  artifact_2.set_state(Artifact::LIVE);
-
   Event event_2;
   event_2.set_type(Event::DECLARED_OUTPUT);
   *put_execution_request_3.add_artifact_event_pairs()->mutable_artifact() =
@@ -2075,8 +2056,6 @@ TEST_F(MetadataStoreTest, PutAndUseAttributionsAndAssociations) {
 
   Execution want_execution;
   want_execution.set_type_id(execution_type_id);
-  want_execution.set_last_known_state(Execution::UNKNOWN);
-
   (*want_execution.mutable_properties())["property"].set_string_value("1");
   PutExecutionsRequest put_executions_request;
   *put_executions_request.add_executions() = want_execution;
@@ -2089,7 +2068,6 @@ TEST_F(MetadataStoreTest, PutAndUseAttributionsAndAssociations) {
   Artifact want_artifact;
   want_artifact.set_uri("testuri");
   want_artifact.set_type_id(artifact_type_id);
-
   (*want_artifact.mutable_custom_properties())["custom"].set_int_value(1);
   PutArtifactsRequest put_artifacts_request;
   *put_artifacts_request.add_artifacts() = want_artifact;
@@ -2097,7 +2075,6 @@ TEST_F(MetadataStoreTest, PutAndUseAttributionsAndAssociations) {
   TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request,
                                              &put_artifacts_response));
   ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(1));
-  want_artifact.set_state(Artifact::UNKNOWN);
   want_artifact.set_id(put_artifacts_response.artifact_ids(0));
 
   Context want_context;
@@ -2167,8 +2144,6 @@ TEST_F(MetadataStoreTest, PutAndUseAttributionsAndAssociations) {
   Artifact want_artifact_2;
   want_artifact_2.set_uri("testuri2");
   want_artifact_2.set_type_id(artifact_type_id);
-  want_artifact_2.set_state(Artifact::UNKNOWN);
-
   PutArtifactsRequest put_artifacts_request_2;
   *put_artifacts_request_2.add_artifacts() = want_artifact_2;
   PutArtifactsResponse put_artifacts_response_2;

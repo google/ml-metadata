@@ -133,12 +133,12 @@ R"pb(
   }
   insert_artifact {
     query: " INSERT INTO `Artifact`( "
-           "   `type_id`, `uri`, `state` "
-           ") VALUES($0, $1, $2);"
-    parameter_num: 3
+           "   `type_id`, `uri` "
+           ") VALUES($0, $1);"
+    parameter_num: 2
   }
   select_artifact_by_id {
-    query: " SELECT `type_id`, `uri`, `state` "
+    query: " SELECT `type_id`, `uri` "
            " from `Artifact` "
            " WHERE id = $0; "
     parameter_num: 1
@@ -153,9 +153,9 @@ R"pb(
   }
   update_artifact {
     query: " UPDATE `Artifact` "
-           " SET `type_id` = $1, `uri` = $2, `state` = $3 "
+           " SET `type_id` = $1, `uri` = $2"
            " WHERE id = $0;"
-    parameter_num: 4
+    parameter_num: 3
   }
   drop_artifact_property_table {
     query: " DROP TABLE IF EXISTS `ArtifactProperty`; "
@@ -220,13 +220,12 @@ R"pb(
   }
   insert_execution {
     query: " INSERT INTO `Execution`( "
-           "   `type_id`, "
-           "   `last_known_state` "
-           ") VALUES($0, $1);"
-    parameter_num: 2
+           "   `type_id` "
+           ") VALUES($0);"
+    parameter_num: 1
   }
   select_execution_by_id {
-    query: " SELECT `type_id`, `last_known_state` "
+    query: " SELECT `type_id` "
            " from `Execution` "
            " WHERE id = $0; "
     parameter_num: 1
@@ -237,9 +236,9 @@ R"pb(
   }
   update_execution {
     query: " UPDATE `Execution` "
-           " SET `type_id` = $1, `last_known_state` = $2 "
+           " SET `type_id` = $1 "
            " WHERE id = $0;"
-    parameter_num: 3
+    parameter_num: 2
   }
   drop_execution_property_table {
     query: " DROP TABLE IF EXISTS `ExecutionProperty`; "
