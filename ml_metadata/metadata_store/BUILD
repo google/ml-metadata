@@ -12,8 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//ml_metadata:ml_metadata.bzl", "ml_metadata_cc_test", "ml_metadata_go_library", "ml_metadata_go_test", "ml_metadata_go_wrap_cc")
-load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_py_wrap_cc")
+load(
+    "//ml_metadata:ml_metadata.bzl",
+    "ml_metadata_cc_test",
+    "ml_metadata_go_library",
+    "ml_metadata_go_test",
+    "ml_metadata_go_wrap_cc",
+    "ml_metadata_py_wrap_cc",
+)
 
 licenses(["notice"])  # Apache 2.0
 
@@ -321,7 +327,7 @@ cc_library(
 # Note that the name of the target should follow specific naming
 # pattern specified in tensorflow/tf_exported_symbols.lds in order
 # for the init function in the generated .so file to be exported.
-tf_py_wrap_cc(
+ml_metadata_py_wrap_cc(
     name = "pywrap_tf_metadata_store_serialized",
     srcs = ["tf_metadata_store_serialized.i"],
     deps = [
