@@ -8,6 +8,7 @@
     -   Added user-given unique name per type column to Artifact and Execution.
     -   Added create_time_since_epoch, last_update_time_since_epoch to all
         Nodes.
+*   Refactors transaction executions using TransactionExecutor class.
 
 ## Bug Fixes and Other Changes
 

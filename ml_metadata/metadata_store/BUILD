@@ -169,6 +169,28 @@ ml_metadata_cc_test(
 )
 
 cc_library(
+    name = "transaction_executor",
+    srcs = ["transaction_executor.cc"],
+    hdrs = ["transaction_executor.h"],
+    deps = [
+        ":metadata_source",
+        "@org_tensorflow//tensorflow/core:lib",
+    ],
+)
+
+ml_metadata_cc_test(
+    name = "transaction_executor_test",
+    srcs = ["transaction_executor_test.cc"],
+    deps = [
+        ":metadata_source",
+        ":transaction_executor",
+        "@com_google_googletest//:gtest_main",
+        "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:test",
+    ],
+)
+
+cc_library(
     name = "metadata_store_service_interface",
     hdrs = ["metadata_store_service_interface.h"],
     deps = [
@@ -185,6 +207,7 @@ cc_library(
         ":metadata_access_object_factory",
         ":metadata_source",
         ":metadata_store_service_interface",
+        ":transaction_executor",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/memory",
         "//ml_metadata/proto:metadata_store_proto",
@@ -220,6 +243,7 @@ cc_library(
         "metadata_store.h",
         "metadata_store_factory.h",
         "metadata_store_service_interface.h",
+        "transaction_executor.h",
     ],
     deps = [
         ":types",
@@ -238,6 +262,7 @@ cc_library(
         ":metadata_store",
         ":mysql_metadata_source",
         ":sqlite_metadata_source",
+        ":transaction_executor",
         "@com_google_absl//absl/memory",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/util:metadata_source_query_config",

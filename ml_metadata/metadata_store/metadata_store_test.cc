@@ -38,9 +38,14 @@ using ::testing::SizeIs;
 class MetadataStoreTest : public ::testing::Test {
  protected:
   MetadataStoreTest() {
+    auto metadata_source =
+        absl::make_unique<SqliteMetadataSource>(SqliteMetadataSourceConfig());
+    auto transaction_executor =
+        absl::make_unique<RdbmsTransactionExecutor>(metadata_source.get());
+
     TF_CHECK_OK(MetadataStore::Create(
         util::GetSqliteMetadataSourceQueryConfig(), {},
-        absl::make_unique<SqliteMetadataSource>(SqliteMetadataSourceConfig()),
+        std::move(metadata_source), std::move(transaction_executor),
         &metadata_store_));
     TF_CHECK_OK(metadata_store_->InitMetadataStore());
   }
@@ -88,34 +93,45 @@ TEST_F(MetadataStoreTest, SpecifyDowngradeMigrationWhenCreate) {
   SqliteMetadataSourceConfig connection_config;
   connection_config.set_filename_uri(filename_uri);
 
-  std::unique_ptr<MetadataStore> metadata_store;
-  TF_EXPECT_OK(MetadataStore::Create(
-      query_config, {},
-      absl::make_unique<SqliteMetadataSource>(connection_config),
-      &metadata_store));
-  TF_ASSERT_OK(metadata_store->InitMetadataStore());
+  {
+    std::unique_ptr<MetadataStore> metadata_store;
+    auto metadata_source =
+        absl::make_unique<SqliteMetadataSource>(connection_config);
+    auto transaction_executor =
+        absl::make_unique<RdbmsTransactionExecutor>(metadata_source.get());
+    TF_EXPECT_OK(MetadataStore::Create(
+        query_config, {}, std::move(metadata_source),
+        std::move(transaction_executor), &metadata_store));
+    TF_ASSERT_OK(metadata_store->InitMetadataStore());
+  }
 
   // Create another metadata store, and test when migration_options are given
   {
     std::unique_ptr<MetadataStore> other_metadata_store;
+    auto metadata_source =
+        absl::make_unique<SqliteMetadataSource>(connection_config);
+    auto transaction_executor =
+        absl::make_unique<RdbmsTransactionExecutor>(metadata_source.get());
     MigrationOptions options;
     options.set_downgrade_to_schema_version(query_config.schema_version() + 1);
     tensorflow::Status s = MetadataStore::Create(
-        query_config, options,
-        absl::make_unique<SqliteMetadataSource>(connection_config),
-        &other_metadata_store);
+        query_config, options, std::move(metadata_source),
+        std::move(transaction_executor), &other_metadata_store);
     EXPECT_EQ(s.code(), tensorflow::error::INVALID_ARGUMENT);
     EXPECT_EQ(other_metadata_store, nullptr);
   }
 
   {
     std::unique_ptr<MetadataStore> other_metadata_store;
+    auto metadata_source =
+        absl::make_unique<SqliteMetadataSource>(connection_config);
+    auto transaction_executor =
+        absl::make_unique<RdbmsTransactionExecutor>(metadata_source.get());
     MigrationOptions options;
     options.set_downgrade_to_schema_version(0);
     tensorflow::Status s = MetadataStore::Create(
-        query_config, options,
-        absl::make_unique<SqliteMetadataSource>(connection_config),
-        &other_metadata_store);
+        query_config, options, std::move(metadata_source),
+        std::move(transaction_executor), &other_metadata_store);
     EXPECT_EQ(s.code(), tensorflow::error::CANCELLED);
     EXPECT_TRUE(absl::StrContains(s.error_message(),
                                   "Downgrade migration was performed."));

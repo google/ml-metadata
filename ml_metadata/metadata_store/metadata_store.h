@@ -20,6 +20,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/metadata_access_object.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/metadata_store/metadata_store_service_interface.h"
+#include "ml_metadata/metadata_store/transaction_executor.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
 #include "tensorflow/core/lib/core/status.h"
@@ -43,6 +44,7 @@ class MetadataStore : public MetadataStoreServiceInterface {
       const MetadataSourceQueryConfig& query_config,
       const MigrationOptions& migration_options,
       std::unique_ptr<MetadataSource> metadata_source,
+      std::unique_ptr<TransactionExecutor> transaction_executor,
       std::unique_ptr<MetadataStore>* result);
 
   // Initializes the metadata source and creates schema. Any existing data in
@@ -441,10 +443,12 @@ class MetadataStore : public MetadataStoreServiceInterface {
  private:
   // To construct the object, see Create(...).
   MetadataStore(std::unique_ptr<MetadataSource> metadata_source,
-                std::unique_ptr<MetadataAccessObject> metadata_access_object);
+                std::unique_ptr<MetadataAccessObject> metadata_access_object,
+                std::unique_ptr<TransactionExecutor> transaction_executor);
 
   std::unique_ptr<MetadataSource> metadata_source_;
   std::unique_ptr<MetadataAccessObject> metadata_access_object_;
+  std::unique_ptr<TransactionExecutor> transaction_executor_;
 };
 
 }  // namespace ml_metadata
