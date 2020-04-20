@@ -854,15 +854,15 @@ tensorflow::Status MetadataStore::GetContextByTypeAndName(
         } else if (!status.ok()) {
           return status;
         }
-        Context* context = new Context;
+        Context context;
         status = metadata_access_object_->FindContextByTypeIdAndName(
-            context_type.id(), request.context_name(), context);
+            context_type.id(), request.context_name(), &context);
         if (tensorflow::errors::IsNotFound(status)) {
           return tensorflow::Status::OK();
         } else if (!status.ok()) {
           return status;
         }
-        response->set_allocated_context(context);
+        *response->mutable_context() = context;
         return tensorflow::Status::OK();
       });
 }
