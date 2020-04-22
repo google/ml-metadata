@@ -164,6 +164,12 @@ class MetadataStoreServiceImpl final
       ::ml_metadata::GetArtifactsByTypeResponse* response) override
       ABSL_LOCKS_EXCLUDED(lock_);
 
+  ::grpc::Status GetArtifactByTypeAndName(
+      ::grpc::ServerContext* context,
+      const ::ml_metadata::GetArtifactByTypeAndNameRequest* request,
+      ::ml_metadata::GetArtifactByTypeAndNameResponse* response) override
+      ABSL_LOCKS_EXCLUDED(lock_);
+
   ::grpc::Status GetArtifactsByURI(
       ::grpc::ServerContext* context,
       const ::ml_metadata::GetArtifactsByURIRequest* request,
@@ -180,6 +186,12 @@ class MetadataStoreServiceImpl final
       ::grpc::ServerContext* context,
       const ::ml_metadata::GetExecutionsByTypeRequest* request,
       ::ml_metadata::GetExecutionsByTypeResponse* response) override
+      ABSL_LOCKS_EXCLUDED(lock_);
+
+  ::grpc::Status GetExecutionByTypeAndName(
+      ::grpc::ServerContext* context,
+      const ::ml_metadata::GetExecutionByTypeAndNameRequest* request,
+      ::ml_metadata::GetExecutionByTypeAndNameResponse* response) override
       ABSL_LOCKS_EXCLUDED(lock_);
 
   ::grpc::Status PutContexts(::grpc::ServerContext* context,

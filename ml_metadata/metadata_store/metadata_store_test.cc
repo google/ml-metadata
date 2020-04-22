@@ -32,8 +32,8 @@ namespace {
 
 using ::ml_metadata::testing::ParseTextProtoOrDie;
 using ::testing::ElementsAre;
-using ::testing::UnorderedElementsAre;
 using ::testing::SizeIs;
+using ::testing::UnorderedElementsAre;
 
 class MetadataStoreTest : public ::testing::Test {
  protected:
@@ -673,6 +673,10 @@ TEST_F(MetadataStoreTest, PutArtifactsGetArtifactsByID) {
   GetArtifactsByIDResponse expected;
   *expected.mutable_artifacts() = put_artifacts_request.artifacts();
   expected.mutable_artifacts(0)->set_id(artifact_id);
+  expected.mutable_artifacts(0)->set_create_time_since_epoch(
+      get_artifacts_by_id_response.artifacts(0).create_time_since_epoch());
+  expected.mutable_artifacts(0)->set_last_update_time_since_epoch(
+      get_artifacts_by_id_response.artifacts(0).last_update_time_since_epoch());
   EXPECT_THAT(get_artifacts_by_id_response, testing::EqualsProto(expected));
 }
 
@@ -735,6 +739,12 @@ TEST_F(MetadataStoreTest, PutArtifactsUpdateGetArtifactsByID) {
   TF_ASSERT_OK(metadata_store_->GetArtifactsByID(
       get_artifacts_by_id_request, &get_artifacts_by_id_response));
   ASSERT_THAT(get_artifacts_by_id_response.artifacts(), SizeIs(1));
+  put_artifacts_request_2.mutable_artifacts(0)->set_create_time_since_epoch(
+      get_artifacts_by_id_response.artifacts(0).create_time_since_epoch());
+  put_artifacts_request_2.mutable_artifacts(0)
+      ->set_last_update_time_since_epoch(
+          get_artifacts_by_id_response.artifacts(0)
+              .last_update_time_since_epoch());
   EXPECT_THAT(get_artifacts_by_id_response.artifacts(0),
               testing::EqualsProto(put_artifacts_request_2.artifacts(0)));
 }
@@ -808,6 +818,11 @@ TEST_F(MetadataStoreTest, PutExecutionsUpdateGetExecutionsByID) {
   expected_response.mutable_executions(0)->set_id(execution_id);
   expected_response.mutable_executions(0)->set_type_id(type_id);
 
+  expected_response.mutable_executions(0)->set_create_time_since_epoch(
+      get_executions_by_id_response.executions(0).create_time_since_epoch());
+  expected_response.mutable_executions(0)->set_last_update_time_since_epoch(
+      get_executions_by_id_response.executions(0)
+          .last_update_time_since_epoch());
   EXPECT_THAT(get_executions_by_id_response,
               testing::EqualsProto(expected_response));
 }
@@ -1038,6 +1053,16 @@ TEST_F(MetadataStoreTest, PutExecutionsGetExecutionByID) {
   *expected.mutable_executions() = put_executions_request.executions();
   expected.mutable_executions(0)->set_id(execution_id_0);
   expected.mutable_executions(1)->set_id(execution_id_1);
+  expected.mutable_executions(0)->set_create_time_since_epoch(
+      get_executions_by_id_response.executions(0).create_time_since_epoch());
+  expected.mutable_executions(0)->set_last_update_time_since_epoch(
+      get_executions_by_id_response.executions(0)
+          .last_update_time_since_epoch());
+  expected.mutable_executions(1)->set_create_time_since_epoch(
+      get_executions_by_id_response.executions(1).create_time_since_epoch());
+  expected.mutable_executions(1)->set_last_update_time_since_epoch(
+      get_executions_by_id_response.executions(1)
+          .last_update_time_since_epoch());
   EXPECT_THAT(get_executions_by_id_response, testing::EqualsProto(expected));
 }
 
@@ -1073,6 +1098,10 @@ TEST_F(MetadataStoreTest, PutExecutionsGetExecutionsWithEmptyExecution) {
   GetExecutionsResponse expected;
   *expected.mutable_executions() = put_executions_request.executions();
   expected.mutable_executions(0)->set_id(execution_id);
+  expected.mutable_executions(0)->set_create_time_since_epoch(
+      get_executions_response.executions(0).create_time_since_epoch());
+  expected.mutable_executions(0)->set_last_update_time_since_epoch(
+      get_executions_response.executions(0).last_update_time_since_epoch());
   EXPECT_THAT(get_executions_response, testing::EqualsProto(expected));
 
   GetExecutionsByTypeRequest get_executions_by_type_request;
@@ -1575,8 +1604,16 @@ TEST_F(MetadataStoreTest, PutAndGetExecution) {
   TF_ASSERT_OK(metadata_store_->GetArtifacts(get_artifacts_request,
                                              &get_artifacts_response));
   ASSERT_THAT(get_artifacts_response.artifacts(), SizeIs(2));
+  artifact_1.set_create_time_since_epoch(
+      get_artifacts_response.artifacts(0).create_time_since_epoch());
+  artifact_1.set_last_update_time_since_epoch(
+      get_artifacts_response.artifacts(0).last_update_time_since_epoch());
   EXPECT_THAT(get_artifacts_response.artifacts(0),
               testing::EqualsProto(artifact_1));
+  artifact_2.set_create_time_since_epoch(
+      get_artifacts_response.artifacts(1).create_time_since_epoch());
+  artifact_2.set_last_update_time_since_epoch(
+      get_artifacts_response.artifacts(1).last_update_time_since_epoch());
   EXPECT_THAT(get_artifacts_response.artifacts(1),
               testing::EqualsProto(artifact_2));
 
@@ -1585,6 +1622,10 @@ TEST_F(MetadataStoreTest, PutAndGetExecution) {
   TF_ASSERT_OK(metadata_store_->GetExecutions(get_executions_request,
                                               &get_executions_response));
   ASSERT_THAT(get_executions_response.executions(), SizeIs(1));
+  execution.set_create_time_since_epoch(
+      get_executions_response.executions(0).create_time_since_epoch());
+  execution.set_last_update_time_since_epoch(
+      get_executions_response.executions(0).last_update_time_since_epoch());
   EXPECT_THAT(get_executions_response.executions(0),
               testing::EqualsProto(execution));
 
@@ -1639,6 +1680,14 @@ TEST_F(MetadataStoreTest, PutAndGetExecutionWithContext) {
   context2.set_id(put_execution_response.context_ids(1));
   GetContextsResponse get_contexts_response;
   TF_ASSERT_OK(metadata_store_->GetContexts({}, &get_contexts_response));
+  context1.set_create_time_since_epoch(
+      get_contexts_response.contexts(0).create_time_since_epoch());
+  context1.set_last_update_time_since_epoch(
+      get_contexts_response.contexts(0).last_update_time_since_epoch());
+  context2.set_create_time_since_epoch(
+      get_contexts_response.contexts(1).create_time_since_epoch());
+  context2.set_last_update_time_since_epoch(
+      get_contexts_response.contexts(1).last_update_time_since_epoch());
   EXPECT_THAT(get_contexts_response.contexts(),
               ElementsAre(testing::EqualsProto(context1),
                           testing::EqualsProto(context2)));
@@ -1965,6 +2014,11 @@ TEST_F(MetadataStoreTest, PutContextsUpdateGetContexts) {
   TF_ASSERT_OK(metadata_store_->GetContextsByID(get_contexts_by_id_request,
                                                 &get_contexts_by_id_response));
   ASSERT_THAT(get_contexts_by_id_response.contexts(), SizeIs(1));
+
+  want_context1.set_create_time_since_epoch(
+      get_contexts_by_id_response.contexts(0).create_time_since_epoch());
+  want_context1.set_last_update_time_since_epoch(
+      get_contexts_by_id_response.contexts(0).last_update_time_since_epoch());
   EXPECT_THAT(get_contexts_by_id_response.contexts(0),
               testing::EqualsProto(want_context1));
 
@@ -1974,6 +2028,10 @@ TEST_F(MetadataStoreTest, PutContextsUpdateGetContexts) {
   TF_ASSERT_OK(metadata_store_->GetContextsByType(
       get_contexts_by_type_request, &get_contexts_by_type_response));
   ASSERT_THAT(get_contexts_by_type_response.contexts(), SizeIs(1));
+  want_context3.set_create_time_since_epoch(
+      get_contexts_by_type_response.contexts(0).create_time_since_epoch());
+  want_context3.set_last_update_time_since_epoch(
+      get_contexts_by_type_response.contexts(0).last_update_time_since_epoch());
   EXPECT_THAT(get_contexts_by_type_response.contexts(0),
               testing::EqualsProto(want_context3));
 
@@ -1982,10 +2040,22 @@ TEST_F(MetadataStoreTest, PutContextsUpdateGetContexts) {
   TF_ASSERT_OK(metadata_store_->GetContexts(get_contexts_request,
                                             &get_contexts_response));
   ASSERT_THAT(get_contexts_response.contexts(), SizeIs(3));
+  want_context1.set_create_time_since_epoch(
+      get_contexts_response.contexts(0).create_time_since_epoch());
+  want_context1.set_last_update_time_since_epoch(
+      get_contexts_response.contexts(0).last_update_time_since_epoch());
   EXPECT_THAT(get_contexts_response.contexts(0),
               testing::EqualsProto(want_context1));
+  want_context2.set_create_time_since_epoch(
+      get_contexts_response.contexts(1).create_time_since_epoch());
+  want_context2.set_last_update_time_since_epoch(
+      get_contexts_response.contexts(1).last_update_time_since_epoch());
   EXPECT_THAT(get_contexts_response.contexts(1),
               testing::EqualsProto(want_context2));
+  want_context3.set_create_time_since_epoch(
+      get_contexts_response.contexts(2).create_time_since_epoch());
+  want_context3.set_last_update_time_since_epoch(
+      get_contexts_response.contexts(2).last_update_time_since_epoch());
   EXPECT_THAT(get_contexts_response.contexts(2),
               testing::EqualsProto(want_context3));
 }
@@ -1996,9 +2066,7 @@ TEST_F(MetadataStoreTest, PutContextGetContextsByTypeAndName) {
   const PutContextTypeRequest put_context_type_request =
       ParseTextProtoOrDie<PutContextTypeRequest>(R"(
         all_fields_match: true
-        context_type: {
-          name: 'test_type'
-        }
+        context_type: { name: 'test_type' }
       )");
   PutContextTypeResponse put_context_type_response;
   TF_ASSERT_OK(metadata_store_->PutContextType(put_context_type_request,
@@ -2009,9 +2077,7 @@ TEST_F(MetadataStoreTest, PutContextGetContextsByTypeAndName) {
   // Create a context
   PutContextsRequest put_contexts_request =
       ParseTextProtoOrDie<PutContextsRequest>(R"(
-        contexts: {
-          name: 'context_name'
-        }
+        contexts: { name: 'context_name' }
       )");
   put_contexts_request.mutable_contexts(0)->set_type_id(type_id);
   PutContextsResponse put_contexts_response;
@@ -2032,6 +2098,12 @@ TEST_F(MetadataStoreTest, PutContextGetContextsByTypeAndName) {
       get_context_by_type_and_name_request,
       &get_context_by_type_and_name_response));
   ASSERT_TRUE(get_context_by_type_and_name_response.has_context());
+  want_context1.set_create_time_since_epoch(
+      get_context_by_type_and_name_response.context()
+          .create_time_since_epoch());
+  want_context1.set_last_update_time_since_epoch(
+      get_context_by_type_and_name_response.context()
+          .last_update_time_since_epoch());
   EXPECT_THAT(get_context_by_type_and_name_response.context(),
               testing::EqualsProto(want_context1));
 
@@ -2119,6 +2191,11 @@ TEST_F(MetadataStoreTest, PutAndUseAttributionsAndAssociations) {
   TF_EXPECT_OK(metadata_store_->GetContextsByArtifact(
       get_contexts_by_artifact_request, &get_contexts_by_artifact_response));
   ASSERT_THAT(get_contexts_by_artifact_response.contexts(), SizeIs(1));
+  want_context.set_create_time_since_epoch(
+      get_contexts_by_artifact_response.contexts(0).create_time_since_epoch());
+  want_context.set_last_update_time_since_epoch(
+      get_contexts_by_artifact_response.contexts(0)
+          .last_update_time_since_epoch());
   EXPECT_THAT(get_contexts_by_artifact_response.contexts(0),
               testing::EqualsProto(want_context));
 
@@ -2128,6 +2205,11 @@ TEST_F(MetadataStoreTest, PutAndUseAttributionsAndAssociations) {
   TF_EXPECT_OK(metadata_store_->GetArtifactsByContext(
       get_artifacts_by_context_request, &get_artifacts_by_context_response));
   ASSERT_THAT(get_artifacts_by_context_response.artifacts(), SizeIs(1));
+  want_artifact.set_create_time_since_epoch(
+      get_artifacts_by_context_response.artifacts(0).create_time_since_epoch());
+  want_artifact.set_last_update_time_since_epoch(
+      get_artifacts_by_context_response.artifacts(0)
+          .last_update_time_since_epoch());
   EXPECT_THAT(get_artifacts_by_context_response.artifacts(0),
               testing::EqualsProto(want_artifact));
 
@@ -2144,6 +2226,11 @@ TEST_F(MetadataStoreTest, PutAndUseAttributionsAndAssociations) {
   TF_ASSERT_OK(metadata_store_->GetContextsByExecution(
       get_contexts_by_execution_request, &get_contexts_by_execution_response));
   ASSERT_THAT(get_contexts_by_execution_response.contexts(), SizeIs(1));
+  want_context.set_create_time_since_epoch(
+      get_contexts_by_execution_response.contexts(0).create_time_since_epoch());
+  want_context.set_last_update_time_since_epoch(
+      get_contexts_by_execution_response.contexts(0)
+          .last_update_time_since_epoch());
   EXPECT_THAT(get_contexts_by_execution_response.contexts(0),
               testing::EqualsProto(want_context));
 
@@ -2153,6 +2240,12 @@ TEST_F(MetadataStoreTest, PutAndUseAttributionsAndAssociations) {
   TF_ASSERT_OK(metadata_store_->GetExecutionsByContext(
       get_executions_by_context_request, &get_executions_by_context_response));
   ASSERT_THAT(get_executions_by_context_response.executions(), SizeIs(1));
+  want_execution.set_create_time_since_epoch(
+      get_executions_by_context_response.executions(0)
+          .create_time_since_epoch());
+  want_execution.set_last_update_time_since_epoch(
+      get_executions_by_context_response.executions(0)
+          .last_update_time_since_epoch());
   EXPECT_THAT(get_executions_by_context_response.executions(0),
               testing::EqualsProto(want_execution));
 
@@ -2180,13 +2273,23 @@ TEST_F(MetadataStoreTest, PutAndUseAttributionsAndAssociations) {
   // The new Artifact can also be retrieved.
   GetArtifactsByContextResponse get_artifacts_by_context_response_2;
   TF_EXPECT_OK(metadata_store_->GetArtifactsByContext(
-      get_artifacts_by_context_request,
-      &get_artifacts_by_context_response_2));
+      get_artifacts_by_context_request, &get_artifacts_by_context_response_2));
   ASSERT_THAT(get_artifacts_by_context_response_2.artifacts(), SizeIs(2));
+  want_artifact.set_create_time_since_epoch(
+      get_artifacts_by_context_response_2.artifacts(0)
+          .create_time_since_epoch());
+  want_artifact.set_last_update_time_since_epoch(
+      get_artifacts_by_context_response_2.artifacts(0)
+          .last_update_time_since_epoch());
+  want_artifact_2.set_create_time_since_epoch(
+      get_artifacts_by_context_response_2.artifacts(1)
+          .create_time_since_epoch());
+  want_artifact_2.set_last_update_time_since_epoch(
+      get_artifacts_by_context_response_2.artifacts(1)
+          .last_update_time_since_epoch());
   EXPECT_THAT(get_artifacts_by_context_response_2.artifacts(),
-              UnorderedElementsAre(
-                  testing::EqualsProto(want_artifact),
-                  testing::EqualsProto(want_artifact_2)));
+              UnorderedElementsAre(testing::EqualsProto(want_artifact),
+                                   testing::EqualsProto(want_artifact_2)));
 }
 
 }  // namespace

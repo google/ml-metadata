@@ -47,7 +47,7 @@ enum MetadataSourceType {
 
 // A config includes a set of SQL queries and the type of metadata source.
 // It is used by MetadataAccessObject to init backend and issue queries.
-// Next ID: 94
+// Next ID: 96
 message MetadataSourceQueryConfig {
   // the type of the metadata source
   MetadataSourceType metadata_source_type = 1;
@@ -135,14 +135,23 @@ message MetadataSourceQueryConfig {
   // Checks the existence of the Artifact table.
   TemplateQuery check_artifact_table = 46;
 
-  // Inserts an artifact into the Artifact table. It has 2 parameters.
+  // Inserts an artifact into the Artifact table. It has 5 parameters.
   // $0 is the type_id
   // $1 is the uri of the Artifact
+  // $2 is the name of the Artifact
+  // $3 is the create_time_since_epoch of the Artifact
+  // $4 is the last_update_time_since_epoch of the Artifact
   TemplateQuery insert_artifact = 14;
 
   // Queries an artifact from the Artifact table by its id. It has 1 parameter.
   // $0 is the artifact_id
   TemplateQuery select_artifact_by_id = 15;
+
+  // Queries an artifact from the Artifact table by its name and type id.
+  // It has 2 parameter.
+  // $0 is the type_id
+  // $1 is the name of the Artifact
+  TemplateQuery select_artifact_by_type_id_and_name = 94;
 
   // Queries an artifact from the Artifact table by its type_id. It has 1
   // parameter.
@@ -153,10 +162,11 @@ message MetadataSourceQueryConfig {
   // $0 is the uri
   TemplateQuery select_artifacts_by_uri = 56;
 
-  // Updates an artifact in the Artifact table. It has 3 parameters.
+  // Updates an artifact in the Artifact table. It has 4 parameters.
   // $0 is the existing artifact id
   // $1 is the type_id
   // $2 is the uri of the Artifact
+  // $3 is the last_update_time_since_epoch of the Artifact
   TemplateQuery update_artifact = 21;
 
   // Drops the ArtifactProperty table.
@@ -204,8 +214,11 @@ message MetadataSourceQueryConfig {
   // Checks the existence of the Execution table.
   TemplateQuery check_execution_table = 48;
 
-  // Inserts an execution into the Execution table. It has 1 parameter.
+  // Inserts an execution into the Execution table. It has 4 parameter.
   // $0 is the type_id
+  // $1 is the name of the execution
+  // $2 is the create_time_since_epoch of the execution
+  // $3 is the last_update_time_since_epoch of the execution
   TemplateQuery insert_execution = 28;
 
   // Queries an execution from the Execution table by its id. It has 1
@@ -213,14 +226,21 @@ message MetadataSourceQueryConfig {
   // $0 is the execution_id
   TemplateQuery select_execution_by_id = 29;
 
+  // Queries an execution from the Execution table by its name and type id.
+  // It has 2 parameters.
+  // $0 is the type_id
+  // $1 is the name
+  TemplateQuery select_execution_by_type_id_and_name = 95;
+
   // Queries an execution from the Execution table by its type_id. It has 1
   // parameter.
   // $0 is the execution_type_id
   TemplateQuery select_executions_by_type_id = 53;
 
-  // Updates an execution in the Execution table. It has 2 parameters.
+  // Updates an execution in the Execution table. It has 3 parameters.
   // $0 is the existing execution id
   // $1 is the type_id
+  // $2 is the last_update_time_since_epoch of the execution
   TemplateQuery update_execution = 34;
 
   // Drops the ExecutionProperty table.
@@ -268,10 +288,11 @@ message MetadataSourceQueryConfig {
   // Checks the existence of the Context table.
   TemplateQuery check_context_table = 69;
 
-  // Inserts a context into the Context table. It has 2 parameters.
+  // Inserts a context into the Context table. It has 4 parameters.
   // $0 is the type_id
   // $1 is the name of the Context
-  // TODO(huimiao) unique name?
+  // $2 is the create_time_since_epoch of the Context
+  // $3 is the last_update_time_since_epoch of the Context
   TemplateQuery insert_context = 70;
 
   // Queries a context from the Context table by its id. It has 1 parameter.
@@ -289,10 +310,11 @@ message MetadataSourceQueryConfig {
   // $1 is the context_name
   TemplateQuery select_context_by_type_id_and_name = 93;
 
-  // Updates a context in the Context table. It has 3 parameters.
+  // Updates a context in the Context table. It has 4 parameters.
   // $0 is the existing context id
   // $1 is the type_id
   // $2 is the name of the Context
+  // $3 is the last_update_time_since_epoch of the Context
   TemplateQuery update_context = 73;
 
   // Drops the ContextProperty table.

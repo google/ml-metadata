@@ -164,6 +164,12 @@ class MetadataAccessObject {
   virtual tensorflow::Status FindArtifacts(
       std::vector<Artifact>* artifacts) = 0;
 
+  // Queries an artifact by its type_id and name.
+  // Returns NOT_FOUND error, if no artifact can be found.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual tensorflow::Status FindArtifactByTypeIdAndArtifactName(
+      int64 artifact_type_id, absl::string_view name, Artifact* artifact) = 0;
+
   // Queries artifacts by a given type_id.
   // Returns NOT_FOUND error, if the given artifact_type_id cannot be found.
   // Returns detailed INTERNAL error, if query execution fails.
@@ -208,6 +214,13 @@ class MetadataAccessObject {
   // Returns detailed INTERNAL error, if query execution fails.
   virtual tensorflow::Status FindExecutions(
       std::vector<Execution>* executions) = 0;
+
+  // Queries an execution by its type_id and name.
+  // Returns NOT_FOUND error, if no execution can be found.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual tensorflow::Status FindExecutionByTypeIdAndExecutionName(
+      int64 execution_type_id, absl::string_view name,
+      Execution* execution) = 0;
 
   // Queries executions by a given type_id.
   // Returns NOT_FOUND error, if the given execution_type_id cannot be found.
@@ -259,7 +272,7 @@ class MetadataAccessObject {
   // Queries a context by a type_id and a context name.
   // Returns NOT_FOUND error, if no context can be found.
   // Returns detailed INTERNAL error, if query execution fails.
-  virtual tensorflow::Status FindContextByTypeIdAndName(
+  virtual tensorflow::Status FindContextByTypeIdAndContextName(
       int64 type_id, absl::string_view name, Context* context) = 0;
 
   // Updates a context.
@@ -326,7 +339,6 @@ class MetadataAccessObject {
   // Returns INVALID_ARGUMENT error, if the `artifacts` is null.
   virtual tensorflow::Status FindArtifactsByContext(
       int64 context_id, std::vector<Artifact>* artifacts) = 0;
-
 
   // Resolves the schema version stored in the metadata source. The `db_version`
   // is set to 0, if it is a 0.13.2 release pre-existing database.

@@ -118,6 +118,9 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   tensorflow::Status FindArtifactsByTypeId(
       int64 artifact_type_id, std::vector<Artifact>* artifacts) final;
 
+  tensorflow::Status FindArtifactByTypeIdAndArtifactName(
+      int64 type_id, absl::string_view name, Artifact* artifact) final;
+
   tensorflow::Status FindArtifactsByURI(absl::string_view uri,
                                         std::vector<Artifact>* artifacts) final;
 
@@ -130,6 +133,9 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
                                        Execution* execution) final;
 
   tensorflow::Status FindExecutions(std::vector<Execution>* executions) final;
+
+  tensorflow::Status FindExecutionByTypeIdAndExecutionName(
+      int64 type_id, absl::string_view name, Execution* execution) final;
 
   tensorflow::Status FindExecutionsByTypeId(
       int64 execution_type_id, std::vector<Execution>* executions) final;
@@ -146,8 +152,9 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   tensorflow::Status FindContextsByTypeId(int64 context_type_id,
                                           std::vector<Context>* contexts) final;
 
-  tensorflow::Status FindContextByTypeIdAndName(
-      int64 type_id, absl::string_view name, Context* context) final;
+  tensorflow::Status FindContextByTypeIdAndContextName(int64 type_id,
+                                                       absl::string_view name,
+                                                       Context* context) final;
 
   tensorflow::Status UpdateContext(const Context& context) final;
 

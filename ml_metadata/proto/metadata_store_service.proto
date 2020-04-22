@@ -232,6 +232,15 @@ message GetArtifactsByTypeResponse {
   repeated Artifact artifacts = 1;
 }
 
+message GetArtifactByTypeAndNameRequest {
+  optional string type_name = 1;
+  optional string artifact_name = 2;
+}
+
+message GetArtifactByTypeAndNameResponse {
+  optional Artifact artifact = 1;
+}
+
 message GetArtifactsByIDRequest {
   // A list of artifact ids to retrieve.
   repeated int64 artifact_ids = 1;
@@ -305,6 +314,15 @@ message GetExecutionsByTypeRequest {
 
 message GetExecutionsByTypeResponse {
   repeated Execution executions = 1;
+}
+
+message GetExecutionByTypeAndNameRequest {
+  optional string type_name = 1;
+  optional string execution_name = 2;
+}
+
+message GetExecutionByTypeAndNameResponse {
+  optional Execution execution = 1;
 }
 
 message GetExecutionsByIDRequest {
@@ -755,6 +773,14 @@ service MetadataStoreService {
   // Gets all the contexts of a given type.
   rpc GetContextsByType(GetContextsByTypeRequest)
       returns (GetContextsByTypeResponse) {}
+
+  // Gets the artifact of the given type and artifact name.
+  rpc GetArtifactByTypeAndName(GetArtifactByTypeAndNameRequest)
+      returns (GetArtifactByTypeAndNameResponse) {}
+
+  // Gets the execution of the given type and execution name.
+  rpc GetExecutionByTypeAndName(GetExecutionByTypeAndNameRequest)
+      returns (GetExecutionByTypeAndNameResponse) {}
 
   // Gets the context of the given type and context name.
   rpc GetContextByTypeAndName(GetContextByTypeAndNameRequest)

@@ -192,31 +192,31 @@ tensorflow::Status MetadataStore::PutTypes(const PutTypesRequest& request,
   if (!request.all_fields_match()) {
     return tensorflow::errors::Unimplemented("Must match all fields.");
   }
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
-        for (const ArtifactType& artifact_type : request.artifact_types()) {
-          int64 artifact_type_id;
-          TF_RETURN_IF_ERROR(UpsertType(artifact_type, request.can_add_fields(),
-                                        metadata_access_object_.get(),
-                                        &artifact_type_id));
-          response->add_artifact_type_ids(artifact_type_id);
-        }
-        for (const ExecutionType& execution_type : request.execution_types()) {
-          int64 execution_type_id;
-          TF_RETURN_IF_ERROR(
-              UpsertType(execution_type, request.can_add_fields(),
-                         metadata_access_object_.get(), &execution_type_id));
-          response->add_execution_type_ids(execution_type_id);
-        }
-        for (const ContextType& context_type : request.context_types()) {
-          int64 context_type_id;
-          TF_RETURN_IF_ERROR(UpsertType(context_type, request.can_add_fields(),
-                                        metadata_access_object_.get(),
-                                        &context_type_id));
-          response->add_context_type_ids(context_type_id);
-        }
-        return tensorflow::Status::OK();
-      });
+  return transaction_executor_->Execute([this, &request,
+                                         &response]() -> tensorflow::Status {
+    for (const ArtifactType& artifact_type : request.artifact_types()) {
+      int64 artifact_type_id;
+      TF_RETURN_IF_ERROR(UpsertType(artifact_type, request.can_add_fields(),
+                                    metadata_access_object_.get(),
+                                    &artifact_type_id));
+      response->add_artifact_type_ids(artifact_type_id);
+    }
+    for (const ExecutionType& execution_type : request.execution_types()) {
+      int64 execution_type_id;
+      TF_RETURN_IF_ERROR(UpsertType(execution_type, request.can_add_fields(),
+                                    metadata_access_object_.get(),
+                                    &execution_type_id));
+      response->add_execution_type_ids(execution_type_id);
+    }
+    for (const ContextType& context_type : request.context_types()) {
+      int64 context_type_id;
+      TF_RETURN_IF_ERROR(UpsertType(context_type, request.can_add_fields(),
+                                    metadata_access_object_.get(),
+                                    &context_type_id));
+      response->add_context_type_ids(context_type_id);
+    }
+    return tensorflow::Status::OK();
+  });
 }
 
 tensorflow::Status MetadataStore::PutArtifactType(
@@ -384,21 +384,20 @@ tensorflow::Status MetadataStore::GetArtifactsByID(
 tensorflow::Status MetadataStore::GetExecutionsByID(
     const GetExecutionsByIDRequest& request,
     GetExecutionsByIDResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
-        for (const int64 execution_id : request.execution_ids()) {
-          Execution execution;
-          const tensorflow::Status status =
-              metadata_access_object_->FindExecutionById(execution_id,
-                                                         &execution);
-          if (status.ok()) {
-            *response->mutable_executions()->Add() = execution;
-          } else if (!tensorflow::errors::IsNotFound(status)) {
-            return status;
-          }
-        }
-        return tensorflow::Status::OK();
-      });
+  return transaction_executor_->Execute([this, &request,
+                                         &response]() -> tensorflow::Status {
+    for (const int64 execution_id : request.execution_ids()) {
+      Execution execution;
+      const tensorflow::Status status =
+          metadata_access_object_->FindExecutionById(execution_id, &execution);
+      if (status.ok()) {
+        *response->mutable_executions()->Add() = execution;
+      } else if (!tensorflow::errors::IsNotFound(status)) {
+        return status;
+      }
+    }
+    return tensorflow::Status::OK();
+  });
 }
 
 tensorflow::Status MetadataStore::GetContextsByID(
@@ -505,116 +504,112 @@ tensorflow::Status MetadataStore::PutEvents(const PutEventsRequest& request,
 
 tensorflow::Status MetadataStore::PutExecution(
     const PutExecutionRequest& request, PutExecutionResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
-        if (!request.has_execution()) {
-          return tensorflow::errors::InvalidArgument("No execution is found: ",
-                                                     request.DebugString());
-        }
-        // 1. Upsert Execution
-        const Execution& execution = request.execution();
-        int64 execution_id = -1;
-        TF_RETURN_IF_ERROR(UpsertExecution(
-            execution, metadata_access_object_.get(), &execution_id));
-        response->set_execution_id(execution_id);
-        // 2. Upsert Artifacts and insert events
-        for (const PutExecutionRequest::ArtifactAndEvent& artifact_and_event :
-             request.artifact_event_pairs()) {
-          if (!artifact_and_event.has_artifact()) {
-            return tensorflow::errors::InvalidArgument(
-                "Request has no artifact: ", request.DebugString());
-          }
-          const Artifact& artifact = artifact_and_event.artifact();
-          int64 artifact_id = -1;
-          TF_RETURN_IF_ERROR(UpsertArtifact(
-              artifact, metadata_access_object_.get(), &artifact_id));
-          response->add_artifact_ids(artifact_id);
-          // insert event if any
-          if (!artifact_and_event.has_event()) {
-            continue;
-          }
-          Event event = artifact_and_event.event();
-          if ((event.has_artifact_id() && !artifact.has_id()) ||
-              (event.has_artifact_id() && artifact_id != event.artifact_id())) {
-            return tensorflow::errors::InvalidArgument(
-                "Request's event.artifact_id does not match with the given "
-                "artifact: ",
-                request.DebugString());
-          }
-          event.set_artifact_id(artifact_id);
-          if ((event.has_execution_id() && !execution.has_id()) ||
-              (event.has_execution_id() &&
-               execution_id != event.execution_id())) {
-            return tensorflow::errors::InvalidArgument(
-                "Request's event.execution_id does not match with the given "
-                "execution: ",
-                request.DebugString());
-          }
-          event.set_execution_id(execution_id);
-          int64 dummy_event_id = -1;
-          TF_RETURN_IF_ERROR(
-              metadata_access_object_->CreateEvent(event, &dummy_event_id));
-        }
-        // 3. Upsert contexts and insert associations and attributions.
-        for (const Context& context : request.contexts()) {
-          int64 context_id = -1;
-          TF_RETURN_IF_ERROR(UpsertContext(
-              context, metadata_access_object_.get(), &context_id));
-          response->add_context_ids(context_id);
-          TF_RETURN_IF_ERROR(
-              InsertAssociationIfNotExist(context_id, response->execution_id(),
-                                          metadata_access_object_.get()));
-          for (const int64 artifact_id : response->artifact_ids()) {
-            TF_RETURN_IF_ERROR(InsertAttributionIfNotExist(
-                context_id, artifact_id, metadata_access_object_.get()));
-          }
-        }
-        return tensorflow::Status::OK();
-      });
+  return transaction_executor_->Execute([this, &request,
+                                         &response]() -> tensorflow::Status {
+    if (!request.has_execution()) {
+      return tensorflow::errors::InvalidArgument("No execution is found: ",
+                                                 request.DebugString());
+    }
+    // 1. Upsert Execution
+    const Execution& execution = request.execution();
+    int64 execution_id = -1;
+    TF_RETURN_IF_ERROR(UpsertExecution(execution, metadata_access_object_.get(),
+                                       &execution_id));
+    response->set_execution_id(execution_id);
+    // 2. Upsert Artifacts and insert events
+    for (const PutExecutionRequest::ArtifactAndEvent& artifact_and_event :
+         request.artifact_event_pairs()) {
+      if (!artifact_and_event.has_artifact()) {
+        return tensorflow::errors::InvalidArgument("Request has no artifact: ",
+                                                   request.DebugString());
+      }
+      const Artifact& artifact = artifact_and_event.artifact();
+      int64 artifact_id = -1;
+      TF_RETURN_IF_ERROR(UpsertArtifact(artifact, metadata_access_object_.get(),
+                                        &artifact_id));
+      response->add_artifact_ids(artifact_id);
+      // insert event if any
+      if (!artifact_and_event.has_event()) {
+        continue;
+      }
+      Event event = artifact_and_event.event();
+      if ((event.has_artifact_id() && !artifact.has_id()) ||
+          (event.has_artifact_id() && artifact_id != event.artifact_id())) {
+        return tensorflow::errors::InvalidArgument(
+            "Request's event.artifact_id does not match with the given "
+            "artifact: ",
+            request.DebugString());
+      }
+      event.set_artifact_id(artifact_id);
+      if ((event.has_execution_id() && !execution.has_id()) ||
+          (event.has_execution_id() && execution_id != event.execution_id())) {
+        return tensorflow::errors::InvalidArgument(
+            "Request's event.execution_id does not match with the given "
+            "execution: ",
+            request.DebugString());
+      }
+      event.set_execution_id(execution_id);
+      int64 dummy_event_id = -1;
+      TF_RETURN_IF_ERROR(
+          metadata_access_object_->CreateEvent(event, &dummy_event_id));
+    }
+    // 3. Upsert contexts and insert associations and attributions.
+    for (const Context& context : request.contexts()) {
+      int64 context_id = -1;
+      TF_RETURN_IF_ERROR(
+          UpsertContext(context, metadata_access_object_.get(), &context_id));
+      response->add_context_ids(context_id);
+      TF_RETURN_IF_ERROR(InsertAssociationIfNotExist(
+          context_id, response->execution_id(), metadata_access_object_.get()));
+      for (const int64 artifact_id : response->artifact_ids()) {
+        TF_RETURN_IF_ERROR(InsertAttributionIfNotExist(
+            context_id, artifact_id, metadata_access_object_.get()));
+      }
+    }
+    return tensorflow::Status::OK();
+  });
 }
 
 tensorflow::Status MetadataStore::GetEventsByExecutionIDs(
     const GetEventsByExecutionIDsRequest& request,
     GetEventsByExecutionIDsResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
-        for (const int64 execution_id : request.execution_ids()) {
-          std::vector<Event> events;
-          const tensorflow::Status status =
-              metadata_access_object_->FindEventsByExecution(execution_id,
-                                                             &events);
-          if (status.ok()) {
-            for (const Event& event : events) {
-              *response->mutable_events()->Add() = event;
-            }
-          } else if (!tensorflow::errors::IsNotFound(status)) {
-            return status;
-          }
+  return transaction_executor_->Execute([this, &request,
+                                         &response]() -> tensorflow::Status {
+    for (const int64 execution_id : request.execution_ids()) {
+      std::vector<Event> events;
+      const tensorflow::Status status =
+          metadata_access_object_->FindEventsByExecution(execution_id, &events);
+      if (status.ok()) {
+        for (const Event& event : events) {
+          *response->mutable_events()->Add() = event;
         }
-        return tensorflow::Status::OK();
-      });
+      } else if (!tensorflow::errors::IsNotFound(status)) {
+        return status;
+      }
+    }
+    return tensorflow::Status::OK();
+  });
 }
 
 tensorflow::Status MetadataStore::GetEventsByArtifactIDs(
     const GetEventsByArtifactIDsRequest& request,
     GetEventsByArtifactIDsResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
-        for (const int64 artifact_id : request.artifact_ids()) {
-          std::vector<Event> events;
-          const tensorflow::Status status =
-              metadata_access_object_->FindEventsByArtifact(artifact_id,
-                                                            &events);
-          if (status.ok()) {
-            for (const Event& event : events) {
-              *response->mutable_events()->Add() = event;
-            }
-          } else if (!tensorflow::errors::IsNotFound(status)) {
-            return status;
-          }
+  return transaction_executor_->Execute([this, &request,
+                                         &response]() -> tensorflow::Status {
+    for (const int64 artifact_id : request.artifact_ids()) {
+      std::vector<Event> events;
+      const tensorflow::Status status =
+          metadata_access_object_->FindEventsByArtifact(artifact_id, &events);
+      if (status.ok()) {
+        for (const Event& event : events) {
+          *response->mutable_events()->Add() = event;
         }
-        return tensorflow::Status::OK();
-      });
+      } else if (!tensorflow::errors::IsNotFound(status)) {
+        return status;
+      }
+    }
+    return tensorflow::Status::OK();
+  });
 }
 
 tensorflow::Status MetadataStore::GetExecutions(
@@ -785,6 +780,32 @@ tensorflow::Status MetadataStore::GetArtifactsByType(
       });
 }
 
+tensorflow::Status MetadataStore::GetArtifactByTypeAndName(
+    const GetArtifactByTypeAndNameRequest& request,
+    GetArtifactByTypeAndNameResponse* response) {
+  return transaction_executor_->Execute(
+      [this, &request, &response]() -> tensorflow::Status {
+        ArtifactType artifact_type;
+        tensorflow::Status status = metadata_access_object_->FindTypeByName(
+            request.type_name(), &artifact_type);
+        if (tensorflow::errors::IsNotFound(status)) {
+          return tensorflow::Status::OK();
+        } else if (!status.ok()) {
+          return status;
+        }
+        Artifact artifact;
+        status = metadata_access_object_->FindArtifactByTypeIdAndArtifactName(
+            artifact_type.id(), request.artifact_name(), &artifact);
+        if (tensorflow::errors::IsNotFound(status)) {
+          return tensorflow::Status::OK();
+        } else if (!status.ok()) {
+          return status;
+        }
+        *response->mutable_artifact() = artifact;
+        return tensorflow::Status::OK();
+      });
+}
+
 tensorflow::Status MetadataStore::GetExecutionsByType(
     const GetExecutionsByTypeRequest& request,
     GetExecutionsByTypeResponse* response) {
@@ -809,6 +830,32 @@ tensorflow::Status MetadataStore::GetExecutionsByType(
         for (const Execution& execution : executions) {
           *response->mutable_executions()->Add() = execution;
         }
+        return tensorflow::Status::OK();
+      });
+}
+
+tensorflow::Status MetadataStore::GetExecutionByTypeAndName(
+    const GetExecutionByTypeAndNameRequest& request,
+    GetExecutionByTypeAndNameResponse* response) {
+  return transaction_executor_->Execute(
+      [this, &request, &response]() -> tensorflow::Status {
+        ExecutionType execution_type;
+        tensorflow::Status status = metadata_access_object_->FindTypeByName(
+            request.type_name(), &execution_type);
+        if (tensorflow::errors::IsNotFound(status)) {
+          return tensorflow::Status::OK();
+        } else if (!status.ok()) {
+          return status;
+        }
+        Execution execution;
+        status = metadata_access_object_->FindExecutionByTypeIdAndExecutionName(
+            execution_type.id(), request.execution_name(), &execution);
+        if (tensorflow::errors::IsNotFound(status)) {
+          return tensorflow::Status::OK();
+        } else if (!status.ok()) {
+          return status;
+        }
+        *response->mutable_execution() = execution;
         return tensorflow::Status::OK();
       });
 }
@@ -855,7 +902,7 @@ tensorflow::Status MetadataStore::GetContextByTypeAndName(
           return status;
         }
         Context context;
-        status = metadata_access_object_->FindContextByTypeIdAndName(
+        status = metadata_access_object_->FindContextByTypeIdAndContextName(
             context_type.id(), request.context_name(), &context);
         if (tensorflow::errors::IsNotFound(status)) {
           return tensorflow::Status::OK();

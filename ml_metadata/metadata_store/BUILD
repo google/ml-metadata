@@ -94,6 +94,7 @@ cc_library(
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
+        "@com_google_absl//absl/types:optional",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
         "@org_tensorflow//tensorflow/core:lib",

@@ -18,6 +18,8 @@ limitations under the License.
 #include <memory>
 #include <vector>
 
+#include "absl/time/time.h"
+#include "absl/types/optional.h"
 #include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
@@ -159,14 +161,21 @@ class QueryExecutor {
   virtual tensorflow::Status CheckArtifactTable() = 0;
 
   // Inserts an artifact into the database.
-  virtual tensorflow::Status InsertArtifact(int64 type_id,
-                                            const std::string& artifact_uri,
-                                            int64* artifact_id) = 0;
+  virtual tensorflow::Status InsertArtifact(
+      int64 type_id, const std::string& artifact_uri,
+      const absl::optional<std::string>& name, const absl::Time create_time,
+      const absl::Time update_time, int64* artifact_id) = 0;
 
   // Queries an artifact from the Artifact table by its id.
   // Returns a list of records that can be converted to artifacts.
   virtual tensorflow::Status SelectArtifactByID(int64 artifact_id,
                                                 RecordSet* record_set) = 0;
+
+  // Queries an artifact from the Artifact table by its type_id and name.
+  // Returns the artifact ID.
+  virtual tensorflow::Status SelectArtifactByTypeIDAndArtifactName(
+      int64 artifact_type_id, const absl::string_view name,
+      RecordSet* record_set) = 0;
 
   // Queries artifacts from the Artifact table by their type_id.
   // Returns a list of artifact IDs.
@@ -179,9 +188,9 @@ class QueryExecutor {
                                                   RecordSet* record_set) = 0;
 
   // Updates an artifact in the database.
-  virtual tensorflow::Status UpdateArtifactDirect(int64 artifact_id,
-                                                  int64 type_id,
-                                                  const std::string& uri) = 0;
+  virtual tensorflow::Status UpdateArtifactDirect(
+      int64 artifact_id, int64 type_id, const std::string& uri,
+      const absl::Time update_time) = 0;
 
   // Checks the existence of the ArtifactProperty table.
   virtual tensorflow::Status CheckArtifactPropertyTable() = 0;
@@ -209,21 +218,28 @@ class QueryExecutor {
   virtual tensorflow::Status CheckExecutionTable() = 0;
 
   // Inserts an execution into the database.
-  virtual tensorflow::Status InsertExecution(int64 type_id,
-                                             int64* execution_id) = 0;
+  virtual tensorflow::Status InsertExecution(
+      int64 type_id, const absl::optional<std::string>& name,
+      const absl::Time create_time, const absl::Time update_time,
+      int64* execution_id) = 0;
 
   // Queries an execution from the database by its id. It has 1
   // parameter. The result can be parsed into an Execution.
   virtual tensorflow::Status SelectExecutionByID(int64 execution_id,
                                                  RecordSet* record_set) = 0;
 
+  // Queries an execution from the database by its type_id and name.
+  virtual tensorflow::Status SelectExecutionByTypeIDAndExecutionName(
+      int64 execution_type_id, const absl::string_view name,
+      RecordSet* record_set) = 0;
+
   // Queries an execution from the database by its type_id.
   virtual tensorflow::Status SelectExecutionsByTypeID(
       int64 execution_type_id, RecordSet* record_set) = 0;
 
   // Updates an execution in the database.
-  virtual tensorflow::Status UpdateExecutionDirect(int64 execution_id,
-                                                   int64 type_id) = 0;
+  virtual tensorflow::Status UpdateExecutionDirect(
+      int64 execution_id, int64 type_id, const absl::Time update_time) = 0;
 
   // Checks the existence of the ExecutionProperty table.
   virtual tensorflow::Status CheckExecutionPropertyTable() = 0;
@@ -251,6 +267,8 @@ class QueryExecutor {
   // Inserts a context into the database.
   virtual tensorflow::Status InsertContext(int64 type_id,
                                            const std::string& name,
+                                           const absl::Time create_time,
+                                           const absl::Time update_time,
                                            int64* context_id) = 0;
 
   // Queries a context from the database by its id.
@@ -262,15 +280,14 @@ class QueryExecutor {
                                                     RecordSet* record_set) = 0;
 
   // Queries a context from the Context table by its type_id and name.
-  virtual tensorflow::Status SelectContextByTypeIDAndName(
-      int64 context_type_id,
-      const absl::string_view name,
+  virtual tensorflow::Status SelectContextByTypeIDAndContextName(
+      int64 context_type_id, const absl::string_view name,
       RecordSet* record_set) = 0;
 
   // Updates a context in the Context table.
   virtual tensorflow::Status UpdateContextDirect(
-      int64 existing_context_id, int64 type_id,
-      const std::string& context_name) = 0;
+      int64 existing_context_id, int64 type_id, const std::string& context_name,
+      const absl::Time update_time) = 0;
 
   // Checks the existence of the ContextProperty table.
   virtual tensorflow::Status CheckContextPropertyTable() = 0;

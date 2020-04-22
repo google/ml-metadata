@@ -33,6 +33,7 @@ message Artifact {
   // all the artifacts of the same artifact type within a database instance and
   // cannot be changed. If not set, it will be filled by a system-generated
   // default name.
+  // This field cannot be changed once set.
   optional string name = 7;
   // The id of an ArtifactType. This needs to be specified when an artifact is
   // created, and it cannot be changed.
@@ -63,6 +64,11 @@ message Artifact {
 
   // Currently not supported: support coming soon (see b/145751019).
   optional State state = 6;
+  // Output only. Create time of the artifact in millisecond since epoch.
+  optional int64 create_time_since_epoch = 9;
+  // Output only. Last update time of the artifact since epoch in millisecond
+  // since epoch.
+  optional int64 last_update_time_since_epoch = 10;
 }
 
 // TODO(martinz): consider moving this inside some message, to avoid having
@@ -204,6 +210,7 @@ message Execution {
   // all the executions of the same artifact type within a database instance and
   // cannot be changed. If not set, it will be filled by a system-generated
   // default name.
+  // This field cannot be changed once set.
   optional string name = 6;
   // The id of an ExecutionType. This needs to be specified when an execution is
   // created, and it cannot be changed.
@@ -234,6 +241,10 @@ message Execution {
   map<string, Value> properties = 4;
   // User provided custom properties which are not defined by its type.
   map<string, Value> custom_properties = 5;
+  // Output only. Create time of the execution in millisecond since epoch.
+  optional int64 create_time_since_epoch = 8;
+  // Output only. Last update time of the execution in millisecond since epoch.
+  optional int64 last_update_time_since_epoch = 9;
 }
 
 message ExecutionType {
@@ -296,6 +307,10 @@ message Context {
   map<string, Value> properties = 4;
   // User provided custom properties which are not defined by its type.
   map<string, Value> custom_properties = 5;
+  // Output only. Create time of the context in millisecond since epoch.
+  optional int64 create_time_since_epoch = 7;
+  // Output only. Last update time of the context in millisecond since epoch.
+  optional int64 last_update_time_since_epoch = 8;
 }
 
 // the Attribution edges between Context and Artifact instances.

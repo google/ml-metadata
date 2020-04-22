@@ -240,23 +240,35 @@ tensorflow::Status ValidatePropertiesWithType(const Node& node,
 // Creates an Artifact (without properties).
 tensorflow::Status RDBMSMetadataAccessObject::CreateBasicNode(
     const Artifact& artifact, int64* node_id) {
-  return executor_->InsertArtifact(artifact.type_id(), artifact.uri(), node_id);
+  const absl::Time now = absl::Now();
+  return executor_->InsertArtifact(artifact.type_id(), artifact.uri(),
+                                   artifact.has_name()
+                                       ? absl::make_optional(artifact.name())
+                                       : absl::nullopt,
+                                   now, now, node_id);
 }
 
 // Creates an Execution (without properties).
 tensorflow::Status RDBMSMetadataAccessObject::CreateBasicNode(
     const Execution& execution, int64* node_id) {
-  return executor_->InsertExecution(execution.type_id(), node_id);
+  const absl::Time now = absl::Now();
+  return executor_->InsertExecution(execution.type_id(),
+                                    execution.has_name()
+                                        ? absl::make_optional(execution.name())
+                                        : absl::nullopt,
+                                    now, now, node_id);
 }
 
 // Creates a Context (without properties).
 tensorflow::Status RDBMSMetadataAccessObject::CreateBasicNode(
     const Context& context, int64* node_id) {
+  const absl::Time now = absl::Now();
   if (!context.has_name() || context.name().empty()) {
     return tensorflow::errors::InvalidArgument(
         "Context name should not be empty");
   }
-  return executor_->InsertContext(context.type_id(), context.name(), node_id);
+  return executor_->InsertContext(context.type_id(), context.name(), now, now,
+                                  node_id);
 }
 
 // Lookup Artifact by id.
@@ -286,17 +298,18 @@ tensorflow::Status RDBMSMetadataAccessObject::NodeLookups(
   return tensorflow::Status::OK();
 }
 
-// Update an Artifact's type_id and URI.
+// Update an Artifact's type_id, URI and last_update_time.
 tensorflow::Status RDBMSMetadataAccessObject::RunNodeUpdate(
     const Artifact& artifact) {
   return executor_->UpdateArtifactDirect(artifact.id(), artifact.type_id(),
-                                         artifact.uri());
+                                         artifact.uri(), absl::Now());
 }
 
-// Update an Execution's type_id.
+// Update an Execution's type_id and last_update_time.
 tensorflow::Status RDBMSMetadataAccessObject::RunNodeUpdate(
     const Execution& execution) {
-  return executor_->UpdateExecutionDirect(execution.id(), execution.type_id());
+  return executor_->UpdateExecutionDirect(execution.id(), execution.type_id(),
+                                          absl::Now());
 }
 
 // Update a Context's type id and name.
@@ -307,7 +320,7 @@ tensorflow::Status RDBMSMetadataAccessObject::RunNodeUpdate(
         "Context name should not be empty");
   }
   return executor_->UpdateContextDirect(context.id(), context.type_id(),
-                                        context.name());
+                                        context.name(), absl::Now());
 }
 
 // Runs a property insertion query for a NodeType.
@@ -1132,6 +1145,27 @@ tensorflow::Status RDBMSMetadataAccessObject::FindArtifacts(
   return FindManyNodesImpl(record_set, artifacts);
 }
 
+tensorflow::Status
+RDBMSMetadataAccessObject::FindArtifactByTypeIdAndArtifactName(
+    const int64 type_id, const absl::string_view name, Artifact* artifact) {
+  RecordSet record_set;
+  TF_RETURN_IF_ERROR(executor_->SelectArtifactByTypeIDAndArtifactName(
+      type_id, name, &record_set));
+  std::vector<Artifact> artifacts;
+  TF_RETURN_IF_ERROR(FindManyNodesImpl(record_set, &artifacts));
+  // By design, a <type_id, name> pair uniquely identifies an artifact.
+  // Fails if multiple artifacts are found.
+  // Returns ok status and updates the input artifact if one artifact is
+  // found. Returns ok status and does nothing if no artifact is found.
+  CHECK(artifacts.size() <= 1) << absl::StrCat(
+      "Found more than one artifact with type_id: ", std::to_string(type_id),
+      " and artifact name: ", name);
+  if (artifacts.size() == 1) {
+    *artifact = artifacts[0];
+  }
+  return tensorflow::Status::OK();
+}
+
 tensorflow::Status RDBMSMetadataAccessObject::FindArtifactsByTypeId(
     const int64 type_id, std::vector<Artifact>* artifacts) {
   RecordSet record_set;
@@ -1144,6 +1178,27 @@ tensorflow::Status RDBMSMetadataAccessObject::FindExecutions(
   RecordSet record_set;
   TF_RETURN_IF_ERROR(executor_->SelectAllExecutionIDs(&record_set));
   return FindManyNodesImpl(record_set, executions);
+}
+
+tensorflow::Status
+RDBMSMetadataAccessObject::FindExecutionByTypeIdAndExecutionName(
+    const int64 type_id, const absl::string_view name, Execution* execution) {
+  RecordSet record_set;
+  TF_RETURN_IF_ERROR(executor_->SelectExecutionByTypeIDAndExecutionName(
+      type_id, name, &record_set));
+  std::vector<Execution> executions;
+  TF_RETURN_IF_ERROR(FindManyNodesImpl(record_set, &executions));
+  // By design, a <type_id, name> pair uniquely identifies an execution.
+  // Fails if multiple executions are found.
+  // Returns ok status and updates the input execution if one execution is
+  // found. Returns ok status and does nothing if no execution is found.
+  CHECK(executions.size() <= 1) << absl::StrCat(
+      "Found more than one execution with type_id: ", std::to_string(type_id),
+      " and execution name: ", name);
+  if (executions.size() == 1) {
+    *execution = executions[0];
+  }
+  return tensorflow::Status::OK();
 }
 
 tensorflow::Status RDBMSMetadataAccessObject::FindExecutionsByTypeId(
@@ -1174,11 +1229,10 @@ tensorflow::Status RDBMSMetadataAccessObject::FindArtifactsByURI(
   return FindManyNodesImpl(record_set, artifacts);
 }
 
-
-tensorflow::Status RDBMSMetadataAccessObject::FindContextByTypeIdAndName(
+tensorflow::Status RDBMSMetadataAccessObject::FindContextByTypeIdAndContextName(
     int64 type_id, absl::string_view name, Context* context) {
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(executor_->SelectContextByTypeIDAndName(
+  TF_RETURN_IF_ERROR(executor_->SelectContextByTypeIDAndContextName(
       type_id, name, &record_set));
   std::vector<Context> contexts;
   TF_RETURN_IF_ERROR(FindManyNodesImpl(record_set, &contexts));

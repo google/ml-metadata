@@ -133,15 +133,21 @@ R"pb(
   }
   insert_artifact {
     query: " INSERT INTO `Artifact`( "
-           "   `type_id`, `uri` "
-           ") VALUES($0, $1);"
-    parameter_num: 2
+           "   `type_id`, `uri`, `name`, `create_time_since_epoch`, "
+           "   `last_update_time_since_epoch` "
+           ") VALUES($0, $1, $2, $3, $4);"
+    parameter_num: 5
   }
   select_artifact_by_id {
-    query: " SELECT `type_id`, `uri` "
+    query: " SELECT `type_id`, `uri`, `name`, "
+           "        `create_time_since_epoch`, `last_update_time_since_epoch` "
            " from `Artifact` "
            " WHERE id = $0; "
     parameter_num: 1
+  }
+  select_artifact_by_type_id_and_name {
+    query: " SELECT `id` from `Artifact` WHERE `type_id` = $0 and `name` = $1; "
+    parameter_num: 2
   }
   select_artifacts_by_type_id {
     query: " SELECT `id` from `Artifact` WHERE `type_id` = $0; "
@@ -153,9 +159,10 @@ R"pb(
   }
   update_artifact {
     query: " UPDATE `Artifact` "
-           " SET `type_id` = $1, `uri` = $2"
+           " SET `type_id` = $1, `uri` = $2, "
+           "     `last_update_time_since_epoch` = $3 "
            " WHERE id = $0;"
-    parameter_num: 3
+    parameter_num: 4
   }
   drop_artifact_property_table {
     query: " DROP TABLE IF EXISTS `ArtifactProperty`; "
@@ -220,15 +227,21 @@ R"pb(
   }
   insert_execution {
     query: " INSERT INTO `Execution`( "
-           "   `type_id` "
-           ") VALUES($0);"
-    parameter_num: 1
+           "   `type_id`, `name`, `create_time_since_epoch`, "
+           "   `last_update_time_since_epoch` "
+           ") VALUES($0, $1, $2, $3);"
+    parameter_num: 4
   }
   select_execution_by_id {
-    query: " SELECT `type_id` "
+    query: " SELECT `type_id`, `name`, "
+           "        `create_time_since_epoch`, `last_update_time_since_epoch` "
            " from `Execution` "
            " WHERE id = $0; "
     parameter_num: 1
+  }
+  select_execution_by_type_id_and_name {
+    query: " SELECT `id` from `Execution` WHERE `type_id` = $0 and `name` = $1; "
+    parameter_num: 2
   }
   select_executions_by_type_id {
     query: " SELECT `id` from `Execution` WHERE `type_id` = $0; "
@@ -236,9 +249,9 @@ R"pb(
   }
   update_execution {
     query: " UPDATE `Execution` "
-           " SET `type_id` = $1 "
+           " SET `type_id` = $1, `last_update_time_since_epoch` = $2 "
            " WHERE id = $0;"
-    parameter_num: 2
+    parameter_num: 3
   }
   drop_execution_property_table {
     query: " DROP TABLE IF EXISTS `ExecutionProperty`; "
@@ -302,12 +315,15 @@ R"pb(
   }
   insert_context {
     query: " INSERT INTO `Context`( "
-           "   `type_id`, `name` "
-           ") VALUES($0, $1);"
-    parameter_num: 2
+           "   `type_id`, `name`, "
+           "   `create_time_since_epoch`, `last_update_time_since_epoch` "
+           ") VALUES($0, $1, $2, $3);"
+    parameter_num: 4
   }
   select_context_by_id {
-    query: " SELECT `type_id`, `name` from `Context` WHERE id = $0; "
+    query: " SELECT `type_id`, `name`, `create_time_since_epoch`, "
+           "        `last_update_time_since_epoch` "
+           " from `Context` WHERE id = $0; "
     parameter_num: 1
   }
   select_contexts_by_type_id {
@@ -320,9 +336,10 @@ R"pb(
   }
   update_context {
     query: " UPDATE `Context` "
-           " SET `type_id` = $1, `name` = $2"
+           " SET `type_id` = $1, `name` = $2, "
+           "     `last_update_time_since_epoch` = $3 "
            " WHERE id = $0;"
-    parameter_num: 3
+    parameter_num: 4
   }
   drop_context_property_table {
     query: " DROP TABLE IF EXISTS `ContextProperty`; "
