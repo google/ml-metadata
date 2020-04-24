@@ -167,6 +167,61 @@ tensorflow::Status InsertAttributionIfNotExist(
   return tensorflow::Status::OK();
 }
 
+// Updates or inserts a pair of {Artifact, Event}. If artifact is not given,
+// the event.artifact_id must exist, and it inserts the event, and returns the
+// artifact_id. Otherwise if artifact is given, then artifact.id and
+// event.artifact_id must align, i.e. both missing or be the same.
+tensorflow::Status UpsertArtifactAndEvent(
+    const PutExecutionRequest::ArtifactAndEvent& artifact_and_event,
+    MetadataAccessObject* metadata_access_object, int64* artifact_id) {
+  CHECK(artifact_id) << "The output artifact_id pointer should not be null";
+  if (!artifact_and_event.has_artifact() && !artifact_and_event.has_event()) {
+    return tensorflow::Status::OK();
+  }
+  // validate event and artifact's id aligns.
+  // if artifact is not given, the event.artifact_id must exist
+  absl::optional<int64> maybe_event_artifact_id =
+      artifact_and_event.has_event() &&
+              artifact_and_event.event().has_artifact_id()
+          ? absl::make_optional<int64>(artifact_and_event.event().artifact_id())
+          : absl::nullopt;
+  if (!artifact_and_event.has_artifact() && !maybe_event_artifact_id) {
+    return tensorflow::errors::InvalidArgument(absl::StrCat(
+        "If no artifact is present, given event must have an artifact_id: ",
+        artifact_and_event.DebugString()));
+  }
+  // if artifact is given, then artifact.id and event.artifact_id must align,
+  // i.e. both missing or be the same.
+  absl::optional<int64> maybe_artifact_id =
+      artifact_and_event.has_artifact() &&
+              artifact_and_event.artifact().has_id()
+          ? absl::make_optional<int64>(artifact_and_event.artifact().id())
+          : absl::nullopt;
+  if (artifact_and_event.has_artifact() && artifact_and_event.has_event() &&
+      maybe_artifact_id != maybe_event_artifact_id) {
+    return tensorflow::errors::InvalidArgument(absl::StrCat(
+        "Given event.artifact_id is not aligned with the artifact: ",
+        artifact_and_event.DebugString()));
+  }
+  // upsert artifact if present.
+  if (artifact_and_event.has_artifact()) {
+    TF_RETURN_IF_ERROR(UpsertArtifact(artifact_and_event.artifact(),
+                                      metadata_access_object, artifact_id));
+  }
+  // insert event if any.
+  if (!artifact_and_event.has_event()) {
+    return tensorflow::Status::OK();
+  }
+  Event event = artifact_and_event.event();
+  if (artifact_and_event.has_artifact()) {
+    event.set_artifact_id(*artifact_id);
+  } else {
+    *artifact_id = event.artifact_id();
+  }
+  int64 dummy_event_id = -1;
+  return metadata_access_object->CreateEvent(event, &dummy_event_id);
+}
+
 }  // namespace
 
 tensorflow::Status MetadataStore::InitMetadataStore() {
@@ -517,41 +572,24 @@ tensorflow::Status MetadataStore::PutExecution(
                                        &execution_id));
     response->set_execution_id(execution_id);
     // 2. Upsert Artifacts and insert events
-    for (const PutExecutionRequest::ArtifactAndEvent& artifact_and_event :
+    for (PutExecutionRequest::ArtifactAndEvent artifact_and_event :
          request.artifact_event_pairs()) {
-      if (!artifact_and_event.has_artifact()) {
-        return tensorflow::errors::InvalidArgument("Request has no artifact: ",
-                                                   request.DebugString());
+      // validate execution and event if given
+      if (artifact_and_event.has_event()) {
+        Event* event = artifact_and_event.mutable_event();
+        if (event->has_execution_id() &&
+            (!execution.has_id() || execution.id() != event->execution_id())) {
+          return tensorflow::errors::InvalidArgument(
+              "Request's event.execution_id does not match with the given "
+              "execution: ",
+              request.DebugString());
+        }
+        event->set_execution_id(execution_id);
       }
-      const Artifact& artifact = artifact_and_event.artifact();
       int64 artifact_id = -1;
-      TF_RETURN_IF_ERROR(UpsertArtifact(artifact, metadata_access_object_.get(),
-                                        &artifact_id));
+      TF_RETURN_IF_ERROR(UpsertArtifactAndEvent(
+          artifact_and_event, metadata_access_object_.get(), &artifact_id));
       response->add_artifact_ids(artifact_id);
-      // insert event if any
-      if (!artifact_and_event.has_event()) {
-        continue;
-      }
-      Event event = artifact_and_event.event();
-      if ((event.has_artifact_id() && !artifact.has_id()) ||
-          (event.has_artifact_id() && artifact_id != event.artifact_id())) {
-        return tensorflow::errors::InvalidArgument(
-            "Request's event.artifact_id does not match with the given "
-            "artifact: ",
-            request.DebugString());
-      }
-      event.set_artifact_id(artifact_id);
-      if ((event.has_execution_id() && !execution.has_id()) ||
-          (event.has_execution_id() && execution_id != event.execution_id())) {
-        return tensorflow::errors::InvalidArgument(
-            "Request's event.execution_id does not match with the given "
-            "execution: ",
-            request.DebugString());
-      }
-      event.set_execution_id(execution_id);
-      int64 dummy_event_id = -1;
-      TF_RETURN_IF_ERROR(
-          metadata_access_object_->CreateEvent(event, &dummy_event_id));
     }
     // 3. Upsert contexts and insert associations and attributions.
     for (const Context& context : request.contexts()) {
