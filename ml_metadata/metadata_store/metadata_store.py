@@ -56,6 +56,7 @@ class MetadataStore(object):
         schema and migrates all data if it connects to an old version backend.
         It is ignored when using GRPC client connection config.
     """
+    self._max_num_retries = 5
     if isinstance(config, metadata_store_pb2.ConnectionConfig):
       self._using_db_connection = True
       migration_options = metadata_store_pb2.MigrationOptions()
@@ -63,6 +64,11 @@ class MetadataStore(object):
       self._metadata_store = metadata_store_serialized.CreateMetadataStore(
           config.SerializeToString(), migration_options.SerializeToString())
       logging.log(logging.INFO, 'MetadataStore with DB connection initialized')
+      if config.HasField('retry_options'):
+        self._max_num_retries = config.retry_options.max_num_retries
+        logging.log(logging.INFO,
+                    'retry options is overwritten: max_num_retries = %d',
+                    self._max_num_retries)
       return
     if not isinstance(config, metadata_store_pb2.MetadataStoreClientConfig):
       raise ValueError('MetadataStore is expecting either '
@@ -115,7 +121,6 @@ class MetadataStore(object):
     if self._using_db_connection and hasattr(self, '_metadata_store'):
       metadata_store_serialized.DestroyMetadataStore(self._metadata_store)
 
-  # TODO(huimiao) surface the retry config to user-facing api.
   def _call(self, method_name, request, response) -> None:
     """Calls method with retry when Aborted error is returned.
 
@@ -124,7 +129,7 @@ class MetadataStore(object):
       request: the request protobuf message.
       response: the response protobuf message.
     """
-    max_retries = num_retries = 5
+    num_retries = self._max_num_retries
     avg_delay_sec = 2
     while True:
       try:
@@ -133,7 +138,7 @@ class MetadataStore(object):
         num_retries -= 1
         if num_retries == 0:
           logging.log(logging.ERROR, '%s failed after retrying %d times.',
-                      method_name, max_retries)
+                      method_name, self._max_num_retries)
           raise
         wait_seconds = random.expovariate(1.0 / avg_delay_sec)
         logging.log(logging.INFO, 'mlmd client retry in %f secs', wait_seconds)
@@ -151,7 +156,6 @@ class MetadataStore(object):
       swig_method = getattr(metadata_store_serialized, method_name)
       self._swig_call(swig_method, request, response)
     else:
-      # TODO(b/144590158): Add E2E tests to verify grpc support.
       grpc_method = getattr(self._metadata_store_stub, method_name)
       try:
         response.CopyFrom(grpc_method(request))

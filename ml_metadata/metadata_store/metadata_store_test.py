@@ -122,6 +122,17 @@ class MetadataStoreTest(absltest.TestCase):
       with self.assertRaises(RuntimeError):
         metadata_store.MetadataStore(connection_config)
 
+  def test_connection_config_with_retry_options(self):
+    # both client and grpc modes have none-zero setting by default.
+    store = _get_metadata_store()
+    self.assertGreater(store._max_num_retries, 0)
+    connection_config = metadata_store_pb2.ConnectionConfig()
+    connection_config.sqlite.SetInParent()
+    want_num_retries = 100
+    connection_config.retry_options.max_num_retries = want_num_retries
+    store = metadata_store.MetadataStore(connection_config)
+    self.assertEqual(store._max_num_retries, want_num_retries)
+
   def test_put_artifact_type_get_artifact_type(self):
     store = _get_metadata_store()
     artifact_type_name = self._get_test_type_name()

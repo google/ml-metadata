@@ -551,6 +551,11 @@ message MigrationOptions {
   reserved 1;
 }
 
+message RetryOptions {
+  // The max number of retries when transaction returns Aborted error.
+  optional int64 max_num_retries = 1;
+}
+
 message ConnectionConfig {
   // Configuration for a new connection.
   oneof config {
@@ -558,6 +563,12 @@ message ConnectionConfig {
     MySQLDatabaseConfig mysql = 2;
     SqliteMetadataSourceConfig sqlite = 3;
   }
+
+  // Options for overwriting the default retry setting when MLMD transactions
+  // returning Aborted error.
+  // The setting is currently available for python client library only.
+  // TODO(b/154862807) set the setting in transaction executor.
+  optional RetryOptions retry_options = 4;
 }
 
 // Configuration for the gRPC metadata store client.
