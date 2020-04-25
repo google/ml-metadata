@@ -30,10 +30,10 @@ import grpc
 from typing import List, Optional, Sequence, Text, Tuple, Union
 
 from ml_metadata.metadata_store import pywrap_tf_metadata_store_serialized as metadata_store_serialized
+from ml_metadata.metadata_store import tf_errors as errors
 from ml_metadata.proto import metadata_store_pb2
 from ml_metadata.proto import metadata_store_service_pb2
 from ml_metadata.proto import metadata_store_service_pb2_grpc
-from tensorflow.python.framework import errors
 
 
 class MetadataStore(object):
