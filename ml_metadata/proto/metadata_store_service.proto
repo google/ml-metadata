@@ -122,13 +122,12 @@ message PutExecutionRequest {
   // during the execution run, it uses none or many artifacts as input, and
   // generate none or many artifacts as output.
   message ArtifactAndEvent {
-    // The pair may have an artifact. If present and no artifact.id is given,
-    // then it inserts the artifact, otherwise it updates the artifact.
+    // An activity must have an artifact. If no artifact.id, then it inserts
+    // the artifact, otherwise it updates the artifact.
     optional Artifact artifact = 1;
-    // The pair may have an event. Providing event.artifact_id or
-    // event.execution_id is optional. If the ids are given, it must align with
-    // the `artifact`.id / `execution`.id respectively. If artifact is not
-    // given and event.artifact_id is set, it must exist in the backend.
+    // An activity may have an event. Providing event.artifact_id or
+    // event.execution_id is optional. If given, it must align with the
+    // `artifact`.id / `execution`.id respectively.
     optional Event event = 2;
   }
   // The execution that produces many artifact and event pairs.
