@@ -1571,14 +1571,13 @@ TEST_F(MetadataStoreTest, PutAndGetExecution) {
   PutExecutionRequest put_execution_request_3;
   (*execution.mutable_properties())["running_status"].set_string_value("DONE");
   *put_execution_request_3.mutable_execution() = execution;
-  *put_execution_request_3.add_artifact_event_pairs()->mutable_artifact() =
-      artifact_1;
-  // add an existing artifact as input, and event has artifact/execution ids
+  // add an input event for an existing artifact, and the event has
+  // artifact/execution ids
   Event event_1;
   event_1.set_artifact_id(artifact_1.id());
   event_1.set_execution_id(execution.id());
   event_1.set_type(Event::DECLARED_INPUT);
-  *put_execution_request_3.mutable_artifact_event_pairs(0)->mutable_event() =
+  *put_execution_request_3.add_artifact_event_pairs()->mutable_event() =
       event_1;
   // add a new artifact as output, and event has no artifact/execution ids
   Artifact artifact_2;
@@ -1637,6 +1636,92 @@ TEST_F(MetadataStoreTest, PutAndGetExecution) {
   ASSERT_THAT(get_events_response.events(), SizeIs(2));
   EXPECT_EQ(get_events_response.events(0).artifact_id(), artifact_1.id());
   EXPECT_EQ(get_events_response.events(1).artifact_id(), artifact_2.id());
+}
+
+TEST_F(MetadataStoreTest, PutExecutionsErrors) {
+  PutTypesRequest put_types_request = ParseTextProtoOrDie<PutTypesRequest>(R"(
+    artifact_types: { name: 'artifact_type' }
+    execution_types: {
+      name: 'execution_type'
+      properties { key: 'running_status' value: STRING }
+    })");
+  PutTypesResponse put_types_response;
+  TF_ASSERT_OK(
+      metadata_store_->PutTypes(put_types_request, &put_types_response));
+  Artifact artifact;
+  artifact.set_type_id(put_types_response.artifact_type_ids(0));
+  Execution execution;
+  execution.set_type_id(put_types_response.execution_type_ids(0));
+
+  Artifact stored_artifact = artifact;
+  PutArtifactsRequest put_artifacts_request;
+  *put_artifacts_request.add_artifacts() = stored_artifact;
+  PutArtifactsResponse put_artifacts_response;
+  TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request,
+                                             &put_artifacts_response));
+  stored_artifact.set_id(put_artifacts_response.artifact_ids(0));
+
+  {
+    PutExecutionRequest request;
+    PutExecutionResponse response;
+    tensorflow::Status s = metadata_store_->PutExecution(request, &response);
+    EXPECT_EQ(s.code(), tensorflow::error::INVALID_ARGUMENT);
+    EXPECT_TRUE(absl::StrContains(s.error_message(), "No execution is found"));
+  }
+
+  {
+    PutExecutionRequest request;
+    PutExecutionResponse response;
+    *request.mutable_execution() = execution;
+    request.add_artifact_event_pairs()->mutable_event()->set_execution_id(1);
+    tensorflow::Status s = metadata_store_->PutExecution(request, &response);
+    EXPECT_EQ(s.code(), tensorflow::error::INVALID_ARGUMENT);
+    EXPECT_TRUE(absl::StrContains(
+        s.error_message(),
+        "event.execution_id does not match with the given execution"));
+  }
+
+  {
+    // artifact does not have id, event has id
+    PutExecutionRequest request;
+    PutExecutionResponse response;
+    *request.mutable_execution() = execution;
+    request.add_artifact_event_pairs()->mutable_event()->set_artifact_id(1);
+    *request.mutable_artifact_event_pairs(0)->mutable_artifact() = artifact;
+    tensorflow::Status s = metadata_store_->PutExecution(request, &response);
+    EXPECT_EQ(s.code(), tensorflow::error::INVALID_ARGUMENT);
+    EXPECT_TRUE(absl::StrContains(
+        s.error_message(),
+        "event.artifact_id is not aligned with the artifact"));
+  }
+
+  {
+    // artifact has id, event has a different id
+    PutExecutionRequest request;
+    PutExecutionResponse response;
+    *request.mutable_execution() = execution;
+    *request.add_artifact_event_pairs()->mutable_artifact() = stored_artifact;
+    int64 different_event_id = stored_artifact.id() + 1;
+    request.mutable_artifact_event_pairs(0)->mutable_event()->set_artifact_id(
+        different_event_id);
+    tensorflow::Status s = metadata_store_->PutExecution(request, &response);
+    EXPECT_EQ(s.code(), tensorflow::error::INVALID_ARGUMENT);
+    EXPECT_TRUE(absl::StrContains(
+        s.error_message(),
+        "event.artifact_id is not aligned with the artifact"));
+  }
+
+  {
+    PutExecutionRequest request;
+    PutExecutionResponse response;
+    *request.mutable_execution() = execution;
+    *request.add_artifact_event_pairs()->mutable_event() = Event();
+    tensorflow::Status s = metadata_store_->PutExecution(request, &response);
+    EXPECT_EQ(s.code(), tensorflow::error::INVALID_ARGUMENT);
+    EXPECT_TRUE(absl::StrContains(
+        s.error_message(),
+        "no artifact is present, given event must have an artifact_id"));
+  }
 }
 
 // Put an execution with contexts.
