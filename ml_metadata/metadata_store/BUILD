@@ -331,15 +331,21 @@ ml_metadata_cc_test(
 cc_library(
     name = "test_util",
     testonly = 1,
-    srcs = ["test_util.cc"],
     hdrs = ["test_util.h"],
     deps = [
-        ":types",
         "@com_google_protobuf//:protobuf",
         "@com_google_googletest//:gtest",
-        "@com_google_absl//absl/strings",
         "@org_tensorflow//tensorflow/core:lib",
-        "@org_tensorflow//tensorflow/core:test",
+    ],
+)
+
+ml_metadata_cc_test(
+    name = "test_util_test",
+    srcs = ["test_util_test.cc"],
+    deps = [
+        ":test_util",
+        "@com_google_googletest//:gtest_main",
+        "//ml_metadata/proto:metadata_store_proto",
     ],
 )
 
