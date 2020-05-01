@@ -141,6 +141,3 @@ pip install dist/*.whl
 pip install ${TENSORFLOW}
 
 run_py_tests "ml_metadata" $@
-
-echo "outside internal release value is ${RELEASE}"
-
