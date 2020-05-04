@@ -127,6 +127,7 @@ fi
 "${PYTHON_BIN_PATH}" -m pip install --upgrade pip
 pip install setuptools --upgrade
 pip install wheel --upgrade
+pip install twine --upgrade
 pip freeze --all
 
 # set up bazel environment before compiling
