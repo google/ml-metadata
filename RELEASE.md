@@ -14,6 +14,9 @@
 
 ## Bug Fixes and Other Changes
 
+*   Returns explicit InvalidArgument for get_artifacts_by_uri from 0.15.x
+    clients when using 0.21.0+ server.
+
 ## Breaking changes
 
 ## Deprecations

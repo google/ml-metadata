@@ -14,6 +14,7 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/metadata_store.h"
 
+#include "google/protobuf/descriptor.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "ml_metadata/metadata_store/metadata_access_object_factory.h"
@@ -769,6 +770,18 @@ tensorflow::Status MetadataStore::GetContextTypes(
 tensorflow::Status MetadataStore::GetArtifactsByURI(
     const GetArtifactsByURIRequest& request,
     GetArtifactsByURIResponse* response) {
+  // Validate if there's already deprecated optional string uri = 1 field.
+  const google::protobuf::UnknownFieldSet& unknown_field_set =
+      request.GetReflection()->GetUnknownFields(request);
+  for (int i = 0; i < unknown_field_set.field_count(); i++) {
+    const google::protobuf::UnknownField& unknown_field = unknown_field_set.field(i);
+    if (unknown_field.number() == 1) {
+      return tensorflow::errors::InvalidArgument(
+          "The request contains deprecated field `uri`. Please upgrade the "
+          "client library version above 0.21.0. GetArtifactsByURIRequest: ",
+          request.DebugString());
+    }
+  }
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
         absl::flat_hash_set<std::string> uris(request.uris().begin(),

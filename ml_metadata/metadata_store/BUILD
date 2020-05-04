@@ -209,6 +209,7 @@ cc_library(
         ":metadata_source",
         ":metadata_store_service_interface",
         ":transaction_executor",
+        "@com_google_protobuf//:protobuf",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/memory",
         "//ml_metadata/proto:metadata_store_proto",

@@ -1264,6 +1264,21 @@ TEST_F(MetadataStoreTest, GetArtifactByURI) {
         get_artifacts_by_uri_request, &get_artifacts_by_uri_response));
     EXPECT_THAT(get_artifacts_by_uri_response.artifacts(), SizeIs(6));
   }
+
+  {
+    GetArtifactsByURIRequest request;
+    const google::protobuf::Reflection* reflection = request.GetReflection();
+    google::protobuf::UnknownFieldSet* fs = reflection->MutableUnknownFields(&request);
+    std::string uri = "deprecated_uri_field_value";
+    fs->AddLengthDelimited(1)->assign(uri);
+
+    GetArtifactsByURIResponse response;
+    tensorflow::Status s =
+        metadata_store_->GetArtifactsByURI(request, &response);
+    EXPECT_EQ(s.code(), tensorflow::error::INVALID_ARGUMENT);
+    EXPECT_TRUE(absl::StrContains(s.error_message(),
+                                  "The request contains deprecated field"));
+  }
 }
 
 TEST_F(MetadataStoreTest, PutArtifactsGetArtifactsWithEmptyArtifact) {
