@@ -241,22 +241,27 @@ tensorflow::Status ValidatePropertiesWithType(const Node& node,
 tensorflow::Status RDBMSMetadataAccessObject::CreateBasicNode(
     const Artifact& artifact, int64* node_id) {
   const absl::Time now = absl::Now();
-  return executor_->InsertArtifact(artifact.type_id(), artifact.uri(),
-                                   artifact.has_name()
-                                       ? absl::make_optional(artifact.name())
-                                       : absl::nullopt,
-                                   now, now, node_id);
+  return executor_->InsertArtifact(
+      artifact.type_id(), artifact.uri(),
+      artifact.has_state() ? absl::make_optional(artifact.state())
+                           : absl::nullopt,
+      artifact.has_name() ? absl::make_optional(artifact.name())
+                          : absl::nullopt,
+      now, now, node_id);
 }
 
 // Creates an Execution (without properties).
 tensorflow::Status RDBMSMetadataAccessObject::CreateBasicNode(
     const Execution& execution, int64* node_id) {
   const absl::Time now = absl::Now();
-  return executor_->InsertExecution(execution.type_id(),
-                                    execution.has_name()
-                                        ? absl::make_optional(execution.name())
-                                        : absl::nullopt,
-                                    now, now, node_id);
+  return executor_->InsertExecution(
+      execution.type_id(),
+      execution.has_last_known_state()
+          ? absl::make_optional(execution.last_known_state())
+          : absl::nullopt,
+      execution.has_name() ? absl::make_optional(execution.name())
+                           : absl::nullopt,
+      now, now, node_id);
 }
 
 // Creates a Context (without properties).
@@ -301,15 +306,22 @@ tensorflow::Status RDBMSMetadataAccessObject::NodeLookups(
 // Update an Artifact's type_id, URI and last_update_time.
 tensorflow::Status RDBMSMetadataAccessObject::RunNodeUpdate(
     const Artifact& artifact) {
-  return executor_->UpdateArtifactDirect(artifact.id(), artifact.type_id(),
-                                         artifact.uri(), absl::Now());
+  return executor_->UpdateArtifactDirect(
+      artifact.id(), artifact.type_id(), artifact.uri(),
+      artifact.has_state() ? absl::make_optional(artifact.state())
+                           : absl::nullopt,
+      absl::Now());
 }
 
 // Update an Execution's type_id and last_update_time.
 tensorflow::Status RDBMSMetadataAccessObject::RunNodeUpdate(
     const Execution& execution) {
-  return executor_->UpdateExecutionDirect(execution.id(), execution.type_id(),
-                                          absl::Now());
+  return executor_->UpdateExecutionDirect(
+      execution.id(), execution.type_id(),
+      execution.has_last_known_state()
+          ? absl::make_optional(execution.last_known_state())
+          : absl::nullopt,
+      absl::Now());
 }
 
 // Update a Context's type id and name.

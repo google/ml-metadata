@@ -133,13 +133,13 @@ R"pb(
   }
   insert_artifact {
     query: " INSERT INTO `Artifact`( "
-           "   `type_id`, `uri`, `name`, `create_time_since_epoch`, "
+           "   `type_id`, `uri`, `state`, `name`, `create_time_since_epoch`, "
            "   `last_update_time_since_epoch` "
-           ") VALUES($0, $1, $2, $3, $4);"
-    parameter_num: 5
+           ") VALUES($0, $1, $2, $3, $4, $5);"
+    parameter_num: 6
   }
   select_artifact_by_id {
-    query: " SELECT `type_id`, `uri`, `name`, "
+    query: " SELECT `type_id`, `uri`, `state`, `name`, "
            "        `create_time_since_epoch`, `last_update_time_since_epoch` "
            " from `Artifact` "
            " WHERE id = $0; "
@@ -159,10 +159,10 @@ R"pb(
   }
   update_artifact {
     query: " UPDATE `Artifact` "
-           " SET `type_id` = $1, `uri` = $2, "
-           "     `last_update_time_since_epoch` = $3 "
+           " SET `type_id` = $1, `uri` = $2, `state` = $3, "
+           "     `last_update_time_since_epoch` = $4 "
            " WHERE id = $0;"
-    parameter_num: 4
+    parameter_num: 5
   }
   drop_artifact_property_table {
     query: " DROP TABLE IF EXISTS `ArtifactProperty`; "
@@ -227,13 +227,13 @@ R"pb(
   }
   insert_execution {
     query: " INSERT INTO `Execution`( "
-           "   `type_id`, `name`, `create_time_since_epoch`, "
-           "   `last_update_time_since_epoch` "
-           ") VALUES($0, $1, $2, $3);"
-    parameter_num: 4
+           "   `type_id`, `last_known_state`, `name`, "
+           "   `create_time_since_epoch`, `last_update_time_since_epoch` "
+           ") VALUES($0, $1, $2, $3, $4);"
+    parameter_num: 5
   }
   select_execution_by_id {
-    query: " SELECT `type_id`, `name`, "
+    query: " SELECT `type_id`, `last_known_state`, `name`, "
            "        `create_time_since_epoch`, `last_update_time_since_epoch` "
            " from `Execution` "
            " WHERE id = $0; "
@@ -249,9 +249,10 @@ R"pb(
   }
   update_execution {
     query: " UPDATE `Execution` "
-           " SET `type_id` = $1, `last_update_time_since_epoch` = $2 "
+           " SET `type_id` = $1, `last_known_state` = $2, "
+           "     `last_update_time_since_epoch` = $3 "
            " WHERE id = $0;"
-    parameter_num: 3
+    parameter_num: 4
   }
   drop_execution_property_table {
     query: " DROP TABLE IF EXISTS `ExecutionProperty`; "

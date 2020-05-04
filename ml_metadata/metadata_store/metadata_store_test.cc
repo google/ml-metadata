@@ -715,7 +715,7 @@ TEST_F(MetadataStoreTest, PutArtifactsUpdateGetArtifactsByID) {
   ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(1));
   const int64 artifact_id = put_artifacts_response.artifact_ids(0);
 
-  // Now we change 3 to 2.
+  // Now we change 3 to 2 and adds the state
   PutArtifactsRequest put_artifacts_request_2 =
       ParseTextProtoOrDie<PutArtifactsRequest>(R"(
         artifacts: {
@@ -724,9 +724,9 @@ TEST_F(MetadataStoreTest, PutArtifactsUpdateGetArtifactsByID) {
             key: 'property'
             value: { string_value: '2' }
           }
+          state: LIVE
         }
       )");
-
   put_artifacts_request_2.mutable_artifacts(0)->set_type_id(type_id);
   put_artifacts_request_2.mutable_artifacts(0)->set_id(artifact_id);
   PutArtifactsResponse put_artifacts_response_2;
@@ -739,14 +739,11 @@ TEST_F(MetadataStoreTest, PutArtifactsUpdateGetArtifactsByID) {
   TF_ASSERT_OK(metadata_store_->GetArtifactsByID(
       get_artifacts_by_id_request, &get_artifacts_by_id_response));
   ASSERT_THAT(get_artifacts_by_id_response.artifacts(), SizeIs(1));
-  put_artifacts_request_2.mutable_artifacts(0)->set_create_time_since_epoch(
-      get_artifacts_by_id_response.artifacts(0).create_time_since_epoch());
-  put_artifacts_request_2.mutable_artifacts(0)
-      ->set_last_update_time_since_epoch(
-          get_artifacts_by_id_response.artifacts(0)
-              .last_update_time_since_epoch());
-  EXPECT_THAT(get_artifacts_by_id_response.artifacts(0),
-              testing::EqualsProto(put_artifacts_request_2.artifacts(0)));
+  EXPECT_THAT(
+      get_artifacts_by_id_response.artifacts(0),
+      testing::EqualsProto(put_artifacts_request_2.artifacts(0),
+                           /*ignore_fields=*/{"create_time_since_epoch",
+                                              "last_update_time_since_epoch"}));
 }
 
 // Test creating an execution and then updating one of its properties.
@@ -774,6 +771,7 @@ TEST_F(MetadataStoreTest, PutExecutionsUpdateGetExecutionsByID) {
             key: 'property'
             value: { string_value: '3' }
           }
+          last_known_state:RUNNING
         }
       )");
   put_executions_request.mutable_executions(0)->set_type_id(type_id);
@@ -783,7 +781,7 @@ TEST_F(MetadataStoreTest, PutExecutionsUpdateGetExecutionsByID) {
   ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(1));
   const int64 execution_id = put_executions_response.execution_ids(0);
 
-  // Now we change 3 to 2.
+  // Now we change 3 to 2, and drop the state.
   PutExecutionsRequest put_executions_request_2 =
       ParseTextProtoOrDie<PutExecutionsRequest>(R"(
         executions: {
@@ -806,25 +804,11 @@ TEST_F(MetadataStoreTest, PutExecutionsUpdateGetExecutionsByID) {
   TF_ASSERT_OK(metadata_store_->GetExecutionsByID(
       get_executions_by_id_request, &get_executions_by_id_response));
 
-  GetExecutionsByIDResponse expected_response =
-      ParseTextProtoOrDie<GetExecutionsByIDResponse>(R"(
-        executions: {
-          properties {
-            key: 'property'
-            value: { string_value: '2' }
-          }
-        }
-      )");
-  expected_response.mutable_executions(0)->set_id(execution_id);
-  expected_response.mutable_executions(0)->set_type_id(type_id);
-
-  expected_response.mutable_executions(0)->set_create_time_since_epoch(
-      get_executions_by_id_response.executions(0).create_time_since_epoch());
-  expected_response.mutable_executions(0)->set_last_update_time_since_epoch(
-      get_executions_by_id_response.executions(0)
-          .last_update_time_since_epoch());
-  EXPECT_THAT(get_executions_by_id_response,
-              testing::EqualsProto(expected_response));
+  EXPECT_THAT(
+      get_executions_by_id_response.executions(0),
+      testing::EqualsProto(put_executions_request_2.executions(0),
+                           /*ignore_fields=*/{"create_time_since_epoch",
+                                              "last_update_time_since_epoch"}));
 }
 
 TEST_F(MetadataStoreTest, PutExecutionTypeGetExecutionType) {
@@ -1024,12 +1008,14 @@ TEST_F(MetadataStoreTest, PutExecutionsGetExecutionByID) {
             key: 'property'
             value: { string_value: '3' }
           }
+          last_known_state: RUNNING
         }
         executions: {
           properties {
             key: 'property'
             value: { string_value: '2' }
           }
+          last_known_state: CANCELED
         }
       )");
   put_executions_request.mutable_executions(0)->set_type_id(type_id);
@@ -1049,21 +1035,16 @@ TEST_F(MetadataStoreTest, PutExecutionsGetExecutionByID) {
   TF_ASSERT_OK(metadata_store_->GetExecutionsByID(
       get_executions_by_id_request, &get_executions_by_id_response));
   ASSERT_THAT(get_executions_by_id_response.executions(), SizeIs(2));
-  GetExecutionsByIDResponse expected;
-  *expected.mutable_executions() = put_executions_request.executions();
-  expected.mutable_executions(0)->set_id(execution_id_0);
-  expected.mutable_executions(1)->set_id(execution_id_1);
-  expected.mutable_executions(0)->set_create_time_since_epoch(
-      get_executions_by_id_response.executions(0).create_time_since_epoch());
-  expected.mutable_executions(0)->set_last_update_time_since_epoch(
-      get_executions_by_id_response.executions(0)
-          .last_update_time_since_epoch());
-  expected.mutable_executions(1)->set_create_time_since_epoch(
-      get_executions_by_id_response.executions(1).create_time_since_epoch());
-  expected.mutable_executions(1)->set_last_update_time_since_epoch(
-      get_executions_by_id_response.executions(1)
-          .last_update_time_since_epoch());
-  EXPECT_THAT(get_executions_by_id_response, testing::EqualsProto(expected));
+  EXPECT_THAT(
+      get_executions_by_id_response.executions(),
+      ElementsAre(testing::EqualsProto(
+                      put_executions_request.executions(0),
+                      /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                         "last_update_time_since_epoch"}),
+                  testing::EqualsProto(
+                      put_executions_request.executions(1),
+                      /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                         "last_update_time_since_epoch"})));
 }
 
 TEST_F(MetadataStoreTest, PutExecutionsGetExecutionsWithEmptyExecution) {
@@ -1556,6 +1537,7 @@ TEST_F(MetadataStoreTest, PutAndGetExecution) {
   Execution execution;
   execution.set_type_id(execution_type_id);
   (*execution.mutable_properties())["running_status"].set_string_value("INIT");
+  execution.set_last_known_state(Execution::NEW);
 
   PutExecutionRequest put_execution_request_1;
   *put_execution_request_1.mutable_execution() = execution;
@@ -1568,10 +1550,12 @@ TEST_F(MetadataStoreTest, PutAndGetExecution) {
   // 2. Update an existing execution with an input artifact but no event
   PutExecutionRequest put_execution_request_2;
   (*execution.mutable_properties())["running_status"].set_string_value("RUN");
+  execution.set_last_known_state(Execution::RUNNING);
   *put_execution_request_2.mutable_execution() = execution;
   Artifact artifact_1;
   artifact_1.set_uri("uri://an_input_artifact");
   artifact_1.set_type_id(artifact_type_id);
+
   *put_execution_request_2.add_artifact_event_pairs()->mutable_artifact() =
       artifact_1;
   PutExecutionResponse put_execution_response_2;
@@ -1585,9 +1569,10 @@ TEST_F(MetadataStoreTest, PutAndGetExecution) {
   // 3. Update an existing execution with existing/new artifacts with events.
   PutExecutionRequest put_execution_request_3;
   (*execution.mutable_properties())["running_status"].set_string_value("DONE");
+  execution.set_last_known_state(Execution::COMPLETE);
+
   *put_execution_request_3.mutable_execution() = execution;
-  // add an input event for an existing artifact, and the event has
-  // artifact/execution ids
+  // add an existing artifact as input, and event has artifact/execution ids
   Event event_1;
   event_1.set_artifact_id(artifact_1.id());
   event_1.set_execution_id(execution.id());
@@ -1598,6 +1583,8 @@ TEST_F(MetadataStoreTest, PutAndGetExecution) {
   Artifact artifact_2;
   artifact_2.set_uri("uri://an_output_artifact");
   artifact_2.set_type_id(artifact_type_id);
+  artifact_2.set_state(Artifact::LIVE);
+
   Event event_2;
   event_2.set_type(Event::DECLARED_OUTPUT);
   *put_execution_request_3.add_artifact_event_pairs()->mutable_artifact() =
@@ -1618,31 +1605,24 @@ TEST_F(MetadataStoreTest, PutAndGetExecution) {
   TF_ASSERT_OK(metadata_store_->GetArtifacts(get_artifacts_request,
                                              &get_artifacts_response));
   ASSERT_THAT(get_artifacts_response.artifacts(), SizeIs(2));
-  artifact_1.set_create_time_since_epoch(
-      get_artifacts_response.artifacts(0).create_time_since_epoch());
-  artifact_1.set_last_update_time_since_epoch(
-      get_artifacts_response.artifacts(0).last_update_time_since_epoch());
   EXPECT_THAT(get_artifacts_response.artifacts(0),
-              testing::EqualsProto(artifact_1));
-  artifact_2.set_create_time_since_epoch(
-      get_artifacts_response.artifacts(1).create_time_since_epoch());
-  artifact_2.set_last_update_time_since_epoch(
-      get_artifacts_response.artifacts(1).last_update_time_since_epoch());
+              testing::EqualsProto(artifact_1, /*ignore_fields=*/{
+                                       "create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
   EXPECT_THAT(get_artifacts_response.artifacts(1),
-              testing::EqualsProto(artifact_2));
+              testing::EqualsProto(artifact_2, /*ignore_fields=*/{
+                                       "create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
 
   GetExecutionsRequest get_executions_request;
   GetExecutionsResponse get_executions_response;
   TF_ASSERT_OK(metadata_store_->GetExecutions(get_executions_request,
                                               &get_executions_response));
   ASSERT_THAT(get_executions_response.executions(), SizeIs(1));
-  execution.set_create_time_since_epoch(
-      get_executions_response.executions(0).create_time_since_epoch());
-  execution.set_last_update_time_since_epoch(
-      get_executions_response.executions(0).last_update_time_since_epoch());
   EXPECT_THAT(get_executions_response.executions(0),
-              testing::EqualsProto(execution));
-
+              testing::EqualsProto(execution, /*ignore_fields=*/{
+                                       "create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
   GetEventsByExecutionIDsRequest get_events_request;
   get_events_request.add_execution_ids(execution.id());
   GetEventsByExecutionIDsResponse get_events_response;

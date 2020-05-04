@@ -94,7 +94,7 @@ tensorflow::Status QueryConfigExecutor::UpgradeMetadataSourceIfOutOfDate(
     TF_RETURN_IF_ERROR(get_schema_version_status);
   }
 
-  bool is_compatible;
+  bool is_compatible = false;
   TF_RETURN_IF_ERROR(IsCompatible(db_version, lib_version, &is_compatible));
   if (is_compatible) {
     return tensorflow::Status::OK();
@@ -133,8 +133,7 @@ tensorflow::Status QueryConfigExecutor::UpgradeMetadataSourceIfOutOfDate(
           absl::StrCat("Upgrade query failed: ", upgrade_query.query()));
     }
     TF_RETURN_WITH_CONTEXT_IF_ERROR(
-        ExecuteQuery(query_config_.update_schema_version(), {Bind(to_version)}),
-        "Failed to update schema.");
+        UpdateSchemaVersion(to_version), "Failed to update schema.");
     db_version = to_version;
   }
   return tensorflow::Status::OK();
@@ -200,15 +199,14 @@ tensorflow::Status QueryConfigExecutor::DowngradeMetadataSource(
     }
     for (const MetadataSourceQueryConfig::TemplateQuery& downgrade_query :
          migration_schemes.at(to_version).downgrade_queries()) {
-      TF_RETURN_WITH_CONTEXT_IF_ERROR(ExecuteQuery(downgrade_query),
-                                      "Failed to migrate existing db; the "
-                                      "migration transaction rolls back.");
+      TF_RETURN_WITH_CONTEXT_IF_ERROR(
+          ExecuteQuery(downgrade_query),
+          "Failed to migrate existing db; the "
+          "migration transaction rolls back.");
     }
     // at version 0, v0.13.2, there is no schema version information.
     if (to_version > 0) {
-      TF_RETURN_WITH_CONTEXT_IF_ERROR(
-          ExecuteQuery(query_config_.update_schema_version(),
-                       {Bind(to_version)}),
+      TF_RETURN_WITH_CONTEXT_IF_ERROR(UpdateSchemaVersion(to_version),
           "Failed to migrate existing db; the migration transaction rolls "
           "back.");
     }
@@ -250,6 +248,14 @@ std::string QueryConfigExecutor::Bind(PropertyType value) {
 }
 
 std::string QueryConfigExecutor::Bind(TypeKind value) {
+  return std::to_string((int)value);
+}
+
+std::string QueryConfigExecutor::Bind(Artifact::State value) {
+  return std::to_string((int)value);
+}
+
+std::string QueryConfigExecutor::Bind(Execution::State value) {
   return std::to_string((int)value);
 }
 
@@ -342,11 +348,9 @@ tensorflow::Status QueryConfigExecutor::ExecuteQuery(
 tensorflow::Status QueryConfigExecutor::IsCompatible(int64 db_version,
                                                      int64 lib_version,
                                                      bool* is_compatible) {
-  // TODO(martinz): temporary hack to make this library work with
-  // the next schema version of the database. Remove when database
-  // version 5 is introduced.
-  *is_compatible =
-      (db_version == 5 && lib_version == 4) || (db_version == lib_version);
+  // Currently, we don't support a database version that is older than the
+  // library version. Revisit this if a more sophisticated rule is required.
+  *is_compatible = (db_version == lib_version);
   return tensorflow::Status::OK();
 }
 
@@ -392,25 +396,31 @@ tensorflow::Status QueryConfigExecutor::InitMetadataSourceIfNotExists(
   TF_RETURN_IF_ERROR(
       UpgradeMetadataSourceIfOutOfDate(enable_upgrade_migration));
   // if lib and db versions align, we check the required tables for the lib.
-  std::vector<tensorflow::Status> checks;
-
-  checks.push_back(CheckTypeTable());
-  checks.push_back(CheckTypePropertyTable());
-  checks.push_back(CheckArtifactTable());
-  checks.push_back(CheckArtifactPropertyTable());
-  checks.push_back(CheckExecutionTable());
-  checks.push_back(CheckExecutionPropertyTable());
-  checks.push_back(CheckEventTable());
-  checks.push_back(CheckEventPathTable());
-  checks.push_back(CheckMLMDEnvTable());
-  checks.push_back(CheckContextTable());
-  checks.push_back(CheckContextPropertyTable());
-  checks.push_back(CheckAssociationTable());
-  checks.push_back(CheckAttributionTable());
+  std::vector<std::pair<tensorflow::Status, std::string>> checks;
+  checks.push_back({CheckTypeTable(), "type_table"});
+  checks.push_back({CheckTypePropertyTable(), "type_property_table"});
+  checks.push_back({CheckArtifactTable(), "artifact_table"});
+  checks.push_back({CheckArtifactPropertyTable(), "artifact_property_table"});
+  checks.push_back({CheckExecutionTable(), "execution_table"});
+  checks.push_back({CheckExecutionPropertyTable(), "execution_property_table"});
+  checks.push_back({CheckEventTable(), "event_table"});
+  checks.push_back({CheckEventPathTable(), "event_path_table"});
+  checks.push_back({CheckMLMDEnvTable(), "mlmd_env_table"});
+  checks.push_back({CheckContextTable(), "context_table"});
+  checks.push_back({CheckContextPropertyTable(), "context_property_table"});
+  checks.push_back({CheckAssociationTable(), "check_association_table"});
+  checks.push_back({CheckAttributionTable(), "check_attribution_table"});
   std::vector<std::string> missing_schema_error_messages;
-  for (const tensorflow::Status& check : checks) {
+  std::vector<std::string> successful_checks;
+  std::vector<std::string> failing_checks;
+  for (const auto& check_pair : checks) {
+    const tensorflow::Status &check = check_pair.first;
+    const std::string &name = check_pair.second;
     if (!check.ok()) {
       missing_schema_error_messages.push_back(check.error_message());
+      failing_checks.push_back(name);
+    } else {
+      successful_checks.push_back(name);
     }
   }
 
@@ -421,8 +431,12 @@ tensorflow::Status QueryConfigExecutor::InitMetadataSourceIfNotExists(
   if (checks.size() != missing_schema_error_messages.size()) {
     return tensorflow::errors::Aborted(
         "There are a subset of tables in MLMD instance. This may be due to "
-        "concurrent connection to the empty database. Please retry connection. "
-        "The following expected tables are missing: ",
+        "concurrent connection to the empty database. "
+        "Please retry the connection. checks: ", checks.size(),
+        " errors: ", missing_schema_error_messages.size(),
+        ", present tables: ", absl::StrJoin(successful_checks, ", "),
+        ", missing tables: ", absl::StrJoin(failing_checks, ", "),
+        " Errors: ",
         absl::StrJoin(missing_schema_error_messages, "\n"));
   }
 

@@ -11,6 +11,7 @@
 *   Provides GetArtifactByTypeAndName and GetExecutionByTypeAndName API to get
     artifact/execution by type and name.
 *   Refactors transaction executions using TransactionExecutor class.
+*   Supports storing/retrieving Artifact.state and Execution.last_known_state.
 
 ## Bug Fixes and Other Changes
 

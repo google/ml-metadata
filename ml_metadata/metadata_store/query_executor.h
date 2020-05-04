@@ -163,8 +163,9 @@ class QueryExecutor {
   // Inserts an artifact into the database.
   virtual tensorflow::Status InsertArtifact(
       int64 type_id, const std::string& artifact_uri,
-      const absl::optional<std::string>& name, const absl::Time create_time,
-      const absl::Time update_time, int64* artifact_id) = 0;
+      const absl::optional<Artifact::State>& state,
+      const absl::optional<std::string>& name, absl::Time create_time,
+      absl::Time update_time, int64* artifact_id) = 0;
 
   // Queries an artifact from the Artifact table by its id.
   // Returns a list of records that can be converted to artifacts.
@@ -190,7 +191,7 @@ class QueryExecutor {
   // Updates an artifact in the database.
   virtual tensorflow::Status UpdateArtifactDirect(
       int64 artifact_id, int64 type_id, const std::string& uri,
-      const absl::Time update_time) = 0;
+      const absl::optional<Artifact::State>& state, absl::Time update_time) = 0;
 
   // Checks the existence of the ArtifactProperty table.
   virtual tensorflow::Status CheckArtifactPropertyTable() = 0;
@@ -219,9 +220,9 @@ class QueryExecutor {
 
   // Inserts an execution into the database.
   virtual tensorflow::Status InsertExecution(
-      int64 type_id, const absl::optional<std::string>& name,
-      const absl::Time create_time, const absl::Time update_time,
-      int64* execution_id) = 0;
+      int64 type_id, const absl::optional<Execution::State>& last_known_state,
+      const absl::optional<std::string>& name, absl::Time create_time,
+      absl::Time update_time, int64* execution_id) = 0;
 
   // Queries an execution from the database by its id. It has 1
   // parameter. The result can be parsed into an Execution.
@@ -239,7 +240,9 @@ class QueryExecutor {
 
   // Updates an execution in the database.
   virtual tensorflow::Status UpdateExecutionDirect(
-      int64 execution_id, int64 type_id, const absl::Time update_time) = 0;
+      int64 execution_id, int64 type_id,
+      const absl::optional<Execution::State>& last_known_state,
+      absl::Time update_time) = 0;
 
   // Checks the existence of the ExecutionProperty table.
   virtual tensorflow::Status CheckExecutionPropertyTable() = 0;

@@ -68,12 +68,16 @@ tensorflow::Status
 QueryConfigMetadataAccessObjectContainer::SetupPreviousVersionForUpgrade(
     int64 version) {
   MetadataSourceQueryConfig::MigrationScheme migration_scheme;
-  TF_RETURN_IF_ERROR(GetMigrationScheme(version, &migration_scheme));
+  TF_RETURN_WITH_CONTEXT_IF_ERROR(
+      GetMigrationScheme(version, &migration_scheme),
+      "Cannot find migration scheme for SetupPreviousVersionForUpgrade");
   for (const auto& query : migration_scheme.upgrade_verification()
                                .previous_version_setup_queries()) {
     RecordSet dummy_record_set;
-    TF_RETURN_IF_ERROR(
-        GetMetadataSource()->ExecuteQuery(query.query(), &dummy_record_set));
+    TF_RETURN_WITH_CONTEXT_IF_ERROR(
+        GetMetadataSource()->ExecuteQuery(query.query(), &dummy_record_set),
+        "Cannot execute query in SetupPreviousVersionForUpgrade: ",
+        query.query());
   }
   return tensorflow::Status::OK();
 }
@@ -82,12 +86,15 @@ tensorflow::Status
 QueryConfigMetadataAccessObjectContainer::SetupPreviousVersionForDowngrade(
     int64 version) {
   MetadataSourceQueryConfig::MigrationScheme migration_scheme;
-  TF_RETURN_IF_ERROR(GetMigrationScheme(version, &migration_scheme));
+  TF_RETURN_WITH_CONTEXT_IF_ERROR(
+      GetMigrationScheme(version, &migration_scheme),
+      "Cannot find migration scheme for SetupPreviousVersionForDowngrade");
   for (const auto& query : migration_scheme.downgrade_verification()
                                .previous_version_setup_queries()) {
     RecordSet dummy_record_set;
-    TF_RETURN_IF_ERROR(
-        GetMetadataSource()->ExecuteQuery(query.query(), &dummy_record_set));
+    TF_RETURN_WITH_CONTEXT_IF_ERROR(
+        GetMetadataSource()->ExecuteQuery(query.query(), &dummy_record_set),
+        "SetupPreviousVersionForDowngrade query:", query.query());
   }
   return tensorflow::Status::OK();
 }
@@ -113,8 +120,9 @@ tensorflow::Status QueryConfigMetadataAccessObjectContainer::Verification(
         queries) {
   for (const auto& query : queries) {
     RecordSet record_set;
-    TF_RETURN_IF_ERROR(
-        GetMetadataSource()->ExecuteQuery(query.query(), &record_set));
+    TF_RETURN_WITH_CONTEXT_IF_ERROR(
+        GetMetadataSource()->ExecuteQuery(query.query(), &record_set),
+        "query: ", query.query());
     if (record_set.records_size() != 1) {
       return tensorflow::errors::Internal("Verification failed on query ",
                                           query.query());
@@ -160,7 +168,7 @@ tensorflow::Status
 QueryConfigMetadataAccessObjectContainer::SetDatabaseVersionIncompatible() {
   RecordSet record_set;
   TF_RETURN_IF_ERROR(GetMetadataSource()->ExecuteQuery(
-      "UPDATE `MLMDEnv` SET `schema_version` = `schema_version` + 2;",
+      "UPDATE `MLMDEnv` SET `schema_version` = `schema_version` + 1;",
       &record_set));
   return tensorflow::Status::OK();
 }
@@ -937,6 +945,38 @@ TEST_P(MetadataAccessObjectTest, FindAllArtifacts) {
   EXPECT_THAT(artifacts[1], EqualsProto(want_artifact2));
 }
 
+TEST_P(MetadataAccessObjectTest, DefaultArtifactState) {
+  TF_ASSERT_OK(Init());
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>("name: 'test_type'");
+  int64 type_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
+
+  // artifact 1 does not set the state
+  Artifact want_artifact1;
+  want_artifact1.set_uri("uri: 'testuri://testing/uri/1'");
+  want_artifact1.set_type_id(type_id);
+  int64 id1;
+  TF_ASSERT_OK(metadata_access_object_->CreateArtifact(want_artifact1, &id1));
+  // artifact 2 sets the state to default UNKNOWN
+  Artifact want_artifact2;
+  want_artifact2.set_type_id(type_id);
+  want_artifact2.set_uri("uri: 'testuri://testing/uri/2'");
+  want_artifact2.set_state(Artifact::UNKNOWN);
+  int64 id2;
+  TF_ASSERT_OK(metadata_access_object_->CreateArtifact(want_artifact2, &id2));
+
+  std::vector<Artifact> artifacts;
+  TF_ASSERT_OK(metadata_access_object_->FindArtifacts(&artifacts));
+  ASSERT_EQ(artifacts.size(), 2);
+  EXPECT_THAT(artifacts[0], EqualsProto(want_artifact1, /*ignore_fields=*/{
+                                            "id", "create_time_since_epoch",
+                                            "last_update_time_since_epoch"}));
+  EXPECT_THAT(artifacts[1],
+              EqualsProto(want_artifact2,
+                          /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
+}
+
 TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIds) {
   TF_ASSERT_OK(Init());
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>("name: 'test_type'");
@@ -1081,15 +1121,23 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
       key: 'custom_property_1'
       value: { string_value: '5' }
     }
+    state: LIVE
   )");
   stored_artifact.set_type_id(type_id);
   int64 artifact_id;
   TF_ASSERT_OK(
       metadata_access_object_->CreateArtifact(stored_artifact, &artifact_id));
+  Artifact got_artifact_before_update;
+  TF_ASSERT_OK(metadata_access_object_->FindArtifactById(
+      artifact_id, &got_artifact_before_update));
+  EXPECT_THAT(got_artifact_before_update,
+              EqualsProto(stored_artifact,
+                          /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
 
   // update `property_1`, add `property_2`, and drop `property_3`
   // change the value type of `custom_property_1`
-  Artifact want_artifact = ParseTextProtoOrDie<Artifact>(R"(
+  Artifact updated_artifact = ParseTextProtoOrDie<Artifact>(R"(
     uri: 'testuri://changed/uri'
     properties {
       key: 'property_1'
@@ -1104,17 +1152,21 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
       value: { int_value: 3 }
     }
   )");
-  want_artifact.set_id(artifact_id);
-  want_artifact.set_type_id(type_id);
-  TF_EXPECT_OK(metadata_access_object_->UpdateArtifact(want_artifact));
+  updated_artifact.set_id(artifact_id);
+  updated_artifact.set_type_id(type_id);
+  TF_EXPECT_OK(metadata_access_object_->UpdateArtifact(updated_artifact));
 
-  Artifact artifact;
-  TF_EXPECT_OK(
-      metadata_access_object_->FindArtifactById(artifact_id, &artifact));
-  want_artifact.set_create_time_since_epoch(artifact.create_time_since_epoch());
-  want_artifact.set_last_update_time_since_epoch(
-      artifact.last_update_time_since_epoch());
-  EXPECT_THAT(artifact, EqualsProto(want_artifact));
+  Artifact got_artifact_after_update;
+  TF_ASSERT_OK(metadata_access_object_->FindArtifactById(
+      artifact_id, &got_artifact_after_update));
+  EXPECT_THAT(got_artifact_after_update,
+              EqualsProto(updated_artifact,
+                          /*ignore_fields=*/{"create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
+  EXPECT_EQ(got_artifact_before_update.create_time_since_epoch(),
+            got_artifact_after_update.create_time_since_epoch());
+  EXPECT_LE(got_artifact_before_update.last_update_time_since_epoch(),
+            got_artifact_after_update.last_update_time_since_epoch());
 }
 
 TEST_P(MetadataAccessObjectTest, UpdateArtifactError) {
@@ -1166,6 +1218,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactError) {
 
 TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
   TF_ASSERT_OK(Init());
+  // Creates execution 1 with type 1
   ExecutionType type = ParseTextProtoOrDie<ExecutionType>(R"(
     name: 'test_type_with_predefined_property'
     properties { key: 'property_1' value: INT }
@@ -1175,7 +1228,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
   int64 type_id;
   TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
 
-  Execution execution1 = ParseTextProtoOrDie<Execution>(R"(
+  Execution want_execution1 = ParseTextProtoOrDie<Execution>(R"(
     name: "my_execution1"
     properties {
       key: 'property_1'
@@ -1190,98 +1243,78 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
       value: { int_value: 3 }
     }
   )");
-  execution1.set_type_id(type_id);
-
+  want_execution1.set_type_id(type_id);
   int64 execution1_id = -1;
-  TF_EXPECT_OK(
-      metadata_access_object_->CreateExecution(execution1, &execution1_id));
-  execution1.set_id(execution1_id);
+  TF_ASSERT_OK(metadata_access_object_->CreateExecution(want_execution1,
+                                                        &execution1_id));
 
-  ExecutionType name_only_type = ParseTextProtoOrDie<ExecutionType>(R"(
+  // Creates execution 2 with type 2
+  ExecutionType type2 = ParseTextProtoOrDie<ExecutionType>(R"(
     name: 'test_type_with_no_property'
   )");
   int64 type2_id;
-  TF_ASSERT_OK(metadata_access_object_->CreateType(name_only_type, &type2_id));
-  Execution execution2 = ParseTextProtoOrDie<Execution>(R"(
-    name: "my_execution2")");
-  execution2.set_type_id(type2_id);
-
+  TF_ASSERT_OK(metadata_access_object_->CreateType(type2, &type2_id));
+  Execution want_execution2 = ParseTextProtoOrDie<Execution>(R"(
+    name: "my_execution2"
+    last_known_state: RUNNING
+  )");
+  want_execution2.set_type_id(type2_id);
   int64 execution2_id = -1;
-  TF_EXPECT_OK(
-      metadata_access_object_->CreateExecution(execution2, &execution2_id));
-  execution2.set_id(execution2_id);
-
+  TF_ASSERT_OK(metadata_access_object_->CreateExecution(want_execution2,
+                                                        &execution2_id));
   EXPECT_NE(execution1_id, execution2_id);
 
-  Execution want_execution1;
+  Execution got_execution1;
   TF_EXPECT_OK(metadata_access_object_->FindExecutionById(execution1_id,
-                                                          &want_execution1));
-  execution1.set_create_time_since_epoch(
-      want_execution1.create_time_since_epoch());
-  execution1.set_last_update_time_since_epoch(
-      want_execution1.last_update_time_since_epoch());
-  EXPECT_THAT(execution1, EqualsProto(want_execution1));
-  EXPECT_GT(want_execution1.create_time_since_epoch(), 0);
-  EXPECT_GT(want_execution1.last_update_time_since_epoch(), 0);
-  EXPECT_LE(want_execution1.last_update_time_since_epoch(),
-            absl::ToUnixMillis(absl::Now()));
-  EXPECT_GE(want_execution1.last_update_time_since_epoch(),
-            want_execution1.create_time_since_epoch());
+                                                          &got_execution1));
 
-  Execution want_execution2;
+  EXPECT_THAT(want_execution1,
+              EqualsProto(got_execution1,
+                          /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
+  EXPECT_GT(got_execution1.create_time_since_epoch(), 0);
+  EXPECT_GT(got_execution1.last_update_time_since_epoch(), 0);
+  EXPECT_LE(got_execution1.last_update_time_since_epoch(),
+            absl::ToUnixMillis(absl::Now()));
+  EXPECT_GE(got_execution1.last_update_time_since_epoch(),
+            got_execution1.create_time_since_epoch());
+
+  Execution got_execution2;
   TF_EXPECT_OK(metadata_access_object_->FindExecutionById(execution2_id,
-                                                          &want_execution2));
-  execution2.set_create_time_since_epoch(
-      want_execution2.create_time_since_epoch());
-  execution2.set_last_update_time_since_epoch(
-      want_execution2.last_update_time_since_epoch());
-  EXPECT_THAT(execution2, EqualsProto(want_execution2));
+                                                          &got_execution2));
+  EXPECT_THAT(want_execution2,
+              EqualsProto(got_execution2,
+                          /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
 
   std::vector<Execution> executions;
   TF_EXPECT_OK(metadata_access_object_->FindExecutions(&executions));
   EXPECT_EQ(executions.size(), 2);
-  want_execution1.set_create_time_since_epoch(
-      executions[0].create_time_since_epoch());
-  want_execution1.set_last_update_time_since_epoch(
-      executions[0].last_update_time_since_epoch());
-  EXPECT_THAT(executions[0], EqualsProto(want_execution1));
-  want_execution2.set_create_time_since_epoch(
-      executions[1].create_time_since_epoch());
-  want_execution2.set_last_update_time_since_epoch(
-      executions[1].last_update_time_since_epoch());
-  EXPECT_THAT(executions[1], EqualsProto(want_execution2));
+  EXPECT_THAT(executions[0], EqualsProto(got_execution1));
+  EXPECT_THAT(executions[1], EqualsProto(got_execution2));
 
   std::vector<Execution> type1_executions;
   TF_EXPECT_OK(metadata_access_object_->FindExecutionsByTypeId(
       type_id, &type1_executions));
   EXPECT_EQ(type1_executions.size(), 1);
-  EXPECT_THAT(type1_executions[0], EqualsProto(want_execution1));
+  EXPECT_THAT(type1_executions[0], EqualsProto(got_execution1));
 
   Execution got_execution_from_type_and_name1;
-  TF_EXPECT_OK(metadata_access_object_->FindExecutionByTypeIdAndExecutionName(
+  TF_ASSERT_OK(metadata_access_object_->FindExecutionByTypeIdAndExecutionName(
       type_id, "my_execution1", &got_execution_from_type_and_name1));
-  execution1.set_create_time_since_epoch(
-      got_execution_from_type_and_name1.create_time_since_epoch());
-  execution1.set_last_update_time_since_epoch(
-      got_execution_from_type_and_name1.last_update_time_since_epoch());
-  EXPECT_THAT(got_execution_from_type_and_name1, EqualsProto(execution1));
+  EXPECT_THAT(got_execution_from_type_and_name1, EqualsProto(got_execution1));
 
   Execution got_execution_from_type_and_name2;
-  TF_EXPECT_OK(metadata_access_object_->FindExecutionByTypeIdAndExecutionName(
+  TF_ASSERT_OK(metadata_access_object_->FindExecutionByTypeIdAndExecutionName(
       type2_id, "my_execution2", &got_execution_from_type_and_name2));
-  execution2.set_create_time_since_epoch(
-      got_execution_from_type_and_name2.create_time_since_epoch());
-  execution2.set_last_update_time_since_epoch(
-      got_execution_from_type_and_name2.last_update_time_since_epoch());
-  EXPECT_THAT(got_execution_from_type_and_name2, EqualsProto(execution2));
+  EXPECT_THAT(got_execution_from_type_and_name2, EqualsProto(got_execution2));
   Execution got_empty_execution;
   EXPECT_EQ(metadata_access_object_
                 ->FindExecutionByTypeIdAndExecutionName(
                     type_id, "my_execution2", &got_empty_execution)
                 .code(),
             tensorflow::error::NOT_FOUND);
-  EXPECT_THAT(got_empty_execution,
-              EqualsProto(ParseTextProtoOrDie<Execution>(R"()")));
+  EXPECT_THAT(got_empty_execution, EqualsProto(Execution()));
 }
 
 TEST_P(MetadataAccessObjectTest, UpdateExecution) {
@@ -1304,14 +1337,22 @@ TEST_P(MetadataAccessObjectTest, UpdateExecution) {
       key: 'custom_property_1'
       value: { string_value: '5' }
     }
+    last_known_state: RUNNING
   )");
   stored_execution.set_type_id(type_id);
   int64 execution_id;
   TF_ASSERT_OK(metadata_access_object_->CreateExecution(stored_execution,
                                                         &execution_id));
+  Execution got_execution_before_update;
+  TF_EXPECT_OK(metadata_access_object_->FindExecutionById(
+      execution_id, &got_execution_before_update));
+  EXPECT_THAT(got_execution_before_update,
+              EqualsProto(stored_execution,
+                          /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
 
   // add `property_1` and update `property_3`, and drop `custom_property_1`
-  Execution want_execution = ParseTextProtoOrDie<Execution>(R"(
+  Execution updated_execution = ParseTextProtoOrDie<Execution>(R"(
     properties {
       key: 'property_1'
       value: { int_value: 5 }
@@ -1321,18 +1362,21 @@ TEST_P(MetadataAccessObjectTest, UpdateExecution) {
       value: { string_value: '5' }
     }
   )");
-  want_execution.set_id(execution_id);
-  want_execution.set_type_id(type_id);
-  TF_EXPECT_OK(metadata_access_object_->UpdateExecution(want_execution));
+  updated_execution.set_id(execution_id);
+  updated_execution.set_type_id(type_id);
+  TF_EXPECT_OK(metadata_access_object_->UpdateExecution(updated_execution));
 
-  Execution execution;
-  TF_EXPECT_OK(
-      metadata_access_object_->FindExecutionById(execution_id, &execution));
-  want_execution.set_create_time_since_epoch(
-      execution.create_time_since_epoch());
-  want_execution.set_last_update_time_since_epoch(
-      execution.last_update_time_since_epoch());
-  EXPECT_THAT(execution, EqualsProto(want_execution));
+  Execution got_execution_after_update;
+  TF_EXPECT_OK(metadata_access_object_->FindExecutionById(
+      execution_id, &got_execution_after_update));
+  EXPECT_THAT(got_execution_after_update,
+              EqualsProto(updated_execution,
+                          /*ignore_fields=*/{"create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
+  EXPECT_EQ(got_execution_before_update.create_time_since_epoch(),
+            got_execution_after_update.create_time_since_epoch());
+  EXPECT_LE(got_execution_before_update.last_update_time_since_epoch(),
+            got_execution_after_update.last_update_time_since_epoch());
 }
 
 TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
@@ -1937,7 +1981,8 @@ TEST_P(MetadataAccessObjectTest, PutEventsWithPaths) {
 }
 
 TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
-  // setup the database of previous version.
+  // setup the database using the previous version.
+  // Calling this with the minimum version sets up the original database.
   int64 lib_version = metadata_access_object_->GetLibraryVersion();
   for (int64 i = metadata_access_object_container_->MinimumVersion();
        i <= lib_version; i++) {
@@ -1950,8 +1995,8 @@ TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
     // when i = 0, it is v0.13.2. At that time, the MLMDEnv table does not
     // exist, GetSchemaVersion resolves the current version as 0.
     int64 v0_13_2_version = 100;
-    TF_EXPECT_OK(metadata_access_object_->GetSchemaVersion(&v0_13_2_version));
-    EXPECT_EQ(0, v0_13_2_version);
+    TF_ASSERT_OK(metadata_access_object_->GetSchemaVersion(&v0_13_2_version));
+    ASSERT_EQ(0, v0_13_2_version);
   }
   // If there is only one version, then the following tests don't make sense.
   if (metadata_access_object_container_->MinimumVersion() < lib_version) {
@@ -1959,20 +2004,21 @@ TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
     // enabling upgrade migration
     tensorflow::Status status =
         metadata_access_object_->InitMetadataSourceIfNotExists();
-    EXPECT_EQ(status.code(), tensorflow::error::FAILED_PRECONDITION);
+    ASSERT_EQ(status.code(), tensorflow::error::FAILED_PRECONDITION)
+        << "Error: " << status.error_message();
 
     // then init the store and the migration queries runs.
-    TF_EXPECT_OK(metadata_access_object_->InitMetadataSourceIfNotExists(
+    TF_ASSERT_OK(metadata_access_object_->InitMetadataSourceIfNotExists(
         /*enable_upgrade_migration=*/true));
     // at the end state, schema version should becomes the library version and
     // all migration queries should all succeed.
     int64 curr_version = 0;
-    TF_EXPECT_OK(metadata_access_object_->GetSchemaVersion(&curr_version));
-    EXPECT_EQ(lib_version, curr_version);
+    TF_ASSERT_OK(metadata_access_object_->GetSchemaVersion(&curr_version));
+    ASSERT_EQ(lib_version, curr_version);
     // check the verification queries in the previous version scheme
     if (metadata_access_object_container_->HasUpgradeVerification(
             lib_version)) {
-      TF_EXPECT_OK(
+      TF_ASSERT_OK(
           metadata_access_object_container_->UpgradeVerification(lib_version));
     }
   }
