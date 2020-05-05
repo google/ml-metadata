@@ -57,9 +57,9 @@ void TestPutAndGetArtifactType(const ConnectionConfig& connection_config) {
           )");
   GetArtifactTypeResponse get_response;
   TF_ASSERT_OK(store->GetArtifactType(get_request, &get_response));
-  ArtifactType expected = put_request.artifact_type();
-  expected.set_id(put_response.type_id());
-  EXPECT_THAT(get_response.artifact_type(), testing::EqualsProto(expected))
+  EXPECT_THAT(get_response.artifact_type(),
+              testing::EqualsProto(put_request.artifact_type(),
+                                   /*ignore_fields=*/{"id"}))
       << "The type should be the same as the one given.";
 }
 
