@@ -1064,8 +1064,8 @@ tensorflow::Status RDBMSMetadataAccessObject::FindEventsByExecution(
   TF_RETURN_IF_ERROR(
       executor_->SelectEventByExecutionID(execution_id, &event_record_set));
   if (event_record_set.records_size() == 0) {
-    return tensorflow::errors::NotFound(
-        absl::StrCat("Cannot find events by given artifact id ", execution_id));
+    return tensorflow::errors::NotFound(absl::StrCat(
+        "Cannot find events by given execution id ", execution_id));
   }
   return FindEventsFromRecordSet(event_record_set, events);
 }
