@@ -33,7 +33,7 @@ from ml_metadata.metadata_store import pywrap_tf_metadata_store_serialized as me
 from ml_metadata.proto import metadata_store_pb2
 from ml_metadata.proto import metadata_store_service_pb2
 from ml_metadata.proto import metadata_store_service_pb2_grpc
-from tensorflow.python.framework import errors
+from tensorflow.compat.v1 import errors
 
 
 class MetadataStore(object):

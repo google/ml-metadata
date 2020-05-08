@@ -25,7 +25,7 @@ from absl.testing import absltest
 
 from ml_metadata.metadata_store import metadata_store
 from ml_metadata.proto import metadata_store_pb2
-from tensorflow.python.framework import errors
+from tensorflow.compat.v1 import errors
 
 FLAGS = flags.FLAGS
 
