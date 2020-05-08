@@ -218,12 +218,28 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "metadata_store_test_suite",
+    testonly = 1,
+    srcs = ["metadata_store_test_suite.cc"],
+    hdrs = ["metadata_store_test_suite.h"],
+    deps = [
+        ":constants",
+        ":metadata_store",
+        ":test_util",
+        "@com_google_googletest//:gtest",
+        "@com_google_absl//absl/strings",
+        "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:test",
+    ],
+)
+
 ml_metadata_cc_test(
     name = "metadata_store_cc_test",
     srcs = ["metadata_store_test.cc"],
     deps = [
-        ":metadata_access_object_factory",
         ":metadata_store",
+        ":metadata_store_test_suite",
         ":sqlite_metadata_source",
         ":test_util",
         "@com_google_googletest//:gtest",
