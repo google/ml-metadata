@@ -19,18 +19,13 @@ limitations under the License.
 #include <string>
 #include <vector>
 
+#include "google/protobuf/text_format.h"
 #include "google/protobuf/util/message_differencer.h"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "tensorflow/core/platform/protobuf.h"
 
 namespace ml_metadata {
 namespace testing {
-
-// Simple implementation of a proto matcher comparing string representations.
-//
-// IMPORTANT: Only use this for protos whose textual representation is
-// deterministic (that may not be the case for the map collection type).
 
 template <typename Message>
 class ProtoStringMatcher {
@@ -75,11 +70,10 @@ inline ::testing::PolymorphicMatcher<ProtoStringMatcher<Message>> EqualsProto(
 }
 
 // Parse input string as a protocol buffer.
-// TODO(b/143236826) Drops TF dependency.
 template <typename T>
 T ParseTextProtoOrDie(const std::string& input) {
   T result;
-  CHECK(tensorflow::protobuf::TextFormat::ParseFromString(input, &result))
+  CHECK(google::protobuf::TextFormat::ParseFromString(input, &result))
       << "Failed to parse: " << input;
   return result;
 }

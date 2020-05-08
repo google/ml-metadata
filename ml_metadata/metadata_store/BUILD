@@ -336,7 +336,6 @@ cc_library(
     deps = [
         "@com_google_protobuf//:protobuf",
         "@com_google_googletest//:gtest",
-        "@org_tensorflow//tensorflow/core:lib",
     ],
 )
 
