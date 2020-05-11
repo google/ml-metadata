@@ -29,11 +29,9 @@ message Value {
 message Artifact {
   // Output only. The globally unique server generated id of the artifact.
   optional int64 id = 1;
-  // The client provided name of the artifact. If set, it must be unique among
-  // all the artifacts of the same artifact type within a database instance and
-  // cannot be changed. If not set, it will be filled by a system-generated
-  // default name.
-  // This field cannot be changed once set.
+  // The client provided name of the artifact. This field is optional. If set,
+  // it must be unique among all the artifacts of the same artifact type within
+  // a database instance and cannot be changed once set.
   optional string name = 7;
   // The id of an ArtifactType. This needs to be specified when an artifact is
   // created, and it cannot be changed.
@@ -206,11 +204,9 @@ message Event {
 message Execution {
   // Output only. The globally unique server generated id of the execution.
   optional int64 id = 1;
-  // The client provided name of the execution. If set, it must be unique among
-  // all the executions of the same artifact type within a database instance and
-  // cannot be changed. If not set, it will be filled by a system-generated
-  // default name.
-  // This field cannot be changed once set.
+  // The client provided name of the execution. This field is optional. If set,
+  // it must be unique among all the executions of the same artifact type within
+  // a database instance and cannot be changed once set.
   optional string name = 6;
   // The id of an ExecutionType. This needs to be specified when an execution is
   // created, and it cannot be changed.
