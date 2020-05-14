@@ -60,7 +60,7 @@ message Artifact {
     DELETED = 4;
   }
 
-  // Currently not supported: support coming soon (see b/145751019).
+  // The state of the artifact known to the system.
   optional State state = 6;
   // Output only. Create time of the artifact in millisecond since epoch.
   optional int64 create_time_since_epoch = 9;
@@ -230,7 +230,7 @@ message Execution {
     CACHED = 5;
     CANCELED = 6;
   }
-  // The last known state of an execution.
+  // The last known state of an execution in the system.
   optional State last_known_state = 3;
   // Properties of the Execution.
   // Properties must be specified in the ExecutionType.
