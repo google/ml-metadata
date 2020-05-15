@@ -591,14 +591,12 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {
   GetArtifactsByIDResponse get_artifacts_by_id_response;
   TF_ASSERT_OK(metadata_store_->GetArtifactsByID(
       get_artifacts_by_id_request, &get_artifacts_by_id_response));
-  GetArtifactsByIDResponse expected;
-  *expected.mutable_artifacts() = put_artifacts_request.artifacts();
-  expected.mutable_artifacts(0)->set_id(artifact_id);
-  expected.mutable_artifacts(0)->set_create_time_since_epoch(
-      get_artifacts_by_id_response.artifacts(0).create_time_since_epoch());
-  expected.mutable_artifacts(0)->set_last_update_time_since_epoch(
-      get_artifacts_by_id_response.artifacts(0).last_update_time_since_epoch());
-  EXPECT_THAT(get_artifacts_by_id_response, testing::EqualsProto(expected));
+  ASSERT_THAT(get_artifacts_by_id_response.artifacts(), SizeIs(1));
+  EXPECT_THAT(
+      get_artifacts_by_id_response.artifacts(0),
+      testing::EqualsProto(put_artifacts_request.artifacts(0),
+                           /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                              "last_update_time_since_epoch"}));
 }
 
 // Test creating an artifact and then updating one of its properties.
@@ -997,14 +995,12 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithEmptyExecution) {
   GetExecutionsResponse get_executions_response;
   TF_ASSERT_OK(metadata_store_->GetExecutions(get_executions_request,
                                               &get_executions_response));
-  GetExecutionsResponse expected;
-  *expected.mutable_executions() = put_executions_request.executions();
-  expected.mutable_executions(0)->set_id(execution_id);
-  expected.mutable_executions(0)->set_create_time_since_epoch(
-      get_executions_response.executions(0).create_time_since_epoch());
-  expected.mutable_executions(0)->set_last_update_time_since_epoch(
-      get_executions_response.executions(0).last_update_time_since_epoch());
-  EXPECT_THAT(get_executions_response, testing::EqualsProto(expected));
+  ASSERT_THAT(get_executions_response.executions(), SizeIs(1));
+  EXPECT_THAT(
+      get_executions_response.executions(0),
+      testing::EqualsProto(put_executions_request.executions(0),
+                           /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                              "last_update_time_since_epoch"}));
 
   GetExecutionsByTypeRequest get_executions_by_type_request;
   GetExecutionsByTypeResponse get_executions_by_type_response;
@@ -1596,17 +1592,15 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContext) {
   context2.set_id(put_execution_response.context_ids(1));
   GetContextsResponse get_contexts_response;
   TF_ASSERT_OK(metadata_store_->GetContexts({}, &get_contexts_response));
-  context1.set_create_time_since_epoch(
-      get_contexts_response.contexts(0).create_time_since_epoch());
-  context1.set_last_update_time_since_epoch(
-      get_contexts_response.contexts(0).last_update_time_since_epoch());
-  context2.set_create_time_since_epoch(
-      get_contexts_response.contexts(1).create_time_since_epoch());
-  context2.set_last_update_time_since_epoch(
-      get_contexts_response.contexts(1).last_update_time_since_epoch());
-  EXPECT_THAT(get_contexts_response.contexts(),
-              ElementsAre(testing::EqualsProto(context1),
-                          testing::EqualsProto(context2)));
+  EXPECT_THAT(
+      get_contexts_response.contexts(),
+      ElementsAre(
+          testing::EqualsProto(
+              context1, /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+          testing::EqualsProto(
+              context2, /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
 
   // check attributions and associations of each context.
   for (const int64 context_id : put_execution_response.context_ids()) {
@@ -1930,50 +1924,38 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
   TF_ASSERT_OK(metadata_store_->GetContextsByID(get_contexts_by_id_request,
                                                 &get_contexts_by_id_response));
   ASSERT_THAT(get_contexts_by_id_response.contexts(), SizeIs(1));
-  want_context1.set_create_time_since_epoch(
-      get_contexts_by_id_response.contexts(0).create_time_since_epoch());
-  want_context1.set_last_update_time_since_epoch(
-      get_contexts_by_id_response.contexts(0).last_update_time_since_epoch());
   EXPECT_THAT(get_contexts_by_id_response.contexts(0),
-              testing::EqualsProto(want_context1));
+              testing::EqualsProto(want_context1, /*ignore_fields=*/{
+                                       "create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
   GetContextsByTypeRequest get_contexts_by_type_request;
   get_contexts_by_type_request.set_type_name("type2_name");
   GetContextsByTypeResponse get_contexts_by_type_response;
   TF_ASSERT_OK(metadata_store_->GetContextsByType(
       get_contexts_by_type_request, &get_contexts_by_type_response));
   ASSERT_THAT(get_contexts_by_type_response.contexts(), SizeIs(1));
-  want_context3.set_create_time_since_epoch(
-      get_contexts_by_type_response.contexts(0).create_time_since_epoch());
-  want_context3.set_last_update_time_since_epoch(
-      get_contexts_by_type_response.contexts(0).last_update_time_since_epoch());
   EXPECT_THAT(get_contexts_by_type_response.contexts(0),
-              testing::EqualsProto(want_context3));
+              testing::EqualsProto(want_context3, /*ignore_fields=*/{
+                                       "create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
 
   GetContextsRequest get_contexts_request;
   GetContextsResponse get_contexts_response;
   TF_ASSERT_OK(metadata_store_->GetContexts(get_contexts_request,
                                             &get_contexts_response));
   ASSERT_THAT(get_contexts_response.contexts(), SizeIs(3));
-  want_context1.set_create_time_since_epoch(
-      get_contexts_response.contexts(0).create_time_since_epoch());
-  want_context1.set_last_update_time_since_epoch(
-      get_contexts_response.contexts(0).last_update_time_since_epoch());
   EXPECT_THAT(get_contexts_response.contexts(0),
-              testing::EqualsProto(want_context1));
-
-  want_context2.set_create_time_since_epoch(
-      get_contexts_response.contexts(1).create_time_since_epoch());
-  want_context2.set_last_update_time_since_epoch(
-      get_contexts_response.contexts(1).last_update_time_since_epoch());
+              testing::EqualsProto(want_context1, /*ignore_fields=*/{
+                                       "create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
   EXPECT_THAT(get_contexts_response.contexts(1),
-              testing::EqualsProto(want_context2));
-
-  want_context3.set_create_time_since_epoch(
-      get_contexts_response.contexts(2).create_time_since_epoch());
-  want_context3.set_last_update_time_since_epoch(
-      get_contexts_response.contexts(2).last_update_time_since_epoch());
+              testing::EqualsProto(want_context2, /*ignore_fields=*/{
+                                       "create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
   EXPECT_THAT(get_contexts_response.contexts(2),
-              testing::EqualsProto(want_context3));
+              testing::EqualsProto(want_context3, /*ignore_fields=*/{
+                                       "create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
 }
 
 // Test creating a context and then getting it by its type and context name.
@@ -2014,14 +1996,10 @@ TEST_P(MetadataStoreTestSuite, PutContextGetContextsByTypeAndName) {
       get_context_by_type_and_name_request,
       &get_context_by_type_and_name_response));
   ASSERT_TRUE(get_context_by_type_and_name_response.has_context());
-  want_context1.set_create_time_since_epoch(
-      get_context_by_type_and_name_response.context()
-          .create_time_since_epoch());
-  want_context1.set_last_update_time_since_epoch(
-      get_context_by_type_and_name_response.context()
-          .last_update_time_since_epoch());
   EXPECT_THAT(get_context_by_type_and_name_response.context(),
-              testing::EqualsProto(want_context1));
+              testing::EqualsProto(want_context1, /*ignore_fields=*/{
+                                       "create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
 
   // Test that no context is found given the input type and name.
   GetContextByTypeAndNameRequest get_no_context_by_type_and_name_request;
@@ -2107,13 +2085,10 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   TF_EXPECT_OK(metadata_store_->GetContextsByArtifact(
       get_contexts_by_artifact_request, &get_contexts_by_artifact_response));
   ASSERT_THAT(get_contexts_by_artifact_response.contexts(), SizeIs(1));
-  want_context.set_create_time_since_epoch(
-      get_contexts_by_artifact_response.contexts(0).create_time_since_epoch());
-  want_context.set_last_update_time_since_epoch(
-      get_contexts_by_artifact_response.contexts(0)
-          .last_update_time_since_epoch());
   EXPECT_THAT(get_contexts_by_artifact_response.contexts(0),
-              testing::EqualsProto(want_context));
+              testing::EqualsProto(want_context, /*ignore_fields=*/{
+                                       "create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
 
   GetArtifactsByContextRequest get_artifacts_by_context_request;
   get_artifacts_by_context_request.set_context_id(want_context.id());
@@ -2121,13 +2096,10 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   TF_EXPECT_OK(metadata_store_->GetArtifactsByContext(
       get_artifacts_by_context_request, &get_artifacts_by_context_response));
   ASSERT_THAT(get_artifacts_by_context_response.artifacts(), SizeIs(1));
-  want_artifact.set_create_time_since_epoch(
-      get_artifacts_by_context_response.artifacts(0).create_time_since_epoch());
-  want_artifact.set_last_update_time_since_epoch(
-      get_artifacts_by_context_response.artifacts(0)
-          .last_update_time_since_epoch());
   EXPECT_THAT(get_artifacts_by_context_response.artifacts(0),
-              testing::EqualsProto(want_artifact));
+              testing::EqualsProto(want_artifact, /*ignore_fields=*/{
+                                       "create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
 
   // append the association and reinsert the existing attribution.
   Association* association = request.add_associations();
@@ -2142,13 +2114,10 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   TF_ASSERT_OK(metadata_store_->GetContextsByExecution(
       get_contexts_by_execution_request, &get_contexts_by_execution_response));
   ASSERT_THAT(get_contexts_by_execution_response.contexts(), SizeIs(1));
-  want_context.set_create_time_since_epoch(
-      get_contexts_by_execution_response.contexts(0).create_time_since_epoch());
-  want_context.set_last_update_time_since_epoch(
-      get_contexts_by_execution_response.contexts(0)
-          .last_update_time_since_epoch());
   EXPECT_THAT(get_contexts_by_execution_response.contexts(0),
-              testing::EqualsProto(want_context));
+              testing::EqualsProto(want_context, /*ignore_fields=*/{
+                                       "create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
 
   GetExecutionsByContextRequest get_executions_by_context_request;
   get_executions_by_context_request.set_context_id(want_context.id());
@@ -2156,14 +2125,10 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   TF_ASSERT_OK(metadata_store_->GetExecutionsByContext(
       get_executions_by_context_request, &get_executions_by_context_response));
   ASSERT_THAT(get_executions_by_context_response.executions(), SizeIs(1));
-  want_execution.set_create_time_since_epoch(
-      get_executions_by_context_response.executions(0)
-          .create_time_since_epoch());
-  want_execution.set_last_update_time_since_epoch(
-      get_executions_by_context_response.executions(0)
-          .last_update_time_since_epoch());
   EXPECT_THAT(get_executions_by_context_response.executions(0),
-              testing::EqualsProto(want_execution));
+              testing::EqualsProto(want_execution, /*ignore_fields=*/{
+                                       "create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
 
   // Add another artifact.
   Artifact want_artifact_2;
@@ -2191,21 +2156,15 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   TF_EXPECT_OK(metadata_store_->GetArtifactsByContext(
       get_artifacts_by_context_request, &get_artifacts_by_context_response_2));
   ASSERT_THAT(get_artifacts_by_context_response_2.artifacts(), SizeIs(2));
-  want_artifact.set_create_time_since_epoch(
-      get_artifacts_by_context_response_2.artifacts(0)
-          .create_time_since_epoch());
-  want_artifact.set_last_update_time_since_epoch(
-      get_artifacts_by_context_response_2.artifacts(0)
-          .last_update_time_since_epoch());
-  want_artifact_2.set_create_time_since_epoch(
-      get_artifacts_by_context_response_2.artifacts(1)
-          .create_time_since_epoch());
-  want_artifact_2.set_last_update_time_since_epoch(
-      get_artifacts_by_context_response_2.artifacts(1)
-          .last_update_time_since_epoch());
   EXPECT_THAT(get_artifacts_by_context_response_2.artifacts(),
-              UnorderedElementsAre(testing::EqualsProto(want_artifact),
-                                   testing::EqualsProto(want_artifact_2)));
+              UnorderedElementsAre(
+                  testing::EqualsProto(
+                      want_artifact,
+                      /*ignore_fields=*/{"create_time_since_epoch",
+                                         "last_update_time_since_epoch"}),
+                  testing::EqualsProto(want_artifact_2, /*ignore_fields=*/{
+                                           "create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
 }
 
 }  // namespace
