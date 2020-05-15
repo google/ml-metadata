@@ -4,6 +4,8 @@
 
 ## Bug Fixes and Other Changes
 
+*   Uses Iterable[int] instead Sequence[int] for listing APIs accepting ids.
+
 ## Breaking changes
 
 ## Deprecations

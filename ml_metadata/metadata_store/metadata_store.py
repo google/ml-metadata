@@ -27,7 +27,7 @@ import time
 
 from absl import logging
 import grpc
-from typing import List, Optional, Sequence, Text, Tuple, Union
+from typing import Iterable, List, Optional, Sequence, Text, Tuple, Union
 
 from ml_metadata.metadata_store import pywrap_tf_metadata_store_serialized as metadata_store_serialized
 from ml_metadata.proto import metadata_store_pb2
@@ -552,7 +552,7 @@ class MetadataStore(object):
     return result
 
   def get_artifacts_by_id(
-      self, artifact_ids: Sequence[int]) -> List[metadata_store_pb2.Artifact]:
+      self, artifact_ids: Iterable[int]) -> List[metadata_store_pb2.Artifact]:
     """Gets all artifacts with matching ids.
 
     The result is not index-aligned: if an id is not found, it is not returned.
@@ -705,7 +705,7 @@ class MetadataStore(object):
     return result
 
   def get_executions_by_id(
-      self, execution_ids: Sequence[int]) -> List[metadata_store_pb2.Execution]:
+      self, execution_ids: Iterable[int]) -> List[metadata_store_pb2.Execution]:
     """Gets all executions with matching ids.
 
     The result is not index-aligned: if an id is not found, it is not returned.
@@ -782,7 +782,7 @@ class MetadataStore(object):
     return result
 
   def get_contexts_by_id(
-      self, context_ids: Sequence[int]) -> List[metadata_store_pb2.Context]:
+      self, context_ids: Iterable[int]) -> List[metadata_store_pb2.Context]:
     """Gets all contexts with matching ids.
 
     The result is not index-aligned: if an id is not found, it is not returned.
@@ -850,7 +850,7 @@ class MetadataStore(object):
     return response.context
 
   def get_artifact_types_by_id(
-      self, type_ids: Sequence[int]) -> List[metadata_store_pb2.ArtifactType]:
+      self, type_ids: Iterable[int]) -> List[metadata_store_pb2.ArtifactType]:
     """Gets artifact types by ID.
 
     Args:
@@ -874,7 +874,7 @@ class MetadataStore(object):
     return result
 
   def get_execution_types_by_id(
-      self, type_ids: Sequence[int]) -> List[metadata_store_pb2.ExecutionType]:
+      self, type_ids: Iterable[int]) -> List[metadata_store_pb2.ExecutionType]:
     """Gets execution types by ID.
 
     Args:
@@ -901,7 +901,7 @@ class MetadataStore(object):
     return result
 
   def get_context_types_by_id(
-      self, type_ids: Sequence[int]) -> List[metadata_store_pb2.ContextType]:
+      self, type_ids: Iterable[int]) -> List[metadata_store_pb2.ContextType]:
     """Gets context types by ID.
 
     Args:
@@ -1030,7 +1030,7 @@ class MetadataStore(object):
     return result
 
   def get_events_by_execution_ids(
-      self, execution_ids: Sequence[int]) -> List[metadata_store_pb2.Event]:
+      self, execution_ids: Iterable[int]) -> List[metadata_store_pb2.Event]:
     """Gets all events with matching execution ids.
 
     Args:
@@ -1054,7 +1054,7 @@ class MetadataStore(object):
     return result
 
   def get_events_by_artifact_ids(
-      self, artifact_ids: Sequence[int]) -> List[metadata_store_pb2.Event]:
+      self, artifact_ids: Iterable[int]) -> List[metadata_store_pb2.Event]:
     """Gets all events with matching artifact ids.
 
     Args:
