@@ -597,7 +597,6 @@ cc_test(
     srcs = ["metadata_access_object_factory_test.cc"],
     deps = [
         ":metadata_access_object_factory",
-        ":metadata_access_object_test",
         ":metadata_source",
         ":sqlite_metadata_source",
         "@com_google_googletest//:gtest_main",
