@@ -16,6 +16,7 @@ limitations under the License.
 
 #include "absl/memory/memory.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
+#include "ml_metadata/metadata_store/transaction_executor.h"
 #ifndef _WIN32
 #include "ml_metadata/metadata_store/mysql_metadata_source.h"
 #endif
@@ -32,9 +33,12 @@ tensorflow::Status CreateMySQLMetadataStore(
     const MySQLDatabaseConfig& config,
     const MigrationOptions& migration_options,
     std::unique_ptr<MetadataStore>* result) {
+  auto metadata_source = absl::make_unique<MySqlMetadataSource>(config);
+  auto transaction_executor =
+      absl::make_unique<RdbmsTransactionExecutor>(metadata_source.get());
   TF_RETURN_IF_ERROR(MetadataStore::Create(
       util::GetMySqlMetadataSourceQueryConfig(), migration_options,
-      absl::make_unique<MySqlMetadataSource>(config), result));
+      std::move(metadata_source), std::move(transaction_executor), result));
   return (*result)->InitMetadataStoreIfNotExists(
       migration_options.enable_upgrade_migration());
 }
@@ -52,9 +56,12 @@ tensorflow::Status CreateSqliteMetadataStore(
     const SqliteMetadataSourceConfig& config,
     const MigrationOptions& migration_options,
     std::unique_ptr<MetadataStore>* result) {
+  auto metadata_source = absl::make_unique<SqliteMetadataSource>(config);
+  auto transaction_executor =
+      absl::make_unique<RdbmsTransactionExecutor>(metadata_source.get());
   TF_RETURN_IF_ERROR(MetadataStore::Create(
       util::GetSqliteMetadataSourceQueryConfig(), migration_options,
-      absl::make_unique<SqliteMetadataSource>(config), result));
+      std::move(metadata_source), std::move(transaction_executor), result));
   return (*result)->InitMetadataStoreIfNotExists(
       migration_options.enable_upgrade_migration());
 }

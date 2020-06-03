@@ -12,8 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//ml_metadata:ml_metadata.bzl", "ml_metadata_cc_test", "ml_metadata_go_library", "ml_metadata_go_test", "ml_metadata_go_wrap_cc")
-load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_py_wrap_cc")
+load(
+    "//ml_metadata:ml_metadata.bzl",
+    "ml_metadata_cc_test",
+    "ml_metadata_go_library",
+    "ml_metadata_go_test",
+    "ml_metadata_go_wrap_cc",
+    "ml_metadata_py_wrap_cc",
+)
 
 licenses(["notice"])  # Apache 2.0
 
@@ -44,9 +50,9 @@ cc_library(
 )
 
 cc_library(
-    name = "type_kind",
+    name = "constants",
     hdrs = [
-        "type_kind.h",
+        "constants.h",
     ],
 )
 
@@ -59,10 +65,10 @@ cc_library(
         "rdbms_metadata_access_object.h",
     ],
     deps = [
+        ":constants",
         ":metadata_access_object_base",
         ":metadata_source",
         ":query_executor",
-        ":type_kind",
         "@com_google_protobuf//:protobuf",
         
         "@com_google_absl//absl/memory",
@@ -80,14 +86,15 @@ cc_library(
         "query_executor.h",
     ],
     deps = [
+        ":constants",
         ":metadata_access_object_base",
         ":metadata_source",
-        ":type_kind",
         "@com_google_protobuf//:protobuf",
         
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
+        "@com_google_absl//absl/types:optional",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
         "@org_tensorflow//tensorflow/core:lib",
@@ -163,12 +170,46 @@ ml_metadata_cc_test(
 )
 
 cc_library(
+    name = "transaction_executor",
+    srcs = ["transaction_executor.cc"],
+    hdrs = ["transaction_executor.h"],
+    deps = [
+        ":metadata_source",
+        "@org_tensorflow//tensorflow/core:lib",
+    ],
+)
+
+ml_metadata_cc_test(
+    name = "transaction_executor_test",
+    srcs = ["transaction_executor_test.cc"],
+    deps = [
+        ":metadata_source",
+        ":transaction_executor",
+        "@com_google_googletest//:gtest_main",
+        "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:test",
+    ],
+)
+
+cc_library(
+    name = "metadata_store_service_interface",
+    hdrs = ["metadata_store_service_interface.h"],
+    deps = [
+        "//ml_metadata/proto:metadata_store_service_proto",
+        "@org_tensorflow//tensorflow/core:lib",
+    ],
+)
+
+cc_library(
     name = "metadata_store",
     srcs = ["metadata_store.cc"],
     hdrs = ["metadata_store.h"],
     deps = [
         ":metadata_access_object_factory",
         ":metadata_source",
+        ":metadata_store_service_interface",
+        ":transaction_executor",
+        "@com_google_protobuf//:protobuf",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/memory",
         "//ml_metadata/proto:metadata_store_proto",
@@ -177,12 +218,28 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "metadata_store_test_suite",
+    testonly = 1,
+    srcs = ["metadata_store_test_suite.cc"],
+    hdrs = ["metadata_store_test_suite.h"],
+    deps = [
+        ":constants",
+        ":metadata_store",
+        ":test_util",
+        "@com_google_googletest//:gtest",
+        "@com_google_absl//absl/strings",
+        "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:test",
+    ],
+)
+
 ml_metadata_cc_test(
     name = "metadata_store_cc_test",
     srcs = ["metadata_store_test.cc"],
     deps = [
-        ":metadata_access_object_factory",
         ":metadata_store",
+        ":metadata_store_test_suite",
         ":sqlite_metadata_source",
         ":test_util",
         "@com_google_googletest//:gtest",
@@ -203,6 +260,8 @@ cc_library(
         "metadata_source.h",
         "metadata_store.h",
         "metadata_store_factory.h",
+        "metadata_store_service_interface.h",
+        "transaction_executor.h",
     ],
     deps = [
         ":types",
@@ -221,6 +280,7 @@ cc_library(
         ":metadata_store",
         ":mysql_metadata_source",
         ":sqlite_metadata_source",
+        ":transaction_executor",
         "@com_google_absl//absl/memory",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/util:metadata_source_query_config",
@@ -248,6 +308,7 @@ cc_library(
     srcs = ["sqlite_metadata_source_util.cc"],
     hdrs = ["sqlite_metadata_source_util.h"],
     deps = [
+        ":constants",
         "@com_google_absl//absl/strings",
         "//ml_metadata/proto:metadata_source_proto",
         "@org_sqlite",
@@ -274,11 +335,11 @@ ml_metadata_cc_test(
     size = "small",
     srcs = ["sqlite_metadata_source_test.cc"],
     deps = [
+        ":metadata_source_test_suite",
         ":sqlite_metadata_source",
         ":test_util",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/memory",
-        "@com_google_absl//absl/strings",
         "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:test",
     ],
@@ -287,15 +348,20 @@ ml_metadata_cc_test(
 cc_library(
     name = "test_util",
     testonly = 1,
-    srcs = ["test_util.cc"],
     hdrs = ["test_util.h"],
     deps = [
-        ":types",
         "@com_google_protobuf//:protobuf",
         "@com_google_googletest//:gtest",
-        "@com_google_absl//absl/strings",
-        "@org_tensorflow//tensorflow/core:lib",
-        "@org_tensorflow//tensorflow/core:test",
+    ],
+)
+
+ml_metadata_cc_test(
+    name = "test_util_test",
+    srcs = ["test_util_test.cc"],
+    deps = [
+        ":test_util",
+        "@com_google_googletest//:gtest_main",
+        "//ml_metadata/proto:metadata_store_proto",
     ],
 )
 
@@ -309,7 +375,7 @@ cc_library(
 # Note that the name of the target should follow specific naming
 # pattern specified in tensorflow/tf_exported_symbols.lds in order
 # for the init function in the generated .so file to be exported.
-tf_py_wrap_cc(
+ml_metadata_py_wrap_cc(
     name = "pywrap_tf_metadata_store_serialized",
     srcs = ["tf_metadata_store_serialized.i"],
     deps = [
@@ -324,6 +390,7 @@ cc_library(
     srcs = ["mysql_metadata_source.cc"],
     hdrs = ["mysql_metadata_source.h"],
     deps = [
+        ":constants",
         ":metadata_source",
         ":types",
         "@com_google_absl//absl/strings",
@@ -382,6 +449,24 @@ cc_library(
     ],
 )
 
+# An abstract type for testing MetadataSource implementations.
+cc_library(
+    name = "metadata_source_test_suite",
+    testonly = 1,
+    srcs = ["metadata_source_test_suite.cc"],
+    hdrs = ["metadata_source_test_suite.h"],
+    deps = [
+        ":constants",
+        ":metadata_source",
+        ":test_util",
+        "@com_google_googletest//:gtest",
+        "@com_google_absl//absl/strings",
+        "//ml_metadata/proto:metadata_source_proto",
+        "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:test",
+    ],
+)
+
 cc_library(
     name = "test_mysql_metadata_source_initializer",
     testonly = 1,
@@ -413,19 +498,14 @@ cc_library(
         "mysql_metadata_source_test.cc",
     ],
     deps = [
+        ":constants",
         ":metadata_source",
+        ":metadata_source_test_suite",
         ":mysql_metadata_source",
         ":test_mysql_metadata_source_initializer",
-        ":test_util",
-        "@com_google_protobuf//:protobuf",
         "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/memory",
-        "@com_google_absl//absl/strings",
-        "//ml_metadata/proto:metadata_source_proto",
-        "//ml_metadata/proto:metadata_store_proto",
-        "@org_tensorflow//tensorflow/core:lib",
-        "@org_tensorflow//tensorflow/core:test",
         "@com_github_gflags_gflags//:gflags_nothreads",
     ],
 )
@@ -517,7 +597,6 @@ cc_test(
     srcs = ["metadata_access_object_factory_test.cc"],
     deps = [
         ":metadata_access_object_factory",
-        ":metadata_access_object_test",
         ":metadata_source",
         ":sqlite_metadata_source",
         "@com_google_googletest//:gtest_main",

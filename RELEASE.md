@@ -2,14 +2,33 @@
 
 ## Major Features and Improvements
 
+## Bug Fixes and Other Changes
+
+*   Uses Iterable[int] instead Sequence[int] for listing APIs accepting ids.
+
+## Breaking changes
+
+## Deprecations
+
+# Release 0.22.0
+
+## Major Features and Improvements
+
 *   Upgrades MLMD schema version to 5.
     -   Added state columns to persistent Artifact.state,
         Execution.last_known_state
     -   Added user-given unique name per type column to Artifact and Execution.
     -   Added create_time_since_epoch, last_update_time_since_epoch to all
         Nodes.
+*   Provides GetArtifactByTypeAndName and GetExecutionByTypeAndName API to get
+    artifact/execution by type and name.
+*   Refactors transaction executions using TransactionExecutor class.
+*   Supports storing/retrieving Artifact.state and Execution.last_known_state.
 
 ## Bug Fixes and Other Changes
+
+*   Returns explicit InvalidArgument for get_artifacts_by_uri from 0.15.x
+    clients when using 0.21.0+ server.
 
 ## Breaking changes
 
@@ -131,13 +150,12 @@
 ## Bug Fixes and Other Changes
 
 *   Depended on `tensorflow>=1.15,<3`
-  * Starting from 1.15, package
-    `tensorflow` comes with GPU support. Users won't need to choose between
-    `tensorflow` and `tensorflow-gpu`.
-  * Caveat: `tensorflow` 2.0.0 is an exception and does not have GPU
-    support. If `tensorflow-gpu` 2.0.0 is installed before installing
-    `ml_metadata`, it will be replaced with `tensorflow` 2.0.0.
-    Re-install `tensorflow-gpu` 2.0.0 if needed.
+    *   Starting from 1.15, package `tensorflow` comes with GPU support. Users
+        won't need to choose between `tensorflow` and `tensorflow-gpu`.
+    *   Caveat: `tensorflow` 2.0.0 is an exception and does not have GPU
+        support. If `tensorflow-gpu` 2.0.0 is installed before installing
+        `ml_metadata`, it will be replaced with `tensorflow` 2.0.0. Re-install
+        `tensorflow-gpu` 2.0.0 if needed.
 
 ## Breaking Changes
 

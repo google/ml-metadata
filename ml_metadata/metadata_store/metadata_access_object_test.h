@@ -42,6 +42,7 @@ class MetadataAccessObjectContainer {
   virtual tensorflow::Status Init() {
     return GetMetadataAccessObject()->InitMetadataSource();
   }
+
   // Tests if there is upgrade verification.
   virtual bool HasUpgradeVerification(int64 version) = 0;
 
@@ -173,6 +174,7 @@ class MetadataAccessObjectTest
         metadata_access_object_container_->GetMetadataAccessObject();
     TF_ASSERT_OK(metadata_source_->Begin());
   }
+
   void TearDown() override {
     TF_ASSERT_OK(metadata_source_->Commit());
     metadata_source_ = nullptr;
@@ -183,6 +185,16 @@ class MetadataAccessObjectTest
   tensorflow::Status Init() {
     return metadata_access_object_container_->Init();
   }
+
+  template <class NodeType>
+  int64 InsertType(const std::string& type_name) {
+    NodeType type;
+    type.set_name(type_name);
+    int64 type_id;
+    TF_CHECK_OK(metadata_access_object_->CreateType(type, &type_id));
+    return type_id;
+  }
+
   std::unique_ptr<MetadataAccessObjectContainer>
       metadata_access_object_container_;
 

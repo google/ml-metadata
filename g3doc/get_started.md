@@ -50,6 +50,13 @@ following list provides a non-exhaustive overview of some of the major benefits.
 
 ## Metadata Storage Backends and Store Connection Configuration
 
+Before setting up the datastore, you will need to set up imports.
+
+```python
+from ml_metadata import metadata_store
+from ml_metadata.proto import metadata_store_pb2
+```
+
 The MetadataStore object receives a connection configuration that corresponds to
 the storage backend used.
 
@@ -392,6 +399,7 @@ The list of `schema_version` used in MLMD releases are:
 
 ml-metadata (MLMD) | schema_version
 ------------------ | --------------
+0.22.0             | 5
 0.21.2             | 4
 0.15.2             | 4
 0.14.0             | 4

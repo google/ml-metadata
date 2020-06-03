@@ -128,18 +128,30 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(query_config_.check_artifact_table());
   }
 
-  tensorflow::Status InsertArtifact(int64 type_id,
-                                    const std::string& artifact_uri,
-                                    int64* artifact_id) final {
-    return ExecuteQuerySelectLastInsertID(query_config_.insert_artifact(),
-                                          {Bind(type_id), Bind(artifact_uri)},
-                                          artifact_id);
+  tensorflow::Status InsertArtifact(
+      int64 type_id, const std::string& artifact_uri,
+      const absl::optional<Artifact::State>& state,
+      const absl::optional<std::string>& name, const absl::Time create_time,
+      const absl::Time update_time, int64* artifact_id) final {
+    return ExecuteQuerySelectLastInsertID(
+        query_config_.insert_artifact(),
+        {Bind(type_id), Bind(artifact_uri), Bind(state), Bind(name),
+         Bind(absl::ToUnixMillis(create_time)),
+         Bind(absl::ToUnixMillis(update_time))},
+        artifact_id);
   }
 
   tensorflow::Status SelectArtifactByID(int64 artifact_id,
                                         RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_artifact_by_id(),
                         {Bind(artifact_id)}, record_set);
+  }
+
+  tensorflow::Status SelectArtifactByTypeIDAndArtifactName(
+      int64 artifact_type_id, const absl::string_view name,
+      RecordSet* record_set) final {
+    return ExecuteQuery(query_config_.select_artifact_by_type_id_and_name(),
+                        {Bind(artifact_type_id), Bind(name)}, record_set);
   }
 
   tensorflow::Status SelectArtifactsByTypeID(int64 artifact_type_id,
@@ -154,10 +166,13 @@ class QueryConfigExecutor : public QueryExecutor {
                         record_set);
   }
 
-  tensorflow::Status UpdateArtifactDirect(int64 artifact_id, int64 type_id,
-                                          const std::string& uri) final {
+  tensorflow::Status UpdateArtifactDirect(
+      int64 artifact_id, int64 type_id, const std::string& uri,
+      const absl::optional<Artifact::State>& state,
+      const absl::Time update_time) final {
     return ExecuteQuery(query_config_.update_artifact(),
-                        {Bind(artifact_id), Bind(type_id), Bind(uri)});
+                        {Bind(artifact_id), Bind(type_id), Bind(uri),
+                         Bind(state), Bind(absl::ToUnixMillis(update_time))});
   }
 
   tensorflow::Status CheckArtifactPropertyTable() final {
@@ -198,9 +213,16 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(query_config_.check_execution_table());
   }
 
-  tensorflow::Status InsertExecution(int64 type_id, int64* execution_id) final {
-    return ExecuteQuerySelectLastInsertID(query_config_.insert_execution(),
-                                          {Bind(type_id)}, execution_id);
+  tensorflow::Status InsertExecution(
+      int64 type_id, const absl::optional<Execution::State>& last_known_state,
+      const absl::optional<std::string>& name, const absl::Time create_time,
+      const absl::Time update_time, int64* execution_id) final {
+    return ExecuteQuerySelectLastInsertID(
+        query_config_.insert_execution(),
+        {Bind(type_id), Bind(last_known_state), Bind(name),
+         Bind(absl::ToUnixMillis(create_time)),
+         Bind(absl::ToUnixMillis(update_time))},
+        execution_id);
   }
 
   tensorflow::Status SelectExecutionByID(int64 execution_id,
@@ -209,16 +231,27 @@ class QueryConfigExecutor : public QueryExecutor {
                         {Bind(execution_id)}, record_set);
   }
 
+  tensorflow::Status SelectExecutionByTypeIDAndExecutionName(
+      int64 execution_type_id, const absl::string_view name,
+      RecordSet* record_set) final {
+    return ExecuteQuery(query_config_.select_execution_by_type_id_and_name(),
+                        {Bind(execution_type_id), Bind(name)}, record_set);
+  }
+
   tensorflow::Status SelectExecutionsByTypeID(int64 execution_type_id,
                                               RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_executions_by_type_id(),
                         {Bind(execution_type_id)}, record_set);
   }
 
-  tensorflow::Status UpdateExecutionDirect(int64 execution_id,
-                                           int64 type_id) final {
-    return ExecuteQuery(query_config_.update_execution(),
-                        {Bind(execution_id), Bind(type_id)});
+  tensorflow::Status UpdateExecutionDirect(
+      int64 execution_id, int64 type_id,
+      const absl::optional<Execution::State>& last_known_state,
+      const absl::Time update_time) final {
+    return ExecuteQuery(
+        query_config_.update_execution(),
+        {Bind(execution_id), Bind(type_id), Bind(last_known_state),
+         Bind(absl::ToUnixMillis(update_time))});
   }
 
   tensorflow::Status CheckExecutionPropertyTable() final {
@@ -260,10 +293,14 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   tensorflow::Status InsertContext(int64 type_id, const std::string& name,
+                                   const absl::Time create_time,
+                                   const absl::Time update_time,
                                    int64* context_id) final {
-    return ExecuteQuerySelectLastInsertID(query_config_.insert_context(),
-                                          {Bind(type_id), Bind(name)},
-                                          context_id);
+    return ExecuteQuerySelectLastInsertID(
+        query_config_.insert_context(),
+        {Bind(type_id), Bind(name), Bind(absl::ToUnixMillis(create_time)),
+         Bind(absl::ToUnixMillis(update_time))},
+        context_id);
   }
 
   tensorflow::Status SelectContextByID(int64 context_id,
@@ -278,20 +315,21 @@ class QueryConfigExecutor : public QueryExecutor {
                         {Bind(context_type_id)}, record_set);
   }
 
-  tensorflow::Status SelectContextByTypeIDAndName(
-      int64 context_type_id,
-      const absl::string_view name,
+  tensorflow::Status SelectContextByTypeIDAndContextName(
+      int64 context_type_id, const absl::string_view name,
       RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_context_by_type_id_and_name(),
                         {Bind(context_type_id), Bind(name)}, record_set);
   }
 
-  tensorflow::Status UpdateContextDirect(
-      int64 existing_context_id, int64 type_id,
-      const std::string& context_name) final {
+  tensorflow::Status UpdateContextDirect(int64 existing_context_id,
+                                         int64 type_id,
+                                         const std::string& context_name,
+                                         const absl::Time update_time) final {
     return ExecuteQuery(
         query_config_.update_context(),
-        {Bind(existing_context_id), Bind(type_id), Bind(context_name)});
+        {Bind(existing_context_id), Bind(type_id), Bind(context_name),
+         Bind(absl::ToUnixMillis(update_time))});
   }
 
   tensorflow::Status CheckContextPropertyTable() final {
@@ -418,11 +456,13 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(query_config_.check_mlmd_env_table());
   }
 
+  // Insert the schema version.
   tensorflow::Status InsertSchemaVersion(int64 schema_version) final {
     return ExecuteQuery(query_config_.insert_schema_version(),
-                        {Bind(schema_version)});
+                    {Bind(schema_version)});
   }
 
+  // Update the schema version.
   tensorflow::Status UpdateSchemaVersion(int64 schema_version) final {
     return ExecuteQuery(query_config_.update_schema_version(),
                         {Bind(schema_version)});
@@ -451,6 +491,12 @@ class QueryConfigExecutor : public QueryExecutor {
       const int64 to_schema_version) final;
 
  private:
+  // Utility method to bind an nullable value.
+  template <typename T>
+  std::string Bind(const absl::optional<T>& v) {
+    return v ? Bind(v.value()) : "NULL";
+  }
+
   // Utility method to bind an string_view value to a SQL clause.
   std::string Bind(absl::string_view value);
 
@@ -477,13 +523,18 @@ class QueryConfigExecutor : public QueryExecutor {
   // Event::Type is an enum (integer), EscapeString is not applicable.
   std::string Bind(const Event::Type value);
 
-  // Bind the value to a SQL clause.
+  // Utility methods to bind the value to a SQL clause.
   std::string BindValue(const Value& value);
   std::string BindDataType(const Value& value);
   std::string Bind(bool exists, const google::protobuf::Message& message);
+
   // Utility method to bind an TypeKind to a SQL clause.
   // TypeKind is an enum (integer), EscapeString is not applicable.
   std::string Bind(TypeKind value);
+
+  // Utility methods to bind Artifact::State/Execution::State to SQL clause.
+  std::string Bind(Artifact::State value);
+  std::string Bind(Execution::State value);
 
   #if (!defined(__APPLE__) && !defined(_WIN32))
   std::string Bind(const google::protobuf::int64 value);

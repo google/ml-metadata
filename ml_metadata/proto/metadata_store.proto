@@ -29,10 +29,9 @@ message Value {
 message Artifact {
   // Output only. The globally unique server generated id of the artifact.
   optional int64 id = 1;
-  // The client provided name of the artifact. If set, it must be unique among
-  // all the artifacts of the same artifact type within a database instance and
-  // cannot be changed. If not set, it will be filled by a system-generated
-  // default name.
+  // The client provided name of the artifact. This field is optional. If set,
+  // it must be unique among all the artifacts of the same artifact type within
+  // a database instance and cannot be changed once set.
   optional string name = 7;
   // The id of an ArtifactType. This needs to be specified when an artifact is
   // created, and it cannot be changed.
@@ -61,8 +60,13 @@ message Artifact {
     DELETED = 4;
   }
 
-  // Currently not supported: support coming soon (see b/145751019).
+  // The state of the artifact known to the system.
   optional State state = 6;
+  // Output only. Create time of the artifact in millisecond since epoch.
+  optional int64 create_time_since_epoch = 9;
+  // Output only. Last update time of the artifact since epoch in millisecond
+  // since epoch.
+  optional int64 last_update_time_since_epoch = 10;
 }
 
 // TODO(martinz): consider moving this inside some message, to avoid having
@@ -200,10 +204,9 @@ message Event {
 message Execution {
   // Output only. The globally unique server generated id of the execution.
   optional int64 id = 1;
-  // The client provided name of the execution. If set, it must be unique among
-  // all the executions of the same artifact type within a database instance and
-  // cannot be changed. If not set, it will be filled by a system-generated
-  // default name.
+  // The client provided name of the execution. This field is optional. If set,
+  // it must be unique among all the executions of the same artifact type within
+  // a database instance and cannot be changed once set.
   optional string name = 6;
   // The id of an ExecutionType. This needs to be specified when an execution is
   // created, and it cannot be changed.
@@ -227,13 +230,17 @@ message Execution {
     CACHED = 5;
     CANCELED = 6;
   }
-  // The last known state of an execution.
+  // The last known state of an execution in the system.
   optional State last_known_state = 3;
   // Properties of the Execution.
   // Properties must be specified in the ExecutionType.
   map<string, Value> properties = 4;
   // User provided custom properties which are not defined by its type.
   map<string, Value> custom_properties = 5;
+  // Output only. Create time of the execution in millisecond since epoch.
+  optional int64 create_time_since_epoch = 8;
+  // Output only. Last update time of the execution in millisecond since epoch.
+  optional int64 last_update_time_since_epoch = 9;
 }
 
 message ExecutionType {
@@ -296,6 +303,10 @@ message Context {
   map<string, Value> properties = 4;
   // User provided custom properties which are not defined by its type.
   map<string, Value> custom_properties = 5;
+  // Output only. Create time of the context in millisecond since epoch.
+  optional int64 create_time_since_epoch = 7;
+  // Output only. Last update time of the context in millisecond since epoch.
+  optional int64 last_update_time_since_epoch = 8;
 }
 
 // the Attribution edges between Context and Artifact instances.
@@ -536,6 +547,11 @@ message MigrationOptions {
   reserved 1;
 }
 
+message RetryOptions {
+  // The max number of retries when transaction returns Aborted error.
+  optional int64 max_num_retries = 1;
+}
+
 message ConnectionConfig {
   // Configuration for a new connection.
   oneof config {
@@ -543,6 +559,12 @@ message ConnectionConfig {
     MySQLDatabaseConfig mysql = 2;
     SqliteMetadataSourceConfig sqlite = 3;
   }
+
+  // Options for overwriting the default retry setting when MLMD transactions
+  // returning Aborted error.
+  // The setting is currently available for python client library only.
+  // TODO(b/154862807) set the setting in transaction executor.
+  optional RetryOptions retry_options = 4;
 }
 
 // Configuration for the gRPC metadata store client.

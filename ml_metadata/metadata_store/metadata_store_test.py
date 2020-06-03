@@ -25,7 +25,7 @@ from absl.testing import absltest
 
 from ml_metadata.metadata_store import metadata_store
 from ml_metadata.proto import metadata_store_pb2
-from tensorflow.python.framework import errors
+from tensorflow.compat.v1 import errors
 
 FLAGS = flags.FLAGS
 
@@ -121,6 +121,17 @@ class MetadataStoreTest(absltest.TestCase):
     for _ in range(3):
       with self.assertRaises(RuntimeError):
         metadata_store.MetadataStore(connection_config)
+
+  def test_connection_config_with_retry_options(self):
+    # both client and grpc modes have none-zero setting by default.
+    store = _get_metadata_store()
+    self.assertGreater(store._max_num_retries, 0)
+    connection_config = metadata_store_pb2.ConnectionConfig()
+    connection_config.sqlite.SetInParent()
+    want_num_retries = 100
+    connection_config.retry_options.max_num_retries = want_num_retries
+    store = metadata_store.MetadataStore(connection_config)
+    self.assertEqual(store._max_num_retries, want_num_retries)
 
   def test_put_artifact_type_get_artifact_type(self):
     store = _get_metadata_store()
@@ -220,6 +231,16 @@ class MetadataStoreTest(absltest.TestCase):
     [artifact_result] = store.get_artifacts_by_id([artifact_id])
     self.assertEqual(artifact_result.properties["bar"].string_value, "Hello")
     self.assertEqual(artifact_result.properties["foo"].int_value, 3)
+
+  def test_put_artifacts_get_artifacts_by_id_with_set(self):
+    store = _get_metadata_store()
+    artifact_type = _create_example_artifact_type(self._get_test_type_name())
+    type_id = store.put_artifact_type(artifact_type)
+    artifact = metadata_store_pb2.Artifact()
+    artifact.type_id = type_id
+    [artifact_id] = store.put_artifacts([artifact])
+    [artifact_result] = store.get_artifacts_by_id({artifact_id})
+    self.assertEqual(artifact_result.type_id, artifact.type_id)
 
   def test_put_artifacts_get_artifacts(self):
     store = _get_metadata_store()

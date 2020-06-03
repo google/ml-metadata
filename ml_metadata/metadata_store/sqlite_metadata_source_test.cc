@@ -1,4 +1,4 @@
-/* Copyright 2019 Google LLC
+/* Copyright 2020 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,215 +19,115 @@ limitations under the License.
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/memory/memory.h"
-#include "absl/strings/str_cat.h"
+#include "ml_metadata/metadata_store/metadata_source_test_suite.h"
 #include "ml_metadata/metadata_store/test_util.h"
-#include "tensorflow/core/lib/core/status_test_util.h"
 #include "tensorflow/core/platform/env.h"
 
 namespace ml_metadata {
-namespace {
-using testing::EqualsProto;
-using testing::ParseTextProtoOrDie;
+namespace testing {
 
-class SqliteMetadataSourceTest : public ::testing::Test {
- protected:
-  SqliteMetadataSourceTest() {
+namespace {
+using ml_metadata::testing::EqualsProto;
+
+class SqliteMetadataSourceContainer : public MetadataSourceContainer {
+ public:
+  SqliteMetadataSourceContainer() : MetadataSourceContainer() {
     SqliteMetadataSourceConfig config;
     metadata_source_ = absl::make_unique<SqliteMetadataSource>(config);
   }
 
-  ~SqliteMetadataSourceTest() override = default;
+  explicit SqliteMetadataSourceContainer(SqliteMetadataSourceConfig config)
+      : MetadataSourceContainer() {
+    metadata_source_ = absl::make_unique<SqliteMetadataSource>(config);
+  }
 
-  void InitTestSchema() {
+  ~SqliteMetadataSourceContainer() override = default;
+
+  MetadataSource* GetMetadataSource() override {
+    return metadata_source_.get();
+  }
+
+  // InitTestSchema creates a new table t1(c1 INT, c2 VARCHAR(255)).
+  void InitTestSchema() override {
     TF_CHECK_OK(metadata_source_->Connect());
     TF_CHECK_OK(metadata_source_->Begin());
     TF_CHECK_OK(metadata_source_->ExecuteQuery(
-        "CREATE TABLE t1 (c1 INT, c2 VARCHAR);", nullptr));
+        "CREATE TABLE t1 (c1 INT, c2 VARCHAR(255));", nullptr));
     TF_CHECK_OK(metadata_source_->Commit());
   }
 
-  static void InitSchemaAndPopulateRows(MetadataSource* metadata_source) {
-    TF_CHECK_OK(metadata_source->Connect());
-    TF_CHECK_OK(metadata_source->Begin());
-    TF_CHECK_OK(metadata_source->ExecuteQuery(
-        "CREATE TABLE t1 (c1 INT, c2 VARCHAR);", nullptr));
-    TF_CHECK_OK(metadata_source->ExecuteQuery("INSERT INTO t1 VALUES (1, 'v1')",
-                                              nullptr));
-    TF_CHECK_OK(metadata_source->ExecuteQuery("INSERT INTO t1 VALUES (2, 'v2')",
-                                              nullptr));
-    TF_CHECK_OK(metadata_source->ExecuteQuery("INSERT INTO t1 VALUES (3, 'v3')",
-                                              nullptr));
-    TF_CHECK_OK(metadata_source->Commit());
+  // InitSchemaAndPopulateRows creates table t1(c1 INT, c2 VARCHAR(255)) and
+  // adds 3 rows to this table: (1,'v1'), (2,'v2'), (3, 'v3').
+  void InitSchemaAndPopulateRows() override {
+    InitTestSchema();
+    TF_CHECK_OK(metadata_source_->Begin());
+    TF_CHECK_OK(metadata_source_->ExecuteQuery(
+        "INSERT INTO t1 VALUES (1, 'v1')", nullptr));
+    TF_CHECK_OK(metadata_source_->ExecuteQuery(
+        "INSERT INTO t1 VALUES (2, 'v2')", nullptr));
+    TF_CHECK_OK(metadata_source_->ExecuteQuery(
+        "INSERT INTO t1 VALUES (3, 'v3')", nullptr));
+    TF_CHECK_OK(metadata_source_->Commit());
   }
 
-  void TearDown() override {
-    metadata_source_.reset();
-    if (!filename_uri_.empty()) {
-      TF_CHECK_OK(tensorflow::Env::Default()->DeleteFile(filename_uri_));
-    }
-  }
-
-  // by default, use a in-memory Sqlite3 metadata source for each tes
-  std::unique_ptr<MetadataSource> metadata_source_;
-
-  std::string filename_uri_;
+ private:
+  // by default, use a in-memory Sqlite3 metadata source
+  std::unique_ptr<SqliteMetadataSource> metadata_source_;
 };
-
-TEST_F(SqliteMetadataSourceTest, TestQueryWithoutConnect) {
-  tensorflow::Status s =
-      metadata_source_->ExecuteQuery("CREATE TABLE foo(bar INT)", nullptr);
-  EXPECT_EQ(s.code(), tensorflow::error::FAILED_PRECONDITION);
-}
-
-TEST_F(SqliteMetadataSourceTest, TestInsert) {
-  InitTestSchema();
-  TF_EXPECT_OK(metadata_source_->Begin());
-  TF_EXPECT_OK(metadata_source_->ExecuteQuery("INSERT INTO t1 VALUES (1, 'v1')",
-                                              nullptr));
-  RecordSet expected_results = ParseTextProtoOrDie<RecordSet>(
-      R"(column_names: "c1"
-         column_names: "c2"
-         records: { values: "1" values: "v1" })");
-
-  RecordSet query_results;
-  TF_EXPECT_OK(
-      metadata_source_->ExecuteQuery("SELECT * FROM t1", &query_results));
-  TF_EXPECT_OK(metadata_source_->Commit());
-  EXPECT_EQ(1, query_results.records().size());
-  EXPECT_THAT(query_results, EqualsProto(expected_results));
-}
-
-TEST_F(SqliteMetadataSourceTest, TestEscapeString) {
-  TF_CHECK_OK(metadata_source_->Connect());
-  EXPECT_EQ(metadata_source_->EscapeString("''"), "''''");
-  EXPECT_EQ(metadata_source_->EscapeString("'\'"), "''''");
-  EXPECT_EQ(metadata_source_->EscapeString("'\"text\"'"), "''\"text\"''");
-}
-
-TEST_F(SqliteMetadataSourceTest, TestInsertWithEscapedStringValue) {
-  InitTestSchema();
-  TF_EXPECT_OK(metadata_source_->Begin());
-  TF_EXPECT_OK(metadata_source_->ExecuteQuery(
-      absl::StrCat("INSERT INTO t1 VALUES (1, '",
-                   metadata_source_->EscapeString("''"), "')"),
-      nullptr));
-  RecordSet expected_results = ParseTextProtoOrDie<RecordSet>(
-      R"(column_names: "c1"
-         column_names: "c2"
-         records: { values: "1" values: "''" })");
-
-  RecordSet query_results;
-  TF_EXPECT_OK(
-      metadata_source_->ExecuteQuery("SELECT * FROM t1", &query_results));
-  TF_EXPECT_OK(metadata_source_->Commit());
-  EXPECT_EQ(1, query_results.records().size());
-  EXPECT_THAT(query_results, EqualsProto(expected_results));
-}
-
-TEST_F(SqliteMetadataSourceTest, TestDelete) {
-  InitSchemaAndPopulateRows(metadata_source_.get());
-  RecordSet query_results;
-  TF_EXPECT_OK(metadata_source_->Begin());
-  TF_EXPECT_OK(
-      metadata_source_->ExecuteQuery("SELECT * FROM t1", &query_results));
-  EXPECT_LT(0, query_results.records().size());
-
-  TF_EXPECT_OK(metadata_source_->ExecuteQuery("DELETE FROM t1", nullptr));
-
-  query_results.Clear();
-  TF_EXPECT_OK(
-      metadata_source_->ExecuteQuery("SELECT * FROM t1", &query_results));
-  TF_EXPECT_OK(metadata_source_->Commit());
-  EXPECT_EQ(0, query_results.records().size());
-}
-
-TEST_F(SqliteMetadataSourceTest, TestUpdate) {
-  InitSchemaAndPopulateRows(metadata_source_.get());
-  TF_EXPECT_OK(metadata_source_->Begin());
-  TF_EXPECT_OK(metadata_source_->ExecuteQuery(
-      "UPDATE t1 SET c2 = 'v100' WHERE c1 == 1", nullptr));
-
-  RecordSet expected_results = ParseTextProtoOrDie<RecordSet>(
-      R"(column_names: "c1"
-         column_names: "c2"
-         records: { values: "1" values: "v100" })");
-
-  RecordSet query_results;
-  TF_EXPECT_OK(metadata_source_->ExecuteQuery("SELECT * FROM t1 WHERE c1 == 1",
-                                              &query_results));
-  TF_EXPECT_OK(metadata_source_->Commit());
-  EXPECT_THAT(query_results, EqualsProto(expected_results));
-}
-
-// multiple queries, and rollback, nothing should happen
-TEST_F(SqliteMetadataSourceTest, TestMultiQueryTransaction) {
-  InitSchemaAndPopulateRows(metadata_source_.get());
-  RecordSet expected_results;
-  TF_ASSERT_OK(metadata_source_->Begin());
-  TF_ASSERT_OK(
-      metadata_source_->ExecuteQuery("SELECT * FROM t1", &expected_results));
-  TF_ASSERT_OK(metadata_source_->Commit());
-
-  TF_ASSERT_OK(metadata_source_->Begin());
-  TF_ASSERT_OK(metadata_source_->ExecuteQuery("DELETE FROM t1", nullptr));
-  TF_ASSERT_OK(metadata_source_->Rollback());
-
-  // rollback the delete query, there should be no change in the database
-  RecordSet query_results;
-  TF_ASSERT_OK(metadata_source_->Begin());
-  TF_ASSERT_OK(
-      metadata_source_->ExecuteQuery("SELECT * FROM t1", &query_results));
-  EXPECT_THAT(query_results, EqualsProto(expected_results));
-  TF_ASSERT_OK(metadata_source_->Commit());
-
-  // now it is in a new transaction, insert two records, then commit
-  TF_ASSERT_OK(metadata_source_->Begin());
-  TF_ASSERT_OK(metadata_source_->ExecuteQuery("INSERT INTO t1 VALUES (1, 'v1')",
-                                              nullptr));
-  TF_ASSERT_OK(metadata_source_->ExecuteQuery("INSERT INTO t1 VALUES (2, 'v2')",
-                                              nullptr));
-  TF_ASSERT_OK(metadata_source_->Commit());
-
-  TF_ASSERT_OK(metadata_source_->Begin());
-  query_results.Clear();
-  TF_EXPECT_OK(
-      metadata_source_->ExecuteQuery("SELECT * FROM t1", &query_results));
-  TF_ASSERT_OK(metadata_source_->Commit());
-  int expected_num_rows = expected_results.records().size() + 2;
-  EXPECT_EQ(expected_num_rows, query_results.records().size());
-}
-
 
 // Note that if this method fails, it does not clean up the file it created,
 // causing issues.
-TEST_F(SqliteMetadataSourceTest, TestPhysicalFile) {
+TEST(SqliteMetadataSourceExtendedTest, TestPhysicalFile) {
   RecordSet expected_results;
-  filename_uri_ =
-     absl::StrCat(::testing::TempDir(), "test_physical_file_test.db");
+  const std::string filename_uri =
+      absl::StrCat(::testing::TempDir(), "test_physical_file_test.db");
   SqliteMetadataSourceConfig config;
-  config.set_filename_uri(filename_uri_);
+  config.set_filename_uri(filename_uri);
 
   {
-    SqliteMetadataSource metadata_source(config);
-    InitSchemaAndPopulateRows(&metadata_source);
+    SqliteMetadataSourceContainer container(config);
+    MetadataSource* metadata_source = container.GetMetadataSource();
 
-    TF_ASSERT_OK(metadata_source.Begin());
+    container.InitSchemaAndPopulateRows();
+
+    TF_ASSERT_OK(metadata_source->Begin());
     TF_ASSERT_OK(
-        metadata_source.ExecuteQuery("SELECT * FROM t1", &expected_results));
-    TF_ASSERT_OK(metadata_source.Commit());
-    TF_ASSERT_OK(metadata_source.Close());
+        metadata_source->ExecuteQuery("SELECT * FROM t1", &expected_results));
+    TF_ASSERT_OK(metadata_source->Commit());
+    TF_ASSERT_OK(metadata_source->Close());
   }
 
   RecordSet query_results;
   // Connects to the same database without initialize the schema and rows
-  SqliteMetadataSource metadata_source(config);
-  TF_ASSERT_OK(metadata_source.Connect());
-  TF_ASSERT_OK(metadata_source.Begin());
+  SqliteMetadataSourceContainer container(config);
+  MetadataSource* metadata_source = container.GetMetadataSource();
+  TF_ASSERT_OK(metadata_source->Connect());
+  TF_ASSERT_OK(metadata_source->Begin());
   TF_ASSERT_OK(
-      metadata_source.ExecuteQuery("SELECT * FROM t1", &query_results));
-  TF_ASSERT_OK(metadata_source.Commit());
+      metadata_source->ExecuteQuery("SELECT * FROM t1", &query_results));
+  TF_ASSERT_OK(metadata_source->Commit());
   EXPECT_THAT(query_results, EqualsProto(expected_results));
+  if (!filename_uri.empty()) {
+    TF_CHECK_OK(tensorflow::Env::Default()->DeleteFile(filename_uri));
+  }
+}
+
+// Test EscapeString utility method.
+TEST(SqliteMetadataSourceExtendedTest, TestEscapeString) {
+  SqliteMetadataSourceContainer container;
+  MetadataSource* metadata_source = container.GetMetadataSource();
+  EXPECT_EQ(metadata_source->EscapeString("''"), "''''");
+  EXPECT_EQ(metadata_source->EscapeString("'\'"), "''''");
+  EXPECT_EQ(metadata_source->EscapeString("'\"text\"'"), "''\"text\"''");
 }
 
 }  // namespace
+
+INSTANTIATE_TEST_CASE_P(
+    SqliteMetadataSourceCommonTest, MetadataSourceTestSuite,
+    ::testing::Values([]() {
+      return absl::make_unique<SqliteMetadataSourceContainer>();
+    }));
+
+}  // namespace testing
 }  // namespace ml_metadata

@@ -122,12 +122,13 @@ message PutExecutionRequest {
   // during the execution run, it uses none or many artifacts as input, and
   // generate none or many artifacts as output.
   message ArtifactAndEvent {
-    // An activity must have an artifact. If no artifact.id, then it inserts
-    // the artifact, otherwise it updates the artifact.
+    // The pair may have an artifact. If present and no artifact.id is given,
+    // then it inserts the artifact, otherwise it updates the artifact.
     optional Artifact artifact = 1;
-    // An activity may have an event. Providing event.artifact_id or
-    // event.execution_id is optional. If given, it must align with the
-    // `artifact`.id / `execution`.id respectively.
+    // The pair may have an event. Providing event.artifact_id or
+    // event.execution_id is optional. If the ids are given, it must align with
+    // the `artifact`.id / `execution`.id respectively. If artifact is not
+    // given and event.artifact_id is set, it must exist in the backend.
     optional Event event = 2;
   }
   // The execution that produces many artifact and event pairs.
@@ -232,6 +233,15 @@ message GetArtifactsByTypeResponse {
   repeated Artifact artifacts = 1;
 }
 
+message GetArtifactByTypeAndNameRequest {
+  optional string type_name = 1;
+  optional string artifact_name = 2;
+}
+
+message GetArtifactByTypeAndNameResponse {
+  optional Artifact artifact = 1;
+}
+
 message GetArtifactsByIDRequest {
   // A list of artifact ids to retrieve.
   repeated int64 artifact_ids = 1;
@@ -305,6 +315,15 @@ message GetExecutionsByTypeRequest {
 
 message GetExecutionsByTypeResponse {
   repeated Execution executions = 1;
+}
+
+message GetExecutionByTypeAndNameRequest {
+  optional string type_name = 1;
+  optional string execution_name = 2;
+}
+
+message GetExecutionByTypeAndNameResponse {
+  optional Execution execution = 1;
 }
 
 message GetExecutionsByIDRequest {
@@ -468,6 +487,7 @@ message GetExecutionsByContextResponse {
   repeated Execution executions = 1;
 }
 
+// LINT.IfChange
 service MetadataStoreService {
   // Inserts or updates artifacts in the database.
   //
@@ -755,6 +775,14 @@ service MetadataStoreService {
   rpc GetContextsByType(GetContextsByTypeRequest)
       returns (GetContextsByTypeResponse) {}
 
+  // Gets the artifact of the given type and artifact name.
+  rpc GetArtifactByTypeAndName(GetArtifactByTypeAndNameRequest)
+      returns (GetArtifactByTypeAndNameResponse) {}
+
+  // Gets the execution of the given type and execution name.
+  rpc GetExecutionByTypeAndName(GetExecutionByTypeAndNameRequest)
+      returns (GetExecutionByTypeAndNameResponse) {}
+
   // Gets the context of the given type and context name.
   rpc GetContextByTypeAndName(GetContextByTypeAndNameRequest)
       returns (GetContextByTypeAndNameResponse) {}
@@ -795,3 +823,4 @@ service MetadataStoreService {
   rpc GetExecutionsByContext(GetExecutionsByContextRequest)
       returns (GetExecutionsByContextResponse) {}
 }
+// LINT.ThenChange(../metadata_store/metadata_store_service_interface.h)

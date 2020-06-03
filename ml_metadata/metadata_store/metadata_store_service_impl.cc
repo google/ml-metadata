@@ -325,6 +325,20 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   return status;
 }
 
+::grpc::Status MetadataStoreServiceImpl::GetArtifactByTypeAndName(
+      ::grpc::ServerContext* context,
+      const ::ml_metadata::GetArtifactByTypeAndNameRequest* request,
+      ::ml_metadata::GetArtifactByTypeAndNameResponse* response) {
+  absl::WriterMutexLock l(&lock_);
+  const ::grpc::Status status = ToGRPCStatus(
+      metadata_store_->GetArtifactByTypeAndName(*request, response));
+  if (!status.ok()) {
+    LOG(WARNING) << "GetArtifactByTypeAndName failed: "
+        << status.error_message();
+  }
+  return status;
+}
+
 ::grpc::Status MetadataStoreServiceImpl::GetArtifactsByURI(
     ::grpc::ServerContext* context,
     const ::ml_metadata::GetArtifactsByURIRequest* request,
@@ -360,6 +374,20 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
       ToGRPCStatus(metadata_store_->GetExecutionsByType(*request, response));
   if (!status.ok()) {
     LOG(WARNING) << "GetExecutionsByType failed: " << status.error_message();
+  }
+  return status;
+}
+
+::grpc::Status MetadataStoreServiceImpl::GetExecutionByTypeAndName(
+      ::grpc::ServerContext* context,
+      const ::ml_metadata::GetExecutionByTypeAndNameRequest* request,
+      ::ml_metadata::GetExecutionByTypeAndNameResponse* response) {
+  absl::WriterMutexLock l(&lock_);
+  const ::grpc::Status status = ToGRPCStatus(
+      metadata_store_->GetExecutionByTypeAndName(*request, response));
+  if (!status.ok()) {
+    LOG(WARNING) << "GetExecutionByTypeAndName failed: "
+        << status.error_message();
   }
   return status;
 }

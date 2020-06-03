@@ -14,6 +14,8 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/sqlite_metadata_source.h"
 
+#include <random>
+
 #include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -58,30 +60,36 @@ int GetConnectionFlag(const SqliteMetadataSourceConfig& config) {
 // A set of options when waiting for table locks in a sqlite3_busy_handler.
 // see WaitThenRetry for details.
 struct WaitThenRetryOptions {
-  // the wait time in milliseconds
-  absl::Duration sleep_time;
-  // the max time to wait for a single lock
-  absl::Duration max_retried_time;
+  // the min wait time in milliseconds.
+  absl::Duration min_sleep_time;
+  // the max wait time in milliseconds.
+  absl::Duration max_sleep_time;
+  // the max number of retries.
+  int max_num_retries;
 };
 
 // A callback of sqlite3_busy_handler. Concurrent access to a table may prevent
 // query to proceed, the callback returns zero to continue waiting, and non-zero
 // to abort the query and returns a SQLITE_BUSY error. The function takes a
 // WaitThenRetryOptions (`options`), waits for a lock and then indicates sqlite3
-// to retry. The default values for sleep is 100 millisecond (`sleep_time`)
-// for each wait and 5 times at maximum (`max_retried_time`/`sleep_time`).
-// (see https://www.sqlite.org/c3ref/busy_handler.html for details)
+// to retry. The default sleep time mean is 200 millisecond and sleep 10 times
+// at maximum (see https://www.sqlite.org/c3ref/busy_handler.html for details).
 int WaitThenRetry(void* options, int retried_times) {
   static constexpr WaitThenRetryOptions kDefaultWaitThenRetryOptions = {
-      absl::Milliseconds(100), absl::Milliseconds(500)};
+      absl::Milliseconds(100), absl::Milliseconds(300), 10};
   const WaitThenRetryOptions* opts =
       (options != nullptr) ? static_cast<WaitThenRetryOptions*>(options)
                            : &kDefaultWaitThenRetryOptions;
   // aborts the query with SQLITE_BUSY
-  if (retried_times >= opts->max_retried_time / opts->sleep_time) {
+  if (retried_times >= opts->max_num_retries) {
     return 0;
   }
-  absl::SleepFor(opts->sleep_time);
+  std::minstd_rand0 gen(absl::ToUnixMillis(absl::Now()));
+  std::uniform_int_distribution<int64> uniform_dist(
+      opts->min_sleep_time / absl::Milliseconds(1),
+      opts->max_sleep_time / absl::Milliseconds(1));
+  const absl::Duration sleep_time = absl::Milliseconds(uniform_dist(gen));
+  absl::SleepFor(sleep_time);
   // allow further retry
   return 1;
 }

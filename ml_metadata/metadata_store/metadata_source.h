@@ -139,65 +139,6 @@ class MetadataSource {
   bool transaction_open_ = false;
 };
 
-// A scoped transaction. When it is destroyed, if Commit has not been called,
-// the destructor rolls back the transaction. Commit() should be called exactly
-// once.
-// Usage:
-// MetadataSource my_source = ...;
-// {
-//   ScopedTransaction transaction(&my_source);
-//   my_source.ExecuteQuery(...)
-//   if (...) {
-//     return;  // First transaction rolled back.
-//   }
-//   my_source.ExecuteQuery(...);
-//   transaction.Commit(); // If commit fails, rollback occurs.
-// }
-class ScopedTransaction {
- public:
-  // MetadataSource should outlast the scoped transaction, and should be
-  // connected before the scoped transaction is created.
-  // During the lifetime of the scoped transaction object, the user should
-  // limit calls made directly on the MetadataSource to executions.
-  // The user should not:
-  //   1. Commit() the metadata_source.
-  //   2. Rollback() the metadata_source.
-  //   3. Close() the metadata_source.
-  ScopedTransaction(MetadataSource* metadata_source);
-
-  // If the transaction is not committed, it is rolled back.
-  ~ScopedTransaction();
-
-  // Commit the transaction.
-  // If there is a failure during the commit, the commit_ flag is not
-  // set, resulting in a Rollback().
-  // Should be called no more than once on a transaction.
-  tensorflow::Status Commit();
-
- private:
-  // True iff the transaction has been committed.
-  bool committed_;
-  // Does not own the metadata_source_.
-  // Used for beginning, rolling back, and committing a transaction.
-  MetadataSource* metadata_source_;
-};
-
-// A utility function runs a `transaction`. When the `transaction` returns
-// OK, it calls Commit, otherwise it calls Rollback.
-// Comparing with ScopedTransaction, it always propagates Begin/Commit/Rollback
-// error, whereas ScopedTranscation may have check failures during construction
-// or deconstruction.
-// The caller should own a connected `metadata_source`, and the given
-// `transaction` issues ExecuteQuery with the same `metadata_source`.
-// Similar to ScopedTransaction, MetadataSource::Commit/Rollback/Close should
-// not be called within the `transaction` callback.
-//
-// Returns FAILED_PRECONDITION if metadata_source is null or not connected.
-// Returns detailed internal errors of transaction, Begin, Rollback and Commit.
-tensorflow::Status ExecuteTransaction(
-    MetadataSource* metadata_source,
-    const std::function<tensorflow::Status()>& transaction);
-
 }  // namespace ml_metadata
 
 #endif  // ML_METADATA_METADATA_STORE_METADATA_SOURCE_H_

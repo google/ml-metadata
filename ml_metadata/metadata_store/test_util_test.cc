@@ -1,4 +1,4 @@
-/* Copyright 2019 Google LLC
+/* Copyright 2020 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -15,26 +15,35 @@ limitations under the License.
 
 #include "ml_metadata/metadata_store/test_util.h"
 
-#include <cstddef>
-#include <string>
-#include <utility>
-#include <vector>
-
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/strings/str_cat.h"
-#include "tensorflow/core/lib/core/status.h"
-#include "tensorflow/core/lib/core/status_test_util.h"
-#include "tensorflow/core/platform/logging.h"
-#include "tensorflow/core/platform/types.h"
+#include "ml_metadata/proto/metadata_store.pb.h"
 
 namespace ml_metadata {
 namespace testing {
+namespace {
 
-ProtoStringMatcher::ProtoStringMatcher(const string& expected)
-    : expected_(expected) {}
-ProtoStringMatcher::ProtoStringMatcher(
-    const ::tensorflow::protobuf::Message& expected)
-    : expected_(expected.DebugString()) {}
+TEST(TestUtilTest, BasicEqualsProto) {
+  Artifact want_artifact;
+  want_artifact.set_id(1);
+  want_artifact.set_uri("some_uri");
+  Artifact got_artifact = want_artifact;
+  EXPECT_THAT(got_artifact, EqualsProto(want_artifact));
 
+  Artifact other_artifact;
+  EXPECT_THAT(other_artifact, ::testing::Not(EqualsProto(want_artifact)));
+}
+
+TEST(TestUtilTest, EqualsProtoWithIgnoreFields) {
+  Artifact want_artifact;
+  want_artifact.set_id(1);
+  want_artifact.set_uri("some_uri");
+  Artifact empty_artifact;
+  EXPECT_THAT(empty_artifact,
+              EqualsProto(want_artifact, /*ignore_fields=*/{"id", "uri"}));
+}
+
+
+}  // namespace
 }  // namespace testing
 }  // namespace ml_metadata

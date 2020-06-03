@@ -11,11 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""
+This module contains build rules for ml_metadata in OSS.
+"""
 
-load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library")
-load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
+load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library", "py_proto_library")
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_py_wrap_cc")
 
 def ml_metadata_cc_test(
         name,
@@ -183,4 +186,27 @@ def ml_metadata_go_wrap_cc(
         importpath = importpath,
         cgo = True,
         cdeps = [libname],
+    )
+
+# The rule builds a python extension module of the given `name` from the swig
+# files listed in `srcs` and list of cpp dependencies in `deps`.
+def ml_metadata_py_wrap_cc(
+        name,
+        srcs = [],
+        swig_includes = [],
+        deps = [],
+        copts = [],
+        version_script = None,
+        **kwargs):
+    # TODO(b/143236826) drop the tf OSS dependency. currently we still use tf
+    # error code and status. When building wheels, we ping a specific tf
+    # version to build the py extension via swigging c++ modules.
+    tf_py_wrap_cc(
+        name = name,
+        srcs = srcs,
+        swig_includes = swig_includes,
+        deps = deps,
+        copts = copts,
+        version_script = version_script,
+        **kwargs
     )
