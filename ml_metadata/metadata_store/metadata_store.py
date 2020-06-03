@@ -62,7 +62,8 @@ class MetadataStore(object):
       migration_options.enable_upgrade_migration = enable_upgrade_migration
       self._metadata_store = metadata_store_serialized.CreateMetadataStore(
           config.SerializeToString(), migration_options.SerializeToString())
-      logging.log(logging.INFO, 'MetadataStore with DB connection initialized')
+      logging.log(logging.INFO, 'MetadataStore with DB connection initialized with:')
+      logging.log(logging.INFO, config)
       return
     if not isinstance(config, metadata_store_pb2.MetadataStoreClientConfig):
       raise ValueError('MetadataStore is expecting either '
@@ -77,7 +78,8 @@ class MetadataStore(object):
     channel = self._get_channel(config, target)
     self._metadata_store_stub = (metadata_store_service_pb2_grpc.
                                  MetadataStoreServiceStub(channel))
-    logging.log(logging.INFO, 'MetadataStore with gRPC connection initialized')
+    logging.log(logging.INFO, 'MetadataStore with gRPC connection initialized with:')
+    logging.log(logging.INFO, config)
 
   def _get_channel(self, config: metadata_store_pb2.MetadataStoreClientConfig,
                    target: Text):
