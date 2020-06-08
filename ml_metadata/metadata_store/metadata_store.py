@@ -64,6 +64,7 @@ class MetadataStore(object):
       self._metadata_store = metadata_store_serialized.CreateMetadataStore(
           config.SerializeToString(), migration_options.SerializeToString())
       logging.log(logging.INFO, 'MetadataStore with DB connection initialized')
+      logging.log(logging.DEBUG, 'ConnectionConfig: %s', config)
       if config.HasField('retry_options'):
         self._max_num_retries = config.retry_options.max_num_retries
         logging.log(logging.INFO,
@@ -84,6 +85,7 @@ class MetadataStore(object):
     self._metadata_store_stub = (metadata_store_service_pb2_grpc.
                                  MetadataStoreServiceStub(channel))
     logging.log(logging.INFO, 'MetadataStore with gRPC connection initialized')
+    logging.log(logging.DEBUG, 'ConnectionConfig: %s', config)
 
   def _get_channel(self, config: metadata_store_pb2.MetadataStoreClientConfig,
                    target: Text):
