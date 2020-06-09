@@ -36,7 +36,7 @@ class TransactionExecutor {
 
   // Runs txn_body and return the transaction status.
   virtual tensorflow::Status Execute(
-      const std::function<tensorflow::Status()>& txn_body) const = 0;
+      const std::function<tensorflow::Status()>& txn_body) = 0;
 };
 
 // An implementation of TransactionExecutor.
@@ -56,7 +56,7 @@ class RdbmsTransactionExecutor : public TransactionExecutor {
   // Returns detailed internal errors of transaction, i.e.
   //   Begin, Rollback and Commit.
   tensorflow::Status Execute(
-      const std::function<tensorflow::Status()>& txn_body) const override;
+      const std::function<tensorflow::Status()>& txn_body) override;
 
  private:
   // The MetadataSource which has the connection to a database.
