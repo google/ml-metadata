@@ -15,8 +15,8 @@ limitations under the License.
 #ifndef ML_METADATA_METADATA_STORE_METADATA_STORE_SERVICE_IMPL_H_
 #define ML_METADATA_METADATA_STORE_METADATA_STORE_SERVICE_IMPL_H_
 
-#include "absl/synchronization/mutex.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
+#include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/proto/metadata_store_service.grpc.pb.h"
 
 namespace ml_metadata {
@@ -28,233 +28,175 @@ namespace ml_metadata {
 class MetadataStoreServiceImpl final
     : public MetadataStoreService::Service {
  public:
-  explicit MetadataStoreServiceImpl(
-      std::unique_ptr<MetadataStore> metadata_store);
+  explicit MetadataStoreServiceImpl(const ConnectionConfig& connection_config);
 
   // default & copy constructors are disallowed.
   MetadataStoreServiceImpl() = delete;
   MetadataStoreServiceImpl(const MetadataStoreServiceImpl&) = delete;
   MetadataStoreServiceImpl& operator=(const MetadataStoreServiceImpl&) = delete;
 
-  ::grpc::Status PutArtifactType(
-      ::grpc::ServerContext* context,
-      const ::ml_metadata::PutArtifactTypeRequest* request,
-      ::ml_metadata::PutArtifactTypeResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+  ::grpc::Status PutArtifactType(::grpc::ServerContext* context,
+                                 const PutArtifactTypeRequest* request,
+                                 PutArtifactTypeResponse* response) override;
 
-  ::grpc::Status GetArtifactType(
-      ::grpc::ServerContext* context,
-      const ::ml_metadata::GetArtifactTypeRequest* request,
-      ::ml_metadata::GetArtifactTypeResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+  ::grpc::Status GetArtifactType(::grpc::ServerContext* context,
+                                 const GetArtifactTypeRequest* request,
+                                 GetArtifactTypeResponse* response) override;
 
   ::grpc::Status GetArtifactTypesByID(
       ::grpc::ServerContext* context,
-      const ::ml_metadata::GetArtifactTypesByIDRequest* request,
-      ::ml_metadata::GetArtifactTypesByIDResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+      const GetArtifactTypesByIDRequest* request,
+      GetArtifactTypesByIDResponse* response) override;
 
-  ::grpc::Status GetArtifactTypes(
-      ::grpc::ServerContext* context,
-      const ::ml_metadata::GetArtifactTypesRequest* request,
-      ::ml_metadata::GetArtifactTypesResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+  ::grpc::Status GetArtifactTypes(::grpc::ServerContext* context,
+                                  const GetArtifactTypesRequest* request,
+                                  GetArtifactTypesResponse* response) override;
 
-  ::grpc::Status PutExecutionType(
-      ::grpc::ServerContext* context,
-      const ::ml_metadata::PutExecutionTypeRequest* request,
-      ::ml_metadata::PutExecutionTypeResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+  ::grpc::Status PutExecutionType(::grpc::ServerContext* context,
+                                  const PutExecutionTypeRequest* request,
+                                  PutExecutionTypeResponse* response) override;
 
-  ::grpc::Status GetExecutionType(
-      ::grpc::ServerContext* context,
-      const ::ml_metadata::GetExecutionTypeRequest* request,
-      ::ml_metadata::GetExecutionTypeResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+  ::grpc::Status GetExecutionType(::grpc::ServerContext* context,
+                                  const GetExecutionTypeRequest* request,
+                                  GetExecutionTypeResponse* response) override;
 
   ::grpc::Status GetExecutionTypesByID(
       ::grpc::ServerContext* context,
-      const ::ml_metadata::GetExecutionTypesByIDRequest* request,
-      ::ml_metadata::GetExecutionTypesByIDResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+      const GetExecutionTypesByIDRequest* request,
+      GetExecutionTypesByIDResponse* response) override;
 
   ::grpc::Status GetExecutionTypes(
-      ::grpc::ServerContext* context,
-      const ::ml_metadata::GetExecutionTypesRequest* request,
-      ::ml_metadata::GetExecutionTypesResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+      ::grpc::ServerContext* context, const GetExecutionTypesRequest* request,
+      GetExecutionTypesResponse* response) override;
 
-  ::grpc::Status PutContextType(
-      ::grpc::ServerContext* context,
-      const ::ml_metadata::PutContextTypeRequest* request,
-      ::ml_metadata::PutContextTypeResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+  ::grpc::Status PutContextType(::grpc::ServerContext* context,
+                                const PutContextTypeRequest* request,
+                                PutContextTypeResponse* response) override;
 
-  ::grpc::Status GetContextType(
-      ::grpc::ServerContext* context,
-      const ::ml_metadata::GetContextTypeRequest* request,
-      ::ml_metadata::GetContextTypeResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+  ::grpc::Status GetContextType(::grpc::ServerContext* context,
+                                const GetContextTypeRequest* request,
+                                GetContextTypeResponse* response) override;
 
   ::grpc::Status GetContextTypesByID(
-      ::grpc::ServerContext* context,
-      const ::ml_metadata::GetContextTypesByIDRequest* request,
-      ::ml_metadata::GetContextTypesByIDResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+      ::grpc::ServerContext* context, const GetContextTypesByIDRequest* request,
+      GetContextTypesByIDResponse* response) override;
 
-  ::grpc::Status GetContextTypes(
-      ::grpc::ServerContext* context,
-      const ::ml_metadata::GetContextTypesRequest* request,
-      ::ml_metadata::GetContextTypesResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+  ::grpc::Status GetContextTypes(::grpc::ServerContext* context,
+                                 const GetContextTypesRequest* request,
+                                 GetContextTypesResponse* response) override;
 
   ::grpc::Status PutArtifacts(::grpc::ServerContext* context,
-                              const ::ml_metadata::PutArtifactsRequest* request,
-                              ::ml_metadata::PutArtifactsResponse* response)
-      override ABSL_LOCKS_EXCLUDED(lock_);
+                              const PutArtifactsRequest* request,
+                              PutArtifactsResponse* response) override;
 
-  ::grpc::Status PutExecutions(
-      ::grpc::ServerContext* context,
-      const ::ml_metadata::PutExecutionsRequest* request,
-      ::ml_metadata::PutExecutionsResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+  ::grpc::Status PutExecutions(::grpc::ServerContext* context,
+                               const PutExecutionsRequest* request,
+                               PutExecutionsResponse* response) override;
 
-  ::grpc::Status GetArtifactsByID(
-      ::grpc::ServerContext* context,
-      const ::ml_metadata::GetArtifactsByIDRequest* request,
-      ::ml_metadata::GetArtifactsByIDResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+  ::grpc::Status GetArtifactsByID(::grpc::ServerContext* context,
+                                  const GetArtifactsByIDRequest* request,
+                                  GetArtifactsByIDResponse* response) override;
 
   ::grpc::Status GetExecutionsByID(
-      ::grpc::ServerContext* context,
-      const ::ml_metadata::GetExecutionsByIDRequest* request,
-      ::ml_metadata::GetExecutionsByIDResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+      ::grpc::ServerContext* context, const GetExecutionsByIDRequest* request,
+      GetExecutionsByIDResponse* response) override;
 
   ::grpc::Status PutEvents(::grpc::ServerContext* context,
-                           const ::ml_metadata::PutEventsRequest* request,
-                           ::ml_metadata::PutEventsResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+                           const PutEventsRequest* request,
+                           PutEventsResponse* response) override;
 
   ::grpc::Status PutExecution(::grpc::ServerContext* context,
-                              const ::ml_metadata::PutExecutionRequest* request,
-                              ::ml_metadata::PutExecutionResponse* response)
-      override ABSL_LOCKS_EXCLUDED(lock_);
+                              const PutExecutionRequest* request,
+                              PutExecutionResponse* response) override;
 
   ::grpc::Status GetEventsByArtifactIDs(
       ::grpc::ServerContext* context,
-      const ::ml_metadata::GetEventsByArtifactIDsRequest* request,
-      ::ml_metadata::GetEventsByArtifactIDsResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+      const GetEventsByArtifactIDsRequest* request,
+      GetEventsByArtifactIDsResponse* response) override;
 
   ::grpc::Status GetEventsByExecutionIDs(
       ::grpc::ServerContext* context,
-      const ::ml_metadata::GetEventsByExecutionIDsRequest* request,
-      ::ml_metadata::GetEventsByExecutionIDsResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+      const GetEventsByExecutionIDsRequest* request,
+      GetEventsByExecutionIDsResponse* response) override;
 
   ::grpc::Status GetArtifacts(::grpc::ServerContext* context,
-                              const ::ml_metadata::GetArtifactsRequest* request,
-                              ::ml_metadata::GetArtifactsResponse* response)
-      override ABSL_LOCKS_EXCLUDED(lock_);
+                              const GetArtifactsRequest* request,
+                              GetArtifactsResponse* response) override;
 
   ::grpc::Status GetArtifactsByType(
-      ::grpc::ServerContext* context,
-      const ::ml_metadata::GetArtifactsByTypeRequest* request,
-      ::ml_metadata::GetArtifactsByTypeResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+      ::grpc::ServerContext* context, const GetArtifactsByTypeRequest* request,
+      GetArtifactsByTypeResponse* response) override;
 
   ::grpc::Status GetArtifactByTypeAndName(
       ::grpc::ServerContext* context,
-      const ::ml_metadata::GetArtifactByTypeAndNameRequest* request,
-      ::ml_metadata::GetArtifactByTypeAndNameResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+      const GetArtifactByTypeAndNameRequest* request,
+      GetArtifactByTypeAndNameResponse* response) override;
 
   ::grpc::Status GetArtifactsByURI(
-      ::grpc::ServerContext* context,
-      const ::ml_metadata::GetArtifactsByURIRequest* request,
-      ::ml_metadata::GetArtifactsByURIResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+      ::grpc::ServerContext* context, const GetArtifactsByURIRequest* request,
+      GetArtifactsByURIResponse* response) override;
 
-  ::grpc::Status GetExecutions(
-      ::grpc::ServerContext* context,
-      const ::ml_metadata::GetExecutionsRequest* request,
-      ::ml_metadata::GetExecutionsResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+  ::grpc::Status GetExecutions(::grpc::ServerContext* context,
+                               const GetExecutionsRequest* request,
+                               GetExecutionsResponse* response) override;
 
   ::grpc::Status GetExecutionsByType(
-      ::grpc::ServerContext* context,
-      const ::ml_metadata::GetExecutionsByTypeRequest* request,
-      ::ml_metadata::GetExecutionsByTypeResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+      ::grpc::ServerContext* context, const GetExecutionsByTypeRequest* request,
+      GetExecutionsByTypeResponse* response) override;
 
   ::grpc::Status GetExecutionByTypeAndName(
       ::grpc::ServerContext* context,
-      const ::ml_metadata::GetExecutionByTypeAndNameRequest* request,
-      ::ml_metadata::GetExecutionByTypeAndNameResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+      const GetExecutionByTypeAndNameRequest* request,
+      GetExecutionByTypeAndNameResponse* response) override;
 
   ::grpc::Status PutContexts(::grpc::ServerContext* context,
-                             const ::ml_metadata::PutContextsRequest* request,
-                             ::ml_metadata::PutContextsResponse* response)
-      override ABSL_LOCKS_EXCLUDED(lock_);
+                             const PutContextsRequest* request,
+                             PutContextsResponse* response) override;
 
-  ::grpc::Status GetContextsByID(
-      ::grpc::ServerContext* context,
-      const ::ml_metadata::GetContextsByIDRequest* request,
-      ::ml_metadata::GetContextsByIDResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+  ::grpc::Status GetContextsByID(::grpc::ServerContext* context,
+                                 const GetContextsByIDRequest* request,
+                                 GetContextsByIDResponse* response) override;
 
   ::grpc::Status GetContexts(::grpc::ServerContext* context,
-                             const ::ml_metadata::GetContextsRequest* request,
-                             ::ml_metadata::GetContextsResponse* response)
-      override ABSL_LOCKS_EXCLUDED(lock_);
+                             const GetContextsRequest* request,
+                             GetContextsResponse* response) override;
 
   ::grpc::Status GetContextsByType(
-      ::grpc::ServerContext* context,
-      const ::ml_metadata::GetContextsByTypeRequest* request,
-      ::ml_metadata::GetContextsByTypeResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+      ::grpc::ServerContext* context, const GetContextsByTypeRequest* request,
+      GetContextsByTypeResponse* response) override;
 
   ::grpc::Status GetContextByTypeAndName(
       ::grpc::ServerContext* context,
-      const ::ml_metadata::GetContextByTypeAndNameRequest* request,
-      ::ml_metadata::GetContextByTypeAndNameResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+      const GetContextByTypeAndNameRequest* request,
+      GetContextByTypeAndNameResponse* response) override;
 
   ::grpc::Status PutAttributionsAndAssociations(
       ::grpc::ServerContext* context,
-      const ::ml_metadata::PutAttributionsAndAssociationsRequest* request,
-      ::ml_metadata::PutAttributionsAndAssociationsResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+      const PutAttributionsAndAssociationsRequest* request,
+      PutAttributionsAndAssociationsResponse* response) override;
 
   ::grpc::Status GetContextsByArtifact(
       ::grpc::ServerContext* context,
-      const ::ml_metadata::GetContextsByArtifactRequest* request,
-      ::ml_metadata::GetContextsByArtifactResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+      const GetContextsByArtifactRequest* request,
+      GetContextsByArtifactResponse* response) override;
 
   ::grpc::Status GetContextsByExecution(
       ::grpc::ServerContext* context,
-      const ::ml_metadata::GetContextsByExecutionRequest* request,
-      ::ml_metadata::GetContextsByExecutionResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+      const GetContextsByExecutionRequest* request,
+      GetContextsByExecutionResponse* response) override;
 
   ::grpc::Status GetArtifactsByContext(
       ::grpc::ServerContext* context,
-      const ::ml_metadata::GetArtifactsByContextRequest* request,
-      ::ml_metadata::GetArtifactsByContextResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+      const GetArtifactsByContextRequest* request,
+      GetArtifactsByContextResponse* response) override;
 
   ::grpc::Status GetExecutionsByContext(
       ::grpc::ServerContext* context,
-      const ::ml_metadata::GetExecutionsByContextRequest* request,
-      ::ml_metadata::GetExecutionsByContextResponse* response) override
-      ABSL_LOCKS_EXCLUDED(lock_);
+      const GetExecutionsByContextRequest* request,
+      GetExecutionsByContextResponse* response) override;
 
  private:
-  absl::Mutex lock_;
-  std::unique_ptr<MetadataStore> metadata_store_ ABSL_GUARDED_BY(lock_);
+  const ConnectionConfig connection_config_;
 };
 
 }  // namespace ml_metadata

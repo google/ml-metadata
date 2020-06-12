@@ -204,6 +204,7 @@ int main(int argc, char** argv) {
     connection_config = server_config.connection_config();
   }
 
+  // Creates a metadata_store in the main thread and init schema if necessary.
   std::unique_ptr<ml_metadata::MetadataStore> metadata_store;
   tensorflow::Status status = ml_metadata::CreateMetadataStore(
       connection_config, server_config.migration_options(), &metadata_store);
@@ -218,9 +219,11 @@ int main(int argc, char** argv) {
   }
   TF_CHECK_OK(status)
       << "MetadataStore cannot be created with the given connection config.";
+  // At this point, schema initialization and migration are done.
+  metadata_store.reset();
 
   ml_metadata::MetadataStoreServiceImpl metadata_store_service(
-      std::move(metadata_store));
+      connection_config);
 
   const string server_address = absl::StrCat("0.0.0.0:", FLAGS_grpc_port);
   ::grpc::ServerBuilder builder;

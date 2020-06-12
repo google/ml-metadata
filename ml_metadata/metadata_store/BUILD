@@ -407,7 +407,8 @@ cc_library(
     hdrs = ["metadata_store_service_impl.h"],
     deps = [
         ":metadata_store",
-        "@com_google_absl//absl/synchronization",
+        ":metadata_store_factory",
+        "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/proto:metadata_store_service_proto",
         "@org_tensorflow//tensorflow/core:lib",
         "@grpc//:grpc++",

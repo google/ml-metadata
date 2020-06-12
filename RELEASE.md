@@ -2,6 +2,8 @@
 
 ## Major Features and Improvements
 
+*   Uses metadata_store per request for grpc server to improve scalability.
+
 ## Bug Fixes and Other Changes
 
 *   Uses Iterable[int] instead Sequence[int] for listing APIs accepting ids.
