@@ -354,7 +354,7 @@ class MetadataStore : public MetadataStoreServiceInterface {
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetArtifactByTypeAndName(
       const GetArtifactByTypeAndNameRequest& request,
-      GetArtifactByTypeAndNameResponse* response);
+      GetArtifactByTypeAndNameResponse* response) override;
 
   // Gets all the artifacts matching the given URIs. If no artifacts found, it
   // returns OK and empty response.
@@ -389,7 +389,7 @@ class MetadataStore : public MetadataStoreServiceInterface {
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetExecutionByTypeAndName(
       const GetExecutionByTypeAndNameRequest& request,
-      GetExecutionByTypeAndNameResponse* response);
+      GetExecutionByTypeAndNameResponse* response) override;
 
   // Gets a list of contexts by ID.
   // If no context with an ID exists, the context is skipped.
