@@ -164,6 +164,23 @@ class MetadataAccessObject {
   virtual tensorflow::Status FindArtifacts(
       std::vector<Artifact>* artifacts) = 0;
 
+  // Queries artifacts stored in the metadata source using `options`.
+  // `options` is the ListOperationOptions proto message defined
+  // in metadata_store.
+  // If successfull:
+  // 1. `artifacts` is updated with result set of size determined by
+  //    max_result_size set in `options`.
+  // 2. `next_page_token` is populated with information necessary to fetch next
+  //    page of results.
+  // RETURNS INVALID_ARGUMENT if the `options` is invalid with one of
+  //    the cases:
+  // 1. order_by_field is not set or has an unspecified field.
+  // 2. Direction of ordering is not specified for the order_by_field.
+  // 3. next_page_token cannot be decoded.
+  virtual tensorflow::Status ListArtifacts(const ListOperationOptions& options,
+                                           std::vector<Artifact>* artifacts,
+                                           std::string* next_page_token) = 0;
+
   // Queries an artifact by its type_id and name.
   // Returns NOT_FOUND error, if no artifact can be found.
   // Returns detailed INTERNAL error, if query execution fails.

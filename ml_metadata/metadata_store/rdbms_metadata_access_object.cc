@@ -36,6 +36,7 @@ limitations under the License.
 #endif
 // clang-format on
 #include "ml_metadata/proto/metadata_source.pb.h"
+#include "ml_metadata/proto/metadata_store.pb.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status.h"
 
@@ -1155,6 +1156,12 @@ tensorflow::Status RDBMSMetadataAccessObject::FindArtifacts(
   RecordSet record_set;
   TF_RETURN_IF_ERROR(executor_->SelectAllArtifactIDs(&record_set));
   return FindManyNodesImpl(record_set, artifacts);
+}
+
+tensorflow::Status RDBMSMetadataAccessObject::ListArtifacts(
+    const ListOperationOptions& options, std::vector<Artifact>* artifacts,
+    std::string* next_page_token) {
+  return tensorflow::errors::Unimplemented("List Operation is not implemented");
 }
 
 tensorflow::Status

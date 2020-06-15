@@ -615,3 +615,56 @@ message MetadataStoreServerConfig {
   // If not given, insecure connection is used.
   optional SSLConfig ssl_config = 2;
 }
+
+// ListOperationOptions represents the set of options and predicates to be
+// used for List operations on Artifacts, Executions and Contexts.
+message ListOperationOptions {
+  // Max number of resources to return in the result. A value of zero results in
+  // returning a default number of resources determined by the API
+  // implementation.
+  // The API implementation also enforces an upper-bound of 100, and picks the
+  // minimum between this value and the one specified here.
+  optional int32 max_result_size = 1;
+
+  message OrderByField {
+    // Supported fields for Ordering.
+    enum Field {
+      FIELD_UNSPECIFIED = 0;
+      CREATE_TIME = 1;
+      LAST_UPDATE_TIME = 2;
+      ID = 3;
+    }
+
+    // Field to order.
+    optional Field field = 1 [default = ID];
+
+    // Direction of ordering.
+    optional bool is_asc = 2 [default = true];
+  }
+
+  // Ordering field.
+  optional OrderByField order_by_field = 2;
+
+  // Identifies the next page of results.
+  optional string next_page_token = 3;
+}
+
+// Encapsulates information to identify the next page of resources in
+// ListOperation.
+message ListOperationNextPageToken {
+  // Id offset within the resultset to start next page.
+  // Id offset is always stored as Id is the unique field used to break ties for
+  // fields that might have duplicate entries. For e.g. there could be two
+  // resources with same create time to break the tie in ordering, id offset is
+  // used.
+  optional int64 id_offset = 1;
+
+  // Offset value of the order by field. If ID is used this value is same as
+  // id_offset.
+  optional int64 field_offset = 2;
+
+  // Options set in the first call to ListOperation. This ensures that if
+  // next_page_token is set by the caller then ListPipelineJobs API will always
+  // use options set in the first call.
+  optional ListOperationOptions set_options = 3;
+}
