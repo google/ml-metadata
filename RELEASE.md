@@ -12,6 +12,8 @@
 
 ## Deprecations
 
+*   Drops Python 2 support and stops releasing py2 wheels.
+
 # Release 0.22.0
 
 ## Major Features and Improvements
