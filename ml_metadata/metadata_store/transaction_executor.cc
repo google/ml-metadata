@@ -20,7 +20,7 @@ limitations under the License.
 namespace ml_metadata {
 
 tensorflow::Status RdbmsTransactionExecutor::Execute(
-    const std::function<tensorflow::Status()>& txn_body) {
+    const std::function<tensorflow::Status()>& txn_body) const {
   if (metadata_source_ == nullptr || !metadata_source_->is_connected()) {
     return tensorflow::errors::FailedPrecondition(
         "To use ExecuteTransaction, the metadata_source should be created and "
