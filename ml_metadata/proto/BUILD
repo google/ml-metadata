@@ -12,14 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# GOOGLE BEGIN-INTERNAL
-# TODO(b/120486527): Make this a function of the original BUILD file.
-# This is a manually written bazel file. Each protobufs rule internally havs to be
-# rewritten as two rules externally. tensorflow-data-validation solves this via
-# ml_metadata.bzl. However, I haven't got that working here. When I do, I will
-# drop this version of the file.
-# GOOGLE END-INTERNAL
-
 load("//ml_metadata:ml_metadata.bzl", "ml_metadata_proto_library", "ml_metadata_proto_library_go", "ml_metadata_proto_library_py")
 
 package(default_visibility = ["//visibility:public"])
