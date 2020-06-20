@@ -7,6 +7,7 @@
 ## Bug Fixes and Other Changes
 
 *   Uses Iterable[int] instead Sequence[int] for listing APIs accepting ids.
+*   Depends on `tensorflow>=1.15,!=2.0.*,<3`
 
 ## Breaking changes
 

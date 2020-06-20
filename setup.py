@@ -84,8 +84,7 @@ setup(
         'protobuf>=3.7,<4',
         'six>=1.10,<2',
         # TODO(b/143236826) revisit TF dependencies when absl status is ready.
-        # TODO(b/156025072) tf 2.2.0 has import errors blocks tests.
-        'tensorflow>=1.15,!=2.0.*,!=2.2.0,<3',
+        'tensorflow>=1.15,!=2.0.*,<3',
     ],
     python_requires='>=3.5,<4',
     packages=find_packages(),
