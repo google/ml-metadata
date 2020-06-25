@@ -125,6 +125,32 @@ cc_library(
 )
 
 cc_library(
+    name = "list_operation_query_helper",
+    srcs = ["list_operation_query_helper.cc"],
+    hdrs = ["list_operation_query_helper.h"],
+    deps = [
+        ":types",
+        "@com_google_absl//absl/strings",
+        "//ml_metadata/proto:metadata_store_proto",
+        "@org_tensorflow//tensorflow/core:lib",
+    ],
+)
+
+ml_metadata_cc_test(
+    name = "list_operation_query_helper_test",
+    size = "small",
+    srcs = ["list_operation_query_helper_test.cc"],
+    deps = [
+        ":list_operation_query_helper",
+        ":test_util",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+        "//ml_metadata/proto:metadata_store_proto",
+        "@org_tensorflow//tensorflow/core:test",
+    ],
+)
+
+cc_library(
     name = "metadata_access_object_factory",
     srcs = [
         "metadata_access_object_factory.cc",
