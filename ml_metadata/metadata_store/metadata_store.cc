@@ -250,6 +250,7 @@ tensorflow::Status MetadataStore::PutTypes(const PutTypesRequest& request,
   }
   return transaction_executor_->Execute([this, &request,
                                          &response]() -> tensorflow::Status {
+    response->Clear();
     for (const ArtifactType& artifact_type : request.artifact_types()) {
       int64 artifact_type_id;
       TF_RETURN_IF_ERROR(UpsertType(artifact_type, request.can_add_fields(),
@@ -285,6 +286,7 @@ tensorflow::Status MetadataStore::PutArtifactType(
   }
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         int64 type_id;
         TF_RETURN_IF_ERROR(UpsertType(request.artifact_type(),
                                       request.can_add_fields(),
@@ -305,6 +307,7 @@ tensorflow::Status MetadataStore::PutExecutionType(
   }
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         int64 type_id;
         TF_RETURN_IF_ERROR(UpsertType(request.execution_type(),
                                       request.can_add_fields(),
@@ -324,6 +327,7 @@ tensorflow::Status MetadataStore::PutContextType(
   }
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         int64 type_id;
         TF_RETURN_IF_ERROR(UpsertType(request.context_type(),
                                       request.can_add_fields(),
@@ -337,6 +341,7 @@ tensorflow::Status MetadataStore::GetArtifactType(
     const GetArtifactTypeRequest& request, GetArtifactTypeResponse* response) {
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         return metadata_access_object_->FindTypeByName(
             request.type_name(), response->mutable_artifact_type());
       });
@@ -347,6 +352,7 @@ tensorflow::Status MetadataStore::GetExecutionType(
     GetExecutionTypeResponse* response) {
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         return metadata_access_object_->FindTypeByName(
             request.type_name(), response->mutable_execution_type());
       });
@@ -356,6 +362,7 @@ tensorflow::Status MetadataStore::GetContextType(
     const GetContextTypeRequest& request, GetContextTypeResponse* response) {
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         return metadata_access_object_->FindTypeByName(
             request.type_name(), response->mutable_context_type());
       });
@@ -366,6 +373,7 @@ tensorflow::Status MetadataStore::GetArtifactTypesByID(
     GetArtifactTypesByIDResponse* response) {
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         for (const int64 type_id : request.type_ids()) {
           ArtifactType artifact_type;
           const tensorflow::Status status =
@@ -385,6 +393,7 @@ tensorflow::Status MetadataStore::GetExecutionTypesByID(
     GetExecutionTypesByIDResponse* response) {
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         for (const int64 type_id : request.type_ids()) {
           ExecutionType execution_type;
           const tensorflow::Status status =
@@ -404,6 +413,7 @@ tensorflow::Status MetadataStore::GetContextTypesByID(
     GetContextTypesByIDResponse* response) {
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         for (const int64 type_id : request.type_ids()) {
           ContextType context_type;
           const tensorflow::Status status =
@@ -423,6 +433,7 @@ tensorflow::Status MetadataStore::GetArtifactsByID(
     GetArtifactsByIDResponse* response) {
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         for (const int64 artifact_id : request.artifact_ids()) {
           Artifact artifact;
           const tensorflow::Status status =
@@ -442,6 +453,7 @@ tensorflow::Status MetadataStore::GetExecutionsByID(
     GetExecutionsByIDResponse* response) {
   return transaction_executor_->Execute([this, &request,
                                          &response]() -> tensorflow::Status {
+    response->Clear();
     for (const int64 execution_id : request.execution_ids()) {
       Execution execution;
       const tensorflow::Status status =
@@ -460,6 +472,7 @@ tensorflow::Status MetadataStore::GetContextsByID(
     const GetContextsByIDRequest& request, GetContextsByIDResponse* response) {
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         for (const int64 context_id : request.context_ids()) {
           Context context;
           const tensorflow::Status status =
@@ -478,6 +491,7 @@ tensorflow::Status MetadataStore::PutArtifacts(
     const PutArtifactsRequest& request, PutArtifactsResponse* response) {
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         for (const Artifact& artifact : request.artifacts()) {
           int64 artifact_id = -1;
           TF_RETURN_IF_ERROR(UpsertArtifact(
@@ -492,6 +506,7 @@ tensorflow::Status MetadataStore::PutExecutions(
     const PutExecutionsRequest& request, PutExecutionsResponse* response) {
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         for (const Execution& execution : request.executions()) {
           int64 execution_id = -1;
           TF_RETURN_IF_ERROR(UpsertExecution(
@@ -506,6 +521,7 @@ tensorflow::Status MetadataStore::PutContexts(const PutContextsRequest& request,
                                               PutContextsResponse* response) {
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         for (const Context& context : request.contexts()) {
           int64 context_id = -1;
           TF_RETURN_IF_ERROR(UpsertContext(
@@ -548,7 +564,8 @@ tensorflow::Status MetadataStore::Create(
 tensorflow::Status MetadataStore::PutEvents(const PutEventsRequest& request,
                                             PutEventsResponse* response) {
   return transaction_executor_->Execute(
-      [this, &request]() -> tensorflow::Status {
+      [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         for (const Event& event : request.events()) {
           int64 dummy_event_id = -1;
           TF_RETURN_IF_ERROR(
@@ -562,6 +579,7 @@ tensorflow::Status MetadataStore::PutExecution(
     const PutExecutionRequest& request, PutExecutionResponse* response) {
   return transaction_executor_->Execute([this, &request,
                                          &response]() -> tensorflow::Status {
+    response->Clear();
     if (!request.has_execution()) {
       return tensorflow::errors::InvalidArgument("No execution is found: ",
                                                  request.DebugString());
@@ -614,6 +632,7 @@ tensorflow::Status MetadataStore::GetEventsByExecutionIDs(
     GetEventsByExecutionIDsResponse* response) {
   return transaction_executor_->Execute([this, &request,
                                          &response]() -> tensorflow::Status {
+    response->Clear();
     for (const int64 execution_id : request.execution_ids()) {
       std::vector<Event> events;
       const tensorflow::Status status =
@@ -635,6 +654,7 @@ tensorflow::Status MetadataStore::GetEventsByArtifactIDs(
     GetEventsByArtifactIDsResponse* response) {
   return transaction_executor_->Execute([this, &request,
                                          &response]() -> tensorflow::Status {
+    response->Clear();
     for (const int64 artifact_id : request.artifact_ids()) {
       std::vector<Event> events;
       const tensorflow::Status status =
@@ -655,6 +675,7 @@ tensorflow::Status MetadataStore::GetExecutions(
     const GetExecutionsRequest& request, GetExecutionsResponse* response) {
   return transaction_executor_->Execute(
       [this, &response]() -> tensorflow::Status {
+        response->Clear();
         std::vector<Execution> executions;
         const tensorflow::Status status =
             metadata_access_object_->FindExecutions(&executions);
@@ -674,6 +695,7 @@ tensorflow::Status MetadataStore::GetArtifacts(
     const GetArtifactsRequest& request, GetArtifactsResponse* response) {
   return transaction_executor_->Execute(
       [this, &response]() -> tensorflow::Status {
+        response->Clear();
         std::vector<Artifact> artifacts;
         const tensorflow::Status status =
             metadata_access_object_->FindArtifacts(&artifacts);
@@ -693,6 +715,7 @@ tensorflow::Status MetadataStore::GetContexts(const GetContextsRequest& request,
                                               GetContextsResponse* response) {
   return transaction_executor_->Execute(
       [this, &response]() -> tensorflow::Status {
+        response->Clear();
         std::vector<Context> contexts;
         const tensorflow::Status status =
             metadata_access_object_->FindContexts(&contexts);
@@ -713,6 +736,7 @@ tensorflow::Status MetadataStore::GetArtifactTypes(
     GetArtifactTypesResponse* response) {
   return transaction_executor_->Execute(
       [this, &response]() -> tensorflow::Status {
+        response->Clear();
         std::vector<ArtifactType> artifact_types;
         const tensorflow::Status status =
             metadata_access_object_->FindTypes(&artifact_types);
@@ -733,6 +757,7 @@ tensorflow::Status MetadataStore::GetExecutionTypes(
     GetExecutionTypesResponse* response) {
   return transaction_executor_->Execute(
       [this, &response]() -> tensorflow::Status {
+        response->Clear();
         std::vector<ExecutionType> execution_types;
         const tensorflow::Status status =
             metadata_access_object_->FindTypes(&execution_types);
@@ -752,6 +777,7 @@ tensorflow::Status MetadataStore::GetContextTypes(
     const GetContextTypesRequest& request, GetContextTypesResponse* response) {
   return transaction_executor_->Execute(
       [this, &response]() -> tensorflow::Status {
+        response->Clear();
         std::vector<ContextType> context_types;
         const tensorflow::Status status =
             metadata_access_object_->FindTypes(&context_types);
@@ -784,6 +810,7 @@ tensorflow::Status MetadataStore::GetArtifactsByURI(
   }
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         absl::flat_hash_set<std::string> uris(request.uris().begin(),
                                               request.uris().end());
         for (const std::string& uri : uris) {
@@ -808,6 +835,7 @@ tensorflow::Status MetadataStore::GetArtifactsByType(
     GetArtifactsByTypeResponse* response) {
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         ArtifactType artifact_type;
         tensorflow::Status status = metadata_access_object_->FindTypeByName(
             request.type_name(), &artifact_type);
@@ -836,6 +864,7 @@ tensorflow::Status MetadataStore::GetArtifactByTypeAndName(
     GetArtifactByTypeAndNameResponse* response) {
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         ArtifactType artifact_type;
         tensorflow::Status status = metadata_access_object_->FindTypeByName(
             request.type_name(), &artifact_type);
@@ -862,6 +891,7 @@ tensorflow::Status MetadataStore::GetExecutionsByType(
     GetExecutionsByTypeResponse* response) {
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         ExecutionType execution_type;
         tensorflow::Status status = metadata_access_object_->FindTypeByName(
             request.type_name(), &execution_type);
@@ -890,6 +920,7 @@ tensorflow::Status MetadataStore::GetExecutionByTypeAndName(
     GetExecutionByTypeAndNameResponse* response) {
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         ExecutionType execution_type;
         tensorflow::Status status = metadata_access_object_->FindTypeByName(
             request.type_name(), &execution_type);
@@ -916,6 +947,7 @@ tensorflow::Status MetadataStore::GetContextsByType(
     GetContextsByTypeResponse* response) {
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         ContextType context_type;
         tensorflow::Status status = metadata_access_object_->FindTypeByName(
             request.type_name(), &context_type);
@@ -944,6 +976,7 @@ tensorflow::Status MetadataStore::GetContextByTypeAndName(
     GetContextByTypeAndNameResponse* response) {
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         ContextType context_type;
         tensorflow::Status status = metadata_access_object_->FindTypeByName(
             request.type_name(), &context_type);
@@ -969,7 +1002,8 @@ tensorflow::Status MetadataStore::PutAttributionsAndAssociations(
     const PutAttributionsAndAssociationsRequest& request,
     PutAttributionsAndAssociationsResponse* response) {
   return transaction_executor_->Execute(
-      [this, &request]() -> tensorflow::Status {
+      [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         for (const Attribution& attribution : request.attributions()) {
           TF_RETURN_IF_ERROR(InsertAttributionIfNotExist(
               attribution.context_id(), attribution.artifact_id(),
@@ -989,6 +1023,7 @@ tensorflow::Status MetadataStore::GetContextsByArtifact(
     GetContextsByArtifactResponse* response) {
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         std::vector<Context> contexts;
         TF_RETURN_IF_ERROR(metadata_access_object_->FindContextsByArtifact(
             request.artifact_id(), &contexts));
@@ -1004,6 +1039,7 @@ tensorflow::Status MetadataStore::GetContextsByExecution(
     GetContextsByExecutionResponse* response) {
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         std::vector<Context> contexts;
         TF_RETURN_IF_ERROR(metadata_access_object_->FindContextsByExecution(
             request.execution_id(), &contexts));
@@ -1019,6 +1055,7 @@ tensorflow::Status MetadataStore::GetArtifactsByContext(
     GetArtifactsByContextResponse* response) {
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         std::vector<Artifact> artifacts;
         TF_RETURN_IF_ERROR(metadata_access_object_->FindArtifactsByContext(
             request.context_id(), &artifacts));
@@ -1034,6 +1071,7 @@ tensorflow::Status MetadataStore::GetExecutionsByContext(
     GetExecutionsByContextResponse* response) {
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
         std::vector<Execution> executions;
         TF_RETURN_IF_ERROR(metadata_access_object_->FindExecutionsByContext(
             request.context_id(), &executions));
