@@ -77,5 +77,115 @@ TEST_F(FillTypesTest, InsertTest) {
   EXPECT_EQ(get_response.context_types_size(), fill_types_->num_operations());
 }
 
+// Tests the normal update cases(the number of types inside db are enough for
+// updating).
+TEST_F(FillTypesTest, NormalUpdateTest) {
+  TF_ASSERT_OK(fill_types_->SetUp(store_.get()));
+  for (int64 i = 0; i < fill_types_->num_operations(); ++i) {
+    OpStats op_stats;
+    TF_EXPECT_OK(fill_types_->RunOp(i, store_.get(), op_stats));
+  }
+
+  // Gets the get_response_before_update for later comparison.
+  GetContextTypesRequest get_request_before_update;
+  GetContextTypesResponse get_response_before_update;
+  TF_ASSERT_OK(store_->GetContextTypes(get_request_before_update,
+                                       &get_response_before_update));
+
+  std::unique_ptr<FillTypes> fill_types_update;
+  FillTypesConfig fill_types_update_config =
+      testing::ParseTextProtoOrDie<FillTypesConfig>(
+          R"(
+            update: true
+            specification: CONTEXT_TYPE
+            num_properties { minimum: 1 maximum: 10 }
+          )");
+  fill_types_update = absl::make_unique<FillTypes>(
+      FillTypes(fill_types_update_config, kNumOperations));
+  TF_ASSERT_OK(fill_types_update->SetUp(store_.get()));
+  for (int64 i = 0; i < fill_types_update->num_operations(); ++i) {
+    OpStats op_stats;
+    TF_EXPECT_OK(fill_types_update->RunOp(i, store_.get(), op_stats));
+  }
+
+  // Gets the get_response_after_update for later comparison.
+  GetContextTypesRequest get_request_after_update;
+  GetContextTypesResponse get_response_after_update;
+  TF_ASSERT_OK(store_->GetContextTypes(get_request_after_update,
+                                       &get_response_after_update));
+
+  // If the updates are working properly, the type name should remain the same
+  // even after the updates. On the other hand, the properties size for each
+  // type should be greater than before since some new fields have been added in
+  // the update process.
+  for (int64 i = 0; i < fill_types_update->num_operations(); ++i) {
+    EXPECT_STREQ(get_response_before_update.context_types()[i].name().c_str(),
+                 get_response_after_update.context_types()[i].name().c_str());
+    EXPECT_LT(get_response_before_update.context_types()[i].properties().size(),
+              get_response_after_update.context_types()[i].properties().size());
+  }
+}
+
+// Tests the update cases(the number of types inside db are not enough for
+// updating) that needs making up and inserting new types in db for update.
+TEST_F(FillTypesTest, MakeUpUpdateTest) {
+  TF_ASSERT_OK(fill_types_->SetUp(store_.get()));
+  for (int64 i = 0; i < fill_types_->num_operations(); ++i) {
+    OpStats op_stats;
+    TF_EXPECT_OK(fill_types_->RunOp(i, store_.get(), op_stats));
+  }
+
+  // Gets the get_response_before_update for later comparison.
+  GetContextTypesRequest get_request_before_update;
+  GetContextTypesResponse get_response_before_update;
+  TF_ASSERT_OK(store_->GetContextTypes(get_request_before_update,
+                                       &get_response_before_update));
+
+  std::unique_ptr<FillTypes> fill_types_update;
+  FillTypesConfig fill_types_update_config =
+      testing::ParseTextProtoOrDie<FillTypesConfig>(
+          R"(
+            update: true
+            specification: CONTEXT_TYPE
+            num_properties { minimum: 1 maximum: 10 }
+          )");
+
+  // The num_operations passed into the fill_types_update is bigger than the
+  // existed number of types inside db(the inserted types by fill_types). So,
+  // the fill_types_update will make up the shortage types and update them
+  // together.
+  fill_types_update = absl::make_unique<FillTypes>(
+      FillTypes(fill_types_update_config, kNumOperations));
+  TF_ASSERT_OK(fill_types_update->SetUp(store_.get()));
+  for (int64 i = 0; i < fill_types_update->num_operations(); ++i) {
+    OpStats op_stats;
+    TF_EXPECT_OK(fill_types_update->RunOp(i, store_.get(), op_stats));
+  }
+
+  // Gets the get_response_after_update for later comparison.
+  GetContextTypesRequest get_request_after_update;
+  GetContextTypesResponse get_response_after_update;
+  TF_ASSERT_OK(store_->GetContextTypes(get_request_after_update,
+                                       &get_response_after_update));
+
+  // If the updates are working properly, for the types inserted before in
+  // fill_types workload, the type name should remain the same even after the
+  // updates. On the other hand, the properties size for these types should be
+  // greater than before since some new fields have been added in the
+  // update process.
+  for (int64 i = 0; i < fill_types_->num_operations(); ++i) {
+    EXPECT_STREQ(get_response_before_update.context_types()[i].name().c_str(),
+                 get_response_after_update.context_types()[i].name().c_str());
+    EXPECT_LT(get_response_before_update.context_types()[i].properties().size(),
+              get_response_after_update.context_types()[i].properties().size());
+  }
+
+  // Since the update process makes up new types in db. The current number
+  // of types in db should be the same as the num_operations passed inside the
+  // fill_type_update.
+  EXPECT_EQ(get_response_after_update.context_types_size(),
+            fill_types_update->num_operations());
+}
+
 }  // namespace
 }  // namespace ml_metadata
