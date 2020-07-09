@@ -4,6 +4,9 @@
 
 ## Bug Fixes and Other Changes
 
+*   Python MetadataStore now exposes get_artifact_by_type_and_name and
+    get_execution_by_type_and_name methods.
+
 ## Breaking Changes
 
 ## Deprecations

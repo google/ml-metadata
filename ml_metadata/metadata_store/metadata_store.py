@@ -540,6 +540,31 @@ class MetadataStore(object):
       result.append(x)
     return result
 
+  def get_artifact_by_type_and_name(
+      self, type_name: Text,
+      artifact_name: Text) -> Optional[metadata_store_pb2.Artifact]:
+    """Get the artifact of the given type and name.
+
+    The API fails if more than one artifact is found.
+
+    Args:
+      type_name: The artifact type name to look for.
+      artifact_name: The artifact name to look for.
+
+    Returns:
+      The Artifact matching the type and name.
+      None if no matched Artifact was found.
+    """
+    request = metadata_store_service_pb2.GetArtifactByTypeAndNameRequest()
+    request.type_name = type_name
+    request.artifact_name = artifact_name
+    response = metadata_store_service_pb2.GetArtifactByTypeAndNameResponse()
+
+    self._call('GetArtifactByTypeAndName', request, response)
+    if not response.HasField('artifact'):
+      return None
+    return response.artifact
+
   def get_artifacts_by_uri(self,
                            uri: Text) -> List[metadata_store_pb2.Artifact]:
     """Gets all the artifacts of a given uri."""
@@ -705,6 +730,31 @@ class MetadataStore(object):
     for x in response.executions:
       result.append(x)
     return result
+
+  def get_execution_by_type_and_name(
+      self, type_name: Text,
+      execution_name: Text) -> Optional[metadata_store_pb2.Execution]:
+    """Get the execution of the given type and name.
+
+    The API fails if more than one execution is found.
+
+    Args:
+      type_name: The execution type name to look for.
+      execution_name: The execution name to look for.
+
+    Returns:
+      The Execution matching the type and name.
+      None if no matched Execution found.
+    """
+    request = metadata_store_service_pb2.GetExecutionByTypeAndNameRequest()
+    request.type_name = type_name
+    request.execution_name = execution_name
+    response = metadata_store_service_pb2.GetExecutionByTypeAndNameResponse()
+
+    self._call('GetExecutionByTypeAndName', request, response)
+    if not response.HasField('execution'):
+      return None
+    return response.execution
 
   def get_executions_by_id(
       self, execution_ids: Iterable[int]) -> List[metadata_store_pb2.Execution]:

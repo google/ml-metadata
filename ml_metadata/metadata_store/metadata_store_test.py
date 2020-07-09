@@ -296,6 +296,34 @@ class MetadataStoreTest(absltest.TestCase):
     self.assertLen(artifact_result, 1)
     self.assertEqual(artifact_result[0].id, artifact_id_1)
 
+  def test_put_artifacts_get_artifact_by_type_and_name(self):
+    # Prepare test data.
+    store = _get_metadata_store()
+    artifact_type = _create_example_artifact_type(self._get_test_type_name())
+    type_id = store.put_artifact_type(artifact_type)
+    artifact = metadata_store_pb2.Artifact()
+    artifact.type_id = type_id
+    artifact.name = self._get_test_type_name()
+    [artifact_id] = store.put_artifacts([artifact])
+
+    # Test Artifact found case.
+    got_artifact = store.get_artifact_by_type_and_name(artifact_type.name,
+                                                       artifact.name)
+    self.assertEqual(got_artifact.id, artifact_id)
+    self.assertEqual(got_artifact.type_id, type_id)
+    self.assertEqual(got_artifact.name, artifact.name)
+
+    # Test Artifact not found cases.
+    empty_artifact = store.get_artifact_by_type_and_name(
+        "random_name", artifact.name)
+    self.assertIsNone(empty_artifact)
+    empty_artifact = store.get_artifact_by_type_and_name(
+        artifact_type.name, "random_name")
+    self.assertIsNone(empty_artifact)
+    empty_artifact = store.get_artifact_by_type_and_name(
+        "random_name", "random_name")
+    self.assertIsNone(empty_artifact)
+
   def test_put_artifacts_get_artifacts_by_uri(self):
     store = _get_metadata_store()
     artifact_type = _create_example_artifact_type(self._get_test_type_name())
@@ -330,6 +358,34 @@ class MetadataStoreTest(absltest.TestCase):
     execution_result = store.get_executions_by_type(execution_type_2.name)
     self.assertLen(execution_result, 1)
     self.assertEqual(execution_result[0].id, execution_id_1)
+
+  def test_put_executions_get_execution_by_type_and_name(self):
+    # Prepare test data.
+    store = _get_metadata_store()
+    execution_type = _create_example_execution_type(self._get_test_type_name())
+    type_id = store.put_execution_type(execution_type)
+    execution = metadata_store_pb2.Execution()
+    execution.type_id = type_id
+    execution.name = self._get_test_type_name()
+    [execution_id] = store.put_executions([execution])
+
+    # Test Execution found case.
+    got_execution = store.get_execution_by_type_and_name(
+        execution_type.name, execution.name)
+    self.assertEqual(got_execution.id, execution_id)
+    self.assertEqual(got_execution.type_id, type_id)
+    self.assertEqual(got_execution.name, execution.name)
+
+    # Test Execution not found cases.
+    empty_execution = store.get_execution_by_type_and_name(
+        "random_name", execution.name)
+    self.assertIsNone(empty_execution)
+    empty_execution = store.get_execution_by_type_and_name(
+        execution_type.name, "random_name")
+    self.assertIsNone(empty_execution)
+    empty_execution = store.get_execution_by_type_and_name(
+        "random_name", "random_name")
+    self.assertIsNone(empty_execution)
 
   def test_update_artifact_get_artifact(self):
     store = _get_metadata_store()
@@ -811,13 +867,13 @@ class MetadataStoreTest(absltest.TestCase):
     # Test Context not found cases.
     empty_context = store.get_context_by_type_and_name("random_name",
                                                        context.name)
-    self.assertEqual(empty_context, None)
+    self.assertIsNone(empty_context)
     empty_context = store.get_context_by_type_and_name(context_type.name,
                                                        "random_name")
-    self.assertEqual(empty_context, None)
+    self.assertIsNone(empty_context)
     empty_context = store.get_context_by_type_and_name("random_name",
                                                        "random_name")
-    self.assertEqual(empty_context, None)
+    self.assertIsNone(empty_context)
 
   def test_put_contexts_get_contexts_by_type(self):
     store = _get_metadata_store()

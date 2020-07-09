@@ -144,6 +144,12 @@ PyObject* GetArtifactsByType(ml_metadata::MetadataStore* metadata_store,
       &ml_metadata::MetadataStore::GetArtifactsByType);
 }
 
+PyObject* GetArtifactByTypeAndName(ml_metadata::MetadataStore* metadata_store,
+                                   const string& request) {
+  return AccessMetadataStore(metadata_store, request,
+      &ml_metadata::MetadataStore::GetArtifactByTypeAndName);
+}
+
 PyObject* GetArtifactsByURI(ml_metadata::MetadataStore* metadata_store,
                              const string& request) {
   return AccessMetadataStore(metadata_store, request,
@@ -190,6 +196,12 @@ PyObject* GetExecutionsByType(ml_metadata::MetadataStore* metadata_store,
                               const string& request) {
   return AccessMetadataStore(metadata_store, request,
       &ml_metadata::MetadataStore::GetExecutionsByType);
+}
+
+PyObject* GetExecutionByTypeAndName(ml_metadata::MetadataStore* metadata_store,
+                                    const string& request) {
+  return AccessMetadataStore(metadata_store, request,
+      &ml_metadata::MetadataStore::GetExecutionByTypeAndName);
 }
 
 PyObject* PutExecutionType(ml_metadata::MetadataStore* metadata_store,
@@ -377,6 +389,9 @@ PyObject* GetArtifactsByID(ml_metadata::MetadataStore* metadata_store,
 PyObject* GetArtifactsByType(ml_metadata::MetadataStore* metadata_store,
                              const string& request);
 
+PyObject* GetArtifactByTypeAndName(ml_metadata::MetadataStore* metadata_store,
+                                   const string& request);
+
 PyObject* GetArtifactsByURI(ml_metadata::MetadataStore* metadata_store,
                             const string& request);
 
@@ -397,6 +412,9 @@ PyObject* GetExecutionsByID(ml_metadata::MetadataStore* metadata_store,
 
 PyObject* GetExecutionsByType(ml_metadata::MetadataStore* metadata_store,
                               const string& request);
+
+PyObject* GetExecutionByTypeAndName(ml_metadata::MetadataStore* metadata_store,
+                                    const string& request);
 
 PyObject* PutContextType(ml_metadata::MetadataStore* metadata_store,
                          const string& request);
