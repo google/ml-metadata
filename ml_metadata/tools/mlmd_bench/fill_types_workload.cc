@@ -53,41 +53,46 @@ void GenerateType(const std::string& type_name, const int64 num_properties,
 // get_response for later update. Returns detailed error if query executions
 // failed.
 tensorflow::Status GetNumberOfTypes(const FillTypesConfig& fill_types_config,
-                                    MetadataStore*& store, int64& num_curr_type,
+                                    MetadataStore* store, int64& num_curr_type,
                                     int64& num_total_type,
                                     GetTypeResponseType& get_response) {
-  int64 num_artifact_type = 0, num_execution_type = 0, num_context_type = 0;
+  GetArtifactTypesResponse get_artifact_type_response;
+  TF_RETURN_IF_ERROR(store->GetArtifactTypes(
+      /*request=*/{}, &get_artifact_type_response));
+  int64 num_artifact_type = get_artifact_type_response.artifact_types_size();
+
+  GetExecutionTypesResponse get_execution_type_response;
+  TF_RETURN_IF_ERROR(store->GetExecutionTypes(
+      /*request=*/{}, &get_execution_type_response));
+  int64 num_execution_type = get_execution_type_response.execution_types_size();
+
+  GetContextTypesResponse get_context_type_response;
+  TF_RETURN_IF_ERROR(store->GetContextTypes(
+      /*request=*/{}, &get_context_type_response));
+  int64 num_context_type = get_context_type_response.context_types_size();
+
   switch (fill_types_config.specification()) {
     case FillTypesConfig::ARTIFACT_TYPE: {
-      get_response.emplace<GetArtifactTypesResponse>();
-      TF_RETURN_IF_ERROR(store->GetArtifactTypes(
-          /*request=*/{}, &absl::get<GetArtifactTypesResponse>(get_response)));
-      num_artifact_type = absl::get<GetArtifactTypesResponse>(get_response)
-                              .artifact_types_size();
       num_curr_type = num_artifact_type;
+      get_response.emplace<GetArtifactTypesResponse>(
+          get_artifact_type_response);
       break;
     }
     case FillTypesConfig::EXECUTION_TYPE: {
-      get_response.emplace<GetExecutionTypesResponse>();
-      TF_RETURN_IF_ERROR(store->GetExecutionTypes(
-          /*request=*/{}, &absl::get<GetExecutionTypesResponse>(get_response)));
-      num_execution_type = absl::get<GetExecutionTypesResponse>(get_response)
-                               .execution_types_size();
       num_curr_type = num_execution_type;
+      get_response.emplace<GetExecutionTypesResponse>(
+          get_execution_type_response);
       break;
     }
     case FillTypesConfig::CONTEXT_TYPE: {
-      get_response.emplace<GetContextTypesResponse>();
-      TF_RETURN_IF_ERROR(store->GetContextTypes(
-          /*request=*/{}, &absl::get<GetContextTypesResponse>(get_response)));
-      num_context_type =
-          absl::get<GetContextTypesResponse>(get_response).context_types_size();
       num_curr_type = num_context_type;
+      get_response.emplace<GetContextTypesResponse>(get_context_type_response);
       break;
     }
     default:
       LOG(FATAL) << "Wrong specification for FillTypes!";
   }
+
   num_total_type = num_artifact_type + num_execution_type + num_context_type;
   return tensorflow::Status::OK();
 }
@@ -95,7 +100,7 @@ tensorflow::Status GetNumberOfTypes(const FillTypesConfig& fill_types_config,
 // Inserts new types into the db if the current types inside db is not enough
 // for update. Returns detailed error if query executions failed.
 tensorflow::Status MakeUpTypesForUpdate(
-    const FillTypesConfig& fill_types_config, MetadataStore*& store,
+    const FillTypesConfig& fill_types_config, MetadataStore* store,
     int64 num_type_to_make_up) {
   FillTypesConfig make_up_config = fill_types_config;
   make_up_config.set_update(false);
@@ -151,6 +156,9 @@ FillTypes::FillTypes(const FillTypesConfig& fill_types_config,
     }
     default:
       LOG(FATAL) << "Wrong specification for FillTypes!";
+  }
+  if (fill_types_config_.update()) {
+    name_ += "(update)";
   }
 }
 
