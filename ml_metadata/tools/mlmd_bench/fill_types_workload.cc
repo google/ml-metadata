@@ -39,8 +39,8 @@ void GenerateType(const std::string& type_name, const int64 num_properties,
                   Type& type, int64& curr_bytes) {
   // The random type name will be a random number.
   type.set_name(type_name);
-  // The curr_bytes records the total transferred bytes for executing each work
-  // item.
+  // The curr_bytes records the total transferred bytes for executing each
+  // work item.
   curr_bytes += type.name().size();
   for (int64 i = 0; i < num_properties; i++) {
     (*type.mutable_properties())[absl::StrCat("p-", i)] = STRING;
@@ -117,9 +117,10 @@ tensorflow::Status MakeUpTypesForUpdate(
 
 // A template function where the Type can be ArtifactType / ExecutionType /
 // ContextType.
-// Takes an existed type and generates a new type for later update accordingly.
-// The updated type will have some new fields added and the number of new added
-// fields will be generated w.r.t. the uniform distribution.
+// Takes an existed type and generates a new type for later update
+// accordingly. The updated type will have some new fields added and the
+// number of new added fields will be generated w.r.t. the uniform
+// distribution.
 template <typename Type>
 void UpdateType(const int64 num_properties, const Type& existed_type,
                 Type& updated_type, int64& curr_bytes) {
@@ -207,7 +208,8 @@ tensorflow::Status FillTypes::SetUpImpl(MetadataStore* store) {
       case FillTypesConfig::ARTIFACT_TYPE: {
         put_request.emplace<PutArtifactTypeRequest>();
         if (fill_types_config_.update()) {
-          // For update purpose, the can_add_fields field should be set to true.
+          // For update purpose, the can_add_fields field should be set to
+          // true.
           absl::get<PutArtifactTypeRequest>(put_request)
               .set_can_add_fields(true);
           UpdateType<ArtifactType>(
@@ -229,7 +231,8 @@ tensorflow::Status FillTypes::SetUpImpl(MetadataStore* store) {
       case FillTypesConfig::EXECUTION_TYPE: {
         put_request.emplace<PutExecutionTypeRequest>();
         if (fill_types_config_.update()) {
-          // For update purpose, the can_add_fields field should be set to true.
+          // For update purpose, the can_add_fields field should be set to
+          // true.
           absl::get<PutExecutionTypeRequest>(put_request)
               .set_can_add_fields(true);
           UpdateType<ExecutionType>(
@@ -251,7 +254,8 @@ tensorflow::Status FillTypes::SetUpImpl(MetadataStore* store) {
       case FillTypesConfig::CONTEXT_TYPE: {
         put_request.emplace<PutContextTypeRequest>();
         if (fill_types_config_.update()) {
-          // For update purpose, the can_add_fields field should be set to true.
+          // For update purpose, the can_add_fields field should be set to
+          // true.
           absl::get<PutContextTypeRequest>(put_request)
               .set_can_add_fields(true);
           UpdateType<ContextType>(
