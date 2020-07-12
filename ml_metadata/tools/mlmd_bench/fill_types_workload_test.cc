@@ -31,6 +31,7 @@ namespace ml_metadata {
 namespace {
 
 constexpr int64 kNumOperations = 100;
+constexpr int64 kNumOperationsForMakeUpCases = 200;
 
 // Generates FillTypes Workload where `update` indicates inserting or updating.
 void GenerateFillTypesWorkload(
@@ -76,52 +77,13 @@ void GenerateFillTypesWorkload(
 // should remain the same even after the updates. On the other hand, the
 // properties size for each type should be greater than before since some new
 // fields have been added in the update process.
-bool CheckArtifactTypesUpdateStatus(
-    const GetArtifactTypesResponse& response_before,
-    const GetArtifactTypesResponse& response_after,
-    const int64 num_operations) {
-  for (int64 i = 0; i < num_operations; ++i) {
-    if (response_before.artifact_types()[i].id() !=
-        response_after.artifact_types()[i].id()) {
-      return false;
-    }
-    if (response_before.artifact_types()[i].properties().size() >=
-        response_after.artifact_types()[i].properties().size()) {
-      return false;
-    }
+template <typename Type>
+bool CheckTypesUpdateStatus(const Type& type_before, const Type& type_after) {
+  if (type_before.id() != type_after.id()) {
+    return false;
   }
-  return true;
-}
-
-bool CheckExecutionTypesUpdateStatus(
-    const GetExecutionTypesResponse& response_before,
-    const GetExecutionTypesResponse& response_after,
-    const int64 num_operations) {
-  for (int64 i = 0; i < num_operations; ++i) {
-    if (response_before.execution_types()[i].id() !=
-        response_after.execution_types()[i].id()) {
-      return false;
-    }
-    if (response_before.execution_types()[i].properties().size() >=
-        response_after.execution_types()[i].properties().size()) {
-      return false;
-    }
-  }
-  return true;
-}
-
-bool CheckContextTypesUpdateStatus(
-    const GetContextTypesResponse& response_before,
-    const GetContextTypesResponse& response_after, const int64 num_operations) {
-  for (int64 i = 0; i < num_operations; ++i) {
-    if (response_before.context_types()[i].id() !=
-        response_after.context_types()[i].id()) {
-      return false;
-    }
-    if (response_before.context_types()[i].properties().size() >=
-        response_after.context_types()[i].properties().size()) {
-      return false;
-    }
+  if (type_before.properties().size() >= type_after.properties().size()) {
+    return false;
   }
   return true;
 }
@@ -177,7 +139,7 @@ class FillTypesInsertTest : public ::testing::Test {
 TEST_F(FillTypesInsertTest, SetUpImplTest) {
   for (auto& workload : fill_types_insert_) {
     TF_ASSERT_OK(workload->SetUp(store_.get()));
-    EXPECT_EQ(kNumOperations, workload->num_operations());
+    ASSERT_EQ(kNumOperations, workload->num_operations());
   }
 }
 
@@ -194,12 +156,10 @@ TEST_F(FillTypesInsertTest, InsertTest) {
                                  get_execution_types_response,
                                  get_context_types_response));
 
-  EXPECT_EQ(get_artifact_types_response.artifact_types_size(),
-            fill_types_insert_[0]->num_operations());
+  EXPECT_EQ(get_artifact_types_response.artifact_types_size(), kNumOperations);
   EXPECT_EQ(get_execution_types_response.execution_types_size(),
-            fill_types_insert_[1]->num_operations());
-  EXPECT_EQ(get_context_types_response.context_types_size(),
-            fill_types_insert_[2]->num_operations());
+            kNumOperations);
+  EXPECT_EQ(get_context_types_response.context_types_size(), kNumOperations);
 }
 
 // Test fixture that uses the same data configuration for multiple following
@@ -229,7 +189,7 @@ TEST_F(FillTypesUpdateTest, SetUpImplTest) {
   GenerateFillTypesWorkload(true, kNumOperations, fill_types_update_);
   for (auto& workload : fill_types_update_) {
     TF_ASSERT_OK(workload->SetUp(store_.get()));
-    EXPECT_EQ(kNumOperations, workload->num_operations());
+    ASSERT_EQ(kNumOperations, workload->num_operations());
   }
 }
 
@@ -265,26 +225,26 @@ TEST_F(FillTypesUpdateTest, NormalUpdateTest) {
   // same even after the updates. On the other hand, the properties size for
   // each type should be greater than before since some new fields have been
   // added in the update process.
-  EXPECT_TRUE(
-      CheckArtifactTypesUpdateStatus(get_artifact_types_response_before_update,
-                                     get_artifact_types_response_after_update,
-                                     fill_types_update_[0]->num_operations()));
-  EXPECT_TRUE(CheckExecutionTypesUpdateStatus(
-      get_execution_types_response_before_update,
-      get_execution_types_response_after_update,
-      fill_types_update_[1]->num_operations()));
-  EXPECT_TRUE(
-      CheckContextTypesUpdateStatus(get_context_types_response_before_update,
-                                    get_context_types_response_after_update,
-                                    fill_types_update_[2]->num_operations()));
+  for (int64 i = 0; i < kNumOperations; ++i) {
+    EXPECT_TRUE(CheckTypesUpdateStatus<ArtifactType>(
+        get_artifact_types_response_before_update.artifact_types()[i],
+        get_artifact_types_response_after_update.artifact_types()[i]));
+    EXPECT_TRUE(CheckTypesUpdateStatus<ExecutionType>(
+        get_execution_types_response_before_update.execution_types()[i],
+        get_execution_types_response_after_update.execution_types()[i]));
+    EXPECT_TRUE(CheckTypesUpdateStatus<ContextType>(
+        get_context_types_response_before_update.context_types()[i],
+        get_context_types_response_after_update.context_types()[i]));
+  }
+
   // There should no more types inside db after update since the updates only
   // update the existed types inserted before by fill_types_insert_.
   EXPECT_EQ(get_artifact_types_response_after_update.artifact_types_size(),
-            fill_types_insert_[0]->num_operations());
+            kNumOperations);
   EXPECT_EQ(get_execution_types_response_after_update.execution_types_size(),
-            fill_types_insert_[1]->num_operations());
+            kNumOperations);
   EXPECT_EQ(get_context_types_response_after_update.context_types_size(),
-            fill_types_insert_[2]->num_operations());
+            kNumOperations);
 }
 
 // Tests the update cases(the number of types inside db are not enough for
@@ -303,7 +263,8 @@ TEST_F(FillTypesUpdateTest, MakeUpUpdateTest) {
   // existed number of types inside db(the inserted types by fill_types). So,
   // the fill_types_update will make up the shortage types and update them
   // together.
-  GenerateFillTypesWorkload(true, kNumOperations + 100, fill_types_update_);
+  GenerateFillTypesWorkload(true, kNumOperationsForMakeUpCases,
+                            fill_types_update_);
 
   TF_ASSERT_OK(SetUpAndExecuteWorkload(store_.get(), fill_types_update_));
 
@@ -321,27 +282,27 @@ TEST_F(FillTypesUpdateTest, MakeUpUpdateTest) {
   // updates. On the other hand, the properties size for these types should
   // be greater than before since some new fields have been added
   // in the update process.
-  EXPECT_TRUE(
-      CheckArtifactTypesUpdateStatus(get_artifact_types_response_before_update,
-                                     get_artifact_types_response_after_update,
-                                     fill_types_insert_[0]->num_operations()));
-  EXPECT_TRUE(CheckExecutionTypesUpdateStatus(
-      get_execution_types_response_before_update,
-      get_execution_types_response_after_update,
-      fill_types_insert_[1]->num_operations()));
-  EXPECT_TRUE(
-      CheckContextTypesUpdateStatus(get_context_types_response_before_update,
-                                    get_context_types_response_after_update,
-                                    fill_types_insert_[2]->num_operations()));
+  for (int64 i = 0; i < kNumOperations; ++i) {
+    EXPECT_TRUE(CheckTypesUpdateStatus<ArtifactType>(
+        get_artifact_types_response_before_update.artifact_types()[i],
+        get_artifact_types_response_after_update.artifact_types()[i]));
+    EXPECT_TRUE(CheckTypesUpdateStatus<ExecutionType>(
+        get_execution_types_response_before_update.execution_types()[i],
+        get_execution_types_response_after_update.execution_types()[i]));
+    EXPECT_TRUE(CheckTypesUpdateStatus<ContextType>(
+        get_context_types_response_before_update.context_types()[i],
+        get_context_types_response_after_update.context_types()[i]));
+  }
+
   // Since the update process makes up new types in db, the current number
   // of types in db should be the same as the num_operations of the
   // fill_type_update.
   EXPECT_EQ(get_artifact_types_response_after_update.artifact_types_size(),
-            fill_types_update_[0]->num_operations());
+            kNumOperationsForMakeUpCases);
   EXPECT_EQ(get_execution_types_response_after_update.execution_types_size(),
-            fill_types_update_[1]->num_operations());
+            kNumOperationsForMakeUpCases);
   EXPECT_EQ(get_context_types_response_after_update.context_types_size(),
-            fill_types_update_[2]->num_operations());
+            kNumOperationsForMakeUpCases);
 }
 
 }  // namespace
