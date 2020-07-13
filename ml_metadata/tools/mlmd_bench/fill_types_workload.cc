@@ -32,12 +32,11 @@ namespace {
 
 // Gets the number of current types(`num_curr_type`) and total
 // types(`num_total_type`) for later insert or update. Also updates the
-// `get_response` for later update. Returns detailed error if query executions
-// failed.
+// `get_response`. Returns detailed error if query executions failed.
 tensorflow::Status GetNumberOfTypes(const FillTypesConfig& fill_types_config,
                                     MetadataStore* store, int64& num_curr_type,
                                     int64& num_total_type,
-                                    GetTypeResponseType& get_response) {
+                                    GetTypesResponseType& get_response) {
   GetArtifactTypesResponse get_artifact_type_response;
   TF_RETURN_IF_ERROR(store->GetArtifactTypes(
       /*request=*/{}, &get_artifact_type_response));
@@ -96,7 +95,8 @@ tensorflow::Status MakeUpTypesForUpdate(
   return tensorflow::Status::OK();
 }
 
-// Initializes the properties of the put request according to the configuration.
+// Initializes the properties of the `put_request` according to
+// `fill_types_config`.
 void InitializePutRequest(const FillTypesConfig& fill_types_config,
                           FillTypeWorkItemType& put_request) {
   switch (fill_types_config.specification()) {
@@ -144,9 +144,11 @@ void GenerateOrUpdateType(const FillTypesConfig& fill_types_config,
     // Update cases.
     // Except the new added fields, `type` will the same as `existed_type`.
     type = existed_type;
+    // The `curr_bytes` records the total transferred bytes for executing each
+    // work item.
     curr_bytes += existed_type.name().size();
     for (auto& pair : existed_type.properties()) {
-      // pair.first is the property of `existed_type`.
+      // pair.first is the property name of `existed_type`.
       curr_bytes += pair.first.size();
     }
     for (int64 i = 0; i < num_properties; i++) {
@@ -156,8 +158,6 @@ void GenerateOrUpdateType(const FillTypesConfig& fill_types_config,
   } else {
     // Insert cases.
     type.set_name(type_name);
-    // The `curr_bytes` records the total transferred bytes for executing each
-    // work item.
     curr_bytes += type.name().size();
     for (int64 i = 0; i < num_properties; i++) {
       (*type.mutable_properties())[absl::StrCat("p-", i)] = STRING;
@@ -209,7 +209,7 @@ tensorflow::Status FillTypes::SetUpImpl(MetadataStore* store) {
   // Gets the number of current types(`num_curr_type`) and total
   // types(`num_total_type`) for later insert or update.
   int64 num_curr_type = 0, num_total_type = 0;
-  GetTypeResponseType get_response;
+  GetTypesResponseType get_response;
   TF_RETURN_IF_ERROR(GetNumberOfTypes(fill_types_config_, store, num_curr_type,
                                       num_total_type, get_response));
 
@@ -230,6 +230,7 @@ tensorflow::Status FillTypes::SetUpImpl(MetadataStore* store) {
     curr_bytes = 0;
     FillTypeWorkItemType put_request;
     InitializePutRequest(fill_types_config_, put_request);
+    // Updates the first `num_operations_` types inside db.
     const int64 update_type_index = i - num_total_type;
     const std::string type_name = absl::StrCat("type_", i);
     const int64 num_properties = uniform_dist(gen);

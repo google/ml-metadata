@@ -30,9 +30,9 @@ namespace ml_metadata {
 using FillTypeWorkItemType =
     absl::variant<PutArtifactTypeRequest, PutExecutionTypeRequest,
                   PutContextTypeRequest>;
-// GetTypeResponseType can be GetArtifactTypesResponse /
+// Defines a GetTypesResponseType can be GetArtifactTypesResponse /
 // GetExecutionTypesResponse / GetContextTypesResponse.
-using GetTypeResponseType =
+using GetTypesResponseType =
     absl::variant<GetArtifactTypesResponse, GetExecutionTypesResponse,
                   GetContextTypesResponse>;
 // A specific workload for creating and updating types: ArtifactTypes /

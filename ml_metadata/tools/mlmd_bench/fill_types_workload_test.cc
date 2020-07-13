@@ -33,7 +33,7 @@ namespace {
 constexpr int64 kNumOperations = 100;
 constexpr int64 kNumOperationsForMakeUpCases = 200;
 
-// Generates FillTypes Workload where `update` indicates inserting or updating.
+// Generates FillTypes Workload where `update` indicates insert or update cases.
 void GenerateFillTypesWorkload(
     const bool update, const int64 num_operations,
     std::vector<std::unique_ptr<FillTypes>>& fill_types) {
@@ -88,7 +88,7 @@ bool CheckTypesUpdateStatus(const Type& type_before, const Type& type_after) {
   return true;
 }
 
-// Updates the get types response of the current store instance.
+// Updates the get types response with the current store instance.
 tensorflow::Status UpdateGetResponse(
     MetadataStore* store, GetArtifactTypesResponse& get_artifact_types_response,
     GetExecutionTypesResponse& get_execution_types_response,
@@ -144,8 +144,6 @@ TEST_F(FillTypesInsertTest, SetUpImplTest) {
 }
 
 // Tests the RunOpImpl() for insert types.
-// Checks indeed all the work items have been executed and all the types have
-// been inserted into the db.
 TEST_F(FillTypesInsertTest, InsertTest) {
   TF_ASSERT_OK(SetUpAndExecuteWorkload(store_.get(), fill_types_insert_));
 
@@ -156,6 +154,9 @@ TEST_F(FillTypesInsertTest, InsertTest) {
                                  get_execution_types_response,
                                  get_context_types_response));
 
+  // Checks indeed all the work items have been executed and all the types have
+  // been inserted into the db. The number of specific types inside db is the
+  // same as the number of insert operations.
   EXPECT_EQ(get_artifact_types_response.artifact_types_size(), kNumOperations);
   EXPECT_EQ(get_execution_types_response.execution_types_size(),
             kNumOperations);
@@ -171,7 +172,8 @@ class FillTypesUpdateTest : public ::testing::Test {
     // Uses a fake in-memory SQLite database for testing.
     mlmd_config.mutable_fake_database();
     TF_ASSERT_OK(CreateMetadataStore(mlmd_config, &store_));
-    // Inserts some types into the db for later update.
+    // Inserts some types into the db for later update since the test db is an
+    // empty one in the beginning.
     GenerateFillTypesWorkload(false, kNumOperations, fill_types_insert_);
     TF_ASSERT_OK(SetUpAndExecuteWorkload(store_.get(), fill_types_insert_));
   }
@@ -221,10 +223,7 @@ TEST_F(FillTypesUpdateTest, NormalUpdateTest) {
                                  get_execution_types_response_after_update,
                                  get_context_types_response_after_update));
 
-  // If the updates are working properly, the type id should remain the
-  // same even after the updates. On the other hand, the properties size for
-  // each type should be greater than before since some new fields have been
-  // added in the update process.
+  // Uses CheckTypesUpdateStatus() to check update status.
   for (int64 i = 0; i < kNumOperations; ++i) {
     EXPECT_TRUE(CheckTypesUpdateStatus<ArtifactType>(
         get_artifact_types_response_before_update.artifact_types()[i],
@@ -247,10 +246,10 @@ TEST_F(FillTypesUpdateTest, NormalUpdateTest) {
             kNumOperations);
 }
 
-// Tests the update cases(the number of types inside db are not enough for
-// updating) that needs making up and inserting new types in db for update.
+// Tests the update cases where the number of types inside db are not enough for
+// updating so making up and inserting new types in db for update is needed.
 TEST_F(FillTypesUpdateTest, MakeUpUpdateTest) {
-  // Gets the get_response_before_update for later comparison.
+  // Gets the `get_response_before_update` for later comparison.
   GetArtifactTypesResponse get_artifact_types_response_before_update;
   GetExecutionTypesResponse get_execution_types_response_before_update;
   GetContextTypesResponse get_context_types_response_before_update;
@@ -259,10 +258,10 @@ TEST_F(FillTypesUpdateTest, MakeUpUpdateTest) {
                                  get_execution_types_response_before_update,
                                  get_context_types_response_before_update));
 
-  // The num_operations passed into the fill_types_update is bigger than the
-  // existed number of types inside db(the inserted types by fill_types). So,
-  // the fill_types_update will make up the shortage types and update them
-  // together.
+  // The num_operations passed into the `fill_types_update_` is bigger than the
+  // existed number of types inside db(the number of inserted types by
+  // `fill_types_insert_`). So, the `fill_types_update_` will make up and insert
+  // some new types in db and update them together later.
   GenerateFillTypesWorkload(true, kNumOperationsForMakeUpCases,
                             fill_types_update_);
 
@@ -277,11 +276,8 @@ TEST_F(FillTypesUpdateTest, MakeUpUpdateTest) {
                                  get_execution_types_response_after_update,
                                  get_context_types_response_after_update));
 
-  // If the updates are working properly, for the types inserted before in
-  // fill_types workload, the type id should remain the same even after the
-  // updates. On the other hand, the properties size for these types should
-  // be greater than before since some new fields have been added
-  // in the update process.
+  // For the types inserted before in `fill_types_insert_` workload, uses
+  // CheckTypesUpdateStatus() to check update status.
   for (int64 i = 0; i < kNumOperations; ++i) {
     EXPECT_TRUE(CheckTypesUpdateStatus<ArtifactType>(
         get_artifact_types_response_before_update.artifact_types()[i],
@@ -296,7 +292,7 @@ TEST_F(FillTypesUpdateTest, MakeUpUpdateTest) {
 
   // Since the update process makes up new types in db, the current number
   // of types in db should be the same as the num_operations of the
-  // fill_type_update.
+  // fill_type_update(`kNumOperationsForMakeUpCases`).
   EXPECT_EQ(get_artifact_types_response_after_update.artifact_types_size(),
             kNumOperationsForMakeUpCases);
   EXPECT_EQ(get_execution_types_response_after_update.execution_types_size(),
