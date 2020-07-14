@@ -27,8 +27,8 @@ cc_library(
     hdrs = ["fill_types_workload.h"],
     deps = [
         ":workload",
-        "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:variant",
         "//ml_metadata/metadata_store",
         "//ml_metadata/metadata_store:types",

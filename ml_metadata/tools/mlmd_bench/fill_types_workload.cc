@@ -16,9 +16,9 @@ limitations under the License.
 
 #include <random>
 
-#include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/substitute.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
@@ -30,67 +30,45 @@ limitations under the License.
 namespace ml_metadata {
 namespace {
 
-// Gets the number of current types(`num_curr_type`) and total
-// types(`num_total_type`) for later insert or update. Also updates the
-// `get_response`. Returns detailed error if query executions failed.
-tensorflow::Status GetNumberOfTypes(const FillTypesConfig& fill_types_config,
-                                    MetadataStore* store, int64& num_curr_type,
-                                    int64& num_total_type,
-                                    GetTypesResponseType& get_response) {
-  GetArtifactTypesResponse get_artifact_type_response;
-  TF_RETURN_IF_ERROR(store->GetArtifactTypes(
-      /*request=*/{}, &get_artifact_type_response));
-  int64 num_artifact_type = get_artifact_type_response.artifact_types_size();
+// Defines a Type can be ArtifactType / ExecutionType / ContextType.
+using Type = absl::variant<ArtifactType, ExecutionType, ContextType>;
 
-  GetExecutionTypesResponse get_execution_type_response;
-  TF_RETURN_IF_ERROR(store->GetExecutionTypes(
-      /*request=*/{}, &get_execution_type_response));
-  int64 num_execution_type = get_execution_type_response.execution_types_size();
-
-  GetContextTypesResponse get_context_type_response;
-  TF_RETURN_IF_ERROR(store->GetContextTypes(
-      /*request=*/{}, &get_context_type_response));
-  int64 num_context_type = get_context_type_response.context_types_size();
-
+// Gets all the existing types (the specific types that indicated by
+// `fill_types_config`) inside db and store them into `existing_types`.
+// Returns detailed error if query executions failed.
+tensorflow::Status GetExistingTypes(const FillTypesConfig& fill_types_config,
+                                    MetadataStore* store,
+                                    std::vector<Type>& existing_types) {
   switch (fill_types_config.specification()) {
     case FillTypesConfig::ARTIFACT_TYPE: {
-      num_curr_type = num_artifact_type;
-      get_response.emplace<GetArtifactTypesResponse>(
-          get_artifact_type_response);
+      GetArtifactTypesResponse get_response;
+      TF_RETURN_IF_ERROR(store->GetArtifactTypes(
+          /*request=*/{}, &get_response));
+      for (auto& artifact_type : get_response.artifact_types()) {
+        existing_types.push_back(artifact_type);
+      }
       break;
     }
     case FillTypesConfig::EXECUTION_TYPE: {
-      num_curr_type = num_execution_type;
-      get_response.emplace<GetExecutionTypesResponse>(
-          get_execution_type_response);
+      GetExecutionTypesResponse get_response;
+      TF_RETURN_IF_ERROR(store->GetExecutionTypes(
+          /*request=*/{}, &get_response));
+      for (auto& execution_type : get_response.execution_types()) {
+        existing_types.push_back(execution_type);
+      }
       break;
     }
     case FillTypesConfig::CONTEXT_TYPE: {
-      num_curr_type = num_context_type;
-      get_response.emplace<GetContextTypesResponse>(get_context_type_response);
+      GetContextTypesResponse get_response;
+      TF_RETURN_IF_ERROR(store->GetContextTypes(
+          /*request=*/{}, &get_response));
+      for (auto& context_type : get_response.context_types()) {
+        existing_types.push_back(context_type);
+      }
       break;
     }
     default:
       LOG(FATAL) << "Wrong specification for FillTypes!";
-  }
-
-  num_total_type = num_artifact_type + num_execution_type + num_context_type;
-  return tensorflow::Status::OK();
-}
-
-// Inserts new types into the db if the current types inside db is not enough
-// for update. Returns detailed error if query executions failed.
-tensorflow::Status MakeUpTypesForUpdate(
-    const FillTypesConfig& fill_types_config, MetadataStore* store,
-    const int64 num_type_to_make_up) {
-  FillTypesConfig make_up_fill_types_config = fill_types_config;
-  make_up_fill_types_config.set_update(false);
-  std::unique_ptr<FillTypes> make_up_fill_types = absl::make_unique<FillTypes>(
-      FillTypes(make_up_fill_types_config, num_type_to_make_up));
-  TF_RETURN_IF_ERROR(make_up_fill_types->SetUp(store));
-  for (int64 i = 0; i < num_type_to_make_up; ++i) {
-    OpStats op_stats;
-    TF_RETURN_IF_ERROR(make_up_fill_types->RunOp(i, store, op_stats));
   }
   return tensorflow::Status::OK();
 }
@@ -101,6 +79,7 @@ void InitializePutRequest(const FillTypesConfig& fill_types_config,
                           FillTypeWorkItemType& put_request) {
   switch (fill_types_config.specification()) {
     case FillTypesConfig::ARTIFACT_TYPE: {
+      // Variant type initialization.
       put_request.emplace<PutArtifactTypeRequest>();
       if (fill_types_config.update()) {
         absl::get<PutArtifactTypeRequest>(put_request).set_can_add_fields(true);
@@ -127,43 +106,127 @@ void InitializePutRequest(const FillTypesConfig& fill_types_config,
   }
 }
 
-// A template function where the Type can be ArtifactType / ExecutionType /
-// ContextType.
-// For insert cases, it takes a `type_name` to generate a type and generates
-// `number_properties` properties. It also increase the stored bytes for the
-// `type` in `curr_bytes`.
-// For update cases, it takes a `existed_type` to generate a `type` with
-// additional `number_properties` properties. It also increase the stored bytes
-// for the `type` in `curr_bytes`.
-template <typename Type>
-void GenerateOrUpdateType(const FillTypesConfig& fill_types_config,
-                          const std::string& type_name,
-                          const int64 num_properties, const Type& existed_type,
-                          Type& type, int64& curr_bytes) {
-  if (fill_types_config.update()) {
-    // Update cases.
-    // Except the new added fields, `type` will the same as `existed_type`.
-    type = existed_type;
-    // The `curr_bytes` records the total transferred bytes for executing each
-    // work item.
-    curr_bytes += existed_type.name().size();
-    for (auto& pair : existed_type.properties()) {
-      // pair.first is the property name of `existed_type`.
-      curr_bytes += pair.first.size();
+// Template function for setting name and properties for insert types.
+template <typename T>
+void SetInsertType(const std::string& type_name, const int64 num_properties,
+                   T& type) {
+  type.set_name(type_name);
+  for (int64 i = 0; i < num_properties; i++) {
+    (*type.mutable_properties())[absl::StrCat("p-", i)] = STRING;
+  }
+}
+
+// Template function for setting additional properties for update types.
+template <typename T>
+void SetUpdateType(const T& existed_type, const int64 num_properties, T& type) {
+  type = existed_type;
+  for (int64 i = 0; i < num_properties; i++) {
+    (*type.mutable_properties())[absl::StrCat("add_p-", i)] = STRING;
+  }
+}
+
+// Prepares update types.
+// If `type_index` is less than the length of the `existing_types`, return the
+// existed type. Otherwise, the current existing types inside db are not enough
+// for update. Then, makes up new type and inserts it into the db and return
+// this make-up type. Returns detailed error if query executions failed.
+template <typename T>
+tensorflow::Status PrepareTypeForUpdate(
+    const FillTypesConfig& fill_types_config, MetadataStore* store,
+    const int64& type_index, const std::string& type_name,
+    const int64 num_properties, const std::vector<Type>& existing_types,
+    T& maybe_existing_type) {
+  if (type_index < (int64)existing_types.size()) {
+    maybe_existing_type = absl::get<T>(existing_types[type_index]);
+    return tensorflow::Status::OK();
+  }
+  switch (fill_types_config.specification()) {
+    case FillTypesConfig::ARTIFACT_TYPE: {
+      PutArtifactTypeRequest put_request;
+      SetInsertType<T>(type_name, num_properties, maybe_existing_type);
+      put_request.mutable_artifact_type()->CopyFrom(maybe_existing_type);
+      PutArtifactTypeResponse put_response;
+      TF_RETURN_IF_ERROR(store->PutArtifactType(put_request, &put_response));
+      break;
     }
-    for (int64 i = 0; i < num_properties; i++) {
-      (*type.mutable_properties())[absl::StrCat("add_p-", i)] = STRING;
-      curr_bytes += absl::StrCat("add_p-", i).size();
+    case FillTypesConfig::EXECUTION_TYPE: {
+      PutExecutionTypeRequest put_request;
+      SetInsertType<T>(type_name, num_properties, maybe_existing_type);
+      put_request.mutable_execution_type()->CopyFrom(maybe_existing_type);
+      PutExecutionTypeResponse put_response;
+      TF_RETURN_IF_ERROR(store->PutExecutionType(put_request, &put_response));
+      break;
     }
-  } else {
-    // Insert cases.
-    type.set_name(type_name);
-    curr_bytes += type.name().size();
-    for (int64 i = 0; i < num_properties; i++) {
-      (*type.mutable_properties())[absl::StrCat("p-", i)] = STRING;
-      curr_bytes += absl::StrCat("p-", i).size();
+    case FillTypesConfig::CONTEXT_TYPE: {
+      PutContextTypeRequest put_request;
+      SetInsertType<T>(type_name, num_properties, maybe_existing_type);
+      put_request.mutable_context_type()->CopyFrom(maybe_existing_type);
+      PutContextTypeResponse put_response;
+      TF_RETURN_IF_ERROR(store->PutContextType(put_request, &put_response));
+      break;
+    }
+    default:
+      LOG(FATAL) << "Wrong specification for FillTypes!";
+  }
+  return tensorflow::Status::OK();
+}
+
+// Calculates the transferred bytes for each types that will be inserted or
+// updated later.
+template <typename T>
+void GetTransferredBytes(const T& type, int64& curr_bytes) {
+  curr_bytes += type.name().size();
+  for (auto& pair : type.properties()) {
+    // Includes the bytes for properties' name size.
+    curr_bytes += pair.first.size();
+    // Includes the bytes for properties' value enumeration size.
+    switch (pair.second) {
+      case PropertyType::UNKNOWN: {
+        curr_bytes += 0;
+        break;
+      }
+      case PropertyType::INT: {
+        curr_bytes += 4;
+        break;
+      }
+      case PropertyType::DOUBLE: {
+        curr_bytes += 8;
+        break;
+      }
+      case PropertyType::STRING: {
+        curr_bytes += 8;
+        break;
+      }
     }
   }
+}
+
+// Generates insert / update type.
+// For insert cases, it takes a `type_name` and `number_properties`to set the
+// insert type. For update cases, it prepares the `maybe_existing_type`, takes
+// it and `number_properties`to set the update type. Gets the transferred bytes
+// for both cases at the end. Returns detailed error if query executions failed.
+template <typename T>
+tensorflow::Status GenerateType(const FillTypesConfig& fill_types_config,
+                                MetadataStore* store,
+                                const int64& update_type_index,
+                                const std::string& type_name,
+                                const int64 num_properties,
+                                std::vector<Type>& existing_types, T& type,
+                                int64& curr_bytes) {
+  if (fill_types_config.update()) {
+    // Update cases.
+    T maybe_existing_type;
+    TF_RETURN_IF_ERROR(PrepareTypeForUpdate<T>(
+        fill_types_config, store, update_type_index, type_name, num_properties,
+        existing_types, maybe_existing_type));
+    SetUpdateType<T>(maybe_existing_type, num_properties, type);
+  } else {
+    // Insert cases.
+    SetInsertType<T>(type_name, num_properties, type);
+  }
+  GetTransferredBytes(type, curr_bytes);
+  return tensorflow::Status::OK();
 }
 
 }  // namespace
@@ -199,76 +262,54 @@ tensorflow::Status FillTypes::SetUpImpl(MetadataStore* store) {
   // Uniform distribution that describes the number of properties for each
   // generated types.
   UniformDistribution num_properties = fill_types_config_.num_properties();
-  int64 min = num_properties.minimum();
-  int64 max = num_properties.maximum();
-  std::uniform_int_distribution<int64> uniform_dist{min, max};
-  // The seed for the random generator is the time when the FillTypes is
-  // created.
+  std::uniform_int_distribution<int64> uniform_dist{num_properties.minimum(),
+                                                    num_properties.maximum()};
+  // The seed for the random generator is the current time.
   std::minstd_rand0 gen(absl::ToUnixMillis(absl::Now()));
 
-  // Gets the number of current types(`num_curr_type`) and total
-  // types(`num_total_type`) for later insert or update.
-  int64 num_curr_type = 0, num_total_type = 0;
-  GetTypesResponseType get_response;
-  TF_RETURN_IF_ERROR(GetNumberOfTypes(fill_types_config_, store, num_curr_type,
-                                      num_total_type, get_response));
+  // Gets all the existing current types inside db for later update cases.
+  std::vector<Type> existing_types;
+  TF_RETURN_IF_ERROR(
+      GetExistingTypes(fill_types_config_, store, existing_types));
 
-  // If the number of current types is less than the update number of
-  // operations, calls MakeUpTypesForUpdate() for inserting new types into the
-  // db for later update.
-  if (fill_types_config_.update() && num_curr_type < num_operations_) {
-    const int64 num_type_to_make_up = num_operations_ - num_curr_type;
-    TF_RETURN_IF_ERROR(
-        MakeUpTypesForUpdate(fill_types_config_, store, num_type_to_make_up));
-    // Updates the get_response to contain the most up-to-date types inside db.
-    TF_RETURN_IF_ERROR(GetNumberOfTypes(fill_types_config_, store,
-                                        num_curr_type, num_total_type,
-                                        get_response));
-  }
-
-  for (int64 i = num_total_type; i < num_total_type + num_operations_; i++) {
+  for (int64 i = 0; i < num_operations_; i++) {
     curr_bytes = 0;
     FillTypeWorkItemType put_request;
     InitializePutRequest(fill_types_config_, put_request);
-    // Updates the first `num_operations_` types inside db.
-    const int64 update_type_index = i - num_total_type;
-    const std::string type_name = absl::StrCat("type_", i);
+    const std::string type_name =
+        absl::StrCat("type_", absl::FormatTime(absl::Now()), "_", i);
     const int64 num_properties = uniform_dist(gen);
     switch (fill_types_config_.specification()) {
       case FillTypesConfig::ARTIFACT_TYPE: {
-        GenerateOrUpdateType<ArtifactType>(
-            fill_types_config_, type_name, num_properties,
-            absl::get<GetArtifactTypesResponse>(get_response)
-                .artifact_types()[update_type_index],
+        TF_RETURN_IF_ERROR(GenerateType<ArtifactType>(
+            fill_types_config_, store, i, type_name, num_properties,
+            existing_types,
             *absl::get<PutArtifactTypeRequest>(put_request)
                  .mutable_artifact_type(),
-            curr_bytes);
+            curr_bytes));
         break;
       }
       case FillTypesConfig::EXECUTION_TYPE: {
-        GenerateOrUpdateType<ExecutionType>(
-            fill_types_config_, type_name, num_properties,
-            absl::get<GetExecutionTypesResponse>(get_response)
-                .execution_types()[update_type_index],
+        TF_RETURN_IF_ERROR(GenerateType<ExecutionType>(
+            fill_types_config_, store, i, type_name, num_properties,
+            existing_types,
             *absl::get<PutExecutionTypeRequest>(put_request)
                  .mutable_execution_type(),
-            curr_bytes);
+            curr_bytes));
         break;
       }
       case FillTypesConfig::CONTEXT_TYPE: {
-        GenerateOrUpdateType<ContextType>(
-            fill_types_config_, type_name, num_properties,
-            absl::get<GetContextTypesResponse>(get_response)
-                .context_types()[update_type_index],
+        TF_RETURN_IF_ERROR(GenerateType<ContextType>(
+            fill_types_config_, store, i, type_name, num_properties,
+            existing_types,
             *absl::get<PutContextTypeRequest>(put_request)
                  .mutable_context_type(),
-            curr_bytes);
+            curr_bytes));
         break;
       }
       default:
         return tensorflow::errors::InvalidArgument("Wrong specification!");
     }
-    // Updates work_items_.
     work_items_.emplace_back(put_request, curr_bytes);
   }
   return tensorflow::Status::OK();
@@ -277,23 +318,22 @@ tensorflow::Status FillTypes::SetUpImpl(MetadataStore* store) {
 // Executions of work items.
 tensorflow::Status FillTypes::RunOpImpl(const int64 work_items_index,
                                         MetadataStore* store) {
-  const int64 i = work_items_index;
   switch (fill_types_config_.specification()) {
     case FillTypesConfig::ARTIFACT_TYPE: {
-      PutArtifactTypeRequest put_request =
-          absl::get<PutArtifactTypeRequest>(work_items_[i].first);
+      PutArtifactTypeRequest put_request = absl::get<PutArtifactTypeRequest>(
+          work_items_[work_items_index].first);
       PutArtifactTypeResponse put_response;
       return store->PutArtifactType(put_request, &put_response);
     }
     case FillTypesConfig::EXECUTION_TYPE: {
-      PutExecutionTypeRequest put_request =
-          absl::get<PutExecutionTypeRequest>(work_items_[i].first);
+      PutExecutionTypeRequest put_request = absl::get<PutExecutionTypeRequest>(
+          work_items_[work_items_index].first);
       PutExecutionTypeResponse put_response;
       return store->PutExecutionType(put_request, &put_response);
     }
     case FillTypesConfig::CONTEXT_TYPE: {
       PutContextTypeRequest put_request =
-          absl::get<PutContextTypeRequest>(work_items_[i].first);
+          absl::get<PutContextTypeRequest>(work_items_[work_items_index].first);
       PutContextTypeResponse put_response;
       return store->PutContextType(put_request, &put_response);
     }
