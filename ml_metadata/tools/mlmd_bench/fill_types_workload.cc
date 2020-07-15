@@ -76,7 +76,7 @@ tensorflow::Status GetExistingTypes(const FillTypesConfig& fill_types_config,
 // Template function that initializes the properties of the `put_request`.
 template <typename T>
 void InitializePutRequest(const FillTypesConfig& fill_types_config,
-                          FillTypeWorkItemType& put_request) {
+                          FillTypesWorkItemType& put_request) {
   put_request.emplace<T>();
   if (fill_types_config.update()) {
     absl::get<T>(put_request).set_can_add_fields(true);
@@ -230,7 +230,7 @@ tensorflow::Status FillTypes::SetUpImpl(MetadataStore* store) {
 
   for (int64 i = 0; i < num_operations_; i++) {
     curr_bytes = 0;
-    FillTypeWorkItemType put_request;
+    FillTypesWorkItemType put_request;
     const std::string type_name =
         absl::StrCat("type_", absl::FormatTime(absl::Now()), "_", i);
     const int64 num_properties = uniform_dist(gen);
