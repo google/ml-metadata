@@ -39,7 +39,7 @@ class WorkloadBase {
 
   // Runs the operation related to the workload and measures performance for the
   // workload operation on individual work item on MLMD.
-  virtual tensorflow::Status RunOp(int64 i, MetadataStore* store,
+  virtual tensorflow::Status RunOp(const int64 i, MetadataStore* store,
                                    OpStats& op_stats) = 0;
 
   // Cleans the list of work items and related resources.
@@ -82,7 +82,7 @@ class Workload : public WorkloadBase {
   // running the operation.
   // Returns InvalidArgument error, if the `work_items_index` is invalid.
   // Returns detailed error if query executions failed.
-  tensorflow::Status RunOp(int64 work_items_index, MetadataStore* store,
+  tensorflow::Status RunOp(const int64 work_items_index, MetadataStore* store,
                            OpStats& op_stats) final {
     // Checks is_setup to ensure execution sequence.
     if (!is_setup_) {
@@ -128,7 +128,7 @@ class Workload : public WorkloadBase {
   // for executing the work_item_ prepared in SetUpImpl(). The detail
   // implementation will depend on each specific workload's semantic. Returns
   // detailed error if query executions failed.
-  virtual tensorflow::Status RunOpImpl(int64 work_items_index,
+  virtual tensorflow::Status RunOpImpl(const int64 work_items_index,
                                        MetadataStore* store) = 0;
 
   // The implementation of the TearDown(). It is called in TearDown() and
