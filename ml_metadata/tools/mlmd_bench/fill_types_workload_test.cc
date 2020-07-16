@@ -62,26 +62,26 @@ std::vector<WorkloadConfig> EnumerateConfigs(const bool is_update) {
 
 // Inserts some types into db to set it up in different start status in
 // testing.
-tensorflow::Status InsertTypesInDb(const int64 num_artifact_types_to_insert,
-                                   const int64 num_execution_types_to_insert,
-                                   const int64 num_context_types_to_insert,
+tensorflow::Status InsertTypesInDb(const int64 num_artifact_types,
+                                   const int64 num_execution_types,
+                                   const int64 num_context_types,
                                    MetadataStore* store) {
   PutTypesRequest put_request;
   PutTypesResponse put_response;
 
-  for (int64 i = 0; i < num_artifact_types_to_insert; i++) {
+  for (int64 i = 0; i < num_artifact_types; i++) {
     ArtifactType* curr_type = put_request.add_artifact_types();
     curr_type->set_name(absl::StrCat("pre_insert_artifact_type-", i));
     (*curr_type->mutable_properties())["property"] = STRING;
   }
 
-  for (int64 i = 0; i < num_execution_types_to_insert; i++) {
+  for (int64 i = 0; i < num_execution_types; i++) {
     ExecutionType* curr_type = put_request.add_execution_types();
     curr_type->set_name(absl::StrCat("pre_insert_execution_type-", i));
     (*curr_type->mutable_properties())["property"] = STRING;
   }
 
-  for (int64 i = 0; i < num_context_types_to_insert; i++) {
+  for (int64 i = 0; i < num_context_types; i++) {
     ContextType* curr_type = put_request.add_context_types();
     curr_type->set_name(absl::StrCat("pre_insert_context_type-", i));
     (*curr_type->mutable_properties())["property"] = STRING;
@@ -106,13 +106,50 @@ tensorflow::Status ExecuteWorkload(MetadataStore* store,
 // size for each type should be greater than before since some new fields have
 // been added in the update process.
 template <typename T>
-bool CheckTypesUpdateStatus(const Type& type_before, const Type& type_after) {
+bool CheckTypeUpdateStatus(const Type& type_before, const Type& type_after) {
   if (absl::get<T>(type_before).id() != absl::get<T>(type_after).id()) {
     return false;
   }
   if (absl::get<T>(type_before).properties().size() >=
       absl::get<T>(type_after).properties().size()) {
     return false;
+  }
+  return true;
+}
+
+// Checks the first `num_operations` types in `types_before` and `types_after`
+// for their update status.
+bool CheckUpdates(const FillTypesConfig& fill_types_config,
+                  const std::vector<Type>& types_before,
+                  const std::vector<Type>& types_after,
+                  const int64 num_operations) {
+  for (int64 i = 0; i < num_operations; ++i) {
+    switch (fill_types_config.specification()) {
+      case FillTypesConfig::ARTIFACT_TYPE: {
+        if (!CheckTypeUpdateStatus<ArtifactType>(types_before[i],
+                                                 types_after[i])) {
+          return false;
+        }
+        break;
+      }
+      case FillTypesConfig::EXECUTION_TYPE: {
+        if (!CheckTypeUpdateStatus<ExecutionType>(types_before[i],
+                                                  types_after[i])) {
+          return false;
+        }
+        break;
+      }
+      case FillTypesConfig::CONTEXT_TYPE: {
+        if (!CheckTypeUpdateStatus<ContextType>(types_before[i],
+                                                types_after[i])) {
+          return false;
+        }
+        break;
+      }
+      default:
+        LOG(FATAL) << "Wrong specification for FillTypes configuration input "
+                      "in testing !";
+    }
   }
   return true;
 }
@@ -129,11 +166,11 @@ class FillTypesInsertParameterizedTestFixture
     // Uses a fake in-memory SQLite database for testing.
     mlmd_config.mutable_fake_database();
     TF_ASSERT_OK(CreateMetadataStore(mlmd_config, &store_));
-    fill_types_insert_ = absl::make_unique<FillTypes>(
+    fill_types_ = absl::make_unique<FillTypes>(
         FillTypes(GetParam().fill_types_config(), GetParam().num_operations()));
   }
 
-  std::unique_ptr<FillTypes> fill_types_insert_;
+  std::unique_ptr<FillTypes> fill_types_;
   std::unique_ptr<MetadataStore> store_;
 };
 
@@ -141,8 +178,8 @@ class FillTypesInsertParameterizedTestFixture
 // Checks the SetUpImpl() indeed prepares a list of work items whose length is
 // the same as the specified number of operations.
 TEST_P(FillTypesInsertParameterizedTestFixture, SetUpImplWhenDbIsEmptyTest) {
-  TF_ASSERT_OK(fill_types_insert_->SetUp(store_.get()));
-  EXPECT_EQ(GetParam().num_operations(), fill_types_insert_->num_operations());
+  TF_ASSERT_OK(fill_types_->SetUp(store_.get()));
+  EXPECT_EQ(GetParam().num_operations(), fill_types_->num_operations());
 }
 
 // Tests the RunOpImpl() for FillTypes insert cases when the db is empty.
@@ -150,8 +187,8 @@ TEST_P(FillTypesInsertParameterizedTestFixture, SetUpImplWhenDbIsEmptyTest) {
 // types inside db is the same as the number of operations specified in the
 // workload.
 TEST_P(FillTypesInsertParameterizedTestFixture, InsertWhenDbIsEmptyTest) {
-  TF_ASSERT_OK(fill_types_insert_->SetUp(store_.get()));
-  TF_ASSERT_OK(ExecuteWorkload(store_.get(), fill_types_insert_));
+  TF_ASSERT_OK(fill_types_->SetUp(store_.get()));
+  TF_ASSERT_OK(ExecuteWorkload(store_.get(), fill_types_));
   // Gets all the existing current types inside db after the insert.
   std::vector<Type> existing_types;
   TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config(), store_.get(),
@@ -164,11 +201,12 @@ TEST_P(FillTypesInsertParameterizedTestFixture, InsertWhenDbIsEmptyTest) {
 // length is the same as the specified number of operations.
 TEST_P(FillTypesInsertParameterizedTestFixture,
        SetUpImplWhenDbContainsTypesTest) {
-  TF_ASSERT_OK(InsertTypesInDb(kNumberOfExisitedTypeInInsert,
-                               kNumberOfExisitedTypeInInsert,
-                               kNumberOfExisitedTypeInInsert, store_.get()));
-  TF_ASSERT_OK(fill_types_insert_->SetUp(store_.get()));
-  EXPECT_EQ(GetParam().num_operations(), fill_types_insert_->num_operations());
+  TF_ASSERT_OK(InsertTypesInDb(
+      /*num_artifact_types=*/kNumberOfExisitedTypeInInsert,
+      /*num_execution_types=*/kNumberOfExisitedTypeInInsert,
+      /*num_context_types=*/kNumberOfExisitedTypeInInsert, store_.get()));
+  TF_ASSERT_OK(fill_types_->SetUp(store_.get()));
+  EXPECT_EQ(GetParam().num_operations(), fill_types_->num_operations());
 }
 
 // Tests the RunOpImpl() for FillTypes insert cases when the db contains some
@@ -176,16 +214,17 @@ TEST_P(FillTypesInsertParameterizedTestFixture,
 // the new added types inside db is the same as the number of operations
 // specified in the workload.
 TEST_P(FillTypesInsertParameterizedTestFixture, InsertWhenDbContainsTypesTest) {
-  TF_ASSERT_OK(InsertTypesInDb(kNumberOfExisitedTypeInInsert,
-                               kNumberOfExisitedTypeInInsert,
-                               kNumberOfExisitedTypeInInsert, store_.get()));
+  TF_ASSERT_OK(InsertTypesInDb(
+      /*num_artifact_types=*/kNumberOfExisitedTypeInInsert,
+      /*num_execution_types=*/kNumberOfExisitedTypeInInsert,
+      /*num_context_types=*/kNumberOfExisitedTypeInInsert, store_.get()));
   // Gets the number of types before insert for later comparison.
   std::vector<Type> existing_types_before_insert;
   TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config(), store_.get(),
                                 existing_types_before_insert));
 
-  TF_ASSERT_OK(fill_types_insert_->SetUp(store_.get()));
-  TF_ASSERT_OK(ExecuteWorkload(store_.get(), fill_types_insert_));
+  TF_ASSERT_OK(fill_types_->SetUp(store_.get()));
+  TF_ASSERT_OK(ExecuteWorkload(store_.get(), fill_types_));
   // Gets the number of types after insert for later comparison.
   std::vector<Type> existing_types_after_insert;
   TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config(), store_.get(),
@@ -260,28 +299,9 @@ TEST_P(FillTypesUpdateParameterizedTestFixture, UpdateWhenDbIsEmptyTest) {
 
   // For all the types inside db, they should be updated. Checks their update
   // status.
-  for (int64 i = 0; i < (int64)existing_types_after_update.size(); ++i) {
-    switch (GetParam().fill_types_config().specification()) {
-      case FillTypesConfig::ARTIFACT_TYPE: {
-        EXPECT_TRUE(CheckTypesUpdateStatus<ArtifactType>(
-            existing_types_before_update[i], existing_types_after_update[i]));
-        break;
-      }
-      case FillTypesConfig::EXECUTION_TYPE: {
-        EXPECT_TRUE(CheckTypesUpdateStatus<ExecutionType>(
-            existing_types_before_update[i], existing_types_after_update[i]));
-        break;
-      }
-      case FillTypesConfig::CONTEXT_TYPE: {
-        EXPECT_TRUE(CheckTypesUpdateStatus<ContextType>(
-            existing_types_before_update[i], existing_types_after_update[i]));
-        break;
-      }
-      default:
-        LOG(FATAL) << "Wrong specification for FillTypes configuration input "
-                      "in testing !";
-    }
-  }
+  EXPECT_TRUE(CheckUpdates(
+      GetParam().fill_types_config(), existing_types_before_update,
+      existing_types_after_update, (int64)existing_types_after_update.size()));
 }
 
 // Tests the SetUpImpl() for FillTypes update cases when db contains not enough
@@ -292,10 +312,11 @@ TEST_P(FillTypesUpdateParameterizedTestFixture, UpdateWhenDbIsEmptyTest) {
 // as the specified number of operations.
 TEST_P(FillTypesUpdateParameterizedTestFixture,
        SetUpImplWhenDbContainsNotEnoughTypesTest) {
-  TF_ASSERT_OK(InsertTypesInDb(kNumberOfExistedTypesButNotEnoughInUpdate,
-                               kNumberOfExistedTypesButNotEnoughInUpdate,
-                               kNumberOfExistedTypesButNotEnoughInUpdate,
-                               store_.get()));
+  TF_ASSERT_OK(InsertTypesInDb(
+      /*num_artifact_types=*/kNumberOfExistedTypesButNotEnoughInUpdate,
+      /*num_execution_types=*/kNumberOfExistedTypesButNotEnoughInUpdate,
+      /*num_context_types=*/kNumberOfExistedTypesButNotEnoughInUpdate,
+      store_.get()));
   TF_ASSERT_OK(fill_types_update_->SetUp(store_.get()));
   // Gets the number of types inside db after SetUpImpl().
   std::vector<Type> existing_types;
@@ -311,10 +332,11 @@ TEST_P(FillTypesUpdateParameterizedTestFixture,
 // number of existed types inside db have been updated.
 TEST_P(FillTypesUpdateParameterizedTestFixture,
        UpdateWhenDbContainsNotEnoughTypesTest) {
-  TF_ASSERT_OK(InsertTypesInDb(kNumberOfExistedTypesButNotEnoughInUpdate,
-                               kNumberOfExistedTypesButNotEnoughInUpdate,
-                               kNumberOfExistedTypesButNotEnoughInUpdate,
-                               store_.get()));
+  TF_ASSERT_OK(InsertTypesInDb(
+      /*num_artifact_types=*/kNumberOfExistedTypesButNotEnoughInUpdate,
+      /*num_execution_types=*/kNumberOfExistedTypesButNotEnoughInUpdate,
+      /*num_context_types=*/kNumberOfExistedTypesButNotEnoughInUpdate,
+      store_.get()));
   TF_ASSERT_OK(fill_types_update_->SetUp(store_.get()));
   // Gets the existing types in db after set up but before update for later
   // comparison. The `existing_types_before_update` will contains the existed
@@ -339,28 +361,9 @@ TEST_P(FillTypesUpdateParameterizedTestFixture,
 
   // For all the types inside db, they should be updated. Checks their update
   // status.
-  for (int64 i = 0; i < (int64)existing_types_after_update.size(); ++i) {
-    switch (GetParam().fill_types_config().specification()) {
-      case FillTypesConfig::ARTIFACT_TYPE: {
-        EXPECT_TRUE(CheckTypesUpdateStatus<ArtifactType>(
-            existing_types_before_update[i], existing_types_after_update[i]));
-        break;
-      }
-      case FillTypesConfig::EXECUTION_TYPE: {
-        EXPECT_TRUE(CheckTypesUpdateStatus<ExecutionType>(
-            existing_types_before_update[i], existing_types_after_update[i]));
-        break;
-      }
-      case FillTypesConfig::CONTEXT_TYPE: {
-        EXPECT_TRUE(CheckTypesUpdateStatus<ContextType>(
-            existing_types_before_update[i], existing_types_after_update[i]));
-        break;
-      }
-      default:
-        LOG(FATAL) << "Wrong specification for FillTypes configuration input "
-                      "in testing !";
-    }
-  }
+  EXPECT_TRUE(CheckUpdates(
+      GetParam().fill_types_config(), existing_types_before_update,
+      existing_types_after_update, (int64)existing_types_after_update.size()));
 }
 
 // Tests the SetUpImpl() for FillTypes update cases when db contains enough
@@ -372,8 +375,9 @@ TEST_P(FillTypesUpdateParameterizedTestFixture,
 TEST_P(FillTypesUpdateParameterizedTestFixture,
        SetUpImplWhenDbContainsEnoughTypesTest) {
   TF_ASSERT_OK(InsertTypesInDb(
-      kNumberOfExistedTypesEnoughInUpdate, kNumberOfExistedTypesEnoughInUpdate,
-      kNumberOfExistedTypesEnoughInUpdate, store_.get()));
+      /*num_artifact_types=*/kNumberOfExistedTypesEnoughInUpdate,
+      /*num_execution_types=*/kNumberOfExistedTypesEnoughInUpdate,
+      /*num_context_types=*/kNumberOfExistedTypesEnoughInUpdate, store_.get()));
   // Gets the number of types inside db before SetUpImpl().
   std::vector<Type> existing_types_before_setup;
   TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config(), store_.get(),
@@ -394,8 +398,9 @@ TEST_P(FillTypesUpdateParameterizedTestFixture,
 TEST_P(FillTypesUpdateParameterizedTestFixture,
        UpdateWhenDbContainsEnoughTypesTest) {
   TF_ASSERT_OK(InsertTypesInDb(
-      kNumberOfExistedTypesEnoughInUpdate, kNumberOfExistedTypesEnoughInUpdate,
-      kNumberOfExistedTypesEnoughInUpdate, store_.get()));
+      /*num_artifact_types=*/kNumberOfExistedTypesEnoughInUpdate,
+      /*num_execution_types=*/kNumberOfExistedTypesEnoughInUpdate,
+      /*num_context_types=*/kNumberOfExistedTypesEnoughInUpdate, store_.get()));
   TF_ASSERT_OK(fill_types_update_->SetUp(store_.get()));
   // Gets the existing types in db after set up but before update for later
   // comparison. The `existing_types_before_update` will contains the existed
@@ -419,37 +424,18 @@ TEST_P(FillTypesUpdateParameterizedTestFixture,
 
   // For the first number of update operations existed types inside db, they
   // should be updated. Checks their update status.
-  for (int64 i = 0; i < fill_types_update_->num_operations(); ++i) {
-    switch (GetParam().fill_types_config().specification()) {
-      case FillTypesConfig::ARTIFACT_TYPE: {
-        EXPECT_TRUE(CheckTypesUpdateStatus<ArtifactType>(
-            existing_types_before_update[i], existing_types_after_update[i]));
-        break;
-      }
-      case FillTypesConfig::EXECUTION_TYPE: {
-        EXPECT_TRUE(CheckTypesUpdateStatus<ExecutionType>(
-            existing_types_before_update[i], existing_types_after_update[i]));
-        break;
-      }
-      case FillTypesConfig::CONTEXT_TYPE: {
-        EXPECT_TRUE(CheckTypesUpdateStatus<ContextType>(
-            existing_types_before_update[i], existing_types_after_update[i]));
-        break;
-      }
-      default:
-        LOG(FATAL) << "Wrong specification for FillTypes configuration input "
-                      "in testing !";
-    }
-  }
+  EXPECT_TRUE(CheckUpdates(
+      GetParam().fill_types_config(), existing_types_before_update,
+      existing_types_after_update, fill_types_update_->num_operations()));
 }
 
-INSTANTIATE_TEST_CASE_P(FillTypesInsertTest,
-                        FillTypesInsertParameterizedTestFixture,
-                        ::testing::ValuesIn(EnumerateConfigs(false)));
+INSTANTIATE_TEST_CASE_P(
+    FillTypesInsertTest, FillTypesInsertParameterizedTestFixture,
+    ::testing::ValuesIn(EnumerateConfigs(/*is_update=*/false)));
 
-INSTANTIATE_TEST_CASE_P(FillTypesUpdateTest,
-                        FillTypesUpdateParameterizedTestFixture,
-                        ::testing::ValuesIn(EnumerateConfigs(true)));
+INSTANTIATE_TEST_CASE_P(
+    FillTypesUpdateTest, FillTypesUpdateParameterizedTestFixture,
+    ::testing::ValuesIn(EnumerateConfigs(/*is_update=*/true)));
 
 }  // namespace
 }  // namespace ml_metadata
