@@ -30,12 +30,12 @@ namespace ml_metadata {
 using FillTypesWorkItemType =
     absl::variant<PutArtifactTypeRequest, PutExecutionTypeRequest,
                   PutContextTypeRequest>;
+
 // A specific workload for creating and updating types: ArtifactTypes /
 // ExecutionTypes / ContextTypes.
 class FillTypes : public Workload<FillTypesWorkItemType> {
  public:
-  FillTypes(const FillTypesConfig& fill_types_config,
-            const int64 num_operations);
+  FillTypes(const FillTypesConfig& fill_types_config, int64 num_operations);
   ~FillTypes() override = default;
 
  protected:
@@ -56,7 +56,7 @@ class FillTypes : public Workload<FillTypesWorkItemType> {
   // Specific implementation of RunOpImpl() for FillTypes workload according to
   // its semantic. Runs the work items(FillTypesRequests) on the store. Returns
   // detailed error if query executions failed.
-  tensorflow::Status RunOpImpl(const int64 work_items_index,
+  tensorflow::Status RunOpImpl(int64 work_items_index,
                                MetadataStore* store) final;
 
   // Specific implementation of TearDownImpl() for FillTypes workload according
