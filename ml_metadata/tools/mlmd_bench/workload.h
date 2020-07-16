@@ -15,8 +15,6 @@ limitations under the License.
 #ifndef ML_METADATA_TOOLS_MLMD_BENCH_WORKLOAD_H
 #define ML_METADATA_TOOLS_MLMD_BENCH_WORKLOAD_H
 
-#include <vector>
-
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
@@ -84,7 +82,7 @@ class Workload : public WorkloadBase {
   // running the operation.
   // Returns InvalidArgument error, if the `work_items_index` is invalid.
   // Returns detailed error if query executions failed.
-  tensorflow::Status RunOp(const int64 work_items_index, MetadataStore* store,
+  tensorflow::Status RunOp(int64 work_items_index, MetadataStore* store,
                            OpStats& op_stats) final {
     // Checks is_setup to ensure execution sequence.
     if (!is_setup_) {

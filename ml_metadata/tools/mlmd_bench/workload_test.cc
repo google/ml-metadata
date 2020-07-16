@@ -39,7 +39,7 @@ class FakeWorkload : public Workload<std::string> {
     return tensorflow::Status::OK();
   }
 
-  tensorflow::Status RunOpImpl(const int64 i, MetadataStore* store) {
+  tensorflow::Status RunOpImpl(int64 i, MetadataStore* store) {
     return tensorflow::Status::OK();
   }
 
