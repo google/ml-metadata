@@ -20,11 +20,53 @@ limitations under the License.
 
 namespace ml_metadata {
 
-// OpStats records the statics(elapsed microsecond, transferred bytes) of each
+// OpStats records the statics(elapsed time, transferred bytes) of each
 // operation. It will be used to update the thread stats.
 struct OpStats {
   absl::Duration elapsed_time;
   int64 transferred_bytes;
+};
+
+class Stats {
+ public:
+  Stats();
+  ~Stats() = default;
+
+  // Starts the current thread stats and initializes the member variables.
+  void Start();
+
+  // Updates the current thread stats with op_stats.
+  void Update(const OpStats& op_stats, int64& total_done);
+
+  // Records the end time for each thread after the current thread has finished
+  // all the operations.
+  void Stop();
+
+  // Merges the thread stats instances into a workload stats that will be used
+  // for report purpose.
+  void Merge(const Stats& other);
+
+  // Reports the metrics of interests: microsecond per operation and total bytes
+  // per seconds for the current workload.
+  void Report(const std::string& specification);
+
+  absl::Time start();
+
+  absl::Time finish();
+
+  double micro_seconds();
+
+  int64 done();
+
+  int64 bytes();
+
+ private:
+  absl::Time start_;
+  absl::Time finish_;
+  double micro_seconds_;
+  int64 done_;
+  int64 next_report_;
+  int64 bytes_;
 };
 
 }  // namespace ml_metadata

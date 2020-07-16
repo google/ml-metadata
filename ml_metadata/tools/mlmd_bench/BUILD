@@ -63,10 +63,86 @@ ml_metadata_cc_test(
 
 cc_library(
     name = "stats",
+    srcs = ["stats.cc"],
     hdrs = ["stats.h"],
     deps = [
         "@com_google_absl//absl/time",
         "//ml_metadata/metadata_store:types",
+        "@org_tensorflow//tensorflow/core:lib",
+    ],
+)
+
+ml_metadata_cc_test(
+    name = "stats_test",
+    size = "small",
+    srcs = ["stats_test.cc"],
+    deps = [
+        ":stats",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "benchmark",
+    srcs = ["benchmark.cc"],
+    hdrs = ["benchmark.h"],
+    deps = [
+        ":fill_types_workload",
+        ":workload",
+        "//ml_metadata/metadata_store:types",
+        "//ml_metadata/tools/mlmd_bench/proto:mlmd_bench_proto",
+        "@org_tensorflow//tensorflow/core:lib",
+    ],
+)
+
+ml_metadata_cc_test(
+    name = "benchmark_test",
+    size = "small",
+    srcs = ["benchmark_test.cc"],
+    deps = [
+        "benchmark",
+        "@com_google_googletest//:gtest_main",
+        "//ml_metadata/metadata_store:test_util",
+        "//ml_metadata/tools/mlmd_bench/proto:mlmd_bench_proto",
+    ],
+)
+
+cc_library(
+    name = "thread_runner",
+    srcs = ["thread_runner.cc"],
+    hdrs = ["thread_runner.h"],
+    deps = [
+        ":benchmark",
+        ":stats",
+        ":workload",
+        "@com_google_absl//absl/synchronization",
+        "//ml_metadata/metadata_store:metadata_store",
+        "//ml_metadata/metadata_store:metadata_store_factory",
+        "//ml_metadata/metadata_store:types",
+        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/tools/mlmd_bench/proto:mlmd_bench_proto",
+        "@org_tensorflow//tensorflow/core:lib",
+    ],
+)
+
+ml_metadata_cc_test(
+    name = "thread_runner_test",
+    size = "small",
+    srcs = ["thread_runner_test.cc"],
+    deps = [
+        ":benchmark",
+        ":stats",
+        ":thread_runner",
+        ":workload",
+        "@com_google_googletest//:gtest_main",
+        "//ml_metadata/metadata_store:metadata_store",
+        "//ml_metadata/metadata_store:metadata_store_factory",
+        "//ml_metadata/metadata_store:test_util",
+        "//ml_metadata/proto:metadata_store_service_proto",
+        "//ml_metadata/tools/mlmd_bench/proto:mlmd_bench_proto",
+        "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:test",
     ],
 )
 
