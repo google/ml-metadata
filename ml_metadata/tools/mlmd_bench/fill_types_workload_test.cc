@@ -119,31 +119,25 @@ bool CheckTypeUpdateStatus(const Type& type_before, const Type& type_after) {
 
 // Checks the first `num_operations` types in `types_before` and `types_after`
 // for their update status.
-bool CheckUpdates(const FillTypesConfig& fill_types_config,
+void CheckUpdates(const FillTypesConfig& fill_types_config,
                   const std::vector<Type>& types_before,
                   const std::vector<Type>& types_after,
                   const int64 num_operations) {
   for (int64 i = 0; i < num_operations; ++i) {
     switch (fill_types_config.specification()) {
       case FillTypesConfig::ARTIFACT_TYPE: {
-        if (!CheckTypeUpdateStatus<ArtifactType>(types_before[i],
-                                                 types_after[i])) {
-          return false;
-        }
+        EXPECT_TRUE(CheckTypeUpdateStatus<ArtifactType>(types_before[i],
+                                                        types_after[i]));
         break;
       }
       case FillTypesConfig::EXECUTION_TYPE: {
-        if (!CheckTypeUpdateStatus<ExecutionType>(types_before[i],
-                                                  types_after[i])) {
-          return false;
-        }
+        EXPECT_TRUE(CheckTypeUpdateStatus<ExecutionType>(types_before[i],
+                                                         types_after[i]));
         break;
       }
       case FillTypesConfig::CONTEXT_TYPE: {
-        if (!CheckTypeUpdateStatus<ContextType>(types_before[i],
-                                                types_after[i])) {
-          return false;
-        }
+        EXPECT_TRUE(CheckTypeUpdateStatus<ContextType>(types_before[i],
+                                                       types_after[i]));
         break;
       }
       default:
@@ -151,7 +145,6 @@ bool CheckUpdates(const FillTypesConfig& fill_types_config,
                       "in testing !";
     }
   }
-  return true;
 }
 
 // Test fixture that uses the same data configuration for multiple following
@@ -299,9 +292,9 @@ TEST_P(FillTypesUpdateParameterizedTestFixture, UpdateWhenDbIsEmptyTest) {
 
   // For all the types inside db, they should be updated. Checks their update
   // status.
-  EXPECT_TRUE(CheckUpdates(
-      GetParam().fill_types_config(), existing_types_before_update,
-      existing_types_after_update, (int64)existing_types_after_update.size()));
+  CheckUpdates(GetParam().fill_types_config(), existing_types_before_update,
+               existing_types_after_update,
+               (int64)existing_types_after_update.size());
 }
 
 // Tests the SetUpImpl() for FillTypes update cases when db contains not enough
@@ -361,9 +354,9 @@ TEST_P(FillTypesUpdateParameterizedTestFixture,
 
   // For all the types inside db, they should be updated. Checks their update
   // status.
-  EXPECT_TRUE(CheckUpdates(
-      GetParam().fill_types_config(), existing_types_before_update,
-      existing_types_after_update, (int64)existing_types_after_update.size()));
+  CheckUpdates(GetParam().fill_types_config(), existing_types_before_update,
+               existing_types_after_update,
+               (int64)existing_types_after_update.size());
 }
 
 // Tests the SetUpImpl() for FillTypes update cases when db contains enough
@@ -424,9 +417,9 @@ TEST_P(FillTypesUpdateParameterizedTestFixture,
 
   // For the first number of update operations existed types inside db, they
   // should be updated. Checks their update status.
-  EXPECT_TRUE(CheckUpdates(
-      GetParam().fill_types_config(), existing_types_before_update,
-      existing_types_after_update, fill_types_update_->num_operations()));
+  CheckUpdates(GetParam().fill_types_config(), existing_types_before_update,
+               existing_types_after_update,
+               fill_types_update_->num_operations());
 }
 
 INSTANTIATE_TEST_CASE_P(
