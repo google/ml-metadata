@@ -49,10 +49,12 @@ ThreadRunner::ThreadRunner(const MLMDBenchConfig& mlmd_bench_config)
 tensorflow::Status ThreadRunner::Run(Benchmark& benchmark) {
   for (auto& workload : benchmark.workloads()) {
     Stats thread_stats_list[num_threads_];
+    // `workload.second` is the number of operations for current executable 
+    // workload.
     int64 op_per_thread = workload.second / num_threads_;
     std::unique_ptr<MetadataStore> set_up_store;
     TF_RETURN_IF_ERROR(CreateMetadataStore(mlmd_config_, &set_up_store));
-    // The workload.first is the executable workload.
+    // `workload.first` is the executable workload.
     TF_RETURN_IF_ERROR(workload.first->SetUp(set_up_store.get()));
     {
       // Create a thread pool for multi-thread execution.
