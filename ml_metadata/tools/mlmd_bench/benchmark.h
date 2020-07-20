@@ -28,16 +28,19 @@ namespace ml_metadata {
 class Benchmark {
  public:
   Benchmark(const MLMDBenchConfig& mlmd_bench_config);
-  ~Benchmark();
+  ~Benchmark() = default;
 
-  // Takes `workload_config` and generates corresponding executable workloads.
-  void CreateWorkload(const WorkloadConfig& workload_config);
+  WorkloadBase* workload(int64 workload_index);
 
-  std::vector<std::pair<std::unique_ptr<WorkloadBase>, int64>>& workloads();
+  int64 workload_num_operations(int64 workload_index);
+
+  int64 workloads_size();
 
  private:
-  // A list of executable workloads and their according number of operations.
-  std::vector<std::pair<std::unique_ptr<WorkloadBase>, int64>> workloads_;
+  // A list of executable workloads.
+  std::vector<std::unique_ptr<WorkloadBase>> workloads_;
+  // A list of number of operations for the executable workloads.
+  std::vector<int64> workloads_num_operations_;
 };
 
 }  // namespace ml_metadata

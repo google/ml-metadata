@@ -23,36 +23,40 @@ limitations under the License.
 #include "tensorflow/core/platform/logging.h"
 
 namespace ml_metadata {
+namespace {
+
+void CreateWorkload(const WorkloadConfig& workload_config,
+                    std::vector<std::unique_ptr<WorkloadBase>>& workloads,
+                    std::vector<int64>& workloads_num_operations) {
+  if (workload_config.has_fill_types_config()) {
+    std::unique_ptr<FillTypes> fill_types(new FillTypes(
+        workload_config.fill_types_config(), workload_config.num_operations()));
+    workloads.push_back(std::move(fill_types));
+    workloads_num_operations.push_back(workload_config.num_operations());
+  } else {
+    LOG(FATAL) << "Cannot find corresponding workload!";
+  }
+}
+
+}  // namespace
 
 Benchmark::Benchmark(const MLMDBenchConfig& mlmd_bench_config) {
   // For each `workload_config`, calls CreateWorkload() to create corresponding
   // workload.
   for (const WorkloadConfig& workload_config :
        mlmd_bench_config.workload_configs()) {
-    CreateWorkload(workload_config);
+    CreateWorkload(workload_config, workloads_, workloads_num_operations_);
   }
 }
 
-Benchmark::~Benchmark() {
-  for (auto& workload : workloads_) {
-    workload.first.reset();
-  }
+WorkloadBase* Benchmark::workload(const int64 workload_index) {
+  return workloads_[workload_index].get();
 }
 
-void Benchmark::CreateWorkload(const WorkloadConfig& workload_config) {
-  if (workload_config.has_fill_types_config()) {
-    std::unique_ptr<FillTypes> fill_types(new FillTypes(
-        workload_config.fill_types_config(), workload_config.num_operations()));
-    workloads_.push_back(std::make_pair(std::move(fill_types),
-                                        workload_config.num_operations()));
-  } else {
-    LOG(FATAL) << "Cannot find corresponding workload!";
-  }
+int64 Benchmark::workload_num_operations(const int64 workload_index) {
+  return workloads_num_operations_[workload_index];
 }
 
-std::vector<std::pair<std::unique_ptr<WorkloadBase>, int64>>&
-Benchmark::workloads() {
-  return workloads_;
-}
+int64 Benchmark::workloads_size() { return workloads_.size(); }
 
 }  // namespace ml_metadata

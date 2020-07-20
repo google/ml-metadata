@@ -24,10 +24,10 @@ namespace ml_metadata {
 namespace {
 
 // Tests the Update() of Stats class.
-TEST(StatsTest, UpdateTest) {
+TEST(ThreadStatsTest, UpdateTest) {
   srand(time(NULL));
 
-  Stats stats;
+  ThreadStats stats;
   stats.Start();
 
   // Prepares the list of `op_stats` to update `stats`.
@@ -57,17 +57,17 @@ TEST(StatsTest, UpdateTest) {
 }
 
 // Tests the Merge() of Stats class.
-TEST(StatsTest, MergeTest) {
+TEST(ThreadStatsTest, MergeTest) {
   srand(time(NULL));
   const absl::Duration sleep_time = absl::Milliseconds(10);
 
-  Stats stats1;
+  ThreadStats stats1;
   stats1.Start();
   absl::SleepFor(sleep_time);
-  Stats stats2;
+  ThreadStats stats2;
   stats2.Start();
   absl::SleepFor(sleep_time);
-  Stats stats3;
+  ThreadStats stats3;
   stats3.Start();
   // Since `stats1` starts the earliest among the three.
   absl::Time ealiest_start_time = stats1.start();

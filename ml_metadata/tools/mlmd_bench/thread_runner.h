@@ -15,7 +15,6 @@ limitations under the License.
 #ifndef ML_METADATA_TOOLS_MLMD_BENCH_THREAD_RUNNER_H
 #define ML_METADATA_TOOLS_MLMD_BENCH_THREAD_RUNNER_H
 
-#include "absl/synchronization/mutex.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/tools/mlmd_bench/benchmark.h"
 #include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
@@ -35,9 +34,10 @@ class ThreadRunner {
   tensorflow::Status Run(Benchmark& benchmark);
 
  private:
+  // Number of threads for the thread runner.
   int64 num_threads_;
+  // Connection configuration that will be used to create the MetadataStore.
   ConnectionConfig mlmd_config_;
-  absl::Mutex lock_;
 };
 
 }  // namespace ml_metadata

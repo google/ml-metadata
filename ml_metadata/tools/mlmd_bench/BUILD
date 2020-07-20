@@ -116,7 +116,6 @@ cc_library(
         ":benchmark",
         ":stats",
         ":workload",
-        "@com_google_absl//absl/synchronization",
         "//ml_metadata/metadata_store:metadata_store",
         "//ml_metadata/metadata_store:metadata_store_factory",
         "//ml_metadata/metadata_store:types",
