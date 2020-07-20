@@ -42,7 +42,8 @@ TEST(ListOperationQueryHelperTest, OrderingWhereClauseDesc) {
   std::string where_clause;
   TF_ASSERT_OK(AppendOrderingThresholdClause(
       options, /* id_offset= */ 100, /* field_offset= */ 56894, where_clause));
-  EXPECT_EQ(where_clause, "`create_time_since_epoch` < 56894 AND `id` < 100");
+  EXPECT_EQ(where_clause,
+            " `create_time_since_epoch` <= 56894 AND `id` < 100 ");
 }
 
 TEST(ListOperationQueryHelperTest, OrderingWhereClauseAsc) {
@@ -50,7 +51,8 @@ TEST(ListOperationQueryHelperTest, OrderingWhereClauseAsc) {
   std::string where_clause;
   TF_ASSERT_OK(AppendOrderingThresholdClause(
       options, /* id_offset= */ 100, /* field_offset= */ 56894, where_clause));
-  EXPECT_EQ(where_clause, "`create_time_since_epoch` > 56894 AND `id` > 100");
+  EXPECT_EQ(where_clause,
+            " `create_time_since_epoch` >= 56894 AND `id` > 100 ");
 }
 
 TEST(ListOperationQueryHelperTest, OrderingWhereClauseById) {
@@ -62,7 +64,7 @@ TEST(ListOperationQueryHelperTest, OrderingWhereClauseById) {
   std::string where_clause;
   TF_ASSERT_OK(AppendOrderingThresholdClause(
       options, /* id_offset= */ 100, /* field_offset= */ 100, where_clause));
-  EXPECT_EQ(where_clause, "`id` < 100");
+  EXPECT_EQ(where_clause, " `id` < 100 ");
 }
 
 TEST(ListOperationQueryHelperTest, OrderByClauseDesc) {
@@ -70,7 +72,7 @@ TEST(ListOperationQueryHelperTest, OrderByClauseDesc) {
   std::string order_by_clause;
   TF_ASSERT_OK(AppendOrderByClause(options, order_by_clause));
   EXPECT_EQ(order_by_clause,
-            "ORDER BY `create_time_since_epoch` DESC, `id` DESC");
+            " ORDER BY `create_time_since_epoch` DESC, `id` DESC ");
 }
 
 TEST(ListOperationQueryHelperTest, OrderByClauseAsc) {
@@ -78,7 +80,7 @@ TEST(ListOperationQueryHelperTest, OrderByClauseAsc) {
   std::string order_by_clause;
   TF_ASSERT_OK(AppendOrderByClause(options, order_by_clause));
   EXPECT_EQ(order_by_clause,
-            "ORDER BY `create_time_since_epoch` ASC, `id` ASC");
+            " ORDER BY `create_time_since_epoch` ASC, `id` ASC ");
 }
 
 TEST(ListOperationQueryHelperTest, OrderByClauseById) {
@@ -89,14 +91,14 @@ TEST(ListOperationQueryHelperTest, OrderByClauseById) {
       )pb");
   std::string order_by_clause;
   TF_ASSERT_OK(AppendOrderByClause(options, order_by_clause));
-  EXPECT_EQ(order_by_clause, "ORDER BY `id` DESC");
+  EXPECT_EQ(order_by_clause, " ORDER BY `id` DESC ");
 }
 
 TEST(ListOperationQueryHelperTest, LimitClause) {
   const ListOperationOptions options = BasicListOperationOptionsDesc();
   std::string limit_clause;
   TF_ASSERT_OK(AppendLimitClause(options, limit_clause));
-  EXPECT_EQ(limit_clause, "LIMIT 1");
+  EXPECT_EQ(limit_clause, " LIMIT 1 ");
 }
 
 TEST(ListOperationQueryHelperTest, LimitOverMaxClause) {
@@ -104,7 +106,7 @@ TEST(ListOperationQueryHelperTest, LimitOverMaxClause) {
   options.set_max_result_size(200);
   std::string limit_clause;
   TF_ASSERT_OK(AppendLimitClause(options, limit_clause));
-  EXPECT_EQ(limit_clause, "LIMIT 100");
+  EXPECT_EQ(limit_clause, " LIMIT 100 ");
 }
 
 TEST(ListOperationQueryHelperTest, InvalidLimit) {

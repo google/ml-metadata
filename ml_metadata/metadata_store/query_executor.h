@@ -413,6 +413,11 @@ class QueryExecutor {
   // Select all context IDs.
   // Returns a list of IDs.
   virtual tensorflow::Status SelectAllContextIDs(RecordSet* set) = 0;
+
+  // List Artifact IDs using `options`.
+  // On success `record_set` is updated with artifact IDs based on `options`
+  virtual tensorflow::Status ListArtifactIDsUsingOptions(
+      const ListOperationOptions& options, RecordSet* record_set) = 0;
 };
 
 }  // namespace ml_metadata

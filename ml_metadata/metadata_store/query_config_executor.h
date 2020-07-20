@@ -490,6 +490,9 @@ class QueryConfigExecutor : public QueryExecutor {
   tensorflow::Status DowngradeMetadataSource(
       const int64 to_schema_version) final;
 
+  tensorflow::Status ListArtifactIDsUsingOptions(
+      const ListOperationOptions& options, RecordSet* record_set) final;
+
  private:
   // Utility method to bind an nullable value.
   template <typename T>
@@ -623,6 +626,13 @@ class QueryConfigExecutor : public QueryExecutor {
   // Returns detailed INTERNAL error, if query execution fails.
   // TODO(martinz): consider promoting to MetadataAccessObject.
   tensorflow::Status UpgradeMetadataSourceIfOutOfDate(bool enable_migration);
+
+  // List Node IDs using `options`. Template parameter `Node` specifies the
+  // table to use for listing.
+  // On success `record_set` is updated with Node IDs.
+  template <typename Node>
+  tensorflow::Status ListNodeIDsUsingOptions(
+      const ListOperationOptions& options, RecordSet* record_set);
 
   MetadataSourceQueryConfig query_config_;
 

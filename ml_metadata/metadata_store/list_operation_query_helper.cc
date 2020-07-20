@@ -16,6 +16,8 @@ limitations under the License.
 
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/substitute.h"
+#include "ml_metadata/metadata_store/list_operation_util.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "tensorflow/core/lib/core/errors.h"
 
@@ -55,19 +57,21 @@ tensorflow::Status GetDbColumnNameForProtoField(
 tensorflow::Status AppendOrderingThresholdClause(
     const ListOperationOptions& options, const int64 id_offset,
     const int64 field_offset, std::string& sql_query_clause) {
-  const std::string direction_operator =
-      options.order_by_field().is_asc() ? ">" : "<";
-
-  std::string column_name;
-  TF_RETURN_IF_ERROR(GetDbColumnNameForProtoField(
-      options.order_by_field().field(), column_name));
-
-  absl::StrAppend(&sql_query_clause, "`", column_name, "` ", direction_operator,
-                  " ", field_offset);
   if (options.order_by_field().field() !=
       ListOperationOptions::OrderByField::ID) {
-    absl::StrAppend(&sql_query_clause, " AND `id` ", direction_operator, " ",
-                    id_offset);
+    std::string column_name;
+    TF_RETURN_IF_ERROR(GetDbColumnNameForProtoField(
+        options.order_by_field().field(), column_name));
+
+    absl::SubstituteAndAppend(
+        &sql_query_clause, " `$0` $1 $2 AND `id` $3 $4 ", column_name,
+        options.order_by_field().is_asc() ? ">=" : "<=", field_offset,
+        options.order_by_field().is_asc() ? ">" : "<", id_offset);
+
+  } else {
+    absl::SubstituteAndAppend(&sql_query_clause, " `id` $0 $1 ",
+                              options.order_by_field().is_asc() ? ">" : "<",
+                              id_offset);
   }
 
   return tensorflow::Status::OK();
@@ -82,14 +86,15 @@ tensorflow::Status AppendOrderByClause(const ListOperationOptions& options,
   TF_RETURN_IF_ERROR(GetDbColumnNameForProtoField(
       options.order_by_field().field(), column_name));
 
-  absl::StrAppend(&sql_query_clause, "ORDER BY `", column_name, "` ",
-                  ordering_direction);
-
+  absl::SubstituteAndAppend(&sql_query_clause, " ORDER BY `$0` $1", column_name,
+                            ordering_direction);
   if (options.order_by_field().field() !=
       ListOperationOptions::OrderByField::ID) {
-    absl::StrAppend(&sql_query_clause, ", `id` ", ordering_direction);
+    absl::SubstituteAndAppend(&sql_query_clause, ", `id` $0",
+                              ordering_direction);
   }
 
+  absl::StrAppend(&sql_query_clause, " ");
   return tensorflow::Status::OK();
 }
 
@@ -104,9 +109,7 @@ tensorflow::Status AppendLimitClause(const ListOperationOptions& options,
 
   const int max_result_size =
       std::min(options.max_result_size(), kDefaultMaxListOperationResultSize);
-
-  absl::StrAppend(&sql_query_clause, "LIMIT ", max_result_size);
+  absl::SubstituteAndAppend(&sql_query_clause, " LIMIT $0 ", max_result_size);
   return tensorflow::Status::OK();
 }
-
 }  // namespace ml_metadata
