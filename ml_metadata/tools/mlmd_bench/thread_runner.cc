@@ -59,7 +59,7 @@ tensorflow::Status SetUpWorkload(const ConnectionConfig mlmd_config,
 // along the way.
 tensorflow::Status ExecuteWorkload(const int64 work_items_start_index,
                                    const int64 op_per_thread,
-                                   std::unique_ptr<MetadataStore>& curr_store,
+                                   MetadataStore* curr_store,
                                    WorkloadBase* workload,
                                    int64& approx_total_done,
                                    ThreadStats& curr_thread_stats) {
@@ -130,20 +130,20 @@ tensorflow::Status ThreadRunner::Run(Benchmark& benchmark) {
       // `approx_total_done` is used for reporting progress along the way.
       int64 approx_total_done = 0;
       for (int64 t = 0; t < num_threads_; ++t) {
-        int64 work_items_start_index = op_per_thread * t;
+        const int64 work_items_start_index = op_per_thread * t;
         ThreadStats& curr_thread_stats = thread_stats_list[t];
-        std::unique_ptr<MetadataStore>& curr_store = stores[t];
-        tensorflow::Status& curr_thread_status = thread_status_list[t];
+        MetadataStore* curr_store = stores[t].get();
+        tensorflow::Status& curr_status = thread_status_list[t];
         pool.Schedule([this, op_per_thread, workload, work_items_start_index,
-                       &curr_thread_stats, &curr_store, &curr_thread_status,
+                       &curr_thread_stats, &curr_store, &curr_status,
                        &approx_total_done]() {
           curr_thread_stats.Start();
-          curr_thread_status.Update(
+          curr_status.Update(
               ExecuteWorkload(work_items_start_index, op_per_thread, curr_store,
                               workload, approx_total_done, curr_thread_stats));
           curr_thread_stats.Stop();
         });
-        TF_RETURN_IF_ERROR(curr_thread_status);
+        TF_RETURN_IF_ERROR(curr_status);
       }
     }
     TF_RETURN_IF_ERROR(workload->TearDown());
