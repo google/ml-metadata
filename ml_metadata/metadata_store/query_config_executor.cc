@@ -495,4 +495,14 @@ tensorflow::Status QueryConfigExecutor::ListArtifactIDsUsingOptions(
     const ListOperationOptions& options, RecordSet* record_set) {
   return ListNodeIDsUsingOptions<Artifact>(options, record_set);
 }
+
+tensorflow::Status QueryConfigExecutor::ListExecutionIDsUsingOptions(
+    const ListOperationOptions& options, RecordSet* record_set) {
+  return ListNodeIDsUsingOptions<Execution>(options, record_set);
+}
+
+tensorflow::Status QueryConfigExecutor::ListContextIDsUsingOptions(
+    const ListOperationOptions& options, RecordSet* record_set) {
+  return ListNodeIDsUsingOptions<Context>(options, record_set);
+}
 }  // namespace ml_metadata

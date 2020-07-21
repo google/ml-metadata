@@ -119,6 +119,14 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
                                    std::vector<Artifact>* artifacts,
                                    std::string* next_page_token) final;
 
+  tensorflow::Status ListExecutions(const ListOperationOptions& options,
+                                    std::vector<Execution>* executions,
+                                    std::string* next_page_token) final;
+
+  tensorflow::Status ListContexts(const ListOperationOptions& options,
+                                  std::vector<Context>* contexts,
+                                  std::string* next_page_token) final;
+
   tensorflow::Status FindArtifactsByTypeId(
       int64 artifact_type_id, std::vector<Artifact>* artifacts) final;
 

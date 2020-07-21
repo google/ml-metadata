@@ -493,6 +493,12 @@ class QueryConfigExecutor : public QueryExecutor {
   tensorflow::Status ListArtifactIDsUsingOptions(
       const ListOperationOptions& options, RecordSet* record_set) final;
 
+  tensorflow::Status ListExecutionIDsUsingOptions(
+      const ListOperationOptions& options, RecordSet* record_set) final;
+
+  tensorflow::Status ListContextIDsUsingOptions(
+      const ListOperationOptions& options, RecordSet* record_set) final;
+
  private:
   // Utility method to bind an nullable value.
   template <typename T>

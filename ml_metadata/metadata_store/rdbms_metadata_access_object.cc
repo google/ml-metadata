@@ -1181,10 +1181,11 @@ tensorflow::Status RDBMSMetadataAccessObject::ListNodes(
     TF_RETURN_IF_ERROR(
         executor_->ListArtifactIDsUsingOptions(updated_options, &record_set));
   } else if (std::is_same<Node, Execution>::value) {
-    return tensorflow::errors::Unimplemented(
-        "ListExecutions not yet supported.");
+    TF_RETURN_IF_ERROR(
+        executor_->ListExecutionIDsUsingOptions(updated_options, &record_set));
   } else if (std::is_same<Node, Context>::value) {
-    return tensorflow::errors::Unimplemented("ListContexts not yet supported.");
+    TF_RETURN_IF_ERROR(
+        executor_->ListContextIDsUsingOptions(updated_options, &record_set));
   } else {
     return tensorflow::errors::InvalidArgument(
         "Invalid Node passed to ListNodes");
@@ -1208,6 +1209,18 @@ tensorflow::Status RDBMSMetadataAccessObject::ListArtifacts(
     const ListOperationOptions& options, std::vector<Artifact>* artifacts,
     std::string* next_page_token) {
   return ListNodes<Artifact>(options, artifacts, next_page_token);
+}
+
+tensorflow::Status RDBMSMetadataAccessObject::ListExecutions(
+    const ListOperationOptions& options, std::vector<Execution>* executions,
+    std::string* next_page_token) {
+  return ListNodes<Execution>(options, executions, next_page_token);
+}
+
+tensorflow::Status RDBMSMetadataAccessObject::ListContexts(
+    const ListOperationOptions& options, std::vector<Context>* contexts,
+    std::string* next_page_token) {
+  return ListNodes<Context>(options, contexts, next_page_token);
 }
 
 tensorflow::Status

@@ -418,6 +418,20 @@ class QueryExecutor {
   // On success `record_set` is updated with artifact IDs based on `options`
   virtual tensorflow::Status ListArtifactIDsUsingOptions(
       const ListOperationOptions& options, RecordSet* record_set) = 0;
+
+  // List Execution IDs using `options`.
+  // On success `set` is updated with execution IDs based on `options` and
+  // `next_page_token` is updated with information for the caller to use for
+  // next page of results.
+  virtual tensorflow::Status ListExecutionIDsUsingOptions(
+      const ListOperationOptions& options, RecordSet* record_set) = 0;
+
+  // List Context IDs using `options`.
+  // On success `set` is updated with context IDs based on `options` and
+  // `next_page_token` is updated with information for the caller to use for
+  // next page of results.
+  virtual tensorflow::Status ListContextIDsUsingOptions(
+      const ListOperationOptions& options, RecordSet* record_set) = 0;
 };
 
 }  // namespace ml_metadata
