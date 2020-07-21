@@ -80,15 +80,13 @@ class MetadataStore(object):
       raise ValueError('Upgrade migration is not allowed when using gRPC '
                        'connection client. Upgrade needs to be performed on '
                        'the server side.')
-    target = ':'.join([config.host, str(config.port)])
-    channel = self._get_channel(config, target)
+    channel = self._get_channel(config)
     self._metadata_store_stub = (metadata_store_service_pb2_grpc.
                                  MetadataStoreServiceStub(channel))
     logging.log(logging.INFO, 'MetadataStore with gRPC connection initialized')
     logging.log(logging.DEBUG, 'ConnectionConfig: %s', config)
 
-  def _get_channel(self, config: metadata_store_pb2.MetadataStoreClientConfig,
-                   target: Text):
+  def _get_channel(self, config: metadata_store_pb2.MetadataStoreClientConfig):
     """Configures the channel, which could be secure or insecure.
 
     It returns a channel that can be specified to be secure or insecure,
@@ -96,11 +94,12 @@ class MetadataStore(object):
 
     Args:
       config: metadata_store_pb2.MetadataStoreClientConfig.
-      target: target host with port.
 
     Returns:
       an initialized gRPC channel.
     """
+    target = ':'.join([config.host, str(config.port)])
+
     if not config.HasField('ssl_config'):
       return grpc.insecure_channel(target)
 

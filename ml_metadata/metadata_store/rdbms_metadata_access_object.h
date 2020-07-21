@@ -119,6 +119,14 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
                                    std::vector<Artifact>* artifacts,
                                    std::string* next_page_token) final;
 
+  tensorflow::Status ListExecutions(const ListOperationOptions& options,
+                                    std::vector<Execution>* executions,
+                                    std::string* next_page_token) final;
+
+  tensorflow::Status ListContexts(const ListOperationOptions& options,
+                                  std::vector<Context>* contexts,
+                                  std::string* next_page_token) final;
+
   tensorflow::Status FindArtifactsByTypeId(
       int64 artifact_type_id, std::vector<Artifact>* artifacts) final;
 
@@ -367,6 +375,24 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   template <typename Node>
   tensorflow::Status FindNodesByContextImpl(const int64 context_id,
                                             std::vector<Node>* nodes);
+
+  // Queries nodes stored in the metadata source using `options`.
+  // `options` is the ListOperationOptions proto message defined
+  // in metadata_store.
+  // If successfull:
+  // 1. `nodes` is updated with result set of size determined by
+  //    max_result_size set in `options`.
+  // 2. `next_page_token` is populated with information necessary to fetch next
+  //    page of results.
+  // RETURNS INVALID_ARGUMENT if the `options` is invalid with one of
+  //    the cases:
+  // 1. order_by_field is not set or has an unspecified field.
+  // 2. Direction of ordering is not specified for the order_by_field.
+  // 3. next_page_token cannot be decoded.
+  template <typename Node>
+  tensorflow::Status ListNodes(const ListOperationOptions& options,
+                               std::vector<Node>* nodes,
+                               std::string* next_page_token);
 
   std::unique_ptr<QueryExecutor> executor_;
 };

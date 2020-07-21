@@ -26,8 +26,8 @@ cc_library(
     srcs = ["fill_types_workload.cc"],
     hdrs = ["fill_types_workload.h"],
     deps = [
-        ":workload",
         ":util",
+        ":workload",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:variant",
@@ -47,10 +47,9 @@ ml_metadata_cc_test(
     deps = [
         ":fill_types_workload",
         ":util",
-        "@com_google_absl//absl/memory",
-        #"@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
-        "//ml_metadata/metadata_store:metadata_store",
+        "@com_google_absl//absl/memory",
+        "//ml_metadata/metadata_store",
         "//ml_metadata/metadata_store:metadata_store_factory",
         "//ml_metadata/metadata_store:test_util",
         "//ml_metadata/metadata_store:types",
@@ -149,6 +148,7 @@ ml_metadata_cc_test(
 
 cc_library(
     name = "util",
+    srcs = ["util.cc"],
     hdrs = ["util.h"],
     deps = [
         "@com_google_absl//absl/types:variant",

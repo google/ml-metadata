@@ -15,6 +15,7 @@ limitations under the License.
 #include "ml_metadata/tools/mlmd_bench/fill_types_workload.h"
 
 #include <random>
+#include <type_traits>
 #include <vector>
 
 #include "absl/strings/str_cat.h"
@@ -28,7 +29,6 @@ limitations under the License.
 #include "ml_metadata/tools/mlmd_bench/util.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status.h"
-#include "tensorflow/core/platform/logging.h"
 
 namespace ml_metadata {
 namespace {
@@ -74,7 +74,7 @@ tensorflow::Status PrepareTypeForUpdate(const int64 type_index,
                                         const std::vector<Type>& existing_types,
                                         MetadataStore* store,
                                         T& existing_type) {
-  if (type_index < (int64)existing_types.size()) {
+  if (type_index < existing_types.size()) {
     existing_type = absl::get<T>(existing_types[type_index]);
     return tensorflow::Status::OK();
   }
@@ -94,6 +94,8 @@ tensorflow::Status PrepareTypeForUpdate(const int64 type_index,
     (*put_request.add_context_types()).CopyFrom(existing_type);
     TF_RETURN_IF_ERROR(store->PutTypes(put_request, &put_response));
     existing_type.set_id(put_response.context_type_ids(0));
+  } else {
+    LOG(FATAL) << "Unexpected types used for the workload.";
   }
   return tensorflow::Status::OK();
 }
@@ -127,9 +129,13 @@ tensorflow::Status GenerateType(const FillTypesConfig& fill_types_config,
                                 const int64 update_type_index,
                                 const std::string& type_name,
                                 const int64 num_properties,
-                                MetadataStore* store,
-                                std::vector<Type>& existing_types, T& type,
+                                const std::vector<Type>& existing_types,
+                                MetadataStore* store, T& type,
                                 int64& curr_bytes) {
+  CHECK((std::is_same<T, ArtifactType>::value ||
+         std::is_same<T, ExecutionType>::value ||
+         std::is_same<T, ContextType>::value))
+      << "Unexpected Types";
   if (fill_types_config.update()) {
     // Update cases.
     T existing_type;
@@ -141,8 +147,7 @@ tensorflow::Status GenerateType(const FillTypesConfig& fill_types_config,
     // Insert cases.
     SetInsertType<T>(type_name, num_properties, type);
   }
-  GetTransferredBytes(type, curr_bytes);
-  return tensorflow::Status::OK();
+  return GetTransferredBytes(type, curr_bytes);
 }
 
 }  // namespace
@@ -199,8 +204,8 @@ tensorflow::Status FillTypes::SetUpImpl(MetadataStore* store) {
         InitializePutRequest<PutArtifactTypeRequest>(fill_types_config_,
                                                      put_request);
         TF_RETURN_IF_ERROR(GenerateType<ArtifactType>(
-            fill_types_config_, i, type_name, num_properties, store,
-            existing_types,
+            fill_types_config_, i, type_name, num_properties, existing_types,
+            store,
             *absl::get<PutArtifactTypeRequest>(put_request)
                  .mutable_artifact_type(),
             curr_bytes));
@@ -210,8 +215,8 @@ tensorflow::Status FillTypes::SetUpImpl(MetadataStore* store) {
         InitializePutRequest<PutExecutionTypeRequest>(fill_types_config_,
                                                       put_request);
         TF_RETURN_IF_ERROR(GenerateType<ExecutionType>(
-            fill_types_config_, i, type_name, num_properties, store,
-            existing_types,
+            fill_types_config_, i, type_name, num_properties, existing_types,
+            store,
             *absl::get<PutExecutionTypeRequest>(put_request)
                  .mutable_execution_type(),
             curr_bytes));
@@ -221,8 +226,8 @@ tensorflow::Status FillTypes::SetUpImpl(MetadataStore* store) {
         InitializePutRequest<PutContextTypeRequest>(fill_types_config_,
                                                     put_request);
         TF_RETURN_IF_ERROR(GenerateType<ContextType>(
-            fill_types_config_, i, type_name, num_properties, store,
-            existing_types,
+            fill_types_config_, i, type_name, num_properties, existing_types,
+            store,
             *absl::get<PutContextTypeRequest>(put_request)
                  .mutable_context_type(),
             curr_bytes));
@@ -239,27 +244,25 @@ tensorflow::Status FillTypes::SetUpImpl(MetadataStore* store) {
 // Executions of work items.
 tensorflow::Status FillTypes::RunOpImpl(const int64 work_items_index,
                                         MetadataStore* store) {
+  const int64 i = work_items_index;
   switch (fill_types_config_.specification()) {
     case FillTypesConfig::ARTIFACT_TYPE: {
-      PutArtifactTypeRequest put_request = absl::get<PutArtifactTypeRequest>(
-          work_items_[work_items_index].first);
+      PutArtifactTypeRequest put_request =
+          absl::get<PutArtifactTypeRequest>(work_items_[i].first);
       PutArtifactTypeResponse put_response;
-      TF_RETURN_IF_ERROR(store->PutArtifactType(put_request, &put_response));
-      return tensorflow::Status::OK();
+      return store->PutArtifactType(put_request, &put_response);
     }
     case FillTypesConfig::EXECUTION_TYPE: {
-      PutExecutionTypeRequest put_request = absl::get<PutExecutionTypeRequest>(
-          work_items_[work_items_index].first);
+      PutExecutionTypeRequest put_request =
+          absl::get<PutExecutionTypeRequest>(work_items_[i].first);
       PutExecutionTypeResponse put_response;
-      TF_RETURN_IF_ERROR(store->PutExecutionType(put_request, &put_response));
-      return tensorflow::Status::OK();
+      return store->PutExecutionType(put_request, &put_response);
     }
     case FillTypesConfig::CONTEXT_TYPE: {
       PutContextTypeRequest put_request =
-          absl::get<PutContextTypeRequest>(work_items_[work_items_index].first);
+          absl::get<PutContextTypeRequest>(work_items_[i].first);
       PutContextTypeResponse put_response;
-      TF_RETURN_IF_ERROR(store->PutContextType(put_request, &put_response));
-      return tensorflow::Status::OK();
+      return store->PutContextType(put_request, &put_response);
     }
     default:
       return tensorflow::errors::InvalidArgument("Wrong specification!");
