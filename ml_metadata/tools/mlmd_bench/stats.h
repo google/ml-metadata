@@ -41,7 +41,7 @@ class ThreadStats {
   void Start();
 
   // Updates the current thread stats with op_stats.
-  void Update(const OpStats& op_stats, int64& total_done);
+  void Update(const OpStats& op_stats, int64& approx_total_done);
 
   // Records the end time for each thread after the current thread has finished
   // all the operations.
@@ -56,27 +56,29 @@ class ThreadStats {
   void Report(const std::string& specification);
 
   // Gets the start time of current thread stats.
-  absl::Time start();
+  absl::Time start() const { return start_; }
 
   // Gets the finish time of current thread stats.
-  absl::Time finish();
+  absl::Time finish() const { return finish_; }
 
-  // Gets the elapsed microseconds of current thread stats.
-  double micro_seconds();
+  // Gets the accumulated elapsed time of current thread stats.
+  absl::Duration accumulated_elapsed_time() const {
+    return accumulated_elapsed_time_;
+  }
 
   // Gets the number of total finished operations of current thread stats.
-  int64 done();
+  int64 done() const { return done_; }
 
   // Gets the total transferred bytes of current thread stats.
-  int64 bytes();
+  int64 bytes() const { return bytes_; }
 
  private:
   // Records the start time of current thread stats.
   absl::Time start_;
   // Records the finish time of current thread stats.
   absl::Time finish_;
-  // Records the elapsed microseconds of current thread stats.
-  double micro_seconds_;
+  // Records the accumulated elapsed time of current thread stats.
+  absl::Duration accumulated_elapsed_time_;
   // Records the number of total finished operations of current thread stats.
   int64 done_;
   // Records the total transferred bytes of current thread stats.

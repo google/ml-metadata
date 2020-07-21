@@ -16,6 +16,7 @@ limitations under the License.
 
 #include <vector>
 
+#include "absl/memory/memory.h"
 #include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/tools/mlmd_bench/fill_types_workload.h"
 #include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
@@ -25,14 +26,12 @@ limitations under the License.
 namespace ml_metadata {
 namespace {
 
+// Creates the executable workload given `workload_config`.
 void CreateWorkload(const WorkloadConfig& workload_config,
-                    std::vector<std::unique_ptr<WorkloadBase>>& workloads,
-                    std::vector<int64>& workloads_num_operations) {
+                    std::unique_ptr<WorkloadBase>& workload) {
   if (workload_config.has_fill_types_config()) {
-    std::unique_ptr<FillTypes> fill_types(new FillTypes(
+    workload = absl::make_unique<FillTypes>(FillTypes(
         workload_config.fill_types_config(), workload_config.num_operations()));
-    workloads.push_back(std::move(fill_types));
-    workloads_num_operations.push_back(workload_config.num_operations());
   } else {
     LOG(FATAL) << "Cannot find corresponding workload!";
   }
@@ -41,11 +40,12 @@ void CreateWorkload(const WorkloadConfig& workload_config,
 }  // namespace
 
 Benchmark::Benchmark(const MLMDBenchConfig& mlmd_bench_config) {
+  workloads_.resize(mlmd_bench_config.workload_configs_size());
+
   // For each `workload_config`, calls CreateWorkload() to create corresponding
   // workload.
-  for (const WorkloadConfig& workload_config :
-       mlmd_bench_config.workload_configs()) {
-    CreateWorkload(workload_config, workloads_, workloads_num_operations_);
+  for (int i = 0; i < mlmd_bench_config.workload_configs_size(); ++i) {
+    CreateWorkload(mlmd_bench_config.workload_configs(i), workloads_[i]);
   }
 }
 
@@ -53,10 +53,6 @@ WorkloadBase* Benchmark::workload(const int64 workload_index) {
   return workloads_[workload_index].get();
 }
 
-int64 Benchmark::workload_num_operations(const int64 workload_index) {
-  return workloads_num_operations_[workload_index];
-}
-
-int64 Benchmark::workloads_size() { return workloads_.size(); }
+const int64 Benchmark::num_workloads() { return workloads_.size(); }
 
 }  // namespace ml_metadata

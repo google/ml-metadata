@@ -26,7 +26,7 @@ namespace ml_metadata {
 // It takes the benchmark and runs the workloads.
 class ThreadRunner {
  public:
-  ThreadRunner(const MLMDBenchConfig& mlmd_bench_config);
+  ThreadRunner(const ConnectionConfig& mlmd_config, int64 num_threads);
   ~ThreadRunner() = default;
 
   // Execution unit of `mlmd_bench`. Returns detailed error if query executions
@@ -34,10 +34,10 @@ class ThreadRunner {
   tensorflow::Status Run(Benchmark& benchmark);
 
  private:
-  // Number of threads for the thread runner.
-  int64 num_threads_;
   // Connection configuration that will be used to create the MetadataStore.
-  ConnectionConfig mlmd_config_;
+  const ConnectionConfig mlmd_config_;
+  // Number of threads for the thread runner.
+  const int64 num_threads_;
 };
 
 }  // namespace ml_metadata

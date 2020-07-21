@@ -26,30 +26,24 @@ limitations under the License.
 namespace ml_metadata {
 namespace {
 
-// Tests the Run() of ThreadRunner class in single-thread mode.
-TEST(ThreadRunnerTest, RunInSingleThreadTest) {
-  MLMDBenchConfig mlmd_bench_config =
-      testing::ParseTextProtoOrDie<MLMDBenchConfig>(
-          R"(
-            mlmd_config: {
-              sqlite: {
-                filename_uri: "mlmd-bench-test1.db"
-                connection_mode: READWRITE_OPENCREATE
-              }
-            }
-            workload_configs: {
-              fill_types_config: {
-                update: false
-                specification: ARTIFACT_TYPE
-                num_properties: { minimum: 1 maximum: 10 }
-              }
-              num_operations: 100
-            }
-            thread_env_config: { num_threads: 1 }
-          )");
-
+void TestThreadRunner(const int num_thread) {
+  MLMDBenchConfig mlmd_bench_config;
+  mlmd_bench_config.mutable_thread_env_config()->set_num_threads(num_thread);
+  mlmd_bench_config.add_workload_configs()->CopyFrom(
+      testing::ParseTextProtoOrDie<WorkloadConfig>(R"(
+        fill_types_config: {
+          update: false
+          specification: ARTIFACT_TYPE
+          num_properties: { minimum: 1 maximum: 10 }
+        }
+        num_operations: 100
+      )"));
+  // Uses a fake in-memory SQLite database for testing.
+  mlmd_bench_config.mutable_mlmd_config()->mutable_sqlite()->set_filename_uri(
+      absl::StrCat("mlmd-bench-test_", num_thread, ".db"));
   Benchmark benchmark(mlmd_bench_config);
-  ThreadRunner runner(mlmd_bench_config);
+  ThreadRunner runner(mlmd_bench_config.mlmd_config(),
+                      mlmd_bench_config.thread_env_config().num_threads());
   TF_ASSERT_OK(runner.Run(benchmark));
 
   std::unique_ptr<MetadataStore> store;
@@ -61,42 +55,12 @@ TEST(ThreadRunnerTest, RunInSingleThreadTest) {
   EXPECT_EQ(get_response.artifact_types_size(),
             mlmd_bench_config.workload_configs()[0].num_operations());
 }
+
+// Tests the Run() of ThreadRunner class in single-thread mode.
+TEST(ThreadRunnerTest, RunInSingleThreadTest) { TestThreadRunner(1); }
 
 // Tests the Run() of ThreadRunner class in multi-thread mode.
-TEST(ThreadRunnerTest, RunInMultiThreadTest) {
-  MLMDBenchConfig mlmd_bench_config =
-      testing::ParseTextProtoOrDie<MLMDBenchConfig>(
-          R"(
-            mlmd_config: {
-              sqlite: {
-                filename_uri: "mlmd-bench-test2.db"
-                connection_mode: READWRITE_OPENCREATE
-              }
-            }
-            workload_configs: {
-              fill_types_config: {
-                update: false
-                specification: ARTIFACT_TYPE
-                num_properties: { minimum: 1 maximum: 10 }
-              }
-              num_operations: 100
-            }
-            thread_env_config: { num_threads: 10 }
-          )");
-
-  Benchmark benchmark(mlmd_bench_config);
-  ThreadRunner runner(mlmd_bench_config);
-  TF_ASSERT_OK(runner.Run(benchmark));
-
-  std::unique_ptr<MetadataStore> store;
-  TF_ASSERT_OK(CreateMetadataStore(mlmd_bench_config.mlmd_config(), &store));
-
-  GetArtifactTypesResponse get_response;
-  TF_ASSERT_OK(store->GetArtifactTypes(/*request=*/{}, &get_response));
-  // Checks that the workload indeed be executed by the thread_runner.
-  EXPECT_EQ(get_response.artifact_types_size(),
-            mlmd_bench_config.workload_configs()[0].num_operations());
-}
+TEST(ThreadRunnerTest, RunInMultiThreadTest) { TestThreadRunner(10); }
 
 }  // namespace
 }  // namespace ml_metadata

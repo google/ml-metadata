@@ -30,17 +30,15 @@ class Benchmark {
   Benchmark(const MLMDBenchConfig& mlmd_bench_config);
   ~Benchmark() = default;
 
+  // Returns a particular executable workload given `workload_index`.
   WorkloadBase* workload(int64 workload_index);
 
-  int64 workload_num_operations(int64 workload_index);
-
-  int64 workloads_size();
+  // Returns the number of executable workloads existed inside benchmark.
+  const int64 num_workloads();
 
  private:
   // A list of executable workloads.
   std::vector<std::unique_ptr<WorkloadBase>> workloads_;
-  // A list of number of operations for the executable workloads.
-  std::vector<int64> workloads_num_operations_;
 };
 
 }  // namespace ml_metadata

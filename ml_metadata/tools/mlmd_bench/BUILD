@@ -66,6 +66,7 @@ cc_library(
     srcs = ["stats.cc"],
     hdrs = ["stats.h"],
     deps = [
+        "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
         "//ml_metadata/metadata_store:types",
         "@org_tensorflow//tensorflow/core:lib",
@@ -90,6 +91,7 @@ cc_library(
     deps = [
         ":fill_types_workload",
         ":workload",
+        "@com_google_absl//absl/memory",
         "//ml_metadata/metadata_store:types",
         "//ml_metadata/tools/mlmd_bench/proto:mlmd_bench_proto",
         "@org_tensorflow//tensorflow/core:lib",

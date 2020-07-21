@@ -34,11 +34,28 @@ TEST(BenchmarkTest, CreatWorkloadTest) {
               }
               num_operations: 100
             }
+            workload_configs: {
+              fill_types_config: {
+                update: true
+                specification: EXECUTION_TYPE
+                num_properties: { minimum: 1 maximum: 10 }
+              }
+              num_operations: 500
+            }
+            workload_configs: {
+              fill_types_config: {
+                update: false
+                specification: CONTEXT_TYPE
+                num_properties: { minimum: 1 maximum: 10 }
+              }
+              num_operations: 300
+            }
           )");
   Benchmark benchmark(mlmd_bench_config);
-  // Checks that indeed one workload has been created according to the
-  // `workload_configs`.
-  EXPECT_STREQ(benchmark.workload(0)->GetName().c_str(), "fill_artifact_type");
+  // Checks that all workload configurations have transformed into executable
+  // workloads inside benchmark.
+  EXPECT_EQ(benchmark.num_workloads(),
+            mlmd_bench_config.workload_configs_size());
 }
 
 }  // namespace
