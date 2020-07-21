@@ -29,6 +29,75 @@ limitations under the License.
 #include "tensorflow/core/lib/core/threadpool.h"
 
 namespace ml_metadata {
+namespace {
+
+// Prepares a list of MLMD client instance(`stores`) for each thread.
+tensorflow::Status PrepareStoresForThreads(
+    const ConnectionConfig mlmd_config, const int64 num_threads,
+    std::vector<std::unique_ptr<MetadataStore>>& stores) {
+  stores.resize(num_threads);
+  // Each thread uses a different MLMD client instance to talk to
+  // the same back-end.
+  for (int64 i = 0; i < num_threads; ++i) {
+    std::unique_ptr<MetadataStore> store;
+    TF_RETURN_IF_ERROR(CreateMetadataStore(mlmd_config, &store));
+    stores[i] = std::move(store);
+  }
+  return tensorflow::Status::OK();
+}
+
+// Sets up the current workload.
+tensorflow::Status SetUpWorkload(const ConnectionConfig mlmd_config,
+                                 WorkloadBase* workload) {
+  std::unique_ptr<MetadataStore> set_up_store;
+  TF_RETURN_IF_ERROR(CreateMetadataStore(mlmd_config, &set_up_store));
+  TF_RETURN_IF_ERROR(workload->SetUp(set_up_store.get()));
+  return tensorflow::Status::OK();
+}
+
+// Executes the current workload and updates `curr_thread_stats` with `op_stats`
+// along the way.
+tensorflow::Status ExecuteWorkload(const int64 work_items_start_index,
+                                   const int64 op_per_thread,
+                                   std::unique_ptr<MetadataStore>& curr_store,
+                                   WorkloadBase* workload,
+                                   int64& approx_total_done,
+                                   ThreadStats& curr_thread_stats) {
+  int64 work_items_index = work_items_start_index;
+  while (work_items_index < work_items_start_index + op_per_thread) {
+    // Each operation has a op_stats.
+    OpStats op_stats;
+    tensorflow::Status status =
+        workload->RunOp(work_items_index, curr_store.get(), op_stats);
+    // If the error is not Abort error, break the current process.
+    if (!status.ok() && status.code() != tensorflow::error::ABORTED) {
+      TF_RETURN_IF_ERROR(status);
+    }
+    // Handles abort issues for concurrent writing to the db.
+    if (!status.ok()) {
+      continue;
+    }
+    work_items_index++;
+    approx_total_done++;
+    // Updates the current thread stats using the `op_stats`.
+    curr_thread_stats.Update(op_stats, approx_total_done);
+  }
+  return tensorflow::Status::OK();
+}
+
+// Merges all the thread stats inside `thread_stats_list` into a workload stats
+// and reports the workload's performance according to that.
+void MergeThreadStatsAndReport(const std::string workload_name,
+                               ThreadStats thread_stats_list[], int64 size) {
+  for (int64 i = 1; i < size; ++i) {
+    thread_stats_list[0].Merge(thread_stats_list[i]);
+  }
+  // Reports the metrics of interests.
+  // TODO(briansong) Return the report as a summary proto.
+  thread_stats_list[0].Report(workload_name);
+}
+
+}  // namespace
 
 ThreadRunner::ThreadRunner(const ConnectionConfig& mlmd_config,
                            const int64 num_threads)
@@ -48,71 +117,38 @@ tensorflow::Status ThreadRunner::Run(Benchmark& benchmark) {
   for (int i = 0; i < benchmark.num_workloads(); ++i) {
     WorkloadBase* workload = benchmark.workload(i);
     ThreadStats thread_stats_list[num_threads_];
-    std::unique_ptr<MetadataStore> set_up_store;
-    TF_RETURN_IF_ERROR(CreateMetadataStore(mlmd_config_, &set_up_store));
-    TF_RETURN_IF_ERROR(workload->SetUp(set_up_store.get()));
+    tensorflow::Status thread_status_list[num_threads_];
+    TF_RETURN_IF_ERROR(SetUpWorkload(mlmd_config_, workload));
     const int64 op_per_thread = workload->num_operations() / num_threads_;
+    std::vector<std::unique_ptr<MetadataStore>> stores;
+    TF_RETURN_IF_ERROR(
+        PrepareStoresForThreads(mlmd_config_, num_threads_, stores));
     {
       // Create a thread pool for multi-thread execution.
       tensorflow::thread::ThreadPool pool(tensorflow::Env::Default(),
                                           "mlmd_bench", num_threads_);
       // `approx_total_done` is used for reporting progress along the way.
       int64 approx_total_done = 0;
-      for (int64 thread_index = 0; thread_index < num_threads_;
-           ++thread_index) {
-        int64 work_items_start_index = op_per_thread * thread_index;
-        ThreadStats& curr_thread_stats = thread_stats_list[thread_index];
+      for (int64 t = 0; t < num_threads_; ++t) {
+        int64 work_items_start_index = op_per_thread * t;
+        ThreadStats& curr_thread_stats = thread_stats_list[t];
+        std::unique_ptr<MetadataStore>& curr_store = stores[t];
+        tensorflow::Status& curr_thread_status = thread_status_list[t];
         pool.Schedule([this, op_per_thread, workload, work_items_start_index,
-                       &curr_thread_stats, &approx_total_done]() {
-          // Each thread uses a different MLMD client instance to talk to
-          // the same back-end.
-          std::unique_ptr<MetadataStore> store;
-          tensorflow::Status store_status =
-              CreateMetadataStore(mlmd_config_, &store);
-          // Handles abort issues for concurrent creating `store` of the db.
-          while (!store_status.ok()) {
-            store_status = CreateMetadataStore(mlmd_config_, &store);
-            // If the error is not Abort error, break the current process.
-            if (!store_status.ok() &&
-                store_status.code() != tensorflow::error::ABORTED) {
-              TF_CHECK_OK(store_status);
-            }
-          }
+                       &curr_thread_stats, &curr_store, &curr_thread_status,
+                       &approx_total_done]() {
           curr_thread_stats.Start();
-          // Executes the current workload by the specified
-          // `work_items_index`.
-          int64 work_items_index = work_items_start_index;
-          while (work_items_index < work_items_start_index + op_per_thread) {
-            // Each operation has a op_stats.
-            OpStats op_stats;
-            tensorflow::Status status =
-                workload->RunOp(work_items_index, store.get(), op_stats);
-            // If the error is not Abort error, break the current process.
-            if (!status.ok() && status.code() != tensorflow::error::ABORTED) {
-              TF_CHECK_OK(status);
-            }
-            // Handles abort issues for concurrent writing to the db.
-            if (!status.ok()) {
-              continue;
-            }
-            work_items_index++;
-            approx_total_done++;
-            // Updates the current thread stats using the `op_stats`.
-            curr_thread_stats.Update(op_stats, approx_total_done);
-          }
+          curr_thread_status.Update(
+              ExecuteWorkload(work_items_start_index, op_per_thread, curr_store,
+                              workload, approx_total_done, curr_thread_stats));
           curr_thread_stats.Stop();
         });
+        TF_RETURN_IF_ERROR(curr_thread_status);
       }
     }
     TF_RETURN_IF_ERROR(workload->TearDown());
-    // Merges all the thread stats of the current workload.
-    for (int64 i = 1; i < num_threads_; ++i) {
-      thread_stats_list[0].Merge(thread_stats_list[i]);
-    }
-    // Reports the metrics of interests.
-    // TODO(briansong) Return the report as a summary proto and write it to a
-    // file.
-    thread_stats_list[0].Report(workload->GetName());
+    MergeThreadStatsAndReport(workload->GetName(), thread_stats_list,
+                              num_threads_);
   }
   return tensorflow::Status::OK();
 }

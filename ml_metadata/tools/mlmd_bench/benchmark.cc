@@ -29,12 +29,11 @@ namespace {
 // Creates the executable workload given `workload_config`.
 void CreateWorkload(const WorkloadConfig& workload_config,
                     std::unique_ptr<WorkloadBase>& workload) {
-  if (workload_config.has_fill_types_config()) {
-    workload = absl::make_unique<FillTypes>(FillTypes(
-        workload_config.fill_types_config(), workload_config.num_operations()));
-  } else {
+  if (!workload_config.has_fill_types_config()) {
     LOG(FATAL) << "Cannot find corresponding workload!";
   }
+  workload = absl::make_unique<FillTypes>(FillTypes(
+      workload_config.fill_types_config(), workload_config.num_operations()));
 }
 
 }  // namespace
@@ -52,7 +51,5 @@ Benchmark::Benchmark(const MLMDBenchConfig& mlmd_bench_config) {
 WorkloadBase* Benchmark::workload(const int64 workload_index) {
   return workloads_[workload_index].get();
 }
-
-const int64 Benchmark::num_workloads() { return workloads_.size(); }
 
 }  // namespace ml_metadata

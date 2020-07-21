@@ -34,7 +34,7 @@ class Benchmark {
   WorkloadBase* workload(int64 workload_index);
 
   // Returns the number of executable workloads existed inside benchmark.
-  const int64 num_workloads();
+  int64 num_workloads() const { return workloads_.size(); }
 
  private:
   // A list of executable workloads.
