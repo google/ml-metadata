@@ -1,0 +1,23 @@
+mlmd_config: {
+  sqlite: {
+    filename_uri: "mlmd-bench.db"
+    connection_mode: READWRITE_OPENCREATE
+  }
+}
+workload_configs: { 
+  fill_types_config: {
+    update: false
+    specification: EXECUTION_TYPE
+    num_properties: { minimum: 1 maximum: 10 }
+  }
+  num_operations: 100
+}
+workload_configs: { 
+  fill_types_config: {
+    update: true
+    specification: EXECUTION_TYPE
+    num_properties: { minimum: 1 maximum: 10 }
+  }
+  num_operations: 100
+}
+thread_env_config: { num_threads: 10 }

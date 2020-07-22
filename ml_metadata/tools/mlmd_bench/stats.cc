@@ -20,6 +20,7 @@ limitations under the License.
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "ml_metadata/metadata_store/types.h"
+#include "tensorflow/core/platform/logging.h"
 
 namespace ml_metadata {
 
@@ -65,22 +66,34 @@ void ThreadStats::Merge(const ThreadStats& other) {
   finish_ = std::max(finish_, other.finish());
 }
 
-void ThreadStats::Report(const std::string& specification) {
-  std::string extra;
-  if (bytes_ > 0) {
+std::pair<double, double> ThreadStats::Report(
+    const std::string& specification) {
+  if (done_ == 0) {
+    LOG(ERROR) << "Current workload has not been executed even once!";
+    return std::make_pair(0, 0);
+  }
+
+  double bytes_per_second = 0.0;
+  double microseconds_per_operation =
+      (accumulated_elapsed_time_ / absl::Microseconds(1)) / done_;
+
+  int64 elapsed_seconds = accumulated_elapsed_time_ / absl::Seconds(1);
+  std::string rate;
+  // Not all workloads will transfer bytes in the process.
+  if (bytes_ > 0 && elapsed_seconds != 0) {
     // Rate is computed on actual elapsed time (latest end time minus
     // earliest start time of each thread) instead of the sum of per-thread
     // elapsed times.
-    int64 elapsed_seconds = accumulated_elapsed_time_ / absl::Seconds(1);
-    std::string rate =
-        absl::StrFormat("%6.1f KB/s", (bytes_ / 1024.0) / elapsed_seconds);
-    extra = rate;
+    bytes_per_second = bytes_ / elapsed_seconds;
+    rate = absl::StrFormat("%6.1f KB/s", bytes_per_second / 1024.0);
   }
-  std::fprintf(
-      stdout, "%-12s : %11.3f micros/op;%s%s\n", specification.c_str(),
-      (double)(accumulated_elapsed_time_ / absl::Microseconds(1)) / done_,
-      (extra.empty() ? "" : " "), extra.c_str());
+
+  std::fprintf(stdout, "%-12s : %11.3f micros/op;%s%s\n", specification.c_str(),
+               microseconds_per_operation, (rate.empty() ? "" : " "),
+               rate.c_str());
   std::fflush(stdout);
+
+  return std::make_pair(bytes_per_second, microseconds_per_operation);
 }
 
 }  // namespace ml_metadata

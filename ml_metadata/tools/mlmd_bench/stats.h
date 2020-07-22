@@ -53,7 +53,7 @@ class ThreadStats {
 
   // Reports the metrics of interests: microsecond per operation and total bytes
   // per seconds for the current workload.
-  void Report(const std::string& specification);
+  std::pair<double, double> Report(const std::string& specification);
 
   // Gets the start time of current thread stats.
   absl::Time start() const { return start_; }
