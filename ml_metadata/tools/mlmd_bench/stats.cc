@@ -31,7 +31,8 @@ ThreadStats::ThreadStats()
 
 void ThreadStats::Start() { start_ = absl::Now(); }
 
-void ThreadStats::Update(const OpStats& op_stats, int64& approx_total_done) {
+void ThreadStats::Update(const OpStats& op_stats,
+                         const int64 approx_total_done) {
   bytes_ += op_stats.transferred_bytes;
   accumulated_elapsed_time_ += op_stats.elapsed_time;
   done_++;

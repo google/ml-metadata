@@ -68,7 +68,7 @@ tensorflow::Status ExecuteWorkload(const int64 work_items_start_index,
     // Each operation has a op_stats.
     OpStats op_stats;
     tensorflow::Status status =
-        workload->RunOp(work_items_index, curr_store.get(), op_stats);
+        workload->RunOp(work_items_index, curr_store, op_stats);
     // If the error is not Abort error, break the current process.
     if (!status.ok() && status.code() != tensorflow::error::ABORTED) {
       TF_RETURN_IF_ERROR(status);
@@ -135,7 +135,7 @@ tensorflow::Status ThreadRunner::Run(Benchmark& benchmark) {
         MetadataStore* curr_store = stores[t].get();
         tensorflow::Status& curr_status = thread_status_list[t];
         pool.Schedule([this, op_per_thread, workload, work_items_start_index,
-                       &curr_thread_stats, &curr_store, &curr_status,
+                       curr_store, &curr_thread_stats, &curr_status,
                        &approx_total_done]() {
           curr_thread_stats.Start();
           curr_status.Update(

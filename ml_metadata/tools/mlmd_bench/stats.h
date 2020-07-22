@@ -41,7 +41,7 @@ class ThreadStats {
   void Start();
 
   // Updates the current thread stats with op_stats.
-  void Update(const OpStats& op_stats, int64& approx_total_done);
+  void Update(const OpStats& op_stats, int64 approx_total_done);
 
   // Records the end time for each thread after the current thread has finished
   // all the operations.
