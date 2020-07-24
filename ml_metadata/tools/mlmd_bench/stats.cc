@@ -20,6 +20,7 @@ limitations under the License.
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "ml_metadata/metadata_store/types.h"
+#include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
 #include "tensorflow/core/platform/logging.h"
 
 namespace ml_metadata {
@@ -66,11 +67,11 @@ void ThreadStats::Merge(const ThreadStats& other) {
   finish_ = std::max(finish_, other.finish());
 }
 
-std::pair<double, double> ThreadStats::Report(
-    const std::string& specification) {
+void ThreadStats::Report(const std::string& specification,
+                         WorkloadConfigResult* workload_summary) {
   if (done_ == 0) {
     LOG(ERROR) << "Current workload has not been executed even once!";
-    return std::make_pair(0, 0);
+    return;
   }
 
   double bytes_per_second = 0.0;
@@ -93,7 +94,9 @@ std::pair<double, double> ThreadStats::Report(
                rate.c_str());
   std::fflush(stdout);
 
-  return std::make_pair(bytes_per_second, microseconds_per_operation);
+  // Stores the performance result.
+  workload_summary->set_bytes_per_second(bytes_per_second);
+  workload_summary->set_microseconds_per_operation(microseconds_per_operation);
 }
 
 }  // namespace ml_metadata

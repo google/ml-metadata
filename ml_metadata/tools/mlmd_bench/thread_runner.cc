@@ -27,6 +27,7 @@ limitations under the License.
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/lib/core/threadpool.h"
+#include "tensorflow/core/platform/env.h"
 
 namespace ml_metadata {
 namespace {
@@ -95,10 +96,7 @@ void MergeThreadStatsAndReport(const std::string workload_name,
     thread_stats_list[0].Merge(thread_stats_list[i]);
   }
   // Reports the metrics of interests.
-  std::pair<double, double> report = thread_stats_list[0].Report(workload_name);
-  // Stores the performance result.
-  workload_summary->set_bytes_per_second(report.first);
-  workload_summary->set_microseconds_per_operation(report.second);
+  thread_stats_list[0].Report(workload_name, workload_summary);
 }
 
 }  // namespace
