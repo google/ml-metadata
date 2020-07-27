@@ -12,8 +12,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
-#include <fcntl.h>
-
 #include <fstream>
 #include <iostream>
 
@@ -33,8 +31,7 @@ namespace {
 // Initializes the `mlmd_bench_config` with the specified configuration .pbtxt
 // file.
 tensorflow::Status InitMLMDBenchConfigFromPbtxtFile(
-    char** argv, MLMDBenchConfig& mlmd_bench_config) {
-  const std::string config_pbtxt_path = argv[1];
+    const std::string& config_pbtxt_path, MLMDBenchConfig& mlmd_bench_config) {
   if (tensorflow::Env::Default()->FileExists(config_pbtxt_path).ok()) {
     return ReadTextProto(tensorflow::Env::Default(), config_pbtxt_path,
                          &mlmd_bench_config);
@@ -46,7 +43,7 @@ tensorflow::Status InitMLMDBenchConfigFromPbtxtFile(
 }
 
 // Initializes the `mlmd_bench_report` with `mlmd_bench_config`.
-void InitMLMDBenchReport(MLMDBenchConfig& mlmd_bench_config,
+void InitMLMDBenchReport(const MLMDBenchConfig& mlmd_bench_config,
                          MLMDBenchReport& mlmd_bench_report) {
   for (auto& workload_config : mlmd_bench_config.workload_configs()) {
     mlmd_bench_report.add_summaries()->mutable_workload_config()->CopyFrom(
@@ -54,10 +51,9 @@ void InitMLMDBenchReport(MLMDBenchConfig& mlmd_bench_config,
   }
 }
 
-// Writes the performance report into a specified file.
-tensorflow::Status WriteProtoResultToDisk(char** argv,
+// Writes the performance report into a specified file in output path.
+tensorflow::Status WriteProtoResultToDisk(const std::string& output_path,
                                           MLMDBenchReport& mlmd_bench_report) {
-  const std::string output_path = argv[2];
   if (tensorflow::Env::Default()->IsDirectory(output_path).ok()) {
     return tensorflow::WriteTextProto(
         tensorflow::Env::Default(),
@@ -71,12 +67,17 @@ tensorflow::Status WriteProtoResultToDisk(char** argv,
 }  // namespace ml_metadata
 
 int main(int argc, char** argv) {
+  // Extract input and output directory from command line input arguments.
+  const std::string config_pbtxt_path = argv[1];
+  const std::string output_path = argv[2];
+
   // Configurations for mlmd_bench.
   ml_metadata::MLMDBenchConfig mlmd_bench_config;
   tensorflow::Status init_config_status =
-      ml_metadata::InitMLMDBenchConfigFromPbtxtFile(argv, mlmd_bench_config);
+      ml_metadata::InitMLMDBenchConfigFromPbtxtFile(config_pbtxt_path,
+                                                    mlmd_bench_config);
   if (!init_config_status.ok()) {
-    LOG(WARNING) << init_config_status;
+    LOG(FATAL) << init_config_status;
   }
 
   // Performance report for workloads specified inside `mlmd_bench_config`.
@@ -91,13 +92,13 @@ int main(int argc, char** argv) {
       mlmd_bench_config.thread_env_config().num_threads());
   tensorflow::Status execuate_status = runner.Run(benchmark, mlmd_bench_report);
   if (!execuate_status.ok()) {
-    LOG(WARNING) << execuate_status;
+    LOG(FATAL) << execuate_status;
   }
 
   tensorflow::Status write_status =
-      ml_metadata::WriteProtoResultToDisk(argv, mlmd_bench_report);
+      ml_metadata::WriteProtoResultToDisk(output_path, mlmd_bench_report);
   if (!write_status.ok()) {
-    LOG(WARNING) << write_status;
+    LOG(FATAL) << write_status;
   }
 
   return 0;

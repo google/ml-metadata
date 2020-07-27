@@ -58,9 +58,9 @@ void TestThreadRunner(const int num_thread) {
   EXPECT_EQ(get_response.artifact_types_size(),
             mlmd_bench_config.workload_configs()[0].num_operations());
 
-  // Checks for valid report.
+  // Checks for valid performance report.
   EXPECT_GT(mlmd_bench_report.summaries()[0].microseconds_per_operation(), 0);
-  EXPECT_GT(mlmd_bench_report.summaries()[0].bytes_per_second(), 0);
+  EXPECT_GE(mlmd_bench_report.summaries()[0].bytes_per_second(), 0);
 }
 
 // Tests the Run() of ThreadRunner class in single-thread mode.

@@ -78,10 +78,14 @@ void ThreadStats::Report(const std::string& specification,
   double microseconds_per_operation =
       (accumulated_elapsed_time_ / absl::Microseconds(1)) / done_;
 
-  int64 elapsed_seconds = accumulated_elapsed_time_ / absl::Seconds(1);
   std::string rate;
   // Not all workloads will transfer bytes in the process.
-  if (bytes_ > 0 && elapsed_seconds != 0) {
+  // Also, if `elapsed_seconds` equals to 0, `bytes_per_second` will remain as
+  // 0.
+  if (bytes_ > 0) {
+    // Refines the granularity of time to microsecond first and convert it back
+    // to second.
+    double elapsed_seconds = (finish_ - start_) / absl::Microseconds(1) * 1e-6;
     // Rate is computed on actual elapsed time (latest end time minus
     // earliest start time of each thread) instead of the sum of per-thread
     // elapsed times.
