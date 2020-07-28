@@ -29,7 +29,8 @@ class ThreadRunner {
   ThreadRunner(const ConnectionConfig& mlmd_config, int64 num_threads);
   ~ThreadRunner() = default;
 
-  // Execution unit of `mlmd_bench`. Returns detailed error if query executions
+  // Execution unit of `mlmd_bench`. Takes `benchmark` and executing the
+  // workloads inside. Returns detailed error if query executions
   // failed.
   tensorflow::Status Run(Benchmark& benchmark);
 
