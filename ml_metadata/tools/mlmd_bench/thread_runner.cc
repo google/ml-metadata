@@ -87,8 +87,8 @@ tensorflow::Status ExecuteWorkload(const int64 work_items_start_index,
 }
 
 // Merges all the thread stats inside `thread_stats_list` into a workload stats
-// and reports the workload's performance according to that. Also, passes the
-// `workload_summary` into `Report()` for updating.
+// and reports the workload's performance through command line output. Also,
+// passes `workload_summary` for updating with the performance result.
 void MergeThreadStatsAndReport(const std::string workload_name,
                                ThreadStats thread_stats_list[], int64 size,
                                WorkloadConfigResult& workload_summary) {

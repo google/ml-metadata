@@ -38,7 +38,7 @@ tensorflow::Status InitAndValidateMLMDBenchConfig(
   }
   return tensorflow::errors::NotFound(
       "Could not find mlmd_bench configuration .pb or "
-      ".pbtxt at supplied input file path: ",
+      ".pbtxt file at supplied configuration file path: ",
       config_file_path);
 }
 
@@ -59,17 +59,17 @@ tensorflow::Status WriteProtoResultToDisk(
 }  // namespace
 }  // namespace ml_metadata
 
-// Input and output file directory specified by the user.
+// mlmd_bench input config file path and output directory command line options.
 DEFINE_string(config_file_path, "",
-              "The input mlmd_bench configuration .pbtxt file path.");
+              "The input mlmd_bench configuration .pb or .pbtxt file path.");
 DEFINE_string(
     output_directory, "",
-    "The output directory of the performance report: mlmd_bench_report.txt.");
+    "The output directory for the performance report: mlmd_bench_report.txt.");
 
 int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  // Configurations for mlmd_bench.
+  // Configurations for `mlmd_bench`.
   ml_metadata::MLMDBenchConfig mlmd_bench_config;
   TF_CHECK_OK(ml_metadata::InitAndValidateMLMDBenchConfig(
       FLAGS_config_file_path, mlmd_bench_config));

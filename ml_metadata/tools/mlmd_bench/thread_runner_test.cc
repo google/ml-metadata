@@ -59,7 +59,7 @@ void TestThreadRunner(const int num_thread) {
   EXPECT_GT(
       benchmark.mlmd_bench_report().summaries()[0].microseconds_per_operation(),
       0);
-  EXPECT_GE(benchmark.mlmd_bench_report().summaries()[0].bytes_per_second(), 0);
+  EXPECT_GT(benchmark.mlmd_bench_report().summaries()[0].bytes_per_second(), 0);
 }
 
 // Tests the Run() of ThreadRunner class in single-thread mode.

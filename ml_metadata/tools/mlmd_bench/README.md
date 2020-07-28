@@ -15,7 +15,7 @@ bazel build -c opt //ml_metadata/tools/mlmd_bench:mlmd_bench
 
 ```shell
 cd bazel-bin/ml_metadata/tools/mlmd_bench/
-./mlmd_bench --config_file_path=<input mlmd_bench configuration .pbtxt file path> --output_directory=<output directory of the performance report: mlmd_bench_report.txt>
+./mlmd_bench --config_file_path=<input mlmd_bench configuration .pb or .pbtxt file path> --output_directory=<output directory for the performance report: mlmd_bench_report.txt>
 ```
 
 ## INPUT OUTPUT FORMAT
@@ -49,7 +49,7 @@ thread_env_config: { num_threads: 10 }
 
 ```
 
-### 2. Output is a MLMDBenchSummary protocol buffer message in text format:
+### 2. Output is a MLMDBenchReport protocol buffer message in text format:
 
 ```shell
 summaries {

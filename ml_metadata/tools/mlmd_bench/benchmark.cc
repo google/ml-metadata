@@ -44,6 +44,7 @@ void InitMLMDBenchReport(const MLMDBenchConfig& mlmd_bench_config,
         workload_config);
   }
 }
+
 }  // namespace
 
 Benchmark::Benchmark(const MLMDBenchConfig& mlmd_bench_config) {
@@ -55,6 +56,7 @@ Benchmark::Benchmark(const MLMDBenchConfig& mlmd_bench_config) {
     CreateWorkload(mlmd_bench_config.workload_configs(i), workloads_[i]);
   }
 
+  // Initializes the performance report with given `mlmd_bench_config`.
   InitMLMDBenchReport(mlmd_bench_config, mlmd_bench_report_);
 }
 
