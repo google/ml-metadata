@@ -21,7 +21,6 @@ limitations under the License.
 #include "ml_metadata/tools/mlmd_bench/fill_types_workload.h"
 #include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
 #include "ml_metadata/tools/mlmd_bench/workload.h"
-#include "tensorflow/core/platform/logging.h"
 
 namespace ml_metadata {
 namespace {
