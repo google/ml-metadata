@@ -39,8 +39,10 @@ void TestThreadRunner(const int num_thread) {
         num_operations: 100
       )"));
   // Uses a fake in-memory SQLite database for testing.
+  const std::string filename_uri =
+      absl::StrCat(::testing::TempDir(), "mlmd-bench-test_", num_thread, ".db");
   mlmd_bench_config.mutable_mlmd_config()->mutable_sqlite()->set_filename_uri(
-      absl::StrCat("mlmd-bench-test_", num_thread, ".db"));
+      filename_uri);
   Benchmark benchmark(mlmd_bench_config);
   ThreadRunner runner(mlmd_bench_config.mlmd_config(),
                       mlmd_bench_config.thread_env_config().num_threads());

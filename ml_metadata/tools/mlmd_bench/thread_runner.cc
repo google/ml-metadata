@@ -49,10 +49,10 @@ tensorflow::Status PrepareStoresForThreads(
 
 // Sets up the current workload.
 tensorflow::Status SetUpWorkload(const ConnectionConfig mlmd_config,
-                                 WorkloadBase* workload) {
+                                 WorkloadBase& workload) {
   std::unique_ptr<MetadataStore> set_up_store;
   TF_RETURN_IF_ERROR(CreateMetadataStore(mlmd_config, &set_up_store));
-  TF_RETURN_IF_ERROR(workload->SetUp(set_up_store.get()));
+  TF_RETURN_IF_ERROR(workload.SetUp(set_up_store.get()));
   return tensorflow::Status::OK();
 }
 
@@ -60,8 +60,8 @@ tensorflow::Status SetUpWorkload(const ConnectionConfig mlmd_config,
 // along the way.
 tensorflow::Status ExecuteWorkload(const int64 work_items_start_index,
                                    const int64 op_per_thread,
-                                   MetadataStore* curr_store,
-                                   WorkloadBase* workload,
+                                   MetadataStore& curr_store,
+                                   WorkloadBase& workload,
                                    int64& approx_total_done,
                                    ThreadStats& curr_thread_stats) {
   int64 work_items_index = work_items_start_index;
@@ -69,7 +69,7 @@ tensorflow::Status ExecuteWorkload(const int64 work_items_start_index,
     // Each operation has a op_stats.
     OpStats op_stats;
     tensorflow::Status status =
-        workload->RunOp(work_items_index, curr_store, op_stats);
+        workload.RunOp(work_items_index, &curr_store, op_stats);
     // If the error is not Abort error, break the current process.
     if (!status.ok() && status.code() != tensorflow::error::ABORTED) {
       TF_RETURN_IF_ERROR(status);
@@ -90,9 +90,10 @@ tensorflow::Status ExecuteWorkload(const int64 work_items_start_index,
 // and reports the workload's performance through command line output. Also,
 // passes `workload_summary` for updating with the performance result.
 void MergeThreadStatsAndReport(const std::string workload_name,
-                               ThreadStats thread_stats_list[], int64 size,
+                               std::vector<ThreadStats>& thread_stats_list,
                                WorkloadConfigResult& workload_summary) {
-  for (int64 i = 1; i < size; ++i) {
+  CHECK_GT(thread_stats_list.size(), 0);
+  for (int64 i = 1; i < thread_stats_list.size(); ++i) {
     thread_stats_list[0].Merge(thread_stats_list[i]);
   }
   // Reports the metrics of interests.
@@ -118,9 +119,9 @@ ThreadRunner::ThreadRunner(const ConnectionConfig& mlmd_config,
 tensorflow::Status ThreadRunner::Run(Benchmark& benchmark) {
   for (int i = 0; i < benchmark.num_workloads(); ++i) {
     WorkloadBase* workload = benchmark.workload(i);
-    ThreadStats thread_stats_list[num_threads_];
-    tensorflow::Status thread_status_list[num_threads_];
-    TF_RETURN_IF_ERROR(SetUpWorkload(mlmd_config_, workload));
+    std::vector<ThreadStats> thread_stats_list(num_threads_);
+    std::vector<tensorflow::Status> thread_status_list(num_threads_);
+    TF_RETURN_IF_ERROR(SetUpWorkload(mlmd_config_, *workload));
     const int64 op_per_thread = workload->num_operations() / num_threads_;
     std::vector<std::unique_ptr<MetadataStore>> stores;
     TF_RETURN_IF_ERROR(
@@ -136,13 +137,13 @@ tensorflow::Status ThreadRunner::Run(Benchmark& benchmark) {
         ThreadStats& curr_thread_stats = thread_stats_list[t];
         MetadataStore* curr_store = stores[t].get();
         tensorflow::Status& curr_status = thread_status_list[t];
-        pool.Schedule([this, op_per_thread, workload, work_items_start_index,
+        pool.Schedule([op_per_thread, workload, work_items_start_index,
                        curr_store, &curr_thread_stats, &curr_status,
                        &approx_total_done]() {
           curr_thread_stats.Start();
-          curr_status.Update(
-              ExecuteWorkload(work_items_start_index, op_per_thread, curr_store,
-                              workload, approx_total_done, curr_thread_stats));
+          curr_status.Update(ExecuteWorkload(
+              work_items_start_index, op_per_thread, *curr_store, *workload,
+              approx_total_done, curr_thread_stats));
           curr_thread_stats.Stop();
         });
         TF_RETURN_IF_ERROR(curr_status);
@@ -150,7 +151,7 @@ tensorflow::Status ThreadRunner::Run(Benchmark& benchmark) {
     }
     TF_RETURN_IF_ERROR(workload->TearDown());
     MergeThreadStatsAndReport(
-        workload->GetName(), thread_stats_list, num_threads_,
+        workload->GetName(), thread_stats_list,
         *benchmark.mlmd_bench_report().mutable_summaries(i));
   }
   return tensorflow::Status::OK();

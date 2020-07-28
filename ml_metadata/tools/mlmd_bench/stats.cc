@@ -23,12 +23,20 @@ limitations under the License.
 #include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
 
 namespace ml_metadata {
+namespace {
+// The cutoff threshold numbers when printing progress to consoles.
+constexpr int kReportThresholds[]{1000,   5000,   10000,  50000,
+                                  100000, 500000, 1000000};
+
+// The threshold of starting console printing the thread status.
+constexpr int kStartConsolePrintThreshold = 100;
+}  // namespace
 
 ThreadStats::ThreadStats()
-    : accumulated_elapsed_time_(absl::Nanoseconds(0)),
+    : accumulated_elapsed_time_(absl::ZeroDuration()),
       done_(0),
       bytes_(0),
-      next_report_(100) {}
+      next_report_(kStartConsolePrintThreshold) {}
 
 void ThreadStats::Start() { start_ = absl::Now(); }
 
@@ -37,19 +45,18 @@ void ThreadStats::Update(const OpStats& op_stats,
   bytes_ += op_stats.transferred_bytes;
   accumulated_elapsed_time_ += op_stats.elapsed_time;
   done_++;
-  static const int report_thresholds[]{1000,   5000,   10000,  50000,
-                                       100000, 500000, 1000000};
-  int threshold_index = 0;
+  // Reports the current progress with `approx_total_done`.
   if (approx_total_done < next_report_) {
     return;
   }
-  // Reports the current progress with `approx_total_done`.
-  next_report_ += report_thresholds[threshold_index] / 10;
-  if (next_report_ > report_thresholds[threshold_index]) {
+  absl::FPrintF(stderr, "... finished %d ops%30s\r", approx_total_done, "");
+  std::fflush(stderr);
+  // Update next_report_ to the next threshold.
+  int threshold_index = 0;
+  while (next_report_ >= kReportThresholds[threshold_index]) {
     threshold_index++;
   }
-  absl::FPrintF(stderr, "... finished %lld ops%30s\r", approx_total_done, "");
-  std::fflush(stderr);
+  next_report_ += kReportThresholds[threshold_index] / 10;
 }
 
 void ThreadStats::Stop() { finish_ = absl::Now(); }

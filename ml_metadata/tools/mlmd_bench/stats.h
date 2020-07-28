@@ -29,10 +29,10 @@ struct OpStats {
 };
 
 // ThreadStats records the statics(start time, end time, elapsed time, total
-// operations done, transferred bytes) of each thread. It will be updated by
-// Opstats. Every ThreadStats of a particular workload will be merged together
-// after each thread has finished execution to generate a workload stats for
-// reporting the performance of current workload.
+// operations done, transferred bytes) of each thread. It will be updated with
+// an Opstats. Every ThreadStats of a particular workload will be merged
+// together after each thread has finished execution to generate a workload
+// stats for reporting the performance of current workload.
 class ThreadStats {
  public:
   ThreadStats();
@@ -42,6 +42,9 @@ class ThreadStats {
   void Start();
 
   // Updates the current thread stats with op_stats.
+  // The `approx_total_done` is used for console printing. When using the
+  // ThreadStats with multiple threads, the aggregated total number of finished
+  // tasks are passed in to determine when to print.
   void Update(const OpStats& op_stats, int64 approx_total_done);
 
   // Records the end time for each thread after the current thread has finished
@@ -85,7 +88,7 @@ class ThreadStats {
   int64 done_;
   // Records the total transferred bytes of current thread stats.
   int64 bytes_;
-  // Uses in Report() for console reporting.
+  // Used for console reporting during processing.
   int64 next_report_;
 };
 

@@ -14,7 +14,7 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/tools/mlmd_bench/stats.h"
 
-#include <numeric>
+#include <random>
 
 #include <gtest/gtest.h>
 #include "absl/time/clock.h"
@@ -25,21 +25,21 @@ namespace {
 
 // Tests the Update() of Stats class.
 TEST(ThreadStatsTest, UpdateTest) {
-  srand(time(NULL));
+  std::minstd_rand0 gen(absl::ToUnixMillis(absl::Now()));
+  std::uniform_int_distribution<int64> uniform_dist(0, 99999);
 
   ThreadStats stats;
   stats.Start();
-
   // Prepares the list of `op_stats` to update `stats`.
   std::vector<absl::Duration> op_stats_time;
   std::vector<int> op_stats_bytes;
-  for (int i = 0; i < 10000; ++i) {
-    op_stats_time.push_back(absl::Microseconds(rand() % 99999));
-    op_stats_bytes.push_back(rand() % 99999);
+  for (int i = 0; i < 100; ++i) {
+    op_stats_time.push_back(absl::Microseconds(uniform_dist(gen)));
+    op_stats_bytes.push_back(uniform_dist(gen));
   }
 
   // Updates `stats` with the list of `op_stats`.
-  for (int64 i = 0; i < 10000; ++i) {
+  for (int64 i = 0; i < 100; ++i) {
     OpStats curr_op_stats{op_stats_time[i], op_stats_bytes[i]};
     stats.Update(curr_op_stats, i);
   }
@@ -48,7 +48,7 @@ TEST(ThreadStatsTest, UpdateTest) {
   // by each update, the finial `done_`, `bytes_` and
   // `accumulated_elapsed_time_` of `stats` should be the sum of the list of
   // `op_stats`.
-  EXPECT_EQ(stats.done(), 10000);
+  EXPECT_EQ(stats.done(), 100);
   EXPECT_EQ(stats.accumulated_elapsed_time(),
             std::accumulate(op_stats_time.begin(), op_stats_time.end(),
                             absl::Microseconds(0)));
@@ -58,7 +58,8 @@ TEST(ThreadStatsTest, UpdateTest) {
 
 // Tests the Merge() of Stats class.
 TEST(ThreadStatsTest, MergeTest) {
-  srand(time(NULL));
+  std::minstd_rand0 gen(absl::ToUnixMillis(absl::Now()));
+  std::uniform_int_distribution<int64> uniform_dist(0, 99999);
 
   ThreadStats stats1;
   stats1.Start();
@@ -68,13 +69,13 @@ TEST(ThreadStatsTest, MergeTest) {
 
   std::vector<absl::Duration> op_stats_time;
   std::vector<int> op_stats_bytes;
-  for (int i = 0; i < 10000; ++i) {
-    op_stats_time.push_back(absl::Microseconds(rand() % 99999));
-    op_stats_bytes.push_back(rand() % 99999);
+  for (int i = 0; i < 100; ++i) {
+    op_stats_time.push_back(absl::Microseconds(uniform_dist(gen)));
+    op_stats_bytes.push_back(uniform_dist(gen));
   }
 
   // Updates the stats with the prepared list of `op_stats`.
-  for (int64 i = 0; i < 10000; ++i) {
+  for (int64 i = 0; i < 100; ++i) {
     OpStats curr_op_stats{op_stats_time[i], op_stats_bytes[i]};
     if (i <= 4999) {
       stats1.Update(curr_op_stats, i);
@@ -93,7 +94,7 @@ TEST(ThreadStatsTest, MergeTest) {
   // `accumulated_elapsed_time_` of each merged stats, the final stats's
   // `done_`, `bytes_` and `accumulated_elapsed_time_` should be the sum of the
   // stats.
-  EXPECT_EQ(stats1.done(), 10000);
+  EXPECT_EQ(stats1.done(), 100);
   EXPECT_EQ(stats1.accumulated_elapsed_time(),
             std::accumulate(op_stats_time.begin(), op_stats_time.end(),
                             absl::Microseconds(0)));
