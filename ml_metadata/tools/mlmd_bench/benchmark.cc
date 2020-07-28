@@ -18,6 +18,7 @@ limitations under the License.
 
 #include "absl/memory/memory.h"
 #include "ml_metadata/metadata_store/types.h"
+#include "ml_metadata/tools/mlmd_bench/fill_nodes_workload.h"
 #include "ml_metadata/tools/mlmd_bench/fill_types_workload.h"
 #include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
 #include "ml_metadata/tools/mlmd_bench/workload.h"
@@ -29,11 +30,15 @@ namespace {
 // Creates the executable workload given `workload_config`.
 void CreateWorkload(const WorkloadConfig& workload_config,
                     std::unique_ptr<WorkloadBase>& workload) {
-  if (!workload_config.has_fill_types_config()) {
+  if (workload_config.has_fill_types_config()) {
+    workload = absl::make_unique<FillTypes>(FillTypes(
+        workload_config.fill_types_config(), workload_config.num_operations()));
+  } else if (workload_config.has_fill_nodes_config()) {
+    workload = absl::make_unique<FillNodes>(FillNodes(
+        workload_config.fill_nodes_config(), workload_config.num_operations()));
+  } else {
     LOG(FATAL) << "Cannot find corresponding workload!";
   }
-  workload = absl::make_unique<FillTypes>(FillTypes(
-      workload_config.fill_types_config(), workload_config.num_operations()));
 }
 
 // Initializes `mlmd_bench_report` with `mlmd_bench_config`.

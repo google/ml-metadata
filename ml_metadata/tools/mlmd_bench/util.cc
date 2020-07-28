@@ -26,11 +26,12 @@ limitations under the License.
 
 namespace ml_metadata {
 
-tensorflow::Status GetExistingTypes(const FillTypesConfig& fill_types_config,
+tensorflow::Status GetExistingTypes(const int specification,
                                     MetadataStore* store,
                                     std::vector<Type>& existing_types) {
-  switch (fill_types_config.specification()) {
-    case FillTypesConfig::ARTIFACT_TYPE: {
+  switch (specification) {
+    // Gets ArtifactTypes.
+    case 0: {
       GetArtifactTypesResponse get_response;
       TF_RETURN_IF_ERROR(store->GetArtifactTypes(
           /*request=*/{}, &get_response));
@@ -39,7 +40,8 @@ tensorflow::Status GetExistingTypes(const FillTypesConfig& fill_types_config,
       }
       break;
     }
-    case FillTypesConfig::EXECUTION_TYPE: {
+    // Gets ExecutionTypes.
+    case 1: {
       GetExecutionTypesResponse get_response;
       TF_RETURN_IF_ERROR(store->GetExecutionTypes(
           /*request=*/{}, &get_response));
@@ -48,7 +50,8 @@ tensorflow::Status GetExistingTypes(const FillTypesConfig& fill_types_config,
       }
       break;
     }
-    case FillTypesConfig::CONTEXT_TYPE: {
+    // Gets ContextTypes.
+    case 2: {
       GetContextTypesResponse get_response;
       TF_RETURN_IF_ERROR(store->GetContextTypes(
           /*request=*/{}, &get_response));
@@ -58,9 +61,77 @@ tensorflow::Status GetExistingTypes(const FillTypesConfig& fill_types_config,
       break;
     }
     default:
-      LOG(FATAL) << "Wrong specification for FillTypes!";
+      LOG(FATAL) << "Wrong specification for getting types in db!";
   }
   return tensorflow::Status::OK();
+}
+
+tensorflow::Status GetExistingNodes(const int specification,
+                                    MetadataStore* store,
+                                    std::vector<NodeType>& existing_nodes) {
+  switch (specification) {
+    // Gets Artifacts.
+    case 0: {
+      GetArtifactsResponse get_response;
+      TF_RETURN_IF_ERROR(store->GetArtifacts(
+          /*request=*/{}, &get_response));
+      for (auto& artifact : get_response.artifacts()) {
+        existing_nodes.push_back(artifact);
+      }
+      break;
+    }
+    // Gets Executions.
+    case 1: {
+      GetExecutionsResponse get_response;
+      TF_RETURN_IF_ERROR(store->GetExecutions(
+          /*request=*/{}, &get_response));
+      for (auto& execution : get_response.executions()) {
+        existing_nodes.push_back(execution);
+      }
+      break;
+    }
+    // Gets Contexts.
+    case 2: {
+      GetContextsResponse get_response;
+      TF_RETURN_IF_ERROR(store->GetContexts(
+          /*request=*/{}, &get_response));
+      for (auto& context : get_response.contexts()) {
+        existing_nodes.push_back(context);
+      }
+      break;
+    }
+    default:
+      LOG(FATAL) << "Wrong specification for getting nodes in db!";
+  }
+  return tensorflow::Status::OK();
+}
+
+tensorflow::Status InsertTypesInDb(const int64 num_artifact_types,
+                                   const int64 num_execution_types,
+                                   const int64 num_context_types,
+                                   MetadataStore* store) {
+  PutTypesRequest put_request;
+  PutTypesResponse put_response;
+
+  for (int64 i = 0; i < num_artifact_types; i++) {
+    ArtifactType* curr_type = put_request.add_artifact_types();
+    curr_type->set_name(absl::StrCat("pre_insert_artifact_type-", i));
+    (*curr_type->mutable_properties())["property"] = STRING;
+  }
+
+  for (int64 i = 0; i < num_execution_types; i++) {
+    ExecutionType* curr_type = put_request.add_execution_types();
+    curr_type->set_name(absl::StrCat("pre_insert_execution_type-", i));
+    (*curr_type->mutable_properties())["property"] = STRING;
+  }
+
+  for (int64 i = 0; i < num_context_types; i++) {
+    ContextType* curr_type = put_request.add_context_types();
+    curr_type->set_name(absl::StrCat("pre_insert_context_type-", i));
+    (*curr_type->mutable_properties())["property"] = STRING;
+  }
+
+  return store->PutTypes(put_request, &put_response);
 }
 
 }  // namespace ml_metadata

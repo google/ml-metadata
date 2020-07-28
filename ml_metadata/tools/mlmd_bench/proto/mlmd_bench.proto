@@ -51,13 +51,33 @@ message FillTypesConfig {
   optional UniformDistribution num_properties = 3;
 }
 
+// Create and update nodes: Artifacts / Executions / Contexts
+message FillNodesConfig {
+  // The FillNodesConfig can be set to insert or update mode
+  optional bool update = 1 [default = false];
+  enum Specification {
+    ARTIFACT = 0;
+    EXECUTION = 1;
+    CONTEXT = 2;
+  }
+  // Indicate which type of nodes to be filled
+  optional Specification specification = 2;
+  // Specify the number of properties for each node
+  // It can be modeled by a uniform distribution
+  optional UniformDistribution num_properties = 3;
+  // Specify the string length for each property of the current node.
+  // It can be modeled by a uniform distribution
+  optional UniformDistribution string_value_bytes = 4;
+}
+
 // The mlmd_bench workload config.
 message WorkloadConfig {
   oneof workload_config {
     FillTypesConfig fill_types_config = 1;
+    FillNodesConfig fill_nodes_config = 2;
   }
   // The number of operations to be run in parallel.
-  optional int64 num_operations = 2;
+  optional int64 num_operations = 3;
 }
 
 // The configuration for the multi-threaded environment which executes the

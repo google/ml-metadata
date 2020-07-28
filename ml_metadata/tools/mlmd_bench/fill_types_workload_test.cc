@@ -60,37 +60,6 @@ std::vector<WorkloadConfig> EnumerateConfigs(const bool is_update) {
   return config_vector;
 }
 
-// Inserts some types into db to set it up in different start status in
-// testing.
-tensorflow::Status InsertTypesInDb(const int64 num_artifact_types,
-                                   const int64 num_execution_types,
-                                   const int64 num_context_types,
-                                   MetadataStore* store) {
-  PutTypesRequest put_request;
-  PutTypesResponse put_response;
-
-  for (int64 i = 0; i < num_artifact_types; i++) {
-    ArtifactType* curr_type = put_request.add_artifact_types();
-    curr_type->set_name(absl::StrCat("pre_insert_artifact_type-", i));
-    (*curr_type->mutable_properties())["property"] = STRING;
-  }
-
-  for (int64 i = 0; i < num_execution_types; i++) {
-    ExecutionType* curr_type = put_request.add_execution_types();
-    curr_type->set_name(absl::StrCat("pre_insert_execution_type-", i));
-    (*curr_type->mutable_properties())["property"] = STRING;
-  }
-
-  for (int64 i = 0; i < num_context_types; i++) {
-    ContextType* curr_type = put_request.add_context_types();
-    curr_type->set_name(absl::StrCat("pre_insert_context_type-", i));
-    (*curr_type->mutable_properties())["property"] = STRING;
-  }
-
-  TF_RETURN_IF_ERROR(store->PutTypes(put_request, &put_response));
-  return tensorflow::Status::OK();
-}
-
 // Executes the given FillTypes workloads.
 tensorflow::Status ExecuteWorkload(MetadataStore* store,
                                    std::unique_ptr<FillTypes>& workload) {
@@ -184,8 +153,8 @@ TEST_P(FillTypesInsertParameterizedTestFixture, InsertWhenDbIsEmptyTest) {
   TF_ASSERT_OK(ExecuteWorkload(store_.get(), fill_types_));
   // Gets all the existing current types inside db after the insert.
   std::vector<Type> existing_types;
-  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config(), store_.get(),
-                                existing_types));
+  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config().specification(),
+                                store_.get(), existing_types));
   EXPECT_EQ(GetParam().num_operations(), existing_types.size());
 }
 
@@ -213,15 +182,15 @@ TEST_P(FillTypesInsertParameterizedTestFixture, InsertWhenDbContainsTypesTest) {
       /*num_context_types=*/kNumberOfExisitedTypeInInsert, store_.get()));
   // Gets the number of types before insert for later comparison.
   std::vector<Type> existing_types_before_insert;
-  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config(), store_.get(),
-                                existing_types_before_insert));
+  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config().specification(),
+                                store_.get(), existing_types_before_insert));
 
   TF_ASSERT_OK(fill_types_->SetUp(store_.get()));
   TF_ASSERT_OK(ExecuteWorkload(store_.get(), fill_types_));
   // Gets the number of types after insert for later comparison.
   std::vector<Type> existing_types_after_insert;
-  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config(), store_.get(),
-                                existing_types_after_insert));
+  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config().specification(),
+                                store_.get(), existing_types_after_insert));
 
   EXPECT_EQ(
       GetParam().num_operations(),
@@ -258,8 +227,8 @@ TEST_P(FillTypesUpdateParameterizedTestFixture, SetUpImplWhenDbIsEmptyTest) {
   TF_ASSERT_OK(fill_types_update_->SetUp(store_.get()));
   // Gets the number of types inside db after SetUpImpl().
   std::vector<Type> existing_types;
-  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config(), store_.get(),
-                                existing_types));
+  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config().specification(),
+                                store_.get(), existing_types));
   EXPECT_EQ(existing_types.size(), GetParam().num_operations());
   EXPECT_EQ(GetParam().num_operations(), fill_types_update_->num_operations());
 }
@@ -274,16 +243,16 @@ TEST_P(FillTypesUpdateParameterizedTestFixture, UpdateWhenDbIsEmptyTest) {
   // comparison. The `existing_types_before_update` will contains the types that
   // were made up and inserted in the SetUpImpl().
   std::vector<Type> existing_types_before_update;
-  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config(), store_.get(),
-                                existing_types_before_update));
+  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config().specification(),
+                                store_.get(), existing_types_before_update));
 
   // Executes the update workloads.
   TF_ASSERT_OK(ExecuteWorkload(store_.get(), fill_types_update_));
 
   // Gets the existing types in db after update for later comparison.
   std::vector<Type> existing_types_after_update;
-  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config(), store_.get(),
-                                existing_types_after_update));
+  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config().specification(),
+                                store_.get(), existing_types_after_update));
 
   // The update should update all the made up and inserted types in the
   // SetUpImpl() and not introduce any new types in the db.
@@ -313,8 +282,8 @@ TEST_P(FillTypesUpdateParameterizedTestFixture,
   TF_ASSERT_OK(fill_types_update_->SetUp(store_.get()));
   // Gets the number of types inside db after SetUpImpl().
   std::vector<Type> existing_types;
-  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config(), store_.get(),
-                                existing_types));
+  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config().specification(),
+                                store_.get(), existing_types));
   EXPECT_EQ(existing_types.size(), fill_types_update_->num_operations());
   EXPECT_EQ(GetParam().num_operations(), fill_types_update_->num_operations());
 }
@@ -335,16 +304,16 @@ TEST_P(FillTypesUpdateParameterizedTestFixture,
   // comparison. The `existing_types_before_update` will contains the existed
   // types and some new types that were made up and inserted in the SetUpImpl().
   std::vector<Type> existing_types_before_update;
-  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config(), store_.get(),
-                                existing_types_before_update));
+  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config().specification(),
+                                store_.get(), existing_types_before_update));
 
   // Executes the update workloads.
   TF_ASSERT_OK(ExecuteWorkload(store_.get(), fill_types_update_));
 
   // Gets the existing types in db after update for later comparison.
   std::vector<Type> existing_types_after_update;
-  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config(), store_.get(),
-                                existing_types_after_update));
+  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config().specification(),
+                                store_.get(), existing_types_after_update));
 
   // The update should update all the types that includes some old existed
   // types and some new made up and inserted types and not introduce any new
@@ -373,13 +342,13 @@ TEST_P(FillTypesUpdateParameterizedTestFixture,
       /*num_context_types=*/kNumberOfExistedTypesEnoughInUpdate, store_.get()));
   // Gets the number of types inside db before SetUpImpl().
   std::vector<Type> existing_types_before_setup;
-  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config(), store_.get(),
-                                existing_types_before_setup));
+  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config().specification(),
+                                store_.get(), existing_types_before_setup));
   TF_ASSERT_OK(fill_types_update_->SetUp(store_.get()));
   // Gets the number of types inside db after SetUpImpl().
   std::vector<Type> existing_types_after_setup;
-  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config(), store_.get(),
-                                existing_types_after_setup));
+  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config().specification(),
+                                store_.get(), existing_types_after_setup));
   EXPECT_EQ(existing_types_before_setup.size(),
             existing_types_after_setup.size());
   EXPECT_EQ(GetParam().num_operations(), fill_types_update_->num_operations());
@@ -399,16 +368,16 @@ TEST_P(FillTypesUpdateParameterizedTestFixture,
   // comparison. The `existing_types_before_update` will contains the existed
   // types in db.
   std::vector<Type> existing_types_before_update;
-  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config(), store_.get(),
-                                existing_types_before_update));
+  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config().specification(),
+                                store_.get(), existing_types_before_update));
 
   // Executes the update workloads.
   TF_ASSERT_OK(ExecuteWorkload(store_.get(), fill_types_update_));
 
   // Gets the existing types in db after update for later comparison.
   std::vector<Type> existing_types_after_update;
-  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config(), store_.get(),
-                                existing_types_after_update));
+  TF_ASSERT_OK(GetExistingTypes(GetParam().fill_types_config().specification(),
+                                store_.get(), existing_types_after_update));
 
   // The update should update the first number of update operations existed
   // types inside db and not introduce any new types in the db.
