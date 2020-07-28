@@ -5,22 +5,22 @@
 
 ## HOW TO USE
 
-### 1. Build
+### 1. Build from source:
 
 ```shell
 bazel build -c opt //ml_metadata/tools/mlmd_bench:mlmd_bench
 ```
 
-### 2. Run the binary
+### 2. Run the binary:
 
 ```shell
 cd bazel-bin/ml_metadata/tools/mlmd_bench/
-./mlmd_bench <input configuration .pbtxt file path> <output report directory>
+./mlmd_bench --config_file_path=<input mlmd_bench configuration .pbtxt file path> --output_directory=<output directory of the performance report: mlmd_bench_report.txt>
 ```
 
 ## INPUT OUTPUT FORMAT
 
-### 1. Input should be under the following format:
+### 1. Input is a MLMDBenchConfig protocol buffer message in text format:
 
 ```shell
 mlmd_config: {
@@ -49,7 +49,7 @@ thread_env_config: { num_threads: 10 }
 
 ```
 
-### 2. Output will be under the following format:
+### 2. Output is a MLMDBenchSummary protocol buffer message in text format:
 
 ```shell
 summaries {

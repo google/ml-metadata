@@ -199,5 +199,6 @@ cc_binary(
         "@com_google_protobuf//:protobuf",
         "//ml_metadata/tools/mlmd_bench/proto:mlmd_bench_proto",
         "@org_tensorflow//tensorflow/core:lib",
+        "@com_github_gflags_gflags//:gflags_nothreads",
     ],
 )

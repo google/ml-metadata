@@ -28,7 +28,6 @@ namespace {
 
 void TestThreadRunner(const int num_thread) {
   MLMDBenchConfig mlmd_bench_config;
-  MLMDBenchReport mlmd_bench_report;
   mlmd_bench_config.mutable_thread_env_config()->set_num_threads(num_thread);
   mlmd_bench_config.add_workload_configs()->CopyFrom(
       testing::ParseTextProtoOrDie<WorkloadConfig>(R"(
@@ -39,15 +38,13 @@ void TestThreadRunner(const int num_thread) {
         }
         num_operations: 100
       )"));
-  mlmd_bench_report.add_summaries()->mutable_workload_config()->CopyFrom(
-      mlmd_bench_config.workload_configs(0));
   // Uses a fake in-memory SQLite database for testing.
   mlmd_bench_config.mutable_mlmd_config()->mutable_sqlite()->set_filename_uri(
       absl::StrCat("mlmd-bench-test_", num_thread, ".db"));
   Benchmark benchmark(mlmd_bench_config);
   ThreadRunner runner(mlmd_bench_config.mlmd_config(),
                       mlmd_bench_config.thread_env_config().num_threads());
-  TF_ASSERT_OK(runner.Run(benchmark, mlmd_bench_report));
+  TF_ASSERT_OK(runner.Run(benchmark));
 
   std::unique_ptr<MetadataStore> store;
   TF_ASSERT_OK(CreateMetadataStore(mlmd_bench_config.mlmd_config(), &store));
@@ -59,8 +56,10 @@ void TestThreadRunner(const int num_thread) {
             mlmd_bench_config.workload_configs()[0].num_operations());
 
   // Checks for valid performance report.
-  EXPECT_GT(mlmd_bench_report.summaries()[0].microseconds_per_operation(), 0);
-  EXPECT_GE(mlmd_bench_report.summaries()[0].bytes_per_second(), 0);
+  EXPECT_GT(
+      benchmark.mlmd_bench_report().summaries()[0].microseconds_per_operation(),
+      0);
+  EXPECT_GE(benchmark.mlmd_bench_report().summaries()[0].bytes_per_second(), 0);
 }
 
 // Tests the Run() of ThreadRunner class in single-thread mode.

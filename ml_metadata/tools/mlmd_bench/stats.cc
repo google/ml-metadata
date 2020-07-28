@@ -21,7 +21,6 @@ limitations under the License.
 #include "absl/time/time.h"
 #include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
-#include "tensorflow/core/platform/logging.h"
 
 namespace ml_metadata {
 
@@ -49,7 +48,7 @@ void ThreadStats::Update(const OpStats& op_stats,
   if (next_report_ > report_thresholds[threshold_index]) {
     threshold_index++;
   }
-  std::fprintf(stderr, "... finished %lld ops%30s\r", approx_total_done, "");
+  absl::FPrintF(stderr, "... finished %lld ops%30s\r", approx_total_done, "");
   std::fflush(stderr);
 }
 
@@ -68,39 +67,31 @@ void ThreadStats::Merge(const ThreadStats& other) {
 }
 
 void ThreadStats::Report(const std::string& specification,
-                         WorkloadConfigResult* workload_summary) {
+                         WorkloadConfigResult& workload_summary) {
   if (done_ == 0) {
-    LOG(ERROR) << "Current workload has not been executed even once!";
     return;
   }
 
-  double bytes_per_second = 0.0;
-  double microseconds_per_operation =
+  const double microseconds_per_operation =
       (accumulated_elapsed_time_ / absl::Microseconds(1)) / done_;
+  workload_summary.set_microseconds_per_operation(microseconds_per_operation);
 
-  std::string rate;
+  std::string maybe_byte_rate;
   // Not all workloads will transfer bytes in the process.
-  // Also, if `elapsed_seconds` equals to 0, `bytes_per_second` will remain as
-  // 0.
   if (bytes_ > 0) {
-    // Refines the granularity of time to microsecond first and convert it back
-    // to second.
-    double elapsed_seconds = (finish_ - start_) / absl::Microseconds(1) * 1e-6;
     // Rate is computed on actual elapsed time (latest end time minus
     // earliest start time of each thread) instead of the sum of per-thread
     // elapsed times.
-    bytes_per_second = bytes_ / elapsed_seconds;
-    rate = absl::StrFormat("%6.1f KB/s", bytes_per_second / 1024.0);
+    const double elapsed_microseconds =
+        (finish_ - start_) / absl::Microseconds(1);
+    const double bytes_per_second = bytes_ / (elapsed_microseconds * 1e-6);
+    workload_summary.set_bytes_per_second(bytes_per_second);
+    maybe_byte_rate = absl::StrFormat("%6.1f KB/s", bytes_per_second / 1024.0);
   }
 
-  std::fprintf(stdout, "%-12s : %11.3f micros/op;%s%s\n", specification.c_str(),
-               microseconds_per_operation, (rate.empty() ? "" : " "),
-               rate.c_str());
+  absl::FPrintF(stdout, "%-12s : %11.3f micros/op; %s\n", specification.c_str(),
+                microseconds_per_operation, maybe_byte_rate.c_str());
   std::fflush(stdout);
-
-  // Stores the performance result.
-  workload_summary->set_bytes_per_second(bytes_per_second);
-  workload_summary->set_microseconds_per_operation(microseconds_per_operation);
 }
 
 }  // namespace ml_metadata

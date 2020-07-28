@@ -29,10 +29,10 @@ class ThreadRunner {
   ThreadRunner(const ConnectionConfig& mlmd_config, int64 num_threads);
   ~ThreadRunner() = default;
 
-  // Execution unit of `mlmd_bench`. Returns detailed error if query executions
+  // Execution unit of `mlmd_bench`. Takes `benchmark` and executing the
+  // workloads inside. Returns detailed error if query executions
   // failed.
-  tensorflow::Status Run(Benchmark& benchmark,
-                         MLMDBenchReport& mlmd_bench_report);
+  tensorflow::Status Run(Benchmark& benchmark);
 
  private:
   // Connection configuration that will be used to create the MetadataStore.
