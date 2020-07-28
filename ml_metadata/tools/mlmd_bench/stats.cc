@@ -48,7 +48,7 @@ void ThreadStats::Update(const OpStats& op_stats,
   if (approx_total_done < next_report_) {
     return;
   }
-  std::fprintf(stderr, "... finished %lld ops%30s\r", approx_total_done, "");
+  absl::FPrintF(stderr, "... finished %d ops%30s\r", approx_total_done, "");
   std::fflush(stderr);
   // Update next_report_ to the next threshold.
   int threshold_index = 0;
