@@ -15,7 +15,7 @@ bazel build -c opt //ml_metadata/tools/mlmd_bench:mlmd_bench
 
 ```shell
 cd bazel-bin/ml_metadata/tools/mlmd_bench/
-./mlmd_bench --config_file_path=<input mlmd_bench configuration .pb or .pbtxt file path> --output_directory=<output directory for the performance report: mlmd_bench_report.txt>
+./mlmd_bench --config_file_path=<input mlmd_bench configuration .pb or .pbtxt file path> --output_report_path=<output mlmd_bench performance report file path>
 ```
 
 ## INPUT OUTPUT FORMAT

@@ -28,8 +28,8 @@ limitations under the License.
 namespace ml_metadata {
 namespace {
 
-// Initializes the `mlmd_bench_config` with the specified configuration .pbtxt
-// file.
+// Initializes the `mlmd_bench_config` with the specified configuration .pb or
+// .pbtxt file. Returns detailed error if the execution failed.
 tensorflow::Status InitAndValidateMLMDBenchConfig(
     const std::string& config_file_path, MLMDBenchConfig& mlmd_bench_config) {
   if (tensorflow::Env::Default()->FileExists(config_file_path).ok()) {
@@ -42,29 +42,23 @@ tensorflow::Status InitAndValidateMLMDBenchConfig(
       config_file_path);
 }
 
-// Writes the performance report into a specified file in output path.
+// Writes the performance report into a specified file in the output path.
+// Returns detailed error if the execution failed.
 tensorflow::Status WriteProtoResultToDisk(
-    const std::string& output_directory,
+    const std::string& output_report_path,
     const MLMDBenchReport& mlmd_bench_report) {
-  if (tensorflow::Env::Default()->IsDirectory(output_directory).ok()) {
-    return tensorflow::WriteTextProto(
-        tensorflow::Env::Default(),
-        absl::StrCat(output_directory, "mlmd_bench_report.txt"),
-        mlmd_bench_report);
-  }
-  return tensorflow::errors::NotFound(
-      "Could not find valid output directory as: ", output_directory);
+  return tensorflow::WriteTextProto(tensorflow::Env::Default(),
+                                    output_report_path, mlmd_bench_report);
 }
 
 }  // namespace
 }  // namespace ml_metadata
 
-// mlmd_bench input config file path and output directory command line options.
+// mlmd_bench input and output file path command line options.
 DEFINE_string(config_file_path, "",
-              "The input mlmd_bench configuration .pb or .pbtxt file path.");
-DEFINE_string(
-    output_directory, "",
-    "The output directory for the performance report: mlmd_bench_report.txt.");
+              "Input mlmd_bench configuration .pb or .pbtxt file path.");
+DEFINE_string(output_report_path, "./mlmd_bench_report.pb.txt",
+              "Output mlmd_bench performance report file path.");
 
 int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -84,7 +78,7 @@ int main(int argc, char** argv) {
   TF_CHECK_OK(runner.Run(benchmark));
 
   TF_CHECK_OK(ml_metadata::WriteProtoResultToDisk(
-      FLAGS_output_directory, benchmark.mlmd_bench_report()));
+      FLAGS_output_report_path, benchmark.mlmd_bench_report()));
 
   return 0;
 }
