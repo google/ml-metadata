@@ -70,14 +70,25 @@ message FillNodesConfig {
   optional UniformDistribution string_value_bytes = 4;
 }
 
+// Create context edges: Attributions / Associations
+message FillContextEdgesConfig {
+  enum Specification {
+    ATTRIBUTION = 0;
+    ASSOCIATION = 1;
+  }
+  // Indicate which type of context's edges to be filled
+  optional Specification specification = 1;
+}
+
 // The mlmd_bench workload config.
 message WorkloadConfig {
   oneof workload_config {
     FillTypesConfig fill_types_config = 1;
     FillNodesConfig fill_nodes_config = 2;
+    FillContextEdgesConfig fill_context_edges_config = 3;
   }
   // The number of operations to be run in parallel.
-  optional int64 num_operations = 3;
+  optional int64 num_operations = 4;
 }
 
 // The configuration for the multi-threaded environment which executes the
