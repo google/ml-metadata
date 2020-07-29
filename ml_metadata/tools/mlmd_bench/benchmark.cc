@@ -22,7 +22,6 @@ limitations under the License.
 #include "ml_metadata/tools/mlmd_bench/fill_types_workload.h"
 #include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
 #include "ml_metadata/tools/mlmd_bench/workload.h"
-#include "tensorflow/core/platform/logging.h"
 
 namespace ml_metadata {
 namespace {
@@ -30,14 +29,21 @@ namespace {
 // Creates the executable workload given `workload_config`.
 void CreateWorkload(const WorkloadConfig& workload_config,
                     std::unique_ptr<WorkloadBase>& workload) {
-  if (workload_config.has_fill_types_config()) {
-    workload = absl::make_unique<FillTypes>(FillTypes(
-        workload_config.fill_types_config(), workload_config.num_operations()));
-  } else if (workload_config.has_fill_nodes_config()) {
-    workload = absl::make_unique<FillNodes>(FillNodes(
-        workload_config.fill_nodes_config(), workload_config.num_operations()));
-  } else {
-    LOG(FATAL) << "Cannot find corresponding workload!";
+  switch (workload_config.workload_config_case()) {
+    case WorkloadConfig::kFillTypesConfig: {
+      workload = absl::make_unique<FillTypes>(
+          FillTypes(workload_config.fill_types_config(),
+                    workload_config.num_operations()));
+      break;
+    }
+    case WorkloadConfig::kFillNodesConfig: {
+      workload = absl::make_unique<FillNodes>(
+          FillNodes(workload_config.fill_nodes_config(),
+                    workload_config.num_operations()));
+      break;
+    }
+    default:
+      LOG(FATAL) << "Cannot find corresponding workload!";
   }
 }
 

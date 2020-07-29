@@ -33,6 +33,7 @@ namespace {
 
 constexpr int kNumberOfOperations = 100;
 constexpr int kNumberOfExistedTypesInDb = 100;
+constexpr int kNumberOfExistedNodesInDb = 100;
 
 // Enumerates the workload configurations as the test parameters that ensure
 // test coverage.
@@ -81,10 +82,16 @@ class FillNodesInsertParameterizedTestFixture
   std::unique_ptr<MetadataStore> store_;
 };
 
-// Tests the SetUpImpl() for FillNodes insert cases.
-// Checks the SetUpImpl() indeed prepares a list of work items whose length is
-// the same as the specified number of operations.
-TEST_P(FillNodesInsertParameterizedTestFixture, SetUpImplTest) {
+// Tests the fail cases when there are no types inside db for inserting nodes.
+TEST_P(FillNodesInsertParameterizedTestFixture, NonTypesExistTest) {
+  EXPECT_EQ(fill_nodes_->SetUp(store_.get()).code(),
+            tensorflow::error::FAILED_PRECONDITION);
+}
+
+// Tests the SetUpImpl() for FillNodes insert cases when db contains no nodes in
+// the beginning. Checks the SetUpImpl() indeed prepares a list of work items
+// whose length is the same as the specified number of operations.
+TEST_P(FillNodesInsertParameterizedTestFixture, SetUpImplWhenNoNodesExistTest) {
   // Inserts some types into db so that nodes can be inserted later.
   TF_ASSERT_OK(InsertTypesInDb(
       /*num_artifact_types=*/kNumberOfExistedTypesInDb,
@@ -94,11 +101,11 @@ TEST_P(FillNodesInsertParameterizedTestFixture, SetUpImplTest) {
   EXPECT_EQ(GetParam().num_operations(), fill_nodes_->num_operations());
 }
 
-// Tests the RunOpImpl() for FillNodes insert cases.
-// Checks indeed all the work items have been executed and the number of the
-// nodes inside db is the same as the number of operations specified in the
-// workload.
-TEST_P(FillNodesInsertParameterizedTestFixture, InsertTest) {
+// Tests the RunOpImpl() for FillNodes insert cases when db contains no nodes in
+// the beginning. Checks indeed all the work items have been executed and the
+// number of the nodes inside db is the same as the number of operations
+// specified in the workload.
+TEST_P(FillNodesInsertParameterizedTestFixture, InsertWhenNoNodesExistTest) {
   // Inserts some types into db so that nodes can be inserted later.
   TF_ASSERT_OK(InsertTypesInDb(
       /*num_artifact_types=*/kNumberOfExistedTypesInDb,
@@ -109,11 +116,65 @@ TEST_P(FillNodesInsertParameterizedTestFixture, InsertTest) {
     OpStats op_stats;
     TF_ASSERT_OK(fill_nodes_->RunOp(i, store_.get(), op_stats));
   }
-  // Gets all the existing current nodes inside db after the insert.
+  // Gets all the existing current nodes inside db after insertion.
   std::vector<NodeType> existing_nodes;
   TF_ASSERT_OK(GetExistingNodes(GetParam().fill_nodes_config().specification(),
                                 store_.get(), existing_nodes));
   EXPECT_EQ(GetParam().num_operations(), existing_nodes.size());
+}
+
+// Tests the SetUpImpl() for FillNodes insert cases when db contains some nodes
+// in the beginning. Checks the SetUpImpl() indeed prepares a list of work items
+// whose length is the same as the specified number of operations.
+TEST_P(FillNodesInsertParameterizedTestFixture,
+       SetUpImplWhenSomeNodesExistTest) {
+  // Inserts some types into db so that nodes can be inserted later.
+  TF_ASSERT_OK(InsertTypesInDb(
+      /*num_artifact_types=*/kNumberOfExistedTypesInDb,
+      /*num_execution_types=*/kNumberOfExistedTypesInDb,
+      /*num_context_types=*/kNumberOfExistedTypesInDb, store_.get()));
+  // Inserts some nodes into db in the first beginning.
+  TF_ASSERT_OK(InsertNodesInDb(
+      /*num_artifact_nodes=*/kNumberOfExistedNodesInDb,
+      /*num_execution_nodes=*/kNumberOfExistedNodesInDb,
+      /*num_context_nodes=*/kNumberOfExistedNodesInDb, store_.get()));
+  TF_ASSERT_OK(fill_nodes_->SetUp(store_.get()));
+  EXPECT_EQ(GetParam().num_operations(), fill_nodes_->num_operations());
+}
+
+// Tests the RunOpImpl() for FillNodes insert cases when db contains some nodes
+// in the beginning. Checks indeed all the work items have been executed and the
+// number of the new added nodes inside db is the same as the number of
+// operations specified in the workload.
+TEST_P(FillNodesInsertParameterizedTestFixture, InsertWhenSomeNodesExistTest) {
+  // Inserts some types into db so that nodes can be inserted later.
+  TF_ASSERT_OK(InsertTypesInDb(
+      /*num_artifact_types=*/kNumberOfExistedTypesInDb,
+      /*num_execution_types=*/kNumberOfExistedTypesInDb,
+      /*num_context_types=*/kNumberOfExistedTypesInDb, store_.get()));
+  // Inserts some nodes into db in the first beginning.
+  TF_ASSERT_OK(InsertNodesInDb(
+      /*num_artifact_nodes=*/kNumberOfExistedNodesInDb,
+      /*num_execution_nodes=*/kNumberOfExistedNodesInDb,
+      /*num_context_nodes=*/kNumberOfExistedNodesInDb, store_.get()));
+
+  // Gets all the pre-inserted nodes inside db before insertion.
+  std::vector<NodeType> existing_nodes_before_insert;
+  TF_ASSERT_OK(GetExistingNodes(GetParam().fill_nodes_config().specification(),
+                                store_.get(), existing_nodes_before_insert));
+  TF_ASSERT_OK(fill_nodes_->SetUp(store_.get()));
+  for (int64 i = 0; i < fill_nodes_->num_operations(); ++i) {
+    OpStats op_stats;
+    TF_ASSERT_OK(fill_nodes_->RunOp(i, store_.get(), op_stats));
+  }
+  // Gets all the existing current nodes inside db after insertion.
+  std::vector<NodeType> existing_nodes_after_insert;
+  TF_ASSERT_OK(GetExistingNodes(GetParam().fill_nodes_config().specification(),
+                                store_.get(), existing_nodes_after_insert));
+
+  EXPECT_EQ(
+      GetParam().num_operations(),
+      existing_nodes_after_insert.size() - existing_nodes_before_insert.size());
 }
 
 INSTANTIATE_TEST_CASE_P(

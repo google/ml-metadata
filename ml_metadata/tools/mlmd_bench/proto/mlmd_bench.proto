@@ -35,7 +35,7 @@ message UniformDistribution {
   optional int64 maximum = 2;
 }
 
-// Create and update types: ArtifactTypes / ExecutionTypes / ContextTypes.
+// Creates and updates types: ArtifactTypes / ExecutionTypes / ContextTypes.
 message FillTypesConfig {
   // The FillTypesConfig can be set to insert or update types.
   optional bool update = 1;
@@ -51,22 +51,22 @@ message FillTypesConfig {
   optional UniformDistribution num_properties = 3;
 }
 
-// Create and update nodes: Artifacts / Executions / Contexts
+// Creates and updates nodes: Artifacts / Executions / Contexts.
 message FillNodesConfig {
-  // The FillNodesConfig can be set to insert or update mode
-  optional bool update = 1 [default = false];
+  // The FillNodesConfig can be set to insert or update nodes.
+  optional bool update = 1;
   enum Specification {
     ARTIFACT = 0;
     EXECUTION = 1;
     CONTEXT = 2;
   }
-  // Indicate which type of nodes to be filled
+  // Indicates which type of nodes to be filled.
   optional Specification specification = 2;
-  // Specify the number of properties for each node
-  // It can be modeled by a uniform distribution
+  // Specifies the number of properties for each node, modeled by a
+  // uniform distribution.
   optional UniformDistribution num_properties = 3;
-  // Specify the string length for each property of the current node.
-  // It can be modeled by a uniform distribution
+  // Specifies the string length for string-valued properties of each node, 
+  // modeled by a uniform distribution.
   optional UniformDistribution string_value_bytes = 4;
 }
 

@@ -192,11 +192,11 @@ cc_library(
     srcs = ["util.cc"],
     hdrs = ["util.h"],
     deps = [
+        "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:variant",
         "//ml_metadata/metadata_store:metadata_store",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/proto:metadata_store_service_proto",
-        "//ml_metadata/tools/mlmd_bench/proto:mlmd_bench_proto",
         "@org_tensorflow//tensorflow/core:lib",
     ],
 )

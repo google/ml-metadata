@@ -46,7 +46,9 @@ class FillNodes : public Workload<FillNodesWorkItemType> {
   // properties for the node w.r.t. the uniform distribution. If the number of
   // properties is greater than the type, use custom properties instead. When
   // generating string-valued properties, use `string_value_bytes` to determine
-  // the length of the value. Returns detailed error if query executions failed.
+  // the length of those values. Returns FAILED_PRECONDITION if there is no
+  // types inside db for any nodes to insert. Returns detailed error if query
+  // executions failed.
   tensorflow::Status SetUpImpl(MetadataStore* store) final;
 
   // Specific implementation of RunOpImpl() for FillNodes workload according to
