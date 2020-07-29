@@ -59,36 +59,38 @@ int64 GenerateRandomNumberFromUD(const UniformDistribution& dist,
   return uniform_dist(gen);
 }
 
-// Gets the transferred bytes for certain `properties` of the current node and
-// increases `curr_bytes` accordingly.
-void GetTransferredBytesForNodeProperties(
-    const google::protobuf::Map<std::string, Value>& properties,
-    int64& curr_bytes) {
+// Gets the transferred bytes for certain `properties` of the current node.
+int64 GetTransferredBytesForNodeProperties(
+    const google::protobuf::Map<std::string, Value>& properties) {
+  int64 bytes = 0;
   for (const auto& property : properties) {
     // Includes the bytes for properties' name size.
-    curr_bytes += property.first.size();
+    bytes += property.first.size();
     // Includes the bytes for properties' value size.
-    curr_bytes += property.second.string_value().size();
+    bytes += property.second.string_value().size();
   }
+  return bytes;
 }
 
 // Calculates the transferred bytes for each node that will be inserted later.
-template <typename T, typename NT>
-void GetTransferredBytes(const T& type, const NT& node, int64& curr_bytes) {
-  // Increases `curr_bytes` with the size of current node's `name` and
+template <typename NT>
+int64 GetTransferredBytes(const NT& node) {
+  int64 bytes = 0;
+  // Increases `bytes` with the size of current node's `name` and
   // `type_id`.
-  curr_bytes += node.name().size() + 8;
-  // Increases `curr_bytes` with the size of current node's `properties` and
+  bytes += node.name().size() + 8;
+  // Increases `bytes` with the size of current node's `properties` and
   // `custom_properties`.
-  GetTransferredBytesForNodeProperties(node.properties(), curr_bytes);
-  GetTransferredBytesForNodeProperties(node.custom_properties(), curr_bytes);
+  bytes += GetTransferredBytesForNodeProperties(node.properties()) +
+           GetTransferredBytesForNodeProperties(node.custom_properties());
+  return bytes;
 }
 
 // Generates insert node.
-// For insert cases, it takes `node_name`, `number_properties`,
-// `string_value_bytes` and `type` to set the insert node. The node's type
-// will be `type` and its properties will be generated w.r.t. `num_properties`
-// and `string_value_bytes`.
+// For insert cases, the node's type will be `type` and its properties will be
+// generated w.r.t. `node_name`, `num_properties` and `string_value_bytes`.
+// Leaves it as return `void` instead of return `int64` for now because
+// FillNodes update mode will return `tensorflow::Status` in the future.
 template <typename T, typename NT>
 void GenerateNode(const std::string& node_name, const int64 num_properties,
                   const int64 string_value_bytes, const T& type, NT& node,
@@ -96,6 +98,7 @@ void GenerateNode(const std::string& node_name, const int64 num_properties,
   // Insert nodes cases.
   node.set_name(node_name);
   node.set_type_id(type.id());
+  // Uses "********..." as the fake property value for current node.
   std::string property_value(string_value_bytes, '*');
   int64 curr_num_properties = 0;
   // Loops over the types properties while generating the node's properties
@@ -116,21 +119,22 @@ void GenerateNode(const std::string& node_name, const int64 num_properties,
         .set_string_value(property_value);
     curr_num_properties++;
   }
-  GetTransferredBytes<T, NT>(type, node, curr_bytes);
+  curr_bytes += GetTransferredBytes<NT>(node);
 }
 
-// Sets additional fields(url, state) for artifacts.
-void SetArtifactAdditionalFields(const string& node_name, Artifact& node,
-                                 int64& curr_bytes) {
+// Sets additional fields(uri, state) for artifacts and returns transferred
+// bytes for these additional fields.
+int64 SetArtifactAdditionalFields(const string& node_name, Artifact& node) {
   node.set_uri(absl::StrCat(node_name, "_uri"));
   node.set_state(Artifact::UNKNOWN);
-  curr_bytes += node.uri().size() + 1;
+  return node.uri().size() + 1;
 }
 
-// Sets additional field(state) for executions.
-void SetExecutionAdditionalFields(Execution& node, int64& curr_bytes) {
+// Sets additional field(state) for executions and returns transferred
+// bytes for these additional fields.
+int64 SetExecutionAdditionalFields(Execution& node) {
   node.set_last_known_state(Execution::UNKNOWN);
-  curr_bytes += 1;
+  return 1;
 }
 
 }  // namespace
@@ -163,7 +167,7 @@ tensorflow::Status FillNodes::SetUpImpl(MetadataStore* store) {
   LOG(INFO) << "Setting up ...";
   int64 curr_bytes = 0;
 
-  // All the specific types in db to choose from when generating nodes.
+  // Gets all the specific types in db to choose from when generating nodes.
   std::vector<Type> existing_types;
   TF_RETURN_IF_ERROR(GetAndValidateExistingTypes(
       fill_nodes_config_.specification(), store, existing_types));
@@ -192,7 +196,7 @@ tensorflow::Status FillNodes::SetUpImpl(MetadataStore* store) {
             node_name, num_properties, string_value_bytes,
             absl::get<ArtifactType>(existing_types[type_index]), *curr_node,
             curr_bytes);
-        SetArtifactAdditionalFields(node_name, *curr_node, curr_bytes);
+        curr_bytes += SetArtifactAdditionalFields(node_name, *curr_node);
         break;
       }
       case FillNodesConfig::EXECUTION: {
@@ -203,16 +207,15 @@ tensorflow::Status FillNodes::SetUpImpl(MetadataStore* store) {
             node_name, num_properties, string_value_bytes,
             absl::get<ExecutionType>(existing_types[type_index]), *curr_node,
             curr_bytes);
-        SetExecutionAdditionalFields(*curr_node, curr_bytes);
+        curr_bytes += SetExecutionAdditionalFields(*curr_node);
         break;
       }
       case FillNodesConfig::CONTEXT: {
         InitializePutRequest<PutContextsRequest>(put_request);
-        Context* curr_node =
-            absl::get<PutContextsRequest>(put_request).add_contexts();
         GenerateNode<ContextType, Context>(
             node_name, num_properties, string_value_bytes,
-            absl::get<ContextType>(existing_types[type_index]), *curr_node,
+            absl::get<ContextType>(existing_types[type_index]),
+            *absl::get<PutContextsRequest>(put_request).add_contexts(),
             curr_bytes);
         break;
       }
