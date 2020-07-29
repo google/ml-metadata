@@ -35,7 +35,7 @@ message UniformDistribution {
   optional int64 maximum = 2;
 }
 
-// Create and update types: ArtifactTypes / ExecutionTypes / ContextTypes.
+// Creates and updates types: ArtifactTypes / ExecutionTypes / ContextTypes.
 message FillTypesConfig {
   // The FillTypesConfig can be set to insert or update types.
   optional bool update = 1;
@@ -51,13 +51,33 @@ message FillTypesConfig {
   optional UniformDistribution num_properties = 3;
 }
 
+// Creates and updates nodes: Artifacts / Executions / Contexts.
+message FillNodesConfig {
+  // The FillNodesConfig can be set to insert or update nodes.
+  optional bool update = 1;
+  enum Specification {
+    ARTIFACT = 0;
+    EXECUTION = 1;
+    CONTEXT = 2;
+  }
+  // Indicates which type of nodes to be filled.
+  optional Specification specification = 2;
+  // Specifies the number of properties for each node, modeled by a
+  // uniform distribution.
+  optional UniformDistribution num_properties = 3;
+  // Specifies the string length for string-valued properties of each node, 
+  // modeled by a uniform distribution.
+  optional UniformDistribution string_value_bytes = 4;
+}
+
 // The mlmd_bench workload config.
 message WorkloadConfig {
   oneof workload_config {
     FillTypesConfig fill_types_config = 1;
+    FillNodesConfig fill_nodes_config = 2;
   }
   // The number of operations to be run in parallel.
-  optional int64 num_operations = 2;
+  optional int64 num_operations = 3;
 }
 
 // The configuration for the multi-threaded environment which executes the
