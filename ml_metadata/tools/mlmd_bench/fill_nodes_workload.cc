@@ -126,12 +126,20 @@ void GenerateNodes(const std::string& node_batch_name,
                    const T& type,
                    google::protobuf::RepeatedPtrField<NT>& node_batch,
                    int64& curr_bytes) {
+  CHECK((std::is_same<T, ArtifactType>::value ||
+         std::is_same<T, ExecutionType>::value ||
+         std::is_same<T, ContextType>::value))
+      << "Unexpected Types";
+  CHECK((std::is_same<NT, Artifact>::value ||
+         std::is_same<NT, Execution>::value ||
+         std::is_same<NT, Context>::value))
+      << "Unexpected Node Types";
   // Insert nodes cases.
   // Loops over all the node inside `node_batch` and sets up one by one.
   for (int64 i = 0; i < node_batch.size(); ++i) {
     node_batch[i].set_name(absl::StrCat(node_batch_name, "_node_", i));
     node_batch[i].set_type_id(type.id());
-    // Uses "********..." as the fake property value for current node.
+    // Uses "********" as the fake property value for current node.
     std::string property_value(string_value_bytes, '*');
     int64 curr_num_properties = 0;
     // Loops over the types properties while generating the node's properties
