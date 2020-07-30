@@ -22,6 +22,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
+#include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status.h"
 
@@ -216,6 +217,13 @@ tensorflow::Status InsertNodesInDb(const int64 num_artifact_nodes,
   }
 
   return tensorflow::Status::OK();
+}
+
+int64 GenerateRandomNumberFromUD(const UniformDistribution& dist,
+                                 std::minstd_rand0& gen) {
+  std::uniform_int_distribution<int64> uniform_dist{dist.minimum(),
+                                                    dist.maximum()};
+  return uniform_dist(gen);
 }
 
 }  // namespace ml_metadata

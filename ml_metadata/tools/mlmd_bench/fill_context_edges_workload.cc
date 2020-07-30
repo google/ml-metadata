@@ -29,31 +29,25 @@ limitations under the License.
 namespace ml_metadata {
 namespace {
 
-tensorflow::Status GetExistingNonContextNodes(
-    const FillContextEdgesConfig& fill_context_edges_config,
-    MetadataStore* store, std::vector<NodeType>& existing_non_context_nodes) {
-  switch (fill_context_edges_config.specification()) {
-    case FillContextEdgesConfig::ATTRIBUTION: {
-      TF_RETURN_IF_ERROR(GetExistingNodes(/*specification=*/0, store,
-                                          existing_non_context_nodes));
-      break;
+template <typename T>
+void InitializePutRequest(const int64 num_edges,
+                          PutAttributionsAndAssociationsRequest& put_request) {
+  for (int64 i = 0; i < num_edges; ++i) {
+    if (std::is_same<T, Attribution>::value) {
+      put_request.add_attributions();
+    } else if (std::is_same<T, Association>::value) {
+      put_request.add_associations();
+    } else {
+      LOG(FATAL) << "Unexpected Context Edges Type for initializing current "
+                    "edge batch";
     }
-    case FillContextEdgesConfig::ASSOCIATION: {
-      TF_RETURN_IF_ERROR(GetExistingNodes(/*specification=*/1, store,
-                                          existing_non_context_nodes));
-      break;
-    }
-    default:
-      LOG(FATAL) << "Wrong specification for FillContextEdges!";
   }
-  return tensorflow::Status::OK();
 }
-
 template <typename T>
 tensorflow::Status GenerateContextEdge(
     const int64 non_context_node_id, const int64 context_node_id,
     PutAttributionsAndAssociationsRequest& put_request,
-    std::map<int64, std::unordered_set<int64>>& unique_checker,
+    std::unordered_map<int64, std::unordered_set<int64>>& unique_checker,
     int64& curr_bytes) {
   CHECK((std::is_same<T, Attribution>::value ||
          std::is_same<T, Association>::value))
@@ -107,56 +101,55 @@ tensorflow::Status FillContextEdges::SetUpImpl(MetadataStore* store) {
   int64 curr_bytes = 0;
 
   std::vector<NodeType> existing_non_context_nodes;
-  TF_RETURN_IF_ERROR(GetExistingNonContextNodes(
-      fill_context_edges_config_, store, existing_non_context_nodes));
+  TF_RETURN_IF_ERROR(
+      GetExistingNodes(fill_context_edges_config_.specification(), store,
+                       existing_non_context_nodes));
+  std::uniform_int_distribution<int64> uniform_dist_non_context_index{
+      0, (int64)(existing_non_context_nodes.size() - 1)};
   std::vector<NodeType> existing_context_nodes;
   TF_RETURN_IF_ERROR(
       GetExistingNodes(/*specification=*/2, store, existing_context_nodes));
-
-  std::uniform_int_distribution<int64> uniform_dist_non_context_index{
-      0, (int64)(existing_non_context_nodes.size() - 1)};
   std::uniform_int_distribution<int64> uniform_dist_context_index{
       0, (int64)(existing_context_nodes.size() - 1)};
 
   std::minstd_rand0 gen(absl::ToUnixMillis(absl::Now()));
 
-  int64 i = 0;
-  while (i < num_operations_) {
+  for (int i = 0; i < num_operations_; ++i) {
     curr_bytes = 0;
     PutAttributionsAndAssociationsRequest put_request;
-    const int64 non_context_node_index = uniform_dist_non_context_index(gen);
-    const int64 context_node_index = uniform_dist_context_index(gen);
-    tensorflow::Status status;
+    const int64 num_edges =
+        GenerateRandomNumberFromUD(fill_context_edges_config_.num_edges(), gen);
     switch (fill_context_edges_config_.specification()) {
       case FillContextEdgesConfig::ATTRIBUTION: {
-        status = GenerateContextEdge<Attribution>(
-            absl::get<Artifact>(
-                existing_non_context_nodes[non_context_node_index])
-                .id(),
-            absl::get<Context>(existing_context_nodes[context_node_index]).id(),
-            put_request, unique_checker_, curr_bytes);
+        InitializePutRequest<Attribution>(num_edges, put_request);
+        google::protobuf::RepeatedPtrField<Attribution>& edge_batch =
+            *put_request.mutable_attributions();
+        // TF_RETURN_IF_ERROR(GenerateContextEdge<Attribution>(
+        //     existing_non_context_nodes, existing_context_nodes,
+        //     uniform_dist_non_context_index, uniform_dist_context_index, gen,
+        //     put_request, unique_checker_, curr_bytes));
         break;
       }
       case FillContextEdgesConfig::ASSOCIATION: {
-        status = GenerateContextEdge<Association>(
-            absl::get<Execution>(
-                existing_non_context_nodes[non_context_node_index])
-                .id(),
-            absl::get<Context>(existing_context_nodes[context_node_index]).id(),
-            put_request, unique_checker_, curr_bytes);
+        InitializePutRequest<Association>(num_edges, put_request);
+        google::protobuf::RepeatedPtrField<Association>& edge_batch =
+            *put_request.mutable_associations();
+        // TF_RETURN_IF_ERROR(GenerateContextEdge<Association>(
+        //     absl::get<Execution>(
+        //         existing_non_context_nodes[non_context_node_index])
+        //         .id(),
+        //     absl::get<Context>(existing_context_nodes[context_node_index]).id(),
+        //     put_request, unique_checker_, curr_bytes));
         break;
       }
       default:
         LOG(FATAL) << "Wrong specification for FillContextEdges!";
     }
-    if (!status.ok()) {
-      continue;
-    }
     work_items_.emplace_back(put_request, curr_bytes);
-    i++;
   }
+
   return tensorflow::Status::OK();
-}
+}  // namespace ml_metadata
 
 // Executions of work items.
 tensorflow::Status FillContextEdges::RunOpImpl(const int64 work_items_index,
@@ -164,9 +157,7 @@ tensorflow::Status FillContextEdges::RunOpImpl(const int64 work_items_index,
   PutAttributionsAndAssociationsRequest put_request =
       work_items_[work_items_index].first;
   PutAttributionsAndAssociationsResponse put_response;
-  TF_RETURN_IF_ERROR(
-      store->PutAttributionsAndAssociations(put_request, &put_response));
-  return tensorflow::Status::OK();
+  return store->PutAttributionsAndAssociations(put_request, &put_response);
 }
 
 tensorflow::Status FillContextEdges::TearDownImpl() {

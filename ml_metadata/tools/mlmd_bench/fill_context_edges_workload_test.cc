@@ -18,6 +18,7 @@ limitations under the License.
 #include "absl/memory/memory.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/metadata_store/metadata_store_factory.h"
+#include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
 #include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
@@ -35,7 +36,10 @@ constexpr int kNumberOfExistedNodesInDb = 100;
 // test coverage.
 std::vector<WorkloadConfig> EnumerateConfigs() {
   std::vector<WorkloadConfig> config_vector;
-  WorkloadConfig template_config;
+  WorkloadConfig template_config = testing::ParseTextProtoOrDie<WorkloadConfig>(
+      R"(
+        fill_context_edges_config: { num_edges: { minimum: 5 maximum: 5 } }
+      )");
 
   template_config.set_num_operations(kNumberOfOperations);
 

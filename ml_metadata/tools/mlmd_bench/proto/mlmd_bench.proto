@@ -81,6 +81,9 @@ message FillContextEdgesConfig {
   }
   // Indicate which type of context's edges to be filled
   optional Specification specification = 1;
+  // Specifies the number of context edges to be filled per request, 
+  // modeled by a uniform distribution.
+  optional UniformDistribution num_edges = 2;
 }
 
 // The mlmd_bench workload config.

@@ -15,11 +15,13 @@ limitations under the License.
 #ifndef ML_METADATA_TOOLS_MLMD_BENCH_UTIL_H
 #define ML_METADATA_TOOLS_MLMD_BENCH_UTIL_H
 
+#include <random>
 #include <vector>
 
 #include "absl/types/variant.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
+#include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
 #include "tensorflow/core/lib/core/status.h"
 
 namespace ml_metadata {
@@ -55,6 +57,10 @@ tensorflow::Status InsertNodesInDb(int64 num_artifact_nodes,
                                    int64 num_execution_nodes,
                                    int64 num_context_nodes,
                                    MetadataStore* store);
+
+// Generates random integer within the range of specified `dist`.
+int64 GenerateRandomNumberFromUD(const UniformDistribution& dist,
+                                 std::minstd_rand0& gen);
 
 }  // namespace ml_metadata
 

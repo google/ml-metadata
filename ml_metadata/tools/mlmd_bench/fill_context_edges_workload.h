@@ -15,7 +15,7 @@ limitations under the License.
 #ifndef ML_METADATA_TOOLS_MLMD_BENCH_FILL_CONTEXT_EDGES_WORKLOAD_H
 #define ML_METADATA_TOOLS_MLMD_BENCH_FILL_CONTEXT_EDGES_WORKLOAD_H
 
-#include <map>
+#include <unordered_map>
 #include <unordered_set>
 
 #include "ml_metadata/metadata_store/metadata_store.h"
@@ -53,7 +53,7 @@ class FillContextEdges
   // String for indicating the name of current workload instance.
   std::string name_;
 
-  std::map<int64, std::unordered_set<int64>> unique_checker_;
+  std::unordered_map<int64, std::unordered_set<int64>> unique_checker_;
 };
 
 }  // namespace ml_metadata

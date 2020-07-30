@@ -124,6 +124,7 @@ ml_metadata_cc_test(
         "@com_google_googletest//:gtest_main",
         "//ml_metadata/metadata_store:metadata_store",
         "//ml_metadata/metadata_store:metadata_store_factory",
+        "//ml_metadata/metadata_store:test_util",
         "//ml_metadata/tools/mlmd_bench/proto:mlmd_bench_proto",
         "@org_tensorflow//tensorflow/core:test",
     ],
@@ -227,6 +228,7 @@ cc_library(
         "//ml_metadata/metadata_store",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/proto:metadata_store_service_proto",
+        "//ml_metadata/tools/mlmd_bench/proto:mlmd_bench_proto",
         "@org_tensorflow//tensorflow/core:lib",
     ],
 )
