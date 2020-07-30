@@ -17,7 +17,6 @@ limitations under the License.
 
 #include "absl/time/time.h"
 #include "ml_metadata/metadata_store/types.h"
-#include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
 
 namespace ml_metadata {
 
@@ -57,8 +56,7 @@ class ThreadStats {
 
   // Reports the metrics of interests: microsecond per operation and total bytes
   // per seconds for the current workload.
-  void Report(const std::string& specification,
-              WorkloadConfigResult& workload_summary);
+  void Report(const std::string& specification);
 
   // Gets the start time of current thread stats.
   absl::Time start() const { return start_; }

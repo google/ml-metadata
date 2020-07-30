@@ -27,7 +27,6 @@ limitations under the License.
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/lib/core/threadpool.h"
-#include "tensorflow/core/platform/env.h"
 
 namespace ml_metadata {
 namespace {
@@ -87,17 +86,16 @@ tensorflow::Status ExecuteWorkload(const int64 work_items_start_index,
 }
 
 // Merges all the thread stats inside `thread_stats_list` into a workload stats
-// and reports the workload's performance through command line output. Also,
-// passes `workload_summary` for updating with the performance result.
+// and reports the workload's performance according to that.
 void MergeThreadStatsAndReport(const std::string workload_name,
-                               std::vector<ThreadStats>& thread_stats_list,
-                               WorkloadConfigResult& workload_summary) {
+                               std::vector<ThreadStats>& thread_stats_list) {
   CHECK_GT(thread_stats_list.size(), 0);
   for (int64 i = 1; i < thread_stats_list.size(); ++i) {
     thread_stats_list[0].Merge(thread_stats_list[i]);
   }
   // Reports the metrics of interests.
-  thread_stats_list[0].Report(workload_name, workload_summary);
+  // TODO(briansong) Return the report as a summary proto.
+  thread_stats_list[0].Report(workload_name);
 }
 
 }  // namespace
@@ -150,9 +148,7 @@ tensorflow::Status ThreadRunner::Run(Benchmark& benchmark) {
       }
     }
     TF_RETURN_IF_ERROR(workload->TearDown());
-    MergeThreadStatsAndReport(
-        workload->GetName(), thread_stats_list,
-        *benchmark.mlmd_bench_report().mutable_summaries(i));
+    MergeThreadStatsAndReport(workload->GetName(), thread_stats_list);
   }
   return tensorflow::Status::OK();
 }

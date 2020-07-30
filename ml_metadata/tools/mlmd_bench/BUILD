@@ -68,7 +68,6 @@ cc_library(
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
         "//ml_metadata/metadata_store:types",
-        "//ml_metadata/tools/mlmd_bench/proto:mlmd_bench_proto",
         "@org_tensorflow//tensorflow/core:lib",
     ],
 )
@@ -185,18 +184,5 @@ ml_metadata_cc_test(
         "//ml_metadata/proto:metadata_store_proto",
         "@org_tensorflow//tensorflow/core:lib",
         "@org_tensorflow//tensorflow/core:test",
-    ],
-)
-
-cc_binary(
-    name = "mlmd_bench",
-    srcs = ["mlmd_bench.cc"],
-    deps = [
-        ":benchmark",
-        ":thread_runner",
-        "@com_google_protobuf//:protobuf",
-        "//ml_metadata/tools/mlmd_bench/proto:mlmd_bench_proto",
-        "@org_tensorflow//tensorflow/core:lib",
-        "@com_github_gflags_gflags//:gflags_nothreads",
     ],
 )

@@ -35,15 +35,6 @@ void CreateWorkload(const WorkloadConfig& workload_config,
       workload_config.fill_types_config(), workload_config.num_operations()));
 }
 
-// Initializes `mlmd_bench_report` with `mlmd_bench_config`.
-void InitMLMDBenchReport(const MLMDBenchConfig& mlmd_bench_config,
-                         MLMDBenchReport& mlmd_bench_report) {
-  for (auto& workload_config : mlmd_bench_config.workload_configs()) {
-    mlmd_bench_report.add_summaries()->mutable_workload_config()->CopyFrom(
-        workload_config);
-  }
-}
-
 }  // namespace
 
 Benchmark::Benchmark(const MLMDBenchConfig& mlmd_bench_config) {
@@ -54,9 +45,6 @@ Benchmark::Benchmark(const MLMDBenchConfig& mlmd_bench_config) {
   for (int i = 0; i < mlmd_bench_config.workload_configs_size(); ++i) {
     CreateWorkload(mlmd_bench_config.workload_configs(i), workloads_[i]);
   }
-
-  // Initializes the performance report with given `mlmd_bench_config`.
-  InitMLMDBenchReport(mlmd_bench_config, mlmd_bench_report_);
 }
 
 WorkloadBase* Benchmark::workload(const int64 workload_index) {
