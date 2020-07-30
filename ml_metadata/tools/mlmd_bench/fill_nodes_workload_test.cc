@@ -34,6 +34,7 @@ namespace {
 constexpr int kNumberOfOperations = 100;
 constexpr int kNumberOfExistedTypesInDb = 100;
 constexpr int kNumberOfExistedNodesInDb = 100;
+constexpr int kNumberOfNodesPerRequest = 10;
 
 // Enumerates the workload configurations as the test parameters that ensure
 // test coverage.
@@ -44,11 +45,16 @@ std::vector<WorkloadConfig> EnumerateConfigs(const bool is_update) {
         fill_nodes_config: {
           num_properties: { minimum: 1 maximum: 10 }
           string_value_bytes: { minimum: 1 maximum: 10 }
+          num_nodes: { minimum: 5 maximum: 5 }
         }
       )");
-
   template_config.set_num_operations(kNumberOfOperations);
+  template_config.mutable_fill_nodes_config()->mutable_num_nodes()->set_minimum(
+      kNumberOfNodesPerRequest);
+  template_config.mutable_fill_nodes_config()->mutable_num_nodes()->set_maximum(
+      kNumberOfNodesPerRequest);
   template_config.mutable_fill_nodes_config()->set_update(is_update);
+
   template_config.mutable_fill_nodes_config()->set_specification(
       FillNodesConfig::ARTIFACT);
   config_vector.push_back(template_config);
@@ -120,7 +126,8 @@ TEST_P(FillNodesInsertParameterizedTestFixture, InsertWhenNoNodesExistTest) {
   std::vector<NodeType> existing_nodes;
   TF_ASSERT_OK(GetExistingNodes(GetParam().fill_nodes_config().specification(),
                                 store_.get(), existing_nodes));
-  EXPECT_EQ(GetParam().num_operations(), existing_nodes.size());
+  EXPECT_EQ(GetParam().num_operations() * kNumberOfNodesPerRequest,
+            existing_nodes.size());
 }
 
 // Tests the SetUpImpl() for FillNodes insert cases when db contains some nodes
@@ -173,7 +180,7 @@ TEST_P(FillNodesInsertParameterizedTestFixture, InsertWhenSomeNodesExistTest) {
                                 store_.get(), existing_nodes_after_insert));
 
   EXPECT_EQ(
-      GetParam().num_operations(),
+      GetParam().num_operations() * kNumberOfNodesPerRequest,
       existing_nodes_after_insert.size() - existing_nodes_before_insert.size());
 }
 

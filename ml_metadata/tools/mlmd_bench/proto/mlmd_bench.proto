@@ -68,6 +68,9 @@ message FillNodesConfig {
   // Specifies the string length for string-valued properties of each node, 
   // modeled by a uniform distribution.
   optional UniformDistribution string_value_bytes = 4;
+  // Specifies the number of nodes to be filled per request, 
+  // modeled by a uniform distribution.
+  optional UniformDistribution num_nodes = 5;
 }
 
 // Create context edges: Attributions / Associations
