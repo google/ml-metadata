@@ -18,8 +18,6 @@ limitations under the License.
 #include <type_traits>
 #include <vector>
 
-#include <bits/stdc++.h>
-
 #include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
@@ -62,9 +60,10 @@ void InitializePutRequest(const int64 num_nodes,
 // Gets all types inside db. Returns FAILED_PRECONDITION if there is no types
 // inside db for any nodes to insert.
 tensorflow::Status GetAndValidateExistingTypes(
-    const int specification, MetadataStore* store,
+    const FillNodesConfig& fill_nodes_config, MetadataStore* store,
     std::vector<Type>& existing_types) {
-  TF_RETURN_IF_ERROR(GetExistingTypes(specification, *store, existing_types));
+  TF_RETURN_IF_ERROR(
+      GetExistingTypes(fill_nodes_config, *store, existing_types));
   if (existing_types.size() == 0) {
     return tensorflow::errors::FailedPrecondition(
         "There are no types inside db for inserting nodes!");
@@ -214,8 +213,8 @@ tensorflow::Status FillNodes::SetUpImpl(MetadataStore* store) {
   // Gets all the specific types in db to choose from when generating nodes.
   // If there's no types in the store, return error.
   std::vector<Type> existing_types;
-  TF_RETURN_IF_ERROR(GetAndValidateExistingTypes(
-      fill_nodes_config_.specification(), store, existing_types));
+  TF_RETURN_IF_ERROR(
+      GetAndValidateExistingTypes(fill_nodes_config_, store, existing_types));
   std::uniform_int_distribution<int64> uniform_dist_type_index{
       0, (int64)(existing_types.size() - 1)};
 

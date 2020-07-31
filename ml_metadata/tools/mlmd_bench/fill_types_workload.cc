@@ -176,8 +176,8 @@ tensorflow::Status FillTypes::SetUpImpl(MetadataStore* store) {
 
   // Gets all the existing current types inside db for later update cases.
   std::vector<Type> existing_types;
-  TF_RETURN_IF_ERROR(GetExistingTypes(fill_types_config_.specification(),
-                                      *store, existing_types));
+  TF_RETURN_IF_ERROR(
+      GetExistingTypes(fill_types_config_, *store, existing_types));
 
   for (int64 i = 0; i < num_operations_; i++) {
     curr_bytes = 0;

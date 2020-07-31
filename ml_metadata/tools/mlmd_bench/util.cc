@@ -21,11 +21,14 @@ limitations under the License.
 #include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
+#include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status.h"
 
 namespace ml_metadata {
 namespace {
+
+enum FetchType { FetchArtifactType, FetchExecutionType, FetchContextType };
 
 template <typename T, typename NT>
 void PrepareNode(const std::string& node_name, const T& curr_type,
@@ -37,14 +40,11 @@ void PrepareNode(const std::string& node_name, const T& curr_type,
       "bar");
 }
 
-}  // namespace
-
-tensorflow::Status GetExistingTypes(const int specification,
-                                    MetadataStore& store,
-                                    std::vector<Type>& existing_types) {
-  switch (specification) {
-    // Gets ArtifactTypes.
-    case 0: {
+tensorflow::Status GetExistingTypesImpl(const FetchType& fetch_type,
+                                        MetadataStore& store,
+                                        std::vector<Type>& existing_types) {
+  switch (fetch_type) {
+    case FetchArtifactType: {
       GetArtifactTypesResponse get_response;
       TF_RETURN_IF_ERROR(store.GetArtifactTypes(
           /*request=*/{}, &get_response));
@@ -53,8 +53,7 @@ tensorflow::Status GetExistingTypes(const int specification,
       }
       break;
     }
-    // Gets ExecutionTypes.
-    case 1: {
+    case FetchExecutionType: {
       GetExecutionTypesResponse get_response;
       TF_RETURN_IF_ERROR(store.GetExecutionTypes(
           /*request=*/{}, &get_response));
@@ -63,8 +62,7 @@ tensorflow::Status GetExistingTypes(const int specification,
       }
       break;
     }
-    // Gets ContextTypes.
-    case 2: {
+    case FetchContextType: {
       GetContextTypesResponse get_response;
       TF_RETURN_IF_ERROR(store.GetContextTypes(
           /*request=*/{}, &get_response));
@@ -79,12 +77,59 @@ tensorflow::Status GetExistingTypes(const int specification,
   return tensorflow::Status::OK();
 }
 
-tensorflow::Status GetExistingNodes(const int specification,
+}  // namespace
+
+tensorflow::Status GetExistingTypes(const FillTypesConfig& fill_types_config,
+                                    MetadataStore& store,
+                                    std::vector<Type>& existing_types) {
+  FetchType fetch_type;
+  switch (fill_types_config.specification()) {
+    case FillTypesConfig::ARTIFACT_TYPE: {
+      fetch_type = FetchArtifactType;
+      break;
+    }
+    case FillTypesConfig::EXECUTION_TYPE: {
+      fetch_type = FetchExecutionType;
+      break;
+    }
+    case FillTypesConfig::CONTEXT_TYPE: {
+      fetch_type = FetchContextType;
+      break;
+    }
+    default:
+      LOG(FATAL) << "Wrong specification for getting types in db!";
+  }
+  return GetExistingTypesImpl(fetch_type, store, existing_types);
+}
+
+tensorflow::Status GetExistingTypes(const FillNodesConfig& fill_nodes_config,
+                                    MetadataStore& store,
+                                    std::vector<Type>& existing_types) {
+  FetchType fetch_type;
+  switch (fill_nodes_config.specification()) {
+    case FillNodesConfig::ARTIFACT: {
+      fetch_type = FetchArtifactType;
+      break;
+    }
+    case FillNodesConfig::EXECUTION: {
+      fetch_type = FetchExecutionType;
+      break;
+    }
+    case FillNodesConfig::CONTEXT: {
+      fetch_type = FetchContextType;
+      break;
+    }
+    default:
+      LOG(FATAL) << "Wrong specification for getting types in db!";
+  }
+  return GetExistingTypesImpl(fetch_type, store, existing_types);
+}
+
+tensorflow::Status GetExistingNodes(const FillNodesConfig& fill_nodes_config,
                                     MetadataStore& store,
                                     std::vector<Node>& existing_nodes) {
-  switch (specification) {
-    // Gets Artifacts.
-    case 0: {
+  switch (fill_nodes_config.specification()) {
+    case FillNodesConfig::ARTIFACT: {
       GetArtifactsResponse get_response;
       TF_RETURN_IF_ERROR(store.GetArtifacts(
           /*request=*/{}, &get_response));
@@ -93,8 +138,7 @@ tensorflow::Status GetExistingNodes(const int specification,
       }
       break;
     }
-    // Gets Executions.
-    case 1: {
+    case FillNodesConfig::EXECUTION: {
       GetExecutionsResponse get_response;
       TF_RETURN_IF_ERROR(store.GetExecutions(
           /*request=*/{}, &get_response));
@@ -103,8 +147,7 @@ tensorflow::Status GetExistingNodes(const int specification,
       }
       break;
     }
-    // Gets Contexts.
-    case 2: {
+    case FillNodesConfig::CONTEXT: {
       GetContextsResponse get_response;
       TF_RETURN_IF_ERROR(store.GetContexts(
           /*request=*/{}, &get_response));
@@ -154,15 +197,19 @@ tensorflow::Status InsertNodesInDb(const int64 num_artifact_nodes,
                                    const int64 num_execution_nodes,
                                    const int64 num_context_nodes,
                                    MetadataStore& store) {
+  FillTypesConfig fill_types_config;
+  fill_types_config.set_specification(FillTypesConfig::ARTIFACT_TYPE);
   std::vector<Type> existing_artifact_types;
   TF_RETURN_IF_ERROR(
-      GetExistingTypes(/*specification=*/0, store, existing_artifact_types));
+      GetExistingTypes(fill_types_config, store, existing_artifact_types));
+  fill_types_config.set_specification(FillTypesConfig::EXECUTION_TYPE);
   std::vector<Type> existing_execution_types;
   TF_RETURN_IF_ERROR(
-      GetExistingTypes(/*specification=*/1, store, existing_execution_types));
+      GetExistingTypes(fill_types_config, store, existing_execution_types));
+  fill_types_config.set_specification(FillTypesConfig::CONTEXT_TYPE);
   std::vector<Type> existing_context_types;
   TF_RETURN_IF_ERROR(
-      GetExistingTypes(/*specification=*/2, store, existing_context_types));
+      GetExistingTypes(fill_types_config, store, existing_context_types));
 
   for (int64 i = 0; i < num_artifact_nodes; i++) {
     const int64 type_index = i % existing_artifact_types.size();

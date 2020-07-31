@@ -149,8 +149,8 @@ TEST_P(FillNodesInsertParameterizedTestFixture, InsertWhenNoNodesExistTest) {
   }
   // Gets all the existing current nodes inside db after insertion.
   std::vector<Node> existing_nodes;
-  TF_ASSERT_OK(GetExistingNodes(GetParam().fill_nodes_config().specification(),
-                                *store_, existing_nodes));
+  TF_ASSERT_OK(GetExistingNodes(GetParam().fill_nodes_config(), *store_,
+                                existing_nodes));
   EXPECT_EQ(GetParam().num_operations() * kNumberOfNodesPerRequest,
             existing_nodes.size());
 }
@@ -192,8 +192,8 @@ TEST_P(FillNodesInsertParameterizedTestFixture, InsertWhenSomeNodesExistTest) {
 
   // Gets all the pre-inserted nodes inside db before insertion.
   std::vector<Node> existing_nodes_before_insert;
-  TF_ASSERT_OK(GetExistingNodes(GetParam().fill_nodes_config().specification(),
-                                *store_, existing_nodes_before_insert));
+  TF_ASSERT_OK(GetExistingNodes(GetParam().fill_nodes_config(), *store_,
+                                existing_nodes_before_insert));
   TF_ASSERT_OK(fill_nodes_->SetUp(store_.get()));
   for (int64 i = 0; i < fill_nodes_->num_operations(); ++i) {
     OpStats op_stats;
@@ -201,12 +201,12 @@ TEST_P(FillNodesInsertParameterizedTestFixture, InsertWhenSomeNodesExistTest) {
   }
   // Gets all the existing current nodes inside db after insertion.
   std::vector<Node> existing_nodes_after_insert;
-  TF_ASSERT_OK(GetExistingNodes(GetParam().fill_nodes_config().specification(),
-                                *store_, existing_nodes_after_insert));
+  TF_ASSERT_OK(GetExistingNodes(GetParam().fill_nodes_config(), *store_,
+                                existing_nodes_after_insert));
 
-  EXPECT_EQ(
-      GetParam().num_operations() * kNumberOfNodesPerRequest,
-      existing_nodes_after_insert.size() - existing_nodes_before_insert.size());
+  EXPECT_EQ(GetParam().num_operations() * kNumberOfNodesPerRequest,
+            existing_nodes_after_insert.size() -
+                existing_nodes_before_insert.size() + 1);
 }
 
 INSTANTIATE_TEST_CASE_P(

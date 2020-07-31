@@ -20,6 +20,7 @@ limitations under the License.
 #include "absl/types/variant.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
+#include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
 #include "tensorflow/core/lib/core/status.h"
 
 namespace ml_metadata {
@@ -31,16 +32,25 @@ using Type = ::absl::variant<ArtifactType, ExecutionType, ContextType>;
 using Node = ::absl::variant<Artifact, Execution, Context>;
 
 // Gets all the existing types inside db and store them into
-// `existing_types`. The specific type for the types will be indicated by
-// `specification`. Returns detailed error if query executions failed.
-tensorflow::Status GetExistingTypes(const int specification,
+// `existing_types` given `fill_types_config`. The specific type for the types
+// will be indicated by `specification`. Returns detailed error if query
+// executions failed.
+tensorflow::Status GetExistingTypes(const FillTypesConfig& fill_types_config,
+                                    MetadataStore& store,
+                                    std::vector<Type>& existing_types);
+
+// Gets all the existing types inside db and store them into
+// `existing_types` given `fill_nodes_config`. The specific type for the types
+// will be indicated by `specification`. Returns detailed error if query
+// executions failed.
+tensorflow::Status GetExistingTypes(const FillNodesConfig& fill_nodes_config,
                                     MetadataStore& store,
                                     std::vector<Type>& existing_types);
 
 // Gets all the existing nodes inside db and store them into `existing_nodes`.
 // The specific type for the nodes will be indicated by `specification`. Returns
 // detailed error if query executions failed.
-tensorflow::Status GetExistingNodes(const int specification,
+tensorflow::Status GetExistingNodes(const FillNodesConfig& fill_nodes_config,
                                     MetadataStore& store,
                                     std::vector<Node>& existing_nodes);
 
