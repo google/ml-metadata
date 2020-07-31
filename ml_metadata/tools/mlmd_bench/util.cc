@@ -14,7 +14,6 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/tools/mlmd_bench/util.h"
 
-#include <random>
 #include <vector>
 
 #include "absl/time/clock.h"
@@ -33,30 +32,21 @@ void PrepareNode(const std::string& node_name, const T& curr_type,
                  NT& curr_node) {
   curr_node.set_type_id(curr_type.id());
   curr_node.set_name(node_name);
-  (*curr_node.mutable_properties())["property"].set_string_value("*");
-}
-
-// Sets additional fields(uri, state) for artifacts.
-void SetArtifactAdditionalFields(const string& node_name, Artifact& node) {
-  node.set_uri(absl::StrCat(node_name, "_uri"));
-  node.set_state(Artifact::UNKNOWN);
-}
-
-// Sets additional field(state) for executions.
-void SetExecutionAdditionalFields(Execution& node) {
-  node.set_last_known_state(Execution::UNKNOWN);
+  (*curr_node.mutable_properties())["property"].set_string_value("foo");
+  (*curr_node.mutable_custom_properties())["custom-property"].set_string_value(
+      "bar");
 }
 
 }  // namespace
 
 tensorflow::Status GetExistingTypes(const int specification,
-                                    MetadataStore* store,
+                                    MetadataStore& store,
                                     std::vector<Type>& existing_types) {
   switch (specification) {
     // Gets ArtifactTypes.
     case 0: {
       GetArtifactTypesResponse get_response;
-      TF_RETURN_IF_ERROR(store->GetArtifactTypes(
+      TF_RETURN_IF_ERROR(store.GetArtifactTypes(
           /*request=*/{}, &get_response));
       for (auto& artifact_type : get_response.artifact_types()) {
         existing_types.push_back(artifact_type);
@@ -66,7 +56,7 @@ tensorflow::Status GetExistingTypes(const int specification,
     // Gets ExecutionTypes.
     case 1: {
       GetExecutionTypesResponse get_response;
-      TF_RETURN_IF_ERROR(store->GetExecutionTypes(
+      TF_RETURN_IF_ERROR(store.GetExecutionTypes(
           /*request=*/{}, &get_response));
       for (auto& execution_type : get_response.execution_types()) {
         existing_types.push_back(execution_type);
@@ -76,7 +66,7 @@ tensorflow::Status GetExistingTypes(const int specification,
     // Gets ContextTypes.
     case 2: {
       GetContextTypesResponse get_response;
-      TF_RETURN_IF_ERROR(store->GetContextTypes(
+      TF_RETURN_IF_ERROR(store.GetContextTypes(
           /*request=*/{}, &get_response));
       for (auto& context_type : get_response.context_types()) {
         existing_types.push_back(context_type);
@@ -90,13 +80,13 @@ tensorflow::Status GetExistingTypes(const int specification,
 }
 
 tensorflow::Status GetExistingNodes(const int specification,
-                                    MetadataStore* store,
-                                    std::vector<NodeType>& existing_nodes) {
+                                    MetadataStore& store,
+                                    std::vector<Node>& existing_nodes) {
   switch (specification) {
     // Gets Artifacts.
     case 0: {
       GetArtifactsResponse get_response;
-      TF_RETURN_IF_ERROR(store->GetArtifacts(
+      TF_RETURN_IF_ERROR(store.GetArtifacts(
           /*request=*/{}, &get_response));
       for (auto& artifact : get_response.artifacts()) {
         existing_nodes.push_back(artifact);
@@ -106,7 +96,7 @@ tensorflow::Status GetExistingNodes(const int specification,
     // Gets Executions.
     case 1: {
       GetExecutionsResponse get_response;
-      TF_RETURN_IF_ERROR(store->GetExecutions(
+      TF_RETURN_IF_ERROR(store.GetExecutions(
           /*request=*/{}, &get_response));
       for (auto& execution : get_response.executions()) {
         existing_nodes.push_back(execution);
@@ -116,7 +106,7 @@ tensorflow::Status GetExistingNodes(const int specification,
     // Gets Contexts.
     case 2: {
       GetContextsResponse get_response;
-      TF_RETURN_IF_ERROR(store->GetContexts(
+      TF_RETURN_IF_ERROR(store.GetContexts(
           /*request=*/{}, &get_response));
       for (auto& context : get_response.contexts()) {
         existing_nodes.push_back(context);
@@ -132,87 +122,88 @@ tensorflow::Status GetExistingNodes(const int specification,
 tensorflow::Status InsertTypesInDb(const int64 num_artifact_types,
                                    const int64 num_execution_types,
                                    const int64 num_context_types,
-                                   MetadataStore* store) {
+                                   MetadataStore& store) {
   PutTypesRequest put_request;
   PutTypesResponse put_response;
 
   for (int64 i = 0; i < num_artifact_types; i++) {
     ArtifactType* curr_type = put_request.add_artifact_types();
-    curr_type->set_name(absl::StrCat("pre_insert_artifact_type-", i));
+    curr_type->set_name(absl::StrCat("pre_insert_artifact_type-",
+                                     absl::FormatTime(absl::Now()), "-", i));
     (*curr_type->mutable_properties())["property"] = STRING;
   }
 
   for (int64 i = 0; i < num_execution_types; i++) {
     ExecutionType* curr_type = put_request.add_execution_types();
-    curr_type->set_name(absl::StrCat("pre_insert_execution_type-", i));
+    curr_type->set_name(absl::StrCat("pre_insert_execution_type-",
+                                     absl::FormatTime(absl::Now()), "-", i));
     (*curr_type->mutable_properties())["property"] = STRING;
   }
 
   for (int64 i = 0; i < num_context_types; i++) {
     ContextType* curr_type = put_request.add_context_types();
-    curr_type->set_name(absl::StrCat("pre_insert_context_type-", i));
+    curr_type->set_name(absl::StrCat("pre_insert_context_type-",
+                                     absl::FormatTime(absl::Now()), "-", i));
     (*curr_type->mutable_properties())["property"] = STRING;
   }
 
-  return store->PutTypes(put_request, &put_response);
+  return store.PutTypes(put_request, &put_response);
 }
 
 tensorflow::Status InsertNodesInDb(const int64 num_artifact_nodes,
                                    const int64 num_execution_nodes,
                                    const int64 num_context_nodes,
-                                   MetadataStore* store) {
+                                   MetadataStore& store) {
   std::vector<Type> existing_artifact_types;
-  GetExistingTypes(/*specification=*/0, store, existing_artifact_types);
+  TF_RETURN_IF_ERROR(
+      GetExistingTypes(/*specification=*/0, store, existing_artifact_types));
   std::vector<Type> existing_execution_types;
-  GetExistingTypes(/*specification=*/1, store, existing_execution_types);
+  TF_RETURN_IF_ERROR(
+      GetExistingTypes(/*specification=*/1, store, existing_execution_types));
   std::vector<Type> existing_context_types;
-  GetExistingTypes(/*specification=*/2, store, existing_context_types);
-
-  std::uniform_int_distribution<int64> uniform_dist_artifact_type_index{
-      0, (int64)(existing_artifact_types.size() - 1)};
-  std::uniform_int_distribution<int64> uniform_dist_execution_type_index{
-      0, (int64)(existing_execution_types.size() - 1)};
-  std::uniform_int_distribution<int64> uniform_dist_context_type_index{
-      0, (int64)(existing_context_types.size() - 1)};
-
-  std::minstd_rand0 gen(absl::ToUnixMillis(absl::Now()));
+  TF_RETURN_IF_ERROR(
+      GetExistingTypes(/*specification=*/2, store, existing_context_types));
 
   for (int64 i = 0; i < num_artifact_nodes; i++) {
-    const int64 type_index = uniform_dist_artifact_type_index(gen);
-    const string& node_name = absl::StrCat("pre_insert_artifact-", i);
+    const int64 type_index = i % existing_artifact_types.size();
+    const string& node_name = absl::StrCat(
+        "pre_insert_artifact-", absl::FormatTime(absl::Now()), "-", i);
     PutArtifactsRequest put_request;
     Artifact* curr_node = put_request.add_artifacts();
     PrepareNode<ArtifactType, Artifact>(
         node_name, absl::get<ArtifactType>(existing_artifact_types[type_index]),
         *curr_node);
-    SetArtifactAdditionalFields(node_name, *curr_node);
+    curr_node->set_uri(absl::StrCat(node_name, "_uri"));
+    curr_node->set_state(Artifact::UNKNOWN);
     PutArtifactsResponse put_response;
-    TF_RETURN_IF_ERROR(store->PutArtifacts(put_request, &put_response));
+    TF_RETURN_IF_ERROR(store.PutArtifacts(put_request, &put_response));
   }
 
   for (int64 i = 0; i < num_execution_nodes; i++) {
-    const int64 type_index = uniform_dist_execution_type_index(gen);
-    const string& node_name = absl::StrCat("pre_insert_execution-", i);
+    const int64 type_index = i % existing_execution_types.size();
+    const string& node_name = absl::StrCat(
+        "pre_insert_execution-", absl::FormatTime(absl::Now()), "-", i);
     PutExecutionsRequest put_request;
     Execution* curr_node = put_request.add_executions();
     PrepareNode<ExecutionType, Execution>(
         node_name,
         absl::get<ExecutionType>(existing_execution_types[type_index]),
         *curr_node);
-    SetExecutionAdditionalFields(*curr_node);
+    curr_node->set_last_known_state(Execution::UNKNOWN);
     PutExecutionsResponse put_response;
-    TF_RETURN_IF_ERROR(store->PutExecutions(put_request, &put_response));
+    TF_RETURN_IF_ERROR(store.PutExecutions(put_request, &put_response));
   }
 
   for (int64 i = 0; i < num_context_nodes; i++) {
-    const int64 type_index = uniform_dist_context_type_index(gen);
-    const string& node_name = absl::StrCat("pre_insert_context-", i);
+    const int64 type_index = i % existing_context_types.size();
+    const string& node_name = absl::StrCat(
+        "pre_insert_context-", absl::FormatTime(absl::Now()), "-", i);
     PutContextsRequest put_request;
     PrepareNode<ContextType, Context>(
         node_name, absl::get<ContextType>(existing_context_types[type_index]),
         *put_request.add_contexts());
     PutContextsResponse put_response;
-    TF_RETURN_IF_ERROR(store->PutContexts(put_request, &put_response));
+    TF_RETURN_IF_ERROR(store.PutContexts(put_request, &put_response));
   }
 
   return tensorflow::Status::OK();

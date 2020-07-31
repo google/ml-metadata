@@ -18,6 +18,8 @@ limitations under the License.
 #include <type_traits>
 #include <vector>
 
+#include <bits/stdc++.h>
+
 #include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
@@ -31,6 +33,12 @@ limitations under the License.
 
 namespace ml_metadata {
 namespace {
+
+struct NodesParam {
+  std::string nodes_name;
+  int64 num_properties;
+  int64 string_value_bytes;
+};
 
 // Template function that initializes `put_request` to contain `num_nodes` nodes
 // inside.
@@ -56,7 +64,7 @@ void InitializePutRequest(const int64 num_nodes,
 tensorflow::Status GetAndValidateExistingTypes(
     const int specification, MetadataStore* store,
     std::vector<Type>& existing_types) {
-  TF_RETURN_IF_ERROR(GetExistingTypes(specification, store, existing_types));
+  TF_RETURN_IF_ERROR(GetExistingTypes(specification, *store, existing_types));
   if (existing_types.size() == 0) {
     return tensorflow::errors::FailedPrecondition(
         "There are no types inside db for inserting nodes!");
@@ -76,13 +84,13 @@ int64 GenerateRandomNumberFromUD(const UniformDistribution& dist,
 void InitializeCurrentNodeBatchParameters(
     const int64 i, const FillNodesConfig& fill_nodes_config,
     std::uniform_int_distribution<int64>& uniform_dist_type_index,
-    std::minstd_rand0& gen, std::string& node_batch_name, int64& num_properties,
-    int64& string_value_bytes, int64& num_nodes, int64& type_index) {
-  node_batch_name =
-      absl::StrCat("node_batch", absl::FormatTime(absl::Now()), "_", i);
-  num_properties =
+    std::minstd_rand0& gen, int64& num_nodes, int64& type_index,
+    NodesParam& nodes_param) {
+  nodes_param.nodes_name =
+      absl::StrCat("nodes", absl::FormatTime(absl::Now()), "_", i);
+  nodes_param.num_properties =
       GenerateRandomNumberFromUD(fill_nodes_config.num_properties(), gen);
-  string_value_bytes =
+  nodes_param.string_value_bytes =
       GenerateRandomNumberFromUD(fill_nodes_config.string_value_bytes(), gen);
   num_nodes = GenerateRandomNumberFromUD(fill_nodes_config.num_nodes(), gen);
   type_index = uniform_dist_type_index(gen);
@@ -120,62 +128,57 @@ int64 GetTransferredBytes(const NT& node) {
 // generated w.r.t. `node_name`, `num_properties` and `string_value_bytes`.
 // Leaves it as return `void` instead of return `int64` for now because
 // FillNodes update mode will return `tensorflow::Status` in the future.
-template <typename T, typename NT>
-void GenerateNodes(const std::string& node_batch_name,
-                   const int64 num_properties, const int64 string_value_bytes,
-                   const T& type,
-                   google::protobuf::RepeatedPtrField<NT>& node_batch,
+template <typename T, typename N>
+void GenerateNodes(const NodesParam& nodes_param, const T& type,
+                   google::protobuf::RepeatedPtrField<N>& nodes,
                    int64& curr_bytes) {
   CHECK((std::is_same<T, ArtifactType>::value ||
          std::is_same<T, ExecutionType>::value ||
          std::is_same<T, ContextType>::value))
       << "Unexpected Types";
-  CHECK((std::is_same<NT, Artifact>::value ||
-         std::is_same<NT, Execution>::value ||
-         std::is_same<NT, Context>::value))
+  CHECK((std::is_same<N, Artifact>::value ||
+         std::is_same<N, Execution>::value || std::is_same<N, Context>::value))
       << "Unexpected Node Types";
   // Insert nodes cases.
-  // Loops over all the node inside `node_batch` and sets up one by one.
-  for (int64 i = 0; i < node_batch.size(); ++i) {
-    node_batch[i].set_name(absl::StrCat(node_batch_name, "_node_", i));
-    node_batch[i].set_type_id(type.id());
+  // Loops over all the node inside `nodes` and sets up one by one.
+  for (int64 i = 0; i < nodes.size(); ++i) {
+    nodes[i].set_name(absl::StrCat(nodes_param.nodes_name, "_node_", i));
+    nodes[i].set_type_id(type.id());
     // Uses "********" as the fake property value for current node.
-    std::string property_value(string_value_bytes, '*');
-    int64 curr_num_properties = 0;
+    std::string property_value(nodes_param.string_value_bytes, '*');
     // Loops over the types properties while generating the node's properties
     // accordingly.
-    auto it = type.properties().begin();
-    while (curr_num_properties < num_properties &&
-           it != type.properties().end()) {
-      (*node_batch[i].mutable_properties())[it->first].set_string_value(
+    // TODO(briansong) Adds more property types support.
+    int64 populated_num_properties = 0;
+    for (const auto& p : type.properties()) {
+      (*nodes[i].mutable_properties())[p.first].set_string_value(
           property_value);
-      curr_num_properties++;
-      it++;
+      if (++populated_num_properties > nodes_param.num_properties) {
+        break;
+      }
     }
-    // If the node's number of properties is greater than the type(the iterator
-    // of the type properties has reached the end, but `curr_num_properties`
-    // is still less than `num_properties`), uses custom properties instead.
-    while (curr_num_properties < num_properties) {
-      (*node_batch[i]
-            .mutable_custom_properties())[absl::StrCat("custom_p-",
-                                                       curr_num_properties)]
+    // If the node's number of properties is greater than the type, uses custom
+    // properties instead.
+    while (populated_num_properties++ < nodes_param.num_properties) {
+      (*nodes[i].mutable_custom_properties())[absl::StrCat(
+                                                  "custom_p-",
+                                                  populated_num_properties)]
           .set_string_value(property_value);
-      curr_num_properties++;
     }
-    curr_bytes += GetTransferredBytes<NT>(node_batch[i]);
+    curr_bytes += GetTransferredBytes<N>(nodes[i]);
   }
 }
 
 // Sets additional fields(uri, state) for artifacts and returns transferred
 // bytes for these additional fields.
 int64 SetArtifactsAdditionalFields(
-    const std::string& node_batch_name,
-    google::protobuf::RepeatedPtrField<Artifact>& node_batch) {
+    const std::string& nodes_name,
+    google::protobuf::RepeatedPtrField<Artifact>& nodes) {
   int64 bytes = 0;
-  for (int64 i = 0; i < node_batch.size(); ++i) {
-    node_batch[i].set_uri(absl::StrCat(node_batch_name, "_node_", i, "_uri"));
-    node_batch[i].set_state(Artifact::UNKNOWN);
-    bytes += node_batch[i].uri().size() + 1;
+  for (int64 i = 0; i < nodes.size(); ++i) {
+    nodes[i].set_uri(absl::StrCat(nodes_name, "_node_", i, "_uri"));
+    nodes[i].set_state(Artifact::UNKNOWN);
+    bytes += nodes[i].uri().size() + 1;
   }
   return bytes;
 }
@@ -183,10 +186,10 @@ int64 SetArtifactsAdditionalFields(
 // Sets additional field(state) for executions and returns transferred
 // bytes for these additional fields.
 int64 SetExecutionsAdditionalFields(
-    google::protobuf::RepeatedPtrField<Execution>& node_batch) {
+    google::protobuf::RepeatedPtrField<Execution>& nodes) {
   int64 bytes = 0;
-  for (int64 i = 0; i < node_batch.size(); ++i) {
-    node_batch[i].set_last_known_state(Execution::UNKNOWN);
+  for (int64 i = 0; i < nodes.size(); ++i) {
+    nodes[i].set_last_known_state(Execution::UNKNOWN);
     bytes += 1;
   }
   return bytes;
@@ -197,31 +200,19 @@ int64 SetExecutionsAdditionalFields(
 FillNodes::FillNodes(const FillNodesConfig& fill_nodes_config,
                      const int64 num_operations)
     : fill_nodes_config_(fill_nodes_config), num_operations_(num_operations) {
-  switch (fill_nodes_config_.specification()) {
-    case FillNodesConfig::ARTIFACT: {
-      name_ = "fill_artifact";
-      break;
-    }
-    case FillNodesConfig::EXECUTION: {
-      name_ = "fill_execution";
-      break;
-    }
-    case FillNodesConfig::CONTEXT: {
-      name_ = "fill_context";
-      break;
-    }
-    default:
-      LOG(FATAL) << "Wrong specification for FillNodes!";
-  }
+  name_ = absl::StrCat("FILL_", fill_nodes_config_.Specification_Name(
+                                    fill_nodes_config_.specification()));
   if (fill_nodes_config_.update()) {
-    name_ += "(update)";
+    name_ += "(UPDATE)";
   }
 }
 
 tensorflow::Status FillNodes::SetUpImpl(MetadataStore* store) {
   LOG(INFO) << "Setting up ...";
+  int64 curr_bytes = 0;
 
   // Gets all the specific types in db to choose from when generating nodes.
+  // If there's no types in the store, return error.
   std::vector<Type> existing_types;
   TF_RETURN_IF_ERROR(GetAndValidateExistingTypes(
       fill_nodes_config_.specification(), store, existing_types));
@@ -230,46 +221,42 @@ tensorflow::Status FillNodes::SetUpImpl(MetadataStore* store) {
 
   std::minstd_rand0 gen(absl::ToUnixMillis(absl::Now()));
 
-  std::string node_batch_name;
-  int64 curr_bytes, num_properties, string_value_bytes, num_nodes, type_index;
-
   // TODO(briansong) Adds update support.
   for (int64 i = 0; i < num_operations_; ++i) {
     curr_bytes = 0;
     FillNodesWorkItemType put_request;
-    InitializeCurrentNodeBatchParameters(
-        i, fill_nodes_config_, uniform_dist_type_index, gen, node_batch_name,
-        num_properties, string_value_bytes, num_nodes, type_index);
+    int64 num_nodes, type_index;
+    NodesParam nodes_param;
+    InitializeCurrentNodeBatchParameters(i, fill_nodes_config_,
+                                         uniform_dist_type_index, gen,
+                                         num_nodes, type_index, nodes_param);
     switch (fill_nodes_config_.specification()) {
       case FillNodesConfig::ARTIFACT: {
         InitializePutRequest<PutArtifactsRequest>(num_nodes, put_request);
-        google::protobuf::RepeatedPtrField<Artifact>& node_batch =
-            *absl::get<PutArtifactsRequest>(put_request).mutable_artifacts();
+        auto nodes =
+            absl::get<PutArtifactsRequest>(put_request).mutable_artifacts();
         GenerateNodes<ArtifactType, Artifact>(
-            node_batch_name, num_properties, string_value_bytes,
-            absl::get<ArtifactType>(existing_types[type_index]), node_batch,
-            curr_bytes);
-        curr_bytes += SetArtifactsAdditionalFields(node_batch_name, node_batch);
+            nodes_param, absl::get<ArtifactType>(existing_types[type_index]),
+            *nodes, curr_bytes);
+        curr_bytes +=
+            SetArtifactsAdditionalFields(nodes_param.nodes_name, *nodes);
         break;
       }
       case FillNodesConfig::EXECUTION: {
         InitializePutRequest<PutExecutionsRequest>(num_nodes, put_request);
-        google::protobuf::RepeatedPtrField<Execution>& node_batch =
-            *absl::get<PutExecutionsRequest>(put_request).mutable_executions();
+        auto nodes =
+            absl::get<PutExecutionsRequest>(put_request).mutable_executions();
         GenerateNodes<ExecutionType, Execution>(
-            node_batch_name, num_properties, string_value_bytes,
-            absl::get<ExecutionType>(existing_types[type_index]), node_batch,
-            curr_bytes);
-        curr_bytes += SetExecutionsAdditionalFields(node_batch);
+            nodes_param, absl::get<ExecutionType>(existing_types[type_index]),
+            *nodes, curr_bytes);
+        curr_bytes += SetExecutionsAdditionalFields(*nodes);
         break;
       }
       case FillNodesConfig::CONTEXT: {
         InitializePutRequest<PutContextsRequest>(num_nodes, put_request);
-        google::protobuf::RepeatedPtrField<Context>& node_batch =
-            *absl::get<PutContextsRequest>(put_request).mutable_contexts();
         GenerateNodes<ContextType, Context>(
-            node_batch_name, num_properties, string_value_bytes,
-            absl::get<ContextType>(existing_types[type_index]), node_batch,
+            nodes_param, absl::get<ContextType>(existing_types[type_index]),
+            *absl::get<PutContextsRequest>(put_request).mutable_contexts(),
             curr_bytes);
         break;
       }
@@ -289,22 +276,19 @@ tensorflow::Status FillNodes::RunOpImpl(const int64 work_items_index,
       PutArtifactsRequest put_request =
           absl::get<PutArtifactsRequest>(work_items_[work_items_index].first);
       PutArtifactsResponse put_response;
-      TF_RETURN_IF_ERROR(store->PutArtifacts(put_request, &put_response));
-      return tensorflow::Status::OK();
+      return store->PutArtifacts(put_request, &put_response);
     }
     case FillNodesConfig::EXECUTION: {
       PutExecutionsRequest put_request =
           absl::get<PutExecutionsRequest>(work_items_[work_items_index].first);
       PutExecutionsResponse put_response;
-      TF_RETURN_IF_ERROR(store->PutExecutions(put_request, &put_response));
-      return tensorflow::Status::OK();
+      return store->PutExecutions(put_request, &put_response);
     }
     case FillNodesConfig::CONTEXT: {
       PutContextsRequest put_request =
           absl::get<PutContextsRequest>(work_items_[work_items_index].first);
       PutContextsResponse put_response;
-      TF_RETURN_IF_ERROR(store->PutContexts(put_request, &put_response));
-      return tensorflow::Status::OK();
+      return store->PutContexts(put_request, &put_response);
     }
     default:
       return tensorflow::errors::InvalidArgument("Wrong specification!");
