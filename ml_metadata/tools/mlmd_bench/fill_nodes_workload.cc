@@ -32,6 +32,7 @@ limitations under the License.
 namespace ml_metadata {
 namespace {
 
+// Parameters for nodes to be inserted per put request.
 struct NodesParam {
   std::string nodes_name;
   int64 num_properties;

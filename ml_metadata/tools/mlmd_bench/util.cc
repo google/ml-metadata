@@ -28,8 +28,11 @@ limitations under the License.
 namespace ml_metadata {
 namespace {
 
+// Enumeration type that indicates which node type to be fetched using
+// GetExistingTypesImpl().
 enum FetchType { FetchArtifactType, FetchExecutionType, FetchContextType };
 
+// Prepares node's properties for inserting inside InsertNodesInDb().
 template <typename T, typename NT>
 void PrepareNode(const std::string& node_name, const T& curr_type,
                  NT& curr_node) {
@@ -40,6 +43,8 @@ void PrepareNode(const std::string& node_name, const T& curr_type,
       "bar");
 }
 
+// Detailed implementation of multiple GetExistingTypes() overload function.
+// Returns detailed error if query executions failed.
 tensorflow::Status GetExistingTypesImpl(const FetchType& fetch_type,
                                         MetadataStore& store,
                                         std::vector<Type>& existing_types) {
