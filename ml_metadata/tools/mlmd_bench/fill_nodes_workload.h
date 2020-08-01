@@ -28,8 +28,8 @@ namespace ml_metadata {
 // Defines a FillNodesWorkItemType that can be PutArtifactsRequest /
 // PutExecutionsRequest / PutContextsRequest.
 using FillNodesWorkItemType =
-    absl::variant<PutArtifactsRequest, PutExecutionsRequest,
-                  PutContextsRequest>;
+    ::absl::variant<PutArtifactsRequest, PutExecutionsRequest,
+                    PutContextsRequest>;
 
 // A specific workload for creating and updating nodes: Artifacts / Executions /
 // Contexts.

@@ -233,6 +233,23 @@ cc_library(
     ],
 )
 
+ml_metadata_cc_test(
+    name = "util_test",
+    size = "small",
+    srcs = ["util_test.cc"],
+    deps = [
+        ":util",
+        #"@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+        "//ml_metadata/metadata_store:metadata_store",
+        "//ml_metadata/metadata_store:metadata_store_factory",
+        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_service_proto",
+        "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:test",
+    ],
+)
+
 cc_library(
     name = "workload",
     hdrs = ["workload.h"],

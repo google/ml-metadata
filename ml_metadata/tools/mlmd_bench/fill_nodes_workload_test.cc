@@ -36,34 +36,59 @@ constexpr int kNumberOfExistedTypesInDb = 100;
 constexpr int kNumberOfExistedNodesInDb = 100;
 constexpr int kNumberOfNodesPerRequest = 10;
 
+constexpr auto config_str = R"(
+        fill_nodes_config: {
+          num_properties: { minimum: 1 maximum: 10 }
+          string_value_bytes: { minimum: 1 maximum: 10 }
+        }
+      )";
+
 // Enumerates the workload configurations as the test parameters that ensure
 // test coverage.
 std::vector<WorkloadConfig> EnumerateConfigs(const bool is_update) {
   std::vector<WorkloadConfig> config_vector;
-  WorkloadConfig template_config = testing::ParseTextProtoOrDie<WorkloadConfig>(
-      R"(
-        fill_nodes_config: {
-          num_properties: { minimum: 1 maximum: 10 }
-          string_value_bytes: { minimum: 1 maximum: 10 }
-          num_nodes: { minimum: 5 maximum: 5 }
-        }
-      )");
-  template_config.set_num_operations(kNumberOfOperations);
-  template_config.mutable_fill_nodes_config()->mutable_num_nodes()->set_minimum(
-      kNumberOfNodesPerRequest);
-  template_config.mutable_fill_nodes_config()->mutable_num_nodes()->set_maximum(
-      kNumberOfNodesPerRequest);
-  template_config.mutable_fill_nodes_config()->set_update(is_update);
 
-  template_config.mutable_fill_nodes_config()->set_specification(
-      FillNodesConfig::ARTIFACT);
-  config_vector.push_back(template_config);
-  template_config.mutable_fill_nodes_config()->set_specification(
-      FillNodesConfig::EXECUTION);
-  config_vector.push_back(template_config);
-  template_config.mutable_fill_nodes_config()->set_specification(
-      FillNodesConfig::CONTEXT);
-  config_vector.push_back(template_config);
+  {
+    WorkloadConfig config =
+        testing::ParseTextProtoOrDie<WorkloadConfig>(config_str);
+    config.set_num_operations(kNumberOfOperations);
+    config.mutable_fill_nodes_config()->mutable_num_nodes()->set_minimum(
+        kNumberOfNodesPerRequest);
+    config.mutable_fill_nodes_config()->mutable_num_nodes()->set_maximum(
+        kNumberOfNodesPerRequest);
+    config.mutable_fill_nodes_config()->set_update(is_update);
+    config.mutable_fill_nodes_config()->set_specification(
+        FillNodesConfig::ARTIFACT);
+    config_vector.push_back(config);
+  }
+
+  {
+    WorkloadConfig config =
+        testing::ParseTextProtoOrDie<WorkloadConfig>(config_str);
+    config.set_num_operations(kNumberOfOperations);
+    config.mutable_fill_nodes_config()->mutable_num_nodes()->set_minimum(
+        kNumberOfNodesPerRequest);
+    config.mutable_fill_nodes_config()->mutable_num_nodes()->set_maximum(
+        kNumberOfNodesPerRequest);
+    config.mutable_fill_nodes_config()->set_update(is_update);
+    config.mutable_fill_nodes_config()->set_specification(
+        FillNodesConfig::EXECUTION);
+    config_vector.push_back(config);
+  }
+
+  {
+    WorkloadConfig config =
+        testing::ParseTextProtoOrDie<WorkloadConfig>(config_str);
+    config.set_num_operations(kNumberOfOperations);
+    config.mutable_fill_nodes_config()->mutable_num_nodes()->set_minimum(
+        kNumberOfNodesPerRequest);
+    config.mutable_fill_nodes_config()->mutable_num_nodes()->set_maximum(
+        kNumberOfNodesPerRequest);
+    config.mutable_fill_nodes_config()->set_update(is_update);
+    config.mutable_fill_nodes_config()->set_specification(
+        FillNodesConfig::CONTEXT);
+    config_vector.push_back(config);
+  }
 
   return config_vector;
 }
@@ -102,7 +127,7 @@ TEST_P(FillNodesInsertParameterizedTestFixture, SetUpImplWhenNoNodesExistTest) {
   TF_ASSERT_OK(InsertTypesInDb(
       /*num_artifact_types=*/kNumberOfExistedTypesInDb,
       /*num_execution_types=*/kNumberOfExistedTypesInDb,
-      /*num_context_types=*/kNumberOfExistedTypesInDb, store_.get()));
+      /*num_context_types=*/kNumberOfExistedTypesInDb, *store_));
   TF_ASSERT_OK(fill_nodes_->SetUp(store_.get()));
   EXPECT_EQ(GetParam().num_operations(), fill_nodes_->num_operations());
 }
@@ -116,16 +141,16 @@ TEST_P(FillNodesInsertParameterizedTestFixture, InsertWhenNoNodesExistTest) {
   TF_ASSERT_OK(InsertTypesInDb(
       /*num_artifact_types=*/kNumberOfExistedTypesInDb,
       /*num_execution_types=*/kNumberOfExistedTypesInDb,
-      /*num_context_types=*/kNumberOfExistedTypesInDb, store_.get()));
+      /*num_context_types=*/kNumberOfExistedTypesInDb, *store_));
   TF_ASSERT_OK(fill_nodes_->SetUp(store_.get()));
   for (int64 i = 0; i < fill_nodes_->num_operations(); ++i) {
     OpStats op_stats;
     TF_ASSERT_OK(fill_nodes_->RunOp(i, store_.get(), op_stats));
   }
   // Gets all the existing current nodes inside db after insertion.
-  std::vector<NodeType> existing_nodes;
-  TF_ASSERT_OK(GetExistingNodes(GetParam().fill_nodes_config().specification(),
-                                store_.get(), existing_nodes));
+  std::vector<Node> existing_nodes;
+  TF_ASSERT_OK(GetExistingNodes(GetParam().fill_nodes_config(), *store_,
+                                existing_nodes));
   EXPECT_EQ(GetParam().num_operations() * kNumberOfNodesPerRequest,
             existing_nodes.size());
 }
@@ -139,12 +164,12 @@ TEST_P(FillNodesInsertParameterizedTestFixture,
   TF_ASSERT_OK(InsertTypesInDb(
       /*num_artifact_types=*/kNumberOfExistedTypesInDb,
       /*num_execution_types=*/kNumberOfExistedTypesInDb,
-      /*num_context_types=*/kNumberOfExistedTypesInDb, store_.get()));
+      /*num_context_types=*/kNumberOfExistedTypesInDb, *store_));
   // Inserts some nodes into db in the first beginning.
   TF_ASSERT_OK(InsertNodesInDb(
       /*num_artifact_nodes=*/kNumberOfExistedNodesInDb,
       /*num_execution_nodes=*/kNumberOfExistedNodesInDb,
-      /*num_context_nodes=*/kNumberOfExistedNodesInDb, store_.get()));
+      /*num_context_nodes=*/kNumberOfExistedNodesInDb, *store_));
   TF_ASSERT_OK(fill_nodes_->SetUp(store_.get()));
   EXPECT_EQ(GetParam().num_operations(), fill_nodes_->num_operations());
 }
@@ -158,30 +183,30 @@ TEST_P(FillNodesInsertParameterizedTestFixture, InsertWhenSomeNodesExistTest) {
   TF_ASSERT_OK(InsertTypesInDb(
       /*num_artifact_types=*/kNumberOfExistedTypesInDb,
       /*num_execution_types=*/kNumberOfExistedTypesInDb,
-      /*num_context_types=*/kNumberOfExistedTypesInDb, store_.get()));
+      /*num_context_types=*/kNumberOfExistedTypesInDb, *store_));
   // Inserts some nodes into db in the first beginning.
   TF_ASSERT_OK(InsertNodesInDb(
       /*num_artifact_nodes=*/kNumberOfExistedNodesInDb,
       /*num_execution_nodes=*/kNumberOfExistedNodesInDb,
-      /*num_context_nodes=*/kNumberOfExistedNodesInDb, store_.get()));
+      /*num_context_nodes=*/kNumberOfExistedNodesInDb, *store_));
 
   // Gets all the pre-inserted nodes inside db before insertion.
-  std::vector<NodeType> existing_nodes_before_insert;
-  TF_ASSERT_OK(GetExistingNodes(GetParam().fill_nodes_config().specification(),
-                                store_.get(), existing_nodes_before_insert));
+  std::vector<Node> existing_nodes_before_insert;
+  TF_ASSERT_OK(GetExistingNodes(GetParam().fill_nodes_config(), *store_,
+                                existing_nodes_before_insert));
   TF_ASSERT_OK(fill_nodes_->SetUp(store_.get()));
   for (int64 i = 0; i < fill_nodes_->num_operations(); ++i) {
     OpStats op_stats;
     TF_ASSERT_OK(fill_nodes_->RunOp(i, store_.get(), op_stats));
   }
   // Gets all the existing current nodes inside db after insertion.
-  std::vector<NodeType> existing_nodes_after_insert;
-  TF_ASSERT_OK(GetExistingNodes(GetParam().fill_nodes_config().specification(),
-                                store_.get(), existing_nodes_after_insert));
+  std::vector<Node> existing_nodes_after_insert;
+  TF_ASSERT_OK(GetExistingNodes(GetParam().fill_nodes_config(), *store_,
+                                existing_nodes_after_insert));
 
-  EXPECT_EQ(
-      GetParam().num_operations() * kNumberOfNodesPerRequest,
-      existing_nodes_after_insert.size() - existing_nodes_before_insert.size());
+  EXPECT_EQ(GetParam().num_operations() * kNumberOfNodesPerRequest,
+            existing_nodes_after_insert.size() -
+                existing_nodes_before_insert.size() + 1);
 }
 
 INSTANTIATE_TEST_CASE_P(
