@@ -193,3 +193,15 @@ ml_metadata_cc_test(
         "@org_tensorflow//tensorflow/core:test",
     ],
 )
+
+cc_binary(
+    name = "mlmd_bench",
+    srcs = ["mlmd_bench_main.cc"],
+    deps = [
+        ":benchmark",
+        ":thread_runner",
+        "//ml_metadata/tools/mlmd_bench/proto:mlmd_bench_proto",
+        "@org_tensorflow//tensorflow/core:lib",
+        "@com_github_gflags_gflags//:gflags_nothreads",
+    ],
+)
