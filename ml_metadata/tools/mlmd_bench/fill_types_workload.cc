@@ -154,27 +154,17 @@ tensorflow::Status GenerateType(const FillTypesConfig& fill_types_config,
 
 FillTypes::FillTypes(const FillTypesConfig& fill_types_config,
                      const int64 num_operations)
-    : fill_types_config_(fill_types_config), num_operations_(num_operations) {
-  switch (fill_types_config_.specification()) {
-    case FillTypesConfig::ARTIFACT_TYPE: {
-      name_ = "fill_artifact_type";
-      break;
-    }
-    case FillTypesConfig::EXECUTION_TYPE: {
-      name_ = "fill_execution_type";
-      break;
-    }
-    case FillTypesConfig::CONTEXT_TYPE: {
-      name_ = "fill_context_type";
-      break;
-    }
-    default:
-      LOG(FATAL) << "Wrong specification for FillTypes!";
-  }
-  if (fill_types_config_.update()) {
-    name_ += "(update)";
-  }
-}
+    : fill_types_config_(fill_types_config),
+      num_operations_(num_operations),
+      name_(([fill_types_config]() {
+        std::string name =
+            absl::StrCat("FILL_", fill_types_config.Specification_Name(
+                                      fill_types_config.specification()));
+        if (fill_types_config.update()) {
+          name += "(UPDATE)";
+        }
+        return name;
+      }())) {}
 
 tensorflow::Status FillTypes::SetUpImpl(MetadataStore* store) {
   LOG(INFO) << "Setting up ...";
@@ -191,7 +181,7 @@ tensorflow::Status FillTypes::SetUpImpl(MetadataStore* store) {
   // Gets all the existing current types inside db for later update cases.
   std::vector<Type> existing_types;
   TF_RETURN_IF_ERROR(
-      GetExistingTypes(fill_types_config_, store, existing_types));
+      GetExistingTypes(fill_types_config_, *store, existing_types));
 
   for (int64 i = 0; i < num_operations_; i++) {
     curr_bytes = 0;

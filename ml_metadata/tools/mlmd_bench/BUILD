@@ -61,6 +61,45 @@ ml_metadata_cc_test(
 )
 
 cc_library(
+    name = "fill_nodes_workload",
+    srcs = ["fill_nodes_workload.cc"],
+    hdrs = ["fill_nodes_workload.h"],
+    deps = [
+        ":workload",
+        ":util",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:variant",
+        "//ml_metadata/metadata_store:metadata_store",
+        "//ml_metadata/metadata_store:types",
+        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_service_proto",
+        "//ml_metadata/tools/mlmd_bench/proto:mlmd_bench_proto",
+        "@org_tensorflow//tensorflow/core:lib",
+    ],
+)
+
+ml_metadata_cc_test(
+    name = "fill_nodes_workload_test",
+    size = "small",
+    srcs = ["fill_nodes_workload_test.cc"],
+    deps = [
+        ":fill_nodes_workload",
+        ":util",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/types:variant",
+        "@com_google_googletest//:gtest_main",
+        "//ml_metadata/metadata_store:metadata_store",
+        "//ml_metadata/metadata_store:metadata_store_factory",
+        "//ml_metadata/metadata_store:test_util",
+        "//ml_metadata/metadata_store:types",
+        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_service_proto",
+        "//ml_metadata/tools/mlmd_bench/proto:mlmd_bench_proto",
+        "@org_tensorflow//tensorflow/core:test",
+    ],
+)
+
+cc_library(
     name = "stats",
     srcs = ["stats.cc"],
     hdrs = ["stats.h"],
@@ -89,6 +128,7 @@ cc_library(
     srcs = ["benchmark.cc"],
     hdrs = ["benchmark.h"],
     deps = [
+        ":fill_nodes_workload",
         ":fill_types_workload",
         ":workload",
         "@com_google_absl//absl/memory",
@@ -151,12 +191,29 @@ cc_library(
     srcs = ["util.cc"],
     hdrs = ["util.h"],
     deps = [
+        "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:variant",
         "//ml_metadata/metadata_store",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/proto:metadata_store_service_proto",
         "//ml_metadata/tools/mlmd_bench/proto:mlmd_bench_proto",
         "@org_tensorflow//tensorflow/core:lib",
+    ],
+)
+
+ml_metadata_cc_test(
+    name = "util_test",
+    size = "small",
+    srcs = ["util_test.cc"],
+    deps = [
+        ":util",
+        "@com_google_googletest//:gtest_main",
+        "//ml_metadata/metadata_store:metadata_store",
+        "//ml_metadata/metadata_store:metadata_store_factory",
+        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_service_proto",
+        "@org_tensorflow//tensorflow/core:lib",
+        "@org_tensorflow//tensorflow/core:test",
     ],
 )
 
