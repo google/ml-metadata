@@ -115,12 +115,12 @@ message FillEventsConfig {
 message WorkloadConfig {
   oneof workload_config {
     FillTypesConfig fill_types_config = 1;
-    FillNodesConfig fill_nodes_config = 2;
-    FillContextEdgesConfig fill_context_edges_config = 3;
-    FillEventsConfig fill_events_config = 4;
+    FillNodesConfig fill_nodes_config = 3;
+    FillContextEdgesConfig fill_context_edges_config = 4;
+    FillEventsConfig fill_events_config = 5;
   }
   // The number of operations to be run in parallel.
-  optional int64 num_operations = 5;
+  optional int64 num_operations = 2;
 }
 
 // The configuration for the multi-threaded environment which executes the

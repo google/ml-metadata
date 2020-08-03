@@ -274,7 +274,6 @@ ml_metadata_cc_test(
     srcs = ["util_test.cc"],
     deps = [
         ":util",
-        #"@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
         "//ml_metadata/metadata_store:metadata_store",
         "//ml_metadata/metadata_store:metadata_store_factory",

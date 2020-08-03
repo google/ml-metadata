@@ -14,6 +14,7 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/tools/mlmd_bench/util.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/metadata_store/metadata_store_factory.h"
@@ -54,12 +55,12 @@ TEST(UtilInsertTest, InsertTypesTest) {
   TF_ASSERT_OK(store->GetContextTypes(
       /*request=*/{}, &get_context_types_response));
 
-  ASSERT_EQ(kNumberOfInsertedArtifactTypes,
-            get_artifact_types_response.artifact_types_size());
-  ASSERT_EQ(kNumberOfInsertedExecutionTypes,
-            get_execution_types_response.execution_types_size());
-  ASSERT_EQ(kNumberOfInsertedContextTypes,
-            get_context_types_response.context_types_size());
+  EXPECT_THAT(get_artifact_types_response.artifact_types(),
+              ::testing::SizeIs(kNumberOfInsertedArtifactTypes));
+  EXPECT_THAT(get_execution_types_response.execution_types(),
+              ::testing::SizeIs(kNumberOfInsertedExecutionTypes));
+  EXPECT_THAT(get_context_types_response.context_types(),
+              ::testing::SizeIs(kNumberOfInsertedContextTypes));
 }
 
 // Tests InsertNodesInDb().
@@ -69,7 +70,6 @@ TEST(UtilInsertTest, InsertNodesTest) {
   // Uses a fake in-memory SQLite database for testing.
   mlmd_config.mutable_fake_database();
   TF_ASSERT_OK(CreateMetadataStore(mlmd_config, &store));
-  // InsertTypesInDb() has passed the tests.
   TF_ASSERT_OK(InsertTypesInDb(
       /*num_artifact_types=*/kNumberOfInsertedArtifactTypes,
       /*num_execution_types=*/kNumberOfInsertedExecutionTypes,
@@ -89,11 +89,12 @@ TEST(UtilInsertTest, InsertNodesTest) {
   TF_ASSERT_OK(store->GetContexts(
       /*request=*/{}, &get_contexts_response));
 
-  ASSERT_EQ(kNumberOfInsertedArtifacts,
-            get_artifacts_response.artifacts_size());
-  ASSERT_EQ(kNumberOfInsertedExecutions,
-            get_executions_response.executions_size());
-  ASSERT_EQ(kNumberOfInsertedContexts, get_contexts_response.contexts_size());
+  EXPECT_THAT(get_artifacts_response.artifacts(),
+              ::testing::SizeIs(kNumberOfInsertedArtifacts));
+  EXPECT_THAT(get_executions_response.executions(),
+              ::testing::SizeIs(kNumberOfInsertedExecutions));
+  EXPECT_THAT(get_contexts_response.contexts(),
+              ::testing::SizeIs(kNumberOfInsertedContexts));
 }
 
 // Tests GetExistingTypes() with FillTypesConfig as input.
@@ -103,7 +104,6 @@ TEST(UtilGetTest, GetTypesWithFillTypesConfigTest) {
   // Uses a fake in-memory SQLite database for testing.
   mlmd_config.mutable_fake_database();
   TF_ASSERT_OK(CreateMetadataStore(mlmd_config, &store));
-  // InsertTypesInDb() has passed the tests.
   TF_ASSERT_OK(InsertTypesInDb(
       /*num_artifact_types=*/kNumberOfInsertedArtifactTypes,
       /*num_execution_types=*/kNumberOfInsertedExecutionTypes,
@@ -114,7 +114,8 @@ TEST(UtilGetTest, GetTypesWithFillTypesConfigTest) {
     FillTypesConfig fill_types_config;
     fill_types_config.set_specification(FillTypesConfig::ARTIFACT_TYPE);
     TF_ASSERT_OK(GetExistingTypes(fill_types_config, *store, exisiting_types));
-    EXPECT_EQ(kNumberOfInsertedArtifactTypes, exisiting_types.size());
+    EXPECT_THAT(exisiting_types,
+                ::testing::SizeIs(kNumberOfInsertedArtifactTypes));
   }
 
   {
@@ -122,7 +123,8 @@ TEST(UtilGetTest, GetTypesWithFillTypesConfigTest) {
     FillTypesConfig fill_types_config;
     fill_types_config.set_specification(FillTypesConfig::EXECUTION_TYPE);
     TF_ASSERT_OK(GetExistingTypes(fill_types_config, *store, exisiting_types));
-    EXPECT_EQ(kNumberOfInsertedExecutionTypes, exisiting_types.size());
+    EXPECT_THAT(exisiting_types,
+                ::testing::SizeIs(kNumberOfInsertedExecutionTypes));
   }
 
   {
@@ -130,7 +132,8 @@ TEST(UtilGetTest, GetTypesWithFillTypesConfigTest) {
     FillTypesConfig fill_types_config;
     fill_types_config.set_specification(FillTypesConfig::CONTEXT_TYPE);
     TF_ASSERT_OK(GetExistingTypes(fill_types_config, *store, exisiting_types));
-    EXPECT_EQ(kNumberOfInsertedContextTypes, exisiting_types.size());
+    EXPECT_THAT(exisiting_types,
+                ::testing::SizeIs(kNumberOfInsertedContextTypes));
   }
 }
 
@@ -141,7 +144,6 @@ TEST(UtilGetTest, GetTypesWithFillNodesConfigTest) {
   // Uses a fake in-memory SQLite database for testing.
   mlmd_config.mutable_fake_database();
   TF_ASSERT_OK(CreateMetadataStore(mlmd_config, &store));
-  // InsertTypesInDb() has passed the tests.
   TF_ASSERT_OK(InsertTypesInDb(
       /*num_artifact_types=*/kNumberOfInsertedArtifactTypes,
       /*num_execution_types=*/kNumberOfInsertedExecutionTypes,
@@ -152,7 +154,8 @@ TEST(UtilGetTest, GetTypesWithFillNodesConfigTest) {
     FillNodesConfig fill_nodes_config;
     fill_nodes_config.set_specification(FillNodesConfig::ARTIFACT);
     TF_ASSERT_OK(GetExistingTypes(fill_nodes_config, *store, exisiting_types));
-    EXPECT_EQ(kNumberOfInsertedArtifactTypes, exisiting_types.size());
+    EXPECT_THAT(exisiting_types,
+                ::testing::SizeIs(kNumberOfInsertedArtifactTypes));
   }
 
   {
@@ -160,7 +163,8 @@ TEST(UtilGetTest, GetTypesWithFillNodesConfigTest) {
     FillNodesConfig fill_nodes_config;
     fill_nodes_config.set_specification(FillNodesConfig::EXECUTION);
     TF_ASSERT_OK(GetExistingTypes(fill_nodes_config, *store, exisiting_types));
-    EXPECT_EQ(kNumberOfInsertedExecutionTypes, exisiting_types.size());
+    EXPECT_THAT(exisiting_types,
+                ::testing::SizeIs(kNumberOfInsertedExecutionTypes));
   }
 
   {
@@ -168,12 +172,55 @@ TEST(UtilGetTest, GetTypesWithFillNodesConfigTest) {
     FillNodesConfig fill_nodes_config;
     fill_nodes_config.set_specification(FillNodesConfig::CONTEXT);
     TF_ASSERT_OK(GetExistingTypes(fill_nodes_config, *store, exisiting_types));
-    EXPECT_EQ(kNumberOfInsertedContextTypes, exisiting_types.size());
+    EXPECT_THAT(exisiting_types,
+                ::testing::SizeIs(kNumberOfInsertedContextTypes));
   }
 }
 
 // Tests GetExistingNodes() with FillNodesConfig as input.
 TEST(UtilGetTest, GetNodesWithFillNodesConfigTest) {
+  std::unique_ptr<MetadataStore> store;
+  ConnectionConfig mlmd_config;
+  // Uses a fake in-memory SQLite database for testing.
+  mlmd_config.mutable_fake_database();
+  TF_ASSERT_OK(CreateMetadataStore(mlmd_config, &store));
+  TF_ASSERT_OK(InsertTypesInDb(
+      /*num_artifact_types=*/kNumberOfInsertedArtifactTypes,
+      /*num_execution_types=*/kNumberOfInsertedExecutionTypes,
+      /*num_context_types=*/kNumberOfInsertedContextTypes, *store));
+  TF_ASSERT_OK(InsertNodesInDb(
+      /*num_artifact_types=*/kNumberOfInsertedArtifacts,
+      /*num_execution_types=*/kNumberOfInsertedExecutions,
+      /*num_context_types=*/kNumberOfInsertedContexts, *store));
+
+  {
+    std::vector<Node> exisiting_nodes;
+    FillNodesConfig fill_nodes_config;
+    fill_nodes_config.set_specification(FillNodesConfig::ARTIFACT);
+    TF_ASSERT_OK(GetExistingNodes(fill_nodes_config, *store, exisiting_nodes));
+    EXPECT_THAT(exisiting_nodes, ::testing::SizeIs(kNumberOfInsertedArtifacts));
+  }
+
+  {
+    std::vector<Node> exisiting_nodes;
+    FillNodesConfig fill_nodes_config;
+    fill_nodes_config.set_specification(FillNodesConfig::EXECUTION);
+    TF_ASSERT_OK(GetExistingNodes(fill_nodes_config, *store, exisiting_nodes));
+    EXPECT_THAT(exisiting_nodes,
+                ::testing::SizeIs(kNumberOfInsertedExecutions));
+  }
+
+  {
+    std::vector<Node> exisiting_nodes;
+    FillNodesConfig fill_nodes_config;
+    fill_nodes_config.set_specification(FillNodesConfig::CONTEXT);
+    TF_ASSERT_OK(GetExistingNodes(fill_nodes_config, *store, exisiting_nodes));
+    EXPECT_THAT(exisiting_nodes, ::testing::SizeIs(kNumberOfInsertedContexts));
+  }
+}
+
+// Tests GetExistingNodes() with FillContextEdgesConfig as input.
+TEST(UtilGetTest, GetNodesWithFillContextEdgesConfigTest) {
   std::unique_ptr<MetadataStore> store;
   ConnectionConfig mlmd_config;
   // Uses a fake in-memory SQLite database for testing.
@@ -186,32 +233,34 @@ TEST(UtilGetTest, GetNodesWithFillNodesConfigTest) {
       /*num_context_types=*/kNumberOfInsertedContextTypes, *store));
   // InsertNodesInDb() has passed the tests.
   TF_ASSERT_OK(InsertNodesInDb(
-      /*num_artifact_types=*/kNumberOfInsertedArtifacts,
-      /*num_execution_types=*/kNumberOfInsertedExecutions,
-      /*num_context_types=*/kNumberOfInsertedContexts, *store));
+      /*num_artifact_nodes=*/kNumberOfInsertedArtifacts,
+      /*num_execution_nodes=*/kNumberOfInsertedExecutions,
+      /*num_context_nodes=*/kNumberOfInsertedContexts, *store));
 
   {
-    std::vector<Node> exisiting_nodes;
-    FillNodesConfig fill_nodes_config;
-    fill_nodes_config.set_specification(FillNodesConfig::ARTIFACT);
-    TF_ASSERT_OK(GetExistingNodes(fill_nodes_config, *store, exisiting_nodes));
-    EXPECT_EQ(kNumberOfInsertedArtifacts, exisiting_nodes.size());
+    std::vector<Node> existing_non_context_nodes;
+    std::vector<Node> existing_context_nodes;
+    FillContextEdgesConfig fill_context_edges_config;
+    fill_context_edges_config.set_specification(
+        FillContextEdgesConfig::ATTRIBUTION);
+    TF_ASSERT_OK(GetExistingNodes(fill_context_edges_config, *store,
+                                  existing_non_context_nodes,
+                                  existing_context_nodes));
+    EXPECT_EQ(kNumberOfInsertedArtifacts, existing_non_context_nodes.size());
+    EXPECT_EQ(kNumberOfInsertedContexts, existing_context_nodes.size());
   }
 
   {
-    std::vector<Node> exisiting_nodes;
-    FillNodesConfig fill_nodes_config;
-    fill_nodes_config.set_specification(FillNodesConfig::EXECUTION);
-    TF_ASSERT_OK(GetExistingNodes(fill_nodes_config, *store, exisiting_nodes));
-    EXPECT_EQ(kNumberOfInsertedExecutions, exisiting_nodes.size());
-  }
-
-  {
-    std::vector<Node> exisiting_nodes;
-    FillNodesConfig fill_nodes_config;
-    fill_nodes_config.set_specification(FillNodesConfig::CONTEXT);
-    TF_ASSERT_OK(GetExistingNodes(fill_nodes_config, *store, exisiting_nodes));
-    EXPECT_EQ(kNumberOfInsertedContexts, exisiting_nodes.size());
+    std::vector<Node> existing_non_context_nodes;
+    std::vector<Node> existing_context_nodes;
+    FillContextEdgesConfig fill_context_edges_config;
+    fill_context_edges_config.set_specification(
+        FillContextEdgesConfig::ASSOCIATION);
+    TF_ASSERT_OK(GetExistingNodes(fill_context_edges_config, *store,
+                                  existing_non_context_nodes,
+                                  existing_context_nodes));
+    EXPECT_EQ(kNumberOfInsertedExecutions, existing_non_context_nodes.size());
+    EXPECT_EQ(kNumberOfInsertedContexts, existing_context_nodes.size());
   }
 }
 

@@ -163,11 +163,10 @@ FillContextEdges::FillContextEdges(
     const FillContextEdgesConfig& fill_context_edges_config,
     int64 num_operations)
     : fill_context_edges_config_(fill_context_edges_config),
-      num_operations_(num_operations) {
-  name_ =
-      absl::StrCat("FILL_", fill_context_edges_config_.Specification_Name(
-                                fill_context_edges_config_.specification()));
-}
+      num_operations_(num_operations),
+      name_(absl::StrCat("FILL_",
+                         fill_context_edges_config_.Specification_Name(
+                             fill_context_edges_config_.specification()))) {}
 
 tensorflow::Status FillContextEdges::SetUpImpl(MetadataStore* store) {
   LOG(INFO) << "Setting up ...";

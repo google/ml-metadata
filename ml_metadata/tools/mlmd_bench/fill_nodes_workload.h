@@ -71,7 +71,7 @@ class FillNodes : public Workload<FillNodesWorkItemType> {
   // Number of operations for the current workload.
   const int64 num_operations_;
   // String for indicating the name of current workload instance.
-  std::string name_;
+  const std::string name_;
 };
 
 }  // namespace ml_metadata

@@ -43,7 +43,7 @@ constexpr auto config_str = R"(
 // Enumerates the workload configurations as the test parameters that ensure
 // test coverage.
 std::vector<WorkloadConfig> EnumerateConfigs(const bool is_update) {
-  std::vector<WorkloadConfig> config_vector;
+  std::vector<WorkloadConfig> configs;
 
   {
     WorkloadConfig config =
@@ -52,7 +52,7 @@ std::vector<WorkloadConfig> EnumerateConfigs(const bool is_update) {
     config.mutable_fill_types_config()->set_update(is_update);
     config.mutable_fill_types_config()->set_specification(
         FillTypesConfig::ARTIFACT_TYPE);
-    config_vector.push_back(config);
+    configs.push_back(config);
   }
 
   {
@@ -62,7 +62,7 @@ std::vector<WorkloadConfig> EnumerateConfigs(const bool is_update) {
     config.mutable_fill_types_config()->set_update(is_update);
     config.mutable_fill_types_config()->set_specification(
         FillTypesConfig::EXECUTION_TYPE);
-    config_vector.push_back(config);
+    configs.push_back(config);
   }
 
   {
@@ -72,10 +72,10 @@ std::vector<WorkloadConfig> EnumerateConfigs(const bool is_update) {
     config.mutable_fill_types_config()->set_update(is_update);
     config.mutable_fill_types_config()->set_specification(
         FillTypesConfig::CONTEXT_TYPE);
-    config_vector.push_back(config);
+    configs.push_back(config);
   }
 
-  return config_vector;
+  return configs;
 }
 
 // Executes the given FillTypes workloads.
