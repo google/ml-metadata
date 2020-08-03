@@ -224,6 +224,19 @@ tensorflow::Status GetExistingNodes(
                               existing_context_nodes);
 }
 
+tensorflow::Status GetExistingNodes(
+    const FillEventsConfig& fill_events_config, MetadataStore& store,
+    std::vector<Node>& existing_artifact_nodes,
+    std::vector<Node>& existing_execution_nodes) {
+  FetchNode fetch_artifact_node = FetchArtifact;
+  FetchNode fetch_execution_node = FetchExecution;
+  TF_RETURN_IF_ERROR(GetExistingNodesImpl(fetch_artifact_node, store,
+                                          existing_artifact_nodes));
+  TF_RETURN_IF_ERROR(GetExistingNodesImpl(fetch_execution_node, store,
+                                          existing_execution_nodes));
+  return tensorflow::Status::OK();
+}
+
 tensorflow::Status InsertTypesInDb(const int64 num_artifact_types,
                                    const int64 num_execution_types,
                                    const int64 num_context_types,
