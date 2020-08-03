@@ -68,6 +68,7 @@ cc_library(
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
         "//ml_metadata/metadata_store:types",
+        "//ml_metadata/tools/mlmd_bench/proto:mlmd_bench_proto",
         "@org_tensorflow//tensorflow/core:lib",
     ],
 )
@@ -129,6 +130,12 @@ ml_metadata_cc_test(
     name = "thread_runner_test",
     size = "small",
     srcs = ["thread_runner_test.cc"],
+    tags = [
+        # Thread runner aggregates approximiate total tasks among threads
+        # for command line printing. The approximate task number is not
+        # thread safe by design.
+        "notsan",
+    ],
     deps = [
         ":benchmark",
         ":stats",

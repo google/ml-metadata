@@ -25,6 +25,7 @@ namespace ml_metadata {
 
 // Contains a list of workloads to be executed by ThreadRunner.
 // The executable workloads are generated according to `mlmd_bench_config`.
+// Also contains the performance report `mlmd_bench_report_` for final output.
 class Benchmark {
  public:
   Benchmark(const MLMDBenchConfig& mlmd_bench_config);
@@ -36,9 +37,14 @@ class Benchmark {
   // Returns the number of executable workloads existed inside benchmark.
   int64 num_workloads() const { return workloads_.size(); }
 
+  // Returns the performance report `mlmd_bench_report` inside benchmark.
+  MLMDBenchReport& mlmd_bench_report() { return mlmd_bench_report_; }
+
  private:
   // A list of executable workloads.
   std::vector<std::unique_ptr<WorkloadBase>> workloads_;
+  // Performance report for `mlmd_bench`.
+  MLMDBenchReport mlmd_bench_report_;
 };
 
 }  // namespace ml_metadata
