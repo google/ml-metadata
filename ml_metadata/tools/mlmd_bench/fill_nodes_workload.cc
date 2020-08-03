@@ -72,14 +72,6 @@ tensorflow::Status GetAndValidateExistingTypes(
   return tensorflow::Status::OK();
 }
 
-// Generates random integer within the range of specified `dist`.
-int64 GenerateRandomNumberFromUD(const UniformDistribution& dist,
-                                 std::minstd_rand0& gen) {
-  std::uniform_int_distribution<int64> uniform_dist{dist.minimum(),
-                                                    dist.maximum()};
-  return uniform_dist(gen);
-}
-
 // Initializes the parameters of current node batch inside current put request.
 void InitializeCurrentNodeBatchParameters(
     const int64 i, const FillNodesConfig& fill_nodes_config,
