@@ -15,6 +15,7 @@ limitations under the License.
 #include "ml_metadata/tools/mlmd_bench/fill_context_edges_workload.h"
 
 #include <random>
+#include <type_traits>
 #include <vector>
 
 #include "ml_metadata/metadata_store/metadata_store.h"
@@ -29,48 +30,111 @@ limitations under the License.
 namespace ml_metadata {
 namespace {
 
-template <typename T>
-void InitializePutRequest(const int64 num_edges,
-                          PutAttributionsAndAssociationsRequest& put_request) {
-  for (int64 i = 0; i < num_edges; ++i) {
-    if (std::is_same<T, Attribution>::value) {
-      put_request.add_attributions();
-    } else if (std::is_same<T, Association>::value) {
-      put_request.add_associations();
-    } else {
-      LOG(FATAL) << "Unexpected Context Edges Type for initializing current "
-                    "edge batch";
-    }
-  }
-}
-template <typename T>
-tensorflow::Status GenerateContextEdge(
+bool CheckDuplicateContextEdgeInCurrentSetUp(
     const int64 non_context_node_id, const int64 context_node_id,
-    PutAttributionsAndAssociationsRequest& put_request,
-    std::unordered_map<int64, std::unordered_set<int64>>& unique_checker,
-    int64& curr_bytes) {
-  CHECK((std::is_same<T, Attribution>::value ||
-         std::is_same<T, Association>::value))
-      << "Unexpected Types";
+    std::unordered_map<int64, std::unordered_set<int64>>& unique_checker) {
   if (unique_checker.find(context_node_id) != unique_checker.end() &&
       unique_checker.at(context_node_id).find(non_context_node_id) !=
           unique_checker.at(context_node_id).end()) {
-    return tensorflow::errors::AlreadyExists(("Existing context edge!"));
-  }
-  if (std::is_same<T, Attribution>::value) {
-    Attribution* attribution = put_request.add_attributions();
-    attribution->set_artifact_id(non_context_node_id);
-    attribution->set_context_id(context_node_id);
-  } else if (std::is_same<T, Association>::value) {
-    Association* association = put_request.add_associations();
-    association->set_execution_id(non_context_node_id);
-    association->set_context_id(context_node_id);
+    return true;
   }
   if (unique_checker.find(context_node_id) == unique_checker.end()) {
     unique_checker.insert({context_node_id, std::unordered_set<int64>{}});
   }
   unique_checker.at(context_node_id).insert(non_context_node_id);
-  curr_bytes += 8;
+  return false;
+}
+
+template <typename T>
+tensorflow::Status CheckDuplicateContextEdgeInDb(
+    const int64 non_context_node_id, const int64 context_node_id,
+    MetadataStore& store) {
+  if (std::is_same<T, Attribution>::value) {
+    GetArtifactsByContextRequest request;
+    request.set_context_id(context_node_id);
+    GetArtifactsByContextResponse response;
+    TF_RETURN_IF_ERROR(store.GetArtifactsByContext(request, &response));
+    for (const auto& artifact : response.artifacts()) {
+      if (artifact.id() == non_context_node_id) {
+        return tensorflow::errors::AlreadyExists(("Existing context edge!"));
+      }
+    }
+  } else if (std::is_same<T, Association>::value) {
+    GetExecutionsByContextRequest request;
+    request.set_context_id(context_node_id);
+    GetExecutionsByContextResponse response;
+    TF_RETURN_IF_ERROR(store.GetExecutionsByContext(request, &response));
+    for (const auto& execution : response.executions()) {
+      if (execution.id() == non_context_node_id) {
+        return tensorflow::errors::AlreadyExists(("Existing context edge!"));
+      }
+    }
+  }
+  return tensorflow::Status::OK();
+}
+
+template <typename T>
+void SetCurrentContextEdge(const int64 non_context_node_id,
+                           const int64 context_node_id,
+                           PutAttributionsAndAssociationsRequest& request) {
+  if (std::is_same<T, Attribution>::value) {
+    Attribution* context_edge = request.add_attributions();
+    context_edge->set_artifact_id(non_context_node_id);
+    context_edge->set_context_id(context_node_id);
+  } else if (std::is_same<T, Association>::value) {
+    Association* context_edge = request.add_associations();
+    context_edge->set_execution_id(non_context_node_id);
+    context_edge->set_context_id(context_node_id);
+  }
+}
+
+template <typename T>
+tensorflow::Status GenerateContextEdges(
+    const std::vector<Node>& existing_non_context_nodes,
+    const std::vector<Node>& existing_context_nodes, const int64 num_edges,
+    std::discrete_distribution<int64>& non_context_node_index_dist,
+    std::discrete_distribution<int64>& context_node_index_dist,
+    MetadataStore& store,
+    std::unordered_map<int64, std::unordered_set<int64>>& unique_checker,
+    PutAttributionsAndAssociationsRequest& request, int64& curr_bytes) {
+  CHECK((std::is_same<T, Attribution>::value ||
+         std::is_same<T, Association>::value))
+      << "Unexpected Types";
+  int64 i = 0;
+  std::default_random_engine gen;
+  while (i < num_edges) {
+    const int64 non_context_node_index = non_context_node_index_dist(gen);
+    const int64 context_node_index = context_node_index_dist(gen);
+    int64 non_context_node_id;
+    int64 context_node_id;
+    if (std::is_same<T, Attribution>::value) {
+      non_context_node_id =
+          absl::get<Artifact>(
+              existing_non_context_nodes[non_context_node_index])
+              .id();
+    } else if (std::is_same<T, Association>::value) {
+      non_context_node_id =
+          absl::get<Execution>(
+              existing_non_context_nodes[non_context_node_index])
+              .id();
+    }
+    context_node_id =
+        absl::get<Context>(existing_context_nodes[context_node_index]).id();
+
+    bool already_existed_in_current_setup =
+        CheckDuplicateContextEdgeInCurrentSetUp(
+            non_context_node_id, context_node_id, unique_checker);
+    tensorflow::Status status = CheckDuplicateContextEdgeInDb<T>(
+        non_context_node_id, context_node_id, store);
+    if (!status.ok() && status.code() != tensorflow::error::ALREADY_EXISTS) {
+      return status;
+    }
+    if (already_existed_in_current_setup || !status.ok()) {
+      continue;
+    }
+    SetCurrentContextEdge<T>(non_context_node_id, context_node_id, request);
+    i++;
+  }
   return tensorflow::Status::OK();
 }
 
@@ -81,18 +145,9 @@ FillContextEdges::FillContextEdges(
     int64 num_operations)
     : fill_context_edges_config_(fill_context_edges_config),
       num_operations_(num_operations) {
-  switch (fill_context_edges_config_.specification()) {
-    case FillContextEdgesConfig::ATTRIBUTION: {
-      name_ = "fill_attribution";
-      break;
-    }
-    case FillContextEdgesConfig::ASSOCIATION: {
-      name_ = "fill_association";
-      break;
-    }
-    default:
-      LOG(FATAL) << "Wrong specification for FillContextEdges!";
-  }
+  name_ =
+      absl::StrCat("FILL_", fill_context_edges_config_.Specification_Name(
+                                fill_context_edges_config_.specification()));
 }
 
 tensorflow::Status FillContextEdges::SetUpImpl(MetadataStore* store) {
@@ -100,46 +155,44 @@ tensorflow::Status FillContextEdges::SetUpImpl(MetadataStore* store) {
 
   int64 curr_bytes = 0;
 
-  std::vector<NodeType> existing_non_context_nodes;
-  TF_RETURN_IF_ERROR(
-      GetExistingNodes(fill_context_edges_config_.specification(), store,
-                       existing_non_context_nodes));
-  std::uniform_int_distribution<int64> uniform_dist_non_context_index{
-      0, (int64)(existing_non_context_nodes.size() - 1)};
-  std::vector<NodeType> existing_context_nodes;
-  TF_RETURN_IF_ERROR(
-      GetExistingNodes(/*specification=*/2, store, existing_context_nodes));
-  std::uniform_int_distribution<int64> uniform_dist_context_index{
-      0, (int64)(existing_context_nodes.size() - 1)};
+  std::vector<Node> existing_non_context_nodes;
+  std::vector<Node> existing_context_nodes;
+  TF_RETURN_IF_ERROR(GetExistingNodes(fill_context_edges_config_, *store,
+                                      existing_non_context_nodes,
+                                      existing_context_nodes));
+
+  const double non_context_alpha =
+      fill_context_edges_config_.none_context_node_popularity()
+          .dirichlet_alpha();
+  const double context_alpha =
+      fill_context_edges_config_.context_node_popularity().dirichlet_alpha();
+  std::discrete_distribution<int64> non_context_node_index_dist =
+      GenerateCategoricalDistributionWithDirichletPrior(
+          existing_non_context_nodes.size(), non_context_alpha);
+  std::discrete_distribution<int64> context_node_index_dist =
+      GenerateCategoricalDistributionWithDirichletPrior(
+          existing_context_nodes.size(), context_alpha);
 
   std::minstd_rand0 gen(absl::ToUnixMillis(absl::Now()));
 
-  for (int i = 0; i < num_operations_; ++i) {
+  for (int64 i = 0; i < num_operations_; ++i) {
     curr_bytes = 0;
     PutAttributionsAndAssociationsRequest put_request;
     const int64 num_edges =
         GenerateRandomNumberFromUD(fill_context_edges_config_.num_edges(), gen);
     switch (fill_context_edges_config_.specification()) {
       case FillContextEdgesConfig::ATTRIBUTION: {
-        InitializePutRequest<Attribution>(num_edges, put_request);
-        google::protobuf::RepeatedPtrField<Attribution>& edge_batch =
-            *put_request.mutable_attributions();
-        // TF_RETURN_IF_ERROR(GenerateContextEdge<Attribution>(
-        //     existing_non_context_nodes, existing_context_nodes,
-        //     uniform_dist_non_context_index, uniform_dist_context_index, gen,
-        //     put_request, unique_checker_, curr_bytes));
+        TF_RETURN_IF_ERROR(GenerateContextEdges<Attribution>(
+            existing_non_context_nodes, existing_context_nodes, num_edges,
+            non_context_node_index_dist, context_node_index_dist, *store,
+            context_id_to_artifact_ids_, put_request, curr_bytes));
         break;
       }
       case FillContextEdgesConfig::ASSOCIATION: {
-        InitializePutRequest<Association>(num_edges, put_request);
-        google::protobuf::RepeatedPtrField<Association>& edge_batch =
-            *put_request.mutable_associations();
-        // TF_RETURN_IF_ERROR(GenerateContextEdge<Association>(
-        //     absl::get<Execution>(
-        //         existing_non_context_nodes[non_context_node_index])
-        //         .id(),
-        //     absl::get<Context>(existing_context_nodes[context_node_index]).id(),
-        //     put_request, unique_checker_, curr_bytes));
+        TF_RETURN_IF_ERROR(GenerateContextEdges<Association>(
+            existing_non_context_nodes, existing_context_nodes, num_edges,
+            non_context_node_index_dist, context_node_index_dist, *store,
+            context_id_to_execution_ids_, put_request, curr_bytes));
         break;
       }
       default:

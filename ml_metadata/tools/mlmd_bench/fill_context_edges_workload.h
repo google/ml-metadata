@@ -53,7 +53,10 @@ class FillContextEdges
   // String for indicating the name of current workload instance.
   std::string name_;
 
-  std::unordered_map<int64, std::unordered_set<int64>> unique_checker_;
+  std::unordered_map<int64, std::unordered_set<int64>>
+      context_id_to_artifact_ids_;
+  std::unordered_map<int64, std::unordered_set<int64>>
+      context_id_to_execution_ids_;
 };
 
 }  // namespace ml_metadata

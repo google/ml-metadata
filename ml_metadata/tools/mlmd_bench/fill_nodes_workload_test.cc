@@ -204,9 +204,9 @@ TEST_P(FillNodesInsertParameterizedTestFixture, InsertWhenSomeNodesExistTest) {
   TF_ASSERT_OK(GetExistingNodes(GetParam().fill_nodes_config(), *store_,
                                 existing_nodes_after_insert));
 
-  EXPECT_EQ(GetParam().num_operations() * kNumberOfNodesPerRequest,
-            existing_nodes_after_insert.size() -
-                existing_nodes_before_insert.size() + 1);
+  EXPECT_EQ(
+      GetParam().num_operations() * kNumberOfNodesPerRequest,
+      existing_nodes_after_insert.size() - existing_nodes_before_insert.size());
 }
 
 INSTANTIATE_TEST_CASE_P(

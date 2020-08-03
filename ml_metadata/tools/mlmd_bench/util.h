@@ -20,6 +20,7 @@ limitations under the License.
 
 #include "absl/types/variant.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
+#include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
 #include "tensorflow/core/lib/core/status.h"
@@ -33,27 +34,33 @@ using Type = ::absl::variant<ArtifactType, ExecutionType, ContextType>;
 using Node = ::absl::variant<Artifact, Execution, Context>;
 
 // Gets all the existing types inside db and store them into
-// `existing_types` given `fill_types_config`. The specific type for the types
-// will be indicated by `specification`. Returns detailed error if query
+// `existing_types` given `fill_types_config`.Returns detailed error if query
 // executions failed.
 tensorflow::Status GetExistingTypes(const FillTypesConfig& fill_types_config,
                                     MetadataStore& store,
                                     std::vector<Type>& existing_types);
 
 // Gets all the existing types inside db and store them into
-// `existing_types` given `fill_nodes_config`. The specific type for the types
-// will be indicated by `specification`. Returns detailed error if query
+// `existing_types` given `fill_nodes_config`.Returns detailed error if query
 // executions failed.
 tensorflow::Status GetExistingTypes(const FillNodesConfig& fill_nodes_config,
                                     MetadataStore& store,
                                     std::vector<Type>& existing_types);
 
-// Gets all the existing nodes inside db and store them into `existing_nodes`.
-// The specific type for the nodes will be indicated by `specification`. Returns
-// detailed error if query executions failed.
+// Gets all the existing nodes inside db and store them into `existing_nodes`
+// given `fill_nodes_config`. Returns detailed error if query executions failed.
 tensorflow::Status GetExistingNodes(const FillNodesConfig& fill_nodes_config,
                                     MetadataStore& store,
                                     std::vector<Node>& existing_nodes);
+
+// Gets all the existing non-context and context nodes inside db and store
+// them into `existing_non_context_nodes` and `existing_context_nodes` given
+// `fill_context_edges_config`. Returns detailed error if query executions
+// failed.
+tensorflow::Status GetExistingNodes(
+    const FillContextEdgesConfig& fill_context_edges_config,
+    MetadataStore& store, std::vector<Node>& existing_non_context_nodes,
+    std::vector<Node>& existing_context_nodes);
 
 // Inserts some types into db for setting up in testing. Returns detailed error
 // if query executions failed.
@@ -72,6 +79,10 @@ tensorflow::Status InsertNodesInDb(int64 num_artifact_nodes,
 // Generates random integer within the range of specified `dist`.
 int64 GenerateRandomNumberFromUD(const UniformDistribution& dist,
                                  std::minstd_rand0& gen);
+
+std::discrete_distribution<int64>
+GenerateCategoricalDistributionWithDirichletPrior(int64 sample_size,
+                                                  int64 concentration_param);
 
 }  // namespace ml_metadata
 

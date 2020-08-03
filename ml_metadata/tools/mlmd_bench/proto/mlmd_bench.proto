@@ -35,6 +35,12 @@ message UniformDistribution {
   optional int64 maximum = 2;
 }
 
+// A categorical distribution generated w.r.t. a Dirichlet prior with
+// concentration parameter alpha.
+message CategoricalDistribution {
+  optional double dirichlet_alpha = 1;
+}
+
 // Creates and updates types: ArtifactTypes / ExecutionTypes / ContextTypes.
 message FillTypesConfig {
   // The FillTypesConfig can be set to insert or update types.
@@ -81,9 +87,15 @@ message FillContextEdgesConfig {
   }
   // Indicate which type of context's edges to be filled
   optional Specification specification = 1;
+  // Describes the popularity for non context nodes(artifacts, executions),
+  // modeled by a categorical distribution with a Dirichlet prior.
+  optional CategoricalDistribution none_context_node_popularity = 2;
+  // Describes the popularity for context nodes,
+  // modeled by a categorical distribution with a Dirichlet prior.
+  optional CategoricalDistribution context_node_popularity = 3;
   // Specifies the number of context edges to be filled per request, 
   // modeled by a uniform distribution.
-  optional UniformDistribution num_edges = 2;
+  optional UniformDistribution num_edges = 4;
 }
 
 // The mlmd_bench workload config.

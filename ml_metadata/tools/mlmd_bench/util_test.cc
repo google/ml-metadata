@@ -172,8 +172,8 @@ TEST(UtilGetTest, GetTypesWithFillNodesConfigTest) {
   }
 }
 
-// Tests GetExistingNodes().
-TEST(UtilGetTest, GetNodesTest) {
+// Tests GetExistingNodes() with FillNodesConfig as input.
+TEST(UtilGetTest, GetNodesWithFillNodesConfigTest) {
   std::unique_ptr<MetadataStore> store;
   ConnectionConfig mlmd_config;
   // Uses a fake in-memory SQLite database for testing.
@@ -212,6 +212,51 @@ TEST(UtilGetTest, GetNodesTest) {
     fill_nodes_config.set_specification(FillNodesConfig::CONTEXT);
     TF_ASSERT_OK(GetExistingNodes(fill_nodes_config, *store, exisiting_nodes));
     EXPECT_EQ(kNumberOfInsertedContexts, exisiting_nodes.size());
+  }
+}
+
+// Tests GetExistingNodes() with FillContextEdgesConfig as input.
+TEST(UtilGetTest, GetNodesWithFillContextEdgesConfigTest) {
+  std::unique_ptr<MetadataStore> store;
+  ConnectionConfig mlmd_config;
+  // Uses a fake in-memory SQLite database for testing.
+  mlmd_config.mutable_fake_database();
+  TF_ASSERT_OK(CreateMetadataStore(mlmd_config, &store));
+  // InsertTypesInDb() has passed the tests.
+  TF_ASSERT_OK(InsertTypesInDb(
+      /*num_artifact_types=*/kNumberOfInsertedArtifactTypes,
+      /*num_execution_types=*/kNumberOfInsertedExecutionTypes,
+      /*num_context_types=*/kNumberOfInsertedContextTypes, *store));
+  // InsertNodesInDb() has passed the tests.
+  TF_ASSERT_OK(InsertNodesInDb(
+      /*num_artifact_types=*/kNumberOfInsertedArtifacts,
+      /*num_execution_types=*/kNumberOfInsertedExecutions,
+      /*num_context_types=*/kNumberOfInsertedContexts, *store));
+
+  {
+    std::vector<Node> existing_non_context_nodes;
+    std::vector<Node> existing_context_nodes;
+    FillContextEdgesConfig fill_context_edges_config;
+    fill_context_edges_config.set_specification(
+        FillContextEdgesConfig::ATTRIBUTION);
+    TF_ASSERT_OK(GetExistingNodes(fill_context_edges_config, *store,
+                                  existing_non_context_nodes,
+                                  existing_context_nodes));
+    EXPECT_EQ(kNumberOfInsertedArtifacts, existing_non_context_nodes.size());
+    EXPECT_EQ(kNumberOfInsertedContexts, existing_context_nodes.size());
+  }
+
+  {
+    std::vector<Node> existing_non_context_nodes;
+    std::vector<Node> existing_context_nodes;
+    FillContextEdgesConfig fill_context_edges_config;
+    fill_context_edges_config.set_specification(
+        FillContextEdgesConfig::ASSOCIATION);
+    TF_ASSERT_OK(GetExistingNodes(fill_context_edges_config, *store,
+                                  existing_non_context_nodes,
+                                  existing_context_nodes));
+    EXPECT_EQ(kNumberOfInsertedExecutions, existing_non_context_nodes.size());
+    EXPECT_EQ(kNumberOfInsertedContexts, existing_context_nodes.size());
   }
 }
 

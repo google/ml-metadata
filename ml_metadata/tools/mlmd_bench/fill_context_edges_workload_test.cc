@@ -31,26 +31,132 @@ namespace {
 constexpr int kNumberOfOperations = 100;
 constexpr int kNumberOfExistedTypesInDb = 100;
 constexpr int kNumberOfExistedNodesInDb = 100;
+constexpr int kNumberOfExistedContextEdgesInDb = 100;
+constexpr int kNumberOfEdgesPerRequest = 5;
+
+constexpr auto config_str = R"(
+        fill_context_edges_config: {
+          none_context_node_popularity: {dirichlet_alpha : 1}
+          context_node_popularity: {dirichlet_alpha : 1}
+        }
+      )";
 
 // Enumerates the workload configurations as the test parameters that ensure
 // test coverage.
 std::vector<WorkloadConfig> EnumerateConfigs() {
   std::vector<WorkloadConfig> config_vector;
-  WorkloadConfig template_config = testing::ParseTextProtoOrDie<WorkloadConfig>(
-      R"(
-        fill_context_edges_config: { num_edges: { minimum: 5 maximum: 5 } }
-      )");
 
-  template_config.set_num_operations(kNumberOfOperations);
+  {
+    WorkloadConfig config =
+        testing::ParseTextProtoOrDie<WorkloadConfig>(config_str);
+    config.set_num_operations(kNumberOfOperations);
+    config.mutable_fill_context_edges_config()
+        ->mutable_num_edges()
+        ->set_minimum(kNumberOfEdgesPerRequest);
+    config.mutable_fill_context_edges_config()
+        ->mutable_num_edges()
+        ->set_maximum(kNumberOfEdgesPerRequest);
+    config.mutable_fill_context_edges_config()->set_specification(
+        FillContextEdgesConfig::ATTRIBUTION);
+    config_vector.push_back(config);
+  }
 
-  template_config.mutable_fill_context_edges_config()->set_specification(
-      FillContextEdgesConfig::ATTRIBUTION);
-  config_vector.push_back(template_config);
-  template_config.mutable_fill_context_edges_config()->set_specification(
-      FillContextEdgesConfig::ASSOCIATION);
-  config_vector.push_back(template_config);
+  {
+    WorkloadConfig config =
+        testing::ParseTextProtoOrDie<WorkloadConfig>(config_str);
+    config.set_num_operations(kNumberOfOperations);
+    config.mutable_fill_context_edges_config()
+        ->mutable_num_edges()
+        ->set_minimum(kNumberOfEdgesPerRequest);
+    config.mutable_fill_context_edges_config()
+        ->mutable_num_edges()
+        ->set_maximum(kNumberOfEdgesPerRequest);
+    config.mutable_fill_context_edges_config()->set_specification(
+        FillContextEdgesConfig::ASSOCIATION);
+    config_vector.push_back(config);
+  }
 
   return config_vector;
+}
+
+tensorflow::Status GetNumberOfContextEdgesInDb(
+    const FillContextEdgesConfig& fill_context_edges_config,
+    MetadataStore& store, int64& num_context_edges) {
+  GetContextsResponse get_response;
+  TF_RETURN_IF_ERROR(store.GetContexts(
+      /*request=*/{}, &get_response));
+  for (const auto& context : get_response.contexts()) {
+    switch (fill_context_edges_config.specification()) {
+      case FillContextEdgesConfig::ATTRIBUTION: {
+        GetArtifactsByContextRequest request;
+        request.set_context_id(context.id());
+        GetArtifactsByContextResponse response;
+        TF_RETURN_IF_ERROR(store.GetArtifactsByContext(request, &response));
+        num_context_edges += response.artifacts_size();
+        break;
+      }
+      case FillContextEdgesConfig::ASSOCIATION: {
+        GetExecutionsByContextRequest request;
+        request.set_context_id(context.id());
+        GetExecutionsByContextResponse response;
+        TF_RETURN_IF_ERROR(store.GetExecutionsByContext(request, &response));
+        num_context_edges += response.executions_size();
+        break;
+      }
+      default:
+        LOG(FATAL) << "Wrong specification for FillContextEdges!";
+    }
+  }
+  return tensorflow::Status::OK();
+}
+
+tensorflow::Status InsertContextEdgesInDb(const int64 num_attributions,
+                                          const int64 num_associations,
+                                          MetadataStore& store) {
+  GetArtifactsResponse get_artifacts_response;
+  TF_RETURN_IF_ERROR(store.GetArtifacts(
+      /*request=*/{}, &get_artifacts_response));
+  GetExecutionsResponse get_executions_response;
+  TF_RETURN_IF_ERROR(store.GetExecutions(
+      /*request=*/{}, &get_executions_response));
+  GetContextsResponse get_contexts_response;
+  TF_RETURN_IF_ERROR(store.GetContexts(
+      /*request=*/{}, &get_contexts_response));
+
+  PutAttributionsAndAssociationsRequest put_request;
+
+  int64 populated_attributions = 0;
+  int64 populated_associations = 0;
+
+  for (int64 i = 0; i < get_artifacts_response.artifacts_size() &&
+                    populated_attributions < num_attributions;
+       ++i) {
+    for (int64 j = 0; j < get_contexts_response.contexts_size() &&
+                      populated_attributions < num_attributions;
+         ++j) {
+      Attribution* context_edge = put_request.add_attributions();
+      context_edge->set_artifact_id(get_artifacts_response.artifacts(i).id());
+      context_edge->set_context_id(get_contexts_response.contexts(i).id());
+      populated_attributions++;
+    }
+  }
+
+  for (int64 i = 0; i < get_executions_response.executions_size() &&
+                    populated_associations < num_associations;
+       ++i) {
+    for (int64 j = 0; j < get_contexts_response.contexts_size() &&
+                      populated_associations < num_associations;
+         ++j) {
+      Association* context_edge = put_request.add_associations();
+      context_edge->set_execution_id(
+          get_executions_response.executions(i).id());
+      context_edge->set_context_id(get_contexts_response.contexts(i).id());
+      populated_associations++;
+    }
+  }
+
+  PutAttributionsAndAssociationsResponse response;
+  return store.PutAttributionsAndAssociations(put_request, &response);
 }
 
 class FillContextEdgesParameterizedTestFixture
@@ -69,21 +175,92 @@ class FillContextEdgesParameterizedTestFixture
   std::unique_ptr<MetadataStore> store_;
 };
 
-TEST_P(FillContextEdgesParameterizedTestFixture, SetUpImplTest) {
+TEST_P(FillContextEdgesParameterizedTestFixture,
+       SetUpImplWhenNoContextEdgesExistTest) {
   TF_ASSERT_OK(InsertTypesInDb(
       /*num_artifact_types=*/kNumberOfExistedTypesInDb,
       /*num_execution_types=*/kNumberOfExistedTypesInDb,
-      /*num_context_types=*/kNumberOfExistedTypesInDb, store_.get()));
+      /*num_context_types=*/kNumberOfExistedTypesInDb, *store_));
   TF_ASSERT_OK(InsertNodesInDb(
       /*num_artifact_nodes=*/kNumberOfExistedNodesInDb,
       /*num_execution_nodes=*/kNumberOfExistedNodesInDb,
-      /*num_context_nodes=*/kNumberOfExistedNodesInDb, store_.get()));
+      /*num_context_nodes=*/kNumberOfExistedNodesInDb, *store_));
 
   TF_ASSERT_OK(fill_context_edges_->SetUp(store_.get()));
   EXPECT_EQ(GetParam().num_operations(), fill_context_edges_->num_operations());
 }
 
-TEST_P(FillContextEdgesParameterizedTestFixture, InsertTest) {}
+TEST_P(FillContextEdgesParameterizedTestFixture,
+       InsertWhenNoContextEdgesExistTest) {
+  TF_ASSERT_OK(InsertTypesInDb(
+      /*num_artifact_types=*/kNumberOfExistedTypesInDb,
+      /*num_execution_types=*/kNumberOfExistedTypesInDb,
+      /*num_context_types=*/kNumberOfExistedTypesInDb, *store_));
+  TF_ASSERT_OK(InsertNodesInDb(
+      /*num_artifact_nodes=*/kNumberOfExistedNodesInDb,
+      /*num_execution_nodes=*/kNumberOfExistedNodesInDb,
+      /*num_context_nodes=*/kNumberOfExistedNodesInDb, *store_));
+
+  TF_ASSERT_OK(fill_context_edges_->SetUp(store_.get()));
+  for (int64 i = 0; i < fill_context_edges_->num_operations(); ++i) {
+    OpStats op_stats;
+    TF_ASSERT_OK(fill_context_edges_->RunOp(i, store_.get(), op_stats));
+  }
+  int64 num_context_edges = 0;
+  TF_ASSERT_OK(GetNumberOfContextEdgesInDb(
+      GetParam().fill_context_edges_config(), *store_, num_context_edges));
+  EXPECT_EQ(GetParam().num_operations() * kNumberOfEdgesPerRequest,
+            num_context_edges);
+}
+
+TEST_P(FillContextEdgesParameterizedTestFixture,
+       SetUpImplWhenSomeContextEdgesExistTest) {
+  TF_ASSERT_OK(InsertTypesInDb(
+      /*num_artifact_types=*/kNumberOfExistedTypesInDb,
+      /*num_execution_types=*/kNumberOfExistedTypesInDb,
+      /*num_context_types=*/kNumberOfExistedTypesInDb, *store_));
+  TF_ASSERT_OK(InsertNodesInDb(
+      /*num_artifact_nodes=*/kNumberOfExistedNodesInDb,
+      /*num_execution_nodes=*/kNumberOfExistedNodesInDb,
+      /*num_context_nodes=*/kNumberOfExistedNodesInDb, *store_));
+  TF_ASSERT_OK(InsertContextEdgesInDb(
+      /*num_attributions=*/kNumberOfExistedContextEdgesInDb,
+      /*num_associations=*/kNumberOfExistedContextEdgesInDb, *store_));
+
+  TF_ASSERT_OK(fill_context_edges_->SetUp(store_.get()));
+  EXPECT_EQ(GetParam().num_operations(), fill_context_edges_->num_operations());
+}
+
+TEST_P(FillContextEdgesParameterizedTestFixture,
+       InsertWhenSomeContextEdgesExistTest) {
+  TF_ASSERT_OK(InsertTypesInDb(
+      /*num_artifact_types=*/kNumberOfExistedTypesInDb,
+      /*num_execution_types=*/kNumberOfExistedTypesInDb,
+      /*num_context_types=*/kNumberOfExistedTypesInDb, *store_));
+  TF_ASSERT_OK(InsertNodesInDb(
+      /*num_artifact_nodes=*/kNumberOfExistedNodesInDb,
+      /*num_execution_nodes=*/kNumberOfExistedNodesInDb,
+      /*num_context_nodes=*/kNumberOfExistedNodesInDb, *store_));
+  TF_ASSERT_OK(InsertContextEdgesInDb(
+      /*num_attributions=*/kNumberOfExistedContextEdgesInDb,
+      /*num_associations=*/kNumberOfExistedContextEdgesInDb, *store_));
+
+  int64 num_context_edges_before = 0;
+  TF_ASSERT_OK(
+      GetNumberOfContextEdgesInDb(GetParam().fill_context_edges_config(),
+                                  *store_, num_context_edges_before));
+  TF_ASSERT_OK(fill_context_edges_->SetUp(store_.get()));
+  for (int64 i = 0; i < fill_context_edges_->num_operations(); ++i) {
+    OpStats op_stats;
+    TF_ASSERT_OK(fill_context_edges_->RunOp(i, store_.get(), op_stats));
+  }
+  int64 num_context_edges_after = 0;
+  TF_ASSERT_OK(
+      GetNumberOfContextEdgesInDb(GetParam().fill_context_edges_config(),
+                                  *store_, num_context_edges_after));
+  EXPECT_EQ(GetParam().num_operations() * kNumberOfEdgesPerRequest,
+            num_context_edges_after - num_context_edges_before);
+}
 
 INSTANTIATE_TEST_CASE_P(FillContextEdgesTest,
                         FillContextEdgesParameterizedTestFixture,
