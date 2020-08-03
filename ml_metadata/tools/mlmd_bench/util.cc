@@ -34,12 +34,11 @@ enum FetchType { FetchArtifactType, FetchExecutionType, FetchContextType };
 
 // Prepares node's properties for inserting inside InsertNodesInDb().
 template <typename T, typename NT>
-void PrepareNode(const std::string& node_name, const T& curr_type,
-                 NT& curr_node) {
-  curr_node.set_type_id(curr_type.id());
-  curr_node.set_name(node_name);
-  (*curr_node.mutable_properties())["property"].set_string_value("foo");
-  (*curr_node.mutable_custom_properties())["custom-property"].set_string_value(
+void PrepareNode(const std::string& node_name, const T& node_type, NT& node) {
+  node.set_type_id(node_type.id());
+  node.set_name(node_name);
+  (*node.mutable_properties())["property"].set_string_value("foo");
+  (*node.mutable_custom_properties())["custom-property"].set_string_value(
       "bar");
 }
 
@@ -174,24 +173,25 @@ tensorflow::Status InsertTypesInDb(const int64 num_artifact_types,
   PutTypesRequest put_request;
   PutTypesResponse put_response;
 
+  const std::string curr_time = absl::FormatTime(absl::Now());
   for (int64 i = 0; i < num_artifact_types; i++) {
     ArtifactType* curr_type = put_request.add_artifact_types();
-    curr_type->set_name(absl::StrCat("pre_insert_artifact_type-",
-                                     absl::FormatTime(absl::Now()), "-", i));
+    curr_type->set_name(
+        absl::StrCat("pre_insert_artifact_type-", curr_time, "-", i));
     (*curr_type->mutable_properties())["property"] = STRING;
   }
 
   for (int64 i = 0; i < num_execution_types; i++) {
     ExecutionType* curr_type = put_request.add_execution_types();
-    curr_type->set_name(absl::StrCat("pre_insert_execution_type-",
-                                     absl::FormatTime(absl::Now()), "-", i));
+    curr_type->set_name(
+        absl::StrCat("pre_insert_execution_type-", curr_time, "-", i));
     (*curr_type->mutable_properties())["property"] = STRING;
   }
 
   for (int64 i = 0; i < num_context_types; i++) {
     ContextType* curr_type = put_request.add_context_types();
-    curr_type->set_name(absl::StrCat("pre_insert_context_type-",
-                                     absl::FormatTime(absl::Now()), "-", i));
+    curr_type->set_name(
+        absl::StrCat("pre_insert_context_type-", curr_time, "-", i));
     (*curr_type->mutable_properties())["property"] = STRING;
   }
 
@@ -216,47 +216,51 @@ tensorflow::Status InsertNodesInDb(const int64 num_artifact_nodes,
   TF_RETURN_IF_ERROR(
       GetExistingTypes(fill_types_config, store, existing_context_types));
 
+  PutArtifactsRequest put_artifacts_request;
+  PutArtifactsResponse put_artifacts_response;
+  const std::string curr_time = absl::FormatTime(absl::Now());
   for (int64 i = 0; i < num_artifact_nodes; i++) {
     const int64 type_index = i % existing_artifact_types.size();
-    const string& node_name = absl::StrCat(
-        "pre_insert_artifact-", absl::FormatTime(absl::Now()), "-", i);
-    PutArtifactsRequest put_request;
-    Artifact* curr_node = put_request.add_artifacts();
+    const string& node_name =
+        absl::StrCat("pre_insert_artifact-", curr_time, "-", i);
+    Artifact* curr_node = put_artifacts_request.add_artifacts();
     PrepareNode<ArtifactType, Artifact>(
         node_name, absl::get<ArtifactType>(existing_artifact_types[type_index]),
         *curr_node);
     curr_node->set_uri(absl::StrCat(node_name, "_uri"));
     curr_node->set_state(Artifact::UNKNOWN);
-    PutArtifactsResponse put_response;
-    TF_RETURN_IF_ERROR(store.PutArtifacts(put_request, &put_response));
   }
+  TF_RETURN_IF_ERROR(
+      store.PutArtifacts(put_artifacts_request, &put_artifacts_response));
 
+  PutExecutionsRequest put_executions_request;
+  PutExecutionsResponse put_executions_response;
   for (int64 i = 0; i < num_execution_nodes; i++) {
     const int64 type_index = i % existing_execution_types.size();
-    const string& node_name = absl::StrCat(
-        "pre_insert_execution-", absl::FormatTime(absl::Now()), "-", i);
-    PutExecutionsRequest put_request;
-    Execution* curr_node = put_request.add_executions();
+    const string& node_name =
+        absl::StrCat("pre_insert_execution-", curr_time, "-", i);
+    Execution* curr_node = put_executions_request.add_executions();
     PrepareNode<ExecutionType, Execution>(
         node_name,
         absl::get<ExecutionType>(existing_execution_types[type_index]),
         *curr_node);
     curr_node->set_last_known_state(Execution::UNKNOWN);
-    PutExecutionsResponse put_response;
-    TF_RETURN_IF_ERROR(store.PutExecutions(put_request, &put_response));
   }
+  TF_RETURN_IF_ERROR(
+      store.PutExecutions(put_executions_request, &put_executions_response));
 
+  PutContextsRequest put_contexts_request;
+  PutContextsResponse put_contexts_response;
   for (int64 i = 0; i < num_context_nodes; i++) {
     const int64 type_index = i % existing_context_types.size();
-    const string& node_name = absl::StrCat(
-        "pre_insert_context-", absl::FormatTime(absl::Now()), "-", i);
-    PutContextsRequest put_request;
+    const string& node_name =
+        absl::StrCat("pre_insert_context-", curr_time, "-", i);
     PrepareNode<ContextType, Context>(
         node_name, absl::get<ContextType>(existing_context_types[type_index]),
-        *put_request.add_contexts());
-    PutContextsResponse put_response;
-    TF_RETURN_IF_ERROR(store.PutContexts(put_request, &put_response));
+        *put_contexts_request.add_contexts());
   }
+  TF_RETURN_IF_ERROR(
+      store.PutContexts(put_contexts_request, &put_contexts_response));
 
   return tensorflow::Status::OK();
 }

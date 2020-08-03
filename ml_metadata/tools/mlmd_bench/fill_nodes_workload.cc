@@ -61,10 +61,10 @@ void InitializePutRequest(const int64 num_nodes,
 // Gets all types inside db. Returns FAILED_PRECONDITION if there is no types
 // inside db for any nodes to insert.
 tensorflow::Status GetAndValidateExistingTypes(
-    const FillNodesConfig& fill_nodes_config, MetadataStore* store,
+    const FillNodesConfig& fill_nodes_config, MetadataStore& store,
     std::vector<Type>& existing_types) {
   TF_RETURN_IF_ERROR(
-      GetExistingTypes(fill_nodes_config, *store, existing_types));
+      GetExistingTypes(fill_nodes_config, store, existing_types));
   if (existing_types.size() == 0) {
     return tensorflow::errors::FailedPrecondition(
         "There are no types inside db for inserting nodes!");
@@ -199,13 +199,17 @@ int64 SetExecutionsAdditionalFields(
 
 FillNodes::FillNodes(const FillNodesConfig& fill_nodes_config,
                      const int64 num_operations)
-    : fill_nodes_config_(fill_nodes_config), num_operations_(num_operations) {
-  name_ = absl::StrCat("FILL_", fill_nodes_config_.Specification_Name(
-                                    fill_nodes_config_.specification()));
-  if (fill_nodes_config_.update()) {
-    name_ += "(UPDATE)";
-  }
-}
+    : fill_nodes_config_(fill_nodes_config),
+      num_operations_(num_operations),
+      name_(([fill_nodes_config]() {
+        std::string name =
+            absl::StrCat("FILL_", fill_nodes_config.Specification_Name(
+                                      fill_nodes_config.specification()));
+        if (fill_nodes_config.update()) {
+          name += "(UPDATE)";
+        }
+        return name;
+      }())) {}
 
 tensorflow::Status FillNodes::SetUpImpl(MetadataStore* store) {
   LOG(INFO) << "Setting up ...";
@@ -215,7 +219,7 @@ tensorflow::Status FillNodes::SetUpImpl(MetadataStore* store) {
   // If there's no types in the store, return error.
   std::vector<Type> existing_types;
   TF_RETURN_IF_ERROR(
-      GetAndValidateExistingTypes(fill_nodes_config_, store, existing_types));
+      GetAndValidateExistingTypes(fill_nodes_config_, *store, existing_types));
   std::uniform_int_distribution<int64> uniform_dist_type_index{
       0, (int64)(existing_types.size() - 1)};
 

@@ -46,7 +46,7 @@ constexpr auto config_str = R"(
 // Enumerates the workload configurations as the test parameters that ensure
 // test coverage.
 std::vector<WorkloadConfig> EnumerateConfigs(const bool is_update) {
-  std::vector<WorkloadConfig> config_vector;
+  std::vector<WorkloadConfig> configs;
 
   {
     WorkloadConfig config =
@@ -59,7 +59,7 @@ std::vector<WorkloadConfig> EnumerateConfigs(const bool is_update) {
     config.mutable_fill_nodes_config()->set_update(is_update);
     config.mutable_fill_nodes_config()->set_specification(
         FillNodesConfig::ARTIFACT);
-    config_vector.push_back(config);
+    configs.push_back(config);
   }
 
   {
@@ -73,7 +73,7 @@ std::vector<WorkloadConfig> EnumerateConfigs(const bool is_update) {
     config.mutable_fill_nodes_config()->set_update(is_update);
     config.mutable_fill_nodes_config()->set_specification(
         FillNodesConfig::EXECUTION);
-    config_vector.push_back(config);
+    configs.push_back(config);
   }
 
   {
@@ -87,10 +87,10 @@ std::vector<WorkloadConfig> EnumerateConfigs(const bool is_update) {
     config.mutable_fill_nodes_config()->set_update(is_update);
     config.mutable_fill_nodes_config()->set_specification(
         FillNodesConfig::CONTEXT);
-    config_vector.push_back(config);
+    configs.push_back(config);
   }
 
-  return config_vector;
+  return configs;
 }
 
 // Test fixture that uses the same data configuration for multiple following
@@ -204,9 +204,9 @@ TEST_P(FillNodesInsertParameterizedTestFixture, InsertWhenSomeNodesExistTest) {
   TF_ASSERT_OK(GetExistingNodes(GetParam().fill_nodes_config(), *store_,
                                 existing_nodes_after_insert));
 
-  EXPECT_EQ(GetParam().num_operations() * kNumberOfNodesPerRequest,
-            existing_nodes_after_insert.size() -
-                existing_nodes_before_insert.size());
+  EXPECT_EQ(
+      GetParam().num_operations() * kNumberOfNodesPerRequest,
+      existing_nodes_after_insert.size() - existing_nodes_before_insert.size());
 }
 
 INSTANTIATE_TEST_CASE_P(

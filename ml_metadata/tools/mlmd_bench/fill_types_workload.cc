@@ -154,13 +154,17 @@ tensorflow::Status GenerateType(const FillTypesConfig& fill_types_config,
 
 FillTypes::FillTypes(const FillTypesConfig& fill_types_config,
                      const int64 num_operations)
-    : fill_types_config_(fill_types_config), num_operations_(num_operations) {
-  name_ = absl::StrCat("FILL_", fill_types_config_.Specification_Name(
-                                    fill_types_config_.specification()));
-  if (fill_types_config_.update()) {
-    name_ += "(UPDATE)";
-  }
-}
+    : fill_types_config_(fill_types_config),
+      num_operations_(num_operations),
+      name_(([fill_types_config]() {
+        std::string name =
+            absl::StrCat("FILL_", fill_types_config.Specification_Name(
+                                      fill_types_config.specification()));
+        if (fill_types_config.update()) {
+          name += "(UPDATE)";
+        }
+        return name;
+      }())) {}
 
 tensorflow::Status FillTypes::SetUpImpl(MetadataStore* store) {
   LOG(INFO) << "Setting up ...";

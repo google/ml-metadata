@@ -77,10 +77,10 @@ message FillNodesConfig {
 message WorkloadConfig {
   oneof workload_config {
     FillTypesConfig fill_types_config = 1;
-    FillNodesConfig fill_nodes_config = 2;
+    FillNodesConfig fill_nodes_config = 3;
   }
   // The number of operations to be run in parallel.
-  optional int64 num_operations = 3;
+  optional int64 num_operations = 2;
 }
 
 // The configuration for the multi-threaded environment which executes the
