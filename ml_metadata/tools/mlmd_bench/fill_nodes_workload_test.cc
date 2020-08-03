@@ -206,7 +206,7 @@ TEST_P(FillNodesInsertParameterizedTestFixture, InsertWhenSomeNodesExistTest) {
 
   EXPECT_EQ(GetParam().num_operations() * kNumberOfNodesPerRequest,
             existing_nodes_after_insert.size() -
-                existing_nodes_before_insert.size() + 1);
+                existing_nodes_before_insert.size());
 }
 
 INSTANTIATE_TEST_CASE_P(
