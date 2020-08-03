@@ -229,9 +229,9 @@ TEST(UtilGetTest, GetNodesWithFillContextEdgesConfigTest) {
       /*num_context_types=*/kNumberOfInsertedContextTypes, *store));
   // InsertNodesInDb() has passed the tests.
   TF_ASSERT_OK(InsertNodesInDb(
-      /*num_artifact_types=*/kNumberOfInsertedArtifacts,
-      /*num_execution_types=*/kNumberOfInsertedExecutions,
-      /*num_context_types=*/kNumberOfInsertedContexts, *store));
+      /*num_artifact_nodes=*/kNumberOfInsertedArtifacts,
+      /*num_execution_nodes=*/kNumberOfInsertedExecutions,
+      /*num_context_nodes=*/kNumberOfInsertedContexts, *store));
 
   {
     std::vector<Node> existing_non_context_nodes;

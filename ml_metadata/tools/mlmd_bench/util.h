@@ -34,14 +34,14 @@ using Type = ::absl::variant<ArtifactType, ExecutionType, ContextType>;
 using Node = ::absl::variant<Artifact, Execution, Context>;
 
 // Gets all the existing types inside db and store them into
-// `existing_types` given `fill_types_config`.Returns detailed error if query
+// `existing_types` given `fill_types_config`. Returns detailed error if query
 // executions failed.
 tensorflow::Status GetExistingTypes(const FillTypesConfig& fill_types_config,
                                     MetadataStore& store,
                                     std::vector<Type>& existing_types);
 
 // Gets all the existing types inside db and store them into
-// `existing_types` given `fill_nodes_config`.Returns detailed error if query
+// `existing_types` given `fill_nodes_config`. Returns detailed error if query
 // executions failed.
 tensorflow::Status GetExistingTypes(const FillNodesConfig& fill_nodes_config,
                                     MetadataStore& store,
@@ -80,6 +80,9 @@ tensorflow::Status InsertNodesInDb(int64 num_artifact_nodes,
 int64 GenerateRandomNumberFromUD(const UniformDistribution& dist,
                                  std::minstd_rand0& gen);
 
+// Generates a categorical distribution with a dirichlet prior with
+// `concentration_param`, the sample size of the returned distribution will be
+// specified by `sample_size`.
 std::discrete_distribution<int64>
 GenerateCategoricalDistributionWithDirichletPrior(int64 sample_size,
                                                   int64 concentration_param);

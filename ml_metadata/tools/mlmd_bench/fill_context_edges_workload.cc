@@ -30,6 +30,10 @@ limitations under the License.
 namespace ml_metadata {
 namespace {
 
+// Checks if current `non_context_node_id` and `context_node_id` pair has been
+// seen in current setup(all the previous pairs have been stored inside
+// `unique_checker`). Returns true if the current pair is a duplicate one,
+// otherwise, returns false.
 bool CheckDuplicateContextEdgeInCurrentSetUp(
     const int64 non_context_node_id, const int64 context_node_id,
     std::unordered_map<int64, std::unordered_set<int64>>& unique_checker) {
@@ -38,6 +42,8 @@ bool CheckDuplicateContextEdgeInCurrentSetUp(
           unique_checker.at(context_node_id).end()) {
     return true;
   }
+  // Stores the current pair into the `unique_checker` for future duplicate
+  // checking.
   if (unique_checker.find(context_node_id) == unique_checker.end()) {
     unique_checker.insert({context_node_id, std::unordered_set<int64>{}});
   }
@@ -45,6 +51,10 @@ bool CheckDuplicateContextEdgeInCurrentSetUp(
   return false;
 }
 
+// Checks if current `non_context_node_id` and `context_node_id` pair has
+// already existed inside db. Returns ALREADY_EXISTS error if the current
+// pair(context edge) is already existed inside db. Returns detailed error if
+// query executions failed.
 template <typename T>
 tensorflow::Status CheckDuplicateContextEdgeInDb(
     const int64 non_context_node_id, const int64 context_node_id,
@@ -73,6 +83,8 @@ tensorflow::Status CheckDuplicateContextEdgeInDb(
   return tensorflow::Status::OK();
 }
 
+// Adds a new context edge to `request`. Its properties will be set according to
+// `non_context_node_id` and `context_node_id`.
 template <typename T>
 void SetCurrentContextEdge(const int64 non_context_node_id,
                            const int64 context_node_id,
@@ -88,6 +100,12 @@ void SetCurrentContextEdge(const int64 non_context_node_id,
   }
 }
 
+// Generates `num_edges` context edges within `request`.
+// Selects `num_edges` non-context and context node pairs from
+// `existing_non_context_nodes` and `existing_context_nodes` w.r.t. to the
+// categorical distribution with dirichlet prior. Also, performs rejection
+// sampling to ensure current generated pair is unique. Returns detailed error
+// if query executions failed.
 template <typename T>
 tensorflow::Status GenerateContextEdges(
     const std::vector<Node>& existing_non_context_nodes,
@@ -126,6 +144,7 @@ tensorflow::Status GenerateContextEdges(
             non_context_node_id, context_node_id, unique_checker);
     tensorflow::Status status = CheckDuplicateContextEdgeInDb<T>(
         non_context_node_id, context_node_id, store);
+    // Rejection sampling.
     if (!status.ok() && status.code() != tensorflow::error::ALREADY_EXISTS) {
       return status;
     }
@@ -162,10 +181,12 @@ tensorflow::Status FillContextEdges::SetUpImpl(MetadataStore* store) {
                                       existing_context_nodes));
 
   const double non_context_alpha =
-      fill_context_edges_config_.none_context_node_popularity()
+      fill_context_edges_config_.non_context_node_popularity()
           .dirichlet_alpha();
   const double context_alpha =
       fill_context_edges_config_.context_node_popularity().dirichlet_alpha();
+  // Generates categorical distribution with dirichlet distribution with
+  // a concentrate parameter.
   std::discrete_distribution<int64> non_context_node_index_dist =
       GenerateCategoricalDistributionWithDirichletPrior(
           existing_non_context_nodes.size(), non_context_alpha);
@@ -202,7 +223,7 @@ tensorflow::Status FillContextEdges::SetUpImpl(MetadataStore* store) {
   }
 
   return tensorflow::Status::OK();
-}  // namespace ml_metadata
+}
 
 // Executions of work items.
 tensorflow::Status FillContextEdges::RunOpImpl(const int64 work_items_index,

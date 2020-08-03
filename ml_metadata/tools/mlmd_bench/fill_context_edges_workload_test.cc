@@ -36,7 +36,7 @@ constexpr int kNumberOfEdgesPerRequest = 5;
 
 constexpr auto config_str = R"(
         fill_context_edges_config: {
-          none_context_node_popularity: {dirichlet_alpha : 1}
+          non_context_node_popularity: {dirichlet_alpha : 1}
           context_node_popularity: {dirichlet_alpha : 1}
         }
       )";
@@ -79,6 +79,8 @@ std::vector<WorkloadConfig> EnumerateConfigs() {
   return config_vector;
 }
 
+// Gets number of context edges existed in db. Returns detailed error
+// if query executions failed.
 tensorflow::Status GetNumberOfContextEdgesInDb(
     const FillContextEdgesConfig& fill_context_edges_config,
     MetadataStore& store, int64& num_context_edges) {
@@ -110,6 +112,8 @@ tensorflow::Status GetNumberOfContextEdgesInDb(
   return tensorflow::Status::OK();
 }
 
+// Inserts `num_attributions` attributions and `num_associations` associations
+// inside db. Returns detailed error if query executions failed.
 tensorflow::Status InsertContextEdgesInDb(const int64 num_attributions,
                                           const int64 num_associations,
                                           MetadataStore& store) {
@@ -159,6 +163,10 @@ tensorflow::Status InsertContextEdgesInDb(const int64 num_attributions,
   return store.PutAttributionsAndAssociations(put_request, &response);
 }
 
+// Test fixture that uses the same data configuration for multiple following
+// parameterized FillContextEdges tests.
+// The parameter here is the specific Workload configuration that contains
+// the FillContextEdges configuration and the number of operations.
 class FillContextEdgesParameterizedTestFixture
     : public ::testing::TestWithParam<WorkloadConfig> {
  protected:
@@ -175,6 +183,9 @@ class FillContextEdgesParameterizedTestFixture
   std::unique_ptr<MetadataStore> store_;
 };
 
+// Tests the SetUpImpl() for FillContextEdges when db contains no context edges
+// in the beginning. Checks the SetUpImpl() indeed prepares a list of work items
+// whose length is the same as the specified number of operations.
 TEST_P(FillContextEdgesParameterizedTestFixture,
        SetUpImplWhenNoContextEdgesExistTest) {
   TF_ASSERT_OK(InsertTypesInDb(
@@ -190,6 +201,10 @@ TEST_P(FillContextEdgesParameterizedTestFixture,
   EXPECT_EQ(GetParam().num_operations(), fill_context_edges_->num_operations());
 }
 
+// Tests the RunOpImpl() for FillContextEdges when db contains no context edges
+// in the beginning. Checks indeed all the work items have been executed and the
+// number of the context edges inside db is the same as the number of operations
+// specified in the workload.
 TEST_P(FillContextEdgesParameterizedTestFixture,
        InsertWhenNoContextEdgesExistTest) {
   TF_ASSERT_OK(InsertTypesInDb(
@@ -213,6 +228,9 @@ TEST_P(FillContextEdgesParameterizedTestFixture,
             num_context_edges);
 }
 
+// Tests the SetUpImpl() for FillContextEdges when db contains some context
+// edges in the beginning. Checks the SetUpImpl() indeed prepares a list of work
+// items whose length is the same as the specified number of operations.
 TEST_P(FillContextEdgesParameterizedTestFixture,
        SetUpImplWhenSomeContextEdgesExistTest) {
   TF_ASSERT_OK(InsertTypesInDb(
@@ -231,6 +249,10 @@ TEST_P(FillContextEdgesParameterizedTestFixture,
   EXPECT_EQ(GetParam().num_operations(), fill_context_edges_->num_operations());
 }
 
+// Tests the RunOpImpl() for FillContextEdges when db contains some context
+// edges in the beginning. Checks indeed all the work items have been executed
+// and the number of new added context edges inside db is the same as the
+// number of operations specified in the workload.
 TEST_P(FillContextEdgesParameterizedTestFixture,
        InsertWhenSomeContextEdgesExistTest) {
   TF_ASSERT_OK(InsertTypesInDb(
