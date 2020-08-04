@@ -89,9 +89,8 @@ void ThreadStats::Report(const std::string& specification,
     // Rate is computed on actual elapsed time (latest end time minus
     // earliest start time of each thread) instead of the sum of per-thread
     // elapsed times.
-    const double elapsed_microseconds =
-        (finish_ - start_) / absl::Microseconds(1);
-    const double bytes_per_second = bytes_ / (elapsed_microseconds * 1e-6);
+    const double bytes_per_second =
+        bytes_ / absl::ToDoubleSeconds(finish_ - start_);
     workload_summary.set_bytes_per_second(bytes_per_second);
     maybe_byte_rate = absl::StrFormat("%6.1f KB/s", bytes_per_second / 1024.0);
   }

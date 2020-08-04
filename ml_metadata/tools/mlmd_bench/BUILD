@@ -170,6 +170,12 @@ ml_metadata_cc_test(
     name = "thread_runner_test",
     size = "small",
     srcs = ["thread_runner_test.cc"],
+    tags = [
+        # Thread runner aggregates approximiate total tasks among threads
+        # for command line printing. The approximate task number is not
+        # thread safe by design.
+        "notsan",
+    ],
     deps = [
         ":benchmark",
         ":stats",
@@ -247,11 +253,10 @@ ml_metadata_cc_test(
 
 cc_binary(
     name = "mlmd_bench",
-    srcs = ["mlmd_bench.cc"],
+    srcs = ["mlmd_bench_main.cc"],
     deps = [
         ":benchmark",
         ":thread_runner",
-        "@com_google_protobuf//:protobuf",
         "//ml_metadata/tools/mlmd_bench/proto:mlmd_bench_proto",
         "@org_tensorflow//tensorflow/core:lib",
         "@com_github_gflags_gflags//:gflags_nothreads",

@@ -20,7 +20,7 @@ limitations under the License.
 #ifndef HAS_GLOBAL_STRING
 
 using std::string;
-typedef long long int64;  // NOLINT
+typedef long long int64;
 typedef unsigned int uint32;
 
 #endif
