@@ -40,21 +40,6 @@ bool CheckDuplicateOutputArtifactInCurrentSetUp(
   return false;
 }
 
-tensorflow::Status CheckDuplicateOutputArtifactInDb(
-    const int64 output_artifact_id, MetadataStore& store) {
-  GetEventsByArtifactIDsRequest request;
-  GetEventsByArtifactIDsResponse response;
-  request.add_artifact_ids(output_artifact_id);
-  TF_RETURN_IF_ERROR(store.GetEventsByArtifactIDs(request, &response));
-  for (const auto& event : response.events()) {
-    if (event.type() == Event::OUTPUT) {
-      return tensorflow::errors::AlreadyExists(
-          ("The current artifact has been outputted by another output event!"));
-    }
-  }
-  return tensorflow::Status::OK();
-}
-
 int64 GetTransferredBytes(const Event& event) {
   int bytes = 0;
   bytes += 8 * 2 + 1;
@@ -105,26 +90,18 @@ tensorflow::Status GenerateEvent(
         absl::get<Execution>(
             existing_execution_nodes[uniform_dist_execution_index(gen)])
             .id();
-    if (fill_events_config.specification() == FillEventsConfig::OUTPUT) {
-      bool artifact_has_been_outputted_in_setup =
-          CheckDuplicateOutputArtifactInCurrentSetUp(artifact_id,
-                                                     output_artifact_ids);
-      tensorflow::Status status =
-          CheckDuplicateOutputArtifactInDb(artifact_id, store);
-      if (!status.ok() && status.code() != tensorflow::error::ALREADY_EXISTS) {
-        return status;
-      }
-      // Rejection sampling.
-      if (artifact_has_been_outputted_in_setup || !status.ok()) {
-        continue;
-      }
+    // Rejection sampling.
+    if (fill_events_config.specification() == FillEventsConfig::OUTPUT &&
+        CheckDuplicateOutputArtifactInCurrentSetUp(artifact_id,
+                                                   output_artifact_ids)) {
+      continue;
     }
     SetEvent(fill_events_config, artifact_id, execution_id, put_request,
              curr_bytes);
     i++;
   }
   return tensorflow::Status::OK();
-}  // namespace
+}
 
 }  // namespace
 
@@ -173,8 +150,7 @@ tensorflow::Status FillEvents::RunOpImpl(const int64 work_items_index,
                                          MetadataStore* store) {
   PutEventsRequest put_request = work_items_[work_items_index].first;
   PutEventsResponse put_response;
-  TF_RETURN_IF_ERROR(store->PutEvents(put_request, &put_response));
-  return tensorflow::Status::OK();
+  return store->PutEvents(put_request, &put_response);
 }
 
 tensorflow::Status FillEvents::TearDownImpl() {
