@@ -72,12 +72,10 @@ tensorflow::Status GetAndValidateExistingTypes(
   return tensorflow::Status::OK();
 }
 
-// Generates random integer within the range of specified `dist`.
-int64 GenerateRandomNumberFromUD(const UniformDistribution& dist,
-                                 std::minstd_rand0& gen) {
-  std::uniform_int_distribution<int64> uniform_dist{dist.minimum(),
-                                                    dist.maximum()};
-  return uniform_dist(gen);
+// Generates uniform integer distribution given `dist`.
+std::uniform_int_distribution<int64> GenerateUniformDistribution(
+    const UniformDistribution& dist) {
+  return std::uniform_int_distribution<int64>{dist.minimum(), dist.maximum()};
 }
 
 // Initializes the parameters of current node batch inside current put request.
@@ -89,10 +87,10 @@ void InitializeCurrentNodeBatchParameters(
   nodes_param.nodes_name =
       absl::StrCat("nodes", absl::FormatTime(absl::Now()), "_", i);
   nodes_param.num_properties =
-      GenerateRandomNumberFromUD(fill_nodes_config.num_properties(), gen);
+      GenerateUniformDistribution(fill_nodes_config.num_properties())(gen);
   nodes_param.string_value_bytes =
-      GenerateRandomNumberFromUD(fill_nodes_config.string_value_bytes(), gen);
-  num_nodes = GenerateRandomNumberFromUD(fill_nodes_config.num_nodes(), gen);
+      GenerateUniformDistribution(fill_nodes_config.string_value_bytes())(gen);
+  num_nodes = GenerateUniformDistribution(fill_nodes_config.num_nodes())(gen);
   type_index = uniform_dist_type_index(gen);
 }
 
