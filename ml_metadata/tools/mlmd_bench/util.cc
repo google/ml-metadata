@@ -333,15 +333,21 @@ std::discrete_distribution<int64>
 GenerateCategoricalDistributionWithDirichletPrior(
     const int64 sample_size, const int64 concentration_param) {
   std::default_random_engine generator;
+  // With a source of Gamma-distributed random variates, draws `sample_size`
+  // independent random samples and store in `weights`.
   std::gamma_distribution<double> gamma_distribution(concentration_param, 1.0);
   std::vector<double> weights(sample_size);
   for (int64 i = 0; i < sample_size; ++i) {
     weights[i] = gamma_distribution(generator);
   }
+  // Renormalization.
   double sum = std::accumulate(weights.begin(), weights.end(), 0.0);
   for (int64 i = 0; i < sample_size; ++i) {
     weights[i] /= sum;
   }
+  // Uses these random number generated w.r.t. a Dirichlet distribution with
+  // `concentration_param` to represent the possibility of being chosen for each
+  // integer within [0, sample_size) in a discrete distribution.
   std::discrete_distribution<int64> discrete_distribution{weights.begin(),
                                                           weights.end()};
   return discrete_distribution;

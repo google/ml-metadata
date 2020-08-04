@@ -44,7 +44,7 @@ constexpr auto config_str = R"(
 // Enumerates the workload configurations as the test parameters that ensure
 // test coverage.
 std::vector<WorkloadConfig> EnumerateConfigs() {
-  std::vector<WorkloadConfig> config_vector;
+  std::vector<WorkloadConfig> configs;
 
   {
     WorkloadConfig config =
@@ -58,7 +58,7 @@ std::vector<WorkloadConfig> EnumerateConfigs() {
         ->set_maximum(kNumberOfEdgesPerRequest);
     config.mutable_fill_context_edges_config()->set_specification(
         FillContextEdgesConfig::ATTRIBUTION);
-    config_vector.push_back(config);
+    configs.push_back(config);
   }
 
   {
@@ -73,13 +73,13 @@ std::vector<WorkloadConfig> EnumerateConfigs() {
         ->set_maximum(kNumberOfEdgesPerRequest);
     config.mutable_fill_context_edges_config()->set_specification(
         FillContextEdgesConfig::ASSOCIATION);
-    config_vector.push_back(config);
+    configs.push_back(config);
   }
 
-  return config_vector;
+  return configs;
 }
 
-// Gets number of context edges existed in db. Returns detailed error
+// Gets the number of existed context edges in db. Returns detailed error
 // if query executions failed.
 tensorflow::Status GetNumberOfContextEdgesInDb(
     const FillContextEdgesConfig& fill_context_edges_config,
@@ -272,14 +272,17 @@ TEST_P(FillContextEdgesParameterizedTestFixture,
       GetNumberOfContextEdgesInDb(GetParam().fill_context_edges_config(),
                                   *store_, num_context_edges_before));
   TF_ASSERT_OK(fill_context_edges_->SetUp(store_.get()));
+
   for (int64 i = 0; i < fill_context_edges_->num_operations(); ++i) {
     OpStats op_stats;
     TF_ASSERT_OK(fill_context_edges_->RunOp(i, store_.get(), op_stats));
   }
+
   int64 num_context_edges_after = 0;
   TF_ASSERT_OK(
       GetNumberOfContextEdgesInDb(GetParam().fill_context_edges_config(),
                                   *store_, num_context_edges_after));
+
   EXPECT_EQ(GetParam().num_operations() * kNumberOfEdgesPerRequest,
             num_context_edges_after - num_context_edges_before);
 }

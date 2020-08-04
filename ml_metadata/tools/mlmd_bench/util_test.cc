@@ -226,12 +226,10 @@ TEST(UtilGetTest, GetNodesWithFillContextEdgesConfigTest) {
   // Uses a fake in-memory SQLite database for testing.
   mlmd_config.mutable_fake_database();
   TF_ASSERT_OK(CreateMetadataStore(mlmd_config, &store));
-  // InsertTypesInDb() has passed the tests.
   TF_ASSERT_OK(InsertTypesInDb(
       /*num_artifact_types=*/kNumberOfInsertedArtifactTypes,
       /*num_execution_types=*/kNumberOfInsertedExecutionTypes,
       /*num_context_types=*/kNumberOfInsertedContextTypes, *store));
-  // InsertNodesInDb() has passed the tests.
   TF_ASSERT_OK(InsertNodesInDb(
       /*num_artifact_nodes=*/kNumberOfInsertedArtifacts,
       /*num_execution_nodes=*/kNumberOfInsertedExecutions,

@@ -103,7 +103,7 @@ void SetCurrentContextEdge(const int64 non_context_node_id,
 // Generates `num_edges` context edges within `request`.
 // Selects `num_edges` non-context and context node pairs from
 // `existing_non_context_nodes` and `existing_context_nodes` w.r.t. to the
-// categorical distribution with dirichlet prior. Also, performs rejection
+// categorical distribution with a Dirichlet prior. Also, performs rejection
 // sampling to ensure current generated pair is unique. Returns detailed error
 // if query executions failed.
 template <typename T>
@@ -124,7 +124,6 @@ tensorflow::Status GenerateContextEdges(
     const int64 non_context_node_index = non_context_node_index_dist(gen);
     const int64 context_node_index = context_node_index_dist(gen);
     int64 non_context_node_id;
-    int64 context_node_id;
     if (std::is_same<T, Attribution>::value) {
       non_context_node_id =
           absl::get<Artifact>(
@@ -136,7 +135,7 @@ tensorflow::Status GenerateContextEdges(
               existing_non_context_nodes[non_context_node_index])
               .id();
     }
-    context_node_id =
+    const int64 context_node_id =
         absl::get<Context>(existing_context_nodes[context_node_index]).id();
 
     bool already_existed_in_current_setup =
@@ -144,10 +143,10 @@ tensorflow::Status GenerateContextEdges(
             non_context_node_id, context_node_id, unique_checker);
     tensorflow::Status status = CheckDuplicateContextEdgeInDb<T>(
         non_context_node_id, context_node_id, store);
-    // Rejection sampling.
     if (!status.ok() && status.code() != tensorflow::error::ALREADY_EXISTS) {
       return status;
     }
+    // Rejection sampling.
     if (already_existed_in_current_setup || !status.ok()) {
       continue;
     }
@@ -163,11 +162,10 @@ FillContextEdges::FillContextEdges(
     const FillContextEdgesConfig& fill_context_edges_config,
     int64 num_operations)
     : fill_context_edges_config_(fill_context_edges_config),
-      num_operations_(num_operations) {
-  name_ =
-      absl::StrCat("FILL_", fill_context_edges_config_.Specification_Name(
-                                fill_context_edges_config_.specification()));
-}
+      num_operations_(num_operations),
+      name_(absl::StrCat("FILL_",
+                         fill_context_edges_config_.Specification_Name(
+                             fill_context_edges_config_.specification()))) {}
 
 tensorflow::Status FillContextEdges::SetUpImpl(MetadataStore* store) {
   LOG(INFO) << "Setting up ...";
@@ -185,7 +183,7 @@ tensorflow::Status FillContextEdges::SetUpImpl(MetadataStore* store) {
           .dirichlet_alpha();
   const double context_alpha =
       fill_context_edges_config_.context_node_popularity().dirichlet_alpha();
-  // Generates categorical distribution with dirichlet distribution with
+  // Generates categorical distribution with a Dirichlet distribution with
   // a concentrate parameter.
   std::discrete_distribution<int64> non_context_node_index_dist =
       GenerateCategoricalDistributionWithDirichletPrior(

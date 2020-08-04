@@ -40,7 +40,7 @@ class FillContextEdges
   // according to its semantic.
   // A list of work items(PutAttributionsAndAssociationsRequest) will be
   // generated.
-  //  A preferential attachment will be performed to generate the edges for the
+  // A preferential attachment will be performed to generate the edges for the
   // bipartite graph: Context X Artifact or Context X Execution. The context
   // nodes and non-context nodes will be selected according to specified node
   // popularity. If the current context / non-context pair is seen before, a
@@ -49,9 +49,9 @@ class FillContextEdges
   tensorflow::Status SetUpImpl(MetadataStore* store) final;
 
   // Specific implementation of RunOpImpl() for FillContextEdges workload
-  // according to its semantic. Runs the work
-  // items(PutAttributionsAndAssociationsRequest) on the store. Returns detailed
-  // error if query executions failed.
+  // according to its semantic.
+  // Runs the work items(PutAttributionsAndAssociationsRequest) on the store.
+  // Returns detailed error if query executions failed.
   tensorflow::Status RunOpImpl(int64 work_items_index,
                                MetadataStore* store) final;
 
@@ -69,11 +69,11 @@ class FillContextEdges
   // Number of operations for the current workload.
   const int64 num_operations_;
   // String for indicating the name of current workload instance.
-  std::string name_;
-  // Records all the Context X Artifacts pairs seen in current setup.
+  const std::string name_;
+  // Records all the Context X Artifact pairs seen in current setup.
   std::unordered_map<int64, std::unordered_set<int64>>
       context_id_to_artifact_ids_;
-  // Records all the Context X Executions pairs seen in current setup.
+  // Records all the Context X Execution pairs seen in current setup.
   std::unordered_map<int64, std::unordered_set<int64>>
       context_id_to_execution_ids_;
 };
