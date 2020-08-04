@@ -151,6 +151,9 @@ tensorflow::Status GenerateContextEdges(
       continue;
     }
     SetCurrentContextEdge<T>(non_context_node_id, context_node_id, request);
+    // Increases `curr_bytes` with the size of `non_context_node_id` and 
+    // `context_node_id`.
+    curr_bytes += 8 * 2;
     i++;
   }
   return tensorflow::Status::OK();
