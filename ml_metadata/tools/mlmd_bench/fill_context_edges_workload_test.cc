@@ -44,7 +44,7 @@ constexpr auto config_str = R"(
 // Enumerates the workload configurations as the test parameters that ensure
 // test coverage.
 std::vector<WorkloadConfig> EnumerateConfigs() {
-  std::vector<WorkloadConfig> config_vector;
+  std::vector<WorkloadConfig> configs;
 
   {
     WorkloadConfig config =
@@ -58,7 +58,7 @@ std::vector<WorkloadConfig> EnumerateConfigs() {
         ->set_maximum(kNumberOfEdgesPerRequest);
     config.mutable_fill_context_edges_config()->set_specification(
         FillContextEdgesConfig::ATTRIBUTION);
-    config_vector.push_back(config);
+    configs.push_back(config);
   }
 
   {
@@ -73,10 +73,10 @@ std::vector<WorkloadConfig> EnumerateConfigs() {
         ->set_maximum(kNumberOfEdgesPerRequest);
     config.mutable_fill_context_edges_config()->set_specification(
         FillContextEdgesConfig::ASSOCIATION);
-    config_vector.push_back(config);
+    configs.push_back(config);
   }
 
-  return config_vector;
+  return configs;
 }
 
 // Gets number of context edges existed in db. Returns detailed error

@@ -29,15 +29,45 @@ limitations under the License.
 namespace ml_metadata {
 namespace {
 
-tensorflow::Status GenerateEvent(
-    const FillEventsConfig& fill_events_config,
-    const std::vector<Node>& existing_artifact_nodes,
-    const std::vector<Node>& existing_execution_nodes, num_events,
-    std::uniform_int_distribution<int64>& uniform_dist_artifact_index,
-    std::uniform_int_distribution<int64>& uniform_dist_execution_index,
-    std::minstd_rand0& gen, MetadataStore& store,
-    std::unordered_set<int64>& output_artifact_ids_,
-    PutEventsRequest& put_request, int64& curr_bytes) {
+bool CheckDuplicateOutputArtifactInCurrentSetUp(
+    const int64 output_artifact_id,
+    std::unordered_set<int64>& output_artifact_ids) {
+  if (output_artifact_ids.find(output_artifact_id) !=
+      output_artifact_ids.end()) {
+    return true;
+  }
+  output_artifact_ids.insert(output_artifact_id);
+  return false;
+}
+
+tensorflow::Status CheckDuplicateOutputArtifactInDb(
+    const int64 output_artifact_id, MetadataStore& store) {
+  GetEventsByArtifactIDsRequest request;
+  GetEventsByArtifactIDsResponse response;
+  request.add_artifact_ids(output_artifact_id);
+  TF_RETURN_IF_ERROR(store.GetEventsByArtifactIDs(request, &response));
+  for (const auto& event : response.events()) {
+    if (event.type() == Event::OUTPUT) {
+      return tensorflow::errors::AlreadyExists(
+          ("The current artifact has been outputted by another output event!"));
+    }
+  }
+  return tensorflow::Status::OK();
+}
+
+int64 GetTransferredBytes(const Event& event) {
+  int bytes = 0;
+  bytes += 8 * 2 + 1;
+  for (const auto& step : event.path().steps()) {
+    bytes += step.key().size();
+  }
+  return bytes;
+}
+
+void SetEvent(const FillEventsConfig& fill_events_config,
+              const int64 artifact_id, const int64 execution_id,
+              PutEventsRequest& put_request, int64& curr_bytes) {
+  Event* event = put_request.add_events();
   switch (fill_events_config.specification()) {
     case FillEventsConfig::INPUT: {
       event->set_type(Event::INPUT);
@@ -45,33 +75,66 @@ tensorflow::Status GenerateEvent(
     }
     case FillEventsConfig::OUTPUT: {
       event->set_type(Event::OUTPUT);
-      if (output_artifact_ids.find(artifact_node_id) !=
-          output_artifact_ids.end()) {
-        return tensorflow::errors::AlreadyExists(
-            ("Current artifact has been outputted by another execution "
-             "already!"));
-      }
-      output_artifact_ids.insert(artifact_node_id);
       break;
     }
     default:
       LOG(FATAL) << "Wrong specification for FillEvents!";
   }
-  event->set_artifact_id(artifact_node_id);
-  event->set_execution_id(execution_node_id);
-  curr_bytes += 8 * 2;
-  return tensorflow::Status::OK();
+  event->set_artifact_id(artifact_id);
+  event->set_execution_id(execution_id);
+  event->mutable_path()->add_steps()->set_key("foo");
+  curr_bytes += GetTransferredBytes(*event);
 }
+
+tensorflow::Status GenerateEvent(
+    const FillEventsConfig& fill_events_config,
+    const std::vector<Node>& existing_artifact_nodes,
+    const std::vector<Node>& existing_execution_nodes, const int64 num_events,
+    std::uniform_int_distribution<int64>& uniform_dist_artifact_index,
+    std::uniform_int_distribution<int64>& uniform_dist_execution_index,
+    std::minstd_rand0& gen, MetadataStore& store,
+    std::unordered_set<int64>& output_artifact_ids,
+    PutEventsRequest& put_request, int64& curr_bytes) {
+  int i = 0;
+  while (i < num_events) {
+    const int64 artifact_id =
+        absl::get<Artifact>(
+            existing_artifact_nodes[uniform_dist_artifact_index(gen)])
+            .id();
+    const int64 execution_id =
+        absl::get<Execution>(
+            existing_execution_nodes[uniform_dist_execution_index(gen)])
+            .id();
+    if (fill_events_config.specification() == FillEventsConfig::OUTPUT) {
+      bool artifact_has_been_outputted_in_setup =
+          CheckDuplicateOutputArtifactInCurrentSetUp(artifact_id,
+                                                     output_artifact_ids);
+      tensorflow::Status status =
+          CheckDuplicateOutputArtifactInDb(artifact_id, store);
+      if (!status.ok() && status.code() != tensorflow::error::ALREADY_EXISTS) {
+        return status;
+      }
+      // Rejection sampling.
+      if (artifact_has_been_outputted_in_setup || !status.ok()) {
+        continue;
+      }
+    }
+    SetEvent(fill_events_config, artifact_id, execution_id, put_request,
+             curr_bytes);
+    i++;
+  }
+  return tensorflow::Status::OK();
+}  // namespace
 
 }  // namespace
 
 FillEvents::FillEvents(const FillEventsConfig& fill_events_config,
                        int64 num_operations)
-    : fill_events_config_(fill_events_config), num_operations_(num_operations) {
-  name_ =
-      absl::StrCat("FILL_EVENTS_", fill_events_config_.Specification_Name(
-                                       fill_events_config_.specification()));
-}
+    : fill_events_config_(fill_events_config),
+      num_operations_(num_operations),
+      name_(absl::StrCat("FILL_EVENTS_",
+                         fill_events_config_.Specification_Name(
+                             fill_events_config_.specification()))) {}
 
 tensorflow::Status FillEvents::SetUpImpl(MetadataStore* store) {
   LOG(INFO) << "Setting up ...";

@@ -30,23 +30,28 @@ namespace {
 constexpr int kNumberOfOperations = 50;
 constexpr int kNumberOfExistedTypesInDb = 100;
 constexpr int kNumberOfExistedNodesInDb = 300;
+constexpr int kNumberOfExistedInputEventsInDb = 100;
+constexpr int kNumberOfExistedOutputEventsInDb = 100;
+constexpr int kNumberOfEventsPerRequest = 5;
 
 // Enumerates the workload configurations as the test parameters that ensure
 // test coverage.
 std::vector<WorkloadConfig> EnumerateConfigs() {
-  std::vector<WorkloadConfig> config_vector;
-  WorkloadConfig template_config;
-
-  template_config.set_num_operations(kNumberOfOperations);
-
-  template_config.mutable_fill_events_config()->set_specification(
+  std::vector<WorkloadConfig> configs;
+  WorkloadConfig config;
+  config.set_num_operations(kNumberOfOperations);
+  config.mutable_fill_events_config()->mutable_num_events()->set_minimum(
+      kNumberOfEventsPerRequest);
+  config.mutable_fill_events_config()->mutable_num_events()->set_maximum(
+      kNumberOfEventsPerRequest);
+  config.mutable_fill_events_config()->set_specification(
       FillEventsConfig::INPUT);
-  config_vector.push_back(template_config);
-  template_config.mutable_fill_events_config()->set_specification(
+  configs.push_back(config);
+  config.mutable_fill_events_config()->set_specification(
       FillEventsConfig::OUTPUT);
-  config_vector.push_back(template_config);
+  configs.push_back(config);
 
-  return config_vector;
+  return configs;
 }
 
 tensorflow::Status GetNumOfEventsByExecution(MetadataStore* store,
@@ -114,7 +119,8 @@ TEST_P(FillEventsParameterizedTestFixture, InsertTest) {
 
   int64 num_events;
   TF_ASSERT_OK(GetNumOfEventsByExecution(store_.get(), num_events));
-  EXPECT_EQ(GetParam().num_operations(), num_events);
+  EXPECT_EQ(GetParam().num_operations() * kNumberOfEventsPerRequest,
+            num_events);
 }
 
 INSTANTIATE_TEST_CASE_P(FillEventsTest, FillEventsParameterizedTestFixture,
