@@ -140,7 +140,7 @@ tensorflow::Status InsertContextEdgesInDb(const int64 num_attributions,
          ++j) {
       Attribution* context_edge = put_request.add_attributions();
       context_edge->set_artifact_id(get_artifacts_response.artifacts(i).id());
-      context_edge->set_context_id(get_contexts_response.contexts(i).id());
+      context_edge->set_context_id(get_contexts_response.contexts(j).id());
       populated_attributions++;
     }
   }
@@ -154,7 +154,7 @@ tensorflow::Status InsertContextEdgesInDb(const int64 num_attributions,
       Association* context_edge = put_request.add_associations();
       context_edge->set_execution_id(
           get_executions_response.executions(i).id());
-      context_edge->set_context_id(get_contexts_response.contexts(i).id());
+      context_edge->set_context_id(get_contexts_response.contexts(j).id());
       populated_associations++;
     }
   }
