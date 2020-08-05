@@ -28,8 +28,8 @@ namespace ml_metadata {
 // Defines a FillTypesWorkItemType that can be PutArtifactTypeRequest /
 // PutExecutionTypeRequest / PutContextTypeRequest.
 using FillTypesWorkItemType =
-    ::absl::variant<PutArtifactTypeRequest, PutExecutionTypeRequest,
-                    PutContextTypeRequest>;
+    absl::variant<PutArtifactTypeRequest, PutExecutionTypeRequest,
+                  PutContextTypeRequest>;
 
 // A specific workload for creating and updating types: ArtifactTypes /
 // ExecutionTypes / ContextTypes.
@@ -73,7 +73,7 @@ class FillTypes : public Workload<FillTypesWorkItemType> {
   // Number of operations for the current workload.
   const int64 num_operations_;
   // String for indicating the name of current workload instance.
-  const std::string name_;
+  std::string name_;
 };
 
 }  // namespace ml_metadata

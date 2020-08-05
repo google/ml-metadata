@@ -50,38 +50,7 @@ TEST(BenchmarkTest, CreatWorkloadTest) {
               }
               num_operations: 300
             }
-            workload_configs: {
-              fill_nodes_config: {
-                update: false
-                specification: ARTIFACT
-                num_properties: { minimum: 1 maximum: 10 }
-                string_value_bytes: { minimum: 1 maximum: 10 }
-                num_nodes: { minimum: 1 maximum: 10 }
-              }
-              num_operations: 200
-            }
-            workload_configs: {
-              fill_nodes_config: {
-                update: false
-                specification: EXECUTION
-                num_properties: { minimum: 1 maximum: 10 }
-                string_value_bytes: { minimum: 1 maximum: 10 }
-                num_nodes: { minimum: 1 maximum: 10 }
-              }
-              num_operations: 250
-            }
-            workload_configs: {
-              fill_nodes_config: {
-                update: false
-                specification: CONTEXT
-                num_properties: { minimum: 1 maximum: 10 }
-                string_value_bytes: { minimum: 1 maximum: 10 }
-                num_nodes: { minimum: 1 maximum: 10 }
-              }
-              num_operations: 150
-            }
           )");
-
   Benchmark benchmark(mlmd_bench_config);
   // Checks that all workload configurations have transformed into executable
   // workloads inside benchmark.
