@@ -25,15 +25,45 @@ limitations under the License.
 
 namespace ml_metadata {
 
-// Defines a Type can be ArtifactType / ExecutionType / ContextType.
+// Defines a Type that can be ArtifactType / ExecutionType / ContextType.
 using Type = ::absl::variant<ArtifactType, ExecutionType, ContextType>;
 
-// Gets all the existing types (the specific types that indicated by
-// `fill_types_config`) inside db and store them into `existing_types`.
-// Returns detailed error if query executions failed.
+// Defines a Node that can be Artifact / Execution / Context.
+using Node = ::absl::variant<Artifact, Execution, Context>;
+
+// Gets all the existing types inside db and store them into
+// `existing_types` given `fill_types_config`. Returns detailed error if query
+// executions failed.
 tensorflow::Status GetExistingTypes(const FillTypesConfig& fill_types_config,
-                                    MetadataStore* store,
+                                    MetadataStore& store,
                                     std::vector<Type>& existing_types);
+
+// Gets all the existing types inside db and store them into
+// `existing_types` given `fill_nodes_config`. Returns detailed error if query
+// executions failed.
+tensorflow::Status GetExistingTypes(const FillNodesConfig& fill_nodes_config,
+                                    MetadataStore& store,
+                                    std::vector<Type>& existing_types);
+
+// Gets all the existing nodes inside db and store them into `existing_nodes`.
+// Returns detailed error if query executions failed.
+tensorflow::Status GetExistingNodes(const FillNodesConfig& fill_nodes_config,
+                                    MetadataStore& store,
+                                    std::vector<Node>& existing_nodes);
+
+// Inserts some types into db for setting up in testing. Returns detailed error
+// if query executions failed.
+tensorflow::Status InsertTypesInDb(int64 num_artifact_types,
+                                   int64 num_execution_types,
+                                   int64 num_context_types,
+                                   MetadataStore& store);
+
+// Inserts some nodes into db for setting up in testing. Returns detailed error
+// if query executions failed.
+tensorflow::Status InsertNodesInDb(int64 num_artifact_nodes,
+                                   int64 num_execution_nodes,
+                                   int64 num_context_nodes,
+                                   MetadataStore& store);
 
 }  // namespace ml_metadata
 
