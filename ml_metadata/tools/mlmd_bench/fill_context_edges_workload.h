@@ -15,9 +15,9 @@ limitations under the License.
 #ifndef ML_METADATA_TOOLS_MLMD_BENCH_FILL_CONTEXT_EDGES_WORKLOAD_H
 #define ML_METADATA_TOOLS_MLMD_BENCH_FILL_CONTEXT_EDGES_WORKLOAD_H
 
-#include <unordered_map>
 #include <unordered_set>
 
+#include "absl/container/flat_hash_map.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
@@ -71,7 +71,7 @@ class FillContextEdges
   // String for indicating the name of current workload instance.
   const std::string name_;
   // Records all the context and non context id pairs seen in current setup.
-  std::unordered_map<int64, std::unordered_set<int64>>
+  absl::flat_hash_map<int64, std::unordered_set<int64>>
       context_id_to_non_context_ids_;
 };
 

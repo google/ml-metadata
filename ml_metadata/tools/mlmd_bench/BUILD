@@ -106,6 +106,7 @@ cc_library(
     deps = [
         ":workload",
         ":util",
+        "@com_google_absl//absl/container:flat_hash_map",
         "//ml_metadata/metadata_store:metadata_store",
         "//ml_metadata/metadata_store:types",
         "//ml_metadata/proto:metadata_store_service_proto",

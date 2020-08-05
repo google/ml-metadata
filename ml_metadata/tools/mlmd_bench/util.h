@@ -76,18 +76,6 @@ tensorflow::Status InsertNodesInDb(int64 num_artifact_nodes,
                                    int64 num_context_nodes,
                                    MetadataStore& store);
 
-// Generates uniform integer distribution given `dist`.
-std::uniform_int_distribution<int64> GenerateUniformDistribution(
-    const UniformDistribution& dist);
-
-// Generates a categorical distribution with a Dirichlet prior with
-// `concentration_param`, the sample size of the returned discrete distribution
-// is specified by `sample_size`.
-std::discrete_distribution<int64>
-GenerateCategoricalDistributionWithDirichletPrior(int64 sample_size,
-                                                  int64 concentration_param,
-                                                  std::minstd_rand0& gen);
-
 }  // namespace ml_metadata
 
 #endif  // ML_METADATA_TOOLS_MLMD_BENCH_UTIL_H
