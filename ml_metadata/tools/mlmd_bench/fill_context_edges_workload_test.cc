@@ -117,7 +117,7 @@ tensorflow::Status GetNumberOfContextEdgesInDb(
 tensorflow::Status InsertContextEdgesInDb(
     const FillContextEdgesConfig& fill_context_edges_config,
     MetadataStore& store) {
-  // Inserts some events beforehand so that the db contains some context
+  // Inserts some context edges beforehand so that the db contains some context
   // edges in the beginning.
   std::unique_ptr<FillContextEdges> prepared_db_workload =
       absl::make_unique<FillContextEdges>(FillContextEdges(
