@@ -15,9 +15,9 @@ limitations under the License.
 #ifndef ML_METADATA_TOOLS_MLMD_BENCH_FILL_CONTEXT_EDGES_WORKLOAD_H
 #define ML_METADATA_TOOLS_MLMD_BENCH_FILL_CONTEXT_EDGES_WORKLOAD_H
 
-#include <unordered_map>
 #include <unordered_set>
 
+#include "absl/container/flat_hash_map.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
@@ -40,18 +40,21 @@ class FillContextEdges
   // according to its semantic.
   // A list of work items(PutAttributionsAndAssociationsRequest) will be
   // generated.
-  //  A preferential attachment will be performed to generate the edges for the
+  // A preferential attachment will be performed to generate the edges for the
   // bipartite graph: Context X Artifact or Context X Execution. The context
   // nodes and non-context nodes will be selected according to specified node
-  // popularity. If the current context / non-context pair is seen before, a
-  // rejection sampling will be performed.
-  // Returns detailed error if query executions failed.
+  // popularity. If the current context / non-context pair is seen before in
+  // current SetUpImpl(), a rejection sampling will be performed. Here, we do
+  // not check duplicate context edge inside db. If the context edge
+  // exists inside db, the query will do nothing and this is also an expected
+  // behavior that also should be included in the performance
+  // measurement. Returns detailed error if query executions failed.
   tensorflow::Status SetUpImpl(MetadataStore* store) final;
 
   // Specific implementation of RunOpImpl() for FillContextEdges workload
-  // according to its semantic. Runs the work
-  // items(PutAttributionsAndAssociationsRequest) on the store. Returns detailed
-  // error if query executions failed.
+  // according to its semantic.
+  // Runs the work items(PutAttributionsAndAssociationsRequest) on the store.
+  // Returns detailed error if query executions failed.
   tensorflow::Status RunOpImpl(int64 work_items_index,
                                MetadataStore* store) final;
 
@@ -70,12 +73,9 @@ class FillContextEdges
   const int64 num_operations_;
   // String for indicating the name of current workload instance.
   const std::string name_;
-  // Records all the Context X Artifacts pairs seen in current setup.
-  std::unordered_map<int64, std::unordered_set<int64>>
-      context_id_to_artifact_ids_;
-  // Records all the Context X Executions pairs seen in current setup.
-  std::unordered_map<int64, std::unordered_set<int64>>
-      context_id_to_execution_ids_;
+  // Records all the context and non context id pairs seen in current setup.
+  absl::flat_hash_map<int64, std::unordered_set<int64>>
+      context_id_to_non_context_ids_;
 };
 
 }  // namespace ml_metadata

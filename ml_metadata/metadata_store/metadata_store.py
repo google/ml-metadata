@@ -601,7 +601,7 @@ class MetadataStore(object):
     return result
 
   def get_artifact_type(
-      self, type_name: Text) -> Optional[metadata_store_pb2.ArtifactType]:
+      self, type_name: Text) -> metadata_store_pb2.ArtifactType:
     """Gets an artifact type by name.
 
     Args:
@@ -640,7 +640,7 @@ class MetadataStore(object):
     return result
 
   def get_execution_type(
-      self, type_name: Text) -> Optional[metadata_store_pb2.ExecutionType]:
+      self, type_name: Text) -> metadata_store_pb2.ExecutionType:
     """Gets an execution type by name.
 
     Args:
@@ -679,7 +679,7 @@ class MetadataStore(object):
     return result
 
   def get_context_type(
-      self, type_name: Text) -> Optional[metadata_store_pb2.ContextType]:
+      self, type_name: Text) -> metadata_store_pb2.ContextType:
     """Gets a context type by name.
 
     Args:

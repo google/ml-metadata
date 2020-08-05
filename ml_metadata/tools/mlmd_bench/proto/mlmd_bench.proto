@@ -35,9 +35,13 @@ message UniformDistribution {
   optional int64 maximum = 2;
 }
 
-// A categorical distribution generated w.r.t. a dirichlet prior with
+// A categorical distribution generated w.r.t. a Dirichlet prior with
 // a concentration parameter `dirichlet_alpha`.
 message CategoricalDistribution {
+  // A special case in Dirichlet distribution is applied here where
+  // all of elements making up parameter vector have the same value
+  // `dirichlet_alpha` so that the users do not need to specify the 
+  // unknown length of alpha vector themselves.
   optional double dirichlet_alpha = 1;
 }
 
@@ -88,10 +92,10 @@ message FillContextEdgesConfig {
   // Indicates which type of context's edge to be filled.
   optional Specification specification = 1;
   // Describes the popularity for non context nodes(artifacts, executions),
-  // modeled by a categorical distribution with a dirichlet prior.
+  // modeled by a categorical distribution with a Dirichlet prior.
   optional CategoricalDistribution non_context_node_popularity = 2;
   // Describes the popularity for context nodes,
-  // modeled by a categorical distribution with a dirichlet prior.
+  // modeled by a categorical distribution with a Dirichlet prior.
   optional CategoricalDistribution context_node_popularity = 3;
   // Specifies the number of context edges to be filled per request, 
   // modeled by a uniform distribution.
