@@ -21,8 +21,10 @@ limitations under the License.
 namespace ml_metadata {
 namespace {
 
-// Tests the CreateWorkload() of Benchmark class.
-TEST(BenchmarkTest, CreatWorkloadTest) {
+// Tests the CreateWorkload() for FillTypes workload, checks that all FillTypes
+// workload configurations have transformed into executable workloads inside
+// benchmark.
+TEST(BenchmarkTest, CreatFillTypesWorkloadTest) {
   MLMDBenchConfig mlmd_bench_config =
       testing::ParseTextProtoOrDie<MLMDBenchConfig>(
           R"(
@@ -50,9 +52,27 @@ TEST(BenchmarkTest, CreatWorkloadTest) {
               }
               num_operations: 300
             }
+          )");
+
+  Benchmark benchmark(mlmd_bench_config);
+  EXPECT_EQ(benchmark.num_workloads(),
+            mlmd_bench_config.workload_configs_size());
+  EXPECT_STREQ("FILL_ARTIFACT_TYPE", benchmark.workload(0)->GetName().c_str());
+  EXPECT_STREQ("FILL_EXECUTION_TYPE(UPDATE)",
+               benchmark.workload(1)->GetName().c_str());
+  EXPECT_STREQ("FILL_CONTEXT_TYPE", benchmark.workload(2)->GetName().c_str());
+}
+
+// Tests the CreateWorkload() for FillNodes workload, checks that all FillNodes
+// workload configurations have transformed into executable workloads inside
+// benchmark.
+TEST(BenchmarkTest, CreatFillNodesWorkloadTest) {
+  MLMDBenchConfig mlmd_bench_config =
+      testing::ParseTextProtoOrDie<MLMDBenchConfig>(
+          R"(
             workload_configs: {
               fill_nodes_config: {
-                update: false
+                update: true
                 specification: ARTIFACT
                 num_properties: { minimum: 1 maximum: 10 }
                 string_value_bytes: { minimum: 1 maximum: 10 }
@@ -72,7 +92,7 @@ TEST(BenchmarkTest, CreatWorkloadTest) {
             }
             workload_configs: {
               fill_nodes_config: {
-                update: false
+                update: true
                 specification: CONTEXT
                 num_properties: { minimum: 1 maximum: 10 }
                 string_value_bytes: { minimum: 1 maximum: 10 }
@@ -80,6 +100,25 @@ TEST(BenchmarkTest, CreatWorkloadTest) {
               }
               num_operations: 150
             }
+          )");
+
+  Benchmark benchmark(mlmd_bench_config);
+  EXPECT_EQ(benchmark.num_workloads(),
+            mlmd_bench_config.workload_configs_size());
+  EXPECT_STREQ("FILL_ARTIFACT(UPDATE)",
+               benchmark.workload(0)->GetName().c_str());
+  EXPECT_STREQ("FILL_EXECUTION", benchmark.workload(1)->GetName().c_str());
+  EXPECT_STREQ("FILL_CONTEXT(UPDATE)",
+               benchmark.workload(2)->GetName().c_str());
+}
+
+// Tests the CreateWorkload() for FillContextEdges workload, checks that all
+// FillContextEdges workload configurations have transformed into executable
+// workloads inside benchmark.
+TEST(BenchmarkTest, CreatFillContextEdgesWorkloadTest) {
+  MLMDBenchConfig mlmd_bench_config =
+      testing::ParseTextProtoOrDie<MLMDBenchConfig>(
+          R"(
             workload_configs: {
               fill_context_edges_config: {
                 specification: ATTRIBUTION
@@ -105,6 +144,8 @@ TEST(BenchmarkTest, CreatWorkloadTest) {
   // workloads inside benchmark.
   EXPECT_EQ(benchmark.num_workloads(),
             mlmd_bench_config.workload_configs_size());
+  EXPECT_STREQ("FILL_ATTRIBUTION", benchmark.workload(0)->GetName().c_str());
+  EXPECT_STREQ("FILL_ASSOCIATION", benchmark.workload(1)->GetName().c_str());
 }
 
 }  // namespace

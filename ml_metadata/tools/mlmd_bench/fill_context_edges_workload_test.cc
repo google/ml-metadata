@@ -34,7 +34,7 @@ constexpr int kNumberOfExistedNodesInDb = 145;
 constexpr int kNumberOfExistedContextEdgesInDb = 105;
 constexpr int kNumberOfEdgesPerRequest = 5;
 
-constexpr auto config_str = R"(
+constexpr char config_str[] = R"(
         fill_context_edges_config: {
           non_context_node_popularity: {dirichlet_alpha : 1}
           context_node_popularity: {dirichlet_alpha : 1}
@@ -112,55 +112,22 @@ tensorflow::Status GetNumberOfContextEdgesInDb(
   return tensorflow::Status::OK();
 }
 
-// Inserts `num_attributions` attributions and `num_associations` associations
-// inside db. Returns detailed error if query executions failed.
-tensorflow::Status InsertContextEdgesInDb(const int64 num_attributions,
-                                          const int64 num_associations,
-                                          MetadataStore& store) {
-  GetArtifactsResponse get_artifacts_response;
-  TF_RETURN_IF_ERROR(store.GetArtifacts(
-      /*request=*/{}, &get_artifacts_response));
-  GetExecutionsResponse get_executions_response;
-  TF_RETURN_IF_ERROR(store.GetExecutions(
-      /*request=*/{}, &get_executions_response));
-  GetContextsResponse get_contexts_response;
-  TF_RETURN_IF_ERROR(store.GetContexts(
-      /*request=*/{}, &get_contexts_response));
-
-  PutAttributionsAndAssociationsRequest put_request;
-
-  int64 populated_attributions = 0;
-  int64 populated_associations = 0;
-
-  for (int64 i = 0; i < get_artifacts_response.artifacts_size() &&
-                    populated_attributions < num_attributions;
-       ++i) {
-    for (int64 j = 0; j < get_contexts_response.contexts_size() &&
-                      populated_attributions < num_attributions;
-         ++j) {
-      Attribution* context_edge = put_request.add_attributions();
-      context_edge->set_artifact_id(get_artifacts_response.artifacts(i).id());
-      context_edge->set_context_id(get_contexts_response.contexts(j).id());
-      populated_attributions++;
-    }
+// Inserts some context edges into db for setting up. Returns detailed error
+// if query executions failed.
+tensorflow::Status InsertContextEdgesInDb(
+    const FillContextEdgesConfig& fill_context_edges_config,
+    MetadataStore& store) {
+  // Inserts some events beforehand so that the db contains some context
+  // edges in the beginning.
+  std::unique_ptr<FillContextEdges> prepared_db_workload =
+      absl::make_unique<FillContextEdges>(FillContextEdges(
+          fill_context_edges_config, kNumberOfExistedContextEdgesInDb));
+  TF_RETURN_IF_ERROR(prepared_db_workload->SetUp(&store));
+  for (int64 i = 0; i < prepared_db_workload->num_operations(); ++i) {
+    OpStats op_stats;
+    TF_RETURN_IF_ERROR(prepared_db_workload->RunOp(i, &store, op_stats));
   }
-
-  for (int64 i = 0; i < get_executions_response.executions_size() &&
-                    populated_associations < num_associations;
-       ++i) {
-    for (int64 j = 0; j < get_contexts_response.contexts_size() &&
-                      populated_associations < num_associations;
-         ++j) {
-      Association* context_edge = put_request.add_associations();
-      context_edge->set_execution_id(
-          get_executions_response.executions(i).id());
-      context_edge->set_context_id(get_contexts_response.contexts(j).id());
-      populated_associations++;
-    }
-  }
-
-  PutAttributionsAndAssociationsResponse response;
-  return store.PutAttributionsAndAssociations(put_request, &response);
+  return tensorflow::Status::OK();
 }
 
 // Test fixture that uses the same data configuration for multiple following
@@ -241,9 +208,8 @@ TEST_P(FillContextEdgesParameterizedTestFixture,
       /*num_artifact_nodes=*/kNumberOfExistedNodesInDb,
       /*num_execution_nodes=*/kNumberOfExistedNodesInDb,
       /*num_context_nodes=*/kNumberOfExistedNodesInDb, *store_));
-  TF_ASSERT_OK(InsertContextEdgesInDb(
-      /*num_attributions=*/kNumberOfExistedContextEdgesInDb,
-      /*num_associations=*/kNumberOfExistedContextEdgesInDb, *store_));
+  TF_ASSERT_OK(
+      InsertContextEdgesInDb(GetParam().fill_context_edges_config(), *store_));
 
   TF_ASSERT_OK(fill_context_edges_->SetUp(store_.get()));
   EXPECT_EQ(GetParam().num_operations(), fill_context_edges_->num_operations());
@@ -251,8 +217,10 @@ TEST_P(FillContextEdgesParameterizedTestFixture,
 
 // Tests the RunOpImpl() for FillContextEdges when db contains some context
 // edges in the beginning. Checks indeed all the work items have been executed
-// and the number of new added context edges inside db is the same as the
-// number of operations specified in the workload.
+// and the number of new added context edges inside db is smaller or equal to
+// the number of operations specified in the workload(since there may exists
+// duplicate context edges inside prepared db, in that case the query will do
+// nothing).
 TEST_P(FillContextEdgesParameterizedTestFixture,
        InsertWhenSomeContextEdgesExistTest) {
   TF_ASSERT_OK(InsertTypesInDb(
@@ -263,9 +231,8 @@ TEST_P(FillContextEdgesParameterizedTestFixture,
       /*num_artifact_nodes=*/kNumberOfExistedNodesInDb,
       /*num_execution_nodes=*/kNumberOfExistedNodesInDb,
       /*num_context_nodes=*/kNumberOfExistedNodesInDb, *store_));
-  TF_ASSERT_OK(InsertContextEdgesInDb(
-      /*num_attributions=*/kNumberOfExistedContextEdgesInDb,
-      /*num_associations=*/kNumberOfExistedContextEdgesInDb, *store_));
+  TF_ASSERT_OK(
+      InsertContextEdgesInDb(GetParam().fill_context_edges_config(), *store_));
 
   int64 num_context_edges_before = 0;
   TF_ASSERT_OK(
@@ -283,7 +250,7 @@ TEST_P(FillContextEdgesParameterizedTestFixture,
       GetNumberOfContextEdgesInDb(GetParam().fill_context_edges_config(),
                                   *store_, num_context_edges_after));
 
-  EXPECT_EQ(GetParam().num_operations() * kNumberOfEdgesPerRequest,
+  EXPECT_GE(GetParam().num_operations() * kNumberOfEdgesPerRequest,
             num_context_edges_after - num_context_edges_before);
 }
 

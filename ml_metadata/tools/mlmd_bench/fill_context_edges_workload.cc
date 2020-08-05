@@ -72,7 +72,7 @@ int64 GenerateNonContextNodeId(
 // seen in current setup(all the previous pairs have been stored inside
 // `unique_checker`). Returns true if the current pair is a duplicate one,
 // otherwise, returns false.
-bool CheckDuplicateContextEdgeInCurrentSetUp(
+bool CheckDuplicateContextEdge(
     const int64 non_context_node_id, const int64 context_node_id,
     absl::flat_hash_map<int64, std::unordered_set<int64>>& unique_checker) {
   if (unique_checker.find(context_node_id) != unique_checker.end() &&
@@ -89,38 +89,6 @@ bool CheckDuplicateContextEdgeInCurrentSetUp(
   return false;
 }
 
-// Checks if current `non_context_node_id` and `context_node_id` pair has
-// already existed inside db. Returns ALREADY_EXISTS error if the current
-// pair(context edge) is already existed inside db. Returns detailed error if
-// query executions failed.
-template <typename T>
-tensorflow::Status CheckDuplicateContextEdgeInDb(
-    const int64 non_context_node_id, const int64 context_node_id,
-    MetadataStore& store) {
-  if (std::is_same<T, Attribution>::value) {
-    GetArtifactsByContextRequest request;
-    request.set_context_id(context_node_id);
-    GetArtifactsByContextResponse response;
-    TF_RETURN_IF_ERROR(store.GetArtifactsByContext(request, &response));
-    for (const auto& artifact : response.artifacts()) {
-      if (artifact.id() == non_context_node_id) {
-        return tensorflow::errors::AlreadyExists(("Existing context edge!"));
-      }
-    }
-  } else if (std::is_same<T, Association>::value) {
-    GetExecutionsByContextRequest request;
-    request.set_context_id(context_node_id);
-    GetExecutionsByContextResponse response;
-    TF_RETURN_IF_ERROR(store.GetExecutionsByContext(request, &response));
-    for (const auto& execution : response.executions()) {
-      if (execution.id() == non_context_node_id) {
-        return tensorflow::errors::AlreadyExists(("Existing context edge!"));
-      }
-    }
-  }
-  return tensorflow::Status::OK();
-}
-
 // Adds a new context edge to `request`. Its properties will be set according to
 // `non_context_node_id` and `context_node_id`.
 template <typename T>
@@ -131,7 +99,7 @@ void SetCurrentContextEdge(const int64 non_context_node_id,
     Attribution* context_edge = request.add_attributions();
     context_edge->set_artifact_id(non_context_node_id);
     context_edge->set_context_id(context_node_id);
-  } else if (std::is_same<T, Association>::value) {
+  } else {
     Association* context_edge = request.add_associations();
     context_edge->set_execution_id(non_context_node_id);
     context_edge->set_context_id(context_node_id);
@@ -158,9 +126,8 @@ tensorflow::Status GenerateContextEdges(
       << "Unexpected Types";
   int64 i = 0;
   // Uses a while loop to perform rejection sampling. If the current context
-  // edge has been seen before(whether in the current setup or in db), uses
-  // `continue` to jump into the next iteration for generating a new context
-  // edge.
+  // edge has been seen before in the current setup, uses `continue`
+  // to jump into the next iteration for generating a new context edge.
   while (i < num_edges) {
     const int64 non_context_node_index = non_context_node_index_dist(gen);
     const int64 context_node_index = context_node_index_dist(gen);
@@ -168,16 +135,9 @@ tensorflow::Status GenerateContextEdges(
         existing_non_context_nodes, non_context_node_index);
     const int64 context_node_id =
         absl::get<Context>(existing_context_nodes[context_node_index]).id();
-    bool already_existed_in_current_setup =
-        CheckDuplicateContextEdgeInCurrentSetUp(
-            non_context_node_id, context_node_id, unique_checker);
-    tensorflow::Status status = CheckDuplicateContextEdgeInDb<T>(
-        non_context_node_id, context_node_id, store);
-    if (!status.ok() && status.code() != tensorflow::error::ALREADY_EXISTS) {
-      return status;
-    }
     // Rejection sampling.
-    if (already_existed_in_current_setup || !status.ok()) {
+    if (CheckDuplicateContextEdge(non_context_node_id, context_node_id,
+                                  unique_checker)) {
       continue;
     }
     SetCurrentContextEdge<T>(non_context_node_id, context_node_id, request);

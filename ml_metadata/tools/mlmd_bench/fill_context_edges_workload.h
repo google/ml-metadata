@@ -43,9 +43,12 @@ class FillContextEdges
   // A preferential attachment will be performed to generate the edges for the
   // bipartite graph: Context X Artifact or Context X Execution. The context
   // nodes and non-context nodes will be selected according to specified node
-  // popularity. If the current context / non-context pair is seen before, a
-  // rejection sampling will be performed.
-  // Returns detailed error if query executions failed.
+  // popularity. If the current context / non-context pair is seen before in
+  // current SetUpImpl(), a rejection sampling will be performed. Here, we do
+  // not check duplicate context edge inside db. If the context edge
+  // exists inside db, the query will do nothing and this is also an expected
+  // behavior that also should be included in the performance
+  // measurement. Returns detailed error if query executions failed.
   tensorflow::Status SetUpImpl(MetadataStore* store) final;
 
   // Specific implementation of RunOpImpl() for FillContextEdges workload
