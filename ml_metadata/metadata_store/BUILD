@@ -410,8 +410,6 @@ ml_metadata_cc_test(
 cc_library(
     name = "types",
     hdrs = ["types.h"],
-    deps = [
-    ],
 )
 
 # Note that the name of the target should follow specific naming

@@ -16,8 +16,6 @@ limitations under the License.
 #include <iostream>
 
 #include "gflags/gflags.h"
-#include "google/protobuf/io/zero_copy_stream_impl.h"
-#include "google/protobuf/text_format.h"
 #include "ml_metadata/tools/mlmd_bench/benchmark.h"
 #include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
 #include "ml_metadata/tools/mlmd_bench/thread_runner.h"
@@ -32,14 +30,14 @@ namespace {
 // .pbtxt file. Returns detailed error if the execution failed.
 tensorflow::Status InitAndValidateMLMDBenchConfig(
     const std::string& config_file_path, MLMDBenchConfig& mlmd_bench_config) {
-  if (tensorflow::Env::Default()->FileExists(config_file_path).ok()) {
-    return ReadTextProto(tensorflow::Env::Default(), config_file_path,
-                         &mlmd_bench_config);
+  if (!tensorflow::Env::Default()->FileExists(config_file_path).ok()) {
+    return tensorflow::errors::NotFound(
+        "Could not find mlmd_bench configuration .pb or "
+        ".pbtxt file at supplied configuration file path: ",
+        config_file_path);
   }
-  return tensorflow::errors::NotFound(
-      "Could not find mlmd_bench configuration .pb or "
-      ".pbtxt file at supplied configuration file path: ",
-      config_file_path);
+  return ReadTextProto(tensorflow::Env::Default(), config_file_path,
+                       &mlmd_bench_config);
 }
 
 // Writes the performance report into a specified file in the output path.
@@ -62,12 +60,10 @@ DEFINE_string(output_report_path, "./mlmd_bench_report.pb.txt",
 
 int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
-
   // Configurations for `mlmd_bench`.
   ml_metadata::MLMDBenchConfig mlmd_bench_config;
   TF_CHECK_OK(ml_metadata::InitAndValidateMLMDBenchConfig(
       FLAGS_config_file_path, mlmd_bench_config));
-
   // Feeds the `mlmd_bench_config` into the benchmark for generating executable
   // workloads.
   ml_metadata::Benchmark benchmark(mlmd_bench_config);
@@ -79,6 +75,5 @@ int main(int argc, char** argv) {
 
   TF_CHECK_OK(ml_metadata::WriteProtoResultToDisk(
       FLAGS_output_report_path, benchmark.mlmd_bench_report()));
-
   return 0;
 }

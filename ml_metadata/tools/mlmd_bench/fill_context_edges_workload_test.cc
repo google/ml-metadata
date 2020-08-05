@@ -29,9 +29,9 @@ namespace ml_metadata {
 namespace {
 
 constexpr int kNumberOfOperations = 100;
-constexpr int kNumberOfExistedTypesInDb = 100;
-constexpr int kNumberOfExistedNodesInDb = 100;
-constexpr int kNumberOfExistedContextEdgesInDb = 100;
+constexpr int kNumberOfExistedTypesInDb = 132;
+constexpr int kNumberOfExistedNodesInDb = 145;
+constexpr int kNumberOfExistedContextEdgesInDb = 105;
 constexpr int kNumberOfEdgesPerRequest = 5;
 
 constexpr auto config_str = R"(

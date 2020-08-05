@@ -131,96 +131,80 @@ tensorflow::Status GetExistingNodesImpl(const FetchNode& fetch_node,
 tensorflow::Status GetExistingTypes(const FillTypesConfig& fill_types_config,
                                     MetadataStore& store,
                                     std::vector<Type>& existing_types) {
-  FetchType fetch_type;
   switch (fill_types_config.specification()) {
     case FillTypesConfig::ARTIFACT_TYPE: {
-      fetch_type = FetchArtifactType;
-      break;
+      return GetExistingTypesImpl(FetchArtifactType, store, existing_types);
     }
     case FillTypesConfig::EXECUTION_TYPE: {
-      fetch_type = FetchExecutionType;
-      break;
+      return GetExistingTypesImpl(FetchExecutionType, store, existing_types);
     }
     case FillTypesConfig::CONTEXT_TYPE: {
-      fetch_type = FetchContextType;
-      break;
+      return GetExistingTypesImpl(FetchContextType, store, existing_types);
     }
     default:
-      LOG(FATAL) << "Wrong specification for getting types in db!";
+      return tensorflow::errors::Unimplemented(
+          "Unknown FillTypesConfig specification.");
   }
-  return GetExistingTypesImpl(fetch_type, store, existing_types);
 }
 
 tensorflow::Status GetExistingTypes(const FillNodesConfig& fill_nodes_config,
                                     MetadataStore& store,
                                     std::vector<Type>& existing_types) {
-  FetchType fetch_type;
   switch (fill_nodes_config.specification()) {
     case FillNodesConfig::ARTIFACT: {
-      fetch_type = FetchArtifactType;
-      break;
+      return GetExistingTypesImpl(FetchArtifactType, store, existing_types);
     }
     case FillNodesConfig::EXECUTION: {
-      fetch_type = FetchExecutionType;
-      break;
+      return GetExistingTypesImpl(FetchExecutionType, store, existing_types);
     }
     case FillNodesConfig::CONTEXT: {
-      fetch_type = FetchContextType;
-      break;
+      return GetExistingTypesImpl(FetchContextType, store, existing_types);
     }
     default:
-      LOG(FATAL) << "Wrong specification for getting types in db!";
+      return tensorflow::errors::Unimplemented(
+          "Unknown FillNodesConfig specification.");
   }
-  return GetExistingTypesImpl(fetch_type, store, existing_types);
 }
 
 tensorflow::Status GetExistingNodes(const FillNodesConfig& fill_nodes_config,
                                     MetadataStore& store,
                                     std::vector<Node>& existing_nodes) {
-  FetchNode fetch_node;
   switch (fill_nodes_config.specification()) {
     case FillNodesConfig::ARTIFACT: {
-      fetch_node = FetchArtifact;
-      break;
+      return GetExistingNodesImpl(FetchArtifact, store, existing_nodes);
     }
     case FillNodesConfig::EXECUTION: {
-      fetch_node = FetchExecution;
-      break;
+      return GetExistingNodesImpl(FetchExecution, store, existing_nodes);
     }
     case FillNodesConfig::CONTEXT: {
-      fetch_node = FetchContext;
-      break;
+      return GetExistingNodesImpl(FetchContext, store, existing_nodes);
     }
     default:
-      LOG(FATAL) << "Wrong specification for getting nodes in db!";
+      return tensorflow::errors::Unimplemented(
+          "Unknown FillNodesConfig specification.");
   }
-  return GetExistingNodesImpl(fetch_node, store, existing_nodes);
 }
 
 tensorflow::Status GetExistingNodes(
     const FillContextEdgesConfig& fill_context_edges_config,
     MetadataStore& store, std::vector<Node>& existing_non_context_nodes,
     std::vector<Node>& existing_context_nodes) {
-  FetchNode fetch_non_context_node;
-  FetchNode fetch_context_node = FetchContext;
   switch (fill_context_edges_config.specification()) {
     case FillContextEdgesConfig::ATTRIBUTION: {
-      fetch_non_context_node = FetchArtifact;
-      TF_RETURN_IF_ERROR(GetExistingNodesImpl(fetch_non_context_node, store,
+      TF_RETURN_IF_ERROR(GetExistingNodesImpl(FetchArtifact, store,
                                               existing_non_context_nodes));
       break;
     }
     case FillContextEdgesConfig::ASSOCIATION: {
-      fetch_non_context_node = FetchExecution;
-      TF_RETURN_IF_ERROR(GetExistingNodesImpl(fetch_non_context_node, store,
+      TF_RETURN_IF_ERROR(GetExistingNodesImpl(FetchExecution, store,
                                               existing_non_context_nodes));
       break;
     }
     default:
-      LOG(FATAL) << "Wrong specification for getting nodes in db!";
+      return tensorflow::errors::Unimplemented(
+          "Unknown FillContextEdgesConfig specification.");
   }
-  return GetExistingNodesImpl(fetch_context_node, store,
-                              existing_context_nodes);
+  return GetExistingNodesImpl(FetchContext, store, existing_context_nodes);
 }
 
 tensorflow::Status InsertTypesInDb(const int64 num_artifact_types,
@@ -322,35 +306,26 @@ tensorflow::Status InsertNodesInDb(const int64 num_artifact_nodes,
   return tensorflow::Status::OK();
 }
 
-int64 GenerateRandomNumberFromUD(const UniformDistribution& dist,
-                                 std::minstd_rand0& gen) {
-  std::uniform_int_distribution<int64> uniform_dist{dist.minimum(),
-                                                    dist.maximum()};
-  return uniform_dist(gen);
+std::uniform_int_distribution<int64> GenerateUniformDistribution(
+    const UniformDistribution& dist) {
+  return std::uniform_int_distribution<int64>{dist.minimum(), dist.maximum()};
 }
 
 std::discrete_distribution<int64>
 GenerateCategoricalDistributionWithDirichletPrior(
-    const int64 sample_size, const int64 concentration_param) {
-  std::default_random_engine generator;
+    const int64 sample_size, const int64 concentration_param,
+    std::minstd_rand0& gen) {
   // With a source of Gamma-distributed random variates, draws `sample_size`
   // independent random samples and store in `weights`.
   std::gamma_distribution<double> gamma_distribution(concentration_param, 1.0);
   std::vector<double> weights(sample_size);
   for (int64 i = 0; i < sample_size; ++i) {
-    weights[i] = gamma_distribution(generator);
-  }
-  // Renormalization.
-  double sum = std::accumulate(weights.begin(), weights.end(), 0.0);
-  for (int64 i = 0; i < sample_size; ++i) {
-    weights[i] /= sum;
+    weights[i] = gamma_distribution(gen);
   }
   // Uses these random number generated w.r.t. a Dirichlet distribution with
   // `concentration_param` to represent the possibility of being chosen for each
   // integer within [0, sample_size) in a discrete distribution.
-  std::discrete_distribution<int64> discrete_distribution{weights.begin(),
-                                                          weights.end()};
-  return discrete_distribution;
+  return std::discrete_distribution<int64>{weights.begin(), weights.end()};
 }
 
 }  // namespace ml_metadata

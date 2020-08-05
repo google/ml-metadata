@@ -38,6 +38,10 @@ message UniformDistribution {
 // A categorical distribution generated w.r.t. a Dirichlet prior with
 // a concentration parameter `dirichlet_alpha`.
 message CategoricalDistribution {
+  // A special case in Dirichlet distribution is applied here where
+  // all of elements making up parameter vector have the same value
+  // `dirichlet_alpha` so that the users do not need to specify the 
+  // unknown length of alpha vector themselves.
   optional double dirichlet_alpha = 1;
 }
 

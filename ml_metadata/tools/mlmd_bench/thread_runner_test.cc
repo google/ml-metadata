@@ -58,7 +58,7 @@ void TestThreadRunner(const int num_thread) {
             mlmd_bench_config.workload_configs()[0].num_operations());
 
   // Checks for valid performance report.
-  ASSERT_EQ(benchmark.mlmd_bench_report().summaries_size(), 1);
+  ASSERT_THAT(benchmark.mlmd_bench_report().summaries(), ::testing::SizeIs(1));
   WorkloadConfigResult summary = benchmark.mlmd_bench_report().summaries()[0];
   EXPECT_GT(summary.microseconds_per_operation(), 0);
   EXPECT_GT(summary.bytes_per_second(), 0);

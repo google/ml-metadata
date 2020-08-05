@@ -151,7 +151,7 @@ tensorflow::Status GenerateContextEdges(
       continue;
     }
     SetCurrentContextEdge<T>(non_context_node_id, context_node_id, request);
-    // Increases `curr_bytes` with the size of `non_context_node_id` and 
+    // Increases `curr_bytes` with the size of `non_context_node_id` and
     // `context_node_id`.
     curr_bytes += 8 * 2;
     i++;
@@ -181,40 +181,41 @@ tensorflow::Status FillContextEdges::SetUpImpl(MetadataStore* store) {
                                       existing_non_context_nodes,
                                       existing_context_nodes));
 
-  const double non_context_alpha =
-      fill_context_edges_config_.non_context_node_popularity()
-          .dirichlet_alpha();
-  const double context_alpha =
-      fill_context_edges_config_.context_node_popularity().dirichlet_alpha();
+  std::minstd_rand0 gen(absl::ToUnixMillis(absl::Now()));
+
   // Generates categorical distribution with a Dirichlet distribution with
   // a concentrate parameter.
   std::discrete_distribution<int64> non_context_node_index_dist =
       GenerateCategoricalDistributionWithDirichletPrior(
-          existing_non_context_nodes.size(), non_context_alpha);
+          existing_non_context_nodes.size(),
+          fill_context_edges_config_.non_context_node_popularity()
+              .dirichlet_alpha(),
+          gen);
   std::discrete_distribution<int64> context_node_index_dist =
       GenerateCategoricalDistributionWithDirichletPrior(
-          existing_context_nodes.size(), context_alpha);
-
-  std::minstd_rand0 gen(absl::ToUnixMillis(absl::Now()));
+          existing_context_nodes.size(),
+          fill_context_edges_config_.context_node_popularity()
+              .dirichlet_alpha(),
+          gen);
 
   for (int64 i = 0; i < num_operations_; ++i) {
     curr_bytes = 0;
     PutAttributionsAndAssociationsRequest put_request;
-    const int64 num_edges =
-        GenerateRandomNumberFromUD(fill_context_edges_config_.num_edges(), gen);
+    const int64 num_edges = GenerateUniformDistribution(
+        fill_context_edges_config_.num_edges())(gen);
     switch (fill_context_edges_config_.specification()) {
       case FillContextEdgesConfig::ATTRIBUTION: {
         TF_RETURN_IF_ERROR(GenerateContextEdges<Attribution>(
             existing_non_context_nodes, existing_context_nodes, num_edges,
             non_context_node_index_dist, context_node_index_dist, *store,
-            context_id_to_artifact_ids_, put_request, curr_bytes));
+            context_id_to_non_context_ids_, put_request, curr_bytes));
         break;
       }
       case FillContextEdgesConfig::ASSOCIATION: {
         TF_RETURN_IF_ERROR(GenerateContextEdges<Association>(
             existing_non_context_nodes, existing_context_nodes, num_edges,
             non_context_node_index_dist, context_node_index_dist, *store,
-            context_id_to_execution_ids_, put_request, curr_bytes));
+            context_id_to_non_context_ids_, put_request, curr_bytes));
         break;
       }
       default:

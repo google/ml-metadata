@@ -70,12 +70,9 @@ class FillContextEdges
   const int64 num_operations_;
   // String for indicating the name of current workload instance.
   const std::string name_;
-  // Records all the Context X Artifact pairs seen in current setup.
+  // Records all the context and non context id pairs seen in current setup.
   std::unordered_map<int64, std::unordered_set<int64>>
-      context_id_to_artifact_ids_;
-  // Records all the Context X Execution pairs seen in current setup.
-  std::unordered_map<int64, std::unordered_set<int64>>
-      context_id_to_execution_ids_;
+      context_id_to_non_context_ids_;
 };
 
 }  // namespace ml_metadata
