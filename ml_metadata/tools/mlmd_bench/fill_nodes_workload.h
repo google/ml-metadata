@@ -43,12 +43,14 @@ class FillNodes : public Workload<FillNodesWorkItemType> {
   // its semantic.
   // For inserting, it will generate the list of work items (FillNodesRequests)
   // by selecting a registered type randomly and generate the number of
-  // properties for the node w.r.t. the uniform distribution. If the number of
-  // properties is greater than the type, use custom properties instead. When
-  // generating string-valued properties, use `string_value_bytes` to determine
-  // the length of those values. Returns FAILED_PRECONDITION if there is no
-  // types inside db for any nodes to insert. Returns detailed error if query
-  // executions failed.
+  // properties for the node w.r.t. the `num_properties` uniform distribution.
+  // If the number of properties is greater than the type, use custom properties
+  // instead. When generating string-valued properties, use `string_value_bytes`
+  // uniform distribution to determine the length of those values. Each
+  // FillNodesRequest may contains multiple nodes to be filled. The number of
+  // nodes per request is generated w.r.t. to `num_nodes` uniform distribution.
+  // Returns FAILED_PRECONDITION if there is no types inside db for any nodes to
+  // insert. Returns detailed error if query executions failed.
   tensorflow::Status SetUpImpl(MetadataStore* store) final;
 
   // Specific implementation of RunOpImpl() for FillNodes workload according to

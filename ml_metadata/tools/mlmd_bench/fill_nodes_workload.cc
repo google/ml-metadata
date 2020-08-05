@@ -72,26 +72,20 @@ tensorflow::Status GetAndValidateExistingTypes(
   return tensorflow::Status::OK();
 }
 
-// Generates uniform integer distribution given `dist`.
-std::uniform_int_distribution<int64> GenerateUniformDistribution(
-    const UniformDistribution& dist) {
-  return std::uniform_int_distribution<int64>{dist.minimum(), dist.maximum()};
-}
-
-// Initializes the parameters of current node batch inside current put request.
-void InitializeCurrentNodeBatchParameters(
-    const int64 i, const FillNodesConfig& fill_nodes_config,
-    std::uniform_int_distribution<int64>& uniform_dist_type_index,
+// Initializes the parameters of current nodes inside the put request.
+void InitializeCurrentNodesParameters(
+    const int64 i, std::uniform_int_distribution<int64>& type_index_dist,
+    std::uniform_int_distribution<int64>& num_properties_dist,
+    std::uniform_int_distribution<int64>& string_value_bytes_dist,
+    std::uniform_int_distribution<int64>& num_nodes_dist,
     std::minstd_rand0& gen, int64& num_nodes, int64& type_index,
     NodesParam& nodes_param) {
   nodes_param.nodes_name =
       absl::StrCat("nodes", absl::FormatTime(absl::Now()), "_", i);
-  nodes_param.num_properties =
-      GenerateUniformDistribution(fill_nodes_config.num_properties())(gen);
-  nodes_param.string_value_bytes =
-      GenerateUniformDistribution(fill_nodes_config.string_value_bytes())(gen);
-  num_nodes = GenerateUniformDistribution(fill_nodes_config.num_nodes())(gen);
-  type_index = uniform_dist_type_index(gen);
+  nodes_param.num_properties = num_properties_dist(gen);
+  nodes_param.string_value_bytes = string_value_bytes_dist(gen);
+  num_nodes = num_nodes_dist(gen);
+  type_index = type_index_dist(gen);
 }
 
 // Gets the transferred bytes for certain `properties` of the current node.
@@ -112,7 +106,7 @@ template <typename NT>
 int64 GetTransferredBytes(const NT& node) {
   int64 bytes = 0;
   // Increases `bytes` with the size of current node's `name` and
-  // `type_id`.
+  // `type_id`(int64 type takes 8 bytes).
   bytes += node.name().size() + 8;
   // Increases `bytes` with the size of current node's `properties` and
   // `custom_properties`.
@@ -138,7 +132,7 @@ void GenerateNodes(const NodesParam& nodes_param, const T& type,
          std::is_same<N, Execution>::value || std::is_same<N, Context>::value))
       << "Unexpected Node Types";
   // Insert nodes cases.
-  // Loops over all the node inside `nodes` and sets up one by one.
+  // Loops over all the nodes inside `nodes` and sets up one by one.
   for (int64 i = 0; i < nodes.size(); ++i) {
     nodes[i].set_name(absl::StrCat(nodes_param.nodes_name, "_node_", i));
     nodes[i].set_type_id(type.id());
@@ -176,6 +170,7 @@ int64 SetArtifactsAdditionalFields(
   for (int64 i = 0; i < nodes.size(); ++i) {
     nodes[i].set_uri(absl::StrCat(nodes_name, "_node_", i, "_uri"));
     nodes[i].set_state(Artifact::UNKNOWN);
+    // The state enum takes one bytes here.
     bytes += nodes[i].uri().size() + 1;
   }
   return bytes;
@@ -188,6 +183,7 @@ int64 SetExecutionsAdditionalFields(
   int64 bytes = 0;
   for (int64 i = 0; i < nodes.size(); ++i) {
     nodes[i].set_last_known_state(Execution::UNKNOWN);
+    // The state enum takes one bytes here.
     bytes += 1;
   }
   return bytes;
@@ -214,12 +210,23 @@ tensorflow::Status FillNodes::SetUpImpl(MetadataStore* store) {
   int64 curr_bytes = 0;
 
   // Gets all the specific types in db to choose from when generating nodes.
-  // If there's no types in the store, return error.
+  // If there's no types in the store, returns FAILED_PRECONDITION error.
   std::vector<Type> existing_types;
   TF_RETURN_IF_ERROR(
       GetAndValidateExistingTypes(fill_nodes_config_, *store, existing_types));
-  std::uniform_int_distribution<int64> uniform_dist_type_index{
+  std::uniform_int_distribution<int64> type_index_dist{
       0, (int64)(existing_types.size() - 1)};
+  // Initializes node parameters' uniform distributions according to
+  // `fill_nodes_config_`.
+  std::uniform_int_distribution<int64> num_properties_dist{
+      fill_nodes_config_.num_properties().minimum(),
+      fill_nodes_config_.num_properties().maximum()};
+  std::uniform_int_distribution<int64> string_value_bytes_dist{
+      fill_nodes_config_.string_value_bytes().minimum(),
+      fill_nodes_config_.string_value_bytes().maximum()};
+  std::uniform_int_distribution<int64> num_nodes_dist{
+      fill_nodes_config_.num_nodes().minimum(),
+      fill_nodes_config_.num_nodes().maximum()};
 
   std::minstd_rand0 gen(absl::ToUnixMillis(absl::Now()));
 
@@ -229,9 +236,9 @@ tensorflow::Status FillNodes::SetUpImpl(MetadataStore* store) {
     FillNodesWorkItemType put_request;
     int64 num_nodes, type_index;
     NodesParam nodes_param;
-    InitializeCurrentNodeBatchParameters(i, fill_nodes_config_,
-                                         uniform_dist_type_index, gen,
-                                         num_nodes, type_index, nodes_param);
+    InitializeCurrentNodesParameters(i, type_index_dist, num_properties_dist,
+                                     string_value_bytes_dist, num_nodes_dist,
+                                     gen, num_nodes, type_index, nodes_param);
     switch (fill_nodes_config_.specification()) {
       case FillNodesConfig::ARTIFACT: {
         InitializePutRequest<PutArtifactsRequest>(num_nodes, put_request);
