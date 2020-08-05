@@ -31,13 +31,16 @@ limitations under the License.
 namespace ml_metadata {
 namespace {
 
+// Generates and returns a categorical distribution with Dirichlet Prior
+// specified by `dist`.
 std::discrete_distribution<int64>
 GenerateCategoricalDistributionWithDirichletPrior(
-    const int64 sample_size, const int64 concentration_param,
+    const int64 sample_size, const CategoricalDistribution& dist,
     std::minstd_rand0& gen) {
   // With a source of Gamma-distributed random variates, draws `sample_size`
   // independent random samples and store in `weights`.
-  std::gamma_distribution<double> gamma_distribution(concentration_param, 1.0);
+  std::gamma_distribution<double> gamma_distribution(dist.dirichlet_alpha(),
+                                                     1.0);
   std::vector<double> weights(sample_size);
   for (int64 i = 0; i < sample_size; ++i) {
     weights[i] = gamma_distribution(gen);
@@ -217,15 +220,11 @@ tensorflow::Status FillContextEdges::SetUpImpl(MetadataStore* store) {
   std::discrete_distribution<int64> non_context_node_index_dist =
       GenerateCategoricalDistributionWithDirichletPrior(
           existing_non_context_nodes.size(),
-          fill_context_edges_config_.non_context_node_popularity()
-              .dirichlet_alpha(),
-          gen);
+          fill_context_edges_config_.non_context_node_popularity(), gen);
   std::discrete_distribution<int64> context_node_index_dist =
       GenerateCategoricalDistributionWithDirichletPrior(
           existing_context_nodes.size(),
-          fill_context_edges_config_.context_node_popularity()
-              .dirichlet_alpha(),
-          gen);
+          fill_context_edges_config_.context_node_popularity(), gen);
 
   for (int64 i = 0; i < num_operations_; ++i) {
     curr_bytes = 0;

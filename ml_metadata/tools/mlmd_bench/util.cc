@@ -14,7 +14,6 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/tools/mlmd_bench/util.h"
 
-#include <random>
 #include <vector>
 
 #include "absl/time/clock.h"
