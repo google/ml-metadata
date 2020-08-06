@@ -20,7 +20,6 @@ limitations under the License.
 #include "google/protobuf/repeated_field.h"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/algorithm/container.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "ml_metadata/metadata_store/test_util.h"

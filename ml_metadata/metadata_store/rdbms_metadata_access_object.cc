@@ -16,14 +16,12 @@ limitations under the License.
 #include "ml_metadata/metadata_store/rdbms_metadata_access_object.h"
 #endif
 
-#include <iterator>
 #include <string>
 #include <vector>
 
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/util/json_util.h"
 #include "google/protobuf/util/message_differencer.h"
-#include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/numbers.h"
