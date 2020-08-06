@@ -20,7 +20,6 @@ limitations under the License.
 #include "ml_metadata/metadata_store/metadata_store_factory.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
-#include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
 
 namespace ml_metadata {

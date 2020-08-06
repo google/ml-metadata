@@ -48,8 +48,8 @@ message CategoricalDistribution {
 // A zipf distribution with a configurable `skew`, for modeling the 
 // popularity of heavily used input artifacts.
 message ZipfDistribution {
-  // Configurable skew for zipf distribution to configure the different
-  // level of popularity described by the distribution.
+  // Configurable skew for zipf distribution to adjust the popularity 
+  // distribution.
   optional double skew = 1;
 }
 
@@ -116,17 +116,17 @@ message FillEventsConfig {
     INPUT = 0;
     OUTPUT = 1;
   }
-  // Indicates the type (input / output) of the event.
+  // Indicates the type (input / output) of the events.
   optional Specification specification = 1;
   // Describes the popularity for the execution nodes,
   // modeled by a categorical distribution with a Dirichlet prior.
   optional CategoricalDistribution execution_node_popularity = 2;
   // Describe the popularity for the artifact nodes.
   oneof artifact_node_popularity {
-    // The distribution for artifact node's popularity will be a
+    // The popularity distribution for artifact node's will be a
     // categorical distribution if the event is an output event.
     CategoricalDistribution artifact_node_popularity_categorical = 3;
-    // The distribution for artifact node's popularity will be a
+    // The popularity distribution for artifact node's will be a
     // zipf distribution if the event is an input event.
     ZipfDistribution artifact_node_popularity_zipf = 4;
   }

@@ -71,8 +71,8 @@ std::discrete_distribution<int64> GenerateZipfDistributionWithConfigurableSkew(
   return std::discrete_distribution<int64>{weights.begin(), weights.end()};
 }
 
-// Generates and returns the artifact popularity according to the type of
-// event.
+// Generates and returns the artifact popularity distribution according to the
+// type of event.
 std::discrete_distribution<int64> GeneratePopularityDistributionForArtifacts(
     const FillEventsConfig& fill_events_config, const int64 sample_size,
     std::minstd_rand0& gen) {
@@ -106,6 +106,10 @@ bool CheckDuplicateOutputArtifactInCurrentSetUp(
   return false;
 }
 
+// Checks if current artifact whose id is `output_artifact_id` has been
+// outputted by other events inside db before. Returns ALREADY_EXISTS error, if
+// the current artifact has been outputted before. Returns detailed error if
+// query executions failed.
 tensorflow::Status CheckDuplicateOutputArtifactInDb(
     const int64 output_artifact_id, MetadataStore& store) {
   GetEventsByArtifactIDsRequest request;
@@ -115,21 +119,29 @@ tensorflow::Status CheckDuplicateOutputArtifactInDb(
   for (const auto& event : response.events()) {
     if (event.type() == Event::OUTPUT) {
       return tensorflow::errors::AlreadyExists(
-          ("The current artifact has been outputted by another output event!"));
+          ("The current artifact has been outputted by another output event "
+           "inside db!"));
     }
   }
   return tensorflow::Status::OK();
 }
 
+// Calculates and returns the transferred bytes of the `event`.
 int64 GetTransferredBytes(const Event& event) {
   int bytes = 0;
+  // Includes the transferred bytes for `artifact_id`, `execution_id` and `type`
+  // for current event(the type of id is int64 that takes eight bytes while the
+  // type is an enum that takes one bytes).
   bytes += 8 * 2 + 1;
+  // Includes the transferred bytes for event's path.
   for (const auto& step : event.path().steps()) {
     bytes += step.key().size();
   }
   return bytes;
 }
 
+// Sets the properties of current event while recording the transferred bytes
+// for it.
 void SetEvent(const FillEventsConfig& fill_events_config,
               const int64 artifact_id, const int64 execution_id,
               PutEventsRequest& put_request, int64& curr_bytes) {
@@ -148,10 +160,19 @@ void SetEvent(const FillEventsConfig& fill_events_config,
   }
   event->set_artifact_id(artifact_id);
   event->set_execution_id(execution_id);
+  // TODO(briansong) Adds an additional field in protocol message in
+  // FillEventsConfig that describe the string length of key and supports
+  // index for step value as well.
   event->mutable_path()->add_steps()->set_key("foo");
   curr_bytes += GetTransferredBytes(*event);
 }
 
+// Generates `num_events` events within `request`.
+// Selects `num_events` artifact and execution node pairs from
+// `existing_artifact_nodes` and `existing_execution_nodes` w.r.t. to the
+// node popularity distribution. Also, performs rejection sampling to ensure
+// that each artifact is only be outputted once.
+// Returns detailed error if query executions failed.
 tensorflow::Status GenerateEvent(
     const FillEventsConfig& fill_events_config,
     const std::vector<Node>& existing_artifact_nodes,
@@ -159,9 +180,9 @@ tensorflow::Status GenerateEvent(
     std::discrete_distribution<int64>& artifact_index_dist,
     std::discrete_distribution<int64>& execution_index_dist,
     std::minstd_rand0& gen, MetadataStore& store,
-    std::unordered_set<int64>& output_artifact_ids,
-    PutEventsRequest& put_request, int64& curr_bytes) {
-  int i = 0;
+    std::unordered_set<int64>& output_artifact_ids, PutEventsRequest& request,
+    int64& curr_bytes) {
+  int64 i = 0;
   while (i < num_events) {
     const int64 artifact_id =
         absl::get<Artifact>(existing_artifact_nodes[artifact_index_dist(gen)])
@@ -184,7 +205,7 @@ tensorflow::Status GenerateEvent(
         continue;
       }
     }
-    SetEvent(fill_events_config, artifact_id, execution_id, put_request,
+    SetEvent(fill_events_config, artifact_id, execution_id, request,
              curr_bytes);
     i++;
   }
@@ -200,7 +221,7 @@ FillEvents::FillEvents(const FillEventsConfig& fill_events_config,
       name_(absl::StrCat("FILL_",
                          fill_events_config_.Specification_Name(
                              fill_events_config_.specification()),
-                         "_EVENTS")) {}
+                         "_EVENT")) {}
 
 tensorflow::Status FillEvents::SetUpImpl(MetadataStore* store) {
   LOG(INFO) << "Setting up ...";

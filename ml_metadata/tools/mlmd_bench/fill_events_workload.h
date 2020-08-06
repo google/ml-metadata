@@ -40,11 +40,12 @@ class FillEvents : public Workload<PutEventsRequest> {
   // MLMD execution is a record of a component run at a particular time, its
   // popularity is modeled as a categorical distribution with a Dirichlet
   // prior. When picking the artifact node, it is picked w.r.t. the
-  // `artifact_node_popularity` which can be a categorical distribution with a
-  // Dirichlet prior when the event is an output event or a zipf distribution
-  // with a configurable skew to model the popularity of heavily used input
-  // artifacts within input event. Additionally, for the output event, each
-  // artifact can only be picked once, thus a rejection sampling will be
+  // `artifact_node_popularity`. It can be a categorical distribution with a
+  // Dirichlet prior when the event is an output event. On the other hand, if
+  // current event's type is input, `artifact_node_popularity` will be a zipf
+  // distribution with a configurable skew will be used to model the popularity
+  // of heavily used input artifacts. Additionally, for the output event, since
+  // each artifact can only be picked once, a rejection sampling will be
   // performed in the process. Returns detailed error if query executions
   // failed.
   tensorflow::Status SetUpImpl(MetadataStore* store) final;
