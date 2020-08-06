@@ -18,6 +18,7 @@ limitations under the License.
 #include "absl/memory/memory.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/metadata_store/metadata_store_factory.h"
+#include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
 #include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
@@ -29,27 +30,47 @@ namespace {
 
 constexpr int kNumberOfOperations = 50;
 constexpr int kNumberOfExistedTypesInDb = 100;
-constexpr int kNumberOfExistedNodesInDb = 300;
-constexpr int kNumberOfExistedInputEventsInDb = 100;
-constexpr int kNumberOfExistedOutputEventsInDb = 30;
-constexpr int kNumberOfEventsPerRequest = 5;
+constexpr int kNumberOfExistedNodesInDb = 500;
+constexpr int kNumberOfExistedEventsInDb = 50;
+constexpr int kNumberOfEventsPerRequest = 3;
+
+constexpr char config_str[] = R"(
+        fill_events_config: {
+          execution_node_popularity: {dirichlet_alpha : 1}
+          artifact_node_popularity_categorical: {dirichlet_alpha : 1}
+        }
+      )";
 
 // Enumerates the workload configurations as the test parameters that ensure
 // test coverage.
 std::vector<WorkloadConfig> EnumerateConfigs() {
   std::vector<WorkloadConfig> configs;
-  WorkloadConfig config;
-  config.set_num_operations(kNumberOfOperations);
-  config.mutable_fill_events_config()->mutable_num_events()->set_minimum(
-      kNumberOfEventsPerRequest);
-  config.mutable_fill_events_config()->mutable_num_events()->set_maximum(
-      kNumberOfEventsPerRequest);
-  config.mutable_fill_events_config()->set_specification(
-      FillEventsConfig::INPUT);
-  configs.push_back(config);
-  config.mutable_fill_events_config()->set_specification(
-      FillEventsConfig::OUTPUT);
-  configs.push_back(config);
+
+  {
+    WorkloadConfig config =
+        testing::ParseTextProtoOrDie<WorkloadConfig>(config_str);
+    config.set_num_operations(kNumberOfOperations);
+    config.mutable_fill_events_config()->mutable_num_events()->set_minimum(
+        kNumberOfEventsPerRequest);
+    config.mutable_fill_events_config()->mutable_num_events()->set_maximum(
+        kNumberOfEventsPerRequest);
+    config.mutable_fill_events_config()->set_specification(
+        FillEventsConfig::INPUT);
+    configs.push_back(config);
+  }
+
+  {
+    WorkloadConfig config =
+        testing::ParseTextProtoOrDie<WorkloadConfig>(config_str);
+    config.set_num_operations(kNumberOfOperations);
+    config.mutable_fill_events_config()->mutable_num_events()->set_minimum(
+        kNumberOfEventsPerRequest);
+    config.mutable_fill_events_config()->mutable_num_events()->set_maximum(
+        kNumberOfEventsPerRequest);
+    config.mutable_fill_events_config()->set_specification(
+        FillEventsConfig::OUTPUT);
+    configs.push_back(config);
+  }
 
   return configs;
 }
@@ -71,53 +92,21 @@ tensorflow::Status GetNumOfEventsByExecution(MetadataStore& store,
   return tensorflow::Status::OK();
 }
 
-tensorflow::Status InsertEventsInDb(const int64 num_input_events,
-                                    const int64 num_output_events,
+// Inserts some events into db for setting up. Returns detailed error
+// if query executions failed.
+tensorflow::Status InsertEventsInDb(const FillEventsConfig& fill_events_config,
                                     MetadataStore& store) {
-  if (num_output_events > kNumberOfExistedNodesInDb) {
-    return tensorflow::errors::FailedPrecondition(
-        "Cannot insert so many output events due to limited number of existing "
-        "artifacts!");
+  // Inserts some events beforehand so that the db contains some events in the
+  // beginning.
+  std::unique_ptr<FillEvents> prepared_db_workload =
+      absl::make_unique<FillEvents>(
+          FillEvents(fill_events_config, kNumberOfExistedEventsInDb));
+  TF_RETURN_IF_ERROR(prepared_db_workload->SetUp(&store));
+  for (int64 i = 0; i < prepared_db_workload->num_operations(); ++i) {
+    OpStats op_stats;
+    TF_RETURN_IF_ERROR(prepared_db_workload->RunOp(i, &store, op_stats));
   }
-
-  GetArtifactsResponse get_artifacts_response;
-  TF_RETURN_IF_ERROR(store.GetArtifacts(
-      /*request=*/{}, &get_artifacts_response));
-  GetExecutionsResponse get_executions_response;
-  TF_RETURN_IF_ERROR(store.GetExecutions(
-      /*request=*/{}, &get_executions_response));
-
-  PutEventsRequest put_request;
-  int64 populated_input_events = 0;
-  int64 populated_output_events = 0;
-
-  for (int64 i = 0; i < get_artifacts_response.artifacts_size() &&
-                    populated_input_events < num_input_events;
-       ++i) {
-    for (int64 j = 0; j < get_executions_response.executions_size() &&
-                      populated_input_events < num_input_events;
-         ++j) {
-      Event* event = put_request.add_events();
-      event->set_type(Event::INPUT);
-      event->set_artifact_id(get_artifacts_response.artifacts(i).id());
-      event->set_execution_id(get_executions_response.executions(j).id());
-      populated_input_events++;
-    }
-  }
-
-  for (int64 i = 0; i < num_output_events; ++i) {
-    Event* event = put_request.add_events();
-    event->set_type(Event::OUTPUT);
-    event->set_artifact_id(get_artifacts_response.artifacts(i).id());
-    event->set_execution_id(
-        get_executions_response
-            .executions(i % get_executions_response.executions_size())
-            .id());
-    populated_output_events++;
-  }
-
-  PutEventsResponse response;
-  return store.PutEvents(put_request, &response);
+  return tensorflow::Status::OK();
 }
 
 class FillEventsParameterizedTestFixture
@@ -181,9 +170,7 @@ TEST_P(FillEventsParameterizedTestFixture, SetUpImplWhenSomeEventsExistTest) {
       /*num_artifact_nodes=*/kNumberOfExistedNodesInDb,
       /*num_execution_nodes=*/kNumberOfExistedNodesInDb,
       /*num_context_nodes=*/kNumberOfExistedNodesInDb, *store_));
-  TF_ASSERT_OK(InsertEventsInDb(
-      /*num_input_events=*/kNumberOfExistedInputEventsInDb,
-      /*num_output_events=*/kNumberOfExistedOutputEventsInDb, *store_));
+  TF_ASSERT_OK(InsertEventsInDb(GetParam().fill_events_config(), *store_));
 
   TF_ASSERT_OK(fill_events_->SetUp(store_.get()));
   EXPECT_EQ(GetParam().num_operations(), fill_events_->num_operations());
@@ -198,9 +185,7 @@ TEST_P(FillEventsParameterizedTestFixture, InsertWhenSomeEventsExistTest) {
       /*num_artifact_nodes=*/kNumberOfExistedNodesInDb,
       /*num_execution_nodes=*/kNumberOfExistedNodesInDb,
       /*num_context_nodes=*/kNumberOfExistedNodesInDb, *store_));
-  TF_ASSERT_OK(InsertEventsInDb(
-      /*num_input_events=*/kNumberOfExistedInputEventsInDb,
-      /*num_output_events=*/kNumberOfExistedOutputEventsInDb, *store_));
+  TF_ASSERT_OK(InsertEventsInDb(GetParam().fill_events_config(), *store_));
 
   int64 num_events_before;
   TF_ASSERT_OK(GetNumOfEventsByExecution(*store_, num_events_before));

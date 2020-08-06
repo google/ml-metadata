@@ -29,6 +29,26 @@ limitations under the License.
 namespace ml_metadata {
 namespace {
 
+// Generates and returns a categorical distribution with Dirichlet Prior
+// specified by `dist`.
+std::discrete_distribution<int64>
+GenerateCategoricalDistributionWithDirichletPrior(
+    const int64 sample_size, const CategoricalDistribution& dist,
+    std::minstd_rand0& gen) {
+  // With a source of Gamma-distributed random variates, draws `sample_size`
+  // independent random samples and store in `weights`.
+  std::gamma_distribution<double> gamma_distribution(dist.dirichlet_alpha(),
+                                                     1.0);
+  std::vector<double> weights(sample_size);
+  for (int64 i = 0; i < sample_size; ++i) {
+    weights[i] = gamma_distribution(gen);
+  }
+  // Uses these random number generated w.r.t. a Dirichlet distribution with
+  // `concentration_param` to represent the possibility of being chosen for each
+  // integer within [0, sample_size) in a discrete distribution.
+  return std::discrete_distribution<int64>{weights.begin(), weights.end()};
+}
+
 bool CheckDuplicateOutputArtifactInCurrentSetUp(
     const int64 output_artifact_id,
     std::unordered_set<int64>& output_artifact_ids) {
@@ -38,6 +58,21 @@ bool CheckDuplicateOutputArtifactInCurrentSetUp(
   }
   output_artifact_ids.insert(output_artifact_id);
   return false;
+}
+
+tensorflow::Status CheckDuplicateOutputArtifactInDb(
+    const int64 output_artifact_id, MetadataStore& store) {
+  GetEventsByArtifactIDsRequest request;
+  request.add_artifact_ids(output_artifact_id);
+  GetEventsByArtifactIDsResponse response;
+  TF_RETURN_IF_ERROR(store.GetEventsByArtifactIDs(request, &response));
+  for (const auto& event : response.events()) {
+    if (event.type() == Event::OUTPUT) {
+      return tensorflow::errors::AlreadyExists(
+          ("The current artifact has been outputted by another output event!"));
+    }
+  }
+  return tensorflow::Status::OK();
 }
 
 int64 GetTransferredBytes(const Event& event) {
@@ -75,26 +110,33 @@ tensorflow::Status GenerateEvent(
     const FillEventsConfig& fill_events_config,
     const std::vector<Node>& existing_artifact_nodes,
     const std::vector<Node>& existing_execution_nodes, const int64 num_events,
-    std::uniform_int_distribution<int64>& uniform_dist_artifact_index,
-    std::uniform_int_distribution<int64>& uniform_dist_execution_index,
+    std::discrete_distribution<int64>& artifact_index_dist,
+    std::discrete_distribution<int64>& execution_index_dist,
     std::minstd_rand0& gen, MetadataStore& store,
     std::unordered_set<int64>& output_artifact_ids,
     PutEventsRequest& put_request, int64& curr_bytes) {
   int i = 0;
   while (i < num_events) {
     const int64 artifact_id =
-        absl::get<Artifact>(
-            existing_artifact_nodes[uniform_dist_artifact_index(gen)])
+        absl::get<Artifact>(existing_artifact_nodes[artifact_index_dist(gen)])
             .id();
     const int64 execution_id =
         absl::get<Execution>(
-            existing_execution_nodes[uniform_dist_execution_index(gen)])
+            existing_execution_nodes[execution_index_dist(gen)])
             .id();
-    // Rejection sampling.
-    if (fill_events_config.specification() == FillEventsConfig::OUTPUT &&
-        CheckDuplicateOutputArtifactInCurrentSetUp(artifact_id,
-                                                   output_artifact_ids)) {
-      continue;
+    if (fill_events_config.specification() == FillEventsConfig::OUTPUT) {
+      bool artifact_has_been_outputted_in_setup =
+          CheckDuplicateOutputArtifactInCurrentSetUp(artifact_id,
+                                                     output_artifact_ids);
+      tensorflow::Status status =
+          CheckDuplicateOutputArtifactInDb(artifact_id, store);
+      if (!status.ok() && status.code() != tensorflow::error::ALREADY_EXISTS) {
+        return status;
+      }
+      // Rejection sampling.
+      if (artifact_has_been_outputted_in_setup || !status.ok()) {
+        continue;
+      }
     }
     SetEvent(fill_events_config, artifact_id, execution_id, put_request,
              curr_bytes);
@@ -117,6 +159,9 @@ tensorflow::Status FillEvents::SetUpImpl(MetadataStore* store) {
   LOG(INFO) << "Setting up ...";
 
   int64 curr_bytes = 0;
+  std::uniform_int_distribution<int64> num_events_dist{
+      fill_events_config_.num_events().minimum(),
+      fill_events_config_.num_events().maximum()};
 
   std::vector<Node> existing_artifact_nodes;
   std::vector<Node> existing_execution_nodes;
@@ -124,22 +169,26 @@ tensorflow::Status FillEvents::SetUpImpl(MetadataStore* store) {
                                       existing_artifact_nodes,
                                       existing_execution_nodes));
 
-  std::uniform_int_distribution<int64> uniform_dist_artifact_index{
-      0, (int64)(existing_artifact_nodes.size() - 1)};
-  std::uniform_int_distribution<int64> uniform_dist_execution_index{
-      0, (int64)(existing_execution_nodes.size() - 1)};
-
   std::minstd_rand0 gen(absl::ToUnixMillis(absl::Now()));
+  // TODO(briansong) Adds Zipf distribution implementation for artifact index
+  // distribution.
+  std::discrete_distribution<int64> artifact_index_dist =
+      GenerateCategoricalDistributionWithDirichletPrior(
+          existing_artifact_nodes.size(),
+          fill_events_config_.artifact_node_popularity_categorical(), gen);
+  std::discrete_distribution<int64> execution_index_dist =
+      GenerateCategoricalDistributionWithDirichletPrior(
+          existing_execution_nodes.size(),
+          fill_events_config_.execution_node_popularity(), gen);
 
   for (int64 i = 0; i < num_operations_; ++i) {
     curr_bytes = 0;
     PutEventsRequest put_request;
-    const int64 num_events =
-        GenerateRandomNumberFromUD(fill_events_config_.num_events(), gen);
+    const int64 num_events = num_events_dist(gen);
     TF_RETURN_IF_ERROR(GenerateEvent(
         fill_events_config_, existing_artifact_nodes, existing_execution_nodes,
-        num_events, uniform_dist_artifact_index, uniform_dist_execution_index,
-        gen, *store, output_artifact_ids_, put_request, curr_bytes));
+        num_events, artifact_index_dist, execution_index_dist, gen, *store,
+        output_artifact_ids_, put_request, curr_bytes));
     work_items_.emplace_back(put_request, curr_bytes);
   }
 

@@ -45,6 +45,10 @@ message CategoricalDistribution {
   optional double dirichlet_alpha = 1;
 }
 
+message ZipfDistribution {
+  optional double skew = 1;
+}
+
 // Creates and updates types: ArtifactTypes / ExecutionTypes / ContextTypes.
 message FillTypesConfig {
   // The FillTypesConfig can be set to insert or update types.
@@ -110,9 +114,20 @@ message FillEventsConfig {
   }
   // Indicates the type (input / output) of the event.
   optional Specification specification = 1;
+  optional CategoricalDistribution non_context_node_popularity = 2;
+  // Describes the popularity for execution nodes,
+  // modeled by a categorical distribution with a Dirichlet prior.
+  optional CategoricalDistribution execution_node_popularity = 3;
+  // Describe the popularity for the artifact nodes.
+  oneof artifact_node_popularity {
+    // The distribution for artifact popularity can be categorical or zipf
+    // distribution depends on the type of the events.
+    CategoricalDistribution artifact_node_popularity_categorical = 4;
+    ZipfDistribution artifact_node_popularity_zipf = 5;
+  }
   // Specifies the number of events to be filled per request, 
   // modeled by a uniform distribution.
-  optional UniformDistribution num_events = 2;
+  optional UniformDistribution num_events = 6;
 }
 
 // The mlmd_bench workload config.
