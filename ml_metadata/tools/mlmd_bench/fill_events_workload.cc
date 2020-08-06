@@ -16,6 +16,7 @@ limitations under the License.
 
 #include <math.h>
 
+#include <algorithm>
 #include <random>
 #include <vector>
 
@@ -54,13 +55,16 @@ GenerateCategoricalDistributionWithDirichletPrior(
 // Generates and returns a zipf distribution with a configurable `skew`
 // specified by `dist`.
 std::discrete_distribution<int64> GenerateZipfDistributionWithConfigurableSkew(
-    const int64 sample_size, const ZipfDistribution& dist) {
+    const int64 sample_size, const ZipfDistribution& dist,
+    std::minstd_rand0& gen) {
   std::vector<double> weights(sample_size);
-  for (int64 i = 0; i < sample_size; ++i) {
+  for (int64 i = 1; i <= sample_size; ++i) {
     // Here, we discard the normalize factor since the `discrete_distribution`
     // will perform the normalization for us.
-    weights[i] = 1 / pow(i, dist.skew());
+    weights[i - 1] = 1 / pow(i, dist.skew());
   }
+  // Random shuffles the weight vector.
+  std::shuffle(std::begin(weights), std::end(weights), gen);
   // Uses these random number generated w.r.t. a zipf distribution with a
   // configurable `skew` to represent the possibility of being chosen for each
   // integer within [0, sample_size) in a discrete distribution.
@@ -75,7 +79,7 @@ std::discrete_distribution<int64> GeneratePopularityDistributionForArtifacts(
   switch (fill_events_config.specification()) {
     case FillEventsConfig::INPUT: {
       return GenerateZipfDistributionWithConfigurableSkew(
-          sample_size, fill_events_config.artifact_node_popularity_zipf());
+          sample_size, fill_events_config.artifact_node_popularity_zipf(), gen);
     }
     case FillEventsConfig::OUTPUT: {
       return GenerateCategoricalDistributionWithDirichletPrior(
