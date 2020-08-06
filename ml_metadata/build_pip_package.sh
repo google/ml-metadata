@@ -52,7 +52,7 @@ cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-genfiles/ml_metadata/proto/metadata_sto
   ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
 
 mkdir -p ${BUILD_WORKSPACE_DIRECTORY}/src
-cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-bin/ml_metadata
+cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-bin/ml_metadata \
   ${BUILD_WORKSPACE_DIRECTORY}/src
 
 if is_windows; then
