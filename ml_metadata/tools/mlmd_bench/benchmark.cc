@@ -18,6 +18,7 @@ limitations under the License.
 
 #include "absl/memory/memory.h"
 #include "ml_metadata/metadata_store/types.h"
+#include "ml_metadata/tools/mlmd_bench/fill_context_edges_workload.h"
 #include "ml_metadata/tools/mlmd_bench/fill_nodes_workload.h"
 #include "ml_metadata/tools/mlmd_bench/fill_types_workload.h"
 #include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
@@ -40,6 +41,12 @@ void CreateWorkload(const WorkloadConfig& workload_config,
       workload = absl::make_unique<FillNodes>(
           FillNodes(workload_config.fill_nodes_config(),
                     workload_config.num_operations()));
+      break;
+    }
+    case WorkloadConfig::kFillContextEdgesConfig: {
+      workload = absl::make_unique<FillContextEdges>(
+          FillContextEdges(workload_config.fill_context_edges_config(),
+                           workload_config.num_operations()));
       break;
     }
     default:
