@@ -408,18 +408,18 @@ R"pb(
            ") VALUES($0, $1, $2, $3);"
     parameter_num: 4
   }
-  select_event_by_artifact_id {
+  select_event_by_artifact_ids {
     query: " SELECT `id`, `artifact_id`, `execution_id`, "
            "        `type`, `milliseconds_since_epoch` "
            " from `Event` "
-           " WHERE `artifact_id` = $0; "
+           " WHERE `artifact_id` IN ($0); "
     parameter_num: 1
   }
-  select_event_by_execution_id {
+  select_event_by_execution_ids {
     query: " SELECT `id`, `artifact_id`, `execution_id`, "
            "        `type`, `milliseconds_since_epoch` "
            " from `Event` "
-           " WHERE `execution_id` = $0; "
+           " WHERE `execution_id` IN ($0); "
     parameter_num: 1
   }
   drop_event_path_table { query: " DROP TABLE IF EXISTS `EventPath`; " }
@@ -441,10 +441,10 @@ R"pb(
            ") VALUES($0, $2, $3);"
     parameter_num: 4
   }
-  select_event_path_by_event_id {
+  select_event_path_by_event_ids {
     query: " SELECT `event_id`, `is_index_step`, `step_index`, `step_key` "
            " from `EventPath` "
-           " WHERE `event_id` = $0; "
+           " WHERE `event_id` IN ($0); "
     parameter_num: 1
   }
 )pb",

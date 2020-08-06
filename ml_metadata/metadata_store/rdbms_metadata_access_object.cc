@@ -16,12 +16,15 @@ limitations under the License.
 #include "ml_metadata/metadata_store/rdbms_metadata_access_object.h"
 #endif
 
+#include <iterator>
 #include <string>
 #include <vector>
 
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/util/json_util.h"
 #include "google/protobuf/util/message_differencer.h"
+#include "absl/algorithm/container.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
@@ -776,9 +779,9 @@ tensorflow::Status RDBMSMetadataAccessObject::UpdateNodeImpl(const Node& node) {
   return tensorflow::Status::OK();
 }
 
-// Takes a record set that has one record per event and for each record:
-//   parses it into an Event object
-//   gets the path of the event from the database
+// Takes a record set that has one record per event, parses them into Event
+// objects, gets the paths for the events from the database using collected
+// event ids, and assign paths to each corresponding event.
 // Returns INVALID_ARGUMENT error, if the `events` is null.
 tensorflow::Status RDBMSMetadataAccessObject::FindEventsFromRecordSet(
     const RecordSet& event_record_set, std::vector<Event>* events) {
@@ -788,28 +791,35 @@ tensorflow::Status RDBMSMetadataAccessObject::FindEventsFromRecordSet(
   events->reserve(event_record_set.records_size());
   TF_RETURN_IF_ERROR(ParseRecordSetToMessageArray(event_record_set, events));
 
+  absl::flat_hash_map<int64, Event*> event_id_to_event_map;
+  std::vector<int64> event_ids;
+  event_ids.reserve(event_record_set.records_size());
   for (int i = 0; i < events->size(); ++i) {
     CHECK_LT(i, event_record_set.records_size());
     const RecordSet::Record& record = event_record_set.records()[i];
-    Event& event = (*events)[i];
     int64 event_id;
     CHECK(absl::SimpleAtoi(record.values(0), &event_id));
-    RecordSet path_record_set;
-    TF_RETURN_IF_ERROR(
-        executor_->SelectEventPathByEventID(event_id, &path_record_set));
+    event_id_to_event_map[event_id] = &(*events)[i];
+    event_ids.push_back(event_id);
+  }
 
-    // TODO(martinz): How do we know that these paths will be in the right
-    // order?
-    for (const RecordSet::Record& record : path_record_set.records()) {
-      bool is_index_step;
-      CHECK(absl::SimpleAtob(record.values(1), &is_index_step));
-      if (is_index_step) {
-        int64 step_index;
-        CHECK(absl::SimpleAtoi(record.values(2), &step_index));
-        event.mutable_path()->add_steps()->set_index(step_index);
-      } else {
-        event.mutable_path()->add_steps()->set_key(record.values(3));
-      }
+  RecordSet path_record_set;
+  TF_RETURN_IF_ERROR(
+      executor_->SelectEventPathByEventIDs(event_ids, &path_record_set));
+  for (const RecordSet::Record& record : path_record_set.records()) {
+    int64 event_id;
+    CHECK(absl::SimpleAtoi(record.values(0), &event_id));
+    auto iter = event_id_to_event_map.find(event_id);
+    CHECK(iter != event_id_to_event_map.end());
+    Event* event = iter->second;
+    bool is_index_step;
+    CHECK(absl::SimpleAtob(record.values(1), &is_index_step));
+    if (is_index_step) {
+      int64 step_index;
+      CHECK(absl::SimpleAtoi(record.values(2), &step_index));
+      event->mutable_path()->add_steps()->set_index(step_index);
+    } else {
+      event->mutable_path()->add_steps()->set_key(record.values(3));
     }
   }
   return tensorflow::Status::OK();
@@ -1048,26 +1058,36 @@ tensorflow::Status RDBMSMetadataAccessObject::CreateEvent(const Event& event,
   return tensorflow::Status::OK();
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindEventsByArtifact(
-    const int64 artifact_id, std::vector<Event>* events) {
+tensorflow::Status RDBMSMetadataAccessObject::FindEventsByArtifacts(
+    const std::vector<int64>& artifact_ids, std::vector<Event>* events) {
+  if (events == nullptr) {
+    return tensorflow::errors::InvalidArgument("Given events is NULL.");
+  }
+
   RecordSet event_record_set;
   TF_RETURN_IF_ERROR(
-      executor_->SelectEventByArtifactID(artifact_id, &event_record_set));
+      executor_->SelectEventByArtifactIDs(artifact_ids, &event_record_set));
+
   if (event_record_set.records_size() == 0) {
     return tensorflow::errors::NotFound(
-        absl::StrCat("Cannot find events by given artifact id ", artifact_id));
+        "Cannot find events by given artifact ids.");
   }
   return FindEventsFromRecordSet(event_record_set, events);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindEventsByExecution(
-    const int64 execution_id, std::vector<Event>* events) {
+tensorflow::Status RDBMSMetadataAccessObject::FindEventsByExecutions(
+    const std::vector<int64>& execution_ids, std::vector<Event>* events) {
+  if (events == nullptr) {
+    return tensorflow::errors::InvalidArgument("Given events is NULL.");
+  }
+
   RecordSet event_record_set;
   TF_RETURN_IF_ERROR(
-      executor_->SelectEventByExecutionID(execution_id, &event_record_set));
+      executor_->SelectEventByExecutionIDs(execution_ids, &event_record_set));
+
   if (event_record_set.records_size() == 0) {
-    return tensorflow::errors::NotFound(absl::StrCat(
-        "Cannot find events by given execution id ", execution_id));
+      return tensorflow::errors::NotFound(
+          "Cannot find events by given execution ids.");
   }
   return FindEventsFromRecordSet(event_record_set, events);
 }

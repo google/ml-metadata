@@ -172,11 +172,12 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   tensorflow::Status CreateEvent(const Event& event, int64* event_id) final;
 
-  tensorflow::Status FindEventsByArtifact(int64 artifact_id,
-                                          std::vector<Event>* events) final;
+  tensorflow::Status FindEventsByArtifacts(
+      const std::vector<int64>& artifact_ids, std::vector<Event>* events) final;
 
-  tensorflow::Status FindEventsByExecution(int64 execution_id,
-                                           std::vector<Event>* events) final;
+  tensorflow::Status FindEventsByExecutions(
+      const std::vector<int64>& execution_ids,
+      std::vector<Event>* events) final;
 
   tensorflow::Status CreateAssociation(const Association& association,
                                        int64* association_id) final;

@@ -380,16 +380,18 @@ class QueryConfigExecutor : public QueryExecutor {
         event_id);
   }
 
-  tensorflow::Status SelectEventByArtifactID(
-      int64 artifact_id, RecordSet* event_record_set) final {
-    return ExecuteQuery(query_config_.select_event_by_artifact_id(),
-                        {Bind(artifact_id)}, event_record_set);
+  tensorflow::Status SelectEventByArtifactIDs(
+      const std::vector<int64>& artifact_ids,
+      RecordSet* event_record_set) final {
+    return ExecuteQuery(query_config_.select_event_by_artifact_ids(),
+                        {Bind(artifact_ids)}, event_record_set);
   }
 
-  tensorflow::Status SelectEventByExecutionID(
-      int64 execution_id, RecordSet* event_record_set) final {
-    return ExecuteQuery(query_config_.select_event_by_execution_id(),
-                        {Bind(execution_id)}, event_record_set);
+  tensorflow::Status SelectEventByExecutionIDs(
+      const std::vector<int64>& execution_ids,
+      RecordSet* event_record_set) final {
+    return ExecuteQuery(query_config_.select_event_by_execution_ids(),
+                        {Bind(execution_ids)}, event_record_set);
   }
 
   tensorflow::Status CheckEventPathTable() final {
@@ -399,10 +401,10 @@ class QueryConfigExecutor : public QueryExecutor {
   tensorflow::Status InsertEventPath(int64 event_id,
                                      const Event::Path::Step& step) final;
 
-  tensorflow::Status SelectEventPathByEventID(int64 event_id,
-                                              RecordSet* record_set) final {
-    return ExecuteQuery(query_config_.select_event_path_by_event_id(),
-                        {Bind(event_id)}, record_set);
+  tensorflow::Status SelectEventPathByEventIDs(
+      const std::vector<int64>& event_ids, RecordSet* record_set) final {
+    return ExecuteQuery(query_config_.select_event_path_by_event_ids(),
+                        {Bind(event_ids)}, record_set);
   }
 
   tensorflow::Status CheckAssociationTable() final {
@@ -459,7 +461,7 @@ class QueryConfigExecutor : public QueryExecutor {
   // Insert the schema version.
   tensorflow::Status InsertSchemaVersion(int64 schema_version) final {
     return ExecuteQuery(query_config_.insert_schema_version(),
-                    {Bind(schema_version)});
+                        {Bind(schema_version)});
   }
 
   // Update the schema version.
@@ -544,6 +546,10 @@ class QueryConfigExecutor : public QueryExecutor {
   // Utility methods to bind Artifact::State/Execution::State to SQL clause.
   std::string Bind(Artifact::State value);
   std::string Bind(Execution::State value);
+
+  // Utility method to bind an in64 vector to a string joined with "," that can
+  // fit into SQL IN(...) clause.
+  std::string Bind(const std::vector<int64>& value);
 
   #if (!defined(__APPLE__) && !defined(_WIN32))
   std::string Bind(const google::protobuf::int64 value);

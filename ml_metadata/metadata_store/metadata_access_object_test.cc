@@ -20,6 +20,7 @@ limitations under the License.
 #include "google/protobuf/repeated_field.h"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/algorithm/container.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "ml_metadata/metadata_store/test_util.h"
@@ -2246,24 +2247,20 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindEvent) {
   EXPECT_NE(event2_id, -1);
   EXPECT_NE(event1_id, event2_id);
 
-  // query the executions
-  std::vector<Event> events_with_input_artifact;
-  TF_EXPECT_OK(metadata_access_object_->FindEventsByArtifact(
-      input_artifact_id, &events_with_input_artifact));
-  EXPECT_EQ(events_with_input_artifact.size(), 1);
-  EXPECT_THAT(events_with_input_artifact[0], EqualsProto(event1));
-
-  std::vector<Event> events_with_output_artifact;
-  TF_EXPECT_OK(metadata_access_object_->FindEventsByArtifact(
-      output_artifact_id, &events_with_output_artifact));
-  EXPECT_EQ(events_with_output_artifact.size(), 1);
+  // query the events
+  std::vector<Event> events_with_artifacts;
+  TF_EXPECT_OK(metadata_access_object_->FindEventsByArtifacts(
+      {input_artifact_id, output_artifact_id}, &events_with_artifacts));
+  EXPECT_EQ(events_with_artifacts.size(), 2);
   EXPECT_THAT(
-      events_with_output_artifact[0],
-      EqualsProto(event2, /*ignore_fields=*/{"milliseconds_since_epoch"}));
+      events_with_artifacts,
+      UnorderedElementsAre(
+          EqualsProto(event1),
+          EqualsProto(event2, /*ignore_fields=*/{"milliseconds_since_epoch"})));
 
   std::vector<Event> events_with_execution;
-  TF_EXPECT_OK(metadata_access_object_->FindEventsByExecution(
-      execution_id, &events_with_execution));
+  TF_EXPECT_OK(metadata_access_object_->FindEventsByExecutions(
+      {execution_id}, &events_with_execution));
   EXPECT_EQ(events_with_execution.size(), 2);
 }
 
@@ -2366,24 +2363,20 @@ TEST_P(MetadataAccessObjectTest, PutEventsWithPaths) {
   EXPECT_NE(event2_id, -1);
   EXPECT_NE(event1_id, event2_id);
 
-  // query the executions
-  std::vector<Event> events_with_input_artifact;
-  TF_EXPECT_OK(metadata_access_object_->FindEventsByArtifact(
-      input_artifact_id, &events_with_input_artifact));
-  EXPECT_EQ(events_with_input_artifact.size(), 1);
-  EXPECT_THAT(events_with_input_artifact[0], EqualsProto(event1));
-
-  std::vector<Event> events_with_output_artifact;
-  TF_EXPECT_OK(metadata_access_object_->FindEventsByArtifact(
-      output_artifact_id, &events_with_output_artifact));
-  EXPECT_EQ(events_with_output_artifact.size(), 1);
+  // query the events
+  std::vector<Event> events_with_artifacts;
+  TF_EXPECT_OK(metadata_access_object_->FindEventsByArtifacts(
+      {input_artifact_id, output_artifact_id}, &events_with_artifacts));
+  EXPECT_EQ(events_with_artifacts.size(), 2);
   EXPECT_THAT(
-      events_with_output_artifact[0],
-      EqualsProto(event2, /*ignore_fields=*/{"milliseconds_since_epoch"}));
+      events_with_artifacts,
+      UnorderedElementsAre(
+          EqualsProto(event1),
+          EqualsProto(event2, /*ignore_fields=*/{"milliseconds_since_epoch"})));
 
   std::vector<Event> events_with_execution;
-  TF_EXPECT_OK(metadata_access_object_->FindEventsByExecution(
-      execution_id, &events_with_execution));
+  TF_EXPECT_OK(metadata_access_object_->FindEventsByExecutions(
+      {execution_id}, &events_with_execution));
   EXPECT_EQ(events_with_execution.size(), 2);
 }
 
