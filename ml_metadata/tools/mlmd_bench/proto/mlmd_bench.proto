@@ -45,7 +45,11 @@ message CategoricalDistribution {
   optional double dirichlet_alpha = 1;
 }
 
+// A zipf distribution with a configurable `skew`, for modeling the 
+// popularity of heavily used input artifacts.
 message ZipfDistribution {
+  // Configurable skew for zipf distribution to configure the different
+  // level of popularity described by the distribution.
   optional double skew = 1;
 }
 
@@ -114,20 +118,21 @@ message FillEventsConfig {
   }
   // Indicates the type (input / output) of the event.
   optional Specification specification = 1;
-  optional CategoricalDistribution non_context_node_popularity = 2;
-  // Describes the popularity for execution nodes,
+  // Describes the popularity for the execution nodes,
   // modeled by a categorical distribution with a Dirichlet prior.
-  optional CategoricalDistribution execution_node_popularity = 3;
+  optional CategoricalDistribution execution_node_popularity = 2;
   // Describe the popularity for the artifact nodes.
   oneof artifact_node_popularity {
-    // The distribution for artifact popularity can be categorical or zipf
-    // distribution depends on the type of the events.
-    CategoricalDistribution artifact_node_popularity_categorical = 4;
-    ZipfDistribution artifact_node_popularity_zipf = 5;
+    // The distribution for artifact node's popularity will be a
+    // categorical distribution if the event is an output event.
+    CategoricalDistribution artifact_node_popularity_categorical = 3;
+    // The distribution for artifact node's popularity will be a
+    // zipf distribution if the event is an input event.
+    ZipfDistribution artifact_node_popularity_zipf = 4;
   }
   // Specifies the number of events to be filled per request, 
   // modeled by a uniform distribution.
-  optional UniformDistribution num_events = 6;
+  optional UniformDistribution num_events = 5;
 }
 
 // The mlmd_bench workload config.

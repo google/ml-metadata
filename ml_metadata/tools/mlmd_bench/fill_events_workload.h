@@ -26,19 +26,41 @@ limitations under the License.
 
 namespace ml_metadata {
 
+// A specific workload for insert input / output events.
 class FillEvents : public Workload<PutEventsRequest> {
  public:
   FillEvents(const FillEventsConfig& fill_events_config, int64 num_operations);
   ~FillEvents() override = default;
 
  protected:
+  // Specific implementation of SetUpImpl() for FillEvents workload according to
+  // its semantic. A list of work items(PutEventsRequest) will be generated.
+  // A preferential attachment will be performed to generate the edges for the
+  // bipartite graph: Artifact X Execution. Execution will be selected first, as
+  // MLMD execution is a record of a component run at a particular time, its
+  // popularity is modeled as a categorical distribution with a Dirichlet
+  // prior. When picking the artifact node, it is picked w.r.t. the
+  // `artifact_node_popularity` which can be a categorical distribution with a
+  // Dirichlet prior when the event is an output event or a zipf distribution
+  // with a configurable skew to model the popularity of heavily used input
+  // artifacts within input event. Additionally, for the output event, each
+  // artifact can only be picked once, thus a rejection sampling will be
+  // performed in the process. Returns detailed error if query executions
+  // failed.
   tensorflow::Status SetUpImpl(MetadataStore* store) final;
 
+  // Specific implementation of RunOpImpl() for FillEvents workload according to
+  // its semantic. Runs the work items(PutEventsRequest) on the store. Returns
+  // detailed error if query executions failed.
   tensorflow::Status RunOpImpl(int64 work_items_index,
                                MetadataStore* store) final;
 
+  // Specific implementation of TearDownImpl() for FillEvents workload according
+  // to its semantic. Cleans the work items.
   tensorflow::Status TearDownImpl() final;
 
+  // Gets the current workload's name, which is used in stats report for this
+  // workload.
   std::string GetName() final;
 
  private:
@@ -48,7 +70,7 @@ class FillEvents : public Workload<PutEventsRequest> {
   const int64 num_operations_;
   // String for indicating the name of current workload instance.
   const std::string name_;
-
+  // Records all the outputted artifacts' ids seen in current setup.
   std::unordered_set<int64> output_artifact_ids_;
 };
 

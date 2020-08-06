@@ -33,13 +33,8 @@ constexpr int kNumberOfExistedTypesInDb = 100;
 constexpr int kNumberOfExistedNodesInDb = 500;
 constexpr int kNumberOfExistedEventsInDb = 50;
 constexpr int kNumberOfEventsPerRequest = 3;
-
-constexpr char config_str[] = R"(
-        fill_events_config: {
-          execution_node_popularity: {dirichlet_alpha : 1}
-          artifact_node_popularity_categorical: {dirichlet_alpha : 1}
-        }
-      )";
+constexpr double kConfigurableSkew = 1;
+constexpr double kDirichletAlpha = 1;
 
 // Enumerates the workload configurations as the test parameters that ensure
 // test coverage.
@@ -47,8 +42,7 @@ std::vector<WorkloadConfig> EnumerateConfigs() {
   std::vector<WorkloadConfig> configs;
 
   {
-    WorkloadConfig config =
-        testing::ParseTextProtoOrDie<WorkloadConfig>(config_str);
+    WorkloadConfig config;
     config.set_num_operations(kNumberOfOperations);
     config.mutable_fill_events_config()->mutable_num_events()->set_minimum(
         kNumberOfEventsPerRequest);
@@ -56,12 +50,14 @@ std::vector<WorkloadConfig> EnumerateConfigs() {
         kNumberOfEventsPerRequest);
     config.mutable_fill_events_config()->set_specification(
         FillEventsConfig::INPUT);
+    config.mutable_fill_events_config()
+        ->mutable_artifact_node_popularity_zipf()
+        ->set_skew(kConfigurableSkew);
     configs.push_back(config);
   }
 
   {
-    WorkloadConfig config =
-        testing::ParseTextProtoOrDie<WorkloadConfig>(config_str);
+    WorkloadConfig config;
     config.set_num_operations(kNumberOfOperations);
     config.mutable_fill_events_config()->mutable_num_events()->set_minimum(
         kNumberOfEventsPerRequest);
@@ -69,6 +65,9 @@ std::vector<WorkloadConfig> EnumerateConfigs() {
         kNumberOfEventsPerRequest);
     config.mutable_fill_events_config()->set_specification(
         FillEventsConfig::OUTPUT);
+    config.mutable_fill_events_config()
+        ->mutable_artifact_node_popularity_categorical()
+        ->set_dirichlet_alpha(kDirichletAlpha);
     configs.push_back(config);
   }
 

@@ -14,7 +14,6 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/tools/mlmd_bench/util.h"
 
-#include <random>
 #include <vector>
 
 #include "absl/time/clock.h"
@@ -211,12 +210,10 @@ tensorflow::Status GetExistingNodes(
     const FillEventsConfig& fill_events_config, MetadataStore& store,
     std::vector<Node>& existing_artifact_nodes,
     std::vector<Node>& existing_execution_nodes) {
-  FetchNode fetch_artifact_node = FetchArtifact;
-  FetchNode fetch_execution_node = FetchExecution;
-  TF_RETURN_IF_ERROR(GetExistingNodesImpl(fetch_artifact_node, store,
-                                          existing_artifact_nodes));
-  TF_RETURN_IF_ERROR(GetExistingNodesImpl(fetch_execution_node, store,
-                                          existing_execution_nodes));
+  TF_RETURN_IF_ERROR(
+      GetExistingNodesImpl(FetchArtifact, store, existing_artifact_nodes));
+  TF_RETURN_IF_ERROR(
+      GetExistingNodesImpl(FetchExecution, store, existing_execution_nodes));
   return tensorflow::Status::OK();
 }
 

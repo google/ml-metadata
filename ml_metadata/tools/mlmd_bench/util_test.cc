@@ -20,6 +20,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/metadata_store_factory.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
+#include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
 
 namespace ml_metadata {
@@ -262,51 +263,6 @@ TEST(UtilGetTest, GetNodesWithFillContextEdgesConfigTest) {
   }
 }
 
-// Tests GetExistingNodes() with FillContextEdgesConfig as input.
-TEST(UtilGetTest, GetNodesWithFillContextEdgesConfigTest) {
-  std::unique_ptr<MetadataStore> store;
-  ConnectionConfig mlmd_config;
-  // Uses a fake in-memory SQLite database for testing.
-  mlmd_config.mutable_fake_database();
-  TF_ASSERT_OK(CreateMetadataStore(mlmd_config, &store));
-  // InsertTypesInDb() has passed the tests.
-  TF_ASSERT_OK(InsertTypesInDb(
-      /*num_artifact_types=*/kNumberOfInsertedArtifactTypes,
-      /*num_execution_types=*/kNumberOfInsertedExecutionTypes,
-      /*num_context_types=*/kNumberOfInsertedContextTypes, *store));
-  // InsertNodesInDb() has passed the tests.
-  TF_ASSERT_OK(InsertNodesInDb(
-      /*num_artifact_nodes=*/kNumberOfInsertedArtifacts,
-      /*num_execution_nodes=*/kNumberOfInsertedExecutions,
-      /*num_context_nodes=*/kNumberOfInsertedContexts, *store));
-
-  {
-    std::vector<Node> existing_non_context_nodes;
-    std::vector<Node> existing_context_nodes;
-    FillContextEdgesConfig fill_context_edges_config;
-    fill_context_edges_config.set_specification(
-        FillContextEdgesConfig::ATTRIBUTION);
-    TF_ASSERT_OK(GetExistingNodes(fill_context_edges_config, *store,
-                                  existing_non_context_nodes,
-                                  existing_context_nodes));
-    EXPECT_EQ(kNumberOfInsertedArtifacts, existing_non_context_nodes.size());
-    EXPECT_EQ(kNumberOfInsertedContexts, existing_context_nodes.size());
-  }
-
-  {
-    std::vector<Node> existing_non_context_nodes;
-    std::vector<Node> existing_context_nodes;
-    FillContextEdgesConfig fill_context_edges_config;
-    fill_context_edges_config.set_specification(
-        FillContextEdgesConfig::ASSOCIATION);
-    TF_ASSERT_OK(GetExistingNodes(fill_context_edges_config, *store,
-                                  existing_non_context_nodes,
-                                  existing_context_nodes));
-    EXPECT_EQ(kNumberOfInsertedExecutions, existing_non_context_nodes.size());
-    EXPECT_EQ(kNumberOfInsertedContexts, existing_context_nodes.size());
-  }
-}
-
 // Tests GetExistingNodes() with FillEventsConfig as input.
 TEST(UtilGetTest, GetNodesWithFillEventsConfigTest) {
   std::unique_ptr<MetadataStore> store;
@@ -314,25 +270,38 @@ TEST(UtilGetTest, GetNodesWithFillEventsConfigTest) {
   // Uses a fake in-memory SQLite database for testing.
   mlmd_config.mutable_fake_database();
   TF_ASSERT_OK(CreateMetadataStore(mlmd_config, &store));
-  // InsertTypesInDb() has passed the tests.
   TF_ASSERT_OK(InsertTypesInDb(
       /*num_artifact_types=*/kNumberOfInsertedArtifactTypes,
       /*num_execution_types=*/kNumberOfInsertedExecutionTypes,
       /*num_context_types=*/kNumberOfInsertedContextTypes, *store));
-  // InsertNodesInDb() has passed the tests.
   TF_ASSERT_OK(InsertNodesInDb(
       /*num_artifact_nodes=*/kNumberOfInsertedArtifacts,
       /*num_execution_nodes=*/kNumberOfInsertedExecutions,
       /*num_context_nodes=*/kNumberOfInsertedContexts, *store));
 
-  std::vector<Node> existing_artifact_nodes;
-  std::vector<Node> existing_execution_nodes;
-  FillEventsConfig fill_events_config;
-  TF_ASSERT_OK(GetExistingNodes(fill_events_config, *store,
-                                existing_artifact_nodes,
-                                existing_execution_nodes));
-  EXPECT_EQ(kNumberOfInsertedArtifacts, existing_artifact_nodes.size());
-  EXPECT_EQ(kNumberOfInsertedExecutions, existing_execution_nodes.size());
+  {
+    std::vector<Node> existing_artifact_nodes;
+    std::vector<Node> existing_execution_nodes;
+    FillEventsConfig fill_events_config;
+    fill_events_config.set_specification(FillEventsConfig::INPUT);
+    TF_ASSERT_OK(GetExistingNodes(fill_events_config, *store,
+                                  existing_artifact_nodes,
+                                  existing_execution_nodes));
+    EXPECT_EQ(kNumberOfInsertedArtifacts, existing_artifact_nodes.size());
+    EXPECT_EQ(kNumberOfInsertedExecutions, existing_execution_nodes.size());
+  }
+
+  {
+    std::vector<Node> existing_artifact_nodes;
+    std::vector<Node> existing_execution_nodes;
+    FillEventsConfig fill_events_config;
+    fill_events_config.set_specification(FillEventsConfig::OUTPUT);
+    TF_ASSERT_OK(GetExistingNodes(fill_events_config, *store,
+                                  existing_artifact_nodes,
+                                  existing_execution_nodes));
+    EXPECT_EQ(kNumberOfInsertedArtifacts, existing_artifact_nodes.size());
+    EXPECT_EQ(kNumberOfInsertedExecutions, existing_execution_nodes.size());
+  }
 }
 
 }  // namespace

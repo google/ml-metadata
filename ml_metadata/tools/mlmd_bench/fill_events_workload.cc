@@ -14,6 +14,8 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/tools/mlmd_bench/fill_events_workload.h"
 
+#include <math.h>
+
 #include <random>
 #include <vector>
 
@@ -49,6 +51,46 @@ GenerateCategoricalDistributionWithDirichletPrior(
   return std::discrete_distribution<int64>{weights.begin(), weights.end()};
 }
 
+// Generates and returns a zipf distribution with a configurable `skew`
+// specified by `dist`.
+std::discrete_distribution<int64> GenerateZipfDistributionWithConfigurableSkew(
+    const int64 sample_size, const ZipfDistribution& dist) {
+  std::vector<double> weights(sample_size);
+  for (int64 i = 0; i < sample_size; ++i) {
+    // Here, we discard the normalize factor since the `discrete_distribution`
+    // will perform the normalization for us.
+    weights[i] = 1 / pow(i, dist.skew());
+  }
+  // Uses these random number generated w.r.t. a zipf distribution with a
+  // configurable `skew` to represent the possibility of being chosen for each
+  // integer within [0, sample_size) in a discrete distribution.
+  return std::discrete_distribution<int64>{weights.begin(), weights.end()};
+}
+
+// Generates and returns the artifact popularity according to the type of
+// event.
+std::discrete_distribution<int64> GeneratePopularityDistributionForArtifacts(
+    const FillEventsConfig& fill_events_config, const int64 sample_size,
+    std::minstd_rand0& gen) {
+  switch (fill_events_config.specification()) {
+    case FillEventsConfig::INPUT: {
+      return GenerateZipfDistributionWithConfigurableSkew(
+          sample_size, fill_events_config.artifact_node_popularity_zipf());
+    }
+    case FillEventsConfig::OUTPUT: {
+      return GenerateCategoricalDistributionWithDirichletPrior(
+          sample_size,
+          fill_events_config.artifact_node_popularity_categorical(), gen);
+    }
+    default:
+      LOG(FATAL) << "Wrong specification for FillEvents!";
+  }
+}
+
+// Checks if `output_artifact_id` has been outputted in current setup(all the
+// previous outputted artifact ids have been stored inside
+// `output_artifact_ids`). Returns true if `output_artifact_id` has been
+// outputted before, otherwise, returns false.
 bool CheckDuplicateOutputArtifactInCurrentSetUp(
     const int64 output_artifact_id,
     std::unordered_set<int64>& output_artifact_ids) {
@@ -151,9 +193,10 @@ FillEvents::FillEvents(const FillEventsConfig& fill_events_config,
                        int64 num_operations)
     : fill_events_config_(fill_events_config),
       num_operations_(num_operations),
-      name_(absl::StrCat("FILL_EVENTS_",
+      name_(absl::StrCat("FILL_",
                          fill_events_config_.Specification_Name(
-                             fill_events_config_.specification()))) {}
+                             fill_events_config_.specification()),
+                         "_EVENTS")) {}
 
 tensorflow::Status FillEvents::SetUpImpl(MetadataStore* store) {
   LOG(INFO) << "Setting up ...";
@@ -170,16 +213,14 @@ tensorflow::Status FillEvents::SetUpImpl(MetadataStore* store) {
                                       existing_execution_nodes));
 
   std::minstd_rand0 gen(absl::ToUnixMillis(absl::Now()));
-  // TODO(briansong) Adds Zipf distribution implementation for artifact index
-  // distribution.
-  std::discrete_distribution<int64> artifact_index_dist =
-      GenerateCategoricalDistributionWithDirichletPrior(
-          existing_artifact_nodes.size(),
-          fill_events_config_.artifact_node_popularity_categorical(), gen);
+
   std::discrete_distribution<int64> execution_index_dist =
       GenerateCategoricalDistributionWithDirichletPrior(
           existing_execution_nodes.size(),
           fill_events_config_.execution_node_popularity(), gen);
+  std::discrete_distribution<int64> artifact_index_dist =
+      GeneratePopularityDistributionForArtifacts(
+          fill_events_config_, existing_artifact_nodes.size(), gen);
 
   for (int64 i = 0; i < num_operations_; ++i) {
     curr_bytes = 0;

@@ -62,8 +62,8 @@ tensorflow::Status GetExistingNodes(
     MetadataStore& store, std::vector<Node>& existing_non_context_nodes,
     std::vector<Node>& existing_context_nodes);
 
-// Gets existing artifacts and executions inside db and store
-// them into `existing_artifact_nodes` and `existing_execution_nodes` given
+// Gets existing artifacts and executions inside db and store them into
+// `existing_artifact_nodes` and `existing_execution_nodes` given
 // `fill_events_config`. Returns detailed error if query executions
 // failed.
 tensorflow::Status GetExistingNodes(
