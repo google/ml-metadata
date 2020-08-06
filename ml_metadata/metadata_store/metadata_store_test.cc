@@ -31,19 +31,25 @@ namespace ml_metadata {
 namespace testing {
 namespace {
 
+std::unique_ptr<MetadataStore> CreateMetadataStore() {
+  auto metadata_source =
+      absl::make_unique<SqliteMetadataSource>(SqliteMetadataSourceConfig());
+  auto transaction_executor =
+      absl::make_unique<RdbmsTransactionExecutor>(metadata_source.get());
+
+  std::unique_ptr<MetadataStore> metadata_store;
+  TF_CHECK_OK(MetadataStore::Create(util::GetSqliteMetadataSourceQueryConfig(),
+                                    {}, std::move(metadata_source),
+                                    std::move(transaction_executor),
+                                    &metadata_store));
+  TF_CHECK_OK(metadata_store->InitMetadataStore());
+  return metadata_store;
+}
+
 class RDBMSMetadataStoreContainer : public MetadataStoreContainer {
  public:
   RDBMSMetadataStoreContainer() : MetadataStoreContainer() {
-    auto metadata_source =
-        absl::make_unique<SqliteMetadataSource>(SqliteMetadataSourceConfig());
-    auto transaction_executor =
-        absl::make_unique<RdbmsTransactionExecutor>(metadata_source.get());
-
-    TF_CHECK_OK(MetadataStore::Create(
-        util::GetSqliteMetadataSourceQueryConfig(), {},
-        std::move(metadata_source), std::move(transaction_executor),
-        &metadata_store_));
-    TF_CHECK_OK(metadata_store_->InitMetadataStore());
+    metadata_store_ = CreateMetadataStore();
   }
 
   ~RDBMSMetadataStoreContainer() override = default;
@@ -112,6 +118,7 @@ TEST(MetadataStoreExtendedTest, SpecifyDowngradeMigrationWhenCreate) {
   }
   TF_EXPECT_OK(tensorflow::Env::Default()->DeleteFile(filename_uri));
 }
+
 
 }  // namespace
 

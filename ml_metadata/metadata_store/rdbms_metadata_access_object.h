@@ -203,6 +203,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   int64 GetLibraryVersion() final { return executor_->GetLibraryVersion(); }
 
+
  private:
   ///////// These methods are implementations details //////////////////////////
 

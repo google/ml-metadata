@@ -405,6 +405,7 @@ class MetadataAccessObject {
   // config with the `schema_version` stored in the database, and migrate the
   // database if needed.
   virtual int64 GetLibraryVersion() = 0;
+
 };
 
 }  // namespace ml_metadata

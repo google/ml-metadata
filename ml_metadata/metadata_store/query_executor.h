@@ -432,6 +432,7 @@ class QueryExecutor {
   // next page of results.
   virtual tensorflow::Status ListContextIDsUsingOptions(
       const ListOperationOptions& options, RecordSet* record_set) = 0;
+
 };
 
 }  // namespace ml_metadata
