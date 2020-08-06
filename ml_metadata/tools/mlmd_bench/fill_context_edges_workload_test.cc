@@ -34,7 +34,7 @@ constexpr int kNumberOfExistedNodesInDb = 145;
 constexpr int kNumberOfExistedContextEdgesInDb = 105;
 constexpr int kNumberOfEdgesPerRequest = 5;
 
-constexpr char config_str[] = R"(
+constexpr char kConfig[] = R"(
         fill_context_edges_config: {
           non_context_node_popularity: {dirichlet_alpha : 1}
           context_node_popularity: {dirichlet_alpha : 1}
@@ -48,7 +48,7 @@ std::vector<WorkloadConfig> EnumerateConfigs() {
 
   {
     WorkloadConfig config =
-        testing::ParseTextProtoOrDie<WorkloadConfig>(config_str);
+        testing::ParseTextProtoOrDie<WorkloadConfig>(kConfig);
     config.set_num_operations(kNumberOfOperations);
     config.mutable_fill_context_edges_config()
         ->mutable_num_edges()
@@ -63,7 +63,7 @@ std::vector<WorkloadConfig> EnumerateConfigs() {
 
   {
     WorkloadConfig config =
-        testing::ParseTextProtoOrDie<WorkloadConfig>(config_str);
+        testing::ParseTextProtoOrDie<WorkloadConfig>(kConfig);
     config.set_num_operations(kNumberOfOperations);
     config.mutable_fill_context_edges_config()
         ->mutable_num_edges()
