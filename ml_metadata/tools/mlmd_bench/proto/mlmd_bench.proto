@@ -88,8 +88,9 @@ message FillNodesConfig {
 // Creates context edges: Attributions / Associations.
 message FillContextEdgesConfig {
   enum Specification {
-    ATTRIBUTION = 0;
-    ASSOCIATION = 1;
+    UNKNOWN = 0;
+    ATTRIBUTION = 1;
+    ASSOCIATION = 2;
   }
   // Indicates which type of context's edge to be filled.
   optional Specification specification = 1;
