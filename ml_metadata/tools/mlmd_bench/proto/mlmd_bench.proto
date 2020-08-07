@@ -116,8 +116,9 @@ message FillContextEdgesConfig {
 // Creates input / output events.
 message FillEventsConfig {
   enum Specification {
-    INPUT = 0;
-    OUTPUT = 1;
+    UNKNOWN = 0;
+    INPUT = 1;
+    OUTPUT = 2;
   }
   // Indicates the type (input / output) of the events.
   optional Specification specification = 1;
