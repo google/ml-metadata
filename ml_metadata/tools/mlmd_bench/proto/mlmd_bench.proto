@@ -45,6 +45,14 @@ message CategoricalDistribution {
   optional double dirichlet_alpha = 1;
 }
 
+// A zipf distribution with a configurable `skew`, for modeling the 
+// popularity of heavily used input artifacts.
+message ZipfDistribution {
+  // Configurable skew for zipf distribution to adjust the popularity 
+  // distribution.
+  optional double skew = 1;
+}
+
 // Creates and updates types: ArtifactTypes / ExecutionTypes / ContextTypes.
 message FillTypesConfig {
   // The FillTypesConfig can be set to insert or update types.
@@ -104,12 +112,38 @@ message FillContextEdgesConfig {
   optional UniformDistribution num_edges = 4;
 }
 
+// Creates input / output events.
+message FillEventsConfig {
+  enum Specification {
+    INPUT = 0;
+    OUTPUT = 1;
+  }
+  // Indicates the type (input / output) of the events.
+  optional Specification specification = 1;
+  // Describes the popularity for the execution nodes,
+  // modeled by a categorical distribution with a Dirichlet prior.
+  optional CategoricalDistribution execution_node_popularity = 2;
+  // Describe the popularity for the artifact nodes.
+  oneof artifact_node_popularity {
+    // The popularity distribution for artifact node's will be a
+    // categorical distribution if the event is an output event.
+    CategoricalDistribution artifact_node_popularity_categorical = 3;
+    // The popularity distribution for artifact node's will be a
+    // zipf distribution if the event is an input event.
+    ZipfDistribution artifact_node_popularity_zipf = 4;
+  }
+  // Specifies the number of events to be filled per request, 
+  // modeled by a uniform distribution.
+  optional UniformDistribution num_events = 5;
+}
+
 // The mlmd_bench workload config.
 message WorkloadConfig {
   oneof workload_config {
     FillTypesConfig fill_types_config = 1;
     FillNodesConfig fill_nodes_config = 3;
     FillContextEdgesConfig fill_context_edges_config = 4;
+    FillEventsConfig fill_events_config = 5;
   }
   // The number of operations to be run in parallel.
   optional int64 num_operations = 2;
