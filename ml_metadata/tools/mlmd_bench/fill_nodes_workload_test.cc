@@ -36,7 +36,7 @@ constexpr int kNumberOfExistedTypesInDb = 100;
 constexpr int kNumberOfExistedNodesInDb = 100;
 constexpr int kNumberOfNodesPerRequest = 10;
 
-constexpr auto config_str = R"(
+constexpr char kConfig[] = R"(
         fill_nodes_config: {
           num_properties: { minimum: 1 maximum: 10 }
           string_value_bytes: { minimum: 1 maximum: 10 }
@@ -50,7 +50,7 @@ std::vector<WorkloadConfig> EnumerateConfigs(const bool is_update) {
 
   {
     WorkloadConfig config =
-        testing::ParseTextProtoOrDie<WorkloadConfig>(config_str);
+        testing::ParseTextProtoOrDie<WorkloadConfig>(kConfig);
     config.set_num_operations(kNumberOfOperations);
     config.mutable_fill_nodes_config()->mutable_num_nodes()->set_minimum(
         kNumberOfNodesPerRequest);
@@ -64,7 +64,7 @@ std::vector<WorkloadConfig> EnumerateConfigs(const bool is_update) {
 
   {
     WorkloadConfig config =
-        testing::ParseTextProtoOrDie<WorkloadConfig>(config_str);
+        testing::ParseTextProtoOrDie<WorkloadConfig>(kConfig);
     config.set_num_operations(kNumberOfOperations);
     config.mutable_fill_nodes_config()->mutable_num_nodes()->set_minimum(
         kNumberOfNodesPerRequest);
@@ -78,7 +78,7 @@ std::vector<WorkloadConfig> EnumerateConfigs(const bool is_update) {
 
   {
     WorkloadConfig config =
-        testing::ParseTextProtoOrDie<WorkloadConfig>(config_str);
+        testing::ParseTextProtoOrDie<WorkloadConfig>(kConfig);
     config.set_num_operations(kNumberOfOperations);
     config.mutable_fill_nodes_config()->mutable_num_nodes()->set_minimum(
         kNumberOfNodesPerRequest);

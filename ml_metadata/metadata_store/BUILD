@@ -72,6 +72,7 @@ cc_library(
         ":query_executor",
         "@com_google_protobuf//:protobuf",
         
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",

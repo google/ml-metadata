@@ -630,45 +630,49 @@ tensorflow::Status MetadataStore::PutExecution(
 tensorflow::Status MetadataStore::GetEventsByExecutionIDs(
     const GetEventsByExecutionIDsRequest& request,
     GetEventsByExecutionIDsResponse* response) {
-  return transaction_executor_->Execute([this, &request,
-                                         &response]() -> tensorflow::Status {
-    response->Clear();
-    for (const int64 execution_id : request.execution_ids()) {
-      std::vector<Event> events;
-      const tensorflow::Status status =
-          metadata_access_object_->FindEventsByExecution(execution_id, &events);
-      if (status.ok()) {
+  return transaction_executor_->Execute(
+      [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
+        std::vector<Event> events;
+        const tensorflow::Status status =
+            metadata_access_object_->FindEventsByExecutions(
+                std::vector<int64>(request.execution_ids().begin(),
+                              request.execution_ids().end()),
+                &events);
+        if (tensorflow::errors::IsNotFound(status)) {
+          return tensorflow::Status::OK();
+        } else if (!status.ok()) {
+          return status;
+        }
         for (const Event& event : events) {
           *response->mutable_events()->Add() = event;
         }
-      } else if (!tensorflow::errors::IsNotFound(status)) {
-        return status;
-      }
-    }
-    return tensorflow::Status::OK();
-  });
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::GetEventsByArtifactIDs(
     const GetEventsByArtifactIDsRequest& request,
     GetEventsByArtifactIDsResponse* response) {
-  return transaction_executor_->Execute([this, &request,
-                                         &response]() -> tensorflow::Status {
-    response->Clear();
-    for (const int64 artifact_id : request.artifact_ids()) {
-      std::vector<Event> events;
-      const tensorflow::Status status =
-          metadata_access_object_->FindEventsByArtifact(artifact_id, &events);
-      if (status.ok()) {
+  return transaction_executor_->Execute(
+      [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
+        std::vector<Event> events;
+        const tensorflow::Status status =
+            metadata_access_object_->FindEventsByArtifacts(
+                std::vector<int64>(request.artifact_ids().begin(),
+                              request.artifact_ids().end()),
+                &events);
+        if (tensorflow::errors::IsNotFound(status)) {
+          return tensorflow::Status::OK();
+        } else if (!status.ok()) {
+          return status;
+        }
         for (const Event& event : events) {
           *response->mutable_events()->Add() = event;
         }
-      } else if (!tensorflow::errors::IsNotFound(status)) {
-        return status;
-      }
-    }
-    return tensorflow::Status::OK();
-  });
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::GetExecutions(
@@ -1081,6 +1085,7 @@ tensorflow::Status MetadataStore::GetExecutionsByContext(
         return tensorflow::Status::OK();
       });
 }
+
 
 MetadataStore::MetadataStore(
     std::unique_ptr<MetadataSource> metadata_source,

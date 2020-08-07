@@ -46,7 +46,7 @@ function setup_environment() {
   export PYTHON_BIN_PATH="${PYTHON_DIR}"/bin/python
   echo "PYTHON_BIN_PATH=${PYTHON_BIN_PATH}"
   ${PIP_BIN} install --upgrade pip
-  ${PIP_BIN} install wheel
+  ${PIP_BIN} install --upgrade wheel
   ${PIP_BIN} install numpy
   # Auditwheel does not have a python2 version and auditwheel is just a binary.
   pip3 install auditwheel

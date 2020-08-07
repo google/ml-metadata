@@ -345,17 +345,15 @@ class MetadataAccessObject {
   virtual tensorflow::Status CreateEvent(const Event& event,
                                          int64* event_id) = 0;
 
-  // Queries the events associated with an artifact_id.
+  // Queries the events associated with a collection of artifact_ids.
   // Returns INVALID_ARGUMENT error, if the `events` is null.
-  // Returns NOT_FOUND error, if there are no events found with the `artifact`.
-  virtual tensorflow::Status FindEventsByArtifact(
-      int64 artifact_id, std::vector<Event>* events) = 0;
+  virtual tensorflow::Status FindEventsByArtifacts(
+      const std::vector<int64>& artifact_ids, std::vector<Event>* events) = 0;
 
-  // Queries the events associated with an execution_id.
+  // Queries the events associated with a collection of execution_ids.
   // Returns INVALID_ARGUMENT error, if the `events` is null.
-  // Returns NOT_FOUND error, if there are no events found with the `execution`.
-  virtual tensorflow::Status FindEventsByExecution(
-      int64 execution_id, std::vector<Event>* events) = 0;
+  virtual tensorflow::Status FindEventsByExecutions(
+      const std::vector<int64>& execution_ids, std::vector<Event>* events) = 0;
 
   // Creates an association, returns the assigned association id.
   // Returns INVALID_ARGUMENT error, if no context matches the context_id.
@@ -407,6 +405,7 @@ class MetadataAccessObject {
   // config with the `schema_version` stored in the database, and migrate the
   // database if needed.
   virtual int64 GetLibraryVersion() = 0;
+
 };
 
 }  // namespace ml_metadata

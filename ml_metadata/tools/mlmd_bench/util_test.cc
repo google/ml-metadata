@@ -189,9 +189,9 @@ TEST(UtilGetTest, GetNodesWithFillNodesConfigTest) {
       /*num_execution_types=*/kNumberOfInsertedExecutionTypes,
       /*num_context_types=*/kNumberOfInsertedContextTypes, *store));
   TF_ASSERT_OK(InsertNodesInDb(
-      /*num_artifact_types=*/kNumberOfInsertedArtifacts,
-      /*num_execution_types=*/kNumberOfInsertedExecutions,
-      /*num_context_types=*/kNumberOfInsertedContexts, *store));
+      /*num_artifact_nodes=*/kNumberOfInsertedArtifacts,
+      /*num_execution_nodes=*/kNumberOfInsertedExecutions,
+      /*num_context_nodes=*/kNumberOfInsertedContexts, *store));
 
   {
     std::vector<Node> exisiting_nodes;

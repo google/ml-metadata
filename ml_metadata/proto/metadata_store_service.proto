@@ -487,6 +487,7 @@ message GetExecutionsByContextResponse {
   repeated Execution executions = 1;
 }
 
+
 // LINT.IfChange
 service MetadataStoreService {
   // Inserts or updates artifacts in the database.
@@ -822,5 +823,6 @@ service MetadataStoreService {
   // Gets all direct executions that a context associates with.
   rpc GetExecutionsByContext(GetExecutionsByContextRequest)
       returns (GetExecutionsByContextResponse) {}
+
 }
 // LINT.ThenChange(../metadata_store/metadata_store_service_interface.h)

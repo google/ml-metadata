@@ -101,7 +101,6 @@ TEST(BenchmarkTest, CreatFillNodesWorkloadTest) {
               num_operations: 150
             }
           )");
-
   Benchmark benchmark(mlmd_bench_config);
   EXPECT_EQ(benchmark.num_workloads(),
             mlmd_bench_config.workload_configs_size());

@@ -6,6 +6,8 @@
 
 *   Python MetadataStore now exposes get_artifact_by_type_and_name and
     get_execution_by_type_and_name methods.
+*   Improves query performance of get_events_by_execution_ids and
+    get_events_by_artifact_ids by combing multiple queries.
 
 ## Breaking Changes
 

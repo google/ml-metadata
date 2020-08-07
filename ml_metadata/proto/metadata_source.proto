@@ -47,7 +47,7 @@ enum MetadataSourceType {
 
 // A config includes a set of SQL queries and the type of metadata source.
 // It is used by MetadataAccessObject to init backend and issue queries.
-// Next ID: 96
+// Next ID: 99
 message MetadataSourceQueryConfig {
   // the type of the metadata source
   MetadataSourceType metadata_source_type = 1;
@@ -369,14 +369,15 @@ message MetadataSourceQueryConfig {
   // $3 is the event time
   TemplateQuery insert_event = 37;
 
-  // Queries events from the Event table by its artifact id. It has 1 parameter.
-  // $0 is the artifact_id
-  TemplateQuery select_event_by_artifact_id = 38;
+  // Queries events from the Event table by a collection of artifact ids. It has
+  // 1 parameter.
+  // $0 is the collection string of artifact ids joined by ", ".
+  TemplateQuery select_event_by_artifact_ids = 96;
 
-  // Queries events from the Event table by its execution id. It has 1
-  // parameter.
-  // $0 is the execution_id
-  TemplateQuery select_event_by_execution_id = 39;
+  // Queries events from the Event table by a collection of execution ids. It
+  // has 1 parameter.
+  // $0 is the collection string of execution ids joined by ", ".
+  TemplateQuery select_event_by_execution_ids = 97;
 
   // Drops the EventPath table.
   TemplateQuery drop_event_path_table = 40;
@@ -394,9 +395,10 @@ message MetadataSourceQueryConfig {
   // $3 is the value of the step
   TemplateQuery insert_event_path = 42;
 
-  // Queries paths from the EventPath table. It has 1 parameter.
-  // $0 is the event_i
-  TemplateQuery select_event_path_by_event_id = 43;
+  // Queries paths from the EventPath table by a collection of event ids. It has
+  // 1 parameter.
+  // $0 is the collection string of event ids joined by ", ".
+  TemplateQuery select_event_path_by_event_ids = 98;
 
   // Drops the Association table.
   TemplateQuery drop_association_table = 81;
@@ -478,6 +480,8 @@ message MetadataSourceQueryConfig {
   // Check the database is a valid database produced by 0.13.2 MLMD release.
   // The schema version and migration are introduced after that release.
   TemplateQuery check_tables_in_v0_13_2 = 65;
+
+  reserved 38, 39, 43;
 
   // A migration scheme that is used by a migration function to transit a
   // database at a schema_version to schema_version + 1.

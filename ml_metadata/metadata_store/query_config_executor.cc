@@ -261,6 +261,10 @@ std::string QueryConfigExecutor::Bind(Execution::State value) {
   return std::to_string((int)value);
 }
 
+std::string QueryConfigExecutor::Bind(const std::vector<int64>& value) {
+  return absl::StrJoin(value, ", ");
+}
+
 std::string QueryConfigExecutor::BindValue(const Value& value) {
   switch (value.value_case()) {
     case PropertyType::INT:
@@ -505,4 +509,6 @@ tensorflow::Status QueryConfigExecutor::ListContextIDsUsingOptions(
     const ListOperationOptions& options, RecordSet* record_set) {
   return ListNodeIDsUsingOptions<Context>(options, record_set);
 }
+
+
 }  // namespace ml_metadata
