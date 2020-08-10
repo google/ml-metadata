@@ -177,6 +177,102 @@ TEST(UtilGetTest, GetTypesWithFillNodesConfigTest) {
   }
 }
 
+// Tests GetExistingTypes() with ReadTypesConfig as input.
+TEST(UtilGetTest, GetTypesWithReadTypesConfigTest) {
+  std::unique_ptr<MetadataStore> store;
+  ConnectionConfig mlmd_config;
+  // Uses a fake in-memory SQLite database for testing.
+  mlmd_config.mutable_fake_database();
+  TF_ASSERT_OK(CreateMetadataStore(mlmd_config, &store));
+  TF_ASSERT_OK(InsertTypesInDb(
+      /*num_artifact_types=*/kNumberOfInsertedArtifactTypes,
+      /*num_execution_types=*/kNumberOfInsertedExecutionTypes,
+      /*num_context_types=*/kNumberOfInsertedContextTypes, *store));
+
+  {
+    std::vector<Type> exisiting_types;
+    ReadTypesConfig read_types_config;
+    read_types_config.set_specification(ReadTypesConfig::ALL_ARTIFACT_TYPES);
+    TF_ASSERT_OK(GetExistingTypes(read_types_config, *store, exisiting_types));
+    EXPECT_THAT(exisiting_types,
+                ::testing::SizeIs(kNumberOfInsertedArtifactTypes));
+  }
+
+  {
+    std::vector<Type> exisiting_types;
+    ReadTypesConfig read_types_config;
+    read_types_config.set_specification(ReadTypesConfig::ARTIFACT_TYPES_BY_IDs);
+    TF_ASSERT_OK(GetExistingTypes(read_types_config, *store, exisiting_types));
+    EXPECT_THAT(exisiting_types,
+                ::testing::SizeIs(kNumberOfInsertedArtifactTypes));
+  }
+
+  {
+    std::vector<Type> exisiting_types;
+    ReadTypesConfig read_types_config;
+    read_types_config.set_specification(ReadTypesConfig::ARTIFACT_TYPE_BY_NAME);
+    TF_ASSERT_OK(GetExistingTypes(read_types_config, *store, exisiting_types));
+    EXPECT_THAT(exisiting_types,
+                ::testing::SizeIs(kNumberOfInsertedArtifactTypes));
+  }
+
+  {
+    std::vector<Type> exisiting_types;
+    ReadTypesConfig read_types_config;
+    read_types_config.set_specification(ReadTypesConfig::ALL_EXECUTION_TYPES);
+    TF_ASSERT_OK(GetExistingTypes(read_types_config, *store, exisiting_types));
+    EXPECT_THAT(exisiting_types,
+                ::testing::SizeIs(kNumberOfInsertedExecutionTypes));
+  }
+
+  {
+    std::vector<Type> exisiting_types;
+    ReadTypesConfig read_types_config;
+    read_types_config.set_specification(
+        ReadTypesConfig::EXECUTION_TYPES_BY_IDs);
+    TF_ASSERT_OK(GetExistingTypes(read_types_config, *store, exisiting_types));
+    EXPECT_THAT(exisiting_types,
+                ::testing::SizeIs(kNumberOfInsertedExecutionTypes));
+  }
+
+  {
+    std::vector<Type> exisiting_types;
+    ReadTypesConfig read_types_config;
+    read_types_config.set_specification(
+        ReadTypesConfig::EXECUTION_TYPE_BY_NAME);
+    TF_ASSERT_OK(GetExistingTypes(read_types_config, *store, exisiting_types));
+    EXPECT_THAT(exisiting_types,
+                ::testing::SizeIs(kNumberOfInsertedExecutionTypes));
+  }
+
+  {
+    std::vector<Type> exisiting_types;
+    ReadTypesConfig read_types_config;
+    read_types_config.set_specification(ReadTypesConfig::ALL_CONTEXT_TYPES);
+    TF_ASSERT_OK(GetExistingTypes(read_types_config, *store, exisiting_types));
+    EXPECT_THAT(exisiting_types,
+                ::testing::SizeIs(kNumberOfInsertedContextTypes));
+  }
+
+  {
+    std::vector<Type> exisiting_types;
+    ReadTypesConfig read_types_config;
+    read_types_config.set_specification(ReadTypesConfig::CONTEXT_TYPES_BY_IDs);
+    TF_ASSERT_OK(GetExistingTypes(read_types_config, *store, exisiting_types));
+    EXPECT_THAT(exisiting_types,
+                ::testing::SizeIs(kNumberOfInsertedContextTypes));
+  }
+
+  {
+    std::vector<Type> exisiting_types;
+    ReadTypesConfig read_types_config;
+    read_types_config.set_specification(ReadTypesConfig::CONTEXT_TYPE_BY_NAME);
+    TF_ASSERT_OK(GetExistingTypes(read_types_config, *store, exisiting_types));
+    EXPECT_THAT(exisiting_types,
+                ::testing::SizeIs(kNumberOfInsertedContextTypes));
+  }
+}
+
 // Tests GetExistingNodes() with FillNodesConfig as input.
 TEST(UtilGetTest, GetNodesWithFillNodesConfigTest) {
   std::unique_ptr<MetadataStore> store;
