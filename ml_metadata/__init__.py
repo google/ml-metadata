@@ -11,7 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+"""Init module for ML Metadata."""
+# Import metadata_store lib.
+from ml_metadata.metadata_store import MetadataStore
 
 # Import version string.
 from ml_metadata.version import __version__
