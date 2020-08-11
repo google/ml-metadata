@@ -253,13 +253,23 @@ message GetArtifactsByIDResponse {
   repeated Artifact artifacts = 1;
 }
 
+// Request to retrieve Artifacts using List options.
+// If option is not specified then all Artifacts are returned.
 message GetArtifactsRequest {
-  // TODO(martinz): add query constraints here.
+  // Specify options.
+  // Currently supports:
+  //   1. Field to order the results.
+  //   2. Page size.
+  optional ListOperationOptions options = 1;
 }
 
 message GetArtifactsResponse {
-  // All artifacts.
+  // Returned artifacts.
   repeated Artifact artifacts = 1;
+
+  // Token to use to retreive next page of results if list options are used in
+  // the request.
+  optional string next_page_token = 2;
 }
 
 message GetArtifactsByURIRequest {

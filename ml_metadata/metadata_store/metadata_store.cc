@@ -698,19 +698,33 @@ tensorflow::Status MetadataStore::GetExecutions(
 tensorflow::Status MetadataStore::GetArtifacts(
     const GetArtifactsRequest& request, GetArtifactsResponse* response) {
   return transaction_executor_->Execute(
-      [this, &response]() -> tensorflow::Status {
+      [this, &request, &response]() -> tensorflow::Status {
         response->Clear();
         std::vector<Artifact> artifacts;
-        const tensorflow::Status status =
-            metadata_access_object_->FindArtifacts(&artifacts);
+        tensorflow::Status status;
+        std::string next_page_token;
+        if (request.has_options()) {
+          status = metadata_access_object_->ListArtifacts(
+              request.options(), &artifacts, &next_page_token);
+          response->set_next_page_token(next_page_token);
+        } else {
+          status = metadata_access_object_->FindArtifacts(&artifacts);
+        }
+
         if (tensorflow::errors::IsNotFound(status)) {
           return tensorflow::Status::OK();
         } else if (!status.ok()) {
           return status;
         }
+
         for (const Artifact& artifact : artifacts) {
           *response->mutable_artifacts()->Add() = artifact;
         }
+
+        if (next_page_token.empty()) {
+          response->set_next_page_token(next_page_token);
+        }
+
         return tensorflow::Status::OK();
       });
 }

@@ -336,9 +336,8 @@ class MetadataStore : public MetadataStoreServiceInterface {
       const GetArtifactsByIDRequest& request,
       GetArtifactsByIDResponse* response) override;
 
-  // Gets all artifacts.
-  // Returns detailed INTERNAL error, if query execution fails.
-  // TODO(b/120853124): add predicates
+  // Retrieve artifacts using list options.
+  // If option is not set in the request, then all Artifacts are returned.
   tensorflow::Status GetArtifacts(const GetArtifactsRequest& request,
                                   GetArtifactsResponse* response) override;
 

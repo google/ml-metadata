@@ -29,6 +29,7 @@ namespace {
 
 using ::ml_metadata::testing::ParseTextProtoOrDie;
 using ::testing::ElementsAre;
+using ::testing::IsEmpty;
 using ::testing::SizeIs;
 using ::testing::UnorderedElementsAre;
 
@@ -662,6 +663,81 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsUpdateGetArtifactsByID) {
       get_artifacts_by_id_response.artifacts(0),
       testing::EqualsProto(put_artifacts_request_2.artifacts(0),
                            /*ignore_fields=*/{"create_time_since_epoch",
+                                              "last_update_time_since_epoch"}));
+}
+
+TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithListOptions) {
+  const PutArtifactTypeRequest put_artifact_type_request =
+      ParseTextProtoOrDie<PutArtifactTypeRequest>(
+          R"(
+            all_fields_match: true
+            artifact_type: {
+              name: 'test_type2'
+              properties { key: 'property' value: STRING }
+            }
+          )");
+  PutArtifactTypeResponse put_artifact_type_response;
+  TF_ASSERT_OK(metadata_store_->PutArtifactType(put_artifact_type_request,
+                                                &put_artifact_type_response));
+  ASSERT_TRUE(put_artifact_type_response.has_type_id());
+
+  const int64 type_id = put_artifact_type_response.type_id();
+
+  Artifact artifact = ParseTextProtoOrDie<Artifact>(R"(
+    uri: 'testuri://testing/uri'
+    properties {
+      key: 'property'
+      value: { string_value: '3' }
+    }
+  )");
+
+  artifact.set_type_id(type_id);
+
+  PutArtifactsRequest put_artifacts_request;
+  // Creating 2 artifacts.
+  *put_artifacts_request.add_artifacts() = artifact;
+  *put_artifacts_request.add_artifacts() = artifact;
+  PutArtifactsResponse put_artifacts_response;
+
+  TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request,
+                                             &put_artifacts_response));
+  ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(2));
+  const int64 first_artifact_id = put_artifacts_response.artifact_ids(0);
+  const int64 second_artifact_id = put_artifacts_response.artifact_ids(1);
+
+  ListOperationOptions list_options =
+      ParseTextProtoOrDie<ListOperationOptions>(R"(
+        max_result_size: 1,
+        order_by_field: { field: CREATE_TIME is_asc: false }
+      )");
+
+  GetArtifactsRequest get_artifacts_request;
+  *get_artifacts_request.mutable_options() = list_options;
+
+  GetArtifactsResponse get_artifacts_response;
+  TF_ASSERT_OK(metadata_store_->GetArtifacts(get_artifacts_request,
+                                             &get_artifacts_response));
+  EXPECT_THAT(get_artifacts_response.artifacts(), SizeIs(1));
+  EXPECT_THAT(get_artifacts_response.next_page_token(), Not(IsEmpty()));
+  EXPECT_EQ(get_artifacts_response.artifacts(0).id(), second_artifact_id);
+
+  EXPECT_THAT(
+      get_artifacts_response.artifacts(0),
+      testing::EqualsProto(put_artifacts_request.artifacts(1),
+                           /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                              "last_update_time_since_epoch"}));
+
+  list_options.set_next_page_token(get_artifacts_response.next_page_token());
+  *get_artifacts_request.mutable_options() = list_options;
+  TF_ASSERT_OK(metadata_store_->GetArtifacts(get_artifacts_request,
+                                             &get_artifacts_response));
+  EXPECT_THAT(get_artifacts_response.artifacts(), SizeIs(1));
+  EXPECT_THAT(get_artifacts_response.next_page_token(), IsEmpty());
+  EXPECT_EQ(get_artifacts_response.artifacts(0).id(), first_artifact_id);
+  EXPECT_THAT(
+      get_artifacts_response.artifacts(0),
+      testing::EqualsProto(put_artifacts_request.artifacts(0),
+                           /*ignore_fields=*/{"id", "create_time_since_epoch",
                                               "last_update_time_since_epoch"}));
 }
 

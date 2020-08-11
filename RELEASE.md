@@ -2,6 +2,9 @@
 
 ## Major Features and Improvements
 
+*   GetArtifacts now supports pagination and ordering results by ID, Create time
+    and last update time fields.
+
 ## Bug Fixes and Other Changes
 
 *   Python MetadataStore now exposes get_artifact_by_type_and_name and
