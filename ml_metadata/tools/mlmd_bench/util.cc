@@ -19,6 +19,7 @@ limitations under the License.
 #include "absl/time/clock.h"
 #include "absl/types/variant.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
+#include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
 #include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
@@ -31,6 +32,10 @@ namespace {
 // Enumeration type that indicates which node type to be fetched using
 // GetExistingTypesImpl().
 enum FetchType { FetchArtifactType, FetchExecutionType, FetchContextType };
+
+// Enumeration type that indicates which node to be fetched using
+// GetExistingNodesImpl().
+enum FetchNode { FetchArtifact, FetchExecution, FetchContext };
 
 // Prepares node's properties for inserting inside InsertNodesInDb().
 template <typename T, typename NT>
@@ -77,6 +82,42 @@ tensorflow::Status GetExistingTypesImpl(const FetchType& fetch_type,
     }
     default:
       LOG(FATAL) << "Wrong specification for getting types in db!";
+  }
+  return tensorflow::Status::OK();
+}
+
+// Detailed implementation of multiple GetExistingNodes() overload functions.
+// Returns detailed error if query executions failed.
+tensorflow::Status GetExistingNodesImpl(const FetchNode& fetch_node,
+                                        MetadataStore& store,
+                                        std::vector<Node>& existing_nodes) {
+  switch (fetch_node) {
+    case FetchArtifact: {
+      GetArtifactsResponse get_response;
+      TF_RETURN_IF_ERROR(store.GetArtifacts(/*request=*/{}, &get_response));
+      for (const Artifact& artifact : get_response.artifacts()) {
+        existing_nodes.push_back(artifact);
+      }
+      break;
+    }
+    case FetchExecution: {
+      GetExecutionsResponse get_response;
+      TF_RETURN_IF_ERROR(store.GetExecutions(/*request=*/{}, &get_response));
+      for (const Execution& execution : get_response.executions()) {
+        existing_nodes.push_back(execution);
+      }
+      break;
+    }
+    case FetchContext: {
+      GetContextsResponse get_response;
+      TF_RETURN_IF_ERROR(store.GetContexts(/*request=*/{}, &get_response));
+      for (const Context& context : get_response.contexts()) {
+        existing_nodes.push_back(context);
+      }
+      break;
+    }
+    default:
+      LOG(FATAL) << "Wrong specification for getting nodes in db!";
   }
   return tensorflow::Status::OK();
 }
@@ -134,36 +175,39 @@ tensorflow::Status GetExistingNodes(const FillNodesConfig& fill_nodes_config,
                                     std::vector<Node>& existing_nodes) {
   switch (fill_nodes_config.specification()) {
     case FillNodesConfig::ARTIFACT: {
-      GetArtifactsResponse get_response;
-      TF_RETURN_IF_ERROR(store.GetArtifacts(
-          /*request=*/{}, &get_response));
-      for (const Artifact& artifact : get_response.artifacts()) {
-        existing_nodes.push_back(artifact);
-      }
-      break;
+      return GetExistingNodesImpl(FetchArtifact, store, existing_nodes);
     }
     case FillNodesConfig::EXECUTION: {
-      GetExecutionsResponse get_response;
-      TF_RETURN_IF_ERROR(store.GetExecutions(
-          /*request=*/{}, &get_response));
-      for (const Execution& execution : get_response.executions()) {
-        existing_nodes.push_back(execution);
-      }
-      break;
+      return GetExistingNodesImpl(FetchExecution, store, existing_nodes);
     }
     case FillNodesConfig::CONTEXT: {
-      GetContextsResponse get_response;
-      TF_RETURN_IF_ERROR(store.GetContexts(
-          /*request=*/{}, &get_response));
-      for (const Context& context : get_response.contexts()) {
-        existing_nodes.push_back(context);
-      }
-      break;
+      return GetExistingNodesImpl(FetchContext, store, existing_nodes);
     }
     default:
       LOG(FATAL) << "Wrong specification for getting nodes in db!";
   }
   return tensorflow::Status::OK();
+}
+
+tensorflow::Status GetExistingNodes(
+    const FillContextEdgesConfig& fill_context_edges_config,
+    MetadataStore& store, std::vector<Node>& existing_non_context_nodes,
+    std::vector<Node>& existing_context_nodes) {
+  switch (fill_context_edges_config.specification()) {
+    case FillContextEdgesConfig::ATTRIBUTION: {
+      TF_RETURN_IF_ERROR(GetExistingNodesImpl(FetchArtifact, store,
+                                              existing_non_context_nodes));
+      break;
+    }
+    case FillContextEdgesConfig::ASSOCIATION: {
+      TF_RETURN_IF_ERROR(GetExistingNodesImpl(FetchExecution, store,
+                                              existing_non_context_nodes));
+      break;
+    }
+    default:
+      LOG(FATAL) << "Wrong specification for getting nodes in db!";
+  }
+  return GetExistingNodesImpl(FetchContext, store, existing_context_nodes);
 }
 
 tensorflow::Status InsertTypesInDb(const int64 num_artifact_types,

@@ -200,6 +200,7 @@ cc_library(
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:variant",
         "//ml_metadata/metadata_store",
+        "//ml_metadata/metadata_store:types",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/proto:metadata_store_service_proto",
         "//ml_metadata/tools/mlmd_bench/proto:mlmd_bench_proto",
