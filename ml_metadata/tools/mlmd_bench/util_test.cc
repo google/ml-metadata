@@ -14,6 +14,8 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/tools/mlmd_bench/util.h"
 
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "ml_metadata/metadata_store/metadata_store.h"
@@ -189,87 +191,30 @@ TEST(UtilGetTest, GetTypesWithReadTypesConfigTest) {
       /*num_execution_types=*/kNumberOfInsertedExecutionTypes,
       /*num_context_types=*/kNumberOfInsertedContextTypes, *store));
 
-  {
-    std::vector<Type> exisiting_types;
-    ReadTypesConfig read_types_config;
-    read_types_config.set_specification(ReadTypesConfig::ALL_ARTIFACT_TYPES);
-    TF_ASSERT_OK(GetExistingTypes(read_types_config, *store, exisiting_types));
-    EXPECT_THAT(exisiting_types,
-                ::testing::SizeIs(kNumberOfInsertedArtifactTypes));
-  }
+  std::vector<ReadTypesConfig::Specification> specification{
+      ReadTypesConfig::ALL_ARTIFACT_TYPES,
+      ReadTypesConfig::ARTIFACT_TYPES_BY_IDs,
+      ReadTypesConfig::ARTIFACT_TYPE_BY_NAME,
+      ReadTypesConfig::ALL_EXECUTION_TYPES,
+      ReadTypesConfig::EXECUTION_TYPES_BY_IDs,
+      ReadTypesConfig::EXECUTION_TYPE_BY_NAME,
+      ReadTypesConfig::ALL_CONTEXT_TYPES,
+      ReadTypesConfig::CONTEXT_TYPES_BY_IDs,
+      ReadTypesConfig::CONTEXT_TYPE_BY_NAME};
 
-  {
-    std::vector<Type> exisiting_types;
-    ReadTypesConfig read_types_config;
-    read_types_config.set_specification(ReadTypesConfig::ARTIFACT_TYPES_BY_IDs);
-    TF_ASSERT_OK(GetExistingTypes(read_types_config, *store, exisiting_types));
-    EXPECT_THAT(exisiting_types,
-                ::testing::SizeIs(kNumberOfInsertedArtifactTypes));
-  }
+  std::vector<int> size{
+      kNumberOfInsertedArtifactTypes,  kNumberOfInsertedArtifactTypes,
+      kNumberOfInsertedArtifactTypes,  kNumberOfInsertedExecutionTypes,
+      kNumberOfInsertedExecutionTypes, kNumberOfInsertedExecutionTypes,
+      kNumberOfInsertedContextTypes,   kNumberOfInsertedContextTypes,
+      kNumberOfInsertedContextTypes};
 
-  {
+  for (int i = 0; i < 9; ++i) {
     std::vector<Type> exisiting_types;
     ReadTypesConfig read_types_config;
-    read_types_config.set_specification(ReadTypesConfig::ARTIFACT_TYPE_BY_NAME);
+    read_types_config.set_specification(specification[i]);
     TF_ASSERT_OK(GetExistingTypes(read_types_config, *store, exisiting_types));
-    EXPECT_THAT(exisiting_types,
-                ::testing::SizeIs(kNumberOfInsertedArtifactTypes));
-  }
-
-  {
-    std::vector<Type> exisiting_types;
-    ReadTypesConfig read_types_config;
-    read_types_config.set_specification(ReadTypesConfig::ALL_EXECUTION_TYPES);
-    TF_ASSERT_OK(GetExistingTypes(read_types_config, *store, exisiting_types));
-    EXPECT_THAT(exisiting_types,
-                ::testing::SizeIs(kNumberOfInsertedExecutionTypes));
-  }
-
-  {
-    std::vector<Type> exisiting_types;
-    ReadTypesConfig read_types_config;
-    read_types_config.set_specification(
-        ReadTypesConfig::EXECUTION_TYPES_BY_IDs);
-    TF_ASSERT_OK(GetExistingTypes(read_types_config, *store, exisiting_types));
-    EXPECT_THAT(exisiting_types,
-                ::testing::SizeIs(kNumberOfInsertedExecutionTypes));
-  }
-
-  {
-    std::vector<Type> exisiting_types;
-    ReadTypesConfig read_types_config;
-    read_types_config.set_specification(
-        ReadTypesConfig::EXECUTION_TYPE_BY_NAME);
-    TF_ASSERT_OK(GetExistingTypes(read_types_config, *store, exisiting_types));
-    EXPECT_THAT(exisiting_types,
-                ::testing::SizeIs(kNumberOfInsertedExecutionTypes));
-  }
-
-  {
-    std::vector<Type> exisiting_types;
-    ReadTypesConfig read_types_config;
-    read_types_config.set_specification(ReadTypesConfig::ALL_CONTEXT_TYPES);
-    TF_ASSERT_OK(GetExistingTypes(read_types_config, *store, exisiting_types));
-    EXPECT_THAT(exisiting_types,
-                ::testing::SizeIs(kNumberOfInsertedContextTypes));
-  }
-
-  {
-    std::vector<Type> exisiting_types;
-    ReadTypesConfig read_types_config;
-    read_types_config.set_specification(ReadTypesConfig::CONTEXT_TYPES_BY_IDs);
-    TF_ASSERT_OK(GetExistingTypes(read_types_config, *store, exisiting_types));
-    EXPECT_THAT(exisiting_types,
-                ::testing::SizeIs(kNumberOfInsertedContextTypes));
-  }
-
-  {
-    std::vector<Type> exisiting_types;
-    ReadTypesConfig read_types_config;
-    read_types_config.set_specification(ReadTypesConfig::CONTEXT_TYPE_BY_NAME);
-    TF_ASSERT_OK(GetExistingTypes(read_types_config, *store, exisiting_types));
-    EXPECT_THAT(exisiting_types,
-                ::testing::SizeIs(kNumberOfInsertedContextTypes));
+    EXPECT_THAT(exisiting_types, ::testing::SizeIs(size[i]));
   }
 }
 

@@ -92,27 +92,23 @@ tensorflow::Status SetUpImplForReadAllTypes(
   switch (read_types_config.specification()) {
     case ReadTypesConfig::ALL_ARTIFACT_TYPES: {
       InitializeReadRequest<GetArtifactTypesRequest>(request);
-      TF_RETURN_IF_ERROR(GetTransferredBytesForAllTypes<ArtifactType>(
-          existing_types, curr_bytes));
-      break;
+      return GetTransferredBytesForAllTypes<ArtifactType>(existing_types,
+                                                          curr_bytes);
     }
     case ReadTypesConfig::ALL_EXECUTION_TYPES: {
       InitializeReadRequest<GetExecutionTypesRequest>(request);
-      TF_RETURN_IF_ERROR(GetTransferredBytesForAllTypes<ExecutionType>(
-          existing_types, curr_bytes));
-      break;
+      return GetTransferredBytesForAllTypes<ExecutionType>(existing_types,
+                                                           curr_bytes);
     }
     case ReadTypesConfig::ALL_CONTEXT_TYPES: {
       InitializeReadRequest<GetContextTypesRequest>(request);
-      TF_RETURN_IF_ERROR(GetTransferredBytesForAllTypes<ContextType>(
-          existing_types, curr_bytes));
-      break;
+      return GetTransferredBytesForAllTypes<ContextType>(existing_types,
+                                                         curr_bytes);
     }
     default:
       return tensorflow::errors::Unimplemented(
           "Wrong ReadTypesConfig specification for read all types in db.");
   }
-  return tensorflow::Status::OK();
 }
 
 // SetUpImpl() for the specifications to read types by a list of ids in db.
@@ -179,31 +175,27 @@ tensorflow::Status SetUpImplForReadTypeByName(
       InitializeReadRequest<GetArtifactTypeRequest>(request);
       absl::get<GetArtifactTypeRequest>(request).set_type_name(
           absl::get<ArtifactType>(existing_types[type_index]).name());
-      TF_RETURN_IF_ERROR(GetTransferredBytes<ArtifactType>(
-          absl::get<ArtifactType>(existing_types[type_index]), curr_bytes));
-      break;
+      return GetTransferredBytes<ArtifactType>(
+          absl::get<ArtifactType>(existing_types[type_index]), curr_bytes);
     }
     case ReadTypesConfig::EXECUTION_TYPE_BY_NAME: {
       InitializeReadRequest<GetExecutionTypeRequest>(request);
       absl::get<GetExecutionTypeRequest>(request).set_type_name(
           absl::get<ExecutionType>(existing_types[type_index]).name());
-      TF_RETURN_IF_ERROR(GetTransferredBytes<ExecutionType>(
-          absl::get<ExecutionType>(existing_types[type_index]), curr_bytes));
-      break;
+      return GetTransferredBytes<ExecutionType>(
+          absl::get<ExecutionType>(existing_types[type_index]), curr_bytes);
     }
     case ReadTypesConfig::CONTEXT_TYPE_BY_NAME: {
       InitializeReadRequest<GetContextTypeRequest>(request);
       absl::get<GetContextTypeRequest>(request).set_type_name(
           absl::get<ContextType>(existing_types[type_index]).name());
-      TF_RETURN_IF_ERROR(GetTransferredBytes<ContextType>(
-          absl::get<ContextType>(existing_types[type_index]), curr_bytes));
-      break;
+      return GetTransferredBytes<ContextType>(
+          absl::get<ContextType>(existing_types[type_index]), curr_bytes);
     }
     default:
       return tensorflow::errors::Unimplemented(
           "Wrong ReadTypesConfig specification for read type by name in db.");
   }
-  return tensorflow::Status::OK();
 }
 
 }  // namespace
@@ -270,21 +262,18 @@ tensorflow::Status ReadTypes::RunOpImpl(const int64 work_items_index,
           work_items_[work_items_index].first);
       GetArtifactTypesResponse response;
       return store->GetArtifactTypes(request, &response);
-      break;
     }
     case ReadTypesConfig::ALL_EXECUTION_TYPES: {
       GetExecutionTypesRequest request = absl::get<GetExecutionTypesRequest>(
           work_items_[work_items_index].first);
       GetExecutionTypesResponse response;
       return store->GetExecutionTypes(request, &response);
-      break;
     }
     case ReadTypesConfig::ALL_CONTEXT_TYPES: {
       GetContextTypesRequest request = absl::get<GetContextTypesRequest>(
           work_items_[work_items_index].first);
       GetContextTypesResponse response;
       return store->GetContextTypes(request, &response);
-      break;
     }
     case ReadTypesConfig::ARTIFACT_TYPES_BY_IDs: {
       GetArtifactTypesByIDRequest request =
@@ -292,7 +281,6 @@ tensorflow::Status ReadTypes::RunOpImpl(const int64 work_items_index,
               work_items_[work_items_index].first);
       GetArtifactTypesByIDResponse response;
       return store->GetArtifactTypesByID(request, &response);
-      break;
     }
     case ReadTypesConfig::EXECUTION_TYPES_BY_IDs: {
       GetExecutionTypesByIDRequest request =
@@ -300,7 +288,6 @@ tensorflow::Status ReadTypes::RunOpImpl(const int64 work_items_index,
               work_items_[work_items_index].first);
       GetExecutionTypesByIDResponse response;
       return store->GetExecutionTypesByID(request, &response);
-      break;
     }
     case ReadTypesConfig::CONTEXT_TYPES_BY_IDs: {
       GetContextTypesByIDRequest request =
@@ -308,28 +295,24 @@ tensorflow::Status ReadTypes::RunOpImpl(const int64 work_items_index,
               work_items_[work_items_index].first);
       GetContextTypesByIDResponse response;
       return store->GetContextTypesByID(request, &response);
-      break;
     }
     case ReadTypesConfig::ARTIFACT_TYPE_BY_NAME: {
       GetArtifactTypeRequest request = absl::get<GetArtifactTypeRequest>(
           work_items_[work_items_index].first);
       GetArtifactTypeResponse response;
       return store->GetArtifactType(request, &response);
-      break;
     }
     case ReadTypesConfig::EXECUTION_TYPE_BY_NAME: {
       GetExecutionTypeRequest request = absl::get<GetExecutionTypeRequest>(
           work_items_[work_items_index].first);
       GetExecutionTypeResponse response;
       return store->GetExecutionType(request, &response);
-      break;
     }
     case ReadTypesConfig::CONTEXT_TYPE_BY_NAME: {
       GetContextTypeRequest request =
           absl::get<GetContextTypeRequest>(work_items_[work_items_index].first);
       GetContextTypeResponse response;
       return store->GetContextType(request, &response);
-      break;
     }
     default:
       return tensorflow::errors::InvalidArgument("Wrong specification!");
