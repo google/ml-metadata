@@ -14,9 +14,8 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/tools/mlmd_bench/fill_events_workload.h"
 
-#include <math.h>
-
 #include <algorithm>
+#include <cmath>
 #include <random>
 #include <vector>
 
@@ -31,6 +30,35 @@ limitations under the License.
 
 namespace ml_metadata {
 namespace {
+
+// Validates correct popularity distribution for artifacts under input / output
+// events. Returns INVALID_ARGUMENT error if the specified distribution is not
+// correct or not set.
+tensorflow::Status ValidateCorrectArtifactsDistributionType(
+    const FillEventsConfig& fill_events_config) {
+  switch (fill_events_config.artifact_node_popularity_case()) {
+    case FillEventsConfig::kArtifactNodePopularityCategorical: {
+      if (fill_events_config.specification() == FillEventsConfig::INPUT) {
+        return tensorflow::errors::InvalidArgument(
+            "Input event should has a zipf distribution popularity for "
+            "artifacts.");
+      }
+      break;
+    }
+    case FillEventsConfig::kArtifactNodePopularityZipf: {
+      if (fill_events_config.specification() == FillEventsConfig::OUTPUT) {
+        return tensorflow::errors::InvalidArgument(
+            "Output event should has a categorical distribution popularity for "
+            "artifacts.");
+      }
+      break;
+    }
+    default:
+      return tensorflow::errors::InvalidArgument(
+          "Artifacts' popularity is not set!");
+  }
+  return tensorflow::Status::OK();
+}
 
 // Generates and returns a categorical distribution with Dirichlet Prior
 // specified by `dist`.
@@ -58,10 +86,11 @@ std::discrete_distribution<int64> GenerateZipfDistributionWithConfigurableSkew(
     const int64 sample_size, const ZipfDistribution& dist,
     std::minstd_rand0& gen) {
   std::vector<double> weights(sample_size);
-  for (int64 i = 1; i <= sample_size; ++i) {
+  for (int64 i = 0; i < sample_size; ++i) {
+    int64 rank = i + 1;
     // Here, we discard the normalize factor since the `discrete_distribution`
     // will perform the normalization for us.
-    weights[i - 1] = 1 / pow(i, dist.skew());
+    weights[i] = 1 / pow(rank, dist.skew());
   }
   // Random shuffles the weight vector.
   std::shuffle(std::begin(weights), std::end(weights), gen);
@@ -95,22 +124,22 @@ std::discrete_distribution<int64> GeneratePopularityDistributionForArtifacts(
 // previous outputted artifact ids have been stored inside
 // `output_artifact_ids`). Returns true if `output_artifact_id` has been
 // outputted before, otherwise, returns false.
-bool CheckDuplicateOutputArtifactInCurrentSetUp(
+bool CheckArtifactNotAlreadyBeenOutputtedInSetUpAndRecordItsId(
     const int64 output_artifact_id,
     std::unordered_set<int64>& output_artifact_ids) {
   if (output_artifact_ids.find(output_artifact_id) !=
       output_artifact_ids.end()) {
-    return true;
+    return false;
   }
   output_artifact_ids.insert(output_artifact_id);
-  return false;
+  return true;
 }
 
 // Checks if current artifact whose id is `output_artifact_id` has been
 // outputted by other events inside db before. Returns ALREADY_EXISTS error, if
 // the current artifact has been outputted before. Returns detailed error if
 // query executions failed.
-tensorflow::Status CheckDuplicateOutputArtifactInDb(
+tensorflow::Status CheckArtifactNotAlreadyBeenOutputtedInDb(
     const int64 output_artifact_id, MetadataStore& store) {
   GetEventsByArtifactIDsRequest request;
   request.add_artifact_ids(output_artifact_id);
@@ -128,11 +157,10 @@ tensorflow::Status CheckDuplicateOutputArtifactInDb(
 
 // Calculates and returns the transferred bytes of the `event`.
 int64 GetTransferredBytes(const Event& event) {
-  int bytes = 0;
   // Includes the transferred bytes for `artifact_id`, `execution_id` and `type`
   // for current event(the type of id is int64 that takes eight bytes while the
   // type is an enum that takes one bytes).
-  bytes += 8 * 2 + 1;
+  int64 bytes = 8 * 2 + 1;
   // Includes the transferred bytes for event's path.
   for (const auto& step : event.path().steps()) {
     bytes += step.key().size();
@@ -143,28 +171,27 @@ int64 GetTransferredBytes(const Event& event) {
 // Sets the properties of current event while recording the transferred bytes
 // for it.
 void SetEvent(const FillEventsConfig& fill_events_config,
-              const int64 artifact_id, const int64 execution_id,
-              PutEventsRequest& put_request, int64& curr_bytes) {
-  Event* event = put_request.add_events();
+              const int64 artifact_id, const int64 execution_id, Event& event,
+              int64& curr_bytes) {
   switch (fill_events_config.specification()) {
     case FillEventsConfig::INPUT: {
-      event->set_type(Event::INPUT);
+      event.set_type(Event::INPUT);
       break;
     }
     case FillEventsConfig::OUTPUT: {
-      event->set_type(Event::OUTPUT);
+      event.set_type(Event::OUTPUT);
       break;
     }
     default:
       LOG(FATAL) << "Wrong specification for FillEvents!";
   }
-  event->set_artifact_id(artifact_id);
-  event->set_execution_id(execution_id);
+  event.set_artifact_id(artifact_id);
+  event.set_execution_id(execution_id);
   // TODO(briansong) Adds an additional field in protocol message in
   // FillEventsConfig that describe the string length of key and supports
   // index for step value as well.
-  event->mutable_path()->add_steps()->set_key("foo");
-  curr_bytes += GetTransferredBytes(*event);
+  event.mutable_path()->add_steps()->set_key("foo");
+  curr_bytes += GetTransferredBytes(event);
 }
 
 // Generates `num_events` events within `request`.
@@ -192,21 +219,21 @@ tensorflow::Status GenerateEvent(
             existing_execution_nodes[execution_index_dist(gen)])
             .id();
     if (fill_events_config.specification() == FillEventsConfig::OUTPUT) {
-      bool artifact_has_been_outputted_in_setup =
-          CheckDuplicateOutputArtifactInCurrentSetUp(artifact_id,
-                                                     output_artifact_ids);
-      tensorflow::Status status =
-          CheckDuplicateOutputArtifactInDb(artifact_id, store);
+      const bool artifact_not_already_been_outputted_in_setup =
+          CheckArtifactNotAlreadyBeenOutputtedInSetUpAndRecordItsId(
+              artifact_id, output_artifact_ids);
+      const tensorflow::Status status =
+          CheckArtifactNotAlreadyBeenOutputtedInDb(artifact_id, store);
       if (!status.ok() && status.code() != tensorflow::error::ALREADY_EXISTS) {
         return status;
       }
       // Rejection sampling.
-      if (artifact_has_been_outputted_in_setup || !status.ok()) {
+      if (!artifact_not_already_been_outputted_in_setup || !status.ok()) {
         continue;
       }
     }
-    SetEvent(fill_events_config, artifact_id, execution_id, request,
-             curr_bytes);
+    SetEvent(fill_events_config, artifact_id, execution_id,
+             *request.add_events(), curr_bytes);
     i++;
   }
   return tensorflow::Status::OK();
@@ -226,7 +253,6 @@ FillEvents::FillEvents(const FillEventsConfig& fill_events_config,
 tensorflow::Status FillEvents::SetUpImpl(MetadataStore* store) {
   LOG(INFO) << "Setting up ...";
 
-  int64 curr_bytes = 0;
   std::uniform_int_distribution<int64> num_events_dist{
       fill_events_config_.num_events().minimum(),
       fill_events_config_.num_events().maximum()};
@@ -239,6 +265,8 @@ tensorflow::Status FillEvents::SetUpImpl(MetadataStore* store) {
 
   std::minstd_rand0 gen(absl::ToUnixMillis(absl::Now()));
 
+  TF_RETURN_IF_ERROR(
+      ValidateCorrectArtifactsDistributionType(fill_events_config_));
   std::discrete_distribution<int64> execution_index_dist =
       GenerateCategoricalDistributionWithDirichletPrior(
           existing_execution_nodes.size(),
@@ -248,7 +276,7 @@ tensorflow::Status FillEvents::SetUpImpl(MetadataStore* store) {
           fill_events_config_, existing_artifact_nodes.size(), gen);
 
   for (int64 i = 0; i < num_operations_; ++i) {
-    curr_bytes = 0;
+    int64 curr_bytes = 0;
     PutEventsRequest put_request;
     const int64 num_events = num_events_dist(gen);
     TF_RETURN_IF_ERROR(GenerateEvent(

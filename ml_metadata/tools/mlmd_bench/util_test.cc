@@ -374,29 +374,14 @@ TEST(UtilGetTest, GetNodesWithFillEventsConfigTest) {
       /*num_execution_nodes=*/kNumberOfInsertedExecutions,
       /*num_context_nodes=*/kNumberOfInsertedContexts, *store));
 
-  {
-    std::vector<Node> existing_artifact_nodes;
-    std::vector<Node> existing_execution_nodes;
-    FillEventsConfig fill_events_config;
-    fill_events_config.set_specification(FillEventsConfig::INPUT);
-    TF_ASSERT_OK(GetExistingNodes(fill_events_config, *store,
-                                  existing_artifact_nodes,
-                                  existing_execution_nodes));
-    EXPECT_EQ(kNumberOfInsertedArtifacts, existing_artifact_nodes.size());
-    EXPECT_EQ(kNumberOfInsertedExecutions, existing_execution_nodes.size());
-  }
-
-  {
-    std::vector<Node> existing_artifact_nodes;
-    std::vector<Node> existing_execution_nodes;
-    FillEventsConfig fill_events_config;
-    fill_events_config.set_specification(FillEventsConfig::OUTPUT);
-    TF_ASSERT_OK(GetExistingNodes(fill_events_config, *store,
-                                  existing_artifact_nodes,
-                                  existing_execution_nodes));
-    EXPECT_EQ(kNumberOfInsertedArtifacts, existing_artifact_nodes.size());
-    EXPECT_EQ(kNumberOfInsertedExecutions, existing_execution_nodes.size());
-  }
+  std::vector<Node> existing_artifact_nodes;
+  std::vector<Node> existing_execution_nodes;
+  FillEventsConfig fill_events_config;
+  TF_ASSERT_OK(GetExistingNodes(fill_events_config, *store,
+                                existing_artifact_nodes,
+                                existing_execution_nodes));
+  EXPECT_EQ(kNumberOfInsertedArtifacts, existing_artifact_nodes.size());
+  EXPECT_EQ(kNumberOfInsertedExecutions, existing_execution_nodes.size());
 }
 
 }  // namespace
