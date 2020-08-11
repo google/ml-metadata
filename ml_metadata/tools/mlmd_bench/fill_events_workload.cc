@@ -87,7 +87,7 @@ std::discrete_distribution<int64> GenerateZipfDistributionWithConfigurableSkew(
     std::minstd_rand0& gen) {
   std::vector<double> weights(sample_size);
   for (int64 i = 0; i < sample_size; ++i) {
-    int64 rank = i + 1;
+    const int64 rank = i + 1;
     // Here, we discard the normalize factor since the `discrete_distribution`
     // will perform the normalization for us.
     weights[i] = 1 / pow(rank, dist.skew());

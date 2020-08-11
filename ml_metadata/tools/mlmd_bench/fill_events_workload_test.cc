@@ -122,6 +122,14 @@ class FillEventsParameterizedTestFixture
     TF_ASSERT_OK(CreateMetadataStore(mlmd_config, &store_));
     fill_events_ = absl::make_unique<FillEvents>(FillEvents(
         GetParam().fill_events_config(), GetParam().num_operations()));
+    TF_ASSERT_OK(InsertTypesInDb(
+        /*num_artifact_types=*/kNumberOfExistedTypesInDb,
+        /*num_execution_types=*/kNumberOfExistedTypesInDb,
+        /*num_context_types=*/kNumberOfExistedTypesInDb, *store_));
+    TF_ASSERT_OK(InsertNodesInDb(
+        /*num_artifact_nodes=*/kNumberOfExistedNodesInDb,
+        /*num_execution_nodes=*/kNumberOfExistedNodesInDb,
+        /*num_context_nodes=*/kNumberOfExistedNodesInDb, *store_));
   }
 
   std::unique_ptr<FillEvents> fill_events_;
@@ -132,15 +140,6 @@ class FillEventsParameterizedTestFixture
 // beginning. Checks the SetUpImpl() indeed prepares a list of work items whose
 // length is the same as the specified number of operations.
 TEST_P(FillEventsParameterizedTestFixture, SetUpImplWhenNoEventsExistTest) {
-  TF_ASSERT_OK(InsertTypesInDb(
-      /*num_artifact_types=*/kNumberOfExistedTypesInDb,
-      /*num_execution_types=*/kNumberOfExistedTypesInDb,
-      /*num_context_types=*/kNumberOfExistedTypesInDb, *store_));
-  TF_ASSERT_OK(InsertNodesInDb(
-      /*num_artifact_nodes=*/kNumberOfExistedNodesInDb,
-      /*num_execution_nodes=*/kNumberOfExistedNodesInDb,
-      /*num_context_nodes=*/kNumberOfExistedNodesInDb, *store_));
-
   TF_ASSERT_OK(fill_events_->SetUp(store_.get()));
   EXPECT_EQ(GetParam().num_operations(), fill_events_->num_operations());
 }
@@ -150,15 +149,6 @@ TEST_P(FillEventsParameterizedTestFixture, SetUpImplWhenNoEventsExistTest) {
 // of the events inside db is the same as the number of operations
 // specified in the workload.
 TEST_P(FillEventsParameterizedTestFixture, InsertWhenNoEventsExistTest) {
-  TF_ASSERT_OK(InsertTypesInDb(
-      /*num_artifact_types=*/kNumberOfExistedTypesInDb,
-      /*num_execution_types=*/kNumberOfExistedTypesInDb,
-      /*num_context_types=*/kNumberOfExistedTypesInDb, *store_));
-  TF_ASSERT_OK(InsertNodesInDb(
-      /*num_artifact_nodes=*/kNumberOfExistedNodesInDb,
-      /*num_execution_nodes=*/kNumberOfExistedNodesInDb,
-      /*num_context_nodes=*/kNumberOfExistedNodesInDb, *store_));
-
   TF_ASSERT_OK(fill_events_->SetUp(store_.get()));
   for (int64 i = 0; i < fill_events_->num_operations(); ++i) {
     OpStats op_stats;
@@ -175,14 +165,6 @@ TEST_P(FillEventsParameterizedTestFixture, InsertWhenNoEventsExistTest) {
 // beginning. Checks the SetUpImpl() indeed prepares a list of work items whose
 // length is the same as the specified number of operations.
 TEST_P(FillEventsParameterizedTestFixture, SetUpImplWhenSomeEventsExistTest) {
-  TF_ASSERT_OK(InsertTypesInDb(
-      /*num_artifact_types=*/kNumberOfExistedTypesInDb,
-      /*num_execution_types=*/kNumberOfExistedTypesInDb,
-      /*num_context_types=*/kNumberOfExistedTypesInDb, *store_));
-  TF_ASSERT_OK(InsertNodesInDb(
-      /*num_artifact_nodes=*/kNumberOfExistedNodesInDb,
-      /*num_execution_nodes=*/kNumberOfExistedNodesInDb,
-      /*num_context_nodes=*/kNumberOfExistedNodesInDb, *store_));
   TF_ASSERT_OK(InsertEventsInDb(GetParam().fill_events_config(), *store_));
 
   TF_ASSERT_OK(fill_events_->SetUp(store_.get()));
@@ -194,14 +176,6 @@ TEST_P(FillEventsParameterizedTestFixture, SetUpImplWhenSomeEventsExistTest) {
 // of new added events inside db is the same as the number of operations
 // specified in the workload.
 TEST_P(FillEventsParameterizedTestFixture, InsertWhenSomeEventsExistTest) {
-  TF_ASSERT_OK(InsertTypesInDb(
-      /*num_artifact_types=*/kNumberOfExistedTypesInDb,
-      /*num_execution_types=*/kNumberOfExistedTypesInDb,
-      /*num_context_types=*/kNumberOfExistedTypesInDb, *store_));
-  TF_ASSERT_OK(InsertNodesInDb(
-      /*num_artifact_nodes=*/kNumberOfExistedNodesInDb,
-      /*num_execution_nodes=*/kNumberOfExistedNodesInDb,
-      /*num_context_nodes=*/kNumberOfExistedNodesInDb, *store_));
   TF_ASSERT_OK(InsertEventsInDb(GetParam().fill_events_config(), *store_));
 
   int64 num_events_before;
