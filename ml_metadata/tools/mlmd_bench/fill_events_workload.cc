@@ -19,6 +19,7 @@ limitations under the License.
 #include <random>
 #include <vector>
 
+#include "absl/container/flat_hash_set.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
@@ -126,7 +127,7 @@ std::discrete_distribution<int64> GeneratePopularityDistributionForArtifacts(
 // outputted before, otherwise, returns false.
 bool CheckArtifactNotAlreadyBeenOutputtedInSetUpAndRecordItsId(
     const int64 output_artifact_id,
-    std::unordered_set<int64>& output_artifact_ids) {
+    absl::flat_hash_set<int64>& output_artifact_ids) {
   if (output_artifact_ids.find(output_artifact_id) !=
       output_artifact_ids.end()) {
     return false;
@@ -207,7 +208,7 @@ tensorflow::Status GenerateEvent(
     std::discrete_distribution<int64>& artifact_index_dist,
     std::discrete_distribution<int64>& execution_index_dist,
     std::minstd_rand0& gen, MetadataStore& store,
-    std::unordered_set<int64>& output_artifact_ids, PutEventsRequest& request,
+    absl::flat_hash_set<int64>& output_artifact_ids, PutEventsRequest& request,
     int64& curr_bytes) {
   int64 i = 0;
   while (i < num_events) {

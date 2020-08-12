@@ -15,8 +15,7 @@ limitations under the License.
 #ifndef ML_METADATA_TOOLS_MLMD_BENCH_FILL_EVENTS_WORKLOAD_H
 #define ML_METADATA_TOOLS_MLMD_BENCH_FILL_EVENTS_WORKLOAD_H
 
-#include <unordered_set>
-
+#include "absl/container/flat_hash_set.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
@@ -72,7 +71,7 @@ class FillEvents : public Workload<PutEventsRequest> {
   // String for indicating the name of current workload instance.
   const std::string name_;
   // Records all the outputted artifacts' ids seen in current setup.
-  std::unordered_set<int64> output_artifact_ids_;
+  absl::flat_hash_set<int64> output_artifact_ids_;
 };
 
 }  // namespace ml_metadata
