@@ -1,4 +1,4 @@
-# Current version (not yet released; still in development)
+# Release 0.23.0
 
 ## Major Features and Improvements
 
@@ -19,6 +19,8 @@
 *   Python MetadataStore APIs return mlmd errors instead of tensorflow errors.
 
 ## Deprecations
+
+*   N/A
 
 # Release 0.22.1
 
