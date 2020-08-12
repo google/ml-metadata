@@ -63,6 +63,12 @@ void CreateWorkload(const WorkloadConfig& workload_config,
                     workload_config.num_operations()));
       break;
     }
+    case WorkloadConfig::kReadNodesByPropertiesConfig: {
+      workload = absl::make_unique<ReadNodesByProperties>(ReadNodesByProperties(
+          workload_config.read_nodes_by_properties_config(),
+          workload_config.num_operations()));
+      break;
+    }
     default:
       LOG(FATAL) << "Cannot find corresponding workload!";
   }
