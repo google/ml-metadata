@@ -2,8 +2,8 @@
 
 ## Major Features and Improvements
 
-*   GetArtifacts now supports pagination and ordering results by ID, Create time
-    and last update time fields.
+*   GetArtifacts, GetExecutions and GetContexts now supports pagination and
+    ordering results by ID, Create time and last update time fields.
 
 ## Bug Fixes and Other Changes
 

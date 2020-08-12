@@ -283,13 +283,23 @@ message GetArtifactsByURIResponse {
   repeated Artifact artifacts = 1;
 }
 
+// Request to retrieve Executions using List options.
+// If option is not specified then all Executions are returned.
 message GetExecutionsRequest {
-  // TODO(martinz): add query constraints here.
+  // Specify options.
+  // Currently supports:
+  //   1. Field to order the results.
+  //   2. Page size.
+  optional ListOperationOptions options = 1;
 }
 
 message GetExecutionsResponse {
-  // All executions.
+  // Returned executions.
   repeated Execution executions = 1;
+
+  // Token to use to retreive next page of results if list options are used in
+  // the request.
+  optional string next_page_token = 2;
 }
 
 message GetArtifactTypeRequest {
@@ -412,13 +422,23 @@ message GetContextTypesByIDResponse {
   repeated ContextType context_types = 1;
 }
 
+// Request to retrieve Contexts using List options.
+// If option is not specified then all Contexts are returned.
 message GetContextsRequest {
-  // TODO(martinz): add query constraints here.
+  // Specify options.
+  // Currently supports:
+  //   1. Field to order the results.
+  //   2. Page size.
+  optional ListOperationOptions options = 1;
 }
 
 message GetContextsResponse {
-  // All contexts.
+  // Returned contexts.
   repeated Context contexts = 1;
+
+  // Token to use to retreive next page of results if list options are used in
+  // the request.
+  optional string next_page_token = 2;
 }
 
 message GetContextsByTypeRequest {
