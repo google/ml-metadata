@@ -48,7 +48,7 @@ std::unique_ptr<WorkloadBase> CreateWorkload(
                            workload_config.num_operations()));
     }
     case WorkloadConfig::kFillEventsConfig: {
-      workload = absl::make_unique<FillEvents>(
+      return absl::make_unique<FillEvents>(
           FillEvents(workload_config.fill_events_config(),
                      workload_config.num_operations()));
       break;
