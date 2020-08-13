@@ -28,6 +28,7 @@ namespace ml_metadata {
 // A base class for all Workloads. Each workload subclass takes a config.,
 // creates the datasets, then for each work item of the dataset, it runs an
 // operation against MLMD, and measures its performance.
+// TODO(b/152220177) Use store reference instead of pointers to align the style.
 class WorkloadBase {
  public:
   WorkloadBase() = default;

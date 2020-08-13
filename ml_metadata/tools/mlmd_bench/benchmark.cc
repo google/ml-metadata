@@ -18,6 +18,8 @@ limitations under the License.
 
 #include "absl/memory/memory.h"
 #include "ml_metadata/metadata_store/types.h"
+#include "ml_metadata/tools/mlmd_bench/fill_context_edges_workload.h"
+#include "ml_metadata/tools/mlmd_bench/fill_nodes_workload.h"
 #include "ml_metadata/tools/mlmd_bench/fill_types_workload.h"
 #include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
 #include "ml_metadata/tools/mlmd_bench/workload.h"
@@ -26,13 +28,27 @@ namespace ml_metadata {
 namespace {
 
 // Creates the executable workload given `workload_config`.
-void CreateWorkload(const WorkloadConfig& workload_config,
-                    std::unique_ptr<WorkloadBase>& workload) {
-  if (!workload_config.has_fill_types_config()) {
-    LOG(FATAL) << "Cannot find corresponding workload!";
+std::unique_ptr<WorkloadBase> CreateWorkload(
+    const WorkloadConfig& workload_config) {
+  switch (workload_config.workload_config_case()) {
+    case WorkloadConfig::kFillTypesConfig: {
+      return absl::make_unique<FillTypes>(
+          FillTypes(workload_config.fill_types_config(),
+                    workload_config.num_operations()));
+    }
+    case WorkloadConfig::kFillNodesConfig: {
+      return absl::make_unique<FillNodes>(
+          FillNodes(workload_config.fill_nodes_config(),
+                    workload_config.num_operations()));
+    }
+    case WorkloadConfig::kFillContextEdgesConfig: {
+      return absl::make_unique<FillContextEdges>(
+          FillContextEdges(workload_config.fill_context_edges_config(),
+                           workload_config.num_operations()));
+    }
+    default:
+      LOG(FATAL) << "Cannot find corresponding workload!";
   }
-  workload = absl::make_unique<FillTypes>(FillTypes(
-      workload_config.fill_types_config(), workload_config.num_operations()));
 }
 
 // Initializes `mlmd_bench_report` with `mlmd_bench_config`.
@@ -48,13 +64,10 @@ void InitMLMDBenchReport(const MLMDBenchConfig& mlmd_bench_config,
 
 Benchmark::Benchmark(const MLMDBenchConfig& mlmd_bench_config) {
   workloads_.resize(mlmd_bench_config.workload_configs_size());
-
-  // For each `workload_config`, calls CreateWorkload() to create corresponding
-  // workload.
+  // For each `workload_config`, create corresponding workload.
   for (int i = 0; i < mlmd_bench_config.workload_configs_size(); ++i) {
-    CreateWorkload(mlmd_bench_config.workload_configs(i), workloads_[i]);
+    workloads_[i] = CreateWorkload(mlmd_bench_config.workload_configs(i));
   }
-
   // Initializes the performance report with given `mlmd_bench_config`.
   InitMLMDBenchReport(mlmd_bench_config, mlmd_bench_report_);
 }
