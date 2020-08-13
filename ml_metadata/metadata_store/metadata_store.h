@@ -336,9 +336,9 @@ class MetadataStore : public MetadataStoreServiceInterface {
       const GetArtifactsByIDRequest& request,
       GetArtifactsByIDResponse* response) override;
 
-  // Gets all artifacts.
+  // Retrieve artifacts using list options.
+  // If option is not set in the request, then all Artifacts are returned.
   // Returns detailed INTERNAL error, if query execution fails.
-  // TODO(b/120853124): add predicates
   tensorflow::Status GetArtifacts(const GetArtifactsRequest& request,
                                   GetArtifactsResponse* response) override;
 
@@ -371,9 +371,9 @@ class MetadataStore : public MetadataStoreServiceInterface {
       const GetExecutionsByIDRequest& request,
       GetExecutionsByIDResponse* response) override;
 
-  // Gets all executions.
+  // Retrieve Executions using list options.
+  // If option is not set in the request, then all Executions are returned.
   // Returns detailed INTERNAL error, if query execution fails.
-  // TODO(b/120853124): add predicates
   tensorflow::Status GetExecutions(const GetExecutionsRequest& request,
                                    GetExecutionsResponse* response) override;
 
@@ -399,9 +399,9 @@ class MetadataStore : public MetadataStoreServiceInterface {
       const GetContextsByIDRequest& request,
       GetContextsByIDResponse* response) override;
 
-  // Gets all contexts.
+  // Retrieve Contexts using list options.
+  // If option is not set in the request, then all Contexts are returned.
   // Returns detailed INTERNAL error, if query execution fails.
-  // TODO(b/120853124): add predicates
   tensorflow::Status GetContexts(const GetContextsRequest& request,
                                  GetContextsResponse* response) override;
 

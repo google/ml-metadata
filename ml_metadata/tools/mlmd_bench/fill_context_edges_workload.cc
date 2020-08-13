@@ -19,6 +19,7 @@ limitations under the License.
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
@@ -31,6 +32,9 @@ limitations under the License.
 namespace ml_metadata {
 namespace {
 
+constexpr int64 kInt64IdSize = 8;
+constexpr int64 kNumNodeIdsPerEdge = 2;
+
 // Generates and returns a categorical distribution with Dirichlet Prior
 // specified by `dist`.
 std::discrete_distribution<int64>
@@ -39,11 +43,10 @@ GenerateCategoricalDistributionWithDirichletPrior(
     std::minstd_rand0& gen) {
   // With a source of Gamma-distributed random variates, draws `sample_size`
   // independent random samples and store in `weights`.
-  std::gamma_distribution<double> gamma_distribution(dist.dirichlet_alpha(),
-                                                     1.0);
+  std::gamma_distribution<double> gamma_dist(dist.dirichlet_alpha(), 1.0);
   std::vector<double> weights(sample_size);
   for (int64 i = 0; i < sample_size; ++i) {
-    weights[i] = gamma_distribution(gen);
+    weights[i] = gamma_dist(gen);
   }
   // Uses these random number generated w.r.t. a Dirichlet distribution with
   // `concentration_param` to represent the possibility of being chosen for each
@@ -54,38 +57,31 @@ GenerateCategoricalDistributionWithDirichletPrior(
 // Chooses a non context node from `existing_non_context_nodes` with
 // `non_context_node_index` and returns its node id.
 template <typename T>
-int64 GenerateNonContextNodeId(
-    const std::vector<Node>& existing_non_context_nodes,
-    const int64 non_context_node_index) {
+int64 GenerateNonContextNodeId(const std::vector<Node>& non_context_nodes,
+                               const int64 non_context_node_index) {
   if (std::is_same<T, Attribution>::value) {
-    return absl::get<Artifact>(
-               existing_non_context_nodes[non_context_node_index])
-        .id();
-  } else if (std::is_same<T, Association>::value) {
-    return absl::get<Execution>(
-               existing_non_context_nodes[non_context_node_index])
-        .id();
+    return absl::get<Artifact>(non_context_nodes[non_context_node_index]).id();
   }
+  return absl::get<Execution>(non_context_nodes[non_context_node_index]).id();
 }
 
 // Checks if current `non_context_node_id` and `context_node_id` pair has been
-// seen in current setup(all the previous pairs have been stored inside
-// `unique_checker`). Returns true if the current pair is a duplicate one,
-// otherwise, returns false.
+// seen in current setup (all the previous pairs have been stored inside
+// `edges_seen`).
+// Returns true if the current pair is a duplicate one.
 bool CheckDuplicateContextEdge(
     const int64 non_context_node_id, const int64 context_node_id,
-    absl::flat_hash_map<int64, std::unordered_set<int64>>& unique_checker) {
-  if (unique_checker.find(context_node_id) != unique_checker.end() &&
-      unique_checker.at(context_node_id).find(non_context_node_id) !=
-          unique_checker.at(context_node_id).end()) {
+    absl::flat_hash_map<int64, absl::flat_hash_set<int64>>& edges_seen) {
+  if (edges_seen.contains(context_node_id) &&
+      edges_seen[context_node_id].contains(non_context_node_id)) {
     return true;
   }
-  // Stores the current pair into the `unique_checker` for future duplicate
+  // Stores the current pair into the `edges_seen` for future duplicate
   // checking.
-  if (unique_checker.find(context_node_id) == unique_checker.end()) {
-    unique_checker.insert({context_node_id, std::unordered_set<int64>{}});
+  if (!edges_seen.contains(context_node_id)) {
+    edges_seen.insert({context_node_id, {}});
   }
-  unique_checker.at(context_node_id).insert(non_context_node_id);
+  edges_seen[context_node_id].insert(non_context_node_id);
   return false;
 }
 
@@ -119,7 +115,7 @@ tensorflow::Status GenerateContextEdges(
     std::discrete_distribution<int64>& non_context_node_index_dist,
     std::discrete_distribution<int64>& context_node_index_dist,
     std::minstd_rand0& gen, MetadataStore& store,
-    absl::flat_hash_map<int64, std::unordered_set<int64>>& unique_checker,
+    absl::flat_hash_map<int64, absl::flat_hash_set<int64>>& edges_seen,
     PutAttributionsAndAssociationsRequest& request, int64& curr_bytes) {
   CHECK((std::is_same<T, Attribution>::value ||
          std::is_same<T, Association>::value))
@@ -129,21 +125,20 @@ tensorflow::Status GenerateContextEdges(
   // edge has been seen before in the current setup, uses `continue`
   // to jump into the next iteration for generating a new context edge.
   while (i < num_edges) {
-    const int64 non_context_node_index = non_context_node_index_dist(gen);
-    const int64 context_node_index = context_node_index_dist(gen);
     const int64 non_context_node_id = GenerateNonContextNodeId<T>(
-        existing_non_context_nodes, non_context_node_index);
+        existing_non_context_nodes, non_context_node_index_dist(gen));
     const int64 context_node_id =
-        absl::get<Context>(existing_context_nodes[context_node_index]).id();
+        absl::get<Context>(existing_context_nodes[context_node_index_dist(gen)])
+            .id();
     // Rejection sampling.
     if (CheckDuplicateContextEdge(non_context_node_id, context_node_id,
-                                  unique_checker)) {
+                                  edges_seen)) {
       continue;
     }
     SetCurrentContextEdge<T>(non_context_node_id, context_node_id, request);
     // Increases `curr_bytes` with the size of `non_context_node_id` and
     // `context_node_id`(int64 takes 8 bytes).
-    curr_bytes += 8 * 2;
+    curr_bytes += kInt64IdSize * kNumNodeIdsPerEdge;
     i++;
   }
   return tensorflow::Status::OK();
@@ -195,14 +190,14 @@ tensorflow::Status FillContextEdges::SetUpImpl(MetadataStore* store) {
         TF_RETURN_IF_ERROR(GenerateContextEdges<Attribution>(
             existing_non_context_nodes, existing_context_nodes, num_edges,
             non_context_node_index_dist, context_node_index_dist, gen, *store,
-            context_id_to_non_context_ids_, put_request, curr_bytes));
+            edges_seen_, put_request, curr_bytes));
         break;
       }
       case FillContextEdgesConfig::ASSOCIATION: {
         TF_RETURN_IF_ERROR(GenerateContextEdges<Association>(
             existing_non_context_nodes, existing_context_nodes, num_edges,
             non_context_node_index_dist, context_node_index_dist, gen, *store,
-            context_id_to_non_context_ids_, put_request, curr_bytes));
+            edges_seen_, put_request, curr_bytes));
         break;
       }
       default:

@@ -57,10 +57,10 @@ TEST(BenchmarkTest, CreatFillTypesWorkloadTest) {
   Benchmark benchmark(mlmd_bench_config);
   EXPECT_EQ(benchmark.num_workloads(),
             mlmd_bench_config.workload_configs_size());
-  EXPECT_STREQ("FILL_ARTIFACT_TYPE", benchmark.workload(0)->GetName().c_str());
-  EXPECT_STREQ("FILL_EXECUTION_TYPE(UPDATE)",
-               benchmark.workload(1)->GetName().c_str());
-  EXPECT_STREQ("FILL_CONTEXT_TYPE", benchmark.workload(2)->GetName().c_str());
+  EXPECT_STREQ(benchmark.workload(0)->GetName().c_str(), "FILL_ARTIFACT_TYPE");
+  EXPECT_STREQ(benchmark.workload(1)->GetName().c_str(),
+               "FILL_EXECUTION_TYPE(UPDATE)");
+  EXPECT_STREQ(benchmark.workload(2)->GetName().c_str(), "FILL_CONTEXT_TYPE");
 }
 
 // Tests the CreateWorkload() for FillNodes workload, checks that all FillNodes
@@ -104,11 +104,11 @@ TEST(BenchmarkTest, CreatFillNodesWorkloadTest) {
   Benchmark benchmark(mlmd_bench_config);
   EXPECT_EQ(benchmark.num_workloads(),
             mlmd_bench_config.workload_configs_size());
-  EXPECT_STREQ("FILL_ARTIFACT(UPDATE)",
-               benchmark.workload(0)->GetName().c_str());
-  EXPECT_STREQ("FILL_EXECUTION", benchmark.workload(1)->GetName().c_str());
-  EXPECT_STREQ("FILL_CONTEXT(UPDATE)",
-               benchmark.workload(2)->GetName().c_str());
+  EXPECT_STREQ(benchmark.workload(0)->GetName().c_str(),
+               "FILL_ARTIFACT(UPDATE)");
+  EXPECT_STREQ(benchmark.workload(1)->GetName().c_str(), "FILL_EXECUTION");
+  EXPECT_STREQ(benchmark.workload(2)->GetName().c_str(),
+               "FILL_CONTEXT(UPDATE)");
 }
 
 // Tests the CreateWorkload() for FillContextEdges workload, checks that all
@@ -143,8 +143,8 @@ TEST(BenchmarkTest, CreatFillContextEdgesWorkloadTest) {
   // workloads inside benchmark.
   EXPECT_EQ(benchmark.num_workloads(),
             mlmd_bench_config.workload_configs_size());
-  EXPECT_STREQ("FILL_ATTRIBUTION", benchmark.workload(0)->GetName().c_str());
-  EXPECT_STREQ("FILL_ASSOCIATION", benchmark.workload(1)->GetName().c_str());
+  EXPECT_STREQ(benchmark.workload(0)->GetName().c_str(), "FILL_ATTRIBUTION");
+  EXPECT_STREQ(benchmark.workload(1)->GetName().c_str(), "FILL_ASSOCIATION");
 }
 
 }  // namespace

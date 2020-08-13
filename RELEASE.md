@@ -1,6 +1,9 @@
-# Current version (not yet released; still in development)
+# Release 0.23.0
 
 ## Major Features and Improvements
+
+*   GetArtifacts, GetExecutions and GetContexts now supports pagination and
+    ordering results by ID, Create time and last update time fields.
 
 ## Bug Fixes and Other Changes
 
@@ -8,10 +11,16 @@
     get_execution_by_type_and_name methods.
 *   Improves query performance of get_events_by_execution_ids and
     get_events_by_artifact_ids by combing multiple queries.
+*   Drops python dependency on tensorflow to make ml-metadata be friendly with
+    non-TFX use cases.
 
 ## Breaking Changes
 
+*   Python MetadataStore APIs return mlmd errors instead of tensorflow errors.
+
 ## Deprecations
+
+*   N/A
 
 # Release 0.22.1
 

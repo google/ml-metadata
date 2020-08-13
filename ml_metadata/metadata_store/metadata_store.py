@@ -24,16 +24,16 @@ from __future__ import print_function
 
 import random
 import time
+from typing import Iterable, List, Optional, Sequence, Text, Tuple, Union
 
 from absl import logging
 import grpc
-from typing import Iterable, List, Optional, Sequence, Text, Tuple, Union
 
+from ml_metadata import errors
 from ml_metadata.metadata_store import pywrap_tf_metadata_store_serialized as metadata_store_serialized
 from ml_metadata.proto import metadata_store_pb2
 from ml_metadata.proto import metadata_store_service_pb2
 from ml_metadata.proto import metadata_store_service_pb2_grpc
-from tensorflow.compat.v1 import errors
 
 
 class MetadataStore(object):
@@ -122,13 +122,16 @@ class MetadataStore(object):
     if self._using_db_connection and hasattr(self, '_metadata_store'):
       metadata_store_serialized.DestroyMetadataStore(self._metadata_store)
 
-  def _call(self, method_name, request, response) -> None:
+  def _call(self, method_name, request, response):
     """Calls method with retry when Aborted error is returned.
 
     Args:
       method_name: the method to call.
       request: the request protobuf message.
       response: the response protobuf message.
+
+    Returns:
+      Detailed errors if the method is failed.
     """
     num_retries = self._max_num_retries
     avg_delay_sec = 2
@@ -1178,6 +1181,6 @@ def _make_exception(msg, error_code):
     # log internal backend engine errors only.
     if error_code == errors.INTERNAL:
       logging.log(logging.WARNING, 'mlmd client %s: %s', exc_type.__name__, msg)
-    return exc_type(None, None, msg)
+    return exc_type(msg)
   except KeyError:
-    return errors.UnknownError(None, None, msg, error_code)
+    return errors.UnknownError(msg)

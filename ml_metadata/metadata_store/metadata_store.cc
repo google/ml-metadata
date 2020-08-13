@@ -678,18 +678,30 @@ tensorflow::Status MetadataStore::GetEventsByArtifactIDs(
 tensorflow::Status MetadataStore::GetExecutions(
     const GetExecutionsRequest& request, GetExecutionsResponse* response) {
   return transaction_executor_->Execute(
-      [this, &response]() -> tensorflow::Status {
+      [this, &request, &response]() -> tensorflow::Status {
         response->Clear();
         std::vector<Execution> executions;
-        const tensorflow::Status status =
-            metadata_access_object_->FindExecutions(&executions);
+        tensorflow::Status status;
+        std::string next_page_token;
+        if (request.has_options()) {
+          status = metadata_access_object_->ListExecutions(
+              request.options(), &executions, &next_page_token);
+        } else {
+          status = metadata_access_object_->FindExecutions(&executions);
+        }
+
         if (tensorflow::errors::IsNotFound(status)) {
           return tensorflow::Status::OK();
         } else if (!status.ok()) {
           return status;
         }
+
         for (const Execution& execution : executions) {
           *response->mutable_executions()->Add() = execution;
+        }
+
+        if (!next_page_token.empty()) {
+          response->set_next_page_token(next_page_token);
         }
         return tensorflow::Status::OK();
       });
@@ -698,19 +710,32 @@ tensorflow::Status MetadataStore::GetExecutions(
 tensorflow::Status MetadataStore::GetArtifacts(
     const GetArtifactsRequest& request, GetArtifactsResponse* response) {
   return transaction_executor_->Execute(
-      [this, &response]() -> tensorflow::Status {
+      [this, &request, &response]() -> tensorflow::Status {
         response->Clear();
         std::vector<Artifact> artifacts;
-        const tensorflow::Status status =
-            metadata_access_object_->FindArtifacts(&artifacts);
+        tensorflow::Status status;
+        std::string next_page_token;
+        if (request.has_options()) {
+          status = metadata_access_object_->ListArtifacts(
+              request.options(), &artifacts, &next_page_token);
+        } else {
+          status = metadata_access_object_->FindArtifacts(&artifacts);
+        }
+
         if (tensorflow::errors::IsNotFound(status)) {
           return tensorflow::Status::OK();
         } else if (!status.ok()) {
           return status;
         }
+
         for (const Artifact& artifact : artifacts) {
           *response->mutable_artifacts()->Add() = artifact;
         }
+
+        if (!next_page_token.empty()) {
+          response->set_next_page_token(next_page_token);
+        }
+
         return tensorflow::Status::OK();
       });
 }
@@ -718,19 +743,32 @@ tensorflow::Status MetadataStore::GetArtifacts(
 tensorflow::Status MetadataStore::GetContexts(const GetContextsRequest& request,
                                               GetContextsResponse* response) {
   return transaction_executor_->Execute(
-      [this, &response]() -> tensorflow::Status {
+      [this, &request, &response]() -> tensorflow::Status {
         response->Clear();
         std::vector<Context> contexts;
-        const tensorflow::Status status =
-            metadata_access_object_->FindContexts(&contexts);
+        tensorflow::Status status;
+        std::string next_page_token;
+        if (request.has_options()) {
+          status = metadata_access_object_->ListContexts(
+              request.options(), &contexts, &next_page_token);
+        } else {
+          status = metadata_access_object_->FindContexts(&contexts);
+        }
+
         if (tensorflow::errors::IsNotFound(status)) {
           return tensorflow::Status::OK();
         } else if (!status.ok()) {
           return status;
         }
+
         for (const Context& context : contexts) {
           *response->mutable_contexts()->Add() = context;
         }
+
+        if (!next_page_token.empty()) {
+          response->set_next_page_token(next_page_token);
+        }
+
         return tensorflow::Status::OK();
       });
 }

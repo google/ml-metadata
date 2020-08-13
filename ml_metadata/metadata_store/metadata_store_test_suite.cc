@@ -29,6 +29,7 @@ namespace {
 
 using ::ml_metadata::testing::ParseTextProtoOrDie;
 using ::testing::ElementsAre;
+using ::testing::IsEmpty;
 using ::testing::SizeIs;
 using ::testing::UnorderedElementsAre;
 
@@ -665,6 +666,81 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsUpdateGetArtifactsByID) {
                                               "last_update_time_since_epoch"}));
 }
 
+TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithListOptions) {
+  const PutArtifactTypeRequest put_artifact_type_request =
+      ParseTextProtoOrDie<PutArtifactTypeRequest>(
+          R"(
+            all_fields_match: true
+            artifact_type: {
+              name: 'test_type2'
+              properties { key: 'property' value: STRING }
+            }
+          )");
+  PutArtifactTypeResponse put_artifact_type_response;
+  TF_ASSERT_OK(metadata_store_->PutArtifactType(put_artifact_type_request,
+                                                &put_artifact_type_response));
+  ASSERT_TRUE(put_artifact_type_response.has_type_id());
+
+  const int64 type_id = put_artifact_type_response.type_id();
+
+  Artifact artifact = ParseTextProtoOrDie<Artifact>(R"(
+    uri: 'testuri://testing/uri'
+    properties {
+      key: 'property'
+      value: { string_value: '3' }
+    }
+  )");
+
+  artifact.set_type_id(type_id);
+
+  PutArtifactsRequest put_artifacts_request;
+  // Creating 2 artifacts.
+  *put_artifacts_request.add_artifacts() = artifact;
+  *put_artifacts_request.add_artifacts() = artifact;
+  PutArtifactsResponse put_artifacts_response;
+
+  TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request,
+                                             &put_artifacts_response));
+  ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(2));
+  const int64 first_artifact_id = put_artifacts_response.artifact_ids(0);
+  const int64 second_artifact_id = put_artifacts_response.artifact_ids(1);
+
+  ListOperationOptions list_options =
+      ParseTextProtoOrDie<ListOperationOptions>(R"(
+        max_result_size: 1,
+        order_by_field: { field: CREATE_TIME is_asc: false }
+      )");
+
+  GetArtifactsRequest get_artifacts_request;
+  *get_artifacts_request.mutable_options() = list_options;
+
+  GetArtifactsResponse get_artifacts_response;
+  TF_ASSERT_OK(metadata_store_->GetArtifacts(get_artifacts_request,
+                                             &get_artifacts_response));
+  EXPECT_THAT(get_artifacts_response.artifacts(), SizeIs(1));
+  EXPECT_THAT(get_artifacts_response.next_page_token(), Not(IsEmpty()));
+  EXPECT_EQ(get_artifacts_response.artifacts(0).id(), second_artifact_id);
+
+  EXPECT_THAT(
+      get_artifacts_response.artifacts(0),
+      testing::EqualsProto(put_artifacts_request.artifacts(1),
+                           /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                              "last_update_time_since_epoch"}));
+
+  list_options.set_next_page_token(get_artifacts_response.next_page_token());
+  *get_artifacts_request.mutable_options() = list_options;
+  TF_ASSERT_OK(metadata_store_->GetArtifacts(get_artifacts_request,
+                                             &get_artifacts_response));
+  EXPECT_THAT(get_artifacts_response.artifacts(), SizeIs(1));
+  EXPECT_THAT(get_artifacts_response.next_page_token(), IsEmpty());
+  EXPECT_EQ(get_artifacts_response.artifacts(0).id(), first_artifact_id);
+  EXPECT_THAT(
+      get_artifacts_response.artifacts(0),
+      testing::EqualsProto(put_artifacts_request.artifacts(0),
+                           /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                              "last_update_time_since_epoch"}));
+}
+
 // Test creating an execution and then updating one of its properties.
 TEST_P(MetadataStoreTestSuite, PutExecutionsUpdateGetExecutionsByID) {
   const PutExecutionTypeRequest put_execution_type_request =
@@ -1018,6 +1094,81 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithEmptyExecution) {
       &get_executions_by_not_exist_type_response));
   EXPECT_THAT(get_executions_by_not_exist_type_response.executions(),
               SizeIs(0));
+}
+
+TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithListOptions) {
+  const PutExecutionTypeRequest put_execution_type_request =
+      ParseTextProtoOrDie<PutExecutionTypeRequest>(
+          R"(
+            all_fields_match: true
+            execution_type: {
+              name: 'test_type2'
+              properties { key: 'property' value: STRING }
+            }
+          )");
+  PutExecutionTypeResponse put_execution_type_response;
+  TF_ASSERT_OK(metadata_store_->PutExecutionType(put_execution_type_request,
+                                                 &put_execution_type_response));
+  ASSERT_TRUE(put_execution_type_response.has_type_id());
+
+  const int64 type_id = put_execution_type_response.type_id();
+
+  Execution execution = ParseTextProtoOrDie<Execution>(R"(
+    properties {
+      key: 'property'
+      value: { string_value: '3' }
+    }
+    last_known_state: RUNNING
+  )");
+
+  execution.set_type_id(type_id);
+
+  PutExecutionsRequest put_executions_request;
+  // Creating 2 executions.
+  *put_executions_request.add_executions() = execution;
+  *put_executions_request.add_executions() = execution;
+  PutExecutionsResponse put_executions_response;
+
+  TF_ASSERT_OK(metadata_store_->PutExecutions(put_executions_request,
+                                              &put_executions_response));
+  ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(2));
+  const int64 execution_id_0 = put_executions_response.execution_ids(0);
+  const int64 execution_id_1 = put_executions_response.execution_ids(1);
+
+  ListOperationOptions list_options =
+      ParseTextProtoOrDie<ListOperationOptions>(R"(
+        max_result_size: 1,
+        order_by_field: { field: CREATE_TIME is_asc: false }
+      )");
+
+  GetExecutionsRequest get_executions_request;
+  *get_executions_request.mutable_options() = list_options;
+
+  GetExecutionsResponse get_executions_response;
+  TF_ASSERT_OK(metadata_store_->GetExecutions(get_executions_request,
+                                              &get_executions_response));
+  EXPECT_THAT(get_executions_response.executions(), SizeIs(1));
+  EXPECT_THAT(get_executions_response.next_page_token(), Not(IsEmpty()));
+  EXPECT_EQ(get_executions_response.executions(0).id(), execution_id_1);
+
+  EXPECT_THAT(
+      get_executions_response.executions(0),
+      testing::EqualsProto(put_executions_request.executions(1),
+                           /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                              "last_update_time_since_epoch"}));
+
+  list_options.set_next_page_token(get_executions_response.next_page_token());
+  *get_executions_request.mutable_options() = list_options;
+  TF_ASSERT_OK(metadata_store_->GetExecutions(get_executions_request,
+                                              &get_executions_response));
+  EXPECT_THAT(get_executions_response.executions(), SizeIs(1));
+  EXPECT_THAT(get_executions_response.next_page_token(), IsEmpty());
+  EXPECT_EQ(get_executions_response.executions(0).id(), execution_id_0);
+  EXPECT_THAT(
+      get_executions_response.executions(0),
+      testing::EqualsProto(put_executions_request.executions(0),
+                           /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                              "last_update_time_since_epoch"}));
 }
 
 TEST_P(MetadataStoreTestSuite,
@@ -1735,6 +1886,79 @@ TEST_P(MetadataStoreTestSuite, PutContextTypeGetContextTypesByID) {
   expected_result.set_id(put_response.type_id());
   EXPECT_THAT(result, testing::EqualsProto(expected_result))
       << "The type should be the same as the one given.";
+}
+
+TEST_P(MetadataStoreTestSuite, PutContextsGetContextsWithListOptions) {
+  const PutContextTypeRequest put_context_type_request =
+      ParseTextProtoOrDie<PutContextTypeRequest>(
+          R"(
+            all_fields_match: true
+            context_type: {
+              name: 'test_type'
+              properties { key: 'property_1' value: STRING }
+            }
+          )");
+  PutContextTypeResponse put_context_type_response;
+  TF_ASSERT_OK(metadata_store_->PutContextType(put_context_type_request,
+                                               &put_context_type_response));
+  ASSERT_TRUE(put_context_type_response.has_type_id());
+
+  const int64 type_id = put_context_type_response.type_id();
+
+  Context context = ParseTextProtoOrDie<Context>(R"(
+    name: 'test_type_1'
+    properties { key: 'property_1' value: { string_value: '3' } }
+  )");
+
+  context.set_type_id(type_id);
+
+  PutContextsRequest put_contexts_request;
+  // Creating 2 contexts.
+  *put_contexts_request.add_contexts() = context;
+  context.set_name("test_type_2");
+  *put_contexts_request.add_contexts() = context;
+  PutContextsResponse put_contexts_response;
+
+  TF_ASSERT_OK(metadata_store_->PutContexts(put_contexts_request,
+                                            &put_contexts_response));
+  ASSERT_THAT(put_contexts_response.context_ids(), SizeIs(2));
+  const int64 context_id_0 = put_contexts_response.context_ids(0);
+  const int64 context_id_1 = put_contexts_response.context_ids(1);
+
+  ListOperationOptions list_options =
+      ParseTextProtoOrDie<ListOperationOptions>(R"(
+        max_result_size: 1,
+        order_by_field: { field: CREATE_TIME is_asc: false }
+      )");
+
+  GetContextsRequest get_contexts_request;
+  *get_contexts_request.mutable_options() = list_options;
+
+  GetContextsResponse get_contexts_response;
+  TF_ASSERT_OK(metadata_store_->GetContexts(get_contexts_request,
+                                            &get_contexts_response));
+  EXPECT_THAT(get_contexts_response.contexts(), SizeIs(1));
+  EXPECT_THAT(get_contexts_response.next_page_token(), Not(IsEmpty()));
+  EXPECT_EQ(get_contexts_response.contexts(0).id(), context_id_1);
+
+  EXPECT_THAT(
+      get_contexts_response.contexts(0),
+      testing::EqualsProto(put_contexts_request.contexts(1),
+                           /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                              "last_update_time_since_epoch"}));
+
+  list_options.set_next_page_token(get_contexts_response.next_page_token());
+  *get_contexts_request.mutable_options() = list_options;
+  TF_ASSERT_OK(metadata_store_->GetContexts(get_contexts_request,
+                                            &get_contexts_response));
+  EXPECT_THAT(get_contexts_response.contexts(), SizeIs(1));
+  EXPECT_THAT(get_contexts_response.next_page_token(), IsEmpty());
+  EXPECT_EQ(get_contexts_response.contexts(0).id(), context_id_0);
+  EXPECT_THAT(
+      get_contexts_response.contexts(0),
+      testing::EqualsProto(put_contexts_request.contexts(0),
+                           /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                              "last_update_time_since_epoch"}));
 }
 
 TEST_P(MetadataStoreTestSuite, PutContextTypeUpsert) {

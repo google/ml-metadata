@@ -47,7 +47,7 @@ void PrepareNode(const std::string& node_name, const T& node_type, NT& node) {
       "bar");
 }
 
-// Detailed implementation of multiple GetExistingTypes() overload functions.
+// Detailed implementation of multiple GetExistingTypes() overload function.
 // Returns detailed error if query executions failed.
 tensorflow::Status GetExistingTypesImpl(const FetchType& fetch_type,
                                         MetadataStore& store,
@@ -94,27 +94,24 @@ tensorflow::Status GetExistingNodesImpl(const FetchNode& fetch_node,
   switch (fetch_node) {
     case FetchArtifact: {
       GetArtifactsResponse get_response;
-      TF_RETURN_IF_ERROR(store.GetArtifacts(
-          /*request=*/{}, &get_response));
-      for (auto& artifact : get_response.artifacts()) {
+      TF_RETURN_IF_ERROR(store.GetArtifacts(/*request=*/{}, &get_response));
+      for (const Artifact& artifact : get_response.artifacts()) {
         existing_nodes.push_back(artifact);
       }
       break;
     }
     case FetchExecution: {
       GetExecutionsResponse get_response;
-      TF_RETURN_IF_ERROR(store.GetExecutions(
-          /*request=*/{}, &get_response));
-      for (auto& execution : get_response.executions()) {
+      TF_RETURN_IF_ERROR(store.GetExecutions(/*request=*/{}, &get_response));
+      for (const Execution& execution : get_response.executions()) {
         existing_nodes.push_back(execution);
       }
       break;
     }
     case FetchContext: {
       GetContextsResponse get_response;
-      TF_RETURN_IF_ERROR(store.GetContexts(
-          /*request=*/{}, &get_response));
-      for (auto& context : get_response.contexts()) {
+      TF_RETURN_IF_ERROR(store.GetContexts(/*request=*/{}, &get_response));
+      for (const Context& context : get_response.contexts()) {
         existing_nodes.push_back(context);
       }
       break;
@@ -187,9 +184,9 @@ tensorflow::Status GetExistingNodes(const FillNodesConfig& fill_nodes_config,
       return GetExistingNodesImpl(FetchContext, store, existing_nodes);
     }
     default:
-      return tensorflow::errors::Unimplemented(
-          "Unknown FillNodesConfig specification.");
+      LOG(FATAL) << "Wrong specification for getting nodes in db!";
   }
+  return tensorflow::Status::OK();
 }
 
 tensorflow::Status GetExistingNodes(
@@ -208,8 +205,7 @@ tensorflow::Status GetExistingNodes(
       break;
     }
     default:
-      return tensorflow::errors::Unimplemented(
-          "Unknown FillContextEdgesConfig specification.");
+      LOG(FATAL) << "Wrong specification for getting nodes in db!";
   }
   return GetExistingNodesImpl(FetchContext, store, existing_context_nodes);
 }

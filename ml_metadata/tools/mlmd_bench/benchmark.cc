@@ -29,26 +29,23 @@ namespace ml_metadata {
 namespace {
 
 // Creates the executable workload given `workload_config`.
-void CreateWorkload(const WorkloadConfig& workload_config,
-                    std::unique_ptr<WorkloadBase>& workload) {
+std::unique_ptr<WorkloadBase> CreateWorkload(
+    const WorkloadConfig& workload_config) {
   switch (workload_config.workload_config_case()) {
     case WorkloadConfig::kFillTypesConfig: {
-      workload = absl::make_unique<FillTypes>(
+      return absl::make_unique<FillTypes>(
           FillTypes(workload_config.fill_types_config(),
                     workload_config.num_operations()));
-      break;
     }
     case WorkloadConfig::kFillNodesConfig: {
-      workload = absl::make_unique<FillNodes>(
+      return absl::make_unique<FillNodes>(
           FillNodes(workload_config.fill_nodes_config(),
                     workload_config.num_operations()));
-      break;
     }
     case WorkloadConfig::kFillContextEdgesConfig: {
-      workload = absl::make_unique<FillContextEdges>(
+      return absl::make_unique<FillContextEdges>(
           FillContextEdges(workload_config.fill_context_edges_config(),
                            workload_config.num_operations()));
-      break;
     }
     case WorkloadConfig::kFillEventsConfig: {
       workload = absl::make_unique<FillEvents>(
@@ -74,13 +71,10 @@ void InitMLMDBenchReport(const MLMDBenchConfig& mlmd_bench_config,
 
 Benchmark::Benchmark(const MLMDBenchConfig& mlmd_bench_config) {
   workloads_.resize(mlmd_bench_config.workload_configs_size());
-
-  // For each `workload_config`, calls CreateWorkload() to create corresponding
-  // workload.
+  // For each `workload_config`, create corresponding workload.
   for (int i = 0; i < mlmd_bench_config.workload_configs_size(); ++i) {
-    CreateWorkload(mlmd_bench_config.workload_configs(i), workloads_[i]);
+    workloads_[i] = CreateWorkload(mlmd_bench_config.workload_configs(i));
   }
-
   // Initializes the performance report with given `mlmd_bench_config`.
   InitMLMDBenchReport(mlmd_bench_config, mlmd_bench_report_);
 }

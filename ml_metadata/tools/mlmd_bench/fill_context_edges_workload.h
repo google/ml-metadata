@@ -15,9 +15,8 @@ limitations under the License.
 #ifndef ML_METADATA_TOOLS_MLMD_BENCH_FILL_CONTEXT_EDGES_WORKLOAD_H
 #define ML_METADATA_TOOLS_MLMD_BENCH_FILL_CONTEXT_EDGES_WORKLOAD_H
 
-#include <unordered_set>
-
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
@@ -48,7 +47,8 @@ class FillContextEdges
   // not check duplicate context edge inside db. If the context edge
   // exists inside db, the query will do nothing and this is also an expected
   // behavior that also should be included in the performance
-  // measurement. Returns detailed error if query executions failed.
+  // measurement.
+  // Returns detailed error if query executions failed.
   tensorflow::Status SetUpImpl(MetadataStore* store) final;
 
   // Specific implementation of RunOpImpl() for FillContextEdges workload
@@ -74,8 +74,7 @@ class FillContextEdges
   // String for indicating the name of current workload instance.
   const std::string name_;
   // Records all the context and non context id pairs seen in current setup.
-  absl::flat_hash_map<int64, std::unordered_set<int64>>
-      context_id_to_non_context_ids_;
+  absl::flat_hash_map<int64, absl::flat_hash_set<int64>> edges_seen_;
 };
 
 }  // namespace ml_metadata
