@@ -147,5 +147,84 @@ TEST(BenchmarkTest, CreatFillContextEdgesWorkloadTest) {
   EXPECT_STREQ("FILL_ASSOCIATION", benchmark.workload(1)->GetName().c_str());
 }
 
+// Tests the CreateWorkload() for ReadTypes workload, checks that all
+// ReadTypes workload configurations have transformed into executable
+// workloads inside benchmark.
+TEST(BenchmarkTest, CreatReadTypesWorkloadTest) {
+  MLMDBenchConfig mlmd_bench_config =
+      testing::ParseTextProtoOrDie<MLMDBenchConfig>(
+          R"(
+            workload_configs: {
+              read_types_config: { specification: ALL_ARTIFACT_TYPES }
+              num_operations: 120
+            }
+            workload_configs: {
+              read_types_config: { specification: ALL_EXECUTION_TYPES }
+              num_operations: 100
+            }
+            workload_configs: {
+              read_types_config: { specification: ALL_CONTEXT_TYPES }
+              num_operations: 150
+            }
+            workload_configs: {
+              read_types_config: {
+                specification: ARTIFACT_TYPES_BY_IDs
+                maybe_num_ids: { minimum: 1 maximum: 10 }
+              }
+              num_operations: 120
+            }
+            workload_configs: {
+              read_types_config: {
+                specification: EXECUTION_TYPES_BY_IDs
+                maybe_num_ids: { minimum: 1 maximum: 10 }
+              }
+              num_operations: 100
+            }
+            workload_configs: {
+              read_types_config: {
+                specification: CONTEXT_TYPES_BY_IDs
+                maybe_num_ids: { minimum: 1 maximum: 10 }
+              }
+              num_operations: 150
+            }
+            workload_configs: {
+              read_types_config: { specification: ARTIFACT_TYPE_BY_NAME }
+              num_operations: 120
+            }
+            workload_configs: {
+              read_types_config: { specification: EXECUTION_TYPE_BY_NAME }
+              num_operations: 100
+            }
+            workload_configs: {
+              read_types_config: { specification: CONTEXT_TYPE_BY_NAME }
+              num_operations: 150
+            }
+          )");
+
+  Benchmark benchmark(mlmd_bench_config);
+  // Checks that all workload configurations have transformed into executable
+  // workloads inside benchmark.
+  EXPECT_EQ(benchmark.num_workloads(),
+            mlmd_bench_config.workload_configs_size());
+  EXPECT_STREQ("READ_ALL_ARTIFACT_TYPES",
+               benchmark.workload(0)->GetName().c_str());
+  EXPECT_STREQ("READ_ALL_EXECUTION_TYPES",
+               benchmark.workload(1)->GetName().c_str());
+  EXPECT_STREQ("READ_ALL_CONTEXT_TYPES",
+               benchmark.workload(2)->GetName().c_str());
+  EXPECT_STREQ("READ_ARTIFACT_TYPES_BY_IDs",
+               benchmark.workload(3)->GetName().c_str());
+  EXPECT_STREQ("READ_EXECUTION_TYPES_BY_IDs",
+               benchmark.workload(4)->GetName().c_str());
+  EXPECT_STREQ("READ_CONTEXT_TYPES_BY_IDs",
+               benchmark.workload(5)->GetName().c_str());
+  EXPECT_STREQ("READ_ARTIFACT_TYPE_BY_NAME",
+               benchmark.workload(6)->GetName().c_str());
+  EXPECT_STREQ("READ_EXECUTION_TYPE_BY_NAME",
+               benchmark.workload(7)->GetName().c_str());
+  EXPECT_STREQ("READ_CONTEXT_TYPE_BY_NAME",
+               benchmark.workload(8)->GetName().c_str());
+}
+
 }  // namespace
 }  // namespace ml_metadata
