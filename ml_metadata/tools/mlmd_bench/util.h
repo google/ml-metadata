@@ -61,15 +61,6 @@ tensorflow::Status GetExistingNodes(
     MetadataStore& store, std::vector<Node>& existing_non_context_nodes,
     std::vector<Node>& existing_context_nodes);
 
-// Gets existing artifacts and executions inside db and store them into
-// `existing_artifact_nodes` and `existing_execution_nodes` given
-// `fill_events_config`. Returns detailed error if query executions
-// failed.
-tensorflow::Status GetExistingNodes(
-    const FillEventsConfig& fill_events_config, MetadataStore& store,
-    std::vector<Node>& existing_artifact_nodes,
-    std::vector<Node>& existing_execution_nodes);
-
 // Inserts some types into db for setting up in testing. Returns detailed error
 // if query executions failed.
 tensorflow::Status InsertTypesInDb(int64 num_artifact_types,
