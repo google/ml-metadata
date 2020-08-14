@@ -31,11 +31,8 @@ limitations under the License.
 namespace ml_metadata {
 namespace {
 
-// Template function that initializes `read_request`.
-template <typename T>
-void InitializeReadRequest(ReadTypesWorkItemType& read_request) {
-  read_request.emplace<T>();
-}
+constexpr int64 kInt64IdSize = 8;
+constexpr int64 kPropertyTypeSize = 1;
 
 // Gets all types inside db. Returns detailed error if query executions failed.
 // Returns FAILED_PRECONDITION if there is no types inside db to read from.
@@ -56,7 +53,7 @@ tensorflow::Status GetAndValidateExistingTypes(
 template <typename T>
 tensorflow::Status GetTransferredBytes(const T& type, int64& curr_bytes) {
   // Includes the id of current type(int64 takes 8 bytes).
-  curr_bytes += 8;
+  curr_bytes += kInt64IdSize;
   curr_bytes += type.name().size();
   for (const auto& pair : type.properties()) {
     // Includes the bytes for properties' name size.
@@ -66,7 +63,7 @@ tensorflow::Status GetTransferredBytes(const T& type, int64& curr_bytes) {
       return tensorflow::errors::InvalidArgument("Invalid PropertyType!");
     }
     // As we uses a TINYINT to store the enum.
-    curr_bytes += 1;
+    curr_bytes += kPropertyTypeSize;
   }
   return tensorflow::Status::OK();
 }
@@ -78,7 +75,7 @@ tensorflow::Status GetTransferredBytesForAllTypes(
     const std::vector<Type>& existing_types, int64& curr_bytes) {
   // Loops over all the types and get its transferred bytes one by one.
   for (const auto& type : existing_types) {
-    TF_RETURN_IF_ERROR(GetTransferredBytes<T>(absl::get<T>(type), curr_bytes));
+    TF_RETURN_IF_ERROR(GetTransferredBytes(absl::get<T>(type), curr_bytes));
   }
   return tensorflow::Status::OK();
 }
@@ -91,22 +88,22 @@ tensorflow::Status SetUpImplForReadAllTypes(
     int64& curr_bytes) {
   switch (read_types_config.specification()) {
     case ReadTypesConfig::ALL_ARTIFACT_TYPES: {
-      InitializeReadRequest<GetArtifactTypesRequest>(request);
+      request = GetArtifactTypesRequest();
       return GetTransferredBytesForAllTypes<ArtifactType>(existing_types,
                                                           curr_bytes);
     }
     case ReadTypesConfig::ALL_EXECUTION_TYPES: {
-      InitializeReadRequest<GetExecutionTypesRequest>(request);
+      request = GetExecutionTypesRequest();
       return GetTransferredBytesForAllTypes<ExecutionType>(existing_types,
                                                            curr_bytes);
     }
     case ReadTypesConfig::ALL_CONTEXT_TYPES: {
-      InitializeReadRequest<GetContextTypesRequest>(request);
+      request = GetContextTypesRequest();
       return GetTransferredBytesForAllTypes<ContextType>(existing_types,
                                                          curr_bytes);
     }
     default:
-      return tensorflow::errors::Unimplemented(
+      return tensorflow::errors::FailedPrecondition(
           "Wrong ReadTypesConfig specification for read all types in db.");
   }
 }
@@ -129,26 +126,26 @@ tensorflow::Status SetUpImplForReadTypesByIds(
     const int64 type_index = type_index_dist(gen);
     switch (read_types_config.specification()) {
       case ReadTypesConfig::ARTIFACT_TYPES_BY_IDs: {
-        InitializeReadRequest<GetArtifactTypesByIDRequest>(request);
+        request = GetArtifactTypesByIDRequest();
         absl::get<GetArtifactTypesByIDRequest>(request).add_type_ids(
             absl::get<ArtifactType>(existing_types[type_index]).id());
-        TF_RETURN_IF_ERROR(GetTransferredBytes<ArtifactType>(
+        TF_RETURN_IF_ERROR(GetTransferredBytes(
             absl::get<ArtifactType>(existing_types[type_index]), curr_bytes));
         break;
       }
       case ReadTypesConfig::EXECUTION_TYPES_BY_IDs: {
-        InitializeReadRequest<GetExecutionTypesByIDRequest>(request);
+        request = GetExecutionTypesByIDRequest();
         absl::get<GetExecutionTypesByIDRequest>(request).add_type_ids(
             absl::get<ExecutionType>(existing_types[type_index]).id());
-        TF_RETURN_IF_ERROR(GetTransferredBytes<ExecutionType>(
+        TF_RETURN_IF_ERROR(GetTransferredBytes(
             absl::get<ExecutionType>(existing_types[type_index]), curr_bytes));
         break;
       }
       case ReadTypesConfig::CONTEXT_TYPES_BY_IDs: {
-        InitializeReadRequest<GetContextTypesByIDRequest>(request);
+        request = GetContextTypesByIDRequest();
         absl::get<GetContextTypesByIDRequest>(request).add_type_ids(
             absl::get<ContextType>(existing_types[type_index]).id());
-        TF_RETURN_IF_ERROR(GetTransferredBytes<ContextType>(
+        TF_RETURN_IF_ERROR(GetTransferredBytes(
             absl::get<ContextType>(existing_types[type_index]), curr_bytes));
         break;
       }
@@ -172,24 +169,24 @@ tensorflow::Status SetUpImplForReadTypeByName(
   const int64 type_index = type_index_dist(gen);
   switch (read_types_config.specification()) {
     case ReadTypesConfig::ARTIFACT_TYPE_BY_NAME: {
-      InitializeReadRequest<GetArtifactTypeRequest>(request);
+      request = GetArtifactTypeRequest();
       absl::get<GetArtifactTypeRequest>(request).set_type_name(
           absl::get<ArtifactType>(existing_types[type_index]).name());
-      return GetTransferredBytes<ArtifactType>(
+      return GetTransferredBytes(
           absl::get<ArtifactType>(existing_types[type_index]), curr_bytes);
     }
     case ReadTypesConfig::EXECUTION_TYPE_BY_NAME: {
-      InitializeReadRequest<GetExecutionTypeRequest>(request);
+      request = GetExecutionTypeRequest();
       absl::get<GetExecutionTypeRequest>(request).set_type_name(
           absl::get<ExecutionType>(existing_types[type_index]).name());
-      return GetTransferredBytes<ExecutionType>(
+      return GetTransferredBytes(
           absl::get<ExecutionType>(existing_types[type_index]), curr_bytes);
     }
     case ReadTypesConfig::CONTEXT_TYPE_BY_NAME: {
-      InitializeReadRequest<GetContextTypeRequest>(request);
+      request = GetContextTypeRequest();
       absl::get<GetContextTypeRequest>(request).set_type_name(
           absl::get<ContextType>(existing_types[type_index]).name());
-      return GetTransferredBytes<ContextType>(
+      return GetTransferredBytes(
           absl::get<ContextType>(existing_types[type_index]), curr_bytes);
     }
     default:
@@ -258,58 +255,55 @@ tensorflow::Status ReadTypes::RunOpImpl(const int64 work_items_index,
                                         MetadataStore* store) {
   switch (read_types_config_.specification()) {
     case ReadTypesConfig::ALL_ARTIFACT_TYPES: {
-      GetArtifactTypesRequest request = absl::get<GetArtifactTypesRequest>(
+      auto request = absl::get<GetArtifactTypesRequest>(
           work_items_[work_items_index].first);
       GetArtifactTypesResponse response;
       return store->GetArtifactTypes(request, &response);
     }
     case ReadTypesConfig::ALL_EXECUTION_TYPES: {
-      GetExecutionTypesRequest request = absl::get<GetExecutionTypesRequest>(
+      auto request = absl::get<GetExecutionTypesRequest>(
           work_items_[work_items_index].first);
       GetExecutionTypesResponse response;
       return store->GetExecutionTypes(request, &response);
     }
     case ReadTypesConfig::ALL_CONTEXT_TYPES: {
-      GetContextTypesRequest request = absl::get<GetContextTypesRequest>(
+      auto request = absl::get<GetContextTypesRequest>(
           work_items_[work_items_index].first);
       GetContextTypesResponse response;
       return store->GetContextTypes(request, &response);
     }
     case ReadTypesConfig::ARTIFACT_TYPES_BY_IDs: {
-      GetArtifactTypesByIDRequest request =
-          absl::get<GetArtifactTypesByIDRequest>(
-              work_items_[work_items_index].first);
+      auto request = absl::get<GetArtifactTypesByIDRequest>(
+          work_items_[work_items_index].first);
       GetArtifactTypesByIDResponse response;
       return store->GetArtifactTypesByID(request, &response);
     }
     case ReadTypesConfig::EXECUTION_TYPES_BY_IDs: {
-      GetExecutionTypesByIDRequest request =
-          absl::get<GetExecutionTypesByIDRequest>(
-              work_items_[work_items_index].first);
+      auto request = absl::get<GetExecutionTypesByIDRequest>(
+          work_items_[work_items_index].first);
       GetExecutionTypesByIDResponse response;
       return store->GetExecutionTypesByID(request, &response);
     }
     case ReadTypesConfig::CONTEXT_TYPES_BY_IDs: {
-      GetContextTypesByIDRequest request =
-          absl::get<GetContextTypesByIDRequest>(
-              work_items_[work_items_index].first);
+      auto request = absl::get<GetContextTypesByIDRequest>(
+          work_items_[work_items_index].first);
       GetContextTypesByIDResponse response;
       return store->GetContextTypesByID(request, &response);
     }
     case ReadTypesConfig::ARTIFACT_TYPE_BY_NAME: {
-      GetArtifactTypeRequest request = absl::get<GetArtifactTypeRequest>(
+      auto request = absl::get<GetArtifactTypeRequest>(
           work_items_[work_items_index].first);
       GetArtifactTypeResponse response;
       return store->GetArtifactType(request, &response);
     }
     case ReadTypesConfig::EXECUTION_TYPE_BY_NAME: {
-      GetExecutionTypeRequest request = absl::get<GetExecutionTypeRequest>(
+      auto request = absl::get<GetExecutionTypeRequest>(
           work_items_[work_items_index].first);
       GetExecutionTypeResponse response;
       return store->GetExecutionType(request, &response);
     }
     case ReadTypesConfig::CONTEXT_TYPE_BY_NAME: {
-      GetContextTypeRequest request =
+      auto request =
           absl::get<GetContextTypeRequest>(work_items_[work_items_index].first);
       GetContextTypeResponse response;
       return store->GetContextType(request, &response);

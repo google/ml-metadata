@@ -38,85 +38,22 @@ constexpr char kConfig[] =
 // test coverage.
 std::vector<WorkloadConfig> EnumerateConfigs() {
   std::vector<WorkloadConfig> configs;
+  std::vector<ReadTypesConfig::Specification> specifications = {
+      ReadTypesConfig::ALL_ARTIFACT_TYPES,
+      ReadTypesConfig::ALL_EXECUTION_TYPES,
+      ReadTypesConfig::ALL_CONTEXT_TYPES,
+      ReadTypesConfig::ARTIFACT_TYPES_BY_IDs,
+      ReadTypesConfig::EXECUTION_TYPES_BY_IDs,
+      ReadTypesConfig::CONTEXT_TYPES_BY_IDs,
+      ReadTypesConfig::ARTIFACT_TYPE_BY_NAME,
+      ReadTypesConfig::EXECUTION_TYPE_BY_NAME,
+      ReadTypesConfig::CONTEXT_TYPE_BY_NAME};
 
-  {
+  for (const ReadTypesConfig::Specification& specification : specifications) {
     WorkloadConfig config =
         testing::ParseTextProtoOrDie<WorkloadConfig>(kConfig);
     config.set_num_operations(kNumberOfOperations);
-    config.mutable_read_types_config()->set_specification(
-        ReadTypesConfig::ALL_ARTIFACT_TYPES);
-    configs.push_back(config);
-  }
-
-  {
-    WorkloadConfig config =
-        testing::ParseTextProtoOrDie<WorkloadConfig>(kConfig);
-    config.set_num_operations(kNumberOfOperations);
-    config.mutable_read_types_config()->set_specification(
-        ReadTypesConfig::ALL_EXECUTION_TYPES);
-    configs.push_back(config);
-  }
-
-  {
-    WorkloadConfig config =
-        testing::ParseTextProtoOrDie<WorkloadConfig>(kConfig);
-    config.set_num_operations(kNumberOfOperations);
-    config.mutable_read_types_config()->set_specification(
-        ReadTypesConfig::ALL_CONTEXT_TYPES);
-    configs.push_back(config);
-  }
-
-  {
-    WorkloadConfig config =
-        testing::ParseTextProtoOrDie<WorkloadConfig>(kConfig);
-    config.set_num_operations(kNumberOfOperations);
-    config.mutable_read_types_config()->set_specification(
-        ReadTypesConfig::ARTIFACT_TYPES_BY_IDs);
-    configs.push_back(config);
-  }
-
-  {
-    WorkloadConfig config =
-        testing::ParseTextProtoOrDie<WorkloadConfig>(kConfig);
-    config.set_num_operations(kNumberOfOperations);
-    config.mutable_read_types_config()->set_specification(
-        ReadTypesConfig::EXECUTION_TYPES_BY_IDs);
-    configs.push_back(config);
-  }
-
-  {
-    WorkloadConfig config =
-        testing::ParseTextProtoOrDie<WorkloadConfig>(kConfig);
-    config.set_num_operations(kNumberOfOperations);
-    config.mutable_read_types_config()->set_specification(
-        ReadTypesConfig::CONTEXT_TYPES_BY_IDs);
-    configs.push_back(config);
-  }
-
-  {
-    WorkloadConfig config =
-        testing::ParseTextProtoOrDie<WorkloadConfig>(kConfig);
-    config.set_num_operations(kNumberOfOperations);
-    config.mutable_read_types_config()->set_specification(
-        ReadTypesConfig::ARTIFACT_TYPE_BY_NAME);
-    configs.push_back(config);
-  }
-
-  {
-    WorkloadConfig config =
-        testing::ParseTextProtoOrDie<WorkloadConfig>(kConfig);
-    config.set_num_operations(kNumberOfOperations);
-    config.mutable_read_types_config()->set_specification(
-        ReadTypesConfig::EXECUTION_TYPE_BY_NAME);
-    configs.push_back(config);
-  }
-
-  {
-    WorkloadConfig config =
-        testing::ParseTextProtoOrDie<WorkloadConfig>(kConfig);
-    config.set_num_operations(kNumberOfOperations);
-    config.mutable_read_types_config()->set_specification(
-        ReadTypesConfig::CONTEXT_TYPE_BY_NAME);
+    config.mutable_read_types_config()->set_specification(specification);
     configs.push_back(config);
   }
 

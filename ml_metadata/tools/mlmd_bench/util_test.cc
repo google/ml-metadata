@@ -191,30 +191,25 @@ TEST(UtilGetTest, GetTypesWithReadTypesConfigTest) {
       /*num_execution_types=*/kNumberOfInsertedExecutionTypes,
       /*num_context_types=*/kNumberOfInsertedContextTypes, *store));
 
-  std::vector<ReadTypesConfig::Specification> specification{
-      ReadTypesConfig::ALL_ARTIFACT_TYPES,
-      ReadTypesConfig::ARTIFACT_TYPES_BY_IDs,
-      ReadTypesConfig::ARTIFACT_TYPE_BY_NAME,
-      ReadTypesConfig::ALL_EXECUTION_TYPES,
-      ReadTypesConfig::EXECUTION_TYPES_BY_IDs,
-      ReadTypesConfig::EXECUTION_TYPE_BY_NAME,
-      ReadTypesConfig::ALL_CONTEXT_TYPES,
-      ReadTypesConfig::CONTEXT_TYPES_BY_IDs,
-      ReadTypesConfig::CONTEXT_TYPE_BY_NAME};
-
-  std::vector<int> size{
-      kNumberOfInsertedArtifactTypes,  kNumberOfInsertedArtifactTypes,
-      kNumberOfInsertedArtifactTypes,  kNumberOfInsertedExecutionTypes,
-      kNumberOfInsertedExecutionTypes, kNumberOfInsertedExecutionTypes,
-      kNumberOfInsertedContextTypes,   kNumberOfInsertedContextTypes,
-      kNumberOfInsertedContextTypes};
+  std::vector<std::pair<ReadTypesConfig::Specification, int>> specification{
+      {ReadTypesConfig::ALL_ARTIFACT_TYPES, kNumberOfInsertedArtifactTypes},
+      {ReadTypesConfig::ARTIFACT_TYPES_BY_IDs, kNumberOfInsertedArtifactTypes},
+      {ReadTypesConfig::ARTIFACT_TYPE_BY_NAME, kNumberOfInsertedArtifactTypes},
+      {ReadTypesConfig::ALL_EXECUTION_TYPES, kNumberOfInsertedExecutionTypes},
+      {ReadTypesConfig::EXECUTION_TYPES_BY_IDs,
+       kNumberOfInsertedExecutionTypes},
+      {ReadTypesConfig::EXECUTION_TYPE_BY_NAME,
+       kNumberOfInsertedExecutionTypes},
+      {ReadTypesConfig::ALL_CONTEXT_TYPES, kNumberOfInsertedContextTypes},
+      {ReadTypesConfig::CONTEXT_TYPES_BY_IDs, kNumberOfInsertedContextTypes},
+      {ReadTypesConfig::CONTEXT_TYPE_BY_NAME, kNumberOfInsertedContextTypes}};
 
   for (int i = 0; i < 9; ++i) {
     std::vector<Type> exisiting_types;
     ReadTypesConfig read_types_config;
-    read_types_config.set_specification(specification[i]);
+    read_types_config.set_specification(specification[i].first);
     TF_ASSERT_OK(GetExistingTypes(read_types_config, *store, exisiting_types));
-    EXPECT_THAT(exisiting_types, ::testing::SizeIs(size[i]));
+    EXPECT_THAT(exisiting_types, ::testing::SizeIs(specification[i].second));
   }
 }
 
