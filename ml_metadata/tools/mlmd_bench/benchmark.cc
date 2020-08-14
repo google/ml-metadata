@@ -52,13 +52,11 @@ std::unique_ptr<WorkloadBase> CreateWorkload(
       return absl::make_unique<FillEvents>(
           FillEvents(workload_config.fill_events_config(),
                      workload_config.num_operations()));
-      break;
     }
     case WorkloadConfig::kReadTypesConfig: {
-      workload = absl::make_unique<ReadTypes>(
+      return absl::make_unique<ReadTypes>(
           ReadTypes(workload_config.read_types_config(),
                     workload_config.num_operations()));
-      break;
     }
     default:
       LOG(FATAL) << "Cannot find corresponding workload!";
