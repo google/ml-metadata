@@ -127,47 +127,61 @@ tensorflow::Status GetExistingNodesImpl(const FetchNode& fetch_node,
 tensorflow::Status GetExistingTypes(const FillTypesConfig& fill_types_config,
                                     MetadataStore& store,
                                     std::vector<Type>& existing_types) {
-  FetchType fetch_type;
   switch (fill_types_config.specification()) {
     case FillTypesConfig::ARTIFACT_TYPE: {
-      fetch_type = FetchArtifactType;
-      break;
+      return GetExistingTypesImpl(FetchArtifactType, store, existing_types);
     }
     case FillTypesConfig::EXECUTION_TYPE: {
-      fetch_type = FetchExecutionType;
-      break;
+      return GetExistingTypesImpl(FetchExecutionType, store, existing_types);
     }
     case FillTypesConfig::CONTEXT_TYPE: {
-      fetch_type = FetchContextType;
-      break;
+      return GetExistingTypesImpl(FetchContextType, store, existing_types);
     }
     default:
-      LOG(FATAL) << "Wrong specification for getting types in db!";
+      return tensorflow::errors::Unimplemented(
+          "Unknown FillTypesConfig specification.");
   }
-  return GetExistingTypesImpl(fetch_type, store, existing_types);
 }
 
 tensorflow::Status GetExistingTypes(const FillNodesConfig& fill_nodes_config,
                                     MetadataStore& store,
                                     std::vector<Type>& existing_types) {
-  FetchType fetch_type;
   switch (fill_nodes_config.specification()) {
     case FillNodesConfig::ARTIFACT: {
-      fetch_type = FetchArtifactType;
-      break;
+      return GetExistingTypesImpl(FetchArtifactType, store, existing_types);
     }
     case FillNodesConfig::EXECUTION: {
-      fetch_type = FetchExecutionType;
-      break;
+      return GetExistingTypesImpl(FetchExecutionType, store, existing_types);
     }
     case FillNodesConfig::CONTEXT: {
-      fetch_type = FetchContextType;
-      break;
+      return GetExistingTypesImpl(FetchContextType, store, existing_types);
     }
     default:
-      LOG(FATAL) << "Wrong specification for getting types in db!";
+      return tensorflow::errors::Unimplemented(
+          "Unknown FillNodesConfig specification.");
   }
-  return GetExistingTypesImpl(fetch_type, store, existing_types);
+}
+
+tensorflow::Status GetExistingTypes(const ReadTypesConfig& read_types_config,
+                                    MetadataStore& store,
+                                    std::vector<Type>& existing_types) {
+  switch (read_types_config.specification()) {
+    case ReadTypesConfig::ALL_ARTIFACT_TYPES:
+    case ReadTypesConfig::ARTIFACT_TYPES_BY_IDs:
+    case ReadTypesConfig::ARTIFACT_TYPE_BY_NAME:
+      return GetExistingTypesImpl(FetchArtifactType, store, existing_types);
+    case ReadTypesConfig::ALL_EXECUTION_TYPES:
+    case ReadTypesConfig::EXECUTION_TYPES_BY_IDs:
+    case ReadTypesConfig::EXECUTION_TYPE_BY_NAME:
+      return GetExistingTypesImpl(FetchExecutionType, store, existing_types);
+    case ReadTypesConfig::ALL_CONTEXT_TYPES:
+    case ReadTypesConfig::CONTEXT_TYPES_BY_IDs:
+    case ReadTypesConfig::CONTEXT_TYPE_BY_NAME:
+      return GetExistingTypesImpl(FetchContextType, store, existing_types);
+    default:
+      return tensorflow::errors::Unimplemented(
+          "Unknown ReadTypesConfig specification.");
+  }
 }
 
 tensorflow::Status GetExistingNodes(const FillNodesConfig& fill_nodes_config,

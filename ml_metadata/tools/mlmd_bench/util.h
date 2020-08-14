@@ -45,6 +45,12 @@ tensorflow::Status GetExistingTypes(const FillNodesConfig& fill_nodes_config,
                                     MetadataStore& store,
                                     std::vector<Type>& existing_types);
 
+// Gets all the existing types inside db and store them into `existing_types`
+// given `read_types_config`. Returns detailed error if query executions failed.
+tensorflow::Status GetExistingTypes(const ReadTypesConfig& read_types_config,
+                                    MetadataStore& store,
+                                    std::vector<Type>& existing_types);
+
 // Gets all the existing nodes inside db and store them into `existing_nodes`
 // given `fill_nodes_config`.
 // Returns detailed error if query executions failed.
