@@ -14,6 +14,8 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/tools/mlmd_bench/util.h"
 
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "ml_metadata/metadata_store/metadata_store.h"
@@ -174,6 +176,40 @@ TEST(UtilGetTest, GetTypesWithFillNodesConfigTest) {
     TF_ASSERT_OK(GetExistingTypes(fill_nodes_config, *store, exisiting_types));
     EXPECT_THAT(exisiting_types,
                 ::testing::SizeIs(kNumberOfInsertedContextTypes));
+  }
+}
+
+// Tests GetExistingTypes() with ReadTypesConfig as input.
+TEST(UtilGetTest, GetTypesWithReadTypesConfigTest) {
+  std::unique_ptr<MetadataStore> store;
+  ConnectionConfig mlmd_config;
+  // Uses a fake in-memory SQLite database for testing.
+  mlmd_config.mutable_fake_database();
+  TF_ASSERT_OK(CreateMetadataStore(mlmd_config, &store));
+  TF_ASSERT_OK(InsertTypesInDb(
+      /*num_artifact_types=*/kNumberOfInsertedArtifactTypes,
+      /*num_execution_types=*/kNumberOfInsertedExecutionTypes,
+      /*num_context_types=*/kNumberOfInsertedContextTypes, *store));
+
+  std::vector<std::pair<ReadTypesConfig::Specification, int>> specification{
+      {ReadTypesConfig::ALL_ARTIFACT_TYPES, kNumberOfInsertedArtifactTypes},
+      {ReadTypesConfig::ARTIFACT_TYPES_BY_IDs, kNumberOfInsertedArtifactTypes},
+      {ReadTypesConfig::ARTIFACT_TYPE_BY_NAME, kNumberOfInsertedArtifactTypes},
+      {ReadTypesConfig::ALL_EXECUTION_TYPES, kNumberOfInsertedExecutionTypes},
+      {ReadTypesConfig::EXECUTION_TYPES_BY_IDs,
+       kNumberOfInsertedExecutionTypes},
+      {ReadTypesConfig::EXECUTION_TYPE_BY_NAME,
+       kNumberOfInsertedExecutionTypes},
+      {ReadTypesConfig::ALL_CONTEXT_TYPES, kNumberOfInsertedContextTypes},
+      {ReadTypesConfig::CONTEXT_TYPES_BY_IDs, kNumberOfInsertedContextTypes},
+      {ReadTypesConfig::CONTEXT_TYPE_BY_NAME, kNumberOfInsertedContextTypes}};
+
+  for (int i = 0; i < 9; ++i) {
+    std::vector<Type> exisiting_types;
+    ReadTypesConfig read_types_config;
+    read_types_config.set_specification(specification[i].first);
+    TF_ASSERT_OK(GetExistingTypes(read_types_config, *store, exisiting_types));
+    EXPECT_THAT(exisiting_types, ::testing::SizeIs(specification[i].second));
   }
 }
 
