@@ -200,30 +200,22 @@ TEST(BenchmarkTest, CreatReadTypesWorkloadTest) {
               num_operations: 150
             }
           )");
+  std::vector<std::string> workload_names{
+      "READ_ALL_ARTIFACT_TYPES",     "READ_ALL_EXECUTION_TYPES",
+      "READ_ALL_CONTEXT_TYPES",      "READ_ARTIFACT_TYPES_BY_IDs",
+      "READ_EXECUTION_TYPES_BY_IDs", "READ_CONTEXT_TYPES_BY_IDs",
+      "READ_ARTIFACT_TYPE_BY_NAME",  "READ_EXECUTION_TYPE_BY_NAME",
+      "READ_CONTEXT_TYPE_BY_NAME"};
 
   Benchmark benchmark(mlmd_bench_config);
   // Checks that all workload configurations have transformed into executable
   // workloads inside benchmark.
   EXPECT_EQ(benchmark.num_workloads(),
             mlmd_bench_config.workload_configs_size());
-  EXPECT_STREQ("READ_ALL_ARTIFACT_TYPES",
-               benchmark.workload(0)->GetName().c_str());
-  EXPECT_STREQ("READ_ALL_EXECUTION_TYPES",
-               benchmark.workload(1)->GetName().c_str());
-  EXPECT_STREQ("READ_ALL_CONTEXT_TYPES",
-               benchmark.workload(2)->GetName().c_str());
-  EXPECT_STREQ("READ_ARTIFACT_TYPES_BY_IDs",
-               benchmark.workload(3)->GetName().c_str());
-  EXPECT_STREQ("READ_EXECUTION_TYPES_BY_IDs",
-               benchmark.workload(4)->GetName().c_str());
-  EXPECT_STREQ("READ_CONTEXT_TYPES_BY_IDs",
-               benchmark.workload(5)->GetName().c_str());
-  EXPECT_STREQ("READ_ARTIFACT_TYPE_BY_NAME",
-               benchmark.workload(6)->GetName().c_str());
-  EXPECT_STREQ("READ_EXECUTION_TYPE_BY_NAME",
-               benchmark.workload(7)->GetName().c_str());
-  EXPECT_STREQ("READ_CONTEXT_TYPE_BY_NAME",
-               benchmark.workload(8)->GetName().c_str());
+  for (int i = 0; i < mlmd_bench_config.workload_configs_size(); ++i) {
+    EXPECT_STREQ(benchmark.workload(i)->GetName().c_str(),
+                 workload_names[i].c_str());
+  }
 }
 
 }  // namespace

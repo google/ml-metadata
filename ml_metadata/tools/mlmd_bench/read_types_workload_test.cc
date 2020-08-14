@@ -137,6 +137,10 @@ class ReadTypesParameterizedTestFixture
     TF_ASSERT_OK(CreateMetadataStore(mlmd_config, &store_));
     read_types_ = absl::make_unique<ReadTypes>(
         ReadTypes(GetParam().read_types_config(), GetParam().num_operations()));
+    TF_ASSERT_OK(InsertTypesInDb(
+        /*num_artifact_types=*/kNumberOfExistedTypesInDb,
+        /*num_execution_types=*/kNumberOfExistedTypesInDb,
+        /*num_context_types=*/kNumberOfExistedTypesInDb, *store_));
   }
 
   std::unique_ptr<ReadTypes> read_types_;
@@ -147,11 +151,6 @@ class ReadTypesParameterizedTestFixture
 // a list of work items whose length is the same as the specified number of
 // operations.
 TEST_P(ReadTypesParameterizedTestFixture, SetUpImplTest) {
-  TF_ASSERT_OK(InsertTypesInDb(
-      /*num_artifact_types=*/kNumberOfExistedTypesInDb,
-      /*num_execution_types=*/kNumberOfExistedTypesInDb,
-      /*num_context_types=*/kNumberOfExistedTypesInDb, *store_));
-
   TF_ASSERT_OK(read_types_->SetUp(store_.get()));
   EXPECT_EQ(GetParam().num_operations(), read_types_->num_operations());
 }
@@ -159,11 +158,6 @@ TEST_P(ReadTypesParameterizedTestFixture, SetUpImplTest) {
 // Tests the RunOpImpl() for ReadTypes. Checks indeed all the work items have
 // been executed and some bytes are transferred during the reading process.
 TEST_P(ReadTypesParameterizedTestFixture, RunOpImplTest) {
-  TF_ASSERT_OK(InsertTypesInDb(
-      /*num_artifact_types=*/kNumberOfExistedTypesInDb,
-      /*num_execution_types=*/kNumberOfExistedTypesInDb,
-      /*num_context_types=*/kNumberOfExistedTypesInDb, *store_));
-
   TF_ASSERT_OK(read_types_->SetUp(store_.get()));
 
   int64 total_done = 0;
