@@ -137,6 +137,41 @@ ml_metadata_cc_test(
 )
 
 cc_library(
+    name = "fill_events_workload",
+    srcs = ["fill_events_workload.cc"],
+    hdrs = ["fill_events_workload.h"],
+    deps = [
+        ":util",
+        ":workload",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "//ml_metadata/metadata_store",
+        "//ml_metadata/metadata_store:types",
+        "//ml_metadata/proto:metadata_store_service_proto",
+        "//ml_metadata/tools/mlmd_bench/proto:mlmd_bench_proto",
+        "@org_tensorflow//tensorflow/core:lib",
+    ],
+)
+
+ml_metadata_cc_test(
+    name = "fill_events_workload_test",
+    size = "small",
+    srcs = ["fill_events_workload_test.cc"],
+    deps = [
+        ":fill_events_workload",
+        ":util",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/memory",
+        "//ml_metadata/metadata_store",
+        "//ml_metadata/metadata_store:metadata_store_factory",
+        "//ml_metadata/metadata_store:test_util",
+        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_service_proto",
+        "//ml_metadata/tools/mlmd_bench/proto:mlmd_bench_proto",
+        "@org_tensorflow//tensorflow/core:test",
+    ],
+)
+
+cc_library(
     name = "stats",
     srcs = ["stats.cc"],
     hdrs = ["stats.h"],
@@ -166,6 +201,7 @@ cc_library(
     hdrs = ["benchmark.h"],
     deps = [
         ":fill_context_edges_workload",
+        ":fill_events_workload",
         ":fill_nodes_workload",
         ":fill_types_workload",
         ":workload",

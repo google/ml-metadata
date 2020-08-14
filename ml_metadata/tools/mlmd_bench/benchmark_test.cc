@@ -147,5 +147,41 @@ TEST(BenchmarkTest, CreatFillContextEdgesWorkloadTest) {
   EXPECT_STREQ(benchmark.workload(1)->GetName().c_str(), "FILL_ASSOCIATION");
 }
 
+// Tests the CreateWorkload() for FillEvents workload, checks that all
+// FillEvents workload configurations have transformed into executable
+// workloads inside benchmark.
+TEST(BenchmarkTest, CreatFillEventsWorkloadTest) {
+  MLMDBenchConfig mlmd_bench_config =
+      testing::ParseTextProtoOrDie<MLMDBenchConfig>(
+          R"(
+            workload_configs: {
+              fill_events_config: {
+                specification: INPUT
+                execution_node_popularity: { dirichlet_alpha: 1 }
+                artifact_node_popularity_zipf: { skew: 0.5 }
+                num_events: { minimum: 1 maximum: 10 }
+              }
+              num_operations: 250
+            }
+            workload_configs: {
+              fill_events_config: {
+                specification: OUTPUT
+                execution_node_popularity: { dirichlet_alpha: 1 }
+                artifact_node_popularity_categorical: { dirichlet_alpha: 1 }
+                num_events: { minimum: 1 maximum: 10 }
+              }
+              num_operations: 150
+            }
+          )");
+
+  Benchmark benchmark(mlmd_bench_config);
+  // Checks that all workload configurations have transformed into executable
+  // workloads inside benchmark.
+  EXPECT_EQ(benchmark.num_workloads(),
+            mlmd_bench_config.workload_configs_size());
+  EXPECT_STREQ(benchmark.workload(0)->GetName().c_str(), "FILL_INPUT_EVENT");
+  EXPECT_STREQ(benchmark.workload(1)->GetName().c_str(), "FILL_OUTPUT_EVENT");
+}
+
 }  // namespace
 }  // namespace ml_metadata
