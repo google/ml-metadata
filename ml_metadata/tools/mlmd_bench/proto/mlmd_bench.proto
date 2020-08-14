@@ -136,6 +136,28 @@ message FillEventsConfig {
   optional UniformDistribution num_events = 5;
 }
 
+// Read types: ArtifactTypes / ExecutionTypes / ContextTypes.
+message ReadTypesConfig {
+  enum Specification {
+    UNKNOWN = 0;
+    ALL_ARTIFACT_TYPES = 1;
+    ALL_EXECUTION_TYPES = 2;
+    ALL_CONTEXT_TYPES = 3;
+    ARTIFACT_TYPES_BY_IDs = 4;
+    EXECUTION_TYPES_BY_IDs = 5;
+    CONTEXT_TYPES_BY_IDs = 6;
+    ARTIFACT_TYPE_BY_NAME = 7;
+    EXECUTION_TYPE_BY_NAME = 8;
+    CONTEXT_TYPE_BY_NAME = 9;
+  }
+  // Indicates which types to be read and how they are read from db.
+  optional Specification specification = 1;
+  // Specifies the number of ids to be filled per request for 
+  // ARTIFACT_TYPES_BY_IDs / EXECUTION_TYPES_BY_IDs / CONTEXT_TYPES_BY_IDs
+  // specification. Modeled by a uniform distribution.
+  optional UniformDistribution maybe_num_ids = 2;
+}
+
 // The mlmd_bench workload config.
 message WorkloadConfig {
   oneof workload_config {
@@ -143,6 +165,7 @@ message WorkloadConfig {
     FillNodesConfig fill_nodes_config = 3;
     FillContextEdgesConfig fill_context_edges_config = 4;
     FillEventsConfig fill_events_config = 5;
+    ReadTypesConfig read_types_config = 6;
   }
   // The number of operations to be run in parallel.
   optional int64 num_operations = 2;
