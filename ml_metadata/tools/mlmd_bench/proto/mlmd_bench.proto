@@ -158,6 +158,30 @@ message ReadTypesConfig {
   optional UniformDistribution maybe_num_ids = 2;
 }
 
+// Read nodes: Artifacts / Executions / Contexts by their properties.
+message ReadNodesByPropertiesConfig {
+  enum Specification {
+    UNKNOWN = 0;
+    ARTIFACTS_BY_IDs = 1;
+    EXECUTIONS_BY_IDs = 2;
+    CONTEXTS_BY_IDs = 3;
+    ARTIFACTS_BY_TYPE = 4;
+    EXECUTIONS_BY_TYPE = 5;
+    CONTEXTS_BY_TYPE = 6;
+    ARTIFACT_BY_TYPE_AND_NAME = 7;
+    EXECUTION_BY_TYPE_AND_NAME = 8;
+    CONTEXT_BY_TYPE_AND_NAME = 9;
+    ARTIFACTS_BY_URIs = 10;
+  }
+  // Indicate what properties (id, type, name, etc.)  
+  // should be used to get nodes (artifact, execution, context).
+  optional Specification specification = 1;
+  // Specifies the number of ids or uris to be filled per request for 
+  // ARTIFACTS_BY_IDs / EXECUTIONS_BY_IDs / CONTEXTS_BY_IDs 
+  // or ARTIFACTS_BY_URIs specification. Modeled by a uniform distribution.
+  optional UniformDistribution maybe_num_queries = 2;
+}
+
 // The mlmd_bench workload config.
 message WorkloadConfig {
   oneof workload_config {
@@ -166,6 +190,7 @@ message WorkloadConfig {
     FillContextEdgesConfig fill_context_edges_config = 4;
     FillEventsConfig fill_events_config = 5;
     ReadTypesConfig read_types_config = 6;
+    ReadNodesByPropertiesConfig read_nodes_by_properties_config = 7;
   }
   // The number of operations to be run in parallel.
   optional int64 num_operations = 2;

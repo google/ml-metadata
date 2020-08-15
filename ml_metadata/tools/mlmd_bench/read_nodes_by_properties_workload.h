@@ -25,11 +25,13 @@ limitations under the License.
 
 namespace ml_metadata {
 
-using ReadNodesByPropertiesWorkItemType = absl::variant<
-    GetArtifactsByIDRequest, GetExecutionsByIDRequest, GetContextsByIDRequest,
-    GetArtifactsByTypeRequest, GetExecutionsByTypeRequest,
-    GetContextsByTypeRequest, GetArtifactByTypeAndNameRequest,
-    GetExecutionByTypeAndNameRequest, GetContextByTypeAndNameRequest>;
+using ReadNodesByPropertiesWorkItemType =
+    absl::variant<GetArtifactsByIDRequest, GetExecutionsByIDRequest,
+                  GetContextsByIDRequest, GetArtifactsByTypeRequest,
+                  GetExecutionsByTypeRequest, GetContextsByTypeRequest,
+                  GetArtifactByTypeAndNameRequest,
+                  GetExecutionByTypeAndNameRequest,
+                  GetContextByTypeAndNameRequest, GetArtifactsByURIRequest>;
 
 class ReadNodesByProperties
     : public Workload<ReadNodesByPropertiesWorkItemType> {

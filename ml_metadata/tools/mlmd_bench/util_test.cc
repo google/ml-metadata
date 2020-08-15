@@ -324,5 +324,50 @@ TEST(UtilGetTest, GetNodesWithFillEventsConfigTest) {
   EXPECT_EQ(kNumberOfInsertedExecutions, existing_execution_nodes.size());
 }
 
+// Tests GetExistingNodes() with ReadNodesByPropertiesConfig as input.
+TEST(UtilGetTest, GetNodesWithReadNodesByPropertiesConfigTest) {
+  std::unique_ptr<MetadataStore> store;
+  ConnectionConfig mlmd_config;
+  // Uses a fake in-memory SQLite database for testing.
+  mlmd_config.mutable_fake_database();
+  TF_ASSERT_OK(CreateMetadataStore(mlmd_config, &store));
+  TF_ASSERT_OK(InsertTypesInDb(
+      /*num_artifact_types=*/kNumberOfInsertedArtifactTypes,
+      /*num_execution_types=*/kNumberOfInsertedExecutionTypes,
+      /*num_context_types=*/kNumberOfInsertedContextTypes, *store));
+  TF_ASSERT_OK(InsertNodesInDb(
+      /*num_artifact_nodes=*/kNumberOfInsertedArtifacts,
+      /*num_execution_nodes=*/kNumberOfInsertedExecutions,
+      /*num_context_nodes=*/kNumberOfInsertedContexts, *store));
+
+  std::vector<ReadNodesByPropertiesConfig::Specification> specification{
+      ReadNodesByPropertiesConfig::ARTIFACTS_BY_IDs,
+      ReadNodesByPropertiesConfig::ARTIFACTS_BY_TYPE,
+      ReadNodesByPropertiesConfig::ARTIFACT_BY_TYPE_AND_NAME,
+      ReadNodesByPropertiesConfig::ARTIFACTS_BY_URIs,
+      ReadNodesByPropertiesConfig::EXECUTIONS_BY_IDs,
+      ReadNodesByPropertiesConfig::EXECUTIONS_BY_TYPE,
+      ReadNodesByPropertiesConfig::EXECUTION_BY_TYPE_AND_NAME,
+      ReadNodesByPropertiesConfig::CONTEXTS_BY_IDs,
+      ReadNodesByPropertiesConfig::CONTEXTS_BY_TYPE,
+      ReadNodesByPropertiesConfig::CONTEXT_BY_TYPE_AND_NAME};
+
+  std::vector<int> size{
+      kNumberOfInsertedArtifacts,  kNumberOfInsertedArtifacts,
+      kNumberOfInsertedArtifacts,  kNumberOfInsertedArtifacts,
+      kNumberOfInsertedExecutions, kNumberOfInsertedExecutions,
+      kNumberOfInsertedExecutions, kNumberOfInsertedContexts,
+      kNumberOfInsertedContexts,   kNumberOfInsertedContexts};
+
+  for (int i = 0; i < size.size(); ++i) {
+    std::vector<Node> exisiting_nodes;
+    ReadNodesByPropertiesConfig read_nodes_by_properties_config;
+    read_nodes_by_properties_config.set_specification(specification[i]);
+    TF_ASSERT_OK(GetExistingNodes(read_nodes_by_properties_config, *store,
+                                  exisiting_nodes));
+    EXPECT_THAT(exisiting_nodes, ::testing::SizeIs(size[i]));
+  }
+}  // namespace
+
 }  // namespace
 }  // namespace ml_metadata

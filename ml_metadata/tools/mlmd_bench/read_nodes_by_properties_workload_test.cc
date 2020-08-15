@@ -18,6 +18,7 @@ limitations under the License.
 #include "absl/memory/memory.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/metadata_store/metadata_store_factory.h"
+#include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
 #include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
@@ -31,35 +32,38 @@ constexpr int kNumberOfOperations = 100;
 constexpr int kNumberOfExistedTypesInDb = 100;
 constexpr int kNumberOfExistedNodesInDb = 300;
 
+constexpr char kConfig[] =
+    "read_nodes_by_properties_config: { maybe_num_queries { minimum: 1 "
+    "maximum: 10 "
+    "} }";
+
 // Enumerates the workload configurations as the test parameters that ensure
 // test coverage.
 std::vector<WorkloadConfig> EnumerateConfigs() {
-  std::vector<WorkloadConfig> config_vector;
-  WorkloadConfig template_config;
+  std::vector<WorkloadConfig> configs;
+  std::vector<ReadNodesByPropertiesConfig::Specification> specifications = {
+      ReadNodesByPropertiesConfig::ARTIFACTS_BY_IDs,
+      ReadNodesByPropertiesConfig::EXECUTIONS_BY_IDs,
+      ReadNodesByPropertiesConfig::CONTEXTS_BY_IDs,
+      ReadNodesByPropertiesConfig::ARTIFACTS_BY_TYPE,
+      ReadNodesByPropertiesConfig::EXECUTIONS_BY_TYPE,
+      ReadNodesByPropertiesConfig::CONTEXTS_BY_TYPE,
+      ReadNodesByPropertiesConfig::ARTIFACT_BY_TYPE_AND_NAME,
+      ReadNodesByPropertiesConfig::EXECUTION_BY_TYPE_AND_NAME,
+      ReadNodesByPropertiesConfig::CONTEXT_BY_TYPE_AND_NAME,
+      ReadNodesByPropertiesConfig::ARTIFACTS_BY_URIs};
 
-  template_config.set_num_operations(kNumberOfOperations);
+  for (const ReadNodesByPropertiesConfig::Specification& specification :
+       specifications) {
+    WorkloadConfig config =
+        testing::ParseTextProtoOrDie<WorkloadConfig>(kConfig);
+    config.set_num_operations(kNumberOfOperations);
+    config.mutable_read_nodes_by_properties_config()->set_specification(
+        specification);
+    configs.push_back(config);
+  }
 
-  template_config.mutable_read_nodes_by_properties_config()->set_specification(
-      ReadNodesByPropertiesConfig::ARTIFACTS_BY_ID);
-  config_vector.push_back(template_config);
-  template_config.mutable_read_nodes_by_properties_config()->set_specification(
-      ReadNodesByPropertiesConfig::EXECUTIONS_BY_ID);
-  template_config.mutable_read_nodes_by_properties_config()->set_specification(
-      ReadNodesByPropertiesConfig::CONTEXTS_BY_ID);
-  template_config.mutable_read_nodes_by_properties_config()->set_specification(
-      ReadNodesByPropertiesConfig::ARTIFACTS_BY_TYPE);
-  template_config.mutable_read_nodes_by_properties_config()->set_specification(
-      ReadNodesByPropertiesConfig::EXECUTIONS_BY_TYPE);
-  template_config.mutable_read_nodes_by_properties_config()->set_specification(
-      ReadNodesByPropertiesConfig::CONTEXTS_BY_TYPE);
-  template_config.mutable_read_nodes_by_properties_config()->set_specification(
-      ReadNodesByPropertiesConfig::ARTIFACT_BY_TYPE_AND_NAME);
-  template_config.mutable_read_nodes_by_properties_config()->set_specification(
-      ReadNodesByPropertiesConfig::EXECUTION_BY_TYPE_AND_NAME);
-  template_config.mutable_read_nodes_by_properties_config()->set_specification(
-      ReadNodesByPropertiesConfig::CONTEXT_BY_TYPE_AND_NAME);
-
-  return config_vector;
+  return configs;
 }
 
 class ReadNodesByPropertiesParameterizedTestFixture
@@ -73,6 +77,15 @@ class ReadNodesByPropertiesParameterizedTestFixture
     read_nodes_by_properties_ = absl::make_unique<ReadNodesByProperties>(
         ReadNodesByProperties(GetParam().read_nodes_by_properties_config(),
                               GetParam().num_operations()));
+    TF_ASSERT_OK(InsertTypesInDb(
+        /*num_artifact_types=*/kNumberOfExistedTypesInDb,
+        /*num_execution_types=*/kNumberOfExistedTypesInDb,
+        /*num_context_types=*/kNumberOfExistedTypesInDb, *store_));
+
+    TF_ASSERT_OK(InsertNodesInDb(
+        /*num_artifact_types=*/kNumberOfExistedNodesInDb,
+        /*num_execution_types=*/kNumberOfExistedNodesInDb,
+        /*num_context_types=*/kNumberOfExistedNodesInDb, *store_));
   }
 
   std::unique_ptr<ReadNodesByProperties> read_nodes_by_properties_;
@@ -80,19 +93,27 @@ class ReadNodesByPropertiesParameterizedTestFixture
 };
 
 TEST_P(ReadNodesByPropertiesParameterizedTestFixture, SetUpImplTest) {
-  TF_ASSERT_OK(InsertTypesInDb(
-      /*num_artifact_types=*/kNumberOfExistedTypesInDb,
-      /*num_execution_types=*/kNumberOfExistedTypesInDb,
-      /*num_context_types=*/kNumberOfExistedTypesInDb, store_.get()));
-
-  TF_ASSERT_OK(InsertNodesInDb(
-      /*num_artifact_types=*/kNumberOfExistedNodesInDb,
-      /*num_execution_types=*/kNumberOfExistedNodesInDb,
-      /*num_context_types=*/kNumberOfExistedNodesInDb, store_.get()));
-
   TF_ASSERT_OK(read_nodes_by_properties_->SetUp(store_.get()));
   EXPECT_EQ(GetParam().num_operations(),
             read_nodes_by_properties_->num_operations());
+}
+
+TEST_P(ReadNodesByPropertiesParameterizedTestFixture, RunOpImplTest) {
+  TF_ASSERT_OK(read_nodes_by_properties_->SetUp(store_.get()));
+
+  int64 total_done = 0;
+  ThreadStats stats;
+  stats.Start();
+  for (int64 i = 0; i < read_nodes_by_properties_->num_operations(); ++i) {
+    OpStats op_stats;
+    TF_ASSERT_OK(read_nodes_by_properties_->RunOp(i, store_.get(), op_stats));
+    stats.Update(op_stats, total_done);
+  }
+  stats.Stop();
+  EXPECT_EQ(stats.done(), GetParam().num_operations());
+  // Checks that the transferred bytes is greater that 0(the reading process
+  // indeed occurred).
+  EXPECT_GT(stats.bytes(), 0);
 }
 
 INSTANTIATE_TEST_CASE_P(ReadNodesByPropertiesTest,
