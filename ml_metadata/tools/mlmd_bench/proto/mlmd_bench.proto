@@ -182,6 +182,19 @@ message ReadNodesByPropertiesConfig {
   optional UniformDistribution maybe_num_queries = 2;
 }
 
+// Read nodes by traverse between Artifact/Execution and Contexts.
+message ReadNodesViaContextEdgesConfig {
+  enum Specification {
+    UNKNOWN = 0;
+    CONTEXTS_BY_ARTIFACT = 1;
+    CONTEXTS_BY_EXECUTION = 2;
+    ARTIFACTS_BY_CONTEXT = 3;
+    EXECUTIONS_BY_CONTEXT = 4;
+  }
+  // Indicate which transverse API is used to get nodes.
+  optional Specification specification = 1;
+}
+
 // The mlmd_bench workload config.
 message WorkloadConfig {
   oneof workload_config {
@@ -191,6 +204,7 @@ message WorkloadConfig {
     FillEventsConfig fill_events_config = 5;
     ReadTypesConfig read_types_config = 6;
     ReadNodesByPropertiesConfig read_nodes_by_properties_config = 7;
+    ReadNodesViaContextEdgesConfig read_nodes_via_context_edges_config = 8;
   }
   // The number of operations to be run in parallel.
   optional int64 num_operations = 2;

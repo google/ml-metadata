@@ -338,5 +338,52 @@ TEST(BenchmarkTest, CreatReadNodesByPropertiesWorkloadTest) {
   }
 }
 
+// Tests the CreateWorkload() for ReadNodesViaContextEdges workload, checks that
+// all ReadNodesViaContextEdges workload configurations have transformed into
+// executable workloads inside benchmark.
+TEST(BenchmarkTest, CreateReadNodesViaContextEdgesWorkloadTest) {
+  MLMDBenchConfig mlmd_bench_config =
+      testing::ParseTextProtoOrDie<MLMDBenchConfig>(
+          R"(
+            workload_configs: {
+              read_nodes_via_context_edges_config: {
+                specification: CONTEXTS_BY_ARTIFACT
+              }
+              num_operations: 120
+            }
+            workload_configs: {
+              read_nodes_via_context_edges_config: {
+                specification: CONTEXTS_BY_EXECUTION
+              }
+              num_operations: 100
+            }
+            workload_configs: {
+              read_nodes_via_context_edges_config: {
+                specification: ARTIFACTS_BY_CONTEXT
+              }
+              num_operations: 150
+            }
+            workload_configs: {
+              read_nodes_via_context_edges_config: {
+                specification: EXECUTIONS_BY_CONTEXT
+              }
+              num_operations: 120
+            }
+          )");
+  std::vector<std::string> workload_names{
+      "READ_CONTEXTS_BY_ARTIFACT", "READ_CONTEXTS_BY_EXECUTION",
+      "READ_ARTIFACTS_BY_CONTEXT", "READ_EXECUTIONS_BY_CONTEXT"};
+
+  Benchmark benchmark(mlmd_bench_config);
+  // Checks that all workload configurations have transformed into executable
+  // workloads inside benchmark.
+  EXPECT_EQ(benchmark.num_workloads(),
+            mlmd_bench_config.workload_configs_size());
+  for (int i = 0; i < mlmd_bench_config.workload_configs_size(); ++i) {
+    EXPECT_STREQ(benchmark.workload(i)->GetName().c_str(),
+                 workload_names[i].c_str());
+  }
+}
+
 }  // namespace
 }  // namespace ml_metadata

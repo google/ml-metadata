@@ -367,7 +367,43 @@ TEST(UtilGetTest, GetNodesWithReadNodesByPropertiesConfigTest) {
                                   exisiting_nodes));
     EXPECT_THAT(exisiting_nodes, ::testing::SizeIs(size[i]));
   }
-}  // namespace
+}
+
+// Tests GetExistingNodes() with ReadNodesViaContextEdgesConfig as input.
+TEST(UtilGetTest, GetNodesWithReadNodesViaContextEdgesConfigTest) {
+  std::unique_ptr<MetadataStore> store;
+  ConnectionConfig mlmd_config;
+  // Uses a fake in-memory SQLite database for testing.
+  mlmd_config.mutable_fake_database();
+  TF_ASSERT_OK(CreateMetadataStore(mlmd_config, &store));
+  TF_ASSERT_OK(InsertTypesInDb(
+      /*num_artifact_types=*/kNumberOfInsertedArtifactTypes,
+      /*num_execution_types=*/kNumberOfInsertedExecutionTypes,
+      /*num_context_types=*/kNumberOfInsertedContextTypes, *store));
+  TF_ASSERT_OK(InsertNodesInDb(
+      /*num_artifact_nodes=*/kNumberOfInsertedArtifacts,
+      /*num_execution_nodes=*/kNumberOfInsertedExecutions,
+      /*num_context_nodes=*/kNumberOfInsertedContexts, *store));
+
+  std::vector<ReadNodesViaContextEdgesConfig::Specification> specification{
+      ReadNodesViaContextEdgesConfig::ARTIFACTS_BY_CONTEXT,
+      ReadNodesViaContextEdgesConfig::EXECUTIONS_BY_CONTEXT,
+      ReadNodesViaContextEdgesConfig::CONTEXTS_BY_ARTIFACT,
+      ReadNodesViaContextEdgesConfig::CONTEXTS_BY_EXECUTION};
+
+  std::vector<int> size{kNumberOfInsertedContexts, kNumberOfInsertedContexts,
+                        kNumberOfInsertedArtifacts,
+                        kNumberOfInsertedExecutions};
+
+  for (int i = 0; i < size.size(); ++i) {
+    std::vector<Node> exisiting_nodes;
+    ReadNodesViaContextEdgesConfig read_nodes_via_context_edges_config;
+    read_nodes_via_context_edges_config.set_specification(specification[i]);
+    TF_ASSERT_OK(GetExistingNodes(read_nodes_via_context_edges_config, *store,
+                                  exisiting_nodes));
+    EXPECT_THAT(exisiting_nodes, ::testing::SizeIs(size[i]));
+  }
+}
 
 }  // namespace
 }  // namespace ml_metadata

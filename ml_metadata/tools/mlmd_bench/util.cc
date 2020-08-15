@@ -258,6 +258,23 @@ tensorflow::Status GetExistingNodes(
   }
 }
 
+tensorflow::Status GetExistingNodes(
+    const ReadNodesViaContextEdgesConfig& read_nodes_via_context_edges_config,
+    MetadataStore& store, std::vector<Node>& existing_nodes) {
+  switch (read_nodes_via_context_edges_config.specification()) {
+    case ReadNodesViaContextEdgesConfig::ARTIFACTS_BY_CONTEXT:
+    case ReadNodesViaContextEdgesConfig::EXECUTIONS_BY_CONTEXT:
+      return GetExistingNodesImpl(FetchContext, store, existing_nodes);
+    case ReadNodesViaContextEdgesConfig::CONTEXTS_BY_ARTIFACT:
+      return GetExistingNodesImpl(FetchArtifact, store, existing_nodes);
+    case ReadNodesViaContextEdgesConfig::CONTEXTS_BY_EXECUTION:
+      return GetExistingNodesImpl(FetchExecution, store, existing_nodes);
+    default:
+      return tensorflow::errors::Unimplemented(
+          "Unknown ReadNodesViaContextEdgesConfig specification.");
+  }
+}
+
 tensorflow::Status InsertTypesInDb(const int64 num_artifact_types,
                                    const int64 num_execution_types,
                                    const int64 num_context_types,
