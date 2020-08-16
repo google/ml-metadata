@@ -314,7 +314,6 @@ tensorflow::Status ReadNodesByProperties::SetUpImpl(MetadataStore* store) {
       default:
         LOG(FATAL) << "Wrong specification for ReadNodesByProperties!";
     }
-    std::cout << curr_bytes << std::endl;
     work_items_.emplace_back(read_request, curr_bytes);
   }
   return tensorflow::Status::OK();
