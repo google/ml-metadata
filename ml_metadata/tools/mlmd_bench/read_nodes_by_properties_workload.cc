@@ -37,66 +37,58 @@ void InitializeReadRequest(ReadNodesByPropertiesWorkItemType& read_request) {
 
 // Gets the transferred bytes for certain `properties` and increases
 // `curr_bytes` accordingly.
-tensorflow::Status GetTransferredBytesForNodeProperties(
-    const google::protobuf::Map<std::string, Value>& properties,
-    int64& curr_bytes) {
+int64 GetTransferredBytesForNodeProperties(
+    const google::protobuf::Map<std::string, Value>& properties) {
+  int64 bytes = 0;
   for (auto& pair : properties) {
     // Includes the bytes for properties' name size.
-    curr_bytes += pair.first.size();
+    bytes += pair.first.size();
     // Includes the bytes for properties' value size.
-    curr_bytes += pair.second.string_value().size();
+    bytes += pair.second.string_value().size();
   }
-  return tensorflow::Status::OK();
+  return bytes;
 }
 
-tensorflow::Status GetTransferredBytes(const Artifact& node,
-                                       int64& curr_bytes) {
-  curr_bytes += 8 * 4;
-  curr_bytes += node.name().size();
-  curr_bytes += node.type().size();
-  curr_bytes += node.uri().size();
-  curr_bytes += 1;
-  TF_RETURN_IF_ERROR(
-      GetTransferredBytesForNodeProperties(node.properties(), curr_bytes));
-  TF_RETURN_IF_ERROR(GetTransferredBytesForNodeProperties(
-      node.custom_properties(), curr_bytes));
-  return tensorflow::Status::OK();
+int64 GetTransferredBytes(const Artifact& node) {
+  int64 bytes = 8 * 4;
+  bytes += node.name().size();
+  bytes += node.type().size();
+  bytes += node.uri().size();
+  bytes += 1;
+  bytes += GetTransferredBytesForNodeProperties(node.properties());
+  bytes += GetTransferredBytesForNodeProperties(node.custom_properties());
+  return bytes;
 }
 
-tensorflow::Status GetTransferredBytes(const Execution& node,
-                                       int64& curr_bytes) {
-  curr_bytes += 8 * 4;
-  curr_bytes += node.name().size();
-  curr_bytes += node.type().size();
-  curr_bytes += 1;
-  TF_RETURN_IF_ERROR(
-      GetTransferredBytesForNodeProperties(node.properties(), curr_bytes));
-  TF_RETURN_IF_ERROR(GetTransferredBytesForNodeProperties(
-      node.custom_properties(), curr_bytes));
-  return tensorflow::Status::OK();
+int64 GetTransferredBytes(const Execution& node) {
+  int64 bytes = 8 * 4;
+  bytes += node.name().size();
+  bytes += node.type().size();
+  bytes += 1;
+  bytes += GetTransferredBytesForNodeProperties(node.properties());
+  bytes += GetTransferredBytesForNodeProperties(node.custom_properties());
+  return bytes;
 }
 
-tensorflow::Status GetTransferredBytes(const Context& node, int64& curr_bytes) {
-  curr_bytes += 8 * 4;
-  curr_bytes += node.name().size();
-  curr_bytes += node.type().size();
-  TF_RETURN_IF_ERROR(
-      GetTransferredBytesForNodeProperties(node.properties(), curr_bytes));
-  TF_RETURN_IF_ERROR(GetTransferredBytesForNodeProperties(
-      node.custom_properties(), curr_bytes));
-  return tensorflow::Status::OK();
+int64 GetTransferredBytes(const Context& node) {
+  int64 bytes = 8 * 4;
+  bytes += node.name().size();
+  bytes += node.type().size();
+  bytes += GetTransferredBytesForNodeProperties(node.properties());
+  bytes += GetTransferredBytesForNodeProperties(node.custom_properties());
+  return bytes;
 }
 
 template <typename NT>
-tensorflow::Status GetTransferredBytesForAllNodesUnderAType(
-    const std::string type_name, const std::vector<Node>& existing_nodes,
-    int64& curr_bytes) {
+int64 GetTransferredBytesForAllNodesUnderAType(
+    const std::string type_name, const std::vector<Node>& existing_nodes) {
+  int64 bytes = 0;
   for (auto& node : existing_nodes) {
     if (absl::get<NT>(node).type() == type_name) {
-      TF_RETURN_IF_ERROR(GetTransferredBytes(absl::get<NT>(node), curr_bytes));
+      bytes += GetTransferredBytes(absl::get<NT>(node));
     }
   }
-  return tensorflow::Status::OK();
+  return bytes;
 }
 
 tensorflow::Status SetUpImplForReadNodesByIds(
@@ -119,24 +111,24 @@ tensorflow::Status SetUpImplForReadNodesByIds(
         absl::get<GetArtifactsByIDRequest>(request).add_artifact_ids(
             absl::get<Artifact>(existing_nodes[node_index]).id());
         // TODO: Remove <Artifact>.
-        TF_RETURN_IF_ERROR(GetTransferredBytes(
-            absl::get<Artifact>(existing_nodes[node_index]), curr_bytes));
+        curr_bytes += GetTransferredBytes(
+            absl::get<Artifact>(existing_nodes[node_index]));
         break;
       }
       case ReadNodesByPropertiesConfig::EXECUTIONS_BY_IDs: {
         InitializeReadRequest<GetExecutionsByIDRequest>(request);
         absl::get<GetExecutionsByIDRequest>(request).add_execution_ids(
             absl::get<Execution>(existing_nodes[node_index]).id());
-        TF_RETURN_IF_ERROR(GetTransferredBytes(
-            absl::get<Execution>(existing_nodes[node_index]), curr_bytes));
+        curr_bytes += GetTransferredBytes(
+            absl::get<Execution>(existing_nodes[node_index]));
         break;
       }
       case ReadNodesByPropertiesConfig::CONTEXTS_BY_IDs: {
         InitializeReadRequest<GetContextsByIDRequest>(request);
         absl::get<GetContextsByIDRequest>(request).add_context_ids(
             absl::get<Context>(existing_nodes[node_index]).id());
-        TF_RETURN_IF_ERROR(GetTransferredBytes(
-            absl::get<Context>(existing_nodes[node_index]), curr_bytes));
+        curr_bytes +=
+            GetTransferredBytes(absl::get<Context>(existing_nodes[node_index]));
         break;
       }
       default:
@@ -170,8 +162,8 @@ tensorflow::Status SetUpImplForReadArtifactsByURIs(
     InitializeReadRequest<GetArtifactsByURIRequest>(request);
     absl::get<GetArtifactsByURIRequest>(request).add_uris(
         absl::get<Artifact>(existing_nodes[node_index]).uri());
-    TF_RETURN_IF_ERROR(GetTransferredBytes(
-        absl::get<Artifact>(existing_nodes[node_index]), curr_bytes));
+    curr_bytes +=
+        GetTransferredBytes(absl::get<Artifact>(existing_nodes[node_index]));
   }
   return tensorflow::Status::OK();
 }
@@ -188,31 +180,35 @@ tensorflow::Status SetUpImplForReadNodesByType(
       InitializeReadRequest<GetArtifactsByTypeRequest>(request);
       absl::get<GetArtifactsByTypeRequest>(request).set_type_name(
           absl::get<Artifact>(existing_nodes[node_index]).type());
-      return GetTransferredBytesForAllNodesUnderAType<Artifact>(
+      curr_bytes += GetTransferredBytesForAllNodesUnderAType<Artifact>(
           absl::get<Artifact>(existing_nodes[node_index]).type(),
-          existing_nodes, curr_bytes);
+          existing_nodes);
+      break;
     }
     case ReadNodesByPropertiesConfig::EXECUTIONS_BY_TYPE: {
       InitializeReadRequest<GetExecutionsByTypeRequest>(request);
       absl::get<GetExecutionsByTypeRequest>(request).set_type_name(
           absl::get<Execution>(existing_nodes[node_index]).type());
-      return GetTransferredBytesForAllNodesUnderAType<Execution>(
+      curr_bytes += GetTransferredBytesForAllNodesUnderAType<Execution>(
           absl::get<Execution>(existing_nodes[node_index]).type(),
-          existing_nodes, curr_bytes);
+          existing_nodes);
+      break;
     }
     case ReadNodesByPropertiesConfig::CONTEXTS_BY_TYPE: {
       InitializeReadRequest<GetContextsByTypeRequest>(request);
       absl::get<GetContextsByTypeRequest>(request).set_type_name(
           absl::get<Context>(existing_nodes[node_index]).type());
-      return GetTransferredBytesForAllNodesUnderAType<Context>(
-          absl::get<Context>(existing_nodes[node_index]).type(), existing_nodes,
-          curr_bytes);
+      curr_bytes += GetTransferredBytesForAllNodesUnderAType<Context>(
+          absl::get<Context>(existing_nodes[node_index]).type(),
+          existing_nodes);
+      break;
     }
     default:
       return tensorflow::errors::Unimplemented(
           "Wrong ReadNodesByProperties specification for read nodes by type in "
           "db.");
   }
+  return tensorflow::Status::OK();
 }
 
 tensorflow::Status SetUpImplForReadNodeByTypeAndName(
@@ -230,7 +226,8 @@ tensorflow::Status SetUpImplForReadNodeByTypeAndName(
           picked_node.type());
       absl::get<GetArtifactByTypeAndNameRequest>(request).set_artifact_name(
           picked_node.name());
-      return GetTransferredBytes(picked_node, curr_bytes);
+      curr_bytes += GetTransferredBytes(picked_node);
+      break;
     }
     case ReadNodesByPropertiesConfig::EXECUTION_BY_TYPE_AND_NAME: {
       InitializeReadRequest<GetExecutionByTypeAndNameRequest>(request);
@@ -239,7 +236,8 @@ tensorflow::Status SetUpImplForReadNodeByTypeAndName(
           picked_node.type());
       absl::get<GetExecutionByTypeAndNameRequest>(request).set_execution_name(
           picked_node.name());
-      return GetTransferredBytes(picked_node, curr_bytes);
+      curr_bytes += GetTransferredBytes(picked_node);
+      break;
     }
     case ReadNodesByPropertiesConfig::CONTEXT_BY_TYPE_AND_NAME: {
       InitializeReadRequest<GetContextByTypeAndNameRequest>(request);
@@ -248,13 +246,15 @@ tensorflow::Status SetUpImplForReadNodeByTypeAndName(
           picked_node.type());
       absl::get<GetContextByTypeAndNameRequest>(request).set_context_name(
           picked_node.name());
-      return GetTransferredBytes(picked_node, curr_bytes);
+      curr_bytes += GetTransferredBytes(picked_node);
+      break;
     }
     default:
       return tensorflow::errors::Unimplemented(
           "Wrong ReadNodesByProperties specification for read node by type and "
           "name in db.");
   }
+  return tensorflow::Status::OK();
 }
 
 }  // namespace
