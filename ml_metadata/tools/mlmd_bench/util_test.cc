@@ -405,5 +405,40 @@ TEST(UtilGetTest, GetNodesWithReadNodesViaContextEdgesConfigTest) {
   }
 }
 
+// Tests GetExistingNodes() with ReadEventsConfig as input.
+TEST(UtilGetTest, GetNodesWithReadEventsConfigTest) {
+  std::unique_ptr<MetadataStore> store;
+  ConnectionConfig mlmd_config;
+  // Uses a fake in-memory SQLite database for testing.
+  mlmd_config.mutable_fake_database();
+  TF_ASSERT_OK(CreateMetadataStore(mlmd_config, &store));
+  TF_ASSERT_OK(InsertTypesInDb(
+      /*num_artifact_types=*/kNumberOfInsertedArtifactTypes,
+      /*num_execution_types=*/kNumberOfInsertedExecutionTypes,
+      /*num_context_types=*/kNumberOfInsertedContextTypes, *store));
+  TF_ASSERT_OK(InsertNodesInDb(
+      /*num_artifact_nodes=*/kNumberOfInsertedArtifacts,
+      /*num_execution_nodes=*/kNumberOfInsertedExecutions,
+      /*num_context_nodes=*/kNumberOfInsertedContexts, *store));
+
+  {
+    std::vector<Node> existing_nodes;
+    ReadEventsConfig read_events_config;
+    read_events_config.set_specification(
+        ReadEventsConfig::EVENTS_BY_ARTIFACT_IDS);
+    TF_ASSERT_OK(GetExistingNodes(read_events_config, *store, existing_nodes));
+    EXPECT_EQ(kNumberOfInsertedArtifacts, existing_nodes.size());
+  }
+
+  {
+    std::vector<Node> existing_nodes;
+    ReadEventsConfig read_events_config;
+    read_events_config.set_specification(
+        ReadEventsConfig::EVENTS_BY_EXECUTION_IDS);
+    TF_ASSERT_OK(GetExistingNodes(read_events_config, *store, existing_nodes));
+    EXPECT_EQ(kNumberOfInsertedExecutions, existing_nodes.size());
+  }
+}
+
 }  // namespace
 }  // namespace ml_metadata

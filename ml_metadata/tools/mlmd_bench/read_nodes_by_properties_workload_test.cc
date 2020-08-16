@@ -33,9 +33,8 @@ constexpr int kNumberOfExistedTypesInDb = 100;
 constexpr int kNumberOfExistedNodesInDb = 300;
 
 constexpr char kConfig[] =
-    "read_nodes_by_properties_config: { maybe_num_queries { minimum: 1 "
-    "maximum: 10 "
-    "} }";
+    "read_nodes_by_properties_config: { maybe_num_queries: { minimum: 1 "
+    "maximum: 10 } }";
 
 // Enumerates the workload configurations as the test parameters that ensure
 // test coverage.
