@@ -193,15 +193,14 @@ TEST(UtilGetTest, GetTypesWithReadTypesConfigTest) {
 
   std::vector<std::pair<ReadTypesConfig::Specification, int>> specification{
       {ReadTypesConfig::ALL_ARTIFACT_TYPES, kNumberOfInsertedArtifactTypes},
-      {ReadTypesConfig::ARTIFACT_TYPES_BY_IDs, kNumberOfInsertedArtifactTypes},
+      {ReadTypesConfig::ARTIFACT_TYPES_BY_ID, kNumberOfInsertedArtifactTypes},
       {ReadTypesConfig::ARTIFACT_TYPE_BY_NAME, kNumberOfInsertedArtifactTypes},
       {ReadTypesConfig::ALL_EXECUTION_TYPES, kNumberOfInsertedExecutionTypes},
-      {ReadTypesConfig::EXECUTION_TYPES_BY_IDs,
-       kNumberOfInsertedExecutionTypes},
+      {ReadTypesConfig::EXECUTION_TYPES_BY_ID, kNumberOfInsertedExecutionTypes},
       {ReadTypesConfig::EXECUTION_TYPE_BY_NAME,
        kNumberOfInsertedExecutionTypes},
       {ReadTypesConfig::ALL_CONTEXT_TYPES, kNumberOfInsertedContextTypes},
-      {ReadTypesConfig::CONTEXT_TYPES_BY_IDs, kNumberOfInsertedContextTypes},
+      {ReadTypesConfig::CONTEXT_TYPES_BY_ID, kNumberOfInsertedContextTypes},
       {ReadTypesConfig::CONTEXT_TYPE_BY_NAME, kNumberOfInsertedContextTypes}};
 
   for (int i = 0; i < 9; ++i) {
