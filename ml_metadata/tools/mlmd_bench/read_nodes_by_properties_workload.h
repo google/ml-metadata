@@ -25,6 +25,12 @@ limitations under the License.
 
 namespace ml_metadata {
 
+// Defines a ReadNodesByPropertiesWorkItemType that can be
+// GetArtifactsByIDRequest / GetExecutionsByIDRequest / GetContextsByIDRequest /
+// GetArtifactsByTypeRequest / GetExecutionsByTypeRequest /
+// GetContextsByTypeRequest / GetArtifactByTypeAndNameRequest /
+// GetExecutionByTypeAndNameRequest / GetContextByTypeAndNameRequest /
+// GetArtifactsByURIRequest.
 using ReadNodesByPropertiesWorkItemType =
     absl::variant<GetArtifactsByIDRequest, GetExecutionsByIDRequest,
                   GetContextsByIDRequest, GetArtifactsByTypeRequest,
@@ -33,6 +39,8 @@ using ReadNodesByPropertiesWorkItemType =
                   GetExecutionByTypeAndNameRequest,
                   GetContextByTypeAndNameRequest, GetArtifactsByURIRequest>;
 
+// A specific workload for getting nodes: Artifacts / Executions / Contexts by
+// their properties.
 class ReadNodesByProperties
     : public Workload<ReadNodesByPropertiesWorkItemType> {
  public:
@@ -42,13 +50,30 @@ class ReadNodesByProperties
   ~ReadNodesByProperties() override = default;
 
  protected:
+  // Specific implementation of SetUpImpl() for ReadNodesByProperties workload
+  // according to its semantic.
+  // A list of work items(ReadNodesByPropertiesWorkItemType) will be generated.
+  // When the API has querying conditions, select from existing nodes properties
+  // w.r.t. the querying parameters to finalize the query string. If the
+  // specification of current workload is ARTIFACTS_BY_IDs / EXECUTIONS_BY_IDs /
+  // CONTEXTS_BY_IDs or ARTIFACTS_BY_URIs, the number of ids or uris per request
+  // will be generated w.r.t. the uniform distribution `maybe_num_queries`.
+  // Returns detailed error if query executions failed.
   tensorflow::Status SetUpImpl(MetadataStore* store) final;
 
+  // Specific implementation of RunOpImpl() for ReadNodesByProperties workload
+  // according to its semantic.
+  // Runs the work items(ReadNodesByPropertiesWorkItemType) on the store.
+  // Returns detailed error if query executions failed.
   tensorflow::Status RunOpImpl(int64 work_items_index,
                                MetadataStore* store) final;
 
+  // Specific implementation of TearDownImpl() for ReadNodesByProperties
+  // workload according to its semantic. Cleans the work items.
   tensorflow::Status TearDownImpl() final;
 
+  // Gets the current workload's name, which is used in stats report for this
+  // workload.
   std::string GetName() final;
 
  private:

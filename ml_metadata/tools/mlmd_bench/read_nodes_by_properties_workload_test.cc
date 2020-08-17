@@ -66,6 +66,10 @@ std::vector<WorkloadConfig> EnumerateConfigs() {
   return configs;
 }
 
+// Test fixture that uses the same data configuration for multiple following
+// parameterized ReadNodesByProperties tests.
+// The parameter here is the specific Workload configuration that contains
+// the ReadNodesByProperties configuration and the number of operations.
 class ReadNodesByPropertiesParameterizedTestFixture
     : public ::testing::TestWithParam<WorkloadConfig> {
  protected:
@@ -83,21 +87,27 @@ class ReadNodesByPropertiesParameterizedTestFixture
         /*num_context_types=*/kNumberOfExistedTypesInDb, *store_));
 
     TF_ASSERT_OK(InsertNodesInDb(
-        /*num_artifact_types=*/kNumberOfExistedNodesInDb,
-        /*num_execution_types=*/kNumberOfExistedNodesInDb,
-        /*num_context_types=*/kNumberOfExistedNodesInDb, *store_));
+        /*num_artifact_nodes=*/kNumberOfExistedNodesInDb,
+        /*num_execution_nodes=*/kNumberOfExistedNodesInDb,
+        /*num_context_nodes=*/kNumberOfExistedNodesInDb, *store_));
   }
 
   std::unique_ptr<ReadNodesByProperties> read_nodes_by_properties_;
   std::unique_ptr<MetadataStore> store_;
 };
 
+// Tests the SetUpImpl() for ReadNodesByProperties. Checks the SetUpImpl()
+// indeed prepares a list of work items whose length is the same as the
+// specified number of operations.
 TEST_P(ReadNodesByPropertiesParameterizedTestFixture, SetUpImplTest) {
   TF_ASSERT_OK(read_nodes_by_properties_->SetUp(store_.get()));
   EXPECT_EQ(GetParam().num_operations(),
             read_nodes_by_properties_->num_operations());
 }
 
+// Tests the RunOpImpl() for ReadNodesByProperties. Checks indeed all the work
+// items have been executed and some bytes are transferred during the reading
+// process.
 TEST_P(ReadNodesByPropertiesParameterizedTestFixture, RunOpImplTest) {
   TF_ASSERT_OK(read_nodes_by_properties_->SetUp(store_.get()));
 

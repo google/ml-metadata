@@ -136,7 +136,7 @@ message FillEventsConfig {
   optional UniformDistribution num_events = 5;
 }
 
-// Read types: ArtifactTypes / ExecutionTypes / ContextTypes.
+// Reads types: ArtifactTypes / ExecutionTypes / ContextTypes.
 message ReadTypesConfig {
   enum Specification {
     UNKNOWN = 0;
@@ -158,7 +158,7 @@ message ReadTypesConfig {
   optional UniformDistribution maybe_num_ids = 2;
 }
 
-// Read nodes: Artifacts / Executions / Contexts by their properties.
+// Reads nodes: Artifacts / Executions / Contexts by their properties.
 message ReadNodesByPropertiesConfig {
   enum Specification {
     UNKNOWN = 0;
@@ -173,8 +173,8 @@ message ReadNodesByPropertiesConfig {
     CONTEXT_BY_TYPE_AND_NAME = 9;
     ARTIFACTS_BY_URIs = 10;
   }
-  // Indicate what properties (id, type, name, etc.)  
-  // should be used to get nodes (artifact, execution, context).
+  // Indicates which property (id, type, name, etc.)  
+  // should be used to get nodes (artifacts, executions, contexts).
   optional Specification specification = 1;
   // Specifies the number of ids or uris to be filled per request for 
   // ARTIFACTS_BY_IDs / EXECUTIONS_BY_IDs / CONTEXTS_BY_IDs 
