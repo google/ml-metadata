@@ -13,8 +13,6 @@
 # limitations under the License.
 """Package Setup script for ML Metadata."""
 
-import sys
-
 from setuptools import find_packages
 from setuptools import setup
 from setuptools.command.install import install
@@ -50,20 +48,6 @@ __version__ = globals_dict['__version__']
 with open('README.md') as fp:
   _LONG_DESCRIPTION = fp.read()
 
-# Make sure to sync the versions of common dependencies (absl-py, numpy,
-# six, and protobuf) with TF.
-REQUIRED_PACKAGES = [
-    'absl-py>=0.7,<1',
-    'protobuf>=3.7,<4',
-    'six>=1.10,<2',
-]
-
-if sys.byteorder == 'little':
-  # grpcio does not build correctly on big-endian machines due to lack of
-  # BoringSSL support.
-  # See https://github.com/tensorflow/tensorflow/issues/17882.
-  REQUIRED_PACKAGES.append('grpcio >= 1.8.6')
-
 setup(
     name='ml-metadata',
     version=__version__,
@@ -93,7 +77,13 @@ setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],
     namespace_packages=[],
-    install_requires=REQUIRED_PACKAGES,
+    # Make sure to sync the versions of common dependencies (absl-py, numpy,
+    # six, and protobuf) with TF.
+    install_requires=[
+        'absl-py>=0.7,<1',
+        'protobuf>=3.7,<4',
+        'six>=1.10,<2',
+    ],
     python_requires='>=3.5,<4',
     packages=find_packages(),
     include_package_data=True,
