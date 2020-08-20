@@ -2263,6 +2263,34 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindEvent) {
   EXPECT_EQ(events_with_execution.size(), 2);
 }
 
+TEST_P(MetadataAccessObjectTest, FindEventsByArtifactsNotFound) {
+  TF_ASSERT_OK(Init());
+  std::vector<Event> events;
+  const tensorflow::Status no_artifact_ids_status =
+      metadata_access_object_->FindEventsByArtifacts(
+          /*artifact_ids=*/{}, &events);
+  EXPECT_EQ(no_artifact_ids_status.code(), tensorflow::error::NOT_FOUND);
+
+  const tensorflow::Status not_exist_id_status =
+      metadata_access_object_->FindEventsByArtifacts(
+          /*artifact_ids=*/{1}, &events);
+  EXPECT_EQ(not_exist_id_status.code(), tensorflow::error::NOT_FOUND);
+}
+
+TEST_P(MetadataAccessObjectTest, FindEventsByExecutionsNotFound) {
+  TF_ASSERT_OK(Init());
+  std::vector<Event> events;
+  const tensorflow::Status empty_execution_ids_status =
+      metadata_access_object_->FindEventsByExecutions(
+          /*execution_ids=*/{}, &events);
+  EXPECT_EQ(empty_execution_ids_status.code(), tensorflow::error::NOT_FOUND);
+
+  const tensorflow::Status not_exist_id_status =
+      metadata_access_object_->FindEventsByExecutions(
+          /*execution_ids=*/{1}, &events);
+  EXPECT_EQ(not_exist_id_status.code(), tensorflow::error::NOT_FOUND);
+}
+
 TEST_P(MetadataAccessObjectTest, CreateEventError) {
   TF_ASSERT_OK(Init());
 

@@ -88,7 +88,7 @@ pass `-b <branchname>` to the `git clone` command.
 ML Metadata uses Bazel to build the pip package from source:
 
 ```shell
-bazel run -c opt --define grpc_no_ares=true ml_metadata:build_pip_package
+python setup.py bdist_wheel
 ```
 
 You can find the generated `.whl` file in the `dist` subdirectory.

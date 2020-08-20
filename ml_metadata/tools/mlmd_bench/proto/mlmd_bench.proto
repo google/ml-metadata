@@ -143,16 +143,16 @@ message ReadTypesConfig {
     ALL_ARTIFACT_TYPES = 1;
     ALL_EXECUTION_TYPES = 2;
     ALL_CONTEXT_TYPES = 3;
-    ARTIFACT_TYPES_BY_IDs = 4;
-    EXECUTION_TYPES_BY_IDs = 5;
-    CONTEXT_TYPES_BY_IDs = 6;
+    ARTIFACT_TYPES_BY_ID = 4;
+    EXECUTION_TYPES_BY_ID = 5;
+    CONTEXT_TYPES_BY_ID = 6;
     ARTIFACT_TYPE_BY_NAME = 7;
     EXECUTION_TYPE_BY_NAME = 8;
     CONTEXT_TYPE_BY_NAME = 9;
   }
   // Indicates which types to be read and how they are read from db.
   optional Specification specification = 1;
-  // Specifies the number of ids to be filled per request for 
+  // Specifies the number of ids to be filled per request for
   // ARTIFACT_TYPES_BY_IDs / EXECUTION_TYPES_BY_IDs / CONTEXT_TYPES_BY_IDs
   // specification. Modeled by a uniform distribution.
   optional UniformDistribution maybe_num_ids = 2;

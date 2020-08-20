@@ -19,6 +19,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/metadata_store/metadata_store_factory.h"
 #include "ml_metadata/metadata_store/test_util.h"
+#include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
 #include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
@@ -42,9 +43,9 @@ std::vector<WorkloadConfig> EnumerateConfigs() {
       ReadTypesConfig::ALL_ARTIFACT_TYPES,
       ReadTypesConfig::ALL_EXECUTION_TYPES,
       ReadTypesConfig::ALL_CONTEXT_TYPES,
-      ReadTypesConfig::ARTIFACT_TYPES_BY_IDs,
-      ReadTypesConfig::EXECUTION_TYPES_BY_IDs,
-      ReadTypesConfig::CONTEXT_TYPES_BY_IDs,
+      ReadTypesConfig::ARTIFACT_TYPES_BY_ID,
+      ReadTypesConfig::EXECUTION_TYPES_BY_ID,
+      ReadTypesConfig::CONTEXT_TYPES_BY_ID,
       ReadTypesConfig::ARTIFACT_TYPE_BY_NAME,
       ReadTypesConfig::EXECUTION_TYPE_BY_NAME,
       ReadTypesConfig::CONTEXT_TYPE_BY_NAME};
