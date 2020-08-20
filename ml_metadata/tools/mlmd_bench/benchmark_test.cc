@@ -263,22 +263,22 @@ TEST(BenchmarkTest, CreatReadNodesByPropertiesWorkloadTest) {
       R"(
         workload_configs: {
           read_nodes_by_properties_config: {
-            specification: ARTIFACTS_BY_IDs
-            maybe_num_queries: { minimum: 1 maximum: 10 }
+            specification: ARTIFACTS_BY_ID
+            num_of_parameters: { minimum: 1 maximum: 10 }
           }
           num_operations: 120
         }
         workload_configs: {
           read_nodes_by_properties_config: {
-            specification: EXECUTIONS_BY_IDs
-            maybe_num_queries: { minimum: 1 maximum: 10 }
+            specification: EXECUTIONS_BY_ID
+            num_of_parameters: { minimum: 1 maximum: 10 }
           }
           num_operations: 100
         }
         workload_configs: {
           read_nodes_by_properties_config: {
-            specification: CONTEXTS_BY_IDs
-            maybe_num_queries: { minimum: 1 maximum: 10 }
+            specification: CONTEXTS_BY_ID
+            num_of_parameters: { minimum: 1 maximum: 10 }
           }
           num_operations: 150
         }
@@ -314,18 +314,22 @@ TEST(BenchmarkTest, CreatReadNodesByPropertiesWorkloadTest) {
         }
         workload_configs: {
           read_nodes_by_properties_config: {
-            specification: ARTIFACTS_BY_URIs
-            maybe_num_queries: { minimum: 1 maximum: 10 }
+            specification: ARTIFACTS_BY_URI
+            num_of_parameters: { minimum: 1 maximum: 10 }
           }
           num_operations: 150
         }
       )");
-  std::vector<std::string> workload_names{
-      "READ_ARTIFACTS_BY_IDs",          "READ_EXECUTIONS_BY_IDs",
-      "READ_CONTEXTS_BY_IDs",           "READ_ARTIFACTS_BY_TYPE",
-      "READ_EXECUTIONS_BY_TYPE",        "READ_CONTEXTS_BY_TYPE",
-      "READ_ARTIFACT_BY_TYPE_AND_NAME", "READ_EXECUTION_BY_TYPE_AND_NAME",
-      "READ_CONTEXT_BY_TYPE_AND_NAME",  "READ_ARTIFACTS_BY_URIs"};
+  std::vector<std::string> workload_names{"READ_ARTIFACTS_BY_ID",
+                                          "READ_EXECUTIONS_BY_ID",
+                                          "READ_CONTEXTS_BY_ID",
+                                          "READ_ARTIFACTS_BY_TYPE",
+                                          "READ_EXECUTIONS_BY_TYPE",
+                                          "READ_CONTEXTS_BY_TYPE",
+                                          "READ_ARTIFACT_BY_TYPE_AND_NAME",
+                                          "READ_EXECUTION_BY_TYPE_AND_NAME",
+                                          "READ_CONTEXT_BY_TYPE_AND_NAME",
+                                          "READ_ARTIFACTS_BY_URI"};
 
   Benchmark benchmark(mlmd_bench_config);
   // Checks that all workload configurations have transformed into executable

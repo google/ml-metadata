@@ -251,23 +251,23 @@ tensorflow::Status GetExistingNodes(
     const ReadNodesByPropertiesConfig& read_nodes_by_properties_config,
     MetadataStore& store, std::vector<Node>& existing_nodes) {
   switch (read_nodes_by_properties_config.specification()) {
-    case ReadNodesByPropertiesConfig::ARTIFACTS_BY_IDs:
+    case ReadNodesByPropertiesConfig::ARTIFACTS_BY_ID:
     case ReadNodesByPropertiesConfig::ARTIFACTS_BY_TYPE:
     case ReadNodesByPropertiesConfig::ARTIFACT_BY_TYPE_AND_NAME:
-    case ReadNodesByPropertiesConfig::ARTIFACTS_BY_URIs:
+    case ReadNodesByPropertiesConfig::ARTIFACTS_BY_URI:
       return GetExistingNodesImpl(FetchArtifact, store, existing_nodes);
-    case ReadNodesByPropertiesConfig::EXECUTIONS_BY_IDs:
+    case ReadNodesByPropertiesConfig::EXECUTIONS_BY_ID:
     case ReadNodesByPropertiesConfig::EXECUTIONS_BY_TYPE:
     case ReadNodesByPropertiesConfig::EXECUTION_BY_TYPE_AND_NAME:
       return GetExistingNodesImpl(FetchExecution, store, existing_nodes);
-    case ReadNodesByPropertiesConfig::CONTEXTS_BY_IDs:
+    case ReadNodesByPropertiesConfig::CONTEXTS_BY_ID:
     case ReadNodesByPropertiesConfig::CONTEXTS_BY_TYPE:
     case ReadNodesByPropertiesConfig::CONTEXT_BY_TYPE_AND_NAME:
       return GetExistingNodesImpl(FetchContext, store, existing_nodes);
     default:
-      return tensorflow::errors::Unimplemented(
-          "Unknown ReadNodesByPropertiesConfig specification.");
+      LOG(FATAL) << "Unknown ReadNodesByPropertiesConfig specification.";
   }
+  return tensorflow::Status::OK();
 }
 
 tensorflow::Status InsertTypesInDb(const int64 num_artifact_types,

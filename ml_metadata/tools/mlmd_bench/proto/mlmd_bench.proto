@@ -162,24 +162,26 @@ message ReadTypesConfig {
 message ReadNodesByPropertiesConfig {
   enum Specification {
     UNKNOWN = 0;
-    ARTIFACTS_BY_IDs = 1;
-    EXECUTIONS_BY_IDs = 2;
-    CONTEXTS_BY_IDs = 3;
+    ARTIFACTS_BY_ID = 1;
+    EXECUTIONS_BY_ID = 2;
+    CONTEXTS_BY_ID = 3;
     ARTIFACTS_BY_TYPE = 4;
     EXECUTIONS_BY_TYPE = 5;
     CONTEXTS_BY_TYPE = 6;
     ARTIFACT_BY_TYPE_AND_NAME = 7;
     EXECUTION_BY_TYPE_AND_NAME = 8;
     CONTEXT_BY_TYPE_AND_NAME = 9;
-    ARTIFACTS_BY_URIs = 10;
+    ARTIFACTS_BY_URI = 10;
   }
   // Indicates which property (id, type, name, etc.)  
   // should be used to get nodes (artifacts, executions, contexts).
   optional Specification specification = 1;
-  // Specifies the number of ids or uris to be filled per request for 
-  // ARTIFACTS_BY_IDs / EXECUTIONS_BY_IDs / CONTEXTS_BY_IDs 
-  // or ARTIFACTS_BY_URIs specification. Modeled by a uniform distribution.
-  optional UniformDistribution maybe_num_queries = 2;
+  // When the specification is ARTIFACTS_BY_ID / EXECUTIONS_BY_ID / 
+  // CONTEXTS_BY_ID, `num_of_parameters` will be the number of ids
+  // per request. When the specification is ARTIFACTS_BY_URI, 
+  // `num_of_parameters` will be the number of uris per request.
+  // Modeled by a uniform distribution.
+  optional UniformDistribution num_of_parameters = 2;
 }
 
 // The mlmd_bench workload config.

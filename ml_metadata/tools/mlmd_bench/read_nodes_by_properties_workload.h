@@ -25,12 +25,8 @@ limitations under the License.
 
 namespace ml_metadata {
 
-// Defines a ReadNodesByPropertiesWorkItemType that can be
-// GetArtifactsByIDRequest / GetExecutionsByIDRequest / GetContextsByIDRequest /
-// GetArtifactsByTypeRequest / GetExecutionsByTypeRequest /
-// GetContextsByTypeRequest / GetArtifactByTypeAndNameRequest /
-// GetExecutionByTypeAndNameRequest / GetContextByTypeAndNameRequest /
-// GetArtifactsByURIRequest.
+// Defines a ReadNodesByPropertiesWorkItemType that can be different requests to
+// look for MLMD nodes by their properties.
 using ReadNodesByPropertiesWorkItemType =
     absl::variant<GetArtifactsByIDRequest, GetExecutionsByIDRequest,
                   GetContextsByIDRequest, GetArtifactsByTypeRequest,
@@ -55,9 +51,9 @@ class ReadNodesByProperties
   // A list of work items(ReadNodesByPropertiesWorkItemType) will be generated.
   // When the API has querying conditions, select from existing nodes properties
   // w.r.t. the querying parameters to finalize the query string. If the
-  // specification of current workload is ARTIFACTS_BY_IDs / EXECUTIONS_BY_IDs /
-  // CONTEXTS_BY_IDs or ARTIFACTS_BY_URIs, the number of ids or uris per request
-  // will be generated w.r.t. the uniform distribution `maybe_num_queries`.
+  // specification of current workload is ARTIFACTS_BY_ID / EXECUTIONS_BY_ID /
+  // CONTEXTS_BY_ID or ARTIFACTS_BY_URI, the number of ids or uris per request
+  // will be generated w.r.t. the uniform distribution `num_of_parameters`.
   // Returns detailed error if query executions failed.
   tensorflow::Status SetUpImpl(MetadataStore* store) final;
 

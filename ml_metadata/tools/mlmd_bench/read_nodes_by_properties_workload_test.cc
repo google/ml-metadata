@@ -32,34 +32,39 @@ constexpr int kNumberOfOperations = 100;
 constexpr int kNumberOfExistedTypesInDb = 100;
 constexpr int kNumberOfExistedNodesInDb = 300;
 
-constexpr char kConfig[] =
-    "read_nodes_by_properties_config: { maybe_num_queries: { minimum: 1 "
-    "maximum: 10 "
-    "} }";
-
 // Enumerates the workload configurations as the test parameters that ensure
 // test coverage.
 std::vector<WorkloadConfig> EnumerateConfigs() {
   std::vector<WorkloadConfig> configs;
   std::vector<ReadNodesByPropertiesConfig::Specification> specifications = {
-      ReadNodesByPropertiesConfig::ARTIFACTS_BY_IDs,
-      ReadNodesByPropertiesConfig::EXECUTIONS_BY_IDs,
-      ReadNodesByPropertiesConfig::CONTEXTS_BY_IDs,
+      ReadNodesByPropertiesConfig::ARTIFACTS_BY_ID,
+      ReadNodesByPropertiesConfig::EXECUTIONS_BY_ID,
+      ReadNodesByPropertiesConfig::CONTEXTS_BY_ID,
       ReadNodesByPropertiesConfig::ARTIFACTS_BY_TYPE,
       ReadNodesByPropertiesConfig::EXECUTIONS_BY_TYPE,
       ReadNodesByPropertiesConfig::CONTEXTS_BY_TYPE,
       ReadNodesByPropertiesConfig::ARTIFACT_BY_TYPE_AND_NAME,
       ReadNodesByPropertiesConfig::EXECUTION_BY_TYPE_AND_NAME,
       ReadNodesByPropertiesConfig::CONTEXT_BY_TYPE_AND_NAME,
-      ReadNodesByPropertiesConfig::ARTIFACTS_BY_URIs};
+      ReadNodesByPropertiesConfig::ARTIFACTS_BY_URI};
 
   for (const ReadNodesByPropertiesConfig::Specification& specification :
        specifications) {
-    WorkloadConfig config =
-        testing::ParseTextProtoOrDie<WorkloadConfig>(kConfig);
+    WorkloadConfig config;
     config.set_num_operations(kNumberOfOperations);
     config.mutable_read_nodes_by_properties_config()->set_specification(
         specification);
+    if (specification == ReadNodesByPropertiesConfig::ARTIFACTS_BY_ID ||
+        specification == ReadNodesByPropertiesConfig::EXECUTIONS_BY_ID ||
+        specification == ReadNodesByPropertiesConfig::CONTEXTS_BY_ID ||
+        specification == ReadNodesByPropertiesConfig::ARTIFACTS_BY_URI) {
+      config.mutable_read_nodes_by_properties_config()
+          ->mutable_num_of_parameters()
+          ->set_minimum(1);
+      config.mutable_read_nodes_by_properties_config()
+          ->mutable_num_of_parameters()
+          ->set_maximum(10);
+    }
     configs.push_back(config);
   }
 

@@ -340,14 +340,14 @@ TEST(UtilGetTest, GetNodesWithReadNodesByPropertiesConfigTest) {
       /*num_context_nodes=*/kNumberOfInsertedContexts, *store));
 
   std::vector<ReadNodesByPropertiesConfig::Specification> specification{
-      ReadNodesByPropertiesConfig::ARTIFACTS_BY_IDs,
+      ReadNodesByPropertiesConfig::ARTIFACTS_BY_ID,
       ReadNodesByPropertiesConfig::ARTIFACTS_BY_TYPE,
       ReadNodesByPropertiesConfig::ARTIFACT_BY_TYPE_AND_NAME,
-      ReadNodesByPropertiesConfig::ARTIFACTS_BY_URIs,
-      ReadNodesByPropertiesConfig::EXECUTIONS_BY_IDs,
+      ReadNodesByPropertiesConfig::ARTIFACTS_BY_URI,
+      ReadNodesByPropertiesConfig::EXECUTIONS_BY_ID,
       ReadNodesByPropertiesConfig::EXECUTIONS_BY_TYPE,
       ReadNodesByPropertiesConfig::EXECUTION_BY_TYPE_AND_NAME,
-      ReadNodesByPropertiesConfig::CONTEXTS_BY_IDs,
+      ReadNodesByPropertiesConfig::CONTEXTS_BY_ID,
       ReadNodesByPropertiesConfig::CONTEXTS_BY_TYPE,
       ReadNodesByPropertiesConfig::CONTEXT_BY_TYPE_AND_NAME};
 
