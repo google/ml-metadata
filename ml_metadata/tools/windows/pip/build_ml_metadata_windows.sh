@@ -96,6 +96,8 @@ run_py_tests() {
 set -x
 set -e
 
+cd $MLMD_OUTPUT_DIR
+
 # This script is under <repo_root>/ml_metadata/tools/windows/pip/
 # Change into repository root.
 script_dir=$(dirname $0)
