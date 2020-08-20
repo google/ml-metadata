@@ -135,7 +135,7 @@ export BAZEL_VC="C:/Program Files (x86)/Microsoft Visual Studio 14.0/VC"
 # print environment for debugging
 printenv
 
-bazel run -c opt --define grpc_no_ares=true --verbose_failures ml_metadata:build_pip_package
+"${PYTHON_BIN_PATH}" setup.py bdist_wheel
 
 # Install MLMD.
 pip install dist/*.whl
