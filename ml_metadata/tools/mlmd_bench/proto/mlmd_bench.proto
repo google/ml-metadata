@@ -184,7 +184,7 @@ message ReadNodesByPropertiesConfig {
   optional UniformDistribution num_of_parameters = 2;
 }
 
-// Read nodes by traverse between Artifact/Execution and Contexts.
+// Read nodes by traverse between Artifacts / Executions and Contexts.
 message ReadNodesViaContextEdgesConfig {
   enum Specification {
     UNKNOWN = 0;
@@ -193,7 +193,7 @@ message ReadNodesViaContextEdgesConfig {
     ARTIFACTS_BY_CONTEXT = 3;
     EXECUTIONS_BY_CONTEXT = 4;
   }
-  // Indicate which transverse API is used to get nodes.
+  // Indicates which transverse API to use for getting nodes.
   optional Specification specification = 1;
 }
 

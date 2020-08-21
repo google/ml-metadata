@@ -282,9 +282,9 @@ tensorflow::Status GetExistingNodes(
     case ReadNodesViaContextEdgesConfig::CONTEXTS_BY_EXECUTION:
       return GetExistingNodesImpl(FetchExecution, store, existing_nodes);
     default:
-      return tensorflow::errors::Unimplemented(
-          "Unknown ReadNodesViaContextEdgesConfig specification.");
+      LOG(FATAL) << "Unknown ReadNodesViaContextEdgesConfig specification.";
   }
+  return tensorflow::Status::OK();
 }
 
 tensorflow::Status InsertTypesInDb(const int64 num_artifact_types,

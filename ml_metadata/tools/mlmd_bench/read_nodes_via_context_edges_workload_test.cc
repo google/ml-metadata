@@ -34,12 +34,15 @@ constexpr int kNumberOfExistedTypesInDb = 100;
 constexpr int kNumberOfExistedNodesInDb = 100;
 constexpr int kNumberOfExistedContextEdgesInDb = 100;
 
+// Configuration string for later FillContextEdges workload.
 constexpr char kConfig[] = R"(
         non_context_node_popularity: {dirichlet_alpha : 1000}
         context_node_popularity: {dirichlet_alpha : 1000}
         num_edges: { minimum: 1 maximum: 10 }
       )";
 
+// Enumerates the workload configurations as the test parameters that ensure
+// test coverage.
 std::vector<WorkloadConfig> EnumerateConfigs() {
   std::vector<WorkloadConfig> configs;
   std::vector<ReadNodesViaContextEdgesConfig::Specification> specifications = {
@@ -60,9 +63,13 @@ std::vector<WorkloadConfig> EnumerateConfigs() {
   return configs;
 }
 
+// Inserts some context edges(Attributions / Associations) into db so that we
+// can read nodes via these context edges. Returns detailed error if query
+// executions failed.
 tensorflow::Status InsertContextEdgesInDb(const int64 num_attributions,
                                           const int64 num_associations,
                                           MetadataStore& store) {
+  // Inserts Attributions.
   {
     FillContextEdgesConfig fill_context_edges_config =
         testing::ParseTextProtoOrDie<FillContextEdgesConfig>(kConfig);
@@ -78,6 +85,7 @@ tensorflow::Status InsertContextEdgesInDb(const int64 num_attributions,
     }
   }
 
+  // Inserts Associations.
   {
     FillContextEdgesConfig fill_context_edges_config =
         testing::ParseTextProtoOrDie<FillContextEdgesConfig>(kConfig);
@@ -96,6 +104,10 @@ tensorflow::Status InsertContextEdgesInDb(const int64 num_attributions,
   return tensorflow::Status::OK();
 }
 
+// Test fixture that uses the same data configuration for multiple following
+// parameterized ReadNodesViaContextEdges tests.
+// The parameter here is the specific Workload configuration that contains
+// the ReadNodesViaContextEdges configuration and the number of operations.
 class ReadNodesViaContextEdgesParameterizedTestFixture
     : public ::testing::TestWithParam<WorkloadConfig> {
  protected:
@@ -125,12 +137,18 @@ class ReadNodesViaContextEdgesParameterizedTestFixture
   std::unique_ptr<MetadataStore> store_;
 };
 
+// Tests the SetUpImpl() for ReadNodesViaContextEdges. Checks the SetUpImpl()
+// indeed prepares a list of work items whose length is the same as the
+// specified number of operations.
 TEST_P(ReadNodesViaContextEdgesParameterizedTestFixture, SetUpImplTest) {
   TF_ASSERT_OK(read_nodes_via_context_edges_->SetUp(store_.get()));
   EXPECT_EQ(GetParam().num_operations(),
             read_nodes_via_context_edges_->num_operations());
 }
 
+// Tests the RunOpImpl() for ReadNodesViaContextEdges. Checks indeed all the
+// work items have been executed and some bytes are transferred during the
+// reading process.
 TEST_P(ReadNodesViaContextEdgesParameterizedTestFixture, RunOpImplTest) {
   TF_ASSERT_OK(read_nodes_via_context_edges_->SetUp(store_.get()));
 

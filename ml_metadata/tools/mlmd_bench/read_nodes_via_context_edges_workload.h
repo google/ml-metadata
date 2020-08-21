@@ -25,10 +25,14 @@ limitations under the License.
 
 namespace ml_metadata {
 
+// Defines a ReadNodesViaContextEdgesWorkItemType that can be different requests
+// to look for MLMD nodes via context edges(Attributions / Associations).
 using ReadNodesViaContextEdgesWorkItemType =
     absl::variant<GetArtifactsByContextRequest, GetExecutionsByContextRequest,
                   GetContextsByArtifactRequest, GetContextsByExecutionRequest>;
 
+// A specific workload for getting nodes: Artifacts / Executions / Contexts via
+// context edges(Attributions / Associations).
 class ReadNodesViaContextEdges
     : public Workload<ReadNodesViaContextEdgesWorkItemType> {
  public:
@@ -38,13 +42,28 @@ class ReadNodesViaContextEdges
   ~ReadNodesViaContextEdges() override = default;
 
  protected:
+  // Specific implementation of SetUpImpl() for
+  // ReadNodesViaContextEdgesWorkItemType workload according to its semantic.
+  // A list of work items(ReadNodesViaContextEdgesWorkItemType) will be
+  // generated. The API traverses from source node {Artifacts / Executions /
+  // Contexts} to the destination node. When generating the querying string,
+  // we choose nodes from the source node uniformly. Returns detailed error if
+  // query executions failed.
   tensorflow::Status SetUpImpl(MetadataStore* store) final;
 
+  // Specific implementation of RunOpImpl() for
+  // ReadNodesViaContextEdgesWorkItemType workload according to its semantic.
+  // Runs the work items(ReadNodesViaContextEdgesWorkItemType) on the store.
+  // Returns detailed error if query executions failed.
   tensorflow::Status RunOpImpl(int64 work_items_index,
                                MetadataStore* store) final;
 
+  // Specific implementation of TearDownImpl() for ReadNodesViaContextEdges
+  // workload according to its semantic. Cleans the work items.
   tensorflow::Status TearDownImpl() final;
 
+  // Gets the current workload's name, which is used in stats report for this
+  // workload.
   std::string GetName() final;
 
  private:
