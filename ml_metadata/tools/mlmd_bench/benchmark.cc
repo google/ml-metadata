@@ -23,7 +23,6 @@ limitations under the License.
 #include "ml_metadata/tools/mlmd_bench/fill_nodes_workload.h"
 #include "ml_metadata/tools/mlmd_bench/fill_types_workload.h"
 #include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
-#include "ml_metadata/tools/mlmd_bench/read_nodes_by_properties_workload.h"
 #include "ml_metadata/tools/mlmd_bench/read_types_workload.h"
 #include "ml_metadata/tools/mlmd_bench/workload.h"
 
@@ -58,11 +57,6 @@ std::unique_ptr<WorkloadBase> CreateWorkload(
       return absl::make_unique<ReadTypes>(
           ReadTypes(workload_config.read_types_config(),
                     workload_config.num_operations()));
-    }
-    case WorkloadConfig::kReadNodesByPropertiesConfig: {
-      return absl::make_unique<ReadNodesByProperties>(ReadNodesByProperties(
-          workload_config.read_nodes_by_properties_config(),
-          workload_config.num_operations()));
     }
     default:
       LOG(FATAL) << "Cannot find corresponding workload!";

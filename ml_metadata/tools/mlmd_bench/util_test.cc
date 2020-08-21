@@ -366,7 +366,7 @@ TEST(UtilGetTest, GetNodesWithReadNodesByPropertiesConfigTest) {
                                   exisiting_nodes));
     EXPECT_THAT(exisiting_nodes, ::testing::SizeIs(size[i]));
   }
-}  // namespace
+}
 
 }  // namespace
 }  // namespace ml_metadata
