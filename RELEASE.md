@@ -4,6 +4,9 @@
 
 ## Bug Fixes and Other Changes
 
+*   Adds `grpcio` as py client dependency.
+*   Improves building wheels from source with `setup.py`.
+
 ## Breaking Changes
 
 ## Deprecations

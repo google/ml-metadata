@@ -8,8 +8,8 @@ config_setting(
 )
 
 sh_binary(
-    name = "build_pip_package",
-    srcs = ["build_pip_package.sh"],
+    name = "move_generated_files",
+    srcs = ["move_generated_files.sh"],
     data = [
         "//ml_metadata/metadata_store:pywrap_tf_metadata_store_serialized.py",
         "//ml_metadata/proto:metadata_store_pb2.py",

@@ -25,11 +25,8 @@ limitations under the License.
 
 namespace ml_metadata {
 
-// Defines a ReadTypesWorkItemType that can be GetArtifactTypesRequest /
-// GetExecutionTypesRequest / GetContextTypesRequest /
-// GetArtifactTypesByIDRequest / GetExecutionTypesByIDRequest /
-// GetContextTypesByIDRequest / GetArtifactTypeRequest / GetExecutionTypeRequest
-// / GetContextTypeRequest.
+// Defines a ReadTypesWorkItemType that can be different requests to look for
+// MLMD types.
 using ReadTypesWorkItemType =
     ::absl::variant<GetArtifactTypesRequest, GetExecutionTypesRequest,
                     GetContextTypesRequest, GetArtifactTypesByIDRequest,
@@ -75,7 +72,7 @@ class ReadTypes : public Workload<ReadTypesWorkItemType> {
   // Number of operations for the current workload.
   const int64 num_operations_;
   // String for indicating the name of current workload instance.
-  std::string name_;
+  const std::string name_;
 };
 
 }  // namespace ml_metadata

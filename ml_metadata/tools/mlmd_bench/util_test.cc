@@ -193,15 +193,14 @@ TEST(UtilGetTest, GetTypesWithReadTypesConfigTest) {
 
   std::vector<std::pair<ReadTypesConfig::Specification, int>> specification{
       {ReadTypesConfig::ALL_ARTIFACT_TYPES, kNumberOfInsertedArtifactTypes},
-      {ReadTypesConfig::ARTIFACT_TYPES_BY_IDs, kNumberOfInsertedArtifactTypes},
+      {ReadTypesConfig::ARTIFACT_TYPES_BY_ID, kNumberOfInsertedArtifactTypes},
       {ReadTypesConfig::ARTIFACT_TYPE_BY_NAME, kNumberOfInsertedArtifactTypes},
       {ReadTypesConfig::ALL_EXECUTION_TYPES, kNumberOfInsertedExecutionTypes},
-      {ReadTypesConfig::EXECUTION_TYPES_BY_IDs,
-       kNumberOfInsertedExecutionTypes},
+      {ReadTypesConfig::EXECUTION_TYPES_BY_ID, kNumberOfInsertedExecutionTypes},
       {ReadTypesConfig::EXECUTION_TYPE_BY_NAME,
        kNumberOfInsertedExecutionTypes},
       {ReadTypesConfig::ALL_CONTEXT_TYPES, kNumberOfInsertedContextTypes},
-      {ReadTypesConfig::CONTEXT_TYPES_BY_IDs, kNumberOfInsertedContextTypes},
+      {ReadTypesConfig::CONTEXT_TYPES_BY_ID, kNumberOfInsertedContextTypes},
       {ReadTypesConfig::CONTEXT_TYPE_BY_NAME, kNumberOfInsertedContextTypes}};
 
   for (int i = 0; i < 9; ++i) {
@@ -341,14 +340,14 @@ TEST(UtilGetTest, GetNodesWithReadNodesByPropertiesConfigTest) {
       /*num_context_nodes=*/kNumberOfInsertedContexts, *store));
 
   std::vector<ReadNodesByPropertiesConfig::Specification> specification{
-      ReadNodesByPropertiesConfig::ARTIFACTS_BY_IDs,
+      ReadNodesByPropertiesConfig::ARTIFACTS_BY_ID,
       ReadNodesByPropertiesConfig::ARTIFACTS_BY_TYPE,
       ReadNodesByPropertiesConfig::ARTIFACT_BY_TYPE_AND_NAME,
-      ReadNodesByPropertiesConfig::ARTIFACTS_BY_URIs,
-      ReadNodesByPropertiesConfig::EXECUTIONS_BY_IDs,
+      ReadNodesByPropertiesConfig::ARTIFACTS_BY_URI,
+      ReadNodesByPropertiesConfig::EXECUTIONS_BY_ID,
       ReadNodesByPropertiesConfig::EXECUTIONS_BY_TYPE,
       ReadNodesByPropertiesConfig::EXECUTION_BY_TYPE_AND_NAME,
-      ReadNodesByPropertiesConfig::CONTEXTS_BY_IDs,
+      ReadNodesByPropertiesConfig::CONTEXTS_BY_ID,
       ReadNodesByPropertiesConfig::CONTEXTS_BY_TYPE,
       ReadNodesByPropertiesConfig::CONTEXT_BY_TYPE_AND_NAME};
 

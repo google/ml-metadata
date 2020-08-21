@@ -25,6 +25,8 @@ limitations under the License.
 
 namespace ml_metadata {
 
+// Defines a ReadNodesByPropertiesWorkItemType that can be different requests to
+// look for MLMD nodes by their properties.
 using ReadNodesByPropertiesWorkItemType =
     absl::variant<GetArtifactsByIDRequest, GetExecutionsByIDRequest,
                   GetContextsByIDRequest, GetArtifactsByTypeRequest,
@@ -33,6 +35,8 @@ using ReadNodesByPropertiesWorkItemType =
                   GetExecutionByTypeAndNameRequest,
                   GetContextByTypeAndNameRequest, GetArtifactsByURIRequest>;
 
+// A specific workload for getting nodes: Artifacts / Executions / Contexts by
+// their properties.
 class ReadNodesByProperties
     : public Workload<ReadNodesByPropertiesWorkItemType> {
  public:
@@ -42,13 +46,30 @@ class ReadNodesByProperties
   ~ReadNodesByProperties() override = default;
 
  protected:
+  // Specific implementation of SetUpImpl() for ReadNodesByProperties workload
+  // according to its semantic.
+  // A list of work items(ReadNodesByPropertiesWorkItemType) will be generated.
+  // When the API has querying conditions, select from existing nodes properties
+  // w.r.t. the querying parameters to finalize the query string. If the
+  // specification of current workload is ARTIFACTS_BY_ID / EXECUTIONS_BY_ID /
+  // CONTEXTS_BY_ID or ARTIFACTS_BY_URI, the number of ids or uris per request
+  // will be generated w.r.t. the uniform distribution `num_of_parameters`.
+  // Returns detailed error if query executions failed.
   tensorflow::Status SetUpImpl(MetadataStore* store) final;
 
+  // Specific implementation of RunOpImpl() for ReadNodesByProperties workload
+  // according to its semantic.
+  // Runs the work items(ReadNodesByPropertiesWorkItemType) on the store.
+  // Returns detailed error if query executions failed.
   tensorflow::Status RunOpImpl(int64 work_items_index,
                                MetadataStore* store) final;
 
+  // Specific implementation of TearDownImpl() for ReadNodesByProperties
+  // workload according to its semantic. Cleans the work items.
   tensorflow::Status TearDownImpl() final;
 
+  // Gets the current workload's name, which is used in stats report for this
+  // workload.
   std::string GetName() final;
 
  private:
@@ -57,7 +78,7 @@ class ReadNodesByProperties
   // Number of operations for the current workload.
   const int64 num_operations_;
   // String for indicating the name of current workload instance.
-  std::string name_;
+  const std::string name_;
 };
 
 }  // namespace ml_metadata

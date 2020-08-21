@@ -96,6 +96,8 @@ run_py_tests() {
 set -x
 set -e
 
+cd $MLMD_OUTPUT_DIR
+
 # This script is under <repo_root>/ml_metadata/tools/windows/pip/
 # Change into repository root.
 script_dir=$(dirname $0)
@@ -135,7 +137,7 @@ export BAZEL_VC="C:/Program Files (x86)/Microsoft Visual Studio 14.0/VC"
 # print environment for debugging
 printenv
 
-bazel run -c opt --define grpc_no_ares=true --verbose_failures ml_metadata:build_pip_package
+"${PYTHON_BIN_PATH}" setup.py bdist_wheel
 
 # Install MLMD.
 pip install dist/*.whl

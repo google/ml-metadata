@@ -13,16 +13,52 @@
 # limitations under the License.
 """Package Setup script for ML Metadata."""
 
+import os
+import subprocess
+
+import setuptools
 from setuptools import find_packages
 from setuptools import setup
 from setuptools.command.install import install
 from setuptools.dist import Distribution
+# pylint: disable=g-bad-import-order
+# It is recommended to import setuptools prior to importing distutils to avoid
+# using legacy behavior from distutils.
+# https://setuptools.readthedocs.io/en/latest/history.html#v48-0-0
+from distutils import spawn
+from distutils.command import build
+# pylint: enable=g-bad-import-order
+
+
+class _BuildCommand(build.build):
+  """Build everything that is needed to install.
+
+  This overrides the original distutils "build" command to to run bazel_build
+  command before any sub_commands.
+
+  build command is also invoked from bdist_wheel and install command, therefore
+  this implementation covers the following commands:
+    - pip install . (which invokes bdist_wheel)
+    - python setup.py install (which invokes install command)
+    - python setup.py bdist_wheel (which invokes bdist_wheel command)
+  """
+
+  def _build_cc_extensions(self):
+    return True
+
+  # Add "bazel_build" command as the first sub_command of "build". Each
+  # sub_command of "build" (e.g. "build_py", "build_ext", etc.) is executed
+  # sequentially when running a "build" command, if the second item in the tuple
+  # (predicate method) is evaluated to true.
+  sub_commands = [
+      ('bazel_build', _build_cc_extensions),
+  ] + build.build.sub_commands
 
 
 # MLMD is not a purelib. However because of the extension module is not built
 # by setuptools, it will be incorrectly treated as a purelib. The following
 # works around that bug.
-class _InstallPlatlib(install):
+class _InstallPlatlibCommand(install):
 
   def finalize_options(self):
     install.finalize_options(self)
@@ -37,6 +73,33 @@ class _BinaryDistribution(Distribution):
 
   def has_ext_modules(self):
     return True
+
+
+class _BazelBuildCommand(setuptools.Command):
+  """Build Bazel artifacts and move generated files."""
+
+  def initialize_options(self):
+    pass
+
+  def finalize_options(self):
+    self._bazel_cmd = spawn.find_executable('bazel')
+    if not self._bazel_cmd:
+      raise RuntimeError(
+          'Could not find "bazel" binary. Please visit '
+          'https://docs.bazel.build/versions/master/install.html for '
+          'installation instruction.')
+
+  def run(self):
+    subprocess.check_call(
+        [self._bazel_cmd, 'run',
+         '--compilation_mode', 'opt',
+         '--define', 'grpc_no_ares=true',
+         '--verbose_failures',
+         '//ml_metadata:move_generated_files'],
+        # Bazel should be invoked in a directory containing bazel WORKSPACE
+        # file, which is the root directory.
+        cwd=os.path.dirname(os.path.realpath(__file__)),)
+
 
 # Get version from version module.
 with open('ml_metadata/version.py') as fp:
@@ -81,6 +144,7 @@ setup(
     # six, and protobuf) with TF.
     install_requires=[
         'absl-py>=0.7,<1',
+        'grpcio>=1.8.6,<2',
         'protobuf>=3.7,<4',
         'six>=1.10,<2',
     ],
@@ -97,4 +161,8 @@ setup(
     url='https://github.com/google/ml-metadata',
     download_url='https://github.com/google/ml-metadata/tags',
     requires=[],
-    cmdclass={'install': _InstallPlatlib})
+    cmdclass={
+        'install': _InstallPlatlibCommand,
+        'build': _BuildCommand,
+        'bazel_build': _BazelBuildCommand,
+    })

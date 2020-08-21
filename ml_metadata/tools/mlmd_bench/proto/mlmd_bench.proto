@@ -136,50 +136,52 @@ message FillEventsConfig {
   optional UniformDistribution num_events = 5;
 }
 
-// Read types: ArtifactTypes / ExecutionTypes / ContextTypes.
+// Reads types: ArtifactTypes / ExecutionTypes / ContextTypes.
 message ReadTypesConfig {
   enum Specification {
     UNKNOWN = 0;
     ALL_ARTIFACT_TYPES = 1;
     ALL_EXECUTION_TYPES = 2;
     ALL_CONTEXT_TYPES = 3;
-    ARTIFACT_TYPES_BY_IDs = 4;
-    EXECUTION_TYPES_BY_IDs = 5;
-    CONTEXT_TYPES_BY_IDs = 6;
+    ARTIFACT_TYPES_BY_ID = 4;
+    EXECUTION_TYPES_BY_ID = 5;
+    CONTEXT_TYPES_BY_ID = 6;
     ARTIFACT_TYPE_BY_NAME = 7;
     EXECUTION_TYPE_BY_NAME = 8;
     CONTEXT_TYPE_BY_NAME = 9;
   }
   // Indicates which types to be read and how they are read from db.
   optional Specification specification = 1;
-  // Specifies the number of ids to be filled per request for 
+  // Specifies the number of ids to be filled per request for
   // ARTIFACT_TYPES_BY_IDs / EXECUTION_TYPES_BY_IDs / CONTEXT_TYPES_BY_IDs
   // specification. Modeled by a uniform distribution.
   optional UniformDistribution maybe_num_ids = 2;
 }
 
-// Read nodes: Artifacts / Executions / Contexts by their properties.
+// Reads nodes: Artifacts / Executions / Contexts by their properties.
 message ReadNodesByPropertiesConfig {
   enum Specification {
     UNKNOWN = 0;
-    ARTIFACTS_BY_IDs = 1;
-    EXECUTIONS_BY_IDs = 2;
-    CONTEXTS_BY_IDs = 3;
+    ARTIFACTS_BY_ID = 1;
+    EXECUTIONS_BY_ID = 2;
+    CONTEXTS_BY_ID = 3;
     ARTIFACTS_BY_TYPE = 4;
     EXECUTIONS_BY_TYPE = 5;
     CONTEXTS_BY_TYPE = 6;
     ARTIFACT_BY_TYPE_AND_NAME = 7;
     EXECUTION_BY_TYPE_AND_NAME = 8;
     CONTEXT_BY_TYPE_AND_NAME = 9;
-    ARTIFACTS_BY_URIs = 10;
+    ARTIFACTS_BY_URI = 10;
   }
-  // Indicate what properties (id, type, name, etc.)  
-  // should be used to get nodes (artifact, execution, context).
+  // Indicates which property (id, type, name, etc.)  
+  // should be used to get nodes (artifacts, executions, contexts).
   optional Specification specification = 1;
-  // Specifies the number of ids or uris to be filled per request for 
-  // ARTIFACTS_BY_IDs / EXECUTIONS_BY_IDs / CONTEXTS_BY_IDs 
-  // or ARTIFACTS_BY_URIs specification. Modeled by a uniform distribution.
-  optional UniformDistribution maybe_num_queries = 2;
+  // When the specification is ARTIFACTS_BY_ID / EXECUTIONS_BY_ID / 
+  // CONTEXTS_BY_ID, `num_of_parameters` will be the number of ids
+  // per request. When the specification is ARTIFACTS_BY_URI, 
+  // `num_of_parameters` will be the number of uris per request.
+  // Modeled by a uniform distribution.
+  optional UniformDistribution num_of_parameters = 2;
 }
 
 // Read nodes by traverse between Artifact/Execution and Contexts.

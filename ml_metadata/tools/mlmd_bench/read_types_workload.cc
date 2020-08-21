@@ -125,7 +125,7 @@ tensorflow::Status SetUpImplForReadTypesByIds(
     // Selects from existing types uniformly.
     const int64 type_index = type_index_dist(gen);
     switch (read_types_config.specification()) {
-      case ReadTypesConfig::ARTIFACT_TYPES_BY_IDs: {
+      case ReadTypesConfig::ARTIFACT_TYPES_BY_ID: {
         request = GetArtifactTypesByIDRequest();
         absl::get<GetArtifactTypesByIDRequest>(request).add_type_ids(
             absl::get<ArtifactType>(existing_types[type_index]).id());
@@ -133,7 +133,7 @@ tensorflow::Status SetUpImplForReadTypesByIds(
             absl::get<ArtifactType>(existing_types[type_index]), curr_bytes));
         break;
       }
-      case ReadTypesConfig::EXECUTION_TYPES_BY_IDs: {
+      case ReadTypesConfig::EXECUTION_TYPES_BY_ID: {
         request = GetExecutionTypesByIDRequest();
         absl::get<GetExecutionTypesByIDRequest>(request).add_type_ids(
             absl::get<ExecutionType>(existing_types[type_index]).id());
@@ -141,7 +141,7 @@ tensorflow::Status SetUpImplForReadTypesByIds(
             absl::get<ExecutionType>(existing_types[type_index]), curr_bytes));
         break;
       }
-      case ReadTypesConfig::CONTEXT_TYPES_BY_IDs: {
+      case ReadTypesConfig::CONTEXT_TYPES_BY_ID: {
         request = GetContextTypesByIDRequest();
         absl::get<GetContextTypesByIDRequest>(request).add_type_ids(
             absl::get<ContextType>(existing_types[type_index]).id());
@@ -228,9 +228,9 @@ tensorflow::Status ReadTypes::SetUpImpl(MetadataStore* store) {
         TF_RETURN_IF_ERROR(SetUpImplForReadAllTypes(
             read_types_config_, existing_types, read_request, curr_bytes));
         break;
-      case ReadTypesConfig::ARTIFACT_TYPES_BY_IDs:
-      case ReadTypesConfig::EXECUTION_TYPES_BY_IDs:
-      case ReadTypesConfig::CONTEXT_TYPES_BY_IDs:
+      case ReadTypesConfig::ARTIFACT_TYPES_BY_ID:
+      case ReadTypesConfig::EXECUTION_TYPES_BY_ID:
+      case ReadTypesConfig::CONTEXT_TYPES_BY_ID:
         TF_RETURN_IF_ERROR(SetUpImplForReadTypesByIds(
             read_types_config_, existing_types, type_index_dist, gen,
             read_request, curr_bytes));
@@ -272,19 +272,19 @@ tensorflow::Status ReadTypes::RunOpImpl(const int64 work_items_index,
       GetContextTypesResponse response;
       return store->GetContextTypes(request, &response);
     }
-    case ReadTypesConfig::ARTIFACT_TYPES_BY_IDs: {
+    case ReadTypesConfig::ARTIFACT_TYPES_BY_ID: {
       auto request = absl::get<GetArtifactTypesByIDRequest>(
           work_items_[work_items_index].first);
       GetArtifactTypesByIDResponse response;
       return store->GetArtifactTypesByID(request, &response);
     }
-    case ReadTypesConfig::EXECUTION_TYPES_BY_IDs: {
+    case ReadTypesConfig::EXECUTION_TYPES_BY_ID: {
       auto request = absl::get<GetExecutionTypesByIDRequest>(
           work_items_[work_items_index].first);
       GetExecutionTypesByIDResponse response;
       return store->GetExecutionTypesByID(request, &response);
     }
-    case ReadTypesConfig::CONTEXT_TYPES_BY_IDs: {
+    case ReadTypesConfig::CONTEXT_TYPES_BY_ID: {
       auto request = absl::get<GetContextTypesByIDRequest>(
           work_items_[work_items_index].first);
       GetContextTypesByIDResponse response;
