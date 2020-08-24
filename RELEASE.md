@@ -6,6 +6,7 @@
 
 *   Adds `grpcio` as py client dependency.
 *   Improves building wheels from source with `setup.py`.
+*   Replace the C++ MOCK_METHOD<n> family of macros with the new MOCK_METHOD
 
 ## Breaking Changes
 
