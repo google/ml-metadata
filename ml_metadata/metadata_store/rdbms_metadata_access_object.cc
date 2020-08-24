@@ -1063,8 +1063,10 @@ tensorflow::Status RDBMSMetadataAccessObject::FindEventsByArtifacts(
   }
 
   RecordSet event_record_set;
-  TF_RETURN_IF_ERROR(
-      executor_->SelectEventByArtifactIDs(artifact_ids, &event_record_set));
+  if (!artifact_ids.empty()) {
+    TF_RETURN_IF_ERROR(
+        executor_->SelectEventByArtifactIDs(artifact_ids, &event_record_set));
+  }
 
   if (event_record_set.records_size() == 0) {
     return tensorflow::errors::NotFound(
@@ -1080,8 +1082,10 @@ tensorflow::Status RDBMSMetadataAccessObject::FindEventsByExecutions(
   }
 
   RecordSet event_record_set;
-  TF_RETURN_IF_ERROR(
-      executor_->SelectEventByExecutionIDs(execution_ids, &event_record_set));
+  if (!execution_ids.empty()) {
+    TF_RETURN_IF_ERROR(
+        executor_->SelectEventByExecutionIDs(execution_ids, &event_record_set));
+  }
 
   if (event_record_set.records_size() == 0) {
       return tensorflow::errors::NotFound(

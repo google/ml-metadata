@@ -176,10 +176,12 @@ cc_library(
     srcs = ["read_types_workload.cc"],
     hdrs = ["read_types_workload.h"],
     deps = [
-        ":workload",
         ":util",
+        ":workload",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
-        "//ml_metadata/metadata_store:metadata_store",
+        "@com_google_absl//absl/types:variant",
+        "//ml_metadata/metadata_store",
         "//ml_metadata/metadata_store:types",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/proto:metadata_store_service_proto",
@@ -267,7 +269,6 @@ ml_metadata_cc_test(
     size = "small",
     srcs = ["read_nodes_via_context_edges_workload_test.cc"],
     deps = [
-        ":fill_context_edges_workload",
         ":read_nodes_via_context_edges_workload",
         ":util",
         "@com_google_googletest//:gtest_main",

@@ -14,6 +14,8 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/tools/mlmd_bench/read_nodes_via_context_edges_workload.h"
 
+#include <random>
+
 #include <gtest/gtest.h>
 #include "absl/memory/memory.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
@@ -21,7 +23,6 @@ limitations under the License.
 #include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
-#include "ml_metadata/tools/mlmd_bench/fill_context_edges_workload.h"
 #include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
 #include "ml_metadata/tools/mlmd_bench/util.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
@@ -32,14 +33,10 @@ namespace {
 constexpr int kNumberOfOperations = 100;
 constexpr int kNumberOfExistedTypesInDb = 100;
 constexpr int kNumberOfExistedNodesInDb = 100;
-constexpr int kNumberOfExistedContextEdgesInDb = 100;
+constexpr int kNumberOfExistedContextEdgesInDb = 1000;
 
-constexpr char kConfig[] = R"(
-        non_context_node_popularity: {dirichlet_alpha : 1000}
-        context_node_popularity: {dirichlet_alpha : 1000}
-        num_edges: { minimum: 1 maximum: 10 }
-      )";
-
+// Enumerates the workload configurations as the test parameters that ensure
+// test coverage.
 std::vector<WorkloadConfig> EnumerateConfigs() {
   std::vector<WorkloadConfig> configs;
   std::vector<ReadNodesViaContextEdgesConfig::Specification> specifications = {
@@ -60,42 +57,76 @@ std::vector<WorkloadConfig> EnumerateConfigs() {
   return configs;
 }
 
+// Inserts some context edges(Attributions / Associations) into db so that we
+// can read nodes via these context edges. Returns detailed error if query
+// executions failed.
 tensorflow::Status InsertContextEdgesInDb(const int64 num_attributions,
                                           const int64 num_associations,
                                           MetadataStore& store) {
+  PutAttributionsAndAssociationsRequest request;
+  std::minstd_rand0 gen(0);
+  // Inserts Attributions.
   {
-    FillContextEdgesConfig fill_context_edges_config =
-        testing::ParseTextProtoOrDie<FillContextEdgesConfig>(kConfig);
+    FillContextEdgesConfig fill_context_edges_config;
     fill_context_edges_config.set_specification(
         FillContextEdgesConfig::ATTRIBUTION);
-    std::unique_ptr<FillContextEdges> prepared_db_workload =
-        absl::make_unique<FillContextEdges>(
-            FillContextEdges(fill_context_edges_config, num_attributions));
-    TF_RETURN_IF_ERROR(prepared_db_workload->SetUp(&store));
-    for (int64 i = 0; i < prepared_db_workload->num_operations(); ++i) {
-      OpStats op_stats;
-      TF_RETURN_IF_ERROR(prepared_db_workload->RunOp(i, &store, op_stats));
+    std::vector<Node> existing_non_context_nodes;
+    std::vector<Node> existing_context_nodes;
+    TF_RETURN_IF_ERROR(GetExistingNodes(fill_context_edges_config, store,
+                                        existing_non_context_nodes,
+                                        existing_context_nodes));
+    std::uniform_int_distribution<int64> non_context_node_index_dist{
+        0, (int64)(existing_non_context_nodes.size() - 1)};
+    std::uniform_int_distribution<int64> context_node_index_dist{
+        0, (int64)(existing_context_nodes.size() - 1)};
+    for (int i = 0; i < kNumberOfExistedContextEdgesInDb; ++i) {
+      Attribution* context_edge = request.add_attributions();
+      context_edge->set_artifact_id(
+          absl::get<Artifact>(
+              existing_non_context_nodes[non_context_node_index_dist(gen)])
+              .id());
+      context_edge->set_context_id(
+          absl::get<Context>(
+              existing_context_nodes[context_node_index_dist(gen)])
+              .id());
     }
   }
 
+  // Inserts Associations.
   {
-    FillContextEdgesConfig fill_context_edges_config =
-        testing::ParseTextProtoOrDie<FillContextEdgesConfig>(kConfig);
+    FillContextEdgesConfig fill_context_edges_config;
     fill_context_edges_config.set_specification(
         FillContextEdgesConfig::ASSOCIATION);
-    std::unique_ptr<FillContextEdges> prepared_db_workload =
-        absl::make_unique<FillContextEdges>(
-            FillContextEdges(fill_context_edges_config, num_associations));
-    TF_RETURN_IF_ERROR(prepared_db_workload->SetUp(&store));
-    for (int64 i = 0; i < prepared_db_workload->num_operations(); ++i) {
-      OpStats op_stats;
-      TF_RETURN_IF_ERROR(prepared_db_workload->RunOp(i, &store, op_stats));
+    std::vector<Node> existing_non_context_nodes;
+    std::vector<Node> existing_context_nodes;
+    TF_RETURN_IF_ERROR(GetExistingNodes(fill_context_edges_config, store,
+                                        existing_non_context_nodes,
+                                        existing_context_nodes));
+    std::uniform_int_distribution<int64> non_context_node_index_dist{
+        0, (int64)(existing_non_context_nodes.size() - 1)};
+    std::uniform_int_distribution<int64> context_node_index_dist{
+        0, (int64)(existing_context_nodes.size() - 1)};
+    for (int i = 0; i < kNumberOfExistedContextEdgesInDb; ++i) {
+      Association* context_edge = request.add_associations();
+      context_edge->set_execution_id(
+          absl::get<Execution>(
+              existing_non_context_nodes[non_context_node_index_dist(gen)])
+              .id());
+      context_edge->set_context_id(
+          absl::get<Context>(
+              existing_context_nodes[context_node_index_dist(gen)])
+              .id());
     }
   }
 
-  return tensorflow::Status::OK();
+  PutAttributionsAndAssociationsResponse response;
+  return store.PutAttributionsAndAssociations(request, &response);
 }
 
+// Test fixture that uses the same data configuration for multiple following
+// parameterized ReadNodesViaContextEdges tests.
+// The parameter here is the specific Workload configuration that contains
+// the ReadNodesViaContextEdges configuration and the number of operations.
 class ReadNodesViaContextEdgesParameterizedTestFixture
     : public ::testing::TestWithParam<WorkloadConfig> {
  protected:
@@ -125,12 +156,18 @@ class ReadNodesViaContextEdgesParameterizedTestFixture
   std::unique_ptr<MetadataStore> store_;
 };
 
+// Tests the SetUpImpl() for ReadNodesViaContextEdges. Checks the SetUpImpl()
+// indeed prepares a list of work items whose length is the same as the
+// specified number of operations.
 TEST_P(ReadNodesViaContextEdgesParameterizedTestFixture, SetUpImplTest) {
   TF_ASSERT_OK(read_nodes_via_context_edges_->SetUp(store_.get()));
   EXPECT_EQ(GetParam().num_operations(),
             read_nodes_via_context_edges_->num_operations());
 }
 
+// Tests the RunOpImpl() for ReadNodesViaContextEdges. Checks indeed all the
+// work items have been executed and some bytes are transferred during the
+// reading process.
 TEST_P(ReadNodesViaContextEdgesParameterizedTestFixture, RunOpImplTest) {
   TF_ASSERT_OK(read_nodes_via_context_edges_->SetUp(store_.get()));
 

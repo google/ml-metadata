@@ -193,15 +193,14 @@ TEST(UtilGetTest, GetTypesWithReadTypesConfigTest) {
 
   std::vector<std::pair<ReadTypesConfig::Specification, int>> specification{
       {ReadTypesConfig::ALL_ARTIFACT_TYPES, kNumberOfInsertedArtifactTypes},
-      {ReadTypesConfig::ARTIFACT_TYPES_BY_IDs, kNumberOfInsertedArtifactTypes},
+      {ReadTypesConfig::ARTIFACT_TYPES_BY_ID, kNumberOfInsertedArtifactTypes},
       {ReadTypesConfig::ARTIFACT_TYPE_BY_NAME, kNumberOfInsertedArtifactTypes},
       {ReadTypesConfig::ALL_EXECUTION_TYPES, kNumberOfInsertedExecutionTypes},
-      {ReadTypesConfig::EXECUTION_TYPES_BY_IDs,
-       kNumberOfInsertedExecutionTypes},
+      {ReadTypesConfig::EXECUTION_TYPES_BY_ID, kNumberOfInsertedExecutionTypes},
       {ReadTypesConfig::EXECUTION_TYPE_BY_NAME,
        kNumberOfInsertedExecutionTypes},
       {ReadTypesConfig::ALL_CONTEXT_TYPES, kNumberOfInsertedContextTypes},
-      {ReadTypesConfig::CONTEXT_TYPES_BY_IDs, kNumberOfInsertedContextTypes},
+      {ReadTypesConfig::CONTEXT_TYPES_BY_ID, kNumberOfInsertedContextTypes},
       {ReadTypesConfig::CONTEXT_TYPE_BY_NAME, kNumberOfInsertedContextTypes}};
 
   for (int i = 0; i < 9; ++i) {
@@ -341,31 +340,31 @@ TEST(UtilGetTest, GetNodesWithReadNodesByPropertiesConfigTest) {
       /*num_context_nodes=*/kNumberOfInsertedContexts, *store));
 
   std::vector<ReadNodesByPropertiesConfig::Specification> specification{
-      ReadNodesByPropertiesConfig::ARTIFACTS_BY_IDs,
+      ReadNodesByPropertiesConfig::ARTIFACTS_BY_ID,
       ReadNodesByPropertiesConfig::ARTIFACTS_BY_TYPE,
       ReadNodesByPropertiesConfig::ARTIFACT_BY_TYPE_AND_NAME,
-      ReadNodesByPropertiesConfig::ARTIFACTS_BY_URIs,
-      ReadNodesByPropertiesConfig::EXECUTIONS_BY_IDs,
+      ReadNodesByPropertiesConfig::ARTIFACTS_BY_URI,
+      ReadNodesByPropertiesConfig::EXECUTIONS_BY_ID,
       ReadNodesByPropertiesConfig::EXECUTIONS_BY_TYPE,
       ReadNodesByPropertiesConfig::EXECUTION_BY_TYPE_AND_NAME,
-      ReadNodesByPropertiesConfig::CONTEXTS_BY_IDs,
+      ReadNodesByPropertiesConfig::CONTEXTS_BY_ID,
       ReadNodesByPropertiesConfig::CONTEXTS_BY_TYPE,
       ReadNodesByPropertiesConfig::CONTEXT_BY_TYPE_AND_NAME};
 
-  std::vector<int> size{
+  std::vector<int> num_nodes{
       kNumberOfInsertedArtifacts,  kNumberOfInsertedArtifacts,
       kNumberOfInsertedArtifacts,  kNumberOfInsertedArtifacts,
       kNumberOfInsertedExecutions, kNumberOfInsertedExecutions,
       kNumberOfInsertedExecutions, kNumberOfInsertedContexts,
       kNumberOfInsertedContexts,   kNumberOfInsertedContexts};
 
-  for (int i = 0; i < size.size(); ++i) {
+  for (int i = 0; i < num_nodes.size(); ++i) {
     std::vector<Node> exisiting_nodes;
     ReadNodesByPropertiesConfig read_nodes_by_properties_config;
     read_nodes_by_properties_config.set_specification(specification[i]);
     TF_ASSERT_OK(GetExistingNodes(read_nodes_by_properties_config, *store,
                                   exisiting_nodes));
-    EXPECT_THAT(exisiting_nodes, ::testing::SizeIs(size[i]));
+    EXPECT_THAT(exisiting_nodes, ::testing::SizeIs(num_nodes[i]));
   }
 }
 
@@ -391,17 +390,17 @@ TEST(UtilGetTest, GetNodesWithReadNodesViaContextEdgesConfigTest) {
       ReadNodesViaContextEdgesConfig::CONTEXTS_BY_ARTIFACT,
       ReadNodesViaContextEdgesConfig::CONTEXTS_BY_EXECUTION};
 
-  std::vector<int> size{kNumberOfInsertedContexts, kNumberOfInsertedContexts,
-                        kNumberOfInsertedArtifacts,
-                        kNumberOfInsertedExecutions};
+  std::vector<int> num_nodes{
+      kNumberOfInsertedContexts, kNumberOfInsertedContexts,
+      kNumberOfInsertedArtifacts, kNumberOfInsertedExecutions};
 
-  for (int i = 0; i < size.size(); ++i) {
+  for (int i = 0; i < num_nodes.size(); ++i) {
     std::vector<Node> exisiting_nodes;
     ReadNodesViaContextEdgesConfig read_nodes_via_context_edges_config;
     read_nodes_via_context_edges_config.set_specification(specification[i]);
     TF_ASSERT_OK(GetExistingNodes(read_nodes_via_context_edges_config, *store,
                                   exisiting_nodes));
-    EXPECT_THAT(exisiting_nodes, ::testing::SizeIs(size[i]));
+    EXPECT_THAT(exisiting_nodes, ::testing::SizeIs(num_nodes[i]));
   }
 }
 

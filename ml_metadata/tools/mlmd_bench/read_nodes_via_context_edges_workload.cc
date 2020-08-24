@@ -31,13 +31,27 @@ limitations under the License.
 namespace ml_metadata {
 namespace {
 
-template <typename T>
-void InitializeReadRequest(ReadNodesViaContextEdgesWorkItemType& read_request) {
-  read_request.emplace<T>();
+constexpr int64 kInt64IdSize = 8;
+constexpr int64 kInt64TypeIdSize = 8;
+constexpr int64 kInt64CreateTimeSize = 8;
+constexpr int64 kInt64LastUpdateTimeSize = 8;
+constexpr int64 kEnumStateSize = 1;
+
+// Gets all nodes inside db. Returns detailed error if query executions failed.
+// Returns FAILED_PRECONDITION if there is no nodes inside db to read from.
+tensorflow::Status GetAndValidateExistingNodes(
+    const ReadNodesViaContextEdgesConfig& read_nodes_via_context_edges_config,
+    MetadataStore& store, std::vector<Node>& existing_nodes) {
+  TF_RETURN_IF_ERROR(GetExistingNodes(read_nodes_via_context_edges_config,
+                                      store, existing_nodes));
+  if (existing_nodes.empty()) {
+    return tensorflow::errors::FailedPrecondition(
+        "There are no nodes inside db to read from!");
+  }
+  return tensorflow::Status::OK();
 }
 
-// Gets the transferred bytes for certain `properties` and increases
-// `curr_bytes` accordingly.
+// Gets the transferred bytes for certain `properties` and returns their bytes.
 int64 GetTransferredBytesForNodeProperties(
     const google::protobuf::Map<std::string, Value>& properties) {
   int64 bytes = 0;
@@ -50,29 +64,35 @@ int64 GetTransferredBytesForNodeProperties(
   return bytes;
 }
 
+// Gets the transferred bytes for certain Artifact.
 int64 GetTransferredBytesForNode(const Artifact& node) {
-  int64 bytes = 8 * 4;
+  int64 bytes = kInt64IdSize + kInt64TypeIdSize + kInt64CreateTimeSize +
+                kInt64LastUpdateTimeSize;
   bytes += node.name().size();
   bytes += node.type().size();
   bytes += node.uri().size();
-  bytes += 1;
+  bytes += kEnumStateSize;
   bytes += GetTransferredBytesForNodeProperties(node.properties());
   bytes += GetTransferredBytesForNodeProperties(node.custom_properties());
   return bytes;
 }
 
+// Gets the transferred bytes for certain Execution.
 int64 GetTransferredBytesForNode(const Execution& node) {
-  int64 bytes = 8 * 4;
+  int64 bytes = kInt64IdSize + kInt64TypeIdSize + kInt64CreateTimeSize +
+                kInt64LastUpdateTimeSize;
   bytes += node.name().size();
   bytes += node.type().size();
-  bytes += 1;
+  bytes += kEnumStateSize;
   bytes += GetTransferredBytesForNodeProperties(node.properties());
   bytes += GetTransferredBytesForNodeProperties(node.custom_properties());
   return bytes;
 }
 
+// Gets the transferred bytes for certain Context.
 int64 GetTransferredBytesForNode(const Context& node) {
-  int64 bytes = 8 * 4;
+  int64 bytes = kInt64IdSize + kInt64TypeIdSize + kInt64CreateTimeSize +
+                kInt64LastUpdateTimeSize;
   bytes += node.name().size();
   bytes += node.type().size();
   bytes += GetTransferredBytesForNodeProperties(node.properties());
@@ -80,6 +100,10 @@ int64 GetTransferredBytesForNode(const Context& node) {
   return bytes;
 }
 
+// Gets the transferred bytes for nodes that will be read later. Read the db
+// ahead of time in order to get every node that will be read by `request` in
+// the RunOpImpl() and records their transferred bytes accordingly. Returns
+// detailed error if query executions failed.
 template <typename T>
 tensorflow::Status GetTransferredBytes(
     const ReadNodesViaContextEdgesWorkItemType& request, MetadataStore& store,
@@ -137,24 +161,23 @@ ReadNodesViaContextEdges::ReadNodesViaContextEdges(
 tensorflow::Status ReadNodesViaContextEdges::SetUpImpl(MetadataStore* store) {
   LOG(INFO) << "Setting up ...";
 
-  int64 curr_bytes = 0;
-
+  // Gets all the specific nodes in db to choose from when reading nodes.
+  // If there's no nodes in the store, returns FAILED_PRECONDITION error.
   std::vector<Node> existing_nodes;
-  TF_RETURN_IF_ERROR(GetExistingNodes(read_nodes_via_context_edges_config_,
-                                      *store, existing_nodes));
-
+  TF_RETURN_IF_ERROR(GetAndValidateExistingNodes(
+      read_nodes_via_context_edges_config_, *store, existing_nodes));
+  // Uniform distribution to select existing nodes uniformly.
   std::uniform_int_distribution<int64> uniform_dist_node_index{
       0, (int64)(existing_nodes.size() - 1)};
-
   std::minstd_rand0 gen(absl::ToUnixMillis(absl::Now()));
 
   for (int64 i = 0; i < num_operations_; ++i) {
-    curr_bytes = 0;
+    int64 curr_bytes = 0;
     ReadNodesViaContextEdgesWorkItemType read_request;
     const int64 node_index = uniform_dist_node_index(gen);
     switch (read_nodes_via_context_edges_config_.specification()) {
       case ReadNodesViaContextEdgesConfig::ARTIFACTS_BY_CONTEXT: {
-        InitializeReadRequest<GetArtifactsByContextRequest>(read_request);
+        read_request = GetArtifactsByContextRequest();
         absl::get<GetArtifactsByContextRequest>(read_request)
             .set_context_id(
                 absl::get<Context>(existing_nodes[node_index]).id());
@@ -163,7 +186,7 @@ tensorflow::Status ReadNodesViaContextEdges::SetUpImpl(MetadataStore* store) {
         break;
       }
       case ReadNodesViaContextEdgesConfig::EXECUTIONS_BY_CONTEXT: {
-        InitializeReadRequest<GetExecutionsByContextRequest>(read_request);
+        read_request = GetExecutionsByContextRequest();
         absl::get<GetExecutionsByContextRequest>(read_request)
             .set_context_id(
                 absl::get<Context>(existing_nodes[node_index]).id());
@@ -172,7 +195,7 @@ tensorflow::Status ReadNodesViaContextEdges::SetUpImpl(MetadataStore* store) {
         break;
       }
       case ReadNodesViaContextEdgesConfig::CONTEXTS_BY_ARTIFACT: {
-        InitializeReadRequest<GetContextsByArtifactRequest>(read_request);
+        read_request = GetContextsByArtifactRequest();
         absl::get<GetContextsByArtifactRequest>(read_request)
             .set_artifact_id(
                 absl::get<Artifact>(existing_nodes[node_index]).id());
@@ -181,7 +204,7 @@ tensorflow::Status ReadNodesViaContextEdges::SetUpImpl(MetadataStore* store) {
         break;
       }
       case ReadNodesViaContextEdgesConfig::CONTEXTS_BY_EXECUTION: {
-        InitializeReadRequest<GetContextsByExecutionRequest>(read_request);
+        read_request = GetContextsByExecutionRequest();
         absl::get<GetContextsByExecutionRequest>(read_request)
             .set_execution_id(
                 absl::get<Execution>(existing_nodes[node_index]).id());
@@ -202,36 +225,28 @@ tensorflow::Status ReadNodesViaContextEdges::RunOpImpl(
     const int64 work_items_index, MetadataStore* store) {
   switch (read_nodes_via_context_edges_config_.specification()) {
     case ReadNodesViaContextEdgesConfig::ARTIFACTS_BY_CONTEXT: {
-      GetArtifactsByContextRequest request =
-          absl::get<GetArtifactsByContextRequest>(
-              work_items_[work_items_index].first);
+      auto request = absl::get<GetArtifactsByContextRequest>(
+          work_items_[work_items_index].first);
       GetArtifactsByContextResponse response;
       return store->GetArtifactsByContext(request, &response);
-      break;
     }
     case ReadNodesViaContextEdgesConfig::EXECUTIONS_BY_CONTEXT: {
-      GetExecutionsByContextRequest request =
-          absl::get<GetExecutionsByContextRequest>(
-              work_items_[work_items_index].first);
+      auto request = absl::get<GetExecutionsByContextRequest>(
+          work_items_[work_items_index].first);
       GetExecutionsByContextResponse response;
       return store->GetExecutionsByContext(request, &response);
-      break;
     }
     case ReadNodesViaContextEdgesConfig::CONTEXTS_BY_ARTIFACT: {
-      GetContextsByArtifactRequest request =
-          absl::get<GetContextsByArtifactRequest>(
-              work_items_[work_items_index].first);
+      auto request = absl::get<GetContextsByArtifactRequest>(
+          work_items_[work_items_index].first);
       GetContextsByArtifactResponse response;
       return store->GetContextsByArtifact(request, &response);
-      break;
     }
     case ReadNodesViaContextEdgesConfig::CONTEXTS_BY_EXECUTION: {
-      GetContextsByExecutionRequest request =
-          absl::get<GetContextsByExecutionRequest>(
-              work_items_[work_items_index].first);
+      auto request = absl::get<GetContextsByExecutionRequest>(
+          work_items_[work_items_index].first);
       GetContextsByExecutionResponse response;
       return store->GetContextsByExecution(request, &response);
-      break;
     }
     default:
       return tensorflow::errors::InvalidArgument("Wrong specification!");

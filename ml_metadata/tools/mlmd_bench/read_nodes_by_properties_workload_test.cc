@@ -32,39 +32,49 @@ constexpr int kNumberOfOperations = 100;
 constexpr int kNumberOfExistedTypesInDb = 100;
 constexpr int kNumberOfExistedNodesInDb = 300;
 
-constexpr char kConfig[] =
-    "read_nodes_by_properties_config: { maybe_num_queries: { minimum: 1 "
-    "maximum: 10 } }";
-
 // Enumerates the workload configurations as the test parameters that ensure
 // test coverage.
 std::vector<WorkloadConfig> EnumerateConfigs() {
   std::vector<WorkloadConfig> configs;
   std::vector<ReadNodesByPropertiesConfig::Specification> specifications = {
-      ReadNodesByPropertiesConfig::ARTIFACTS_BY_IDs,
-      ReadNodesByPropertiesConfig::EXECUTIONS_BY_IDs,
-      ReadNodesByPropertiesConfig::CONTEXTS_BY_IDs,
+      ReadNodesByPropertiesConfig::ARTIFACTS_BY_ID,
+      ReadNodesByPropertiesConfig::EXECUTIONS_BY_ID,
+      ReadNodesByPropertiesConfig::CONTEXTS_BY_ID,
       ReadNodesByPropertiesConfig::ARTIFACTS_BY_TYPE,
       ReadNodesByPropertiesConfig::EXECUTIONS_BY_TYPE,
       ReadNodesByPropertiesConfig::CONTEXTS_BY_TYPE,
       ReadNodesByPropertiesConfig::ARTIFACT_BY_TYPE_AND_NAME,
       ReadNodesByPropertiesConfig::EXECUTION_BY_TYPE_AND_NAME,
       ReadNodesByPropertiesConfig::CONTEXT_BY_TYPE_AND_NAME,
-      ReadNodesByPropertiesConfig::ARTIFACTS_BY_URIs};
+      ReadNodesByPropertiesConfig::ARTIFACTS_BY_URI};
 
   for (const ReadNodesByPropertiesConfig::Specification& specification :
        specifications) {
-    WorkloadConfig config =
-        testing::ParseTextProtoOrDie<WorkloadConfig>(kConfig);
+    WorkloadConfig config;
     config.set_num_operations(kNumberOfOperations);
     config.mutable_read_nodes_by_properties_config()->set_specification(
         specification);
+    if (specification == ReadNodesByPropertiesConfig::ARTIFACTS_BY_ID ||
+        specification == ReadNodesByPropertiesConfig::EXECUTIONS_BY_ID ||
+        specification == ReadNodesByPropertiesConfig::CONTEXTS_BY_ID ||
+        specification == ReadNodesByPropertiesConfig::ARTIFACTS_BY_URI) {
+      config.mutable_read_nodes_by_properties_config()
+          ->mutable_num_of_parameters()
+          ->set_minimum(1);
+      config.mutable_read_nodes_by_properties_config()
+          ->mutable_num_of_parameters()
+          ->set_maximum(10);
+    }
     configs.push_back(config);
   }
 
   return configs;
 }
 
+// Test fixture that uses the same data configuration for multiple following
+// parameterized ReadNodesByProperties tests.
+// The parameter here is the specific Workload configuration that contains
+// the ReadNodesByProperties configuration and the number of operations.
 class ReadNodesByPropertiesParameterizedTestFixture
     : public ::testing::TestWithParam<WorkloadConfig> {
  protected:
@@ -82,21 +92,27 @@ class ReadNodesByPropertiesParameterizedTestFixture
         /*num_context_types=*/kNumberOfExistedTypesInDb, *store_));
 
     TF_ASSERT_OK(InsertNodesInDb(
-        /*num_artifact_types=*/kNumberOfExistedNodesInDb,
-        /*num_execution_types=*/kNumberOfExistedNodesInDb,
-        /*num_context_types=*/kNumberOfExistedNodesInDb, *store_));
+        /*num_artifact_nodes=*/kNumberOfExistedNodesInDb,
+        /*num_execution_nodes=*/kNumberOfExistedNodesInDb,
+        /*num_context_nodes=*/kNumberOfExistedNodesInDb, *store_));
   }
 
   std::unique_ptr<ReadNodesByProperties> read_nodes_by_properties_;
   std::unique_ptr<MetadataStore> store_;
 };
 
+// Tests the SetUpImpl() for ReadNodesByProperties. Checks the SetUpImpl()
+// indeed prepares a list of work items whose length is the same as the
+// specified number of operations.
 TEST_P(ReadNodesByPropertiesParameterizedTestFixture, SetUpImplTest) {
   TF_ASSERT_OK(read_nodes_by_properties_->SetUp(store_.get()));
   EXPECT_EQ(GetParam().num_operations(),
             read_nodes_by_properties_->num_operations());
 }
 
+// Tests the RunOpImpl() for ReadNodesByProperties. Checks indeed all the work
+// items have been executed and some bytes are transferred during the reading
+// process.
 TEST_P(ReadNodesByPropertiesParameterizedTestFixture, RunOpImplTest) {
   TF_ASSERT_OK(read_nodes_by_properties_->SetUp(store_.get()));
 
