@@ -200,8 +200,9 @@ message ReadNodesViaContextEdgesConfig {
 // Reads Events by Artifact / Execution IDs.
 message ReadEventsConfig {
   enum Specification {
-    EVENTS_BY_ARTIFACT_IDS = 0;
-    EVENTS_BY_EXECUTION_IDS = 1;
+    UNKNOWN = 0;
+    EVENTS_BY_ARTIFACT_IDS = 1;
+    EVENTS_BY_EXECUTION_IDS = 2;
   }
   // Indicates whether to use artifact or execution ids to get events.
   optional Specification specification = 1;

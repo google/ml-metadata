@@ -33,7 +33,7 @@ namespace {
 constexpr int64 kInt64IdSize = 8;
 constexpr int64 kNumNodeIdsPerEdge = 2;
 constexpr int64 kEventTypeSize = 1;
-constexpr int64 kTimeEpochSize = 1;
+constexpr int64 kInt64TimeEpochSize = 8;
 
 template <typename T>
 void InitializeReadRequest(ReadEventsWorkItemType& read_request) {
@@ -43,9 +43,9 @@ void InitializeReadRequest(ReadEventsWorkItemType& read_request) {
 // Calculates and returns the transferred bytes of the `event`.
 int64 GetTransferredBytesForEvent(const Event& event) {
   // Includes the transferred bytes for `artifact_id`, `execution_id`, `type`
-  // and `last_update_time_since_epoch` for current event.
+  // and `milliseconds_since_epoch` for current event.
   int64 bytes =
-      kInt64IdSize * kNumNodeIdsPerEdge + kEventTypeSize + kTimeEpochSize;
+      kInt64IdSize * kNumNodeIdsPerEdge + kEventTypeSize + kInt64TimeEpochSize;
   // Includes the transferred bytes for event's path.
   for (const auto& step : event.path().steps()) {
     bytes += step.key().size();
@@ -147,7 +147,6 @@ tensorflow::Status ReadEvents::RunOpImpl(const int64 work_items_index,
               work_items_[work_items_index].first);
       GetEventsByArtifactIDsResponse response;
       return store->GetEventsByArtifactIDs(request, &response);
-      break;
     }
     case ReadEventsConfig::EVENTS_BY_EXECUTION_IDS: {
       GetEventsByExecutionIDsRequest request =
@@ -155,7 +154,6 @@ tensorflow::Status ReadEvents::RunOpImpl(const int64 work_items_index,
               work_items_[work_items_index].first);
       GetEventsByExecutionIDsResponse response;
       return store->GetEventsByExecutionIDs(request, &response);
-      break;
     }
     default:
       return tensorflow::errors::InvalidArgument("Wrong specification!");

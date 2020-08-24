@@ -306,7 +306,6 @@ ml_metadata_cc_test(
     size = "small",
     srcs = ["read_events_workload_test.cc"],
     deps = [
-        ":fill_events_workload",
         ":read_events_workload",
         ":util",
         "@com_google_googletest//:gtest_main",

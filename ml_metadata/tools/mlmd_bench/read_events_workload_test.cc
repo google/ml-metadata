@@ -14,6 +14,8 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/tools/mlmd_bench/read_events_workload.h"
 
+#include <random>
+
 #include <gtest/gtest.h>
 #include "absl/memory/memory.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
@@ -21,7 +23,6 @@ limitations under the License.
 #include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
-#include "ml_metadata/tools/mlmd_bench/fill_events_workload.h"
 #include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
 #include "ml_metadata/tools/mlmd_bench/util.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
@@ -31,23 +32,11 @@ namespace {
 
 constexpr int kNumberOfOperations = 100;
 constexpr int kNumberOfExistedTypesInDb = 100;
-constexpr int kNumberOfExistedNodesInDb = 200;
-constexpr int kNumberOfExistedEventsInDb = 100;
+constexpr int kNumberOfExistedNodesInDb = 100;
+constexpr int kNumberOfExistedEventsInDb = 1000;
 
 constexpr char kConfig[] = R"(
     read_events_config: { num_ids: { minimum: 1 maximum: 10 } })";
-
-constexpr char kInputEventConfig[] = R"(
-    specification: INPUT
-    execution_node_popularity: { dirichlet_alpha : 1000 } 
-    artifact_node_popularity_zipf: { skew : 0 }
-    num_events: { minimum: 1 maximum: 1 })";
-
-constexpr char kOutputEventConfig[] = R"(
-    specification: OUTPUT
-    execution_node_popularity: { dirichlet_alpha : 1000 }
-    artifact_node_popularity_categorical: { dirichlet_alpha : 1000 }
-    num_events: { minimum: 1 maximum: 1 })";
 
 std::vector<WorkloadConfig> EnumerateConfigs() {
   std::vector<WorkloadConfig> configs;
@@ -66,7 +55,7 @@ std::vector<WorkloadConfig> EnumerateConfigs() {
         testing::ParseTextProtoOrDie<WorkloadConfig>(kConfig);
     config.set_num_operations(kNumberOfOperations);
     config.mutable_read_events_config()->set_specification(
-        ReadEventsConfig::EVENTS_BY_ARTIFACT_IDS);
+        ReadEventsConfig::EVENTS_BY_EXECUTION_IDS);
     configs.push_back(config);
   }
 
@@ -76,32 +65,46 @@ std::vector<WorkloadConfig> EnumerateConfigs() {
 tensorflow::Status InsertEventsInDb(const int64 num_input_events,
                                     const int64 num_output_events,
                                     MetadataStore& store) {
-  {
-    FillEventsConfig fill_events_config =
-        testing::ParseTextProtoOrDie<FillEventsConfig>(kInputEventConfig);
-    std::unique_ptr<FillEvents> prepared_db_workload =
-        absl::make_unique<FillEvents>(
-            FillEvents(fill_events_config, num_input_events));
-    TF_RETURN_IF_ERROR(prepared_db_workload->SetUp(&store));
-    for (int64 i = 0; i < prepared_db_workload->num_operations(); ++i) {
-      OpStats op_stats;
-      TF_RETURN_IF_ERROR(prepared_db_workload->RunOp(i, &store, op_stats));
-    }
+  PutEventsRequest request;
+  std::minstd_rand0 gen(0);
+  FillEventsConfig fill_events_config;
+  std::vector<Node> existing_artifact_nodes;
+  std::vector<Node> existing_execution_nodes;
+  TF_RETURN_IF_ERROR(GetExistingNodes(fill_events_config, store,
+                                      existing_artifact_nodes,
+                                      existing_execution_nodes));
+  std::uniform_int_distribution<int64> artifact_node_index_dist{
+      0, (int64)(existing_artifact_nodes.size() - 1)};
+  std::uniform_int_distribution<int64> execution_node_index_dist{
+      0, (int64)(existing_execution_nodes.size() - 1)};
+
+  for (int i = 0; i < kNumberOfExistedEventsInDb; ++i) {
+    std::cout << artifact_node_index_dist(gen) << std::endl;
+    Event* input_event = request.add_events();
+    input_event->set_type(Event::INPUT);
+    input_event->set_artifact_id(
+        absl::get<Artifact>(
+            existing_artifact_nodes[artifact_node_index_dist(gen)])
+            .id());
+    input_event->set_execution_id(
+        absl::get<Execution>(
+            existing_execution_nodes[execution_node_index_dist(gen)])
+            .id());
+
+    Event* output_event = request.add_events();
+    output_event->set_type(Event::OUTPUT);
+    output_event->set_artifact_id(
+        absl::get<Artifact>(
+            existing_artifact_nodes[artifact_node_index_dist(gen)])
+            .id());
+    output_event->set_execution_id(
+        absl::get<Execution>(
+            existing_execution_nodes[execution_node_index_dist(gen)])
+            .id());
   }
 
-  {
-    FillEventsConfig fill_events_config =
-        testing::ParseTextProtoOrDie<FillEventsConfig>(kOutputEventConfig);
-    std::unique_ptr<FillEvents> prepared_db_workload =
-        absl::make_unique<FillEvents>(
-            FillEvents(fill_events_config, num_output_events));
-    TF_RETURN_IF_ERROR(prepared_db_workload->SetUp(&store));
-    for (int64 i = 0; i < prepared_db_workload->num_operations(); ++i) {
-      OpStats op_stats;
-      TF_RETURN_IF_ERROR(prepared_db_workload->RunOp(i, &store, op_stats));
-    }
-  }
-  return tensorflow::Status::OK();
+  PutEventsResponse response;
+  return store.PutEvents(request, &response);
 }
 
 class ReadEventsParameterizedTestFixture
