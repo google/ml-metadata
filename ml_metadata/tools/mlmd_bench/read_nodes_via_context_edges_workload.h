@@ -42,8 +42,8 @@ class ReadNodesViaContextEdges
   ~ReadNodesViaContextEdges() override = default;
 
  protected:
-  // Specific implementation of SetUpImpl() for
-  // ReadNodesViaContextEdgesWorkItemType workload according to its semantic.
+  // Specific implementation of SetUpImpl() for ReadNodesViaContextEdges 
+  // workload according to its semantic.
   // A list of work items(ReadNodesViaContextEdgesWorkItemType) will be
   // generated. The API traverses from source node {Artifacts / Executions /
   // Contexts} to the destination node. When generating the querying string,
