@@ -25,22 +25,38 @@ limitations under the License.
 
 namespace ml_metadata {
 
+// Defines a ReadEventsWorkItemType that can be different requests to look for
+// MLMD Events by Artifact / Execution IDs.
 using ReadEventsWorkItemType = absl::variant<GetEventsByArtifactIDsRequest,
                                              GetEventsByExecutionIDsRequest>;
 
+// A specific workload for getting Input / Output Events by Artifact / Execution
+// IDs.
 class ReadEvents : public Workload<ReadEventsWorkItemType> {
  public:
   ReadEvents(const ReadEventsConfig& read_events_config, int64 num_operations);
   ~ReadEvents() override = default;
 
  protected:
+  // Specific implementation of SetUpImpl() for ReadEvents workload according to
+  // its semantic. A list of work items(ReadEventsWorkItemType) will be
+  // generated. The APIs traverse from nodes {Artifact, Execution} to Events. To
+  // finalize the query string, we choose existing nodes uniformly. Returns
+  // detailed error if query executions failed.
   tensorflow::Status SetUpImpl(MetadataStore* store) final;
 
+  // Specific implementation of RunOpImpl() for ReadEvents workload according to
+  // its semantic. Runs the work items(ReadEventsWorkItemType) on the store.
+  // Returns detailed error if query executions failed.
   tensorflow::Status RunOpImpl(int64 work_items_index,
                                MetadataStore* store) final;
 
+  // Specific implementation of TearDownImpl() for ReadEvents workload according
+  // to its semantic. Cleans the work items.
   tensorflow::Status TearDownImpl() final;
 
+  // Gets the current workload's name, which is used in stats report for this
+  // workload.
   std::string GetName() final;
 
  private:

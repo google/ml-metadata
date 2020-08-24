@@ -34,10 +34,11 @@ constexpr int kNumberOfOperations = 100;
 constexpr int kNumberOfExistedTypesInDb = 100;
 constexpr int kNumberOfExistedNodesInDb = 100;
 constexpr int kNumberOfExistedEventsInDb = 1000;
-
 constexpr char kConfig[] = R"(
     read_events_config: { num_ids: { minimum: 1 maximum: 10 } })";
 
+// Enumerates the workload configurations as the test parameters that ensure
+// test coverage.
 std::vector<WorkloadConfig> EnumerateConfigs() {
   std::vector<WorkloadConfig> configs;
 
@@ -62,6 +63,8 @@ std::vector<WorkloadConfig> EnumerateConfigs() {
   return configs;
 }
 
+// Inserts some Input / Output Events into db so that we can read events from db
+// later. Returns detailed error if query executions failed.
 tensorflow::Status InsertEventsInDb(const int64 num_input_events,
                                     const int64 num_output_events,
                                     MetadataStore& store) {
@@ -79,7 +82,7 @@ tensorflow::Status InsertEventsInDb(const int64 num_input_events,
       0, (int64)(existing_execution_nodes.size() - 1)};
 
   for (int i = 0; i < kNumberOfExistedEventsInDb; ++i) {
-    std::cout << artifact_node_index_dist(gen) << std::endl;
+    // Inserts Input Events.
     Event* input_event = request.add_events();
     input_event->set_type(Event::INPUT);
     input_event->set_artifact_id(
@@ -90,7 +93,7 @@ tensorflow::Status InsertEventsInDb(const int64 num_input_events,
         absl::get<Execution>(
             existing_execution_nodes[execution_node_index_dist(gen)])
             .id());
-
+    // Inserts Output Events.
     Event* output_event = request.add_events();
     output_event->set_type(Event::OUTPUT);
     output_event->set_artifact_id(
@@ -107,6 +110,10 @@ tensorflow::Status InsertEventsInDb(const int64 num_input_events,
   return store.PutEvents(request, &response);
 }
 
+// Test fixture that uses the same data configuration for multiple following
+// parameterized ReadEvents tests.
+// The parameter here is the specific Workload configuration that contains
+// the ReadEvents configuration and the number of operations.
 class ReadEventsParameterizedTestFixture
     : public ::testing::TestWithParam<WorkloadConfig> {
  protected:
@@ -134,11 +141,16 @@ class ReadEventsParameterizedTestFixture
   std::unique_ptr<MetadataStore> store_;
 };
 
+// Tests the SetUpImpl() for ReadEvents. Checks the SetUpImpl() indeed prepares
+// a list of work items whose length is the same as the specified number of
+// operations.
 TEST_P(ReadEventsParameterizedTestFixture, SetUpImplTest) {
   TF_ASSERT_OK(read_events_->SetUp(store_.get()));
   EXPECT_EQ(GetParam().num_operations(), read_events_->num_operations());
 }
 
+// Tests the RunOpImpl() for ReadEvents. Checks indeed all the work items have
+// been executed and some bytes are transferred during the reading process.
 TEST_P(ReadEventsParameterizedTestFixture, RunOpImplTest) {
   TF_ASSERT_OK(read_events_->SetUp(store_.get()));
 

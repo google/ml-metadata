@@ -35,12 +35,7 @@ constexpr int64 kNumNodeIdsPerEdge = 2;
 constexpr int64 kEventTypeSize = 1;
 constexpr int64 kInt64TimeEpochSize = 8;
 
-template <typename T>
-void InitializeReadRequest(ReadEventsWorkItemType& read_request) {
-  read_request.emplace<T>();
-}
-
-// Calculates and returns the transferred bytes of the `event`.
+// Calculates and returns the transferred bytes of `event`.
 int64 GetTransferredBytesForEvent(const Event& event) {
   // Includes the transferred bytes for `artifact_id`, `execution_id`, `type`
   // and `milliseconds_since_epoch` for current event.
@@ -53,6 +48,10 @@ int64 GetTransferredBytesForEvent(const Event& event) {
   return bytes;
 }
 
+// Gets the transferred bytes for events that will be read later. Read the db
+// ahead of time in order to get every events that will be read by `request` in
+// the RunOpImpl() and records their transferred bytes accordingly. Returns
+// detailed error if query executions failed.
 tensorflow::Status GetTransferredBytes(
     const ReadEventsConfig& read_events_config,
     const ReadEventsWorkItemType& request, MetadataStore& store,
@@ -77,7 +76,7 @@ tensorflow::Status GetTransferredBytes(
       break;
     }
     default:
-      return tensorflow::errors::InvalidArgument("Wrong specification!");
+      LOG(FATAL) << "Unknown ReadEventsConfig specification.";
   }
   return tensorflow::Status::OK();
 }
@@ -99,11 +98,9 @@ tensorflow::Status ReadEvents::SetUpImpl(MetadataStore* store) {
       GetExistingNodes(read_events_config_, *store, existing_nodes));
   std::uniform_int_distribution<int64> node_index_dist{
       0, (int64)(existing_nodes.size() - 1)};
-
   UniformDistribution num_ids_proto_dist = read_events_config_.num_ids();
   std::uniform_int_distribution<int64> num_ids_dist{
       num_ids_proto_dist.minimum(), num_ids_proto_dist.maximum()};
-
   std::minstd_rand0 gen(absl::ToUnixMillis(absl::Now()));
 
   for (int64 i = 0; i < num_operations_; ++i) {
@@ -114,19 +111,19 @@ tensorflow::Status ReadEvents::SetUpImpl(MetadataStore* store) {
       const int64 node_index = node_index_dist(gen);
       switch (read_events_config_.specification()) {
         case ReadEventsConfig::EVENTS_BY_ARTIFACT_IDS: {
-          InitializeReadRequest<GetEventsByArtifactIDsRequest>(request);
+          request = GetEventsByArtifactIDsRequest();
           absl::get<GetEventsByArtifactIDsRequest>(request).add_artifact_ids(
               absl::get<Artifact>(existing_nodes[node_index]).id());
           break;
         }
         case ReadEventsConfig::EVENTS_BY_EXECUTION_IDS: {
-          InitializeReadRequest<GetEventsByExecutionIDsRequest>(request);
+          request = GetEventsByExecutionIDsRequest();
           absl::get<GetEventsByExecutionIDsRequest>(request).add_execution_ids(
               absl::get<Execution>(existing_nodes[node_index]).id());
           break;
         }
         default:
-          LOG(FATAL) << "Wrong specification for ReadEvents!";
+          LOG(FATAL) << "Unknown ReadEventsConfig specification.";
       }
     }
     TF_RETURN_IF_ERROR(
@@ -142,16 +139,14 @@ tensorflow::Status ReadEvents::RunOpImpl(const int64 work_items_index,
                                          MetadataStore* store) {
   switch (read_events_config_.specification()) {
     case ReadEventsConfig::EVENTS_BY_ARTIFACT_IDS: {
-      GetEventsByArtifactIDsRequest request =
-          absl::get<GetEventsByArtifactIDsRequest>(
-              work_items_[work_items_index].first);
+      auto request = absl::get<GetEventsByArtifactIDsRequest>(
+          work_items_[work_items_index].first);
       GetEventsByArtifactIDsResponse response;
       return store->GetEventsByArtifactIDs(request, &response);
     }
     case ReadEventsConfig::EVENTS_BY_EXECUTION_IDS: {
-      GetEventsByExecutionIDsRequest request =
-          absl::get<GetEventsByExecutionIDsRequest>(
-              work_items_[work_items_index].first);
+      auto request = absl::get<GetEventsByExecutionIDsRequest>(
+          work_items_[work_items_index].first);
       GetEventsByExecutionIDsResponse response;
       return store->GetEventsByExecutionIDs(request, &response);
     }

@@ -298,9 +298,9 @@ tensorflow::Status GetExistingNodes(const ReadEventsConfig& read_events_config,
       return GetExistingNodesImpl(FetchExecution, store, existing_nodes);
     }
     default:
-      return tensorflow::errors::Unimplemented(
-          "Unknown ReadEventsConfig specification.");
+      LOG(FATAL) << "Unknown ReadEventsConfig specification.";
   }
+  return tensorflow::Status::OK();
 }
 
 tensorflow::Status InsertTypesInDb(const int64 num_artifact_types,
