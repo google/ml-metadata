@@ -33,14 +33,7 @@ namespace {
 constexpr int kNumberOfOperations = 100;
 constexpr int kNumberOfExistedTypesInDb = 100;
 constexpr int kNumberOfExistedNodesInDb = 100;
-constexpr int kNumberOfExistedContextEdgesInDb = 10000;
-
-// Configuration string for later FillContextEdges workload.
-constexpr char kConfig[] = R"(
-        non_context_node_popularity: {dirichlet_alpha : 1000}
-        context_node_popularity: {dirichlet_alpha : 1000}
-        num_edges: { minimum: 1 maximum: 1 }
-      )";
+constexpr int kNumberOfExistedContextEdgesInDb = 1000;
 
 // Enumerates the workload configurations as the test parameters that ensure
 // test coverage.
