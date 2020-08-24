@@ -225,36 +225,28 @@ tensorflow::Status ReadNodesViaContextEdges::RunOpImpl(
     const int64 work_items_index, MetadataStore* store) {
   switch (read_nodes_via_context_edges_config_.specification()) {
     case ReadNodesViaContextEdgesConfig::ARTIFACTS_BY_CONTEXT: {
-      GetArtifactsByContextRequest request =
-          absl::get<GetArtifactsByContextRequest>(
-              work_items_[work_items_index].first);
+      auto request = absl::get<GetArtifactsByContextRequest>(
+          work_items_[work_items_index].first);
       GetArtifactsByContextResponse response;
       return store->GetArtifactsByContext(request, &response);
-      break;
     }
     case ReadNodesViaContextEdgesConfig::EXECUTIONS_BY_CONTEXT: {
-      GetExecutionsByContextRequest request =
-          absl::get<GetExecutionsByContextRequest>(
-              work_items_[work_items_index].first);
+      auto request = absl::get<GetExecutionsByContextRequest>(
+          work_items_[work_items_index].first);
       GetExecutionsByContextResponse response;
       return store->GetExecutionsByContext(request, &response);
-      break;
     }
     case ReadNodesViaContextEdgesConfig::CONTEXTS_BY_ARTIFACT: {
-      GetContextsByArtifactRequest request =
-          absl::get<GetContextsByArtifactRequest>(
-              work_items_[work_items_index].first);
+      auto request = absl::get<GetContextsByArtifactRequest>(
+          work_items_[work_items_index].first);
       GetContextsByArtifactResponse response;
       return store->GetContextsByArtifact(request, &response);
-      break;
     }
     case ReadNodesViaContextEdgesConfig::CONTEXTS_BY_EXECUTION: {
-      GetContextsByExecutionRequest request =
-          absl::get<GetContextsByExecutionRequest>(
-              work_items_[work_items_index].first);
+      auto request = absl::get<GetContextsByExecutionRequest>(
+          work_items_[work_items_index].first);
       GetContextsByExecutionResponse response;
       return store->GetContextsByExecution(request, &response);
-      break;
     }
     default:
       return tensorflow::errors::InvalidArgument("Wrong specification!");

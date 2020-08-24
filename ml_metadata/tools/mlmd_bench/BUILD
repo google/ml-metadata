@@ -269,7 +269,6 @@ ml_metadata_cc_test(
     size = "small",
     srcs = ["read_nodes_via_context_edges_workload_test.cc"],
     deps = [
-        ":fill_context_edges_workload",
         ":read_nodes_via_context_edges_workload",
         ":util",
         "@com_google_googletest//:gtest_main",
