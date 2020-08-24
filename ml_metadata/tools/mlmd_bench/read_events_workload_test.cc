@@ -47,7 +47,7 @@ std::vector<WorkloadConfig> EnumerateConfigs() {
         testing::ParseTextProtoOrDie<WorkloadConfig>(kConfig);
     config.set_num_operations(kNumberOfOperations);
     config.mutable_read_events_config()->set_specification(
-        ReadEventsConfig::EVENTS_BY_ARTIFACT_IDS);
+        ReadEventsConfig::EVENTS_BY_ARTIFACT_ID);
     configs.push_back(config);
   }
 
@@ -56,7 +56,7 @@ std::vector<WorkloadConfig> EnumerateConfigs() {
         testing::ParseTextProtoOrDie<WorkloadConfig>(kConfig);
     config.set_num_operations(kNumberOfOperations);
     config.mutable_read_events_config()->set_specification(
-        ReadEventsConfig::EVENTS_BY_EXECUTION_IDS);
+        ReadEventsConfig::EVENTS_BY_EXECUTION_ID);
     configs.push_back(config);
   }
 

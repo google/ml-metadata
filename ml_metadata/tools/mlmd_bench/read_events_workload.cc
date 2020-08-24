@@ -57,7 +57,7 @@ tensorflow::Status GetTransferredBytes(
     const ReadEventsWorkItemType& request, MetadataStore& store,
     int64& curr_bytes) {
   switch (read_events_config.specification()) {
-    case ReadEventsConfig::EVENTS_BY_ARTIFACT_IDS: {
+    case ReadEventsConfig::EVENTS_BY_ARTIFACT_ID: {
       GetEventsByArtifactIDsResponse response;
       TF_RETURN_IF_ERROR(store.GetEventsByArtifactIDs(
           absl::get<GetEventsByArtifactIDsRequest>(request), &response));
@@ -66,7 +66,7 @@ tensorflow::Status GetTransferredBytes(
       }
       break;
     }
-    case ReadEventsConfig::EVENTS_BY_EXECUTION_IDS: {
+    case ReadEventsConfig::EVENTS_BY_EXECUTION_ID: {
       GetEventsByExecutionIDsResponse response;
       TF_RETURN_IF_ERROR(store.GetEventsByExecutionIDs(
           absl::get<GetEventsByExecutionIDsRequest>(request), &response));
@@ -110,13 +110,13 @@ tensorflow::Status ReadEvents::SetUpImpl(MetadataStore* store) {
     for (int64 j = 0; j < num_ids; ++j) {
       const int64 node_index = node_index_dist(gen);
       switch (read_events_config_.specification()) {
-        case ReadEventsConfig::EVENTS_BY_ARTIFACT_IDS: {
+        case ReadEventsConfig::EVENTS_BY_ARTIFACT_ID: {
           request = GetEventsByArtifactIDsRequest();
           absl::get<GetEventsByArtifactIDsRequest>(request).add_artifact_ids(
               absl::get<Artifact>(existing_nodes[node_index]).id());
           break;
         }
-        case ReadEventsConfig::EVENTS_BY_EXECUTION_IDS: {
+        case ReadEventsConfig::EVENTS_BY_EXECUTION_ID: {
           request = GetEventsByExecutionIDsRequest();
           absl::get<GetEventsByExecutionIDsRequest>(request).add_execution_ids(
               absl::get<Execution>(existing_nodes[node_index]).id());
@@ -138,13 +138,13 @@ tensorflow::Status ReadEvents::SetUpImpl(MetadataStore* store) {
 tensorflow::Status ReadEvents::RunOpImpl(const int64 work_items_index,
                                          MetadataStore* store) {
   switch (read_events_config_.specification()) {
-    case ReadEventsConfig::EVENTS_BY_ARTIFACT_IDS: {
+    case ReadEventsConfig::EVENTS_BY_ARTIFACT_ID: {
       auto request = absl::get<GetEventsByArtifactIDsRequest>(
           work_items_[work_items_index].first);
       GetEventsByArtifactIDsResponse response;
       return store->GetEventsByArtifactIDs(request, &response);
     }
-    case ReadEventsConfig::EVENTS_BY_EXECUTION_IDS: {
+    case ReadEventsConfig::EVENTS_BY_EXECUTION_ID: {
       auto request = absl::get<GetEventsByExecutionIDsRequest>(
           work_items_[work_items_index].first);
       GetEventsByExecutionIDsResponse response;

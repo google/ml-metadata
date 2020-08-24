@@ -424,7 +424,7 @@ TEST(UtilGetTest, GetNodesWithReadEventsConfigTest) {
     std::vector<Node> existing_nodes;
     ReadEventsConfig read_events_config;
     read_events_config.set_specification(
-        ReadEventsConfig::EVENTS_BY_ARTIFACT_IDS);
+        ReadEventsConfig::EVENTS_BY_ARTIFACT_ID);
     TF_ASSERT_OK(GetExistingNodes(read_events_config, *store, existing_nodes));
     EXPECT_EQ(kNumberOfInsertedArtifacts, existing_nodes.size());
   }
@@ -433,7 +433,7 @@ TEST(UtilGetTest, GetNodesWithReadEventsConfigTest) {
     std::vector<Node> existing_nodes;
     ReadEventsConfig read_events_config;
     read_events_config.set_specification(
-        ReadEventsConfig::EVENTS_BY_EXECUTION_IDS);
+        ReadEventsConfig::EVENTS_BY_EXECUTION_ID);
     TF_ASSERT_OK(GetExistingNodes(read_events_config, *store, existing_nodes));
     EXPECT_EQ(kNumberOfInsertedExecutions, existing_nodes.size());
   }

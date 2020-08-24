@@ -398,14 +398,14 @@ TEST(BenchmarkTest, CreatReadEventsWorkloadTest) {
           R"(
             workload_configs: {
               read_events_config: {
-                specification: EVENTS_BY_ARTIFACT_IDS
+                specification: EVENTS_BY_ARTIFACT_ID
                 num_ids: { minimum: 1 maximum: 10 }
               }
               num_operations: 250
             }
             workload_configs: {
               read_events_config: {
-                specification: EVENTS_BY_EXECUTION_IDS
+                specification: EVENTS_BY_EXECUTION_ID
                 num_ids: { minimum: 1 maximum: 10 }
               }
               num_operations: 150
@@ -418,9 +418,9 @@ TEST(BenchmarkTest, CreatReadEventsWorkloadTest) {
   EXPECT_EQ(benchmark.num_workloads(),
             mlmd_bench_config.workload_configs_size());
   EXPECT_STREQ(benchmark.workload(0)->GetName().c_str(),
-               "READ_EVENTS_BY_ARTIFACT_IDS");
+               "READ_EVENTS_BY_ARTIFACT_ID");
   EXPECT_STREQ(benchmark.workload(1)->GetName().c_str(),
-               "READ_EVENTS_BY_EXECUTION_IDS");
+               "READ_EVENTS_BY_EXECUTION_ID");
 }
 
 }  // namespace

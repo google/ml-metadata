@@ -291,10 +291,10 @@ tensorflow::Status GetExistingNodes(const ReadEventsConfig& read_events_config,
                                     MetadataStore& store,
                                     std::vector<Node>& existing_nodes) {
   switch (read_events_config.specification()) {
-    case ReadEventsConfig::EVENTS_BY_ARTIFACT_IDS: {
+    case ReadEventsConfig::EVENTS_BY_ARTIFACT_ID: {
       return GetExistingNodesImpl(FetchArtifact, store, existing_nodes);
     }
-    case ReadEventsConfig::EVENTS_BY_EXECUTION_IDS: {
+    case ReadEventsConfig::EVENTS_BY_EXECUTION_ID: {
       return GetExistingNodesImpl(FetchExecution, store, existing_nodes);
     }
     default:
