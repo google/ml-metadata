@@ -83,6 +83,13 @@ tensorflow::Status GetExistingNodes(
     const ReadNodesByPropertiesConfig& read_nodes_by_properties_config,
     MetadataStore& store, std::vector<Node>& existing_nodes);
 
+// Gets all the existing nodes inside db and store them into `existing_nodes`
+// given `read_nodes_via_context_edges_config`. Returns detailed error if query
+// executions failed.
+tensorflow::Status GetExistingNodes(
+    const ReadNodesViaContextEdgesConfig& read_nodes_via_context_edges_config,
+    MetadataStore& store, std::vector<Node>& existing_nodes);
+
 // Inserts some types into db for setting up in testing. Returns detailed error
 // if query executions failed.
 tensorflow::Status InsertTypesInDb(int64 num_artifact_types,
