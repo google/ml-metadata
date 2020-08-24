@@ -51,8 +51,8 @@ class ReadNodesViaContextEdges
   // query executions failed.
   tensorflow::Status SetUpImpl(MetadataStore* store) final;
 
-  // Specific implementation of RunOpImpl() for
-  // ReadNodesViaContextEdgesWorkItemType workload according to its semantic.
+  // Specific implementation of RunOpImpl() for ReadNodesViaContextEdges 
+  // workload according to its semantic.
   // Runs the work items(ReadNodesViaContextEdgesWorkItemType) on the store.
   // Returns detailed error if query executions failed.
   tensorflow::Status RunOpImpl(int64 work_items_index,
