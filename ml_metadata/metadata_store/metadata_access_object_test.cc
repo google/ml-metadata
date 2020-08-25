@@ -1632,6 +1632,8 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
   )");
   updated_artifact.set_id(artifact_id);
   updated_artifact.set_type_id(type_id);
+  // sleep to verify the latest update time is updated.
+  absl::SleepFor(absl::Milliseconds(1));
   TF_EXPECT_OK(metadata_access_object_->UpdateArtifact(updated_artifact));
 
   Artifact got_artifact_after_update;
@@ -1643,8 +1645,78 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
                                              "last_update_time_since_epoch"}));
   EXPECT_EQ(got_artifact_before_update.create_time_since_epoch(),
             got_artifact_after_update.create_time_since_epoch());
-  EXPECT_LE(got_artifact_before_update.last_update_time_since_epoch(),
+  EXPECT_LT(got_artifact_before_update.last_update_time_since_epoch(),
             got_artifact_after_update.last_update_time_since_epoch());
+}
+
+TEST_P(MetadataAccessObjectTest, UpdateNodeLastUpdateTimeSinceEpoch) {
+  TF_ASSERT_OK(Init());
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
+    name: 'test_type'
+    properties { key: 'p1' value: INT }
+  )");
+  int64 type_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
+  // Create the original artifact before update.
+  Artifact artifact;
+  artifact.set_uri("testuri://changed/uri");
+  artifact.set_type_id(type_id);
+  int64 artifact_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateArtifact(artifact, &artifact_id));
+  Artifact curr_artifact;
+  TF_ASSERT_OK(
+      metadata_access_object_->FindArtifactById(artifact_id, &curr_artifact));
+
+  // insert executions and links to artifacts
+  auto update_and_get_last_update_time_since_epoch =
+      [&](const Artifact& artifact) {
+        // sleep to verify the latest update time is updated.
+        absl::SleepFor(absl::Milliseconds(1));
+        TF_CHECK_OK(metadata_access_object_->UpdateArtifact(artifact));
+        Artifact got_artifact_after_update;
+        TF_CHECK_OK(metadata_access_object_->FindArtifactById(
+            artifact.id(), &got_artifact_after_update));
+        EXPECT_THAT(got_artifact_after_update,
+                    EqualsProto(artifact, /*ignore_fields=*/{
+                                    "last_update_time_since_epoch"}));
+        return got_artifact_after_update.last_update_time_since_epoch();
+      };
+
+  // no attribute or property change.
+  const int64 t0 = update_and_get_last_update_time_since_epoch(curr_artifact);
+  EXPECT_EQ(t0, curr_artifact.last_update_time_since_epoch());
+  // update attributes
+  curr_artifact.set_uri("new/uri");
+  const int64 t1 = update_and_get_last_update_time_since_epoch(curr_artifact);
+  EXPECT_GT(t1, t0);
+  // set attributes
+  curr_artifact.set_state(Artifact::LIVE);
+  const int64 t2 = update_and_get_last_update_time_since_epoch(curr_artifact);
+  EXPECT_GT(t2, t1);
+  // add property
+  (*curr_artifact.mutable_properties())["p1"].set_int_value(1);
+  const int64 t3 = update_and_get_last_update_time_since_epoch(curr_artifact);
+  EXPECT_GT(t3, t2);
+  // modify property
+  (*curr_artifact.mutable_properties())["p1"].set_int_value(2);
+  const int64 t4 = update_and_get_last_update_time_since_epoch(curr_artifact);
+  EXPECT_GT(t4, t3);
+  // delete property
+  curr_artifact.clear_properties();
+  const int64 t5 = update_and_get_last_update_time_since_epoch(curr_artifact);
+  EXPECT_GT(t5, t4);
+  // set custom property
+  (*curr_artifact.mutable_custom_properties())["custom"].set_string_value("1");
+  const int64 t6 = update_and_get_last_update_time_since_epoch(curr_artifact);
+  EXPECT_GT(t6, t5);
+  // modify custom property
+  (*curr_artifact.mutable_custom_properties())["custom"].set_string_value("2");
+  const int64 t7 = update_and_get_last_update_time_since_epoch(curr_artifact);
+  EXPECT_GT(t7, t6);
+  // delete custom property
+  curr_artifact.clear_custom_properties();
+  const int64 t8 = update_and_get_last_update_time_since_epoch(curr_artifact);
+  EXPECT_GT(t8, t7);
 }
 
 TEST_P(MetadataAccessObjectTest, UpdateArtifactError) {
@@ -1830,7 +1902,6 @@ TEST_P(MetadataAccessObjectTest, UpdateExecution) {
               EqualsProto(stored_execution,
                           /*ignore_fields=*/{"id", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
-
   // add `property_1` and update `property_3`, and drop `custom_property_1`
   Execution updated_execution = ParseTextProtoOrDie<Execution>(R"(
     properties {
@@ -1844,6 +1915,8 @@ TEST_P(MetadataAccessObjectTest, UpdateExecution) {
   )");
   updated_execution.set_id(execution_id);
   updated_execution.set_type_id(type_id);
+  // sleep to verify the latest update time is updated.
+  absl::SleepFor(absl::Milliseconds(1));
   TF_EXPECT_OK(metadata_access_object_->UpdateExecution(updated_execution));
 
   Execution got_execution_after_update;
@@ -1855,7 +1928,7 @@ TEST_P(MetadataAccessObjectTest, UpdateExecution) {
                                              "last_update_time_since_epoch"}));
   EXPECT_EQ(got_execution_before_update.create_time_since_epoch(),
             got_execution_after_update.create_time_since_epoch());
-  EXPECT_LE(got_execution_before_update.last_update_time_since_epoch(),
+  EXPECT_LT(got_execution_before_update.last_update_time_since_epoch(),
             got_execution_after_update.last_update_time_since_epoch());
 }
 
@@ -2030,6 +2103,9 @@ TEST_P(MetadataAccessObjectTest, UpdateContext) {
   context1.set_type_id(type_id);
   int64 context_id;
   TF_ASSERT_OK(metadata_access_object_->CreateContext(context1, &context_id));
+  Context got_context_before_update;
+  TF_EXPECT_OK(metadata_access_object_->FindContextById(
+      context_id, &got_context_before_update));
 
   // add `property_2` and update `property_1`, and drop `custom_property_1`
   Context want_context = ParseTextProtoOrDie<Context>(R"(
@@ -2045,14 +2121,21 @@ TEST_P(MetadataAccessObjectTest, UpdateContext) {
   )");
   want_context.set_id(context_id);
   want_context.set_type_id(type_id);
+  // sleep to verify the latest update time is updated.
+  absl::SleepFor(absl::Milliseconds(1));
   TF_EXPECT_OK(metadata_access_object_->UpdateContext(want_context));
 
-  Context got_context;
-  TF_EXPECT_OK(
-      metadata_access_object_->FindContextById(context_id, &got_context));
-  EXPECT_THAT(want_context, EqualsProto(got_context, /*ignore_fields=*/{
-                                            "create_time_since_epoch",
-                                            "last_update_time_since_epoch"}));
+  Context got_context_after_update;
+  TF_EXPECT_OK(metadata_access_object_->FindContextById(
+      context_id, &got_context_after_update));
+  EXPECT_THAT(want_context,
+              EqualsProto(got_context_after_update,
+                          /*ignore_fields=*/{"create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
+  EXPECT_EQ(got_context_before_update.create_time_since_epoch(),
+            got_context_after_update.create_time_since_epoch());
+  EXPECT_LT(got_context_before_update.last_update_time_since_epoch(),
+            got_context_after_update.last_update_time_since_epoch());
 }
 
 TEST_P(MetadataAccessObjectTest, CreateAndUseAssociation) {

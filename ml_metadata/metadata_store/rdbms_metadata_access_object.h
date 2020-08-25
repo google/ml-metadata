@@ -263,11 +263,14 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // corresponding template queries with the given `NodeType` (which is one of
   // {`ArtifactType`, `ExecutionType`, `ContextType`} and the
   // `is_custom_property` (which indicates the space of the given properties.
+  // Returns `output_num_changed_properties` which equals to the number of
+  // properties are changed (deleted, updated or inserted).
   template <typename NodeType>
   tensorflow::Status ModifyProperties(
       const google::protobuf::Map<std::string, Value>& curr_properties,
       const google::protobuf::Map<std::string, Value>& prev_properties,
-      const int64 node_id, const bool is_custom_property);
+      const int64 node_id, const bool is_custom_property,
+      int& output_num_changed_properties);
 
   // Creates a query to insert an artifact type.
   tensorflow::Status InsertTypeID(const ArtifactType& type, int64* type_id);
