@@ -6,7 +6,9 @@
 
 *   Adds `grpcio` as py client dependency.
 *   Improves building wheels from source with `setup.py`.
-*   Replace the C++ MOCK_METHOD<n> family of macros with the new MOCK_METHOD
+*   Replaces the C++ MOCK_METHOD`<n>` family of macros with the new MOCK_METHOD
+*   Updates node's `last_update_time_since_epoch` when changing
+    (custom)properties.
 
 ## Breaking Changes
 
