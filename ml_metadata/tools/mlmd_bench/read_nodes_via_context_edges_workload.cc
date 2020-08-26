@@ -100,6 +100,8 @@ int64 GetTransferredBytesForNode(const Context& node) {
   return bytes;
 }
 
+// TODO(b/152220177) Moves the GetTransferredBytes to util with better
+// docstrings and tests.
 // Gets the transferred bytes for nodes that will be read later. Read the db
 // ahead of time in order to get every node that will be read by `request` in
 // the RunOpImpl() and records their transferred bytes accordingly. Returns
