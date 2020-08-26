@@ -410,11 +410,14 @@ tensorflow::Status RDBMSMetadataAccessObject::DeleteProperty(
 // `NodeType` (which is one of {`ArtifactType`, `ExecutionType`, `ContextType`}
 // and the `is_custom_property` (which indicates the space of the given
 // properties.
+// Returns `output_num_changed_properties` which equals to the number of
+// properties are changed (deleted, updated or inserted).
 template <typename NodeType>
 tensorflow::Status RDBMSMetadataAccessObject::ModifyProperties(
     const google::protobuf::Map<std::string, Value>& curr_properties,
     const google::protobuf::Map<std::string, Value>& prev_properties, const int64 node_id,
-    const bool is_custom_property) {
+    const bool is_custom_property, int& output_num_changed_properties) {
+  output_num_changed_properties = 0;
   // generates delete clauses for properties in P \ C
   for (const auto& p : prev_properties) {
     const std::string& name = p.first;
@@ -425,6 +428,7 @@ tensorflow::Status RDBMSMetadataAccessObject::ModifyProperties(
       continue;
 
     TF_RETURN_IF_ERROR(DeleteProperty<NodeType>(node_id, name));
+    output_num_changed_properties++;
   }
 
   for (const auto& p : curr_properties) {
@@ -437,11 +441,13 @@ tensorflow::Status RDBMSMetadataAccessObject::ModifyProperties(
                                                     value)) {
         // generates update clauses for properties in the intersection P & C
         TF_RETURN_IF_ERROR(UpdateProperty<NodeType>(node_id, name, value));
+        output_num_changed_properties++;
       }
     } else {
       // generate insert clauses for properties in C \ P
       TF_RETURN_IF_ERROR(
           InsertProperty<NodeType>(node_id, name, is_custom_property, value));
+      output_num_changed_properties++;
     }
   }
   return tensorflow::Status::OK();
@@ -657,12 +663,14 @@ tensorflow::Status RDBMSMetadataAccessObject::CreateNodeImpl(const Node& node,
 
   // insert properties
   const google::protobuf::Map<std::string, Value> prev_properties;
-  TF_RETURN_IF_ERROR(ModifyProperties<NodeType>(node.properties(),
-                                                prev_properties, *node_id,
-                                                /*is_custom_property=*/false));
-  TF_RETURN_IF_ERROR(ModifyProperties<NodeType>(node.custom_properties(),
-                                                prev_properties, *node_id,
-                                                /*is_custom_property=*/true));
+  int num_changed_properties = 0;
+  TF_RETURN_IF_ERROR(ModifyProperties<NodeType>(
+      node.properties(), prev_properties, *node_id,
+      /*is_custom_property=*/false, num_changed_properties));
+  int num_changed_custom_properties = 0;
+  TF_RETURN_IF_ERROR(ModifyProperties<NodeType>(
+      node.custom_properties(), prev_properties, *node_id,
+      /*is_custom_property=*/true, num_changed_custom_properties));
   return tensorflow::Status::OK();
 }
 
@@ -759,21 +767,24 @@ tensorflow::Status RDBMSMetadataAccessObject::UpdateNodeImpl(const Node& node) {
   TF_RETURN_IF_ERROR(FindTypeImpl(type_id, &stored_type));
   TF_RETURN_IF_ERROR(ValidatePropertiesWithType(node, stored_type));
 
-  // update nodes, and update, insert, delete properties
+  // Update, insert, delete properties if changed.
+  int num_changed_properties = 0;
+  TF_RETURN_IF_ERROR(ModifyProperties<NodeType>(
+      node.properties(), stored_node.properties(), node.id(),
+      /*is_custom_property=*/false, num_changed_properties));
+  int num_changed_custom_properties = 0;
+  TF_RETURN_IF_ERROR(ModifyProperties<NodeType>(
+      node.custom_properties(), stored_node.custom_properties(), node.id(),
+      /*is_custom_property=*/true, num_changed_custom_properties));
+  // Update node if attributes are different or properties are updated, so that
+  // the last_update_time_since_epoch is updated properly.
   google::protobuf::util::MessageDifferencer diff;
   diff.IgnoreField(Node::descriptor()->FindFieldByName("properties"));
   diff.IgnoreField(Node::descriptor()->FindFieldByName("custom_properties"));
-  if (!diff.Compare(node, stored_node)) {
+  if (!diff.Compare(node, stored_node) ||
+      num_changed_properties + num_changed_custom_properties > 0) {
     TF_RETURN_IF_ERROR(RunNodeUpdate(node));
   }
-
-  // modify properties
-  TF_RETURN_IF_ERROR(ModifyProperties<NodeType>(
-      node.properties(), stored_node.properties(), node.id(),
-      /*is_custom_property=*/false));
-  TF_RETURN_IF_ERROR(ModifyProperties<NodeType>(
-      node.custom_properties(), stored_node.custom_properties(), node.id(),
-      /*is_custom_property=*/true));
   return tensorflow::Status::OK();
 }
 

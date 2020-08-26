@@ -63,6 +63,8 @@ int64 GetTransferredBytesForNodeProperties(
   return bytes;
 }
 
+// TODO(b/152220177) Moves the GetTransferredBytes to util with better
+// docstrings and tests.
 // Gets the transferred bytes for certain Artifact.
 int64 GetTransferredBytes(const Artifact& node) {
   int64 bytes = kInt64IdSize + kInt64TypeIdSize + kInt64CreateTimeSize +

@@ -42,7 +42,7 @@ class ReadNodesViaContextEdges
   ~ReadNodesViaContextEdges() override = default;
 
  protected:
-  // Specific implementation of SetUpImpl() for ReadNodesViaContextEdges 
+  // Specific implementation of SetUpImpl() for ReadNodesViaContextEdges
   // workload according to its semantic.
   // A list of work items(ReadNodesViaContextEdgesWorkItemType) will be
   // generated. The API traverses from source node {Artifacts / Executions /
@@ -51,7 +51,7 @@ class ReadNodesViaContextEdges
   // query executions failed.
   tensorflow::Status SetUpImpl(MetadataStore* store) final;
 
-  // Specific implementation of RunOpImpl() for ReadNodesViaContextEdges 
+  // Specific implementation of RunOpImpl() for ReadNodesViaContextEdges
   // workload according to its semantic.
   // Runs the work items(ReadNodesViaContextEdgesWorkItemType) on the store.
   // Returns detailed error if query executions failed.

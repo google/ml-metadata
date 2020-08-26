@@ -320,17 +320,17 @@ TEST(BenchmarkTest, CreatReadNodesByPropertiesWorkloadTest) {
           num_operations: 150
         }
       )");
-  std::vector<std::string> workload_names{"READ_ARTIFACTS_BY_ID",
-                                          "READ_EXECUTIONS_BY_ID",
-                                          "READ_CONTEXTS_BY_ID",
-                                          "READ_ARTIFACTS_BY_TYPE",
-                                          "READ_EXECUTIONS_BY_TYPE",
-                                          "READ_CONTEXTS_BY_TYPE",
-                                          "READ_ARTIFACT_BY_TYPE_AND_NAME",
-                                          "READ_EXECUTION_BY_TYPE_AND_NAME",
-                                          "READ_CONTEXT_BY_TYPE_AND_NAME",
-                                          "READ_ARTIFACTS_BY_URI"};
-
+  const std::vector<std::string> workload_names{
+      "READ_ARTIFACTS_BY_ID",
+      "READ_EXECUTIONS_BY_ID",
+      "READ_CONTEXTS_BY_ID",
+      "READ_ARTIFACTS_BY_TYPE",
+      "READ_EXECUTIONS_BY_TYPE",
+      "READ_CONTEXTS_BY_TYPE",
+      "READ_ARTIFACT_BY_TYPE_AND_NAME",
+      "READ_EXECUTION_BY_TYPE_AND_NAME",
+      "READ_CONTEXT_BY_TYPE_AND_NAME",
+      "READ_ARTIFACTS_BY_URI"};
   Benchmark benchmark(mlmd_bench_config);
   // Checks that all workload configurations have transformed into executable
   // workloads inside benchmark.

@@ -24,14 +24,15 @@ namespace ml_metadata {
 
 class MockMetadataSource : public MetadataSource {
  public:
-  MOCK_METHOD0(ConnectImpl, tensorflow::Status());
-  MOCK_METHOD0(CloseImpl, tensorflow::Status());
-  MOCK_METHOD0(BeginImpl, tensorflow::Status());
-  MOCK_METHOD2(ExecuteQueryImpl, tensorflow::Status(const std::string& query,
-                                                    RecordSet* results));
-  MOCK_METHOD0(CommitImpl, tensorflow::Status());
-  MOCK_METHOD0(RollbackImpl, tensorflow::Status());
-  MOCK_CONST_METHOD1(EscapeString, std::string(absl::string_view value));
+  MOCK_METHOD(tensorflow::Status, ConnectImpl, (), (override));
+  MOCK_METHOD(tensorflow::Status, CloseImpl, (), (override));
+  MOCK_METHOD(tensorflow::Status, BeginImpl, (), (override));
+  MOCK_METHOD(tensorflow::Status, ExecuteQueryImpl,
+              (const std::string& query, RecordSet* results), (override));
+  MOCK_METHOD(tensorflow::Status, CommitImpl, (), (override));
+  MOCK_METHOD(tensorflow::Status, RollbackImpl, (), (override));
+  MOCK_METHOD(std::string, EscapeString, (absl::string_view value),
+              (const, override));
 };
 
 TEST(MetadataSourceTest, ConnectAgainWithoutClose) {

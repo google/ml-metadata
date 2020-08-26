@@ -77,7 +77,7 @@ class ReadNodesByProperties
   const ReadNodesByPropertiesConfig read_nodes_by_properties_config_;
   // Number of operations for the current workload.
   const int64 num_operations_;
-  // String for indicating the name of current workload instance.
+  // The name for the current workload instance.
   const std::string name_;
 };
 

@@ -6,6 +6,9 @@
 
 *   Adds `grpcio` as py client dependency.
 *   Improves building wheels from source with `setup.py`.
+*   Replaces the C++ MOCK_METHOD`<n>` family of macros with the new MOCK_METHOD
+*   Updates node's `last_update_time_since_epoch` when changing
+    (custom)properties.
 
 ## Breaking Changes
 
@@ -33,7 +36,7 @@
 
 ## Deprecations
 
-*   N/A
+*   Note: We plan to remove Python 3.5 support after this release.
 
 # Release 0.22.1
 
