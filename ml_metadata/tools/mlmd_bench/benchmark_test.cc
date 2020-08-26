@@ -389,5 +389,39 @@ TEST(BenchmarkTest, CreateReadNodesViaContextEdgesWorkloadTest) {
   }
 }
 
+// Tests the CreateWorkload() for ReadEvents workload, checks that all
+// ReadEvents workload configurations have transformed into executable
+// workloads inside benchmark.
+TEST(BenchmarkTest, CreatReadEventsWorkloadTest) {
+  MLMDBenchConfig mlmd_bench_config =
+      testing::ParseTextProtoOrDie<MLMDBenchConfig>(
+          R"(
+            workload_configs: {
+              read_events_config: {
+                specification: EVENTS_BY_ARTIFACT_ID
+                num_ids: { minimum: 1 maximum: 10 }
+              }
+              num_operations: 250
+            }
+            workload_configs: {
+              read_events_config: {
+                specification: EVENTS_BY_EXECUTION_ID
+                num_ids: { minimum: 1 maximum: 10 }
+              }
+              num_operations: 150
+            }
+          )");
+
+  Benchmark benchmark(mlmd_bench_config);
+  // Checks that all workload configurations have transformed into executable
+  // workloads inside benchmark.
+  EXPECT_EQ(benchmark.num_workloads(),
+            mlmd_bench_config.workload_configs_size());
+  EXPECT_STREQ(benchmark.workload(0)->GetName().c_str(),
+               "READ_EVENTS_BY_ARTIFACT_ID");
+  EXPECT_STREQ(benchmark.workload(1)->GetName().c_str(),
+               "READ_EVENTS_BY_EXECUTION_ID");
+}
+
 }  // namespace
 }  // namespace ml_metadata

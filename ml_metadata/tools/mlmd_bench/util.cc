@@ -287,6 +287,22 @@ tensorflow::Status GetExistingNodes(
   return tensorflow::Status::OK();
 }
 
+tensorflow::Status GetExistingNodes(const ReadEventsConfig& read_events_config,
+                                    MetadataStore& store,
+                                    std::vector<Node>& existing_nodes) {
+  switch (read_events_config.specification()) {
+    case ReadEventsConfig::EVENTS_BY_ARTIFACT_ID: {
+      return GetExistingNodesImpl(FetchArtifact, store, existing_nodes);
+    }
+    case ReadEventsConfig::EVENTS_BY_EXECUTION_ID: {
+      return GetExistingNodesImpl(FetchExecution, store, existing_nodes);
+    }
+    default:
+      LOG(FATAL) << "Unknown ReadEventsConfig specification.";
+  }
+  return tensorflow::Status::OK();
+}
+
 tensorflow::Status InsertTypesInDb(const int64 num_artifact_types,
                                    const int64 num_execution_types,
                                    const int64 num_context_types,
