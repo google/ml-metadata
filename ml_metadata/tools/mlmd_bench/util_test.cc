@@ -27,6 +27,8 @@ limitations under the License.
 namespace ml_metadata {
 namespace {
 
+using ::testing::SizeIs;
+
 constexpr int kNumberOfInsertedArtifactTypes = 51;
 constexpr int kNumberOfInsertedExecutionTypes = 52;
 constexpr int kNumberOfInsertedContextTypes = 53;
@@ -58,11 +60,11 @@ TEST(UtilInsertTest, InsertTypesTest) {
       /*request=*/{}, &get_context_types_response));
 
   EXPECT_THAT(get_artifact_types_response.artifact_types(),
-              ::testing::SizeIs(kNumberOfInsertedArtifactTypes));
+              SizeIs(kNumberOfInsertedArtifactTypes));
   EXPECT_THAT(get_execution_types_response.execution_types(),
-              ::testing::SizeIs(kNumberOfInsertedExecutionTypes));
+              SizeIs(kNumberOfInsertedExecutionTypes));
   EXPECT_THAT(get_context_types_response.context_types(),
-              ::testing::SizeIs(kNumberOfInsertedContextTypes));
+              SizeIs(kNumberOfInsertedContextTypes));
 }
 
 // Tests InsertNodesInDb().
@@ -92,11 +94,11 @@ TEST(UtilInsertTest, InsertNodesTest) {
       /*request=*/{}, &get_contexts_response));
 
   EXPECT_THAT(get_artifacts_response.artifacts(),
-              ::testing::SizeIs(kNumberOfInsertedArtifacts));
+              SizeIs(kNumberOfInsertedArtifacts));
   EXPECT_THAT(get_executions_response.executions(),
-              ::testing::SizeIs(kNumberOfInsertedExecutions));
+              SizeIs(kNumberOfInsertedExecutions));
   EXPECT_THAT(get_contexts_response.contexts(),
-              ::testing::SizeIs(kNumberOfInsertedContexts));
+              SizeIs(kNumberOfInsertedContexts));
 }
 
 // Tests GetExistingTypes() with FillTypesConfig as input.
@@ -116,8 +118,7 @@ TEST(UtilGetTest, GetTypesWithFillTypesConfigTest) {
     FillTypesConfig fill_types_config;
     fill_types_config.set_specification(FillTypesConfig::ARTIFACT_TYPE);
     TF_ASSERT_OK(GetExistingTypes(fill_types_config, *store, exisiting_types));
-    EXPECT_THAT(exisiting_types,
-                ::testing::SizeIs(kNumberOfInsertedArtifactTypes));
+    EXPECT_THAT(exisiting_types, SizeIs(kNumberOfInsertedArtifactTypes));
   }
 
   {
@@ -125,8 +126,7 @@ TEST(UtilGetTest, GetTypesWithFillTypesConfigTest) {
     FillTypesConfig fill_types_config;
     fill_types_config.set_specification(FillTypesConfig::EXECUTION_TYPE);
     TF_ASSERT_OK(GetExistingTypes(fill_types_config, *store, exisiting_types));
-    EXPECT_THAT(exisiting_types,
-                ::testing::SizeIs(kNumberOfInsertedExecutionTypes));
+    EXPECT_THAT(exisiting_types, SizeIs(kNumberOfInsertedExecutionTypes));
   }
 
   {
@@ -134,8 +134,7 @@ TEST(UtilGetTest, GetTypesWithFillTypesConfigTest) {
     FillTypesConfig fill_types_config;
     fill_types_config.set_specification(FillTypesConfig::CONTEXT_TYPE);
     TF_ASSERT_OK(GetExistingTypes(fill_types_config, *store, exisiting_types));
-    EXPECT_THAT(exisiting_types,
-                ::testing::SizeIs(kNumberOfInsertedContextTypes));
+    EXPECT_THAT(exisiting_types, SizeIs(kNumberOfInsertedContextTypes));
   }
 }
 
@@ -156,8 +155,7 @@ TEST(UtilGetTest, GetTypesWithFillNodesConfigTest) {
     FillNodesConfig fill_nodes_config;
     fill_nodes_config.set_specification(FillNodesConfig::ARTIFACT);
     TF_ASSERT_OK(GetExistingTypes(fill_nodes_config, *store, exisiting_types));
-    EXPECT_THAT(exisiting_types,
-                ::testing::SizeIs(kNumberOfInsertedArtifactTypes));
+    EXPECT_THAT(exisiting_types, SizeIs(kNumberOfInsertedArtifactTypes));
   }
 
   {
@@ -165,8 +163,7 @@ TEST(UtilGetTest, GetTypesWithFillNodesConfigTest) {
     FillNodesConfig fill_nodes_config;
     fill_nodes_config.set_specification(FillNodesConfig::EXECUTION);
     TF_ASSERT_OK(GetExistingTypes(fill_nodes_config, *store, exisiting_types));
-    EXPECT_THAT(exisiting_types,
-                ::testing::SizeIs(kNumberOfInsertedExecutionTypes));
+    EXPECT_THAT(exisiting_types, SizeIs(kNumberOfInsertedExecutionTypes));
   }
 
   {
@@ -174,8 +171,7 @@ TEST(UtilGetTest, GetTypesWithFillNodesConfigTest) {
     FillNodesConfig fill_nodes_config;
     fill_nodes_config.set_specification(FillNodesConfig::CONTEXT);
     TF_ASSERT_OK(GetExistingTypes(fill_nodes_config, *store, exisiting_types));
-    EXPECT_THAT(exisiting_types,
-                ::testing::SizeIs(kNumberOfInsertedContextTypes));
+    EXPECT_THAT(exisiting_types, SizeIs(kNumberOfInsertedContextTypes));
   }
 }
 
@@ -208,7 +204,7 @@ TEST(UtilGetTest, GetTypesWithReadTypesConfigTest) {
     ReadTypesConfig read_types_config;
     read_types_config.set_specification(specification[i].first);
     TF_ASSERT_OK(GetExistingTypes(read_types_config, *store, exisiting_types));
-    EXPECT_THAT(exisiting_types, ::testing::SizeIs(specification[i].second));
+    EXPECT_THAT(exisiting_types, SizeIs(specification[i].second));
   }
 }
 
@@ -233,7 +229,7 @@ TEST(UtilGetTest, GetNodesWithFillNodesConfigTest) {
     FillNodesConfig fill_nodes_config;
     fill_nodes_config.set_specification(FillNodesConfig::ARTIFACT);
     TF_ASSERT_OK(GetExistingNodes(fill_nodes_config, *store, exisiting_nodes));
-    EXPECT_THAT(exisiting_nodes, ::testing::SizeIs(kNumberOfInsertedArtifacts));
+    EXPECT_THAT(exisiting_nodes, SizeIs(kNumberOfInsertedArtifacts));
   }
 
   {
@@ -241,8 +237,7 @@ TEST(UtilGetTest, GetNodesWithFillNodesConfigTest) {
     FillNodesConfig fill_nodes_config;
     fill_nodes_config.set_specification(FillNodesConfig::EXECUTION);
     TF_ASSERT_OK(GetExistingNodes(fill_nodes_config, *store, exisiting_nodes));
-    EXPECT_THAT(exisiting_nodes,
-                ::testing::SizeIs(kNumberOfInsertedExecutions));
+    EXPECT_THAT(exisiting_nodes, SizeIs(kNumberOfInsertedExecutions));
   }
 
   {
@@ -364,7 +359,7 @@ TEST(UtilGetTest, GetNodesWithReadNodesByPropertiesConfigTest) {
     read_nodes_by_properties_config.set_specification(specification[i]);
     TF_ASSERT_OK(GetExistingNodes(read_nodes_by_properties_config, *store,
                                   exisiting_nodes));
-    EXPECT_THAT(exisiting_nodes, ::testing::SizeIs(num_nodes[i]));
+    EXPECT_THAT(exisiting_nodes, SizeIs(num_nodes[i]));
   }
 }
 
@@ -400,7 +395,7 @@ TEST(UtilGetTest, GetNodesWithReadNodesViaContextEdgesConfigTest) {
     read_nodes_via_context_edges_config.set_specification(specification[i]);
     TF_ASSERT_OK(GetExistingNodes(read_nodes_via_context_edges_config, *store,
                                   exisiting_nodes));
-    EXPECT_THAT(exisiting_nodes, ::testing::SizeIs(num_nodes[i]));
+    EXPECT_THAT(exisiting_nodes, SizeIs(num_nodes[i]));
   }
 }
 
