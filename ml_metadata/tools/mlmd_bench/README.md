@@ -1,64 +1,44 @@
 # mlmd_bench
 
-*mlmd_bench* is a MLMD benchmark tool that can measure the MLMD query facility
-performance and scalability for different backends and deployment settings.
-The performance metrics of interests include throughputs of concurrent
-operations and data sizes.
+mlmd_bench is a MLMD benchmark tool that can measure the MLMD query facility performance and scalability for different backends and deployment settings. The performance metrics of interests include throughputs of concurrent operations and data sizes.
 
-## Motivation
+## Introduction
 
 MLMD exposes a provenance graph data model, which consists of {Artifact, Execution, Context, Type} as nodes, and {Event, Association, Attribution, Instance} as edges. Based on the data model, it defines a set of APIs, such as creating and updating nodes and edges, listing nodes by types, traversing nodes via edges.  
 
-The APIs are implemented on various backends (e.g., MySQL, Sqlite, CNS, Spanner) and deployed in different modes (e.g., library, grpc server, lamprey server etc). On the other hand, the integration of MLMD with different partners have different use cases and exhibit different read/write workloads. To improve API performance, it often requires proper optimization in MLMD query implementation or schema reorganization.    
+The APIs are implemented on various backends (e.g., MySQL, Sqlite, CNS, Spanner) and deployed in different modes (e.g., library, grpc server). On the other hand, the integration of MLMD with different partners have different use cases and exhibit different read/write workloads. To improve API performance, it often requires proper optimization in MLMD query implementation or schema reorganization.    
 
-To guide the performance tuning of MLMD and better support users, we propose a a benchmarking tool, *mlmd_bench*, which can:
-*   Compose different workloads mimicking use cases of integration partners. 
+To guide the performance tuning of MLMD and better support users, we build a benchmarking tool, mlmd_bench, which can:
+*   Compose different workloads mimicking use cases of different integration partners. 
 *   Measure the MLMD operation performance on different backends and deployment modes.
 
-The tool abstraction and design are inspired by [leveldb](https://github.com/google/leveldb) benchmarking tools, and tailored to the MLMD provenance graph data model and workloads. We envision a list of follow-ups to tune query implementations and evolve MLMD schema guided by the benchmark results.
-
 ## Benchmark coverage
-
-|  Workload   | Benchmark MLMD APIs  | Specification
-|  ----  | ----  |
-| FillTypes  | PutArtifactType / PutExecutionType / PutContextType | Insert / Update
-Artifact Type / Execution Type / Context Type
-Number of Properties for each type
-| 单元格  | 单元格 |
-
+| Workload      | Benchmark APIs | Specification
+| :----------- | :----------- | :----------- |
+| FillTypes      | PutArtifactType /<br> PutExecutionType /<br> PutContextType       | Insert / Update <br> Artifact Type / Execution Type / Context Type <br> Number of properties for each type |
+| FillNodes   | PutArtifact /<br> PutExecution /<br> PutContext        | Insert / Update<br>Artifact / Execution / Context<br>Number of properties for each node <br> Length for string properties of each node<br>APIs’ specification(e.g. number of nodes per request)|
+| FillContextEdges      | PutAttributionsAndAssociation       | Attribution / Association<br>Context / Non-context popularity<br>APIs’ specification(e.g. number of context edges per request)|
+| FillEvents      | PutEvent       | Input / Output Event<br>Artifact / Execution popularity<br>APIs’ specification(e.g. number of events per request)|
+| ReadTypes      | GetArtifactTypes /<br> GetArtifactTypesByID /<br> GetArtifactType ...| The type listing / querying APIs<br>APIs’ specification(e.g. number of ids per request)|
+| ReadNodesByProperties      | GetArtifactsByID /<br> GetArtifactsByType /<br> GetArtifactByTypeAndName ...| The nodes listing / querying APIs<br>APIs’ specification(e.g. number of ids per request)|
+| ReadNodesViaContextEdges      | GetArtifactsByContext /<br> GetContextsByArtifact ...       | The nodes traversal APIs|
+| ReadEvents      | GetEventsByArtifactIDs /<br> GetEventsByExecutionIDs       | The events listing / querying APIs<br>APIs’ specification(e.g. number of ids per request)|
 ## How to use
 
-### 1. Prerequisites
-
-To compile and use *mlmd_bench*, you need to set up some prerequisites.
-
-#### Install Bazel
-
-If Bazel is not installed on your system, install it now by following [these
-directions](https://bazel.build/versions/master/docs/install.html).
-
-#### Install cmake
-If cmake is not installed on your system, install it now by following [these
-directions](https://cmake.org/install/).
-
-### 2. Build from source:
+### 1. Build from source:
 
 ```shell
-bazel build -c opt --define grpc_no_ares=true //ml_metadata/tools/mlmd_bench:all
+bazel build -c opt --define grpc_no_ares=true //ml_metadata/tools/mlmd_bench:mlmd_bench
 ```
 
-### 3. Run the binary:
+### 2. Run the binary:
 
 ```shell
 cd bazel-bin/ml_metadata/tools/mlmd_bench/
 ./mlmd_bench --config_file_path=<input mlmd_bench config .pbtxt file path> --output_report_path=<output mlmd_bench summary report file path>
 ```
 
-The input mlmd_bench 
-
-## INPUT OUTPUT FORMAT
-
-### 1. Input is a MLMDBenchConfig protocol buffer message in text format:
+The input should be a MLMDBenchConfig protocol buffer message in text format, e.g.:
 
 ```shell
 mlmd_config: {
@@ -70,30 +50,22 @@ mlmd_config: {
 workload_configs: {
   fill_types_config: {
     update: false
-    specification: EXECUTION_TYPE
+    specification: ARTIFACT_TYPE
     num_properties: { minimum: 1 maximum: 10 }
   }
   num_operations: 100
 }
-workload_configs: {
-  fill_types_config: {
-    update: true
-    specification: EXECUTION_TYPE
-    num_properties: { minimum: 1 maximum: 10 }
-  }
-  num_operations: 200
-}
 thread_env_config: { num_threads: 10 }
 ```
 
-### 2. Output is a MLMDBenchReport protocol buffer message in text format:
+The output will be a MLMDBenchReport protocol buffer message in text format, e.g.:
 
 ```shell
 summaries {
   workload_config {
     fill_types_config {
       update: false
-      specification: EXECUTION_TYPE
+      specification: ARTIFACT_TYPE
       num_properties {
         minimum: 1
         maximum: 10
@@ -104,27 +76,4 @@ summaries {
   microseconds_per_operation: 193183
   bytes_per_second: 351
 }
-summaries {
-  workload_config {
-    fill_types_config {
-      update: true
-      specification: EXECUTION_TYPE
-      num_properties {
-        minimum: 1
-        maximum: 10
-      }
-    }
-    num_operations: 200
-  }
-  microseconds_per_operation: 119221
-  bytes_per_second: 1110
-}
 ```
-
-## How to test
-
-```shell
-bazel test -c opt --define grpc_no_ares=true //ml_metadata/tools/mlmd_bench:all
-```
-
-## 
