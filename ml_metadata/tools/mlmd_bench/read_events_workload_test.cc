@@ -21,6 +21,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/metadata_store/metadata_store_factory.h"
 #include "ml_metadata/metadata_store/test_util.h"
+#include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
 #include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
@@ -29,6 +30,8 @@ limitations under the License.
 
 namespace ml_metadata {
 namespace {
+
+using ::testing::ValuesIn;
 
 constexpr int kNumberOfOperations = 100;
 constexpr int kNumberOfExistedTypesInDb = 100;
@@ -129,9 +132,9 @@ class ReadEventsParameterizedTestFixture
         /*num_execution_types=*/kNumberOfExistedTypesInDb,
         /*num_context_types=*/kNumberOfExistedTypesInDb, *store_));
     TF_ASSERT_OK(InsertNodesInDb(
-        /*num_artifact_types=*/kNumberOfExistedNodesInDb,
-        /*num_execution_types=*/kNumberOfExistedNodesInDb,
-        /*num_context_types=*/kNumberOfExistedNodesInDb, *store_));
+        /*num_artifact_nodes=*/kNumberOfExistedNodesInDb,
+        /*num_execution_nodes=*/kNumberOfExistedNodesInDb,
+        /*num_context_nodes=*/kNumberOfExistedNodesInDb, *store_));
     TF_ASSERT_OK(InsertEventsInDb(
         /*num_input_events=*/kNumberOfExistedEventsInDb,
         /*num_output_events=*/kNumberOfExistedEventsInDb, *store_));
@@ -170,7 +173,7 @@ TEST_P(ReadEventsParameterizedTestFixture, RunOpImplTest) {
 }
 
 INSTANTIATE_TEST_CASE_P(ReadEventsTest, ReadEventsParameterizedTestFixture,
-                        ::testing::ValuesIn(EnumerateConfigs()));
+                        ValuesIn(EnumerateConfigs()));
 
 }  // namespace
 }  // namespace ml_metadata

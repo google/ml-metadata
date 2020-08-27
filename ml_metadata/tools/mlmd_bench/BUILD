@@ -292,10 +292,11 @@ cc_library(
     srcs = ["read_events_workload.cc"],
     hdrs = ["read_events_workload.h"],
     deps = [
-        ":workload",
         ":util",
+        ":workload",
         "@com_google_absl//absl/time",
-        "//ml_metadata/metadata_store:metadata_store",
+        "@com_google_absl//absl/types:variant",
+        "//ml_metadata/metadata_store",
         "//ml_metadata/metadata_store:types",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/proto:metadata_store_service_proto",

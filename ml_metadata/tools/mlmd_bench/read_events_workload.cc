@@ -48,6 +48,8 @@ int64 GetTransferredBytesForEvent(const Event& event) {
   return bytes;
 }
 
+// TODO(b/152220177) Moves the GetTransferredBytes to util with better
+// docstrings and tests.
 // Gets the transferred bytes for events that will be read later. Read the db
 // ahead of time in order to get every events that will be read by `request` in
 // the RunOpImpl() and records their transferred bytes accordingly. Returns

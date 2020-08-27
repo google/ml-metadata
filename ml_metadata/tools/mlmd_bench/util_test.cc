@@ -245,7 +245,7 @@ TEST(UtilGetTest, GetNodesWithFillNodesConfigTest) {
     FillNodesConfig fill_nodes_config;
     fill_nodes_config.set_specification(FillNodesConfig::CONTEXT);
     TF_ASSERT_OK(GetExistingNodes(fill_nodes_config, *store, exisiting_nodes));
-    EXPECT_THAT(exisiting_nodes, ::testing::SizeIs(kNumberOfInsertedContexts));
+    EXPECT_THAT(exisiting_nodes, SizeIs(kNumberOfInsertedContexts));
   }
 }
 
