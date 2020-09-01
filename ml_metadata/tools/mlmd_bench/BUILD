@@ -407,6 +407,7 @@ ml_metadata_cc_test(
         # for command line printing. The approximate task number is not
         # thread safe by design.
         "notsan",
+        "noasan",
     ],
     deps = [
         ":benchmark",

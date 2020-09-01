@@ -243,11 +243,14 @@ int64 ClearSomeProperitesForUpdateNode(const NodesParam& nodes_param,
   num_custom_properties_to_clear = std::min(
       (int64)node.custom_properties_size(), nodes_param.num_properties);
   auto it = node.custom_properties().begin();
-  for (int64 i = 0; i < num_custom_properties_to_clear; ++i) {
-    node.mutable_custom_properties()->erase(it->first);
+  std::vector<std::string> keys_to_remove(num_custom_properties_to_clear);
+  for (int64 i = 0; i < num_custom_properties_to_clear; i++, it++) {
+    keys_to_remove[i] = it->first;
     bytes += GetTransferredBytesForNodeProperty(it->first,
                                                 it->second.string_value());
-    it++;
+  }
+  for (const std::string& key : keys_to_remove) {
+    node.mutable_custom_properties()->erase(key);
   }
   return bytes;
 }
