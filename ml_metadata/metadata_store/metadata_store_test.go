@@ -793,6 +793,79 @@ func TestPutAndGetContexts(t *testing.T) {
 	}
 }
 
+func TestPutContextAndGetContextByTypeAndName(t *testing.T) {
+	// prepare test data
+	store, err := NewStore(fakeDatabaseConfig())
+	if err != nil {
+		t.Fatalf("Cannot create Store: %v", err)
+	}
+	defer store.Close()
+	tid, err := insertContextType(store, `name: 'test_type_name'`)
+	if err != nil {
+		t.Fatalf("Cannot create context type: %v", err)
+	}
+	contextName := "test_context"
+	contextTypeName := "test_type_name"
+	wantContext := &mdpb.Context{
+		TypeId: &tid,
+		Name:   &contextName,
+	}
+	// insert 1 context
+	contexts := make([]*mdpb.Context, 1)
+	contexts[0] = wantContext
+	cids, err := store.PutContexts(contexts)
+	if err != nil {
+		t.Fatalf("PutContexts failed: %v", err)
+	}
+	if len(cids) != len(contexts) {
+		t.Errorf("PutContexts number of contexts mismatch, want: %v, got: %v", len(contexts), len(cids))
+	}
+	wcid := int64(cids[0])
+	wantContext.Id = &wcid
+
+	// test GetContextByTypeAndName functionality
+	// query context by both type name and context name
+	gotStoredContext, err := store.GetContextByTypeAndName(contextTypeName, contextName)
+	if err != nil {
+		t.Fatalf("GetContextByTypeAndName failed: %v", err)
+	}
+	// skip comparing create/update timestamps
+	wantContext.CreateTimeSinceEpoch = gotStoredContext.CreateTimeSinceEpoch
+	wantContext.LastUpdateTimeSinceEpoch = gotStoredContext.LastUpdateTimeSinceEpoch
+	if !proto.Equal(wantContext, gotStoredContext) {
+		t.Errorf("GetContextByTypeAndName returned result is incorrect. want: %v, got: %v", wantContext, gotStoredContext)
+	}
+
+	// query context with either contextTypeName or contextName that doesn't exist
+	tests := []struct {
+		cname  string
+		ctname string
+	}{
+		{
+			cname:  contextName,
+			ctname: "random_type_name",
+		},
+		{
+			cname:  "random_context_name",
+			ctname: contextTypeName,
+		},
+		{
+			cname:  "random_context_name",
+			ctname: "random_type_name",
+		},
+	}
+
+	for _, tc := range tests {
+		gotEmptyContext, err := store.GetContextByTypeAndName(tc.ctname, tc.cname)
+		if err != nil {
+			t.Fatalf("GetContextByTypeAndName failed: %v", err)
+		}
+		if gotEmptyContext != nil {
+			t.Errorf("GetContextByTypeAndName returned result is incorrect. want: %v, got: %v", nil, gotEmptyContext)
+		}
+	}
+}
+
 func TestPutAndGetEvents(t *testing.T) {
 	store, err := NewStore(fakeDatabaseConfig())
 	if err != nil {

@@ -577,6 +577,18 @@ func (store *Store) GetContextsByType(typeName string) ([]*mdpb.Context, error) 
 	return resp.GetContexts(), err
 }
 
+// GetContextByTypeAndName gets the context of a given type and context name.
+// It returns an error if the query execution fails.
+func (store *Store) GetContextByTypeAndName(typeName string, contextName string) (*mdpb.Context, error) {
+	req := &apipb.GetContextByTypeAndNameRequest{
+		TypeName:    proto.String(typeName),
+		ContextName: proto.String(contextName),
+	}
+	resp := &apipb.GetContextByTypeAndNameResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetContextByTypeAndName, req, resp)
+	return resp.GetContext(), err
+}
+
 type metadataStoreMethod func(wrap.Ml_metadata_MetadataStore, string, wrap.Status) string
 
 // callMetadataStoreWrapMethod calls a `metadataStoreMethod` in cc library.
