@@ -9,6 +9,8 @@
 *   Replaces the C++ MOCK_METHOD`<n>` family of macros with the new MOCK_METHOD
 *   Updates node's `last_update_time_since_epoch` when changing
     (custom)properties.
+*   Updates python wheel docker build image for py3.8; Disables incompatible
+    Golang BUILD targets temporarily.
 
 ## Breaking Changes
 

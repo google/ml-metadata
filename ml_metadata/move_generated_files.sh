@@ -21,16 +21,30 @@ function _is_windows() {
   [[ "$(uname -s | tr 'A-Z' 'a-z')" =~ (cygwin|mingw32|mingw64|msys)_nt* ]]
 }
 
+function _is_macos() {
+  [[ "$(uname -s | tr 'A-Z' 'a-z')" =~ darwin ]]
+}
+
 function mlmd::move_generated_files() {
   set -eux
   cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-bin/ml_metadata/metadata_store/pywrap_tf_metadata_store_serialized.py \
     ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/metadata_store
-  cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-genfiles/ml_metadata/proto/metadata_store_pb2.py \
-    ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
-  cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-genfiles/ml_metadata/proto/metadata_store_service_pb2.py \
-    ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
-  cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-genfiles/ml_metadata/proto/metadata_store_service_pb2_grpc.py \
-    ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
+
+  if _is_macos || _is_windows; then
+    cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-genfiles/ml_metadata/proto/metadata_store_pb2.py \
+      ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
+    cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-genfiles/ml_metadata/proto/metadata_store_service_pb2.py \
+      ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
+    cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-genfiles/ml_metadata/proto/metadata_store_service_pb2_grpc.py \
+      ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
+  else
+    cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-bin/ml_metadata/proto/metadata_store_pb2.py \
+      ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
+    cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-bin/ml_metadata/proto/metadata_store_service_pb2.py \
+      ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
+    cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-bin/ml_metadata/proto/metadata_store_service_pb2_grpc.py \
+      ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
+  fi
 
   if _is_windows; then
     cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-out/x64_windows-opt/genfiles/ml_metadata/metadata_store/_pywrap_tf_metadata_store_serialized.pyd \
