@@ -47,7 +47,7 @@ sudo docker-compose build ${DOCKER_SERVICE}
 sudo docker-compose run ${DOCKER_SERVICE}
 ```
 
-where `PY_VERSION` is one of `{35, 36, 37}`.
+where `PY_VERSION` is one of `{35, 36, 37, 38}`.
 
 A wheel will be produced under `dist/`, and installed as follows:
 
