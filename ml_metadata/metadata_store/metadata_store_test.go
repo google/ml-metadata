@@ -581,6 +581,81 @@ func TestPutAndGetArtifacts(t *testing.T) {
 	}
 }
 
+func TestPutArtifactAndGetArtifactByTypeAndName(t *testing.T) {
+	// prepare test data
+	store, err := NewStore(fakeDatabaseConfig())
+	if err != nil {
+		t.Fatalf("Cannot create Store: %v", err)
+	}
+	defer store.Close()
+	tid, err := insertArtifactType(store, `name: 'test_type_name'`)
+	if err != nil {
+		t.Fatalf("Cannot create artifact type: %v", err)
+	}
+	artifactName := "test_artifact"
+	artifactTypeName := "test_type_name"
+	uri := "/test/uri"
+	wantArtifact := &mdpb.Artifact{
+		TypeId: &tid,
+		Name:   &artifactName,
+		Uri:    &uri,
+	}
+	// insert 1 artifact
+	artifacts := []*mdpb.Artifact{wantArtifact}
+	aids, err := store.PutArtifacts(artifacts)
+	if err != nil {
+		t.Fatalf("PutArtifacts failed: %v", err)
+	}
+	if len(aids) != len(artifacts) {
+		t.Errorf("PutArtifacts number of artifacts mismatch, want: %v, got: %v", len(artifacts), len(aids))
+	}
+	waid := int64(aids[0])
+	wantArtifact.Id = &waid
+
+	// test GetArtifactByTypeAndName functionality
+	// query artifact by both type name and artifact name
+	gotStoredArtifact, err := store.GetArtifactByTypeAndName(artifactTypeName, artifactName)
+	if err != nil {
+		t.Fatalf("GetArtifactByTypeAndName failed: %v", err)
+	}
+	// skip comparing create/update timestamps
+	wantArtifact.CreateTimeSinceEpoch = gotStoredArtifact.CreateTimeSinceEpoch
+	wantArtifact.LastUpdateTimeSinceEpoch = gotStoredArtifact.LastUpdateTimeSinceEpoch
+	if !proto.Equal(wantArtifact, gotStoredArtifact) {
+		t.Errorf("GetArtifactByTypeAndName returned result is incorrect. want: %v, got: %v", wantArtifact, gotStoredArtifact)
+	}
+
+	// query artifact with either artifactTypeName or artifactName that doesn't exist
+	tests := []struct {
+		aname  string
+		atname string
+	}{
+		{
+			aname:  artifactName,
+			atname: "random_type_name",
+		},
+		{
+			aname:  "random_artifact_name",
+			atname: artifactTypeName,
+		},
+		{
+			aname:  "random_artifact_name",
+			atname: "random_type_name",
+		},
+	}
+
+	for _, tc := range tests {
+		gotEmptyArtifact, err := store.GetArtifactByTypeAndName(tc.atname, tc.aname)
+		if err != nil {
+			t.Errorf("GetArtifactByTypeAndName failed with input type name: %v, artifact name: %v and got error: %v", tc.atname, tc.aname, err)
+			continue
+		}
+		if gotEmptyArtifact != nil {
+			t.Errorf("GetArtifactByTypeAndName returned result is incorrect. want: %v, got: %v. Input type name: %v, artifact name: %v", nil, gotEmptyArtifact, tc.atname, tc.aname)
+		}
+	}
+}
+
 func insertExecutionType(s *Store, textType string) (int64, error) {
 	rst := &mdpb.ExecutionType{}
 	if err := proto.UnmarshalText(textType, rst); err != nil {

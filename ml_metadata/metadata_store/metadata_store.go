@@ -526,6 +526,18 @@ func (store *Store) GetArtifactsByType(typeName string) ([]*mdpb.Artifact, error
 	return resp.GetArtifacts(), err
 }
 
+// GetArtifactByTypeAndName gets the artifact of a given type and artifact name.
+// It returns an error if the query execution fails.
+func (store *Store) GetArtifactByTypeAndName(typeName, artifactName string) (*mdpb.Artifact, error) {
+	req := &apipb.GetArtifactByTypeAndNameRequest{
+		TypeName:     proto.String(typeName),
+		ArtifactName: proto.String(artifactName),
+	}
+	resp := &apipb.GetArtifactByTypeAndNameResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetArtifactByTypeAndName, req, resp)
+	return resp.GetArtifact(), err
+}
+
 // GetArtifactsByURI gets all artifacts of a given uri.
 // It returns an error if the query execution fails.
 func (store *Store) GetArtifactsByURI(uri string) ([]*mdpb.Artifact, error) {

@@ -14,6 +14,7 @@
     (custom)properties.
 *   Allows building python wheel using py3.8
 *   Disables incompatible Golang BUILD targets temporarily.
+*   Support GetArtifactByTypeAndName Go API
 
 ## Breaking Changes
 
