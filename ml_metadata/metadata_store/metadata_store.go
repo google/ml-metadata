@@ -569,6 +569,18 @@ func (store *Store) GetExecutionsByType(typeName string) ([]*mdpb.Execution, err
 	return resp.GetExecutions(), err
 }
 
+// GetExecutionByTypeAndName gets the execution of a given type and execution name.
+// It returns an error if the query execution fails.
+func (store *Store) GetExecutionByTypeAndName(typeName string, executionName string) (*mdpb.Execution, error) {
+	req := &apipb.GetExecutionByTypeAndNameRequest{
+		TypeName:      proto.String(typeName),
+		ExecutionName: proto.String(executionName),
+	}
+	resp := &apipb.GetExecutionByTypeAndNameResponse{}
+	err := store.callMetadataStoreWrapMethod(wrap.GetExecutionByTypeAndName, req, resp)
+	return resp.GetExecution(), err
+}
+
 // GetContexts gets all contexts.
 // It returns an error if the query execution fails.
 func (store *Store) GetContexts() ([]*mdpb.Context, error) {

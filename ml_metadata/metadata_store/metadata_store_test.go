@@ -773,6 +773,79 @@ func TestPutAndGetExecutions(t *testing.T) {
 	}
 }
 
+func TestPutExecutionAndGetExecutionByTypeAndName(t *testing.T) {
+	// prepare test data
+	store, err := NewStore(fakeDatabaseConfig())
+	if err != nil {
+		t.Fatalf("Cannot create Store: %v", err)
+	}
+	defer store.Close()
+	tid, err := insertExecutionType(store, `name: 'test_type_name'`)
+	if err != nil {
+		t.Fatalf("Cannot create execution type: %v", err)
+	}
+	executionName := "test_execution"
+	executionTypeName := "test_type_name"
+	wantExecution := &mdpb.Execution{
+		TypeId: &tid,
+		Name:   &executionName,
+	}
+	// insert 1 execution
+	executions := make([]*mdpb.Execution, 1)
+	executions[0] = wantExecution
+	cids, err := store.PutExecutions(executions)
+	if err != nil {
+		t.Fatalf("PutExecutions failed: %v", err)
+	}
+	if len(cids) != len(executions) {
+		t.Errorf("PutExecutions number of executions mismatch, got: %v, want: %v", len(executions), len(cids))
+	}
+	wcid := int64(cids[0])
+	wantExecution.Id = &wcid
+
+	// test GetExecutionByTypeAndName functionality
+	// query execution by both type name and execution name
+	gotStoredExecution, err := store.GetExecutionByTypeAndName(executionTypeName, executionName)
+	if err != nil {
+		t.Fatalf("GetExecutionByTypeAndName failed: %v", err)
+	}
+	// skip comparing create/update timestamps
+	wantExecution.CreateTimeSinceEpoch = gotStoredExecution.CreateTimeSinceEpoch
+	wantExecution.LastUpdateTimeSinceEpoch = gotStoredExecution.LastUpdateTimeSinceEpoch
+	if !proto.Equal(wantExecution, gotStoredExecution) {
+		t.Errorf("GetExecutionByTypeAndName returned result is incorrect. got: %v, want: %v", gotStoredExecution, wantExecution)
+	}
+
+	// query execution with either executionTypeName or executionName that doesn't exist
+	tests := []struct {
+		cname  string
+		ctname string
+	}{
+		{
+			cname:  executionName,
+			ctname: "random_type_name",
+		},
+		{
+			cname:  "random_execution_name",
+			ctname: executionTypeName,
+		},
+		{
+			cname:  "random_execution_name",
+			ctname: "random_type_name",
+		},
+	}
+
+	for _, tc := range tests {
+		gotEmptyExecution, err := store.GetExecutionByTypeAndName(tc.ctname, tc.cname)
+		if err != nil {
+			t.Fatalf("GetExecutionByTypeAndName failed: %v", err)
+		}
+		if gotEmptyExecution != nil {
+			t.Errorf("GetExecutionByTypeAndName returned result is incorrect. got: %v, want: %v", gotEmptyExecution, nil)
+		}
+	}
+}
+
 func insertContextType(s *Store, textType string) (int64, error) {
 	rst := &mdpb.ContextType{}
 	if err := proto.UnmarshalText(textType, rst); err != nil {
