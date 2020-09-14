@@ -567,6 +567,13 @@ message ConnectionConfig {
   optional RetryOptions retry_options = 4;
 }
 
+// A list of supported GRPC arguments defined in:
+// https://grpc.github.io/grpc/core/group__grpc__arg__keys.html
+message GrpcChannelArguments {
+  // Maximum message length in bytes per response that the channel can receive.
+  optional int64 max_receive_message_length = 1;
+}
+
 // Configuration for the gRPC metadata store client.
 message MetadataStoreClientConfig {
   // The hostname or IP address of the gRPC server. Must be specified.
@@ -590,6 +597,9 @@ message MetadataStoreClientConfig {
   // Configuration for a secure gRPC channel.
   // If not given, insecure connection is used.
   optional SSLConfig ssl_config = 3;
+
+  // GRPC channel creation arguments.
+  optional GrpcChannelArguments channel_arguments = 4;
 }
 
 // Configuration for the gRPC metadata store server.

@@ -41,9 +41,12 @@ flags.DEFINE_integer(
     "The gRPC port number to use when use_grpc_backed is set to 'True'")
 
 
-def _get_metadata_store():
+def _get_metadata_store(grpc_max_receive_message_length=None):
   if FLAGS.use_grpc_backend:
     grpc_connection_config = metadata_store_pb2.MetadataStoreClientConfig()
+    if grpc_max_receive_message_length:
+      (grpc_connection_config.channel_arguments.max_receive_message_length
+      ) = grpc_max_receive_message_length
     if FLAGS.grpc_host is None:
       raise ValueError("grpc_host argument not set.")
     grpc_connection_config.host = FLAGS.grpc_host
@@ -132,6 +135,32 @@ class MetadataStoreTest(absltest.TestCase):
     connection_config.retry_options.max_num_retries = want_num_retries
     store = metadata_store.MetadataStore(connection_config)
     self.assertEqual(store._max_num_retries, want_num_retries)
+
+  def test_connection_config_with_grpc_max_receive_message_length(self):
+    # The test is irrelevant when not using grpc connection.
+    if not FLAGS.use_grpc_backend:
+      return
+    # Set max_receive_message_length to 100. The returned artifact type is
+    # less than 100 bytes.
+    artifact_type_name = self._get_test_type_name()
+    artifact_type = _create_example_artifact_type(artifact_type_name)
+    self.assertLess(artifact_type.ByteSize(), 100)
+    store = _get_metadata_store(grpc_max_receive_message_length=100)
+    store.put_artifact_type(artifact_type)
+    _ = store.get_artifact_types()
+
+  def test_connection_config_with_grpc_max_receive_message_length_errors(self):
+    # The test is irrelevant when not using grpc connection.
+    if not FLAGS.use_grpc_backend:
+      return
+    # Set max_receive_message_length to 1. The client should raise
+    # ResourceExhaustedError as the returned artifact type is more than 1 byte.
+    store = _get_metadata_store(grpc_max_receive_message_length=1)
+    artifact_type_name = self._get_test_type_name()
+    artifact_type = _create_example_artifact_type(artifact_type_name)
+    with self.assertRaises(errors.ResourceExhaustedError):
+      store.put_artifact_type(artifact_type)
+      _ = store.get_artifact_types()
 
   def test_put_artifact_type_get_artifact_type(self):
     store = _get_metadata_store()

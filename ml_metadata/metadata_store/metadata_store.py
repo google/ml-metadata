@@ -100,8 +100,14 @@ class MetadataStore(object):
     """
     target = ':'.join([config.host, str(config.port)])
 
+    options = None
+    if (config.HasField('channel_arguments') and
+        config.channel_arguments.HasField('max_receive_message_length')):
+      options = [('grpc.max_receive_message_length',
+                  config.channel_arguments.max_receive_message_length)]
+
     if not config.HasField('ssl_config'):
-      return grpc.insecure_channel(target)
+      return grpc.insecure_channel(target, options=options)
 
     root_certificates = None
     private_key = None
@@ -116,7 +122,7 @@ class MetadataStore(object):
           str(config.ssl_config.server_cert).encode('ascii'))
     credentials = grpc.ssl_channel_credentials(root_certificates, private_key,
                                                certificate_chain)
-    return grpc.secure_channel(target, credentials)
+    return grpc.secure_channel(target, credentials, options=options)
 
   def __del__(self):
     if self._using_db_connection and hasattr(self, '_metadata_store'):

@@ -2,10 +2,13 @@
 
 ## Major Features and Improvements
 
+*   Improves building wheels from source with `setup.py`.
+*   Supports configure GRPC options `max_receive_message_length` from the python
+    client.
+
 ## Bug Fixes and Other Changes
 
 *   Adds `grpcio` as py client dependency.
-*   Improves building wheels from source with `setup.py`.
 *   Replaces the C++ MOCK_METHOD`<n>` family of macros with the new MOCK_METHOD
 *   Updates node's `last_update_time_since_epoch` when changing
     (custom)properties.
