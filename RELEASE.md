@@ -5,6 +5,7 @@
 *   Improves building wheels from source with `setup.py`.
 *   Supports configure GRPC options `max_receive_message_length` from the python
     client.
+*   Adds python 3.8 support.
 
 ## Bug Fixes and Other Changes
 
@@ -12,7 +13,6 @@
 *   Replaces the C++ MOCK_METHOD`<n>` family of macros with the new MOCK_METHOD
 *   Updates node's `last_update_time_since_epoch` when changing
     (custom)properties.
-*   Allows building python wheel using py3.8
 *   Disables incompatible Golang BUILD targets temporarily.
 *   Support GetArtifactByTypeAndName, GetExecutionByTypeAndName,
     GetContextByTypeAndName Go API
@@ -20,6 +20,8 @@
 ## Breaking Changes
 
 ## Deprecations
+
+*   Deprecated py3.5 support
 
 # Release 0.23.0
 

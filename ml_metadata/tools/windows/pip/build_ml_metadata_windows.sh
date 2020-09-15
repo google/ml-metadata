@@ -130,6 +130,7 @@ fi
 pip install setuptools --upgrade
 pip install wheel --upgrade
 pip install twine --upgrade
+pip install numpy --upgrade
 # There's a tensorflow bazel rule that executes a small piece of code
 # (https://github.com/tensorflow/tensorflow/blob/b36436b087bd8e8701ef51718179037cccdfc26e/third_party/py/python_configure.bzl#L150)
 # to determine the path to python headers and that code doesn't work with
