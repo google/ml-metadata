@@ -1,4 +1,4 @@
-# Current version (not yet released; still in development)
+# Release 0.24.0
 
 ## Major Features and Improvements
 
@@ -18,6 +18,8 @@
     GetContextByTypeAndName Go API
 
 ## Breaking Changes
+
+*   N/A
 
 ## Deprecations
 
