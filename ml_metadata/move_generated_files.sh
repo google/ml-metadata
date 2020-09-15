@@ -30,21 +30,23 @@ function mlmd::move_generated_files() {
   cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-bin/ml_metadata/metadata_store/pywrap_tf_metadata_store_serialized.py \
     ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/metadata_store
 
-  if _is_macos || _is_windows; then
-    cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-genfiles/ml_metadata/proto/metadata_store_pb2.py \
-      ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
-    cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-genfiles/ml_metadata/proto/metadata_store_service_pb2.py \
-      ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
-    cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-genfiles/ml_metadata/proto/metadata_store_service_pb2_grpc.py \
-      ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
+  # Newer bazel does not create bazel-genfiles any more (see
+  # https://github.com/bazelbuild/bazel/issues/6761). It's merged with
+  # bazel-bin after Bazel 0.25.0. Latest bazel doesn't provide bazel-genfiles
+  # symlink anymore, so if the symlink directory doesnt' exist, use bazel-bin.
+  local bazel_genfiles
+  if [[ -d "${BUILD_WORKSPACE_DIRECTORY}/bazel-genfiles" ]]; then
+    bazel_genfiles="bazel-genfiles"
   else
-    cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-bin/ml_metadata/proto/metadata_store_pb2.py \
-      ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
-    cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-bin/ml_metadata/proto/metadata_store_service_pb2.py \
-      ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
-    cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-bin/ml_metadata/proto/metadata_store_service_pb2_grpc.py \
-      ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
+    bazel_genfiles="bazel-bin"
   fi
+
+  cp -f ${BUILD_WORKSPACE_DIRECTORY}/${bazel_genfiles}/ml_metadata/proto/metadata_store_pb2.py \
+    ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
+  cp -f ${BUILD_WORKSPACE_DIRECTORY}/${bazel_genfiles}/ml_metadata/proto/metadata_store_service_pb2.py \
+    ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
+  cp -f ${BUILD_WORKSPACE_DIRECTORY}/${bazel_genfiles}/ml_metadata/proto/metadata_store_service_pb2_grpc.py \
+    ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
 
   if _is_windows; then
     cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-out/x64_windows-opt/genfiles/ml_metadata/metadata_store/_pywrap_tf_metadata_store_serialized.pyd \
