@@ -27,6 +27,7 @@ namespace ml_metadata {
 namespace testing {
 namespace {
 
+using ::ml_metadata::testing::EqualsProto;
 using ::ml_metadata::testing::ParseTextProtoOrDie;
 using ::testing::ElementsAre;
 using ::testing::IsEmpty;
@@ -134,7 +135,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypesGetArtifactTypes) {
   GetArtifactTypesResponse want_response;
   *want_response.add_artifact_types() = type_1;
   *want_response.add_artifact_types() = type_2;
-  EXPECT_THAT(got_response, testing::EqualsProto(want_response));
+  EXPECT_THAT(got_response, EqualsProto(want_response));
 }
 
 TEST_P(MetadataStoreTestSuite, GetArtifactTypesWhenNoneExist) {
@@ -144,7 +145,7 @@ TEST_P(MetadataStoreTestSuite, GetArtifactTypesWhenNoneExist) {
   // Expect OK status and empty response.
   TF_ASSERT_OK(metadata_store_->GetArtifactTypes(get_request, &got_response));
   const GetArtifactTypesResponse want_response;
-  EXPECT_THAT(got_response, testing::EqualsProto(want_response));
+  EXPECT_THAT(got_response, EqualsProto(want_response));
 }
 
 // Create an artifact, then try to create it again with an added property.
@@ -403,7 +404,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeGetArtifactTypesByID) {
       << "Type ID should be the same as the type created.";
   ArtifactType expected_result = put_request.artifact_type();
   expected_result.set_id(put_response.type_id());
-  EXPECT_THAT(result, testing::EqualsProto(expected_result))
+  EXPECT_THAT(result, EqualsProto(expected_result))
       << "The type should be the same as the one given.";
 }
 
@@ -460,9 +461,9 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeGetArtifactTypesByIDTwo) {
   expected_result_1.set_id(put_response_1.type_id());
   expected_result_2.set_id(put_response_2.type_id());
 
-  EXPECT_THAT(result_1, testing::EqualsProto(expected_result_1))
+  EXPECT_THAT(result_1, EqualsProto(expected_result_1))
       << "Type ID should be the same as the type created.";
-  EXPECT_THAT(result_2, testing::EqualsProto(expected_result_2))
+  EXPECT_THAT(result_2, EqualsProto(expected_result_2))
       << "The name should be the same as the one returned.";
 }
 
@@ -490,7 +491,7 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypeGetExecutionTypesByID) {
       << "Type ID should be the same as the type created.";
   ExecutionType expected_result = put_request.execution_type();
   expected_result.set_id(put_response.type_id());
-  EXPECT_THAT(result, testing::EqualsProto(expected_result))
+  EXPECT_THAT(result, EqualsProto(expected_result))
       << "The type should be the same as the one given.";
 }
 
@@ -547,9 +548,9 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypeGetExecutionTypesByIDTwo) {
   expected_result_1.set_id(put_response_1.type_id());
   expected_result_2.set_id(put_response_2.type_id());
 
-  EXPECT_THAT(result_1, testing::EqualsProto(expected_result_1))
+  EXPECT_THAT(result_1, EqualsProto(expected_result_1))
       << "Type ID should be the same as the type created.";
-  EXPECT_THAT(result_2, testing::EqualsProto(expected_result_2))
+  EXPECT_THAT(result_2, EqualsProto(expected_result_2))
       << "The name should be the same as the one returned.";
 }
 
@@ -593,11 +594,10 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {
   TF_ASSERT_OK(metadata_store_->GetArtifactsByID(
       get_artifacts_by_id_request, &get_artifacts_by_id_response));
   ASSERT_THAT(get_artifacts_by_id_response.artifacts(), SizeIs(1));
-  EXPECT_THAT(
-      get_artifacts_by_id_response.artifacts(0),
-      testing::EqualsProto(put_artifacts_request.artifacts(0),
-                           /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                              "last_update_time_since_epoch"}));
+  EXPECT_THAT(get_artifacts_by_id_response.artifacts(0),
+              EqualsProto(put_artifacts_request.artifacts(0),
+                          /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
 }
 
 // Test creating an artifact and then updating one of its properties.
@@ -659,11 +659,10 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsUpdateGetArtifactsByID) {
   TF_ASSERT_OK(metadata_store_->GetArtifactsByID(
       get_artifacts_by_id_request, &get_artifacts_by_id_response));
   ASSERT_THAT(get_artifacts_by_id_response.artifacts(), SizeIs(1));
-  EXPECT_THAT(
-      get_artifacts_by_id_response.artifacts(0),
-      testing::EqualsProto(put_artifacts_request_2.artifacts(0),
-                           /*ignore_fields=*/{"create_time_since_epoch",
-                                              "last_update_time_since_epoch"}));
+  EXPECT_THAT(get_artifacts_by_id_response.artifacts(0),
+              EqualsProto(put_artifacts_request_2.artifacts(0),
+                          /*ignore_fields=*/{"create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
 }
 
 TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithListOptions) {
@@ -721,11 +720,10 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithListOptions) {
   EXPECT_THAT(get_artifacts_response.next_page_token(), Not(IsEmpty()));
   EXPECT_EQ(get_artifacts_response.artifacts(0).id(), second_artifact_id);
 
-  EXPECT_THAT(
-      get_artifacts_response.artifacts(0),
-      testing::EqualsProto(put_artifacts_request.artifacts(1),
-                           /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                              "last_update_time_since_epoch"}));
+  EXPECT_THAT(get_artifacts_response.artifacts(0),
+              EqualsProto(put_artifacts_request.artifacts(1),
+                          /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
 
   list_options.set_next_page_token(get_artifacts_response.next_page_token());
   *get_artifacts_request.mutable_options() = list_options;
@@ -734,11 +732,10 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithListOptions) {
   EXPECT_THAT(get_artifacts_response.artifacts(), SizeIs(1));
   EXPECT_THAT(get_artifacts_response.next_page_token(), IsEmpty());
   EXPECT_EQ(get_artifacts_response.artifacts(0).id(), first_artifact_id);
-  EXPECT_THAT(
-      get_artifacts_response.artifacts(0),
-      testing::EqualsProto(put_artifacts_request.artifacts(0),
-                           /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                              "last_update_time_since_epoch"}));
+  EXPECT_THAT(get_artifacts_response.artifacts(0),
+              EqualsProto(put_artifacts_request.artifacts(0),
+                          /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
 }
 
 // Test creating an execution and then updating one of its properties.
@@ -799,11 +796,10 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsUpdateGetExecutionsByID) {
   TF_ASSERT_OK(metadata_store_->GetExecutionsByID(
       get_executions_by_id_request, &get_executions_by_id_response));
 
-  EXPECT_THAT(
-      get_executions_by_id_response.executions(0),
-      testing::EqualsProto(put_executions_request_2.executions(0),
-                           /*ignore_fields=*/{"create_time_since_epoch",
-                                              "last_update_time_since_epoch"}));
+  EXPECT_THAT(get_executions_by_id_response.executions(0),
+              EqualsProto(put_executions_request_2.executions(0),
+                          /*ignore_fields=*/{"create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
 }
 
 TEST_P(MetadataStoreTestSuite, PutExecutionTypeGetExecutionType) {
@@ -828,7 +824,7 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypeGetExecutionType) {
   TF_ASSERT_OK(metadata_store_->GetExecutionType(get_request, &get_response));
   ExecutionType expected = put_request.execution_type();
   expected.set_id(put_response.type_id());
-  EXPECT_THAT(get_response.execution_type(), testing::EqualsProto(expected));
+  EXPECT_THAT(get_response.execution_type(), EqualsProto(expected));
 }
 
 TEST_P(MetadataStoreTestSuite, PutExecutionTypesGetExecutionTypes) {
@@ -875,7 +871,7 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypesGetExecutionTypes) {
   GetExecutionTypesResponse want_response;
   *want_response.add_execution_types() = type_1;
   *want_response.add_execution_types() = type_2;
-  EXPECT_THAT(got_response, testing::EqualsProto(want_response));
+  EXPECT_THAT(got_response, EqualsProto(want_response));
 }
 
 TEST_P(MetadataStoreTestSuite, GetExecutionTypesWhenNoneExist) {
@@ -885,7 +881,7 @@ TEST_P(MetadataStoreTestSuite, GetExecutionTypesWhenNoneExist) {
   // Expect OK status and empty response.
   TF_ASSERT_OK(metadata_store_->GetExecutionTypes(get_request, &got_response));
   const GetExecutionTypesResponse want_response;
-  EXPECT_THAT(got_response, testing::EqualsProto(want_response));
+  EXPECT_THAT(got_response, EqualsProto(want_response));
 }
 
 TEST_P(MetadataStoreTestSuite, PutExecutionTypeTwiceChangedPropertyType) {
@@ -1032,12 +1028,11 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionByID) {
   ASSERT_THAT(get_executions_by_id_response.executions(), SizeIs(2));
   EXPECT_THAT(
       get_executions_by_id_response.executions(),
-      ElementsAre(testing::EqualsProto(
-                      put_executions_request.executions(0),
+      ElementsAre(
+          EqualsProto(put_executions_request.executions(0),
                       /*ignore_fields=*/{"id", "create_time_since_epoch",
                                          "last_update_time_since_epoch"}),
-                  testing::EqualsProto(
-                      put_executions_request.executions(1),
+          EqualsProto(put_executions_request.executions(1),
                       /*ignore_fields=*/{"id", "create_time_since_epoch",
                                          "last_update_time_since_epoch"})));
 }
@@ -1072,11 +1067,10 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithEmptyExecution) {
   TF_ASSERT_OK(metadata_store_->GetExecutions(get_executions_request,
                                               &get_executions_response));
   ASSERT_THAT(get_executions_response.executions(), SizeIs(1));
-  EXPECT_THAT(
-      get_executions_response.executions(0),
-      testing::EqualsProto(put_executions_request.executions(0),
-                           /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                              "last_update_time_since_epoch"}));
+  EXPECT_THAT(get_executions_response.executions(0),
+              EqualsProto(put_executions_request.executions(0),
+                          /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
 
   GetExecutionsByTypeRequest get_executions_by_type_request;
   GetExecutionsByTypeResponse get_executions_by_type_response;
@@ -1151,11 +1145,10 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithListOptions) {
   EXPECT_THAT(get_executions_response.next_page_token(), Not(IsEmpty()));
   EXPECT_EQ(get_executions_response.executions(0).id(), execution_id_1);
 
-  EXPECT_THAT(
-      get_executions_response.executions(0),
-      testing::EqualsProto(put_executions_request.executions(1),
-                           /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                              "last_update_time_since_epoch"}));
+  EXPECT_THAT(get_executions_response.executions(0),
+              EqualsProto(put_executions_request.executions(1),
+                          /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
 
   list_options.set_next_page_token(get_executions_response.next_page_token());
   *get_executions_request.mutable_options() = list_options;
@@ -1164,11 +1157,10 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithListOptions) {
   EXPECT_THAT(get_executions_response.executions(), SizeIs(1));
   EXPECT_THAT(get_executions_response.next_page_token(), IsEmpty());
   EXPECT_EQ(get_executions_response.executions(0).id(), execution_id_0);
-  EXPECT_THAT(
-      get_executions_response.executions(0),
-      testing::EqualsProto(put_executions_request.executions(0),
-                           /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                              "last_update_time_since_epoch"}));
+  EXPECT_THAT(get_executions_response.executions(0),
+              EqualsProto(put_executions_request.executions(0),
+                          /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
 }
 
 TEST_P(MetadataStoreTestSuite,
@@ -1586,7 +1578,7 @@ TEST_P(MetadataStoreTestSuite, PutTypesUpdateTypes) {
   ArtifactType want_artifact_type = update_request.artifact_types(0);
   want_artifact_type.set_id(update_response.artifact_type_ids(0));
   EXPECT_THAT(get_artifact_type_response.artifact_type(),
-              testing::EqualsProto(want_artifact_type));
+              EqualsProto(want_artifact_type));
 }
 
 TEST_P(MetadataStoreTestSuite, PutAndGetExecution) {
@@ -1675,13 +1667,13 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecution) {
                                              &get_artifacts_response));
   ASSERT_THAT(get_artifacts_response.artifacts(), SizeIs(2));
   EXPECT_THAT(get_artifacts_response.artifacts(0),
-              testing::EqualsProto(artifact_1, /*ignore_fields=*/{
-                                       "create_time_since_epoch",
-                                       "last_update_time_since_epoch"}));
+              EqualsProto(artifact_1,
+                          /*ignore_fields=*/{"create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
   EXPECT_THAT(get_artifacts_response.artifacts(1),
-              testing::EqualsProto(artifact_2, /*ignore_fields=*/{
-                                       "create_time_since_epoch",
-                                       "last_update_time_since_epoch"}));
+              EqualsProto(artifact_2,
+                          /*ignore_fields=*/{"create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
 
   GetExecutionsRequest get_executions_request;
   GetExecutionsResponse get_executions_response;
@@ -1689,9 +1681,9 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecution) {
                                               &get_executions_response));
   ASSERT_THAT(get_executions_response.executions(), SizeIs(1));
   EXPECT_THAT(get_executions_response.executions(0),
-              testing::EqualsProto(execution, /*ignore_fields=*/{
-                                       "create_time_since_epoch",
-                                       "last_update_time_since_epoch"}));
+              EqualsProto(execution,
+                          /*ignore_fields=*/{"create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
   GetEventsByExecutionIDsRequest get_events_request;
   get_events_request.add_execution_ids(execution.id());
   GetEventsByExecutionIDsResponse get_events_response;
@@ -1746,12 +1738,12 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContext) {
   EXPECT_THAT(
       get_contexts_response.contexts(),
       ElementsAre(
-          testing::EqualsProto(
-              context1, /*ignore_fields=*/{"create_time_since_epoch",
-                                           "last_update_time_since_epoch"}),
-          testing::EqualsProto(
-              context2, /*ignore_fields=*/{"create_time_since_epoch",
-                                           "last_update_time_since_epoch"})));
+          EqualsProto(context1,
+                      /*ignore_fields=*/{"create_time_since_epoch",
+                                         "last_update_time_since_epoch"}),
+          EqualsProto(context2,
+                      /*ignore_fields=*/{"create_time_since_epoch",
+                                         "last_update_time_since_epoch"})));
 
   // check attributions and associations of each context.
   for (const int64 context_id : put_execution_response.context_ids()) {
@@ -1844,7 +1836,7 @@ TEST_P(MetadataStoreTestSuite, PutContextTypesGetContextTypes) {
   GetContextTypesResponse want_response;
   *want_response.add_context_types() = type_1;
   *want_response.add_context_types() = type_2;
-  EXPECT_THAT(got_response, testing::EqualsProto(want_response));
+  EXPECT_THAT(got_response, EqualsProto(want_response));
 }
 
 TEST_P(MetadataStoreTestSuite, GetContextTypesWhenNoneExist) {
@@ -1854,7 +1846,7 @@ TEST_P(MetadataStoreTestSuite, GetContextTypesWhenNoneExist) {
   // Expect OK status and empty response.
   TF_ASSERT_OK(metadata_store_->GetContextTypes(get_request, &got_response));
   const GetContextTypesResponse want_response;
-  EXPECT_THAT(got_response, testing::EqualsProto(want_response));
+  EXPECT_THAT(got_response, EqualsProto(want_response));
 }
 
 TEST_P(MetadataStoreTestSuite, PutContextTypeGetContextTypesByID) {
@@ -1884,7 +1876,7 @@ TEST_P(MetadataStoreTestSuite, PutContextTypeGetContextTypesByID) {
       << "Type ID should be the same as the type created.";
   ContextType expected_result = put_request.context_type();
   expected_result.set_id(put_response.type_id());
-  EXPECT_THAT(result, testing::EqualsProto(expected_result))
+  EXPECT_THAT(result, EqualsProto(expected_result))
       << "The type should be the same as the one given.";
 }
 
@@ -1907,7 +1899,10 @@ TEST_P(MetadataStoreTestSuite, PutContextsGetContextsWithListOptions) {
 
   Context context = ParseTextProtoOrDie<Context>(R"(
     name: 'test_type_1'
-    properties { key: 'property_1' value: { string_value: '3' } }
+    properties {
+      key: 'property_1'
+      value: { string_value: '3' }
+    }
   )");
 
   context.set_type_id(type_id);
@@ -1941,11 +1936,10 @@ TEST_P(MetadataStoreTestSuite, PutContextsGetContextsWithListOptions) {
   EXPECT_THAT(get_contexts_response.next_page_token(), Not(IsEmpty()));
   EXPECT_EQ(get_contexts_response.contexts(0).id(), context_id_1);
 
-  EXPECT_THAT(
-      get_contexts_response.contexts(0),
-      testing::EqualsProto(put_contexts_request.contexts(1),
-                           /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                              "last_update_time_since_epoch"}));
+  EXPECT_THAT(get_contexts_response.contexts(0),
+              EqualsProto(put_contexts_request.contexts(1),
+                          /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
 
   list_options.set_next_page_token(get_contexts_response.next_page_token());
   *get_contexts_request.mutable_options() = list_options;
@@ -1954,11 +1948,10 @@ TEST_P(MetadataStoreTestSuite, PutContextsGetContextsWithListOptions) {
   EXPECT_THAT(get_contexts_response.contexts(), SizeIs(1));
   EXPECT_THAT(get_contexts_response.next_page_token(), IsEmpty());
   EXPECT_EQ(get_contexts_response.contexts(0).id(), context_id_0);
-  EXPECT_THAT(
-      get_contexts_response.contexts(0),
-      testing::EqualsProto(put_contexts_request.contexts(0),
-                           /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                              "last_update_time_since_epoch"}));
+  EXPECT_THAT(get_contexts_response.contexts(0),
+              EqualsProto(put_contexts_request.contexts(0),
+                          /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
 }
 
 TEST_P(MetadataStoreTestSuite, PutContextTypeUpsert) {
@@ -2149,9 +2142,9 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
                                                 &get_contexts_by_id_response));
   ASSERT_THAT(get_contexts_by_id_response.contexts(), SizeIs(1));
   EXPECT_THAT(get_contexts_by_id_response.contexts(0),
-              testing::EqualsProto(want_context1, /*ignore_fields=*/{
-                                       "create_time_since_epoch",
-                                       "last_update_time_since_epoch"}));
+              EqualsProto(want_context1,
+                          /*ignore_fields=*/{"create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
   GetContextsByTypeRequest get_contexts_by_type_request;
   get_contexts_by_type_request.set_type_name("type2_name");
   GetContextsByTypeResponse get_contexts_by_type_response;
@@ -2159,9 +2152,9 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
       get_contexts_by_type_request, &get_contexts_by_type_response));
   ASSERT_THAT(get_contexts_by_type_response.contexts(), SizeIs(1));
   EXPECT_THAT(get_contexts_by_type_response.contexts(0),
-              testing::EqualsProto(want_context3, /*ignore_fields=*/{
-                                       "create_time_since_epoch",
-                                       "last_update_time_since_epoch"}));
+              EqualsProto(want_context3,
+                          /*ignore_fields=*/{"create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
 
   GetContextsRequest get_contexts_request;
   GetContextsResponse get_contexts_response;
@@ -2169,17 +2162,17 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
                                             &get_contexts_response));
   ASSERT_THAT(get_contexts_response.contexts(), SizeIs(3));
   EXPECT_THAT(get_contexts_response.contexts(0),
-              testing::EqualsProto(want_context1, /*ignore_fields=*/{
-                                       "create_time_since_epoch",
-                                       "last_update_time_since_epoch"}));
+              EqualsProto(want_context1,
+                          /*ignore_fields=*/{"create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
   EXPECT_THAT(get_contexts_response.contexts(1),
-              testing::EqualsProto(want_context2, /*ignore_fields=*/{
-                                       "create_time_since_epoch",
-                                       "last_update_time_since_epoch"}));
+              EqualsProto(want_context2,
+                          /*ignore_fields=*/{"create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
   EXPECT_THAT(get_contexts_response.contexts(2),
-              testing::EqualsProto(want_context3, /*ignore_fields=*/{
-                                       "create_time_since_epoch",
-                                       "last_update_time_since_epoch"}));
+              EqualsProto(want_context3,
+                          /*ignore_fields=*/{"create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
 }
 
 // Test creating a context and then getting it by its type and context name.
@@ -2221,9 +2214,9 @@ TEST_P(MetadataStoreTestSuite, PutContextGetContextsByTypeAndName) {
       &get_context_by_type_and_name_response));
   ASSERT_TRUE(get_context_by_type_and_name_response.has_context());
   EXPECT_THAT(get_context_by_type_and_name_response.context(),
-              testing::EqualsProto(want_context1, /*ignore_fields=*/{
-                                       "create_time_since_epoch",
-                                       "last_update_time_since_epoch"}));
+              EqualsProto(want_context1,
+                          /*ignore_fields=*/{"create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
 
   // Test that no context is found given the input type and name.
   GetContextByTypeAndNameRequest get_no_context_by_type_and_name_request;
@@ -2310,9 +2303,9 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
       get_contexts_by_artifact_request, &get_contexts_by_artifact_response));
   ASSERT_THAT(get_contexts_by_artifact_response.contexts(), SizeIs(1));
   EXPECT_THAT(get_contexts_by_artifact_response.contexts(0),
-              testing::EqualsProto(want_context, /*ignore_fields=*/{
-                                       "create_time_since_epoch",
-                                       "last_update_time_since_epoch"}));
+              EqualsProto(want_context,
+                          /*ignore_fields=*/{"create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
 
   GetArtifactsByContextRequest get_artifacts_by_context_request;
   get_artifacts_by_context_request.set_context_id(want_context.id());
@@ -2321,9 +2314,9 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
       get_artifacts_by_context_request, &get_artifacts_by_context_response));
   ASSERT_THAT(get_artifacts_by_context_response.artifacts(), SizeIs(1));
   EXPECT_THAT(get_artifacts_by_context_response.artifacts(0),
-              testing::EqualsProto(want_artifact, /*ignore_fields=*/{
-                                       "create_time_since_epoch",
-                                       "last_update_time_since_epoch"}));
+              EqualsProto(want_artifact,
+                          /*ignore_fields=*/{"create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
 
   // append the association and reinsert the existing attribution.
   Association* association = request.add_associations();
@@ -2339,9 +2332,9 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
       get_contexts_by_execution_request, &get_contexts_by_execution_response));
   ASSERT_THAT(get_contexts_by_execution_response.contexts(), SizeIs(1));
   EXPECT_THAT(get_contexts_by_execution_response.contexts(0),
-              testing::EqualsProto(want_context, /*ignore_fields=*/{
-                                       "create_time_since_epoch",
-                                       "last_update_time_since_epoch"}));
+              EqualsProto(want_context,
+                          /*ignore_fields=*/{"create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
 
   GetExecutionsByContextRequest get_executions_by_context_request;
   get_executions_by_context_request.set_context_id(want_context.id());
@@ -2350,9 +2343,9 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
       get_executions_by_context_request, &get_executions_by_context_response));
   ASSERT_THAT(get_executions_by_context_response.executions(), SizeIs(1));
   EXPECT_THAT(get_executions_by_context_response.executions(0),
-              testing::EqualsProto(want_execution, /*ignore_fields=*/{
-                                       "create_time_since_epoch",
-                                       "last_update_time_since_epoch"}));
+              EqualsProto(want_execution,
+                          /*ignore_fields=*/{"create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
 
   // Add another artifact.
   Artifact want_artifact_2;
@@ -2380,15 +2373,15 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   TF_EXPECT_OK(metadata_store_->GetArtifactsByContext(
       get_artifacts_by_context_request, &get_artifacts_by_context_response_2));
   ASSERT_THAT(get_artifacts_by_context_response_2.artifacts(), SizeIs(2));
-  EXPECT_THAT(get_artifacts_by_context_response_2.artifacts(),
-              UnorderedElementsAre(
-                  testing::EqualsProto(
-                      want_artifact,
+  EXPECT_THAT(
+      get_artifacts_by_context_response_2.artifacts(),
+      UnorderedElementsAre(
+          EqualsProto(want_artifact,
                       /*ignore_fields=*/{"create_time_since_epoch",
                                          "last_update_time_since_epoch"}),
-                  testing::EqualsProto(want_artifact_2, /*ignore_fields=*/{
-                                           "create_time_since_epoch",
-                                           "last_update_time_since_epoch"})));
+          EqualsProto(want_artifact_2,
+                      /*ignore_fields=*/{"create_time_since_epoch",
+                                         "last_update_time_since_epoch"})));
 }
 
 }  // namespace
