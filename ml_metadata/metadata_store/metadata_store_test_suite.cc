@@ -1768,6 +1768,61 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContext) {
   }
 }
 
+// Call PutExecution with a new context multiple times. If
+// `reuse_context_if_already_exist` is set, the call succeeds without
+// `AlreadyExist` error.
+TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContextReuseOption) {
+  // prepares input that consists of 1 execution and 1 context,
+  PutTypesRequest put_types_request = ParseTextProtoOrDie<PutTypesRequest>(R"(
+    context_types: { name: 'context_type' }
+    execution_types: { name: 'execution_type' })");
+  PutTypesResponse put_types_response;
+  TF_ASSERT_OK(
+      metadata_store_->PutTypes(put_types_request, &put_types_response));
+  Context context;
+  context.set_type_id(put_types_response.context_type_ids(0));
+  context.set_name("context");
+  PutExecutionRequest request;
+  request.mutable_execution()->set_type_id(
+      put_types_response.execution_type_ids(0));
+  *request.add_contexts() = context;
+
+  // The first call PutExecution succeeds.
+  PutExecutionResponse response;
+  TF_ASSERT_OK(metadata_store_->PutExecution(request, &response));
+  // A call with the same request fails, as the context already exists.
+  const tensorflow::Status duplicate_update_status =
+      metadata_store_->PutExecution(request, &response);
+  EXPECT_EQ(duplicate_update_status.code(), tensorflow::error::ALREADY_EXISTS);
+  // If set `reuse_context_if_already_exist`, it succeeds.
+  request.mutable_options()->set_reuse_context_if_already_exist(true);
+  TF_ASSERT_OK(metadata_store_->PutExecution(request, &response));
+
+  // Check the stored nodes, there should be 1 context and 2 executions.
+  GetContextsResponse get_contexts_response;
+  TF_ASSERT_OK(metadata_store_->GetContexts({}, &get_contexts_response));
+  ASSERT_THAT(get_contexts_response.contexts(), SizeIs(1));
+  const Context& stored_context = get_contexts_response.contexts(0);
+  EXPECT_THAT(stored_context, EqualsProto(context, /*ignore_fields=*/{
+                                              "id", "create_time_since_epoch",
+                                              "last_update_time_since_epoch"}));
+  GetExecutionsByContextRequest get_executions_by_context_request;
+  get_executions_by_context_request.set_context_id(stored_context.id());
+  GetExecutionsByContextResponse get_executions_by_context_response;
+  TF_ASSERT_OK(metadata_store_->GetExecutionsByContext(
+      get_executions_by_context_request, &get_executions_by_context_response));
+  ASSERT_THAT(get_executions_by_context_response.executions(), SizeIs(2));
+  EXPECT_THAT(
+      get_executions_by_context_response.executions(),
+      ElementsAre(
+          EqualsProto(request.execution(),
+                      /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                         "last_update_time_since_epoch"}),
+          EqualsProto(request.execution(),
+                      /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                         "last_update_time_since_epoch"})));
+}
+
 TEST_P(MetadataStoreTestSuite, PutContextTypeGetContextType) {
   const PutContextTypeRequest put_request =
       ParseTextProtoOrDie<PutContextTypeRequest>(

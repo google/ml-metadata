@@ -613,8 +613,22 @@ tensorflow::Status MetadataStore::PutExecution(
     // 3. Upsert contexts and insert associations and attributions.
     for (const Context& context : request.contexts()) {
       int64 context_id = -1;
-      TF_RETURN_IF_ERROR(
-          UpsertContext(context, metadata_access_object_.get(), &context_id));
+      // Try to reuse existing context if the options is set.
+      if (request.options().reuse_context_if_already_exist() &&
+          !context.has_id()) {
+        Context existing_context;
+        const tensorflow::Status status =
+            metadata_access_object_->FindContextByTypeIdAndContextName(
+                context.type_id(), context.name(), &existing_context);
+        if (!tensorflow::errors::IsNotFound(status)) {
+          TF_RETURN_IF_ERROR(status);
+          context_id = existing_context.id();
+        }
+      }
+      if (context_id == -1) {
+        TF_RETURN_IF_ERROR(
+            UpsertContext(context, metadata_access_object_.get(), &context_id));
+      }
       response->add_context_ids(context_id);
       TF_RETURN_IF_ERROR(InsertAssociationIfNotExist(
           context_id, response->execution_id(), metadata_access_object_.get()));

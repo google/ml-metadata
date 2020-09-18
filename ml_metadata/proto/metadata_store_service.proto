@@ -131,6 +131,14 @@ message PutExecutionRequest {
     // given and event.artifact_id is set, it must exist in the backend.
     optional Event event = 2;
   }
+
+  message Options {
+    // When there's a race to publish executions with a new context with the
+    // same context.name, by default there'll be one writer succeeds and
+    // the rest of the writers returning AlreadyExists errors. If set the field,
+    // the failed writer will reuse the stored context in the transaction.
+    optional bool reuse_context_if_already_exist = 1;
+  }
   // The execution that produces many artifact and event pairs.
   optional Execution execution = 1;
   // The list of artifact and event pairs.
@@ -142,6 +150,8 @@ message PutExecutionRequest {
   // attributions between each pair of contexts and artifacts are created if
   // they do not already exist.
   repeated Context contexts = 3;
+  // Additional options to change the behavior of the method.
+  optional Options options = 4;
 }
 
 message PutExecutionResponse {
