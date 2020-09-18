@@ -155,6 +155,3 @@ pip install dist/*.whl
 pip install ${TENSORFLOW}
 
 run_py_tests "ml_metadata" $@
-
-# copy wheel to ${KOKORO_ARTIFACTS_DIR}
-cp dist/*.whl ${KOKORO_ARTIFACTS_DIR}
