@@ -1542,6 +1542,13 @@ TEST_P(MetadataAccessObjectTest, FindArtifactByTypeIdAndArtifactName) {
   EXPECT_THAT(want_artifact, EqualsProto(got_artifact, /*ignore_fields=*/{
                                              "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
+  Artifact got_empty_artifact;
+  EXPECT_EQ(metadata_access_object_
+                ->FindArtifactByTypeIdAndArtifactName(type_id, "unknown",
+                                                      &got_empty_artifact)
+                .code(),
+            tensorflow::error::NOT_FOUND);
+  EXPECT_THAT(got_empty_artifact, EqualsProto(Artifact()));
 }
 
 TEST_P(MetadataAccessObjectTest, FindArtifactsByURI) {

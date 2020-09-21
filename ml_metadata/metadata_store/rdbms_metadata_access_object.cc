@@ -1266,14 +1266,10 @@ RDBMSMetadataAccessObject::FindArtifactByTypeIdAndArtifactName(
   TF_RETURN_IF_ERROR(FindManyNodesImpl(record_set, &artifacts));
   // By design, a <type_id, name> pair uniquely identifies an artifact.
   // Fails if multiple artifacts are found.
-  // Returns ok status and updates the input artifact if one artifact is
-  // found. Returns ok status and does nothing if no artifact is found.
-  CHECK(artifacts.size() <= 1) << absl::StrCat(
-      "Found more than one artifact with type_id: ", std::to_string(type_id),
-      " and artifact name: ", name);
-  if (artifacts.size() == 1) {
-    *artifact = artifacts[0];
-  }
+  CHECK_EQ(artifacts.size(), 1)
+      << absl::StrCat("Found more than one artifact with type_id: ", type_id,
+                      " and artifact name: ", name);
+  *artifact = artifacts[0];
   return tensorflow::Status::OK();
 }
 
@@ -1301,14 +1297,10 @@ RDBMSMetadataAccessObject::FindExecutionByTypeIdAndExecutionName(
   TF_RETURN_IF_ERROR(FindManyNodesImpl(record_set, &executions));
   // By design, a <type_id, name> pair uniquely identifies an execution.
   // Fails if multiple executions are found.
-  // Returns ok status and updates the input execution if one execution is
-  // found. Returns ok status and does nothing if no execution is found.
-  CHECK(executions.size() <= 1) << absl::StrCat(
-      "Found more than one execution with type_id: ", std::to_string(type_id),
-      " and execution name: ", name);
-  if (executions.size() == 1) {
-    *execution = executions[0];
-  }
+  CHECK_EQ(executions.size(), 1)
+      << absl::StrCat("Found more than one execution with type_id: ", type_id,
+                      " and execution name: ", name);
+  *execution = executions[0];
   return tensorflow::Status::OK();
 }
 
@@ -1349,17 +1341,12 @@ tensorflow::Status RDBMSMetadataAccessObject::FindContextByTypeIdAndContextName(
   TF_RETURN_IF_ERROR(FindManyNodesImpl(record_set, &contexts));
   // By design, a <type_id, name> pair uniquely identifies a context.
   // Fails if multiple contexts are found.
-  // Returns ok status and updates the input context if one context is found.
-  // Returns ok status and does nothing if no context is found.
-  CHECK(contexts.size() <= 1) << absl::StrCat(
-      "Found more than one contexts with type_id: ", std::to_string(type_id),
-      " and context name: ", name);
-  if (contexts.size() == 1) {
-    *context = contexts[0];
-  }
+  CHECK_EQ(contexts.size(), 1)
+      << absl::StrCat("Found more than one contexts with type_id: ", type_id,
+                      " and context name: ", name);
+  *context = contexts[0];
   return tensorflow::Status::OK();
 }
 
 
 }  // namespace ml_metadata
-
