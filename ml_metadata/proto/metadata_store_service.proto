@@ -51,6 +51,24 @@ message ArtifactStruct {
 
 message PutArtifactsRequest {
   repeated Artifact artifacts = 1;
+
+  message Options {
+    // When there are multiple writers to update an existing node to
+    // different states, there may be a race and the end result of the
+    // concurrent update is nondeterministic. If the field is set, then an
+    // optimistic concurrency control (OCC) scheme is used during update:
+    // it compares the `artifact`.`last_update_time_since_epoch` in the request
+    // with the stored `last_update_time_since_epoch` having the same
+    // `artifact`.`id`. If they are different, the request fails, and the user
+    // can read the stored node and retry node update.
+    // When the option is set, the timestamp after update is guaranteed to be
+    // increased and different from the input artifact.
+    // When set the option, the caller should set it for all concurrent writers.
+    optional bool abort_if_latest_updated_time_changed = 1;
+  }
+
+  // Additional options to change the behavior of the method.
+  optional Options options = 2;
 }
 
 message PutArtifactsResponse {

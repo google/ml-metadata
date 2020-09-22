@@ -738,6 +738,45 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithListOptions) {
                                              "last_update_time_since_epoch"}));
 }
 
+TEST_P(MetadataStoreTestSuite, PutArtifactsWhenLatestUpdatedTimeChanged) {
+  PutArtifactTypeRequest put_type_request;
+  put_type_request.mutable_artifact_type()->set_name("test_type");
+  PutArtifactTypeResponse put_type_response;
+  TF_ASSERT_OK(
+      metadata_store_->PutArtifactType(put_type_request, &put_type_response));
+  const int64 type_id = put_type_response.type_id();
+  PutArtifactsRequest put_artifacts_request;
+  put_artifacts_request.add_artifacts()->set_type_id(type_id);
+  PutArtifactsResponse put_artifacts_response;
+  TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request,
+                                             &put_artifacts_response));
+
+  // Reads the stored artifact, and prepares update.
+  GetArtifactsResponse get_artifacts_response;
+  TF_ASSERT_OK(metadata_store_->GetArtifacts({}, &get_artifacts_response));
+  ASSERT_THAT(get_artifacts_response.artifacts(), SizeIs(1));
+  const Artifact& stored_artifact = get_artifacts_response.artifacts(0);
+
+  // `latest_updated_time` match with the stored one. The update succeeds.
+  Artifact updated_artifact = stored_artifact;
+  updated_artifact.set_state(Artifact::LIVE);
+  ASSERT_GT(updated_artifact.last_update_time_since_epoch(), 0);
+  PutArtifactsRequest update_artifact_request;
+  *update_artifact_request.add_artifacts() = updated_artifact;
+  update_artifact_request.mutable_options()
+      ->set_abort_if_latest_updated_time_changed(true);
+  PutArtifactsResponse update_artifact_response;
+  TF_EXPECT_OK(metadata_store_->PutArtifacts(update_artifact_request,
+                                             &update_artifact_response));
+
+  // If update it again with the old `latest_updated_time`, the call fails
+  // with FailedPrecondition error.
+  tensorflow::Status status = metadata_store_->PutArtifacts(
+      update_artifact_request, &update_artifact_response);
+  EXPECT_EQ(status.code(), tensorflow::error::FAILED_PRECONDITION);
+  EXPECT_THAT(update_artifact_response.artifact_ids(), SizeIs(0));
+}
+
 // Test creating an execution and then updating one of its properties.
 TEST_P(MetadataStoreTestSuite, PutExecutionsUpdateGetExecutionsByID) {
   const PutExecutionTypeRequest put_execution_type_request =

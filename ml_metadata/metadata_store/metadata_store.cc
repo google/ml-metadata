@@ -489,17 +489,42 @@ tensorflow::Status MetadataStore::GetContextsByID(
 
 tensorflow::Status MetadataStore::PutArtifacts(
     const PutArtifactsRequest& request, PutArtifactsResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
-        response->Clear();
-        for (const Artifact& artifact : request.artifacts()) {
-          int64 artifact_id = -1;
-          TF_RETURN_IF_ERROR(UpsertArtifact(
-              artifact, metadata_access_object_.get(), &artifact_id));
-          response->add_artifact_ids(artifact_id);
+  return transaction_executor_->Execute([this, &request,
+                                         &response]() -> tensorflow::Status {
+    response->Clear();
+    for (const Artifact& artifact : request.artifacts()) {
+      int64 artifact_id = -1;
+      // Verify the latest_updated_time before upserting the artifact.
+      if (artifact.has_id() &&
+          request.options().abort_if_latest_updated_time_changed()) {
+        Artifact existing_artifact;
+        const tensorflow::Status status =
+            metadata_access_object_->FindArtifactById(artifact.id(),
+                                                      &existing_artifact);
+        if (!tensorflow::errors::IsNotFound(status)) {
+          TF_RETURN_IF_ERROR(status);
+          if (artifact.last_update_time_since_epoch() !=
+              existing_artifact.last_update_time_since_epoch()) {
+            return tensorflow::errors::FailedPrecondition(
+                "`abort_if_latest_updated_time_changed` is set, and the stored "
+                "artifact with id = ",
+                artifact.id(),
+                " has a different last_update_time_since_epoch: ",
+                existing_artifact.last_update_time_since_epoch(),
+                " from the one in the given artifact: ",
+                artifact.last_update_time_since_epoch());
+          }
+          // If set the option and all check succeeds, we make sure the
+          // timestamp after the update increases.
+          absl::SleepFor(absl::Milliseconds(1));
         }
-        return tensorflow::Status::OK();
-      });
+      }
+      TF_RETURN_IF_ERROR(UpsertArtifact(artifact, metadata_access_object_.get(),
+                                        &artifact_id));
+      response->add_artifact_ids(artifact_id);
+    }
+    return tensorflow::Status::OK();
+  });
 }
 
 tensorflow::Status MetadataStore::PutExecutions(
