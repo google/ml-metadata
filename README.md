@@ -47,7 +47,7 @@ sudo docker-compose build ${DOCKER_SERVICE}
 sudo docker-compose run ${DOCKER_SERVICE}
 ```
 
-where `PY_VERSION` is one of `{35, 36, 37, 38}`.
+where `PY_VERSION` is one of `{36, 37, 38}`.
 
 A wheel will be produced under `dist/`, and installed as follows:
 
@@ -111,6 +111,6 @@ bazel build -c opt --define grpc_no_ares=true  //ml_metadata/metadata_store:meta
 
 MLMD is built and tested on the following 64-bit operating systems:
 
-*   macOS 10.12.6 (Sierra) or later.
+*   macOS 10.14.6 (Mojave) or later.
 *   Ubuntu 16.04 or later.
 *   Windows 7 or later.
