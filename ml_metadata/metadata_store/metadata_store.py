@@ -207,12 +207,18 @@ class MetadataStore(object):
     If an artifact_id is unspecified, it will insert a new artifact.
     For new artifacts, type must be specified.
     For old artifacts, type must be unchanged or unspecified.
+    When the name of an artifact is given, it should be unique among artifacts
+    of the same ArtifactType.
 
     Args:
       artifacts: A list of artifacts to insert or update.
 
     Returns:
       A list of artifact ids index-aligned with the input.
+
+    Raises:
+      AlreadyExistsError: If artifact's name is specified and it is already
+        used by stored artifacts of that ArtifactType.
     """
     request = metadata_store_service_pb2.PutArtifactsRequest()
     for x in artifacts:
@@ -321,12 +327,18 @@ class MetadataStore(object):
     If an execution_id is unspecified, it will insert a new execution.
     For new executions, type must be specified.
     For old executions, type must be unchanged or unspecified.
+    When the name of an execution is given, it should be unique among
+    executions of the same ExecutionType.
 
     Args:
       executions: A list of executions to insert or update.
 
     Returns:
       A list of execution ids index-aligned with the input.
+
+    Raises:
+      AlreadyExistsError: If execution's name is specified and it is already
+        used by stored executions of that ExecutionType.
     """
     request = metadata_store_service_pb2.PutExecutionsRequest()
     for x in executions:
@@ -409,6 +421,11 @@ class MetadataStore(object):
 
     Returns:
       A list of context ids index-aligned with the input.
+
+    Raises:
+      InvalidArgumentError: If name of the new contexts are empty.
+      AlreadyExistsError: If name of the new contexts already used by stored
+        contexts of that ContextType.
     """
     request = metadata_store_service_pb2.PutContextsRequest()
     for x in contexts:

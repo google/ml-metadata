@@ -251,6 +251,7 @@ class MetadataStore : public MetadataStoreServiceInterface {
   // Returns FAILED_PRECONDITION error, if the request set
   // options.abort_if_latest_updated_time_changed, and the stored artifact has
   // different latest_updated_time.
+  // Returns ALREADY_EXISTS error, if the name exists in the artifact_type.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status PutArtifacts(const PutArtifactsRequest& request,
                                   PutArtifactsResponse* response) override;
@@ -265,6 +266,7 @@ class MetadataStore : public MetadataStoreServiceInterface {
   // the one stored.
   // Returns INVALID_ARGUMENT error, if given property names and types do not
   // align with the ExecutionType on file.
+  // Returns ALREADY_EXISTS error, if the name exists in the artifact_type.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status PutExecutions(const PutExecutionsRequest& request,
                                    PutExecutionsResponse* response) override;

@@ -149,6 +149,8 @@ class MetadataAccessObject {
   //  undefined in the type.
   // Returns INVALID_ARGUMENT error, if given value of a property does not match
   //   with its data type definition in the artifact type.
+  // Returns ALREADY_EXISTS error, if the ArtifactType has artifact with the
+  // same name.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual tensorflow::Status CreateArtifact(const Artifact& artifact,
                                             int64* artifact_id) = 0;
@@ -251,6 +253,8 @@ class MetadataAccessObject {
   //   undefined in the type.
   // Returns INVALID_ARGUMENT error, if given value of a property does not match
   //   with its data type definition in the ExecutionType.
+  // Returns ALREADY_EXISTS error, if the ExecutionType has execution with the
+  // same name.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual tensorflow::Status CreateExecution(const Execution& execution,
                                              int64* execution_id) = 0;

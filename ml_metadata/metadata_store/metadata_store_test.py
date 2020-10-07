@@ -369,6 +369,19 @@ class MetadataStoreTest(absltest.TestCase):
     self.assertLen(artifact_result, 1)
     self.assertEqual(artifact_result[0].id, want_artifact_id)
 
+  def test_puts_artifacts_duplicated_name_with_the_same_type(self):
+    store = _get_metadata_store()
+    with self.assertRaises(errors.AlreadyExistsError):
+      artifact_type = _create_example_artifact_type(self._get_test_type_name())
+      type_id = store.put_artifact_type(artifact_type)
+      artifact_0 = metadata_store_pb2.Artifact()
+      artifact_0.type_id = type_id
+      artifact_0.name = "the_same_name"
+      artifact_1 = metadata_store_pb2.Artifact()
+      artifact_1.type_id = type_id
+      artifact_1.name = "the_same_name"
+      store.put_artifacts([artifact_0, artifact_1])
+
   def test_put_executions_get_executions_by_type(self):
     store = _get_metadata_store()
     execution_type = _create_example_execution_type(self._get_test_type_name())
@@ -542,6 +555,20 @@ class MetadataStoreTest(absltest.TestCase):
     self.assertEqual(execution_result_1.properties["bar"].string_value,
                      "Goodbye")
     self.assertEqual(execution_result_1.properties["foo"].int_value, -9)
+
+  def test_puts_executions_duplicated_name_with_the_same_type(self):
+    store = _get_metadata_store()
+    with self.assertRaises(errors.AlreadyExistsError):
+      execution_type = _create_example_execution_type(
+          self._get_test_type_name())
+      type_id = store.put_execution_type(execution_type)
+      execution_0 = metadata_store_pb2.Execution()
+      execution_0.type_id = type_id
+      execution_0.name = "the_same_name"
+      execution_1 = metadata_store_pb2.Execution()
+      execution_1.type_id = type_id
+      execution_1.name = "the_same_name"
+      store.put_executions([execution_0, execution_1])
 
   def test_update_execution_get_execution(self):
     store = _get_metadata_store()

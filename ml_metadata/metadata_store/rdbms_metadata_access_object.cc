@@ -977,17 +977,31 @@ tensorflow::Status RDBMSMetadataAccessObject::UpdateType(
 
 tensorflow::Status RDBMSMetadataAccessObject::CreateArtifact(
     const Artifact& artifact, int64* artifact_id) {
-  return CreateNodeImpl<Artifact, ArtifactType>(artifact, artifact_id);
+  const tensorflow::Status& status =
+      CreateNodeImpl<Artifact, ArtifactType>(artifact, artifact_id);
+  if (absl::StrContains(status.error_message(), "Duplicate") ||
+      absl::StrContains(status.error_message(), "UNIQUE")) {
+    return tensorflow::errors::AlreadyExists(
+        "Given node already exists: ", artifact.DebugString(), status);
+  }
+  return status;
 }
 
 tensorflow::Status RDBMSMetadataAccessObject::CreateExecution(
     const Execution& execution, int64* execution_id) {
-  return CreateNodeImpl<Execution, ExecutionType>(execution, execution_id);
+  const tensorflow::Status& status =
+      CreateNodeImpl<Execution, ExecutionType>(execution, execution_id);
+  if (absl::StrContains(status.error_message(), "Duplicate") ||
+      absl::StrContains(status.error_message(), "UNIQUE")) {
+    return tensorflow::errors::AlreadyExists(
+        "Given node already exists: ", execution.DebugString(), status);
+  }
+  return status;
 }
 
 tensorflow::Status RDBMSMetadataAccessObject::CreateContext(
     const Context& context, int64* context_id) {
-  tensorflow::Status status =
+  const tensorflow::Status& status =
       CreateNodeImpl<Context, ContextType>(context, context_id);
   if (absl::StrContains(status.error_message(), "Duplicate") ||
       absl::StrContains(status.error_message(), "UNIQUE")) {

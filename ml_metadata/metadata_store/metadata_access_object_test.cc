@@ -818,6 +818,27 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactError) {
       tensorflow::error::INVALID_ARGUMENT);
 }
 
+TEST_P(MetadataAccessObjectTest, CreateArtifactWithDuplicatedNameError) {
+  TF_ASSERT_OK(Init());
+  ArtifactType type;
+  type.set_name("test_type");
+  int64 type_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
+
+  Artifact artifact;
+  artifact.set_type_id(type_id);
+  artifact.set_name("test artifact name");
+  int64 artifact_id;
+  TF_EXPECT_OK(metadata_access_object_->CreateArtifact(artifact, &artifact_id));
+  // insert the same artifact again to check the unique constraint
+  ASSERT_EQ(
+      metadata_access_object_->CreateArtifact(artifact, &artifact_id).code(),
+      tensorflow::error::ALREADY_EXISTS);
+
+  TF_ASSERT_OK(metadata_source_->Rollback());
+  TF_ASSERT_OK(metadata_source_->Begin());
+}
+
 TEST_P(MetadataAccessObjectTest, FindArtifactById) {
   TF_ASSERT_OK(Init());
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
@@ -1876,6 +1897,28 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
   EXPECT_THAT(got_empty_execution, EqualsProto(Execution()));
 }
 
+TEST_P(MetadataAccessObjectTest, CreateExecutionWithDuplicatedNameError) {
+  TF_ASSERT_OK(Init());
+  ExecutionType type;
+  type.set_name("test_type");
+  int64 type_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
+
+  Execution execution;
+  execution.set_type_id(type_id);
+  execution.set_name("test execution name");
+  int64 execution_id;
+  TF_EXPECT_OK(
+      metadata_access_object_->CreateExecution(execution, &execution_id));
+  // insert the same execution again to check the unique constraint
+  ASSERT_EQ(
+      metadata_access_object_->CreateExecution(execution, &execution_id).code(),
+      tensorflow::error::ALREADY_EXISTS);
+
+  TF_ASSERT_OK(metadata_source_->Rollback());
+  TF_ASSERT_OK(metadata_source_->Begin());
+}
+
 TEST_P(MetadataAccessObjectTest, UpdateExecution) {
   TF_ASSERT_OK(Init());
   ExecutionType type = ParseTextProtoOrDie<ExecutionType>(R"(
@@ -2060,27 +2103,21 @@ TEST_P(MetadataAccessObjectTest, CreateContextError) {
             tensorflow::error::INVALID_ARGUMENT);
 }
 
-TEST_P(MetadataAccessObjectTest, CreateContextError2) {
+TEST_P(MetadataAccessObjectTest, CreateContextWithDuplicatedNameError) {
   TF_ASSERT_OK(Init());
-  Context context;
-  int64 context_id;
-
-  ContextType type = ParseTextProtoOrDie<ContextType>(R"(
-    name: 'test_type_disallow_custom_property'
-    properties { key: 'property_1' value: INT }
-  )");
+  ContextType type;
+  type.set_name("test_type");
   int64 type_id;
   TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
 
+  Context context;
   context.set_type_id(type_id);
-
-  // duplicated name
   context.set_name("test context name");
+  int64 context_id;
   TF_EXPECT_OK(metadata_access_object_->CreateContext(context, &context_id));
-  Context context_copy = context;
-  ASSERT_EQ(
-      metadata_access_object_->CreateContext(context_copy, &context_id).code(),
-      tensorflow::error::ALREADY_EXISTS);
+  // insert the same context again to check the unique constraint
+  ASSERT_EQ(metadata_access_object_->CreateContext(context, &context_id).code(),
+            tensorflow::error::ALREADY_EXISTS);
 
   TF_ASSERT_OK(metadata_source_->Rollback());
   TF_ASSERT_OK(metadata_source_->Begin());
