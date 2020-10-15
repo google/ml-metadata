@@ -600,6 +600,13 @@ message MetadataStoreClientConfig {
 
   // GRPC channel creation arguments.
   optional GrpcChannelArguments channel_arguments = 4;
+
+  // Time duration that a client is willing to wait for a reply from the server.
+  // If unset, the timeout is considered infinite. When the field is specified,
+  // Grpc APIs would return DeadlineExceededError when server does not respond
+  // within `client_timeout_sec`. Floating point valued, in seconds.
+  optional double client_timeout_sec = 5;
+
 }
 
 // Configuration for the gRPC metadata store server.

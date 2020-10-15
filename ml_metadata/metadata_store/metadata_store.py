@@ -75,6 +75,7 @@ class MetadataStore(object):
       raise ValueError('MetadataStore is expecting either '
                        'metadata_store_pb2.ConnectionConfig or '
                        'metadata_store_pb2.MetadataStoreClientConfig')
+    self._grpc_timeout_sec = None
     self._using_db_connection = False
     if enable_upgrade_migration:
       raise ValueError('Upgrade migration is not allowed when using gRPC '
@@ -105,6 +106,8 @@ class MetadataStore(object):
         config.channel_arguments.HasField('max_receive_message_length')):
       options = [('grpc.max_receive_message_length',
                   config.channel_arguments.max_receive_message_length)]
+    if config.HasField('client_timeout_sec'):
+      self._grpc_timeout_sec = config.client_timeout_sec
 
     if not config.HasField('ssl_config'):
       return grpc.insecure_channel(target, options=options)
@@ -168,7 +171,7 @@ class MetadataStore(object):
     else:
       grpc_method = getattr(self._metadata_store_stub, method_name)
       try:
-        response.CopyFrom(grpc_method(request))
+        response.CopyFrom(grpc_method(request, timeout=self._grpc_timeout_sec))
       except grpc.RpcError as e:
         # RpcError code uses a tuple to specify error code and short
         # description.

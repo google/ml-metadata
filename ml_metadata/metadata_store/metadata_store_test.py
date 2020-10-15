@@ -41,12 +41,15 @@ flags.DEFINE_integer(
     "The gRPC port number to use when use_grpc_backed is set to 'True'")
 
 
-def _get_metadata_store(grpc_max_receive_message_length=None):
+def _get_metadata_store(grpc_max_receive_message_length=None,
+                        grpc_client_timeout_sec=None):
   if FLAGS.use_grpc_backend:
     grpc_connection_config = metadata_store_pb2.MetadataStoreClientConfig()
     if grpc_max_receive_message_length:
       (grpc_connection_config.channel_arguments.max_receive_message_length
       ) = grpc_max_receive_message_length
+    if grpc_client_timeout_sec is not None:
+      grpc_connection_config.client_timeout_sec = grpc_client_timeout_sec
     if FLAGS.grpc_host is None:
       raise ValueError("grpc_host argument not set.")
     grpc_connection_config.host = FLAGS.grpc_host
@@ -160,6 +163,16 @@ class MetadataStoreTest(absltest.TestCase):
     artifact_type = _create_example_artifact_type(artifact_type_name)
     with self.assertRaises(errors.ResourceExhaustedError):
       store.put_artifact_type(artifact_type)
+      _ = store.get_artifact_types()
+
+  def test_connection_config_with_grpc_client_timeout_sec_errors(self):
+    # The test is irrelevant when not using grpc connection.
+    if not FLAGS.use_grpc_backend:
+      return
+
+    # Set timeout=0 to make sure a rpc call will fail.
+    store = _get_metadata_store(grpc_client_timeout_sec=0)
+    with self.assertRaises(errors.DeadlineExceededError):
       _ = store.get_artifact_types()
 
   def test_put_artifact_type_get_artifact_type(self):

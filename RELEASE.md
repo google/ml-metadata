@@ -2,6 +2,10 @@
 
 ## Major Features and Improvements
 
+*   Supports MetadataStoreClientConfig options `client_timeout_sec` from the
+    python client. The grpc APIs would return DeadlineExceededError when server
+    does not respond within `client_timeout_ms`.
+
 ## Bug Fixes and Other Changes
 
 ## Breaking Changes
