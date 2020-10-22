@@ -13,6 +13,6 @@
 # limitations under the License.
 
 """Contains the version string of ML Metadata."""
-
+#Test for copybara do not merge.
 # Note that setup.py uses this version.
 __version__ = '0.25.0.dev'
