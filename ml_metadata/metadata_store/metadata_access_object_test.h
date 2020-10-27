@@ -49,6 +49,9 @@ class MetadataAccessObjectContainer {
   // Tests if there is upgrade verification.
   virtual bool HasDowngradeVerification(int64 version) = 0;
 
+  // Tests if there is filter query support.
+  virtual bool HasFilterQuerySupport() { return false; }
+
   // Initializes the previous version of the database for downgrade.
   virtual tensorflow::Status SetupPreviousVersionForDowngrade(
       int64 version) = 0;
@@ -100,6 +103,8 @@ class QueryConfigMetadataAccessObjectContainer
   bool HasUpgradeVerification(int64 version) final;
 
   bool HasDowngradeVerification(int64 version) final;
+
+  bool HasFilterQuerySupport() final { return true; }
 
   tensorflow::Status SetupPreviousVersionForDowngrade(int64 version) final;
 

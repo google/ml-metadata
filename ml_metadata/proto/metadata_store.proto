@@ -663,6 +663,7 @@ message ListOperationOptions {
 
   // Identifies the next page of results.
   optional string next_page_token = 3;
+
 }
 
 // Encapsulates information to identify the next page of resources in

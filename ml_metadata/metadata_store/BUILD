@@ -482,6 +482,7 @@ cc_library(
         ":test_util",
         "@com_google_protobuf//:protobuf",
         "@com_google_googletest//:gtest",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
