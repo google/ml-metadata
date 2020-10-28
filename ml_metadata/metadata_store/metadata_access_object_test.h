@@ -177,11 +177,11 @@ class MetadataAccessObjectTest
     metadata_source_ = metadata_access_object_container_->GetMetadataSource();
     metadata_access_object_ =
         metadata_access_object_container_->GetMetadataAccessObject();
-    TF_ASSERT_OK(metadata_source_->Begin());
+    TF_CHECK_OK(metadata_source_->Begin());
   }
 
   void TearDown() override {
-    TF_ASSERT_OK(metadata_source_->Commit());
+    TF_CHECK_OK(metadata_source_->Commit());
     metadata_source_ = nullptr;
     metadata_access_object_ = nullptr;
     metadata_access_object_container_ = nullptr;

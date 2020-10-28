@@ -14,7 +14,11 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/metadata_store.h"
 
+#include <iterator>
+
 #include "google/protobuf/descriptor.h"
+#include "google/protobuf/repeated_field.h"
+#include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "ml_metadata/metadata_store/metadata_access_object_factory.h"
@@ -473,15 +477,17 @@ tensorflow::Status MetadataStore::GetContextsByID(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
         response->Clear();
-        for (const int64 context_id : request.context_ids()) {
-          Context context;
-          const tensorflow::Status status =
-              metadata_access_object_->FindContextById(context_id, &context);
-          if (status.ok()) {
-            *response->mutable_contexts()->Add() = context;
-          } else if (!tensorflow::errors::IsNotFound(status)) {
-            return status;
-          }
+        std::vector<Context> contexts;
+        std::vector<int64> context_ids;
+        context_ids.reserve(request.context_ids().size());
+        absl::c_copy(request.context_ids(), std::back_inserter(context_ids));
+        const tensorflow::Status status =
+            metadata_access_object_->FindContextsById(context_ids, &contexts);
+        if (status.ok()) {
+          absl::c_copy(contexts, google::protobuf::RepeatedFieldBackInserter(
+                                     response->mutable_contexts()));
+        } else if (!tensorflow::errors::IsNotFound(status)) {
+          return status;
         }
         return tensorflow::Status::OK();
       });

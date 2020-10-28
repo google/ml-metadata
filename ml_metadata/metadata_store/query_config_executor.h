@@ -67,8 +67,9 @@ class QueryConfigExecutor : public QueryExecutor {
 
   tensorflow::Status InsertArtifactType(const std::string& name,
                                         int64* artifact_type_id) final {
+    const std::vector<std::string> bound_name = {Bind(name)};
     return ExecuteQuerySelectLastInsertID(query_config_.insert_artifact_type(),
-                                          {Bind(name)}, artifact_type_id);
+                                          bound_name, artifact_type_id);
   }
 
   tensorflow::Status InsertExecutionType(const std::string& type_name,
@@ -303,10 +304,10 @@ class QueryConfigExecutor : public QueryExecutor {
         context_id);
   }
 
-  tensorflow::Status SelectContextByID(int64 context_id,
-                                       RecordSet* record_set) final {
+  tensorflow::Status SelectContextsByID(
+      const absl::Span<const int64> context_ids, RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_context_by_id(),
-                        {Bind(context_id)}, record_set);
+                        {Bind(context_ids)}, record_set);
   }
 
   tensorflow::Status SelectContextsByTypeID(int64 context_type_id,
@@ -346,9 +347,9 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   tensorflow::Status SelectContextPropertyByContextID(
-      int64 context_id, RecordSet* record_set) final {
+      const absl::Span<const int64> context_ids, RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_context_property_by_context_id(),
-                        {Bind(context_id)}, record_set);
+                        {Bind(context_ids)}, record_set);
   }
 
   tensorflow::Status UpdateContextProperty(
@@ -381,14 +382,14 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   tensorflow::Status SelectEventByArtifactIDs(
-      const std::vector<int64>& artifact_ids,
+      const absl::Span<const int64> artifact_ids,
       RecordSet* event_record_set) final {
     return ExecuteQuery(query_config_.select_event_by_artifact_ids(),
                         {Bind(artifact_ids)}, event_record_set);
   }
 
   tensorflow::Status SelectEventByExecutionIDs(
-      const std::vector<int64>& execution_ids,
+      const absl::Span<const int64> execution_ids,
       RecordSet* event_record_set) final {
     return ExecuteQuery(query_config_.select_event_by_execution_ids(),
                         {Bind(execution_ids)}, event_record_set);
@@ -402,7 +403,7 @@ class QueryConfigExecutor : public QueryExecutor {
                                      const Event::Path::Step& step) final;
 
   tensorflow::Status SelectEventPathByEventIDs(
-      const std::vector<int64>& event_ids, RecordSet* record_set) final {
+      const absl::Span<const int64> event_ids, RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_event_path_by_event_ids(),
                         {Bind(event_ids)}, record_set);
   }
@@ -550,7 +551,7 @@ class QueryConfigExecutor : public QueryExecutor {
 
   // Utility method to bind an in64 vector to a string joined with "," that can
   // fit into SQL IN(...) clause.
-  std::string Bind(const std::vector<int64>& value);
+  std::string Bind(absl::Span<const int64> value);
 
   #if (!defined(__APPLE__) && !defined(_WIN32))
   std::string Bind(const google::protobuf::int64 value);
@@ -565,7 +566,7 @@ class QueryConfigExecutor : public QueryExecutor {
   // Returns FAILED_PRECONDITION error, if a transaction has not begun.
   tensorflow::Status ExecuteQuery(
       const MetadataSourceQueryConfig::TemplateQuery& template_query,
-      const std::vector<std::string>& parameters, RecordSet* record_set);
+      absl::Span<const std::string> parameters, RecordSet* record_set);
 
   // Execute a template query and ignore the result.
   // All strings in parameters should already be in a format appropriate for the
@@ -575,7 +576,7 @@ class QueryConfigExecutor : public QueryExecutor {
   // Returns FAILED_PRECONDITION error, if a transaction has not begun.
   tensorflow::Status ExecuteQuery(
       const MetadataSourceQueryConfig::TemplateQuery& template_query,
-      const std::vector<std::string>& parameters) {
+      const absl::Span<const std::string> parameters) {
     RecordSet record_set;
     return ExecuteQuery(template_query, parameters, &record_set);
   }
@@ -596,7 +597,7 @@ class QueryConfigExecutor : public QueryExecutor {
   // Returns INTERNAL error, if it cannot find the last insert ID.
   tensorflow::Status ExecuteQuerySelectLastInsertID(
       const MetadataSourceQueryConfig::TemplateQuery& query,
-      const std::vector<std::string>& arguments, int64* last_insert_id) {
+      const absl::Span<const std::string> arguments, int64* last_insert_id) {
     TF_RETURN_IF_ERROR(ExecuteQuery(query, arguments));
     return SelectLastInsertID(last_insert_id);
   }

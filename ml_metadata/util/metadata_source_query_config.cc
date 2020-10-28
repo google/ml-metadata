@@ -26,7 +26,7 @@ namespace {
 // A set of common template queries used by the MetadataAccessObject for SQLite
 // based MetadataSource.
 // no-lint to support vc (C2026) 16380 max length for char[].
-const std::string kBaseQueryConfig = absl::StrCat( // NOLINT
+const std::string kBaseQueryConfig = absl::StrCat(  // NOLINT
 R"pb(
   schema_version: 5
   drop_type_table { query: " DROP TABLE IF EXISTS `Type`; " }
@@ -189,7 +189,8 @@ R"pb(
     parameter_num: 5
   }
   select_artifact_property_by_artifact_id {
-    query: " SELECT `name` as `key`, `is_custom_property`, "
+    query: " SELECT `artifact_id` as `id`, `name` as `key`, "
+           "        `is_custom_property`, "
            "        `int_value`, `double_value`, `string_value` "
            " from `ArtifactProperty` "
            " WHERE `artifact_id` = $0; "
@@ -279,7 +280,8 @@ R"pb(
     parameter_num: 5
   }
   select_execution_property_by_execution_id {
-    query: " SELECT `name` as `key`, `is_custom_property`, "
+    query: " SELECT `execution_id` as `id`, `name` as `key`, "
+           "        `is_custom_property`, "
            "        `int_value`, `double_value`, `string_value` "
            " from `ExecutionProperty` "
            " WHERE `execution_id` = $0; "
@@ -322,9 +324,9 @@ R"pb(
     parameter_num: 4
   }
   select_context_by_id {
-    query: " SELECT `type_id`, `name`, `create_time_since_epoch`, "
-           "        `last_update_time_since_epoch` "
-           " from `Context` WHERE id = $0; "
+    query: " SELECT `id`, `type_id`, `name`, `create_time_since_epoch`, "
+           "        `last_update_time_since_epoch`"
+           " from `Context` WHERE id IN ($0); "
     parameter_num: 1
   }
   select_contexts_by_type_id {
@@ -367,10 +369,11 @@ R"pb(
     parameter_num: 5
   }
   select_context_property_by_context_id {
-    query: " SELECT `name` as `key`, `is_custom_property`, "
+    query: " SELECT `context_id` as `id`, `name` as `key`, "
+           "        `is_custom_property`, "
            "        `int_value`, `double_value`, `string_value` "
            " from `ContextProperty` "
-           " WHERE `context_id` = $0; "
+           " WHERE `context_id` IN ($0); "
     parameter_num: 1
   }
   update_context_property {
@@ -534,7 +537,7 @@ R"pb(
 )pb");
 
 // no-lint to support vc (C2026) 16380 max length for char[].
-const std::string kSQLiteMetadataSourceQueryConfig = absl::StrCat( // NOLINT
+const std::string kSQLiteMetadataSourceQueryConfig = absl::StrCat(  // NOLINT
 R"pb(
   metadata_source_type: SQLITE_METADATA_SOURCE
   # downgrade to 0.13.2 (i.e., v0), and drop the MLMDEnv table.
@@ -640,7 +643,7 @@ R"pb(
           query: " SELECT count(*) = 1 FROM `MLMDEnv`; "
         }
       }
-      # downgrade queries from version 2, drop all ContextTypes and rename the
+      # downgrade queries from version 2, drop all ContextTypes and rename
       # the `type_kind` back to `is_artifact_type` column.
       downgrade_queries { query: " DELETE FROM `Type` WHERE `type_kind` = 2; " }
       downgrade_queries {
@@ -1075,7 +1078,7 @@ R"pb(
 
 // Template queries for MySQLMetadataSources.
 // no-lint to support vc (C2026) 16380 max length for char[].
-const std::string kMySQLMetadataSourceQueryConfig = absl::StrCat( // NOLINT
+const std::string kMySQLMetadataSourceQueryConfig = absl::StrCat(  // NOLINT
 R"pb(
   metadata_source_type: MYSQL_METADATA_SOURCE
   select_last_insert_id { query: " SELECT last_insert_id(); " }
@@ -1248,7 +1251,7 @@ R"pb(
           query: " SELECT count(*) = 1 FROM `MLMDEnv`; "
         }
       }
-      # downgrade queries from version 2, drop all ContextTypes and rename the
+      # downgrade queries from version 2, drop all ContextTypes and rename
       # the `type_kind` back to `is_artifact_type` column.
       downgrade_queries { query: " DELETE FROM `Type` WHERE `type_kind` = 2; " }
       downgrade_queries {

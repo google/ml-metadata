@@ -20,6 +20,7 @@ limitations under the License.
 
 #include "absl/time/time.h"
 #include "absl/types/optional.h"
+#include "absl/types/span.h"
 #include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
@@ -32,6 +33,18 @@ namespace ml_metadata {
 // This contains both the queries and the method for executing them.
 // Most methods correspond to one or two queries, with a few exceptions
 // (such as InitMetadataSource).
+//
+// IMPORTANT NOTE: All Select{X}PropertyBy{X}Id methods return a RecordSet for
+// the properties of the input {X} type of node (X in {Artifact, Context,
+// Execution}) and use the same convention:
+// - Column 0: int: node id
+// - Column 1: string: property name
+// - Column 2: boolean: true if this is a custom property
+// - Column 3: int: property value or NULL
+// - Column 4: double: property value or NULL
+// - Column 5: string: property value or NULL
+//
+// Some methods might add additional columns
 class QueryExecutor {
  public:
   virtual ~QueryExecutor() = default;
@@ -202,7 +215,8 @@ class QueryExecutor {
       bool is_custom_property, const Value& property_value) = 0;
 
   // Queries properties of an artifact from the database by the
-  // artifact id.
+  // artifact id. Upon return, each property is mapped to a row in 'record_set'
+  // using the convention spelled out in the class docstring.
   virtual tensorflow::Status SelectArtifactPropertyByArtifactID(
       int64 artifact_id, RecordSet* record_set) = 0;
 
@@ -253,6 +267,8 @@ class QueryExecutor {
       const Value& value) = 0;
 
   // Queries properties of an execution from the database by the execution id.
+  // Upon return, each property is mapped to a row in 'record_set'
+  // using the convention spelled out in the class docstring.
   virtual tensorflow::Status SelectExecutionPropertyByExecutionID(
       int64 execution_id, RecordSet* record_set) = 0;
 
@@ -274,15 +290,21 @@ class QueryExecutor {
                                            const absl::Time update_time,
                                            int64* context_id) = 0;
 
-  // Queries a context from the database by its id.
-  virtual tensorflow::Status SelectContextByID(int64 context_id,
-                                               RecordSet* record_set) = 0;
+  // Retrieves contexts from the database by their ids. For each context,
+  // returns a row that contains the following columns (order not important):
+  // - int: id
+  // - int: type_id
+  // - string: name
+  // - int: create time (since epoch)
+  // - int: last update time (since epoch)
+  virtual tensorflow::Status SelectContextsByID(
+      absl::Span<const int64> context_ids, RecordSet* record_set) = 0;
 
-  // Queries a context from the Context table by its type_id.
+  // Returns ids of contexts matching the given context_type_id.
   virtual tensorflow::Status SelectContextsByTypeID(int64 context_type_id,
                                                     RecordSet* record_set) = 0;
 
-  // Queries a context from the Context table by its type_id and name.
+  // Returns ids of contexts matching the given context_type_id and name.
   virtual tensorflow::Status SelectContextByTypeIDAndContextName(
       int64 context_type_id, const absl::string_view name,
       RecordSet* record_set) = 0;
@@ -301,10 +323,10 @@ class QueryExecutor {
                                                    bool custom_property,
                                                    const Value& value) = 0;
 
-  // Queries properties of a context from the database by the
-  // context id.
+  // Queries properties of contexts from the database by the
+  // given context ids.
   virtual tensorflow::Status SelectContextPropertyByContextID(
-      int64 context_id, RecordSet* record_set) = 0;
+      absl::Span<const int64> context_id, RecordSet* record_set) = 0;
 
   // Updates a property of a context in the database.
   virtual tensorflow::Status UpdateContextProperty(
@@ -326,11 +348,11 @@ class QueryExecutor {
 
   // Queries events from the Event table by a collection of artifact ids.
   virtual tensorflow::Status SelectEventByArtifactIDs(
-      const std::vector<int64>& artifact_ids, RecordSet* event_record_set) = 0;
+      absl::Span<const int64> artifact_ids, RecordSet* event_record_set) = 0;
 
   // Queries events from the Event table by a collection of execution ids.
   virtual tensorflow::Status SelectEventByExecutionIDs(
-      const std::vector<int64>& execution_ids, RecordSet* event_record_set) = 0;
+      absl::Span<const int64> execution_ids, RecordSet* event_record_set) = 0;
 
   // Checks the existence of the EventPath table.
   virtual tensorflow::Status CheckEventPathTable() = 0;
@@ -341,7 +363,7 @@ class QueryExecutor {
 
   // Queries paths from the database by a collection of event ids.
   virtual tensorflow::Status SelectEventPathByEventIDs(
-      const std::vector<int64>& event_ids, RecordSet* record_set) = 0;
+      absl::Span<const int64> event_ids, RecordSet* record_set) = 0;
 
   // Checks the existence of the Association table.
   virtual tensorflow::Status CheckAssociationTable() = 0;
@@ -351,11 +373,17 @@ class QueryExecutor {
                                                int64 execution_id,
                                                int64* association_id) = 0;
 
-  // Queries associations from the database by their context id.
+  // Returns association triplets for the given context id. Each triplet has:
+  // Column 0: int: attribution id
+  // Column 1: int: context id
+  // Column 2: int: execution id
   virtual tensorflow::Status SelectAssociationByContextID(
       int64 context_id, RecordSet* record_set) = 0;
 
-  // Queries associations from the database by their execution id.
+  // Returns association triplets for the given context id. Each triplet has:
+  // Column 0: int: attribution id
+  // Column 1: int: context id
+  // Column 2: int: execution id
   virtual tensorflow::Status SelectAssociationByExecutionID(
       int64 execution_id, RecordSet* record_set) = 0;
 
@@ -367,11 +395,17 @@ class QueryExecutor {
                                                      int64 artifact_id,
                                                      int64* attribution_id) = 0;
 
-  // Queries attribution from the Attribution table by its context id.
+  // Returns attribution triplets for the given context id. Each triplet has:
+  // Column 0: int: attribution id
+  // Column 1: int: context id
+  // Column 2: int: artifact id
   virtual tensorflow::Status SelectAttributionByContextID(
       int64 context_id, RecordSet* record_set) = 0;
 
-  // Queries attribution from the Attribution table by its artifact id.
+  // Returns attribution triplets for the given artifact id. Each triplet has:
+  // Column 0: int: attribution id
+  // Column 1: int: context id
+  // Column 2: int: artifact id
   virtual tensorflow::Status SelectAttributionByArtifactID(
       int64 artifact_id, RecordSet* record_set) = 0;
 

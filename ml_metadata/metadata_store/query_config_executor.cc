@@ -261,7 +261,7 @@ std::string QueryConfigExecutor::Bind(Execution::State value) {
   return std::to_string((int)value);
 }
 
-std::string QueryConfigExecutor::Bind(const std::vector<int64>& value) {
+std::string QueryConfigExecutor::Bind(const absl::Span<const int64> value) {
   return absl::StrJoin(value, ", ");
 }
 
@@ -332,7 +332,7 @@ tensorflow::Status QueryConfigExecutor::ExecuteQuery(const std::string& query,
 
 tensorflow::Status QueryConfigExecutor::ExecuteQuery(
     const MetadataSourceQueryConfig::TemplateQuery& template_query,
-    const std::vector<std::string>& parameters, RecordSet* record_set) {
+    const absl::Span<const std::string> parameters, RecordSet* record_set) {
   if (parameters.size() > 10) {
     return tensorflow::errors::InvalidArgument(
         "Template query has too many parameters (at most 10 is supported).");

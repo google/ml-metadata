@@ -1465,6 +1465,145 @@ TEST_P(MetadataAccessObjectTest, ListContextsWithIdFieldOptions) {
   EXPECT_EQ(stored_contexts_count, seen_contexts_count);
 }
 
+TEST_P(MetadataAccessObjectTest, GetContextsById) {
+  TF_ASSERT_OK(Init());
+
+  // Setup: create the type for the context
+  int64 type_id;
+  {
+    ContextType type = ParseTextProtoOrDie<ContextType>(R"(
+      name: 'test_type'
+      properties { key: 'property_1' value: INT }
+    )");
+    TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
+  }
+
+  // Setup: Add first context instance
+  Context first_context;
+  {
+    first_context = ParseTextProtoOrDie<Context>(R"(
+      properties {
+        key: 'property_1'
+        value: { int_value: 3 }
+      }
+      custom_properties {
+        key: 'custom_property_1'
+        value: { string_value: 'foo' }
+      }
+    )");
+    int64 first_context_id;
+    first_context.set_type_id(type_id);
+    first_context.set_name("get_contexts_by_id_test-1");
+    TF_ASSERT_OK(metadata_access_object_->CreateContext(first_context,
+                                                        &first_context_id));
+    first_context.set_id(first_context_id);
+  }
+
+  // Setup: Add second context instance
+  Context second_context;
+  {
+    second_context = ParseTextProtoOrDie<Context>(R"(
+      properties {
+        key: 'property_1'
+        value: { int_value: 5 }
+      }
+      custom_properties {
+        key: 'custom_property_1'
+        value: { string_value: 'bar' }
+      }
+    )");
+    int64 second_context_id;
+    second_context.set_type_id(type_id);
+    second_context.set_name("get_contexts_by_id_test-2");
+    TF_ASSERT_OK(metadata_access_object_->CreateContext(second_context,
+                                                        &second_context_id));
+    second_context.set_id(second_context_id);
+  }
+
+  // Setup: Add third context instance that does not have *any* properties
+  Context third_context;
+  {
+    int64 third_context_id;
+    third_context.set_type_id(type_id);
+    third_context.set_name("get_contexts_by_id_test-3");
+    TF_ASSERT_OK(metadata_access_object_->CreateContext(third_context,
+                                                        &third_context_id));
+    third_context.set_id(third_context_id);
+  }
+
+  const int64 unknown_id =
+      first_context.id() + second_context.id() + third_context.id() + 1;
+
+  // Test: empty ids
+  {
+    std::vector<Context> result;
+    TF_EXPECT_OK(metadata_access_object_->FindContextsById({}, &result));
+    EXPECT_THAT(result, ::testing::IsEmpty());
+  }
+  // Test: no results
+  {
+    std::vector<Context> result;
+    tensorflow::Status status =
+        metadata_access_object_->FindContextsById({unknown_id}, &result);
+    EXPECT_EQ(status.code(), tensorflow::error::NOT_FOUND) << status;
+    EXPECT_THAT(result, ::testing::IsEmpty());
+  }
+  // Test: retrieve a single context at a time
+  {
+    std::vector<Context> result;
+    TF_ASSERT_OK(metadata_access_object_->FindContextsById({first_context.id()},
+                                                           &result));
+    EXPECT_THAT(result,
+                ElementsAre(EqualsProto(first_context, /*ignore_fields=*/{
+                                            "create_time_since_epoch",
+                                            "last_update_time_since_epoch"})));
+  }
+  {
+    std::vector<Context> result;
+    TF_ASSERT_OK(metadata_access_object_->FindContextsById(
+        {second_context.id()}, &result));
+    EXPECT_THAT(result,
+                ElementsAre(EqualsProto(second_context, /*ignore_fields=*/{
+                                            "create_time_since_epoch",
+                                            "last_update_time_since_epoch"})));
+  }
+  {
+    std::vector<Context> result;
+    TF_ASSERT_OK(metadata_access_object_->FindContextsById({third_context.id()},
+                                                           &result));
+    EXPECT_THAT(result,
+                ElementsAre(EqualsProto(third_context, /*ignore_fields=*/{
+                                            "create_time_since_epoch",
+                                            "last_update_time_since_epoch"})));
+  }
+  // Test: retrieve multiple contexts at a time
+  {
+    std::vector<Context> result;
+    const std::vector<int64> ids = {first_context.id(), unknown_id};
+    tensorflow::Status status =
+        metadata_access_object_->FindContextsById(ids, &result);
+    EXPECT_EQ(tensorflow::error::NOT_FOUND, status.code()) << status;
+  }
+  {
+    std::vector<Context> result;
+    const std::vector<int64> ids = {first_context.id(), second_context.id(),
+                                    third_context.id()};
+    TF_ASSERT_OK(metadata_access_object_->FindContextsById(ids, &result));
+    EXPECT_THAT(
+        result,
+        UnorderedElementsAre(
+            EqualsProto(first_context,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(second_context,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(third_context,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
+}
+
 TEST_P(MetadataAccessObjectTest, DefaultArtifactState) {
   TF_ASSERT_OK(Init());
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>("name: 'test_type'");
@@ -2027,8 +2166,13 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
 
   // Find contexts
   Context got_context1;
-  TF_EXPECT_OK(
-      metadata_access_object_->FindContextById(context1_id, &got_context1));
+  {
+    std::vector<Context> contexts;
+    TF_EXPECT_OK(
+        metadata_access_object_->FindContextsById({context1_id}, &contexts));
+    ASSERT_THAT(contexts, ::testing::SizeIs(1));
+    got_context1 = contexts[0];
+  }
   EXPECT_THAT(context1, EqualsProto(got_context1, /*ignore_fields=*/{
                                         "create_time_since_epoch",
                                         "last_update_time_since_epoch"}));
@@ -2150,8 +2294,13 @@ TEST_P(MetadataAccessObjectTest, UpdateContext) {
   int64 context_id;
   TF_ASSERT_OK(metadata_access_object_->CreateContext(context1, &context_id));
   Context got_context_before_update;
-  TF_EXPECT_OK(metadata_access_object_->FindContextById(
-      context_id, &got_context_before_update));
+  {
+    std::vector<Context> contexts;
+    TF_EXPECT_OK(
+        metadata_access_object_->FindContextsById({context_id}, &contexts));
+    ASSERT_THAT(contexts, ::testing::SizeIs(1));
+    got_context_before_update = contexts[0];
+  }
 
   // add `property_2` and update `property_1`, and drop `custom_property_1`
   Context want_context = ParseTextProtoOrDie<Context>(R"(
@@ -2172,8 +2321,13 @@ TEST_P(MetadataAccessObjectTest, UpdateContext) {
   TF_EXPECT_OK(metadata_access_object_->UpdateContext(want_context));
 
   Context got_context_after_update;
-  TF_EXPECT_OK(metadata_access_object_->FindContextById(
-      context_id, &got_context_after_update));
+  {
+    std::vector<Context> contexts;
+    TF_EXPECT_OK(
+        metadata_access_object_->FindContextsById({context_id}, &contexts));
+    ASSERT_THAT(contexts, ::testing::SizeIs(1));
+    got_context_after_update = contexts[0];
+  }
   EXPECT_THAT(want_context,
               EqualsProto(got_context_after_update,
                           /*ignore_fields=*/{"create_time_since_epoch",

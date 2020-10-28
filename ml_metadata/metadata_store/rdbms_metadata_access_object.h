@@ -157,7 +157,8 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   tensorflow::Status CreateContext(const Context& context,
                                    int64* context_id) final;
 
-  tensorflow::Status FindContextById(int64 context_id, Context* context) final;
+  tensorflow::Status FindContextsById(absl::Span<const int64> context_ids,
+                                      std::vector<Context>* contexts) final;
 
   tensorflow::Status FindContexts(std::vector<Context>* contexts) final;
 
@@ -215,6 +216,27 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
                                      int64* node_id);
   // Creates a Context (without properties).
   tensorflow::Status CreateBasicNode(const Context& context, int64* node_id);
+
+  // Retrieves nodes (and their properties) based on the provided 'ids'.
+  // 'header' contains the non-property information, and 'properties' contains
+  // information about properties. The node id is present in both record sets
+  // and can be used to join the information. The 'properties' are returned
+  // using the same convention as
+  // QueryExecutor::Select{Node}PropertyBy{Node}ID().
+  template <typename T>
+  tensorflow::Status RetrieveNodesById(
+      absl::Span<const int64> id, RecordSet* header, RecordSet* properties,
+      T* tag = nullptr /* used only for the template */);
+
+  // Retrieves the information and properties for 'node' which is identified by
+  // a valid node.id(). Upon return, 'header' will contain all non-property
+  // information for the node. 'properties' will contain records of the node's
+  // properties according to the  conventions spelled out in
+  // QueryExecutor::Find{Node}PropertyBy{Node}Id(). Returns NOT_FOUND if the
+  // node is found. Return INTERNAL_ERROR in other cases.
+  template <typename T>
+  tensorflow::Status NodeLookups(const T& node, RecordSet* header,
+                                 RecordSet* properties);
 
   // Lookup Artifact by id.
   tensorflow::Status NodeLookups(const Artifact& artifact, RecordSet* header,
@@ -348,6 +370,19 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // Returns detailed INTERNAL error, if query execution fails.
   template <typename Node>
   tensorflow::Status FindNodeImpl(const int64 node_id, Node* node);
+
+  // Retrieves a set of `Node` which is one of {`Artifact`, `Execution`,
+  // `Context`} by the given 'ids'.
+  // 'skipped_ids_ok' controls the return error value if any of the ids are not
+  // found.
+  // Returns INVALID_ARGUMENT if node_ids is empty.
+  // Returns detailed INTERNAL error if query execution fails.
+  // If any ids are not found then returns NOT_FOUND if skipped_ids_ok is true,
+  // otherwise INTERNAL error.
+  template <typename Node>
+  tensorflow::Status FindNodesByIdImpl(absl::Span<const int64> node_ids,
+                                       bool skipped_ids_ok,
+                                       std::vector<Node>& nodes);
 
   // Find nodes by ID, where the IDs are encoded in a record set.
   template <typename Node>

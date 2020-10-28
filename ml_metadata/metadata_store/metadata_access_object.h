@@ -18,6 +18,7 @@ limitations under the License.
 #include <memory>
 #include <vector>
 
+#include "absl/types/span.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
@@ -308,11 +309,11 @@ class MetadataAccessObject {
   virtual tensorflow::Status CreateContext(const Context& context,
                                            int64* context_id) = 0;
 
-  // Queries a context by an id.
-  // Returns NOT_FOUND error, if the given context_id cannot be found.
-  // Returns detailed INTERNAL error, if query execution fails.
-  virtual tensorflow::Status FindContextById(int64 context_id,
-                                             Context* context) = 0;
+  // Retrieves contexts matching a collection of ids.
+  // Returns NOT_FOUND if any of the given ids are not found.
+  // Returns detailed INTERNAL error if query execution fails.
+  virtual tensorflow::Status FindContextsById(
+      absl::Span<const int64> context_ids, std::vector<Context>* context) = 0;
 
   // Queries contexts stored in the metadata source
   // Returns detailed INTERNAL error, if query execution fails.
