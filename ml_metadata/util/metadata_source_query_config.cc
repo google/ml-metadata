@@ -28,63 +28,70 @@ namespace {
 // no-lint to support vc (C2026) 16380 max length for char[].
 const std::string kBaseQueryConfig = absl::StrCat(  // NOLINT
 R"pb(
-  schema_version: 5
+  schema_version: 6
   drop_type_table { query: " DROP TABLE IF EXISTS `Type`; " }
   create_type_table {
     query: " CREATE TABLE IF NOT EXISTS `Type` ( "
            "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
            "   `name` VARCHAR(255) NOT NULL, "
+           "   `version` VARCHAR(255), "
            "   `type_kind` TINYINT(1) NOT NULL, "
+           "   `description` TEXT, "
            "   `input_type` TEXT, "
            "   `output_type` TEXT"
            " ); "
   }
   check_type_table {
-    query: " SELECT "
-           "`id`, `name`, `type_kind`, `input_type`, `output_type` "
+    query: " SELECT `id`, `name`, `version`, `type_kind`, `description`, "
+           "        `input_type`, `output_type` "
            " FROM `Type` LIMIT 1; "
   }
-
   insert_artifact_type {
     query: " INSERT INTO `Type`( "
            "   `name`, `type_kind` "
            ") VALUES($0, 1);"
     parameter_num: 1
   }
-
   insert_execution_type {
     query: " INSERT INTO `Type`( "
            "   `name`, `type_kind`, `input_type`,  `output_type` "
            ") VALUES($0, 0, $1, $2);"
     parameter_num: 3
   }
-
   insert_context_type {
     query: " INSERT INTO `Type`( "
            "   `name`, `type_kind` "
            ") VALUES($0, 2);"
     parameter_num: 1
   }
-
   select_type_by_id {
     query: " SELECT `id`, `name`, `input_type`, `output_type` "
            " from `Type` "
            " WHERE id = $0 and type_kind = $1; "
     parameter_num: 2
   }
-
   select_type_by_name {
     query: " SELECT `id`, `name`, `input_type`, `output_type` "
            " from `Type` "
            " WHERE name = $0 and type_kind = $1; "
     parameter_num: 2
   }
-
   select_all_types {
     query: " SELECT `id`, `name`, `input_type`, `output_type` "
            " from `Type` "
            " WHERE type_kind = $0; "
     parameter_num: 1
+  }
+  drop_parent_type_table { query: " DROP TABLE IF EXISTS `ParentType`; " }
+  create_parent_type_table {
+    query: " CREATE TABLE IF NOT EXISTS `ParentType` ( "
+           "   `type_id` INT NOT NULL, "
+           "   `parent_type_id` INT NOT NULL, "
+           " PRIMARY KEY (`type_id`, `parent_type_id`)); "
+  }
+  check_parent_type_table {
+    query: " SELECT `type_id`, `parent_type_id` "
+           " FROM `ParentType` LIMIT 1; "
   }
   drop_type_property_table { query: " DROP TABLE IF EXISTS `TypeProperty`; " }
   create_type_property_table {
@@ -387,6 +394,17 @@ R"pb(
            " WHERE `context_id` = $0 and `name` = $1;"
     parameter_num: 2
   }
+  drop_parent_context_table { query: " DROP TABLE IF EXISTS `ParentContext`;" }
+  create_parent_context_table {
+    query: " CREATE TABLE IF NOT EXISTS `ParentContext` ( "
+           "   `context_id` INT NOT NULL, "
+           "   `parent_context_id` INT NOT NULL, "
+           " PRIMARY KEY (`context_id`, `parent_context_id`)); "
+  }
+  check_parent_context_table {
+    query: " SELECT `context_id`, `parent_context_id` "
+           " FROM `ParentContext` LIMIT 1; "
+  }
 )pb",
 R"pb(
   drop_event_table { query: " DROP TABLE IF EXISTS `Event`; " }
@@ -540,6 +558,59 @@ R"pb(
 const std::string kSQLiteMetadataSourceQueryConfig = absl::StrCat(  // NOLINT
 R"pb(
   metadata_source_type: SQLITE_METADATA_SOURCE
+  # secondary indices in the current schema.
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS `idx_artifact_uri` "
+           " ON `Artifact`(`uri`); "
+  }
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS "
+           "   `idx_artifact_create_time_since_epoch` "
+           " ON `Artifact`(`create_time_since_epoch`); "
+  }
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS "
+           "   `idx_artifact_last_update_time_since_epoch` "
+           " ON `Artifact`(`last_update_time_since_epoch`); "
+  }
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS `idx_event_artifact_id` "
+           " ON `Event`(`artifact_id`); "
+  }
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS `idx_event_execution_id` "
+           " ON `Event`(`execution_id`); "
+  }
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS `idx_parentcontext_parent_context_id` "
+           " ON `ParentContext`(`parent_context_id`); "
+  }
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS `idx_type_name` "
+           " ON `Type`(`name`); "
+  }
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS "
+           "   `idx_execution_create_time_since_epoch` "
+           " ON `Execution`(`create_time_since_epoch`); "
+  }
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS "
+           "   `idx_execution_last_update_time_since_epoch` "
+           " ON `Execution`(`last_update_time_since_epoch`); "
+  }
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS "
+           "   `idx_context_create_time_since_epoch` "
+           " ON `Context`(`create_time_since_epoch`); "
+  }
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS "
+           "   `idx_context_last_update_time_since_epoch` "
+           " ON `Context`(`last_update_time_since_epoch`); "
+  }
+)pb",
+R"pb(
   # downgrade to 0.13.2 (i.e., v0), and drop the MLMDEnv table.
   migration_schemes {
     key: 0
@@ -1072,6 +1143,285 @@ R"pb(
                  " ) as T1; "
         }
       }
+      # downgrade queries from version 6
+      downgrade_queries { query: " DROP TABLE `ParentType`; " }
+      downgrade_queries { query: " DROP TABLE `ParentContext`; " }
+      downgrade_queries {
+        query: " CREATE TABLE `TypeTemp` ( "
+               "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+               "   `name` VARCHAR(255) NOT NULL, "
+               "   `type_kind` TINYINT(1) NOT NULL, "
+               "   `input_type` TEXT, "
+               "   `output_type` TEXT"
+               " ); "
+      }
+      downgrade_queries {
+        query: " INSERT INTO `TypeTemp` "
+               " SELECT `id`, `name`, `type_kind`, `input_type`, `output_type`"
+               " FROM `Type`; "
+      }
+      downgrade_queries { query: " DROP TABLE `Type`; " }
+      downgrade_queries { query: " ALTER TABLE `TypeTemp` RENAME TO `Type`; " }
+      downgrade_queries { query: " DROP INDEX `idx_artifact_uri`; " }
+      downgrade_queries {
+        query: " DROP INDEX`idx_artifact_create_time_since_epoch`; "
+      }
+      downgrade_queries {
+        query: " DROP INDEX `idx_artifact_last_update_time_since_epoch`; "
+      }
+      downgrade_queries { query: " DROP INDEX `idx_event_artifact_id`; " }
+      downgrade_queries { query: " DROP INDEX `idx_event_execution_id`; " }
+      downgrade_queries {
+        query: " DROP INDEX `idx_execution_create_time_since_epoch`; "
+      }
+      downgrade_queries {
+        query: " DROP INDEX `idx_execution_last_update_time_since_epoch`; "
+      }
+      downgrade_queries {
+        query: " DROP INDEX `idx_context_create_time_since_epoch`; "
+      }
+      downgrade_queries {
+        query: " DROP INDEX `idx_context_last_update_time_since_epoch`; "
+      }
+      # verify if the downgrading keeps the existing columns
+      downgrade_verification {
+        previous_version_setup_queries { query: "DELETE FROM `Type`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Type` "
+                 " (`id`, `name`, `version`, `type_kind`, "
+                 "  `description`, `input_type`, `output_type`) "
+                 " VALUES (1, 't1', 'v1', 1, 'desc1', 'input1', 'output1'); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Type` "
+                 " (`id`, `name`, `version`, `type_kind`, "
+                 "  `description`, `input_type`, `output_type`) "
+                 " VALUES (2, 't2', 'v2', 2, 'desc2', 'input2', 'output2'); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 2 FROM `Type`; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM ( "
+                 "   SELECT * FROM `Type` "
+                 "   WHERE `id` = 1 AND `name` = 't1' AND type_kind = 1 "
+                 "   AND `input_type` = 'input1' AND `output_type` = 'output1'"
+                 " ); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'Artifact' "
+                 "       AND `name` LIKE 'idx_artifact_%'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'Event' "
+                 "       AND `name` LIKE 'idx_event_%'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `sqlite_master` "
+                 " WHERE `tbl_name` = 'ParentType'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `sqlite_master` "
+                 " WHERE `tbl_name` = 'ParentContext'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'ParentContext' "
+                 "       AND `name` LIKE 'idx_parentcontext_%'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'Type' "
+                 "       AND `name` LIKE 'idx_type_%'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'Execution' "
+                 "       AND `name` LIKE 'idx_execution_%'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'Context' "
+                 "       AND `name` LIKE 'idx_context_%'; "
+        }
+      }
+    }
+  }
+)pb",
+R"pb(
+  # In v6, to support parental type and parental context, we added two tables
+  # `ParentType` and `ParentContext`. In addition, we added `version` and
+  # `description` in the `Type` table for improving type registrations.
+  # We introduce indices on Type.name, Artifact.uri, Event's artifact_id and
+  # execution_id, and create_time_since_epoch, last_update_time_since_epoch
+  # for all nodes.
+  migration_schemes {
+    key: 6
+    value: {
+      upgrade_queries {
+        query: " CREATE TABLE IF NOT EXISTS `ParentType` ( "
+               "   `type_id` INT NOT NULL, "
+               "   `parent_type_id` INT NOT NULL, "
+               " PRIMARY KEY (`type_id`, `parent_type_id`)); "
+      }
+      upgrade_queries {
+        query: " CREATE TABLE IF NOT EXISTS `ParentContext` ( "
+               "   `context_id` INT NOT NULL, "
+               "   `parent_context_id` INT NOT NULL, "
+               " PRIMARY KEY (`context_id`, `parent_context_id`)); "
+      }
+      # upgrade Type table
+      upgrade_queries {
+        query: " CREATE TABLE `TypeTemp` ( "
+               "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+               "   `name` VARCHAR(255) NOT NULL, "
+               "   `version` VARCHAR(255), "
+               "   `type_kind` TINYINT(1) NOT NULL, "
+               "   `description` TEXT, "
+               "   `input_type` TEXT, "
+               "   `output_type` TEXT"
+               " ); "
+      }
+      upgrade_queries {
+        query: " INSERT INTO `TypeTemp` "
+               " (`id`, `name`, `type_kind`, `input_type`, `output_type`) "
+               " SELECT * FROM `Type`; "
+      }
+      upgrade_queries { query: " DROP TABLE `Type`; " }
+      upgrade_queries { query: " ALTER TABLE `TypeTemp` rename to `Type`; " }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_artifact_uri` "
+               " ON `Artifact`(`uri`); "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS "
+               "   `idx_artifact_create_time_since_epoch` "
+               " ON `Artifact`(`create_time_since_epoch`); "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS "
+               "   `idx_artifact_last_update_time_since_epoch` "
+               " ON `Artifact`(`last_update_time_since_epoch`); "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_event_artifact_id` "
+               " ON `Event`(`artifact_id`); "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_event_execution_id` "
+               " ON `Event`(`execution_id`); "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS "
+               " `idx_parentcontext_parent_context_id` "
+               " ON `ParentContext`(`parent_context_id`); "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_type_name` "
+               " ON `Type`(`name`); "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS "
+               "   `idx_execution_create_time_since_epoch` "
+               " ON `Execution`(`create_time_since_epoch`); "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS "
+               "   `idx_execution_last_update_time_since_epoch` "
+               " ON `Execution`(`last_update_time_since_epoch`); "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS "
+               "   `idx_context_create_time_since_epoch` "
+               " ON `Context`(`create_time_since_epoch`); "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS "
+               "   `idx_context_last_update_time_since_epoch` "
+               " ON `Context`(`last_update_time_since_epoch`); "
+      }
+      # check the expected table columns are created properly.
+      upgrade_verification {
+        # check existing rows in previous Type table are migrated properly.
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `Type` WHERE "
+                 " `id` = 1 AND `type_kind` = 1 AND `name` = 'artifact_type'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `Type` WHERE "
+                 " `id` = 2 AND `type_kind` = 0 AND `name` = 'execution_type' "
+                 " AND `input_type` = 'input' AND `output_type` = 'output'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM ( "
+                 "   SELECT `type_id`, `parent_type_id` "
+                 "   FROM `ParentType` "
+                 " ); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM ( "
+                 "   SELECT `context_id`, `parent_context_id` "
+                 "   FROM `ParentContext` "
+                 " ); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'Artifact' "
+                 "       AND `name` = 'idx_artifact_uri'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'Artifact' "
+                 "       AND `name` = 'idx_artifact_create_time_since_epoch'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'Artifact' AND "
+                 "       `name` = 'idx_artifact_last_update_time_since_epoch'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'Event' "
+                 "       AND `name` = 'idx_event_artifact_id'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'Event' "
+                 "       AND `name` = 'idx_event_execution_id'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'ParentContext' "
+                 "       AND `name` = 'idx_parentcontext_parent_context_id'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'Type' "
+                 "       AND `name` = 'idx_type_name'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'Execution' "
+                 "       AND `name` = 'idx_execution_create_time_since_epoch';"
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'Execution' AND "
+                 "       `name` = 'idx_execution_last_update_time_since_epoch';"
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'Context' "
+                 "       AND `name` = 'idx_context_create_time_since_epoch';"
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'Context' AND "
+                 "       `name` = 'idx_context_last_update_time_since_epoch';"
+        }
+      }
     }
   }
 )pb");
@@ -1086,7 +1436,9 @@ R"pb(
     query: " CREATE TABLE IF NOT EXISTS `Type` ( "
            "   `id` INT PRIMARY KEY AUTO_INCREMENT, "
            "   `name` VARCHAR(255) NOT NULL, "
+           "   `version` VARCHAR(255), "
            "   `type_kind` TINYINT(1) NOT NULL, "
+           "   `description` TEXT, "
            "   `input_type` TEXT, "
            "   `output_type` TEXT"
            " ); "
@@ -1148,6 +1500,45 @@ R"pb(
            "   `artifact_id` INT NOT NULL, "
            "   UNIQUE(`context_id`, `artifact_id`) "
            " ); "
+  }
+  # secondary indices in the current schema.
+  secondary_indices {
+    # MySQL does not support arbitrary length string index. Only prefix index
+    # is supported. Max size for 5.6/5.7 is 255 char for utf8 charset.
+    query: " ALTER TABLE `Artifact` "
+          "  ADD INDEX `idx_artifact_uri`(`uri`(255)), "
+          "  ADD INDEX `idx_artifact_create_time_since_epoch` "
+          "             (`create_time_since_epoch`), "
+          "  ADD INDEX `idx_artifact_last_update_time_since_epoch` "
+          "             (`last_update_time_since_epoch`); "
+  }
+  secondary_indices {
+    query: " ALTER TABLE `Event` "
+           " ADD INDEX `idx_event_artifact_id` (`artifact_id`), "
+           " ADD INDEX `idx_event_execution_id` (`execution_id`); "
+  }
+  secondary_indices {
+    query: " ALTER TABLE `ParentContext` "
+           " ADD INDEX "
+           "   `idx_parentcontext_parent_context_id` (`parent_context_id`); "
+  }
+  secondary_indices {
+    query: " ALTER TABLE `Type` "
+           " ADD INDEX `idx_type_name` (`name`); "
+  }
+  secondary_indices {
+    query: " ALTER TABLE `Execution` "
+          "  ADD INDEX `idx_execution_create_time_since_epoch` "
+          "             (`create_time_since_epoch`), "
+          "  ADD INDEX `idx_execution_last_update_time_since_epoch` "
+          "             (`last_update_time_since_epoch`); "
+  }
+  secondary_indices {
+    query: " ALTER TABLE `Context` "
+          "  ADD INDEX `idx_context_create_time_since_epoch` "
+          "             (`create_time_since_epoch`), "
+          "  ADD INDEX `idx_context_last_update_time_since_epoch` "
+          "             (`last_update_time_since_epoch`); "
   }
   # downgrade to 0.13.2 (i.e., v0), and drops the MLMDEnv table.
   migration_schemes {
@@ -1610,6 +2001,269 @@ R"pb(
                  "         `create_time_since_epoch` = 0 AND "
                  "         `last_update_time_since_epoch` = 0 "
                  " ) as T1; "
+        }
+      }
+      # downgrade queries from version 6
+      downgrade_queries { query: " DROP TABLE `ParentType`; " }
+      downgrade_queries { query: " DROP TABLE `ParentContext`; " }
+      downgrade_queries {
+        query: " ALTER TABLE `Type` "
+               " DROP COLUMN `version`, "
+               " DROP COLUMN `description`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `Artifact` "
+               " DROP INDEX `idx_artifact_uri`, "
+               " DROP INDEX `idx_artifact_create_time_since_epoch`, "
+               " DROP INDEX `idx_artifact_last_update_time_since_epoch`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `Event` "
+               " DROP INDEX `idx_event_artifact_id`, "
+               " DROP INDEX `idx_event_execution_id`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `Type` "
+               " DROP INDEX `idx_type_name`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `Execution` "
+               " DROP INDEX `idx_execution_create_time_since_epoch`, "
+               " DROP INDEX `idx_execution_last_update_time_since_epoch`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `Context` "
+               " DROP INDEX `idx_context_create_time_since_epoch`, "
+               " DROP INDEX `idx_context_last_update_time_since_epoch`; "
+      }
+      # verify if the downgrading keeps the existing columns
+      downgrade_verification {
+        previous_version_setup_queries { query: "DELETE FROM `Type`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Type` "
+                 " (`id`, `name`, `version`, `type_kind`, "
+                 "  `description`, `input_type`, `output_type`) "
+                 " VALUES (1, 't1', 'v1', 1, 'desc1', 'input1', 'output1'); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Type` "
+                 " (`id`, `name`, `version`, `type_kind`, "
+                 "  `description`, `input_type`, `output_type`) "
+                 " VALUES (2, 't2', 'v2', 2, 'desc2', 'input2', 'output2'); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 2 FROM `Type`; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM ( "
+                 "   SELECT * FROM `Type` "
+                 "   WHERE `id` = 1 AND `name` = 't1' AND type_kind = 1 "
+                 "   AND `input_type` = 'input1' AND `output_type` = 'output1'"
+                 " ) as T1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `information_schema`.`tables` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) and "
+                 "       `table_name` = 'ParentType'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `information_schema`.`tables` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) and "
+                 "       `table_name` = 'ParentContext'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) AND "
+                 "       `table_name` = 'Artifact' AND "
+                 "       `index_name` LIKE 'idx_artifact_%'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) AND "
+                 "       `table_name` = 'Event' AND "
+                 "       `index_name` LIKE 'idx_event_%'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) AND "
+                 "       `table_name` = 'ParentContext' AND "
+                 "       `index_name` LIKE 'idx_parentcontext_%'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) AND "
+                 "       `table_name` = 'Type' AND "
+                 "       `index_name` LIKE 'idx_type_%'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) AND "
+                 "       `table_name` = 'Execution' AND "
+                 "       `index_name` LIKE 'idx_execution_%'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) AND "
+                 "       `table_name` = 'Context' AND "
+                 "       `index_name` LIKE 'idx_context_%'; "
+        }
+      }
+    }
+  }
+)pb",
+R"pb(
+  # In v6, to support parental type and parental context, we added two tables
+  # `ParentType` and `ParentContext`. In addition, we added `version` and
+  # `description` in the `Type` table for improving type registrations.
+  # We introduce indices on Type.name, Artifact.uri, Event's artifact_id and
+  # execution_id, and create_time_since_epoch, last_update_time_since_epoch
+  # for all nodes.
+  migration_schemes {
+    key: 6
+    value: {
+      upgrade_queries {
+        query: " CREATE TABLE IF NOT EXISTS `ParentType` ( "
+               "   `type_id` INT NOT NULL, "
+               "   `parent_type_id` INT NOT NULL, "
+               " PRIMARY KEY (`type_id`, `parent_type_id`)); "
+      }
+      upgrade_queries {
+        query: " CREATE TABLE IF NOT EXISTS `ParentContext` ( "
+               "   `context_id` INT NOT NULL, "
+               "   `parent_context_id` INT NOT NULL, "
+               " PRIMARY KEY (`context_id`, `parent_context_id`)); "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `Type` ADD ( "
+               "   `version` VARCHAR(255), "
+               "   `description` TEXT "
+               " ); "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `Artifact` "
+               " ADD INDEX `idx_artifact_uri`(`uri`(255)), "
+              "  ADD INDEX `idx_artifact_create_time_since_epoch` "
+              "             (`create_time_since_epoch`), "
+              "  ADD INDEX `idx_artifact_last_update_time_since_epoch` "
+              "             (`last_update_time_since_epoch`); "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `Event` "
+               " ADD INDEX `idx_event_artifact_id` (`artifact_id`), "
+               " ADD INDEX `idx_event_execution_id` (`execution_id`); "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `ParentContext` "
+               " ADD INDEX "
+               "  `idx_parentcontext_parent_context_id` (`parent_context_id`);"
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `Type` "
+               " ADD INDEX `idx_type_name` (`name`);"
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `Execution` "
+              "  ADD INDEX `idx_execution_create_time_since_epoch` "
+              "             (`create_time_since_epoch`), "
+              "  ADD INDEX `idx_execution_last_update_time_since_epoch` "
+              "             (`last_update_time_since_epoch`); "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `Context` "
+              "  ADD INDEX `idx_context_create_time_since_epoch` "
+              "             (`create_time_since_epoch`), "
+              "  ADD INDEX `idx_context_last_update_time_since_epoch` "
+              "             (`last_update_time_since_epoch`); "
+      }
+      # check the expected table columns are created properly.
+      upgrade_verification {
+        # check existing rows in previous Type table are migrated properly.
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `Type` WHERE "
+                 " `id` = 1 AND `type_kind` = 1 AND `name` = 'artifact_type'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `Type` WHERE "
+                 " `id` = 2 AND `type_kind` = 0 AND `name` = 'execution_type' "
+                 " AND `input_type` = 'input' AND `output_type` = 'output'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM ( "
+                 "   SELECT `type_id`, `parent_type_id` "
+                 "   FROM `ParentType` "
+                 " ) as T1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM ( "
+                 "   SELECT `context_id`, `parent_context_id` "
+                 "   FROM `ParentContext` "
+                 " ) as T1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) and "
+                 "       `table_name` = 'Artifact' AND "
+                 "       `index_name` = 'idx_artifact_uri'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) and "
+                 "       `table_name` = 'Artifact' AND "
+                 "       `index_name` = 'idx_artifact_create_time_since_epoch';"
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) and "
+                 "       `table_name` = 'Artifact' AND `index_name` = "
+                 "       'idx_artifact_last_update_time_since_epoch';"
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) and "
+                 "       `table_name` = 'Event' AND "
+                 "       `index_name` = 'idx_event_artifact_id'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) and "
+                 "       `table_name` = 'Event' AND "
+                 "       `index_name` = 'idx_event_execution_id'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) and "
+                 "       `table_name` = 'ParentContext' AND "
+                 "       `index_name` = 'idx_parentcontext_parent_context_id'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) and "
+                 "       `table_name` = 'Type' AND "
+                 "       `index_name` = 'idx_type_name'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) and "
+                 "       `table_name` = 'Execution' AND `index_name` = "
+                 "       'idx_execution_create_time_since_epoch'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) and "
+                 "       `table_name` = 'Execution' AND `index_name` = "
+                 "       'idx_execution_last_update_time_since_epoch'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) and "
+                 "       `table_name` = 'Context' AND "
+                 "       `index_name` = 'idx_context_create_time_since_epoch'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) and "
+                 "       `table_name` = 'Context' AND `index_name` = "
+                 "       'idx_context_last_update_time_since_epoch'; "
         }
       }
     }

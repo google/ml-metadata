@@ -363,6 +363,7 @@ tensorflow::Status QueryConfigExecutor::IsCompatible(int64 db_version,
 tensorflow::Status QueryConfigExecutor::InitMetadataSource() {
   TF_RETURN_IF_ERROR(ExecuteQuery(query_config_.create_type_table()));
   TF_RETURN_IF_ERROR(ExecuteQuery(query_config_.create_type_property_table()));
+  TF_RETURN_IF_ERROR(ExecuteQuery(query_config_.create_parent_type_table()));
   TF_RETURN_IF_ERROR(ExecuteQuery(query_config_.create_artifact_table()));
   TF_RETURN_IF_ERROR(
       ExecuteQuery(query_config_.create_artifact_property_table()));
@@ -375,8 +376,20 @@ tensorflow::Status QueryConfigExecutor::InitMetadataSource() {
   TF_RETURN_IF_ERROR(ExecuteQuery(query_config_.create_context_table()));
   TF_RETURN_IF_ERROR(
       ExecuteQuery(query_config_.create_context_property_table()));
+  TF_RETURN_IF_ERROR(ExecuteQuery(query_config_.create_parent_context_table()));
   TF_RETURN_IF_ERROR(ExecuteQuery(query_config_.create_association_table()));
   TF_RETURN_IF_ERROR(ExecuteQuery(query_config_.create_attribution_table()));
+  for (const MetadataSourceQueryConfig::TemplateQuery& index_query :
+       query_config_.secondary_indices()) {
+    const tensorflow::Status status = ExecuteQuery(index_query);
+    // For databases (e.g., MySQL), idempotency of indexing creation is not
+    // supported well. We handle it here and covered by the `InitForReset` test.
+    if (!status.ok() &&
+        absl::StrContains(status.error_message(), "Duplicate key name")) {
+      continue;
+    }
+    TF_RETURN_IF_ERROR(status);
+  }
 
   int64 library_version = GetLibraryVersion();
   tensorflow::Status insert_schema_version_status =
@@ -404,6 +417,7 @@ tensorflow::Status QueryConfigExecutor::InitMetadataSourceIfNotExists(
   // if lib and db versions align, we check the required tables for the lib.
   std::vector<std::pair<tensorflow::Status, std::string>> checks;
   checks.push_back({CheckTypeTable(), "type_table"});
+  checks.push_back({CheckParentTypeTable(), "parent_type_table"});
   checks.push_back({CheckTypePropertyTable(), "type_property_table"});
   checks.push_back({CheckArtifactTable(), "artifact_table"});
   checks.push_back({CheckArtifactPropertyTable(), "artifact_property_table"});
@@ -413,9 +427,10 @@ tensorflow::Status QueryConfigExecutor::InitMetadataSourceIfNotExists(
   checks.push_back({CheckEventPathTable(), "event_path_table"});
   checks.push_back({CheckMLMDEnvTable(), "mlmd_env_table"});
   checks.push_back({CheckContextTable(), "context_table"});
+  checks.push_back({CheckParentContextTable(), "parent_context_table"});
   checks.push_back({CheckContextPropertyTable(), "context_property_table"});
-  checks.push_back({CheckAssociationTable(), "check_association_table"});
-  checks.push_back({CheckAttributionTable(), "check_attribution_table"});
+  checks.push_back({CheckAssociationTable(), "association_table"});
+  checks.push_back({CheckAttributionTable(), "attribution_table"});
   std::vector<std::string> missing_schema_error_messages;
   std::vector<std::string> successful_checks;
   std::vector<std::string> failing_checks;

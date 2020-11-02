@@ -65,6 +65,10 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(query_config_.check_type_table());
   }
 
+  tensorflow::Status CheckParentTypeTable() {
+    return ExecuteQuery(query_config_.check_parent_type_table());
+  }
+
   tensorflow::Status InsertArtifactType(const std::string& name,
                                         int64* artifact_type_id) final {
     const std::vector<std::string> bound_name = {Bind(name)};
@@ -331,6 +335,10 @@ class QueryConfigExecutor : public QueryExecutor {
         query_config_.update_context(),
         {Bind(existing_context_id), Bind(type_id), Bind(context_name),
          Bind(absl::ToUnixMillis(update_time))});
+  }
+
+  tensorflow::Status CheckParentContextTable() {
+    return ExecuteQuery(query_config_.check_parent_context_table());
   }
 
   tensorflow::Status CheckContextPropertyTable() final {

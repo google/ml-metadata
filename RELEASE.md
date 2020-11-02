@@ -18,6 +18,18 @@
     involved for the wheels to be available on the PyPI cloud service. You can
     always use the stable version of MLMD available on PyPI by running the
     command `pip install ml-metadata` .
+*   Upgrades MLMD schema version to 6.
+    -   Add `ParentType` table for supporting type inheritance.
+    -   Add `Type`.`version` column for Type evolution development.
+    -   Add `Type`.`idx_type_name` index for type lookup APIs.
+    -   Add `Type`.`description` column for capturing static information about
+        Type.
+    -   Add `ParentContext` table for supporting context parental relationship.
+    -   Add `Artifact`.`idx_artifact_uri` for filtering artifacts by uri.
+    -   Add `Event`.`idx_event_artifact_id` and `idx_event_execution_id` for
+        lineage traversal APIs.
+    -   Add indices on `create_time_since_epoch`, `last_update_time_since_epoch`
+        for `Artifact`, `Execution` and `Context` for sorted listing queries.
 
 ## Bug Fixes and Other Changes
 
