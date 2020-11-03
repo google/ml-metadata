@@ -107,8 +107,11 @@ MySqlMetadataSource::~MySqlMetadataSource() { TF_CHECK_OK(CloseImpl()); }
 Status MySqlMetadataSource::ConnectImpl() {
   // Initialize the MYSQL object.
   db_ = mysql_init(nullptr);
-  if (db_ == nullptr) {
-    return errors::Internal("mysql_init failed");
+  if (!db_) {
+    LOG(ERROR) << "MySQL error: " << mysql_errno(db_) << ": "
+               << mysql_error(db_);
+    return errors::Internal("mysql_init failed: errno: ",
+                            mysql_errno(db_), ", error: ", mysql_error(db_));
   }
 
   // Explicitly setup the thread-local initializer.
