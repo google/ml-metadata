@@ -156,11 +156,12 @@ class MetadataAccessObject {
   virtual tensorflow::Status CreateArtifact(const Artifact& artifact,
                                             int64* artifact_id) = 0;
 
-  // Queries an artifact by an id.
-  // Returns NOT_FOUND error, if the given artifact_id cannot be found.
+  // Retrieves artifacts matching the given 'artifact_ids'.
+  // Returns NOT_FOUND error, if any of the given artifact_ids are not found.
   // Returns detailed INTERNAL error, if query execution fails.
-  virtual tensorflow::Status FindArtifactById(int64 artifact_id,
-                                              Artifact* artifact) = 0;
+  virtual tensorflow::Status FindArtifactsById(
+      absl::Span<const int64> artifact_ids,
+      std::vector<Artifact>* artifact) = 0;
 
   // Queries artifacts stored in the metadata source
   // Returns detailed INTERNAL error, if query execution fails.
@@ -260,11 +261,12 @@ class MetadataAccessObject {
   virtual tensorflow::Status CreateExecution(const Execution& execution,
                                              int64* execution_id) = 0;
 
-  // Queries an entity by an id.
-  // Returns NOT_FOUND error, if the given execution_id cannot be found.
+  // Retrieves executions matching the given 'ids'.
+  // Returns NOT_FOUND error, if any of the given ids are not found.
   // Returns detailed INTERNAL error, if query execution fails.
-  virtual tensorflow::Status FindExecutionById(int64 execution_id,
-                                               Execution* execution) = 0;
+  virtual tensorflow::Status FindExecutionsById(
+      absl::Span<const int64> execution_ids,
+      std::vector<Execution>* executions) = 0;
 
   // Queries executions stored in the metadata source
   // Returns detailed INTERNAL error, if query execution fails.

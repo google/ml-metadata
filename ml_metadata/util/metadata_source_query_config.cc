@@ -146,10 +146,10 @@ R"pb(
     parameter_num: 6
   }
   select_artifact_by_id {
-    query: " SELECT `type_id`, `uri`, `state`, `name`, "
+    query: " SELECT `id`, `type_id`, `uri`, `state`, `name`, "
            "        `create_time_since_epoch`, `last_update_time_since_epoch` "
            " from `Artifact` "
-           " WHERE id = $0; "
+           " WHERE id IN ($0); "
     parameter_num: 1
   }
   select_artifact_by_type_id_and_name {
@@ -200,7 +200,7 @@ R"pb(
            "        `is_custom_property`, "
            "        `int_value`, `double_value`, `string_value` "
            " from `ArtifactProperty` "
-           " WHERE `artifact_id` = $0; "
+           " WHERE `artifact_id` IN ($0); "
     parameter_num: 1
   }
   update_artifact_property {
@@ -241,10 +241,10 @@ R"pb(
     parameter_num: 5
   }
   select_execution_by_id {
-    query: " SELECT `type_id`, `last_known_state`, `name`, "
+    query: " SELECT `id`, `type_id`, `last_known_state`, `name`, "
            "        `create_time_since_epoch`, `last_update_time_since_epoch` "
            " from `Execution` "
-           " WHERE id = $0; "
+           " WHERE id IN ($0); "
     parameter_num: 1
   }
   select_execution_by_type_id_and_name {
@@ -291,7 +291,7 @@ R"pb(
            "        `is_custom_property`, "
            "        `int_value`, `double_value`, `string_value` "
            " from `ExecutionProperty` "
-           " WHERE `execution_id` = $0; "
+           " WHERE `execution_id` IN ($0); "
     parameter_num: 1
   }
   update_execution_property {

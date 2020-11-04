@@ -110,8 +110,8 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   tensorflow::Status CreateArtifact(const Artifact& artifact,
                                     int64* artifact_id) final;
 
-  tensorflow::Status FindArtifactById(int64 artifact_id,
-                                      Artifact* artifact) final;
+  tensorflow::Status FindArtifactsById(absl::Span<const int64> artifact_ids,
+                                       std::vector<Artifact>* artifacts) final;
 
   tensorflow::Status FindArtifacts(std::vector<Artifact>* artifacts) final;
 
@@ -141,8 +141,9 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   tensorflow::Status CreateExecution(const Execution& execution,
                                      int64* execution_id) final;
 
-  tensorflow::Status FindExecutionById(int64 execution_id,
-                                       Execution* execution) final;
+  tensorflow::Status FindExecutionsById(
+      absl::Span<const int64> execution_ids,
+      std::vector<Execution>* executions) final;
 
   tensorflow::Status FindExecutions(std::vector<Execution>* executions) final;
 
@@ -402,19 +403,6 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // Returns INVALID_ARGUMENT error, if the `events` is null.
   tensorflow::Status FindEventsFromRecordSet(const RecordSet& event_record_set,
                                              std::vector<Event>* events);
-
-  // Queries `contexts` related to a `Node` (either `Artifact` or `Execution`)
-  // by the node id.
-  // Returns INVALID_ARGUMENT error, if the `contexts` is null.
-  template <typename Node>
-  tensorflow::Status FindContextsByNodeImpl(const int64 node_id,
-                                            std::vector<Context>* contexts);
-
-  // Queries nodes related to a context. Node is either `Artifact` or
-  // `Execution`. Returns INVALID_ARGUMENT error, if the `nodes` is null.
-  template <typename Node>
-  tensorflow::Status FindNodesByContextImpl(const int64 context_id,
-                                            std::vector<Node>* nodes);
 
   // Queries nodes stored in the metadata source using `options`.
   // `options` is the ListOperationOptions proto message defined

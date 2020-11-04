@@ -438,16 +438,16 @@ tensorflow::Status MetadataStore::GetArtifactsByID(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
         response->Clear();
-        for (const int64 artifact_id : request.artifact_ids()) {
-          Artifact artifact;
-          const tensorflow::Status status =
-              metadata_access_object_->FindArtifactById(artifact_id, &artifact);
-          if (status.ok()) {
-            *response->mutable_artifacts()->Add() = artifact;
-          } else if (!tensorflow::errors::IsNotFound(status)) {
-            return status;
-          }
+        std::vector<Artifact> artifacts;
+        const std::vector<int64> ids(request.artifact_ids().begin(),
+                                     request.artifact_ids().end());
+        const tensorflow::Status status =
+            metadata_access_object_->FindArtifactsById(ids, &artifacts);
+        if (!status.ok() && !tensorflow::errors::IsNotFound(status)) {
+          return status;
         }
+        absl::c_copy(artifacts, google::protobuf::RepeatedPtrFieldBackInserter(
+                                    response->mutable_artifacts()));
         return tensorflow::Status::OK();
       });
 }
@@ -458,16 +458,16 @@ tensorflow::Status MetadataStore::GetExecutionsByID(
   return transaction_executor_->Execute([this, &request,
                                          &response]() -> tensorflow::Status {
     response->Clear();
-    for (const int64 execution_id : request.execution_ids()) {
-      Execution execution;
-      const tensorflow::Status status =
-          metadata_access_object_->FindExecutionById(execution_id, &execution);
-      if (status.ok()) {
-        *response->mutable_executions()->Add() = execution;
-      } else if (!tensorflow::errors::IsNotFound(status)) {
-        return status;
-      }
+    std::vector<Execution> executions;
+    const std::vector<int64> ids(request.execution_ids().begin(),
+                                 request.execution_ids().end());
+    const tensorflow::Status status =
+        metadata_access_object_->FindExecutionsById(ids, &executions);
+    if (!status.ok() && !tensorflow::errors::IsNotFound(status)) {
+      return status;
     }
+    absl::c_copy(executions, google::protobuf::RepeatedPtrFieldBackInserter(
+                                 response->mutable_executions()));
     return tensorflow::Status::OK();
   });
 }
@@ -478,17 +478,15 @@ tensorflow::Status MetadataStore::GetContextsByID(
       [this, &request, &response]() -> tensorflow::Status {
         response->Clear();
         std::vector<Context> contexts;
-        std::vector<int64> context_ids;
-        context_ids.reserve(request.context_ids().size());
-        absl::c_copy(request.context_ids(), std::back_inserter(context_ids));
+        const std::vector<int64> ids(request.context_ids().begin(),
+                                     request.context_ids().end());
         const tensorflow::Status status =
-            metadata_access_object_->FindContextsById(context_ids, &contexts);
-        if (status.ok()) {
-          absl::c_copy(contexts, google::protobuf::RepeatedFieldBackInserter(
-                                     response->mutable_contexts()));
-        } else if (!tensorflow::errors::IsNotFound(status)) {
+            metadata_access_object_->FindContextsById(ids, &contexts);
+        if (!status.ok() && !tensorflow::errors::IsNotFound(status)) {
           return status;
         }
+        absl::c_copy(contexts, google::protobuf::RepeatedFieldBackInserter(
+                                   response->mutable_contexts()));
         return tensorflow::Status::OK();
       });
 }
@@ -504,9 +502,15 @@ tensorflow::Status MetadataStore::PutArtifacts(
       if (artifact.has_id() &&
           request.options().abort_if_latest_updated_time_changed()) {
         Artifact existing_artifact;
-        const tensorflow::Status status =
-            metadata_access_object_->FindArtifactById(artifact.id(),
-                                                      &existing_artifact);
+        tensorflow::Status status;
+        {
+          std::vector<Artifact> artifacts;
+          status = metadata_access_object_->FindArtifactsById({artifact.id()},
+                                                              &artifacts);
+          if (status.ok()) {
+            existing_artifact = artifacts.at(0);
+          }
+        }
         if (!tensorflow::errors::IsNotFound(status)) {
           TF_RETURN_IF_ERROR(status);
           if (artifact.last_update_time_since_epoch() !=

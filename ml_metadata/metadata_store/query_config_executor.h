@@ -146,10 +146,10 @@ class QueryConfigExecutor : public QueryExecutor {
         artifact_id);
   }
 
-  tensorflow::Status SelectArtifactByID(int64 artifact_id,
-                                        RecordSet* record_set) final {
+  tensorflow::Status SelectArtifactsByID(
+      const absl::Span<const int64> artifact_ids, RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_artifact_by_id(),
-                        {Bind(artifact_id)}, record_set);
+                        {Bind(artifact_ids)}, record_set);
   }
 
   tensorflow::Status SelectArtifactByTypeIDAndArtifactName(
@@ -194,9 +194,9 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   tensorflow::Status SelectArtifactPropertyByArtifactID(
-      int64 artifact_id, RecordSet* record_set) final {
+      const absl::Span<const int64> artifact_ids, RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_artifact_property_by_artifact_id(),
-                        {Bind(artifact_id)}, record_set);
+                        {Bind(artifact_ids)}, record_set);
   }
 
   tensorflow::Status UpdateArtifactProperty(
@@ -230,10 +230,10 @@ class QueryConfigExecutor : public QueryExecutor {
         execution_id);
   }
 
-  tensorflow::Status SelectExecutionByID(int64 execution_id,
-                                         RecordSet* record_set) final {
-    return ExecuteQuery(query_config_.select_execution_by_id(),
-                        {Bind(execution_id)}, record_set);
+  tensorflow::Status SelectExecutionsByID(const absl::Span<const int64> ids,
+                                          RecordSet* record_set) final {
+    return ExecuteQuery(query_config_.select_execution_by_id(), {Bind(ids)},
+                        record_set);
   }
 
   tensorflow::Status SelectExecutionByTypeIDAndExecutionName(
@@ -273,10 +273,10 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   tensorflow::Status SelectExecutionPropertyByExecutionID(
-      int64 execution_id, RecordSet* record_set) final {
+      const absl::Span<const int64> ids, RecordSet* record_set) final {
     return ExecuteQuery(
-        query_config_.select_execution_property_by_execution_id(),
-        {Bind(execution_id)}, record_set);
+        query_config_.select_execution_property_by_execution_id(), {Bind(ids)},
+        record_set);
   }
 
   tensorflow::Status UpdateExecutionProperty(int64 execution_id,

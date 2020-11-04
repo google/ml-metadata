@@ -102,9 +102,19 @@ std::vector<int64> AttributionsToContextIds(const RecordSet& record_set) {
   return ConvertToIds(record_set, /*position=*/1);
 }
 
+// Extracts a vector of context ids from attribution triplets.
+std::vector<int64> AttributionsToArtifactIds(const RecordSet& record_set) {
+  return ConvertToIds(record_set, /*position=*/2);
+}
+
 // Extracts a vector of context ids from association triplets.
 std::vector<int64> AssociationsToContextIds(const RecordSet& record_set) {
   return ConvertToIds(record_set, /*position=*/1);
+}
+
+// Extracts a vector of execution ids from association triplets.
+std::vector<int64> AssociationsToExecutionIds(const RecordSet& record_set) {
+  return ConvertToIds(record_set, /*position=*/2);
 }
 
 // Parses and converts a string value to a specific field in a message.
@@ -334,26 +344,51 @@ tensorflow::Status RDBMSMetadataAccessObject::RetrieveNodesById(
     const absl::Span<const int64> ids, RecordSet* header, RecordSet* properties,
     Context* tag) {
   TF_RETURN_IF_ERROR(executor_->SelectContextsByID(ids, header));
-  TF_RETURN_IF_ERROR(
-      executor_->SelectContextPropertyByContextID(ids, properties));
+  if (!header->records().empty()) {
+    TF_RETURN_IF_ERROR(
+        executor_->SelectContextPropertyByContextID(ids, properties));
+  }
   return tensorflow::Status::OK();
 }
 
-// Lookup Artifact by id.
+template <>
+tensorflow::Status RDBMSMetadataAccessObject::RetrieveNodesById(
+    const absl::Span<const int64> ids, RecordSet* header, RecordSet* properties,
+    Artifact* tag) {
+  TF_RETURN_IF_ERROR(executor_->SelectArtifactsByID(ids, header));
+  if (!header->records().empty()) {
+    TF_RETURN_IF_ERROR(
+        executor_->SelectArtifactPropertyByArtifactID(ids, properties));
+  }
+  return tensorflow::Status::OK();
+}
+
+template <>
+tensorflow::Status RDBMSMetadataAccessObject::RetrieveNodesById(
+    const absl::Span<const int64> ids, RecordSet* header, RecordSet* properties,
+    Execution* tag) {
+  TF_RETURN_IF_ERROR(executor_->SelectExecutionsByID(ids, header));
+  if (!header->records().empty()) {
+    TF_RETURN_IF_ERROR(
+        executor_->SelectExecutionPropertyByExecutionID(ids, properties));
+  }
+  return tensorflow::Status::OK();
+}
+
 tensorflow::Status RDBMSMetadataAccessObject::NodeLookups(
     const Artifact& artifact, RecordSet* header, RecordSet* properties) {
-  TF_RETURN_IF_ERROR(executor_->SelectArtifactByID(artifact.id(), header));
-  TF_RETURN_IF_ERROR(
-      executor_->SelectArtifactPropertyByArtifactID(artifact.id(), properties));
+  TF_RETURN_IF_ERROR(executor_->SelectArtifactsByID({artifact.id()}, header));
+  TF_RETURN_IF_ERROR(executor_->SelectArtifactPropertyByArtifactID(
+      {artifact.id()}, properties));
   return tensorflow::Status::OK();
 }
 
 // Generates a select queries for an Execution by id.
 tensorflow::Status RDBMSMetadataAccessObject::NodeLookups(
     const Execution& execution, RecordSet* header, RecordSet* properties) {
-  TF_RETURN_IF_ERROR(executor_->SelectExecutionByID(execution.id(), header));
+  TF_RETURN_IF_ERROR(executor_->SelectExecutionsByID({execution.id()}, header));
   TF_RETURN_IF_ERROR(executor_->SelectExecutionPropertyByExecutionID(
-      execution.id(), properties));
+      {execution.id()}, properties));
   return tensorflow::Status::OK();
 }
 
@@ -748,53 +783,45 @@ tensorflow::Status RDBMSMetadataAccessObject::FindNodesByIdImpl(
   TF_RETURN_IF_ERROR(RetrieveNodesById<Node>(node_ids, &node_record_set,
                                              &properties_record_set));
 
-  if (node_record_set.records().empty()) {
-    const std::string message =
-        absl::StrCat("No results found for ids: {",
-                     absl::StrJoin(node_ids.begin(), node_ids.end(), ","), "}");
-    if (skipped_ids_ok) {
-      return tensorflow::errors::NotFound(message);
-    } else {
-      return tensorflow::errors::Internal(message);
+  TF_RETURN_IF_ERROR(ParseRecordSetToMessageArray(node_record_set, &nodes));
+
+  // if there are properties associated with the nodes, parse the returned
+  // values.
+  if (!properties_record_set.records().empty()) {
+    // First we build a hash map from node ids to Node messages, to
+    // facilitate lookups.
+    absl::flat_hash_map<int64, typename std::vector<Node>::iterator> node_by_id;
+    for (auto i = nodes.begin(); i != nodes.end(); ++i) {
+      node_by_id.insert({i->id(), i});
+    }
+
+    CHECK_EQ(properties_record_set.column_names_size(), 6);
+    for (const RecordSet::Record& record : properties_record_set.records()) {
+      // Match the record against a node in the hash map.
+      int64 node_id;
+      CHECK(absl::SimpleAtoi(record.values(0), &node_id));
+      auto iter = node_by_id.find(node_id);
+      CHECK(iter != node_by_id.end());
+      Node& node = *iter->second;
+
+      PopulateNodeProperties(record, node);
     }
   }
 
-  TF_RETURN_IF_ERROR(ParseRecordSetToMessageArray(node_record_set, &nodes));
   if (node_ids.size() != nodes.size()) {
     std::vector<int64> found_ids;
     absl::c_transform(nodes, std::back_inserter(found_ids),
                       [](const Node& node) { return node.id(); });
+
     const std::string message = absl::StrCat(
         "Results missing for ids: {", absl::StrJoin(node_ids, ","),
         "}. Found results for {", absl::StrJoin(found_ids, ","), "}");
-    if (skipped_ids_ok) {
-      return tensorflow::errors::NotFound(message);
-    } else {
+
+    if (!skipped_ids_ok) {
       return tensorflow::errors::Internal(message);
+    } else {
+      return tensorflow::errors::NotFound(message);
     }
-  }
-
-  // it is ok that there is no property associated with a node
-  if (properties_record_set.records_size() == 0)
-    return tensorflow::Status::OK();
-  // if there are properties associated with the nodes, parse the returned
-  // values. First we build a hash map from node ids to Node messages, to
-  // facilitate lookups.
-  absl::flat_hash_map<int64, typename std::vector<Node>::iterator> node_by_id;
-  for (auto i = nodes.begin(); i != nodes.end(); ++i) {
-    node_by_id.insert({i->id(), i});
-  }
-
-  CHECK_EQ(properties_record_set.column_names_size(), 6);
-  for (const RecordSet::Record& record : properties_record_set.records()) {
-    // Match the record against a node in the hash map.
-    int64 node_id;
-    CHECK(absl::SimpleAtoi(record.values(0), &node_id));
-    auto iter = node_by_id.find(node_id);
-    CHECK(iter != node_by_id.end());
-    Node& node = *iter->second;
-
-    PopulateNodeProperties(record, node);
   }
   return tensorflow::Status::OK();
 }
@@ -802,27 +829,11 @@ tensorflow::Status RDBMSMetadataAccessObject::FindNodesByIdImpl(
 template <typename Node>
 tensorflow::Status RDBMSMetadataAccessObject::FindNodeImpl(const int64 node_id,
                                                            Node* node) {
-  node->set_id(node_id);
-  RecordSet node_record_set;
-  RecordSet properties_record_set;
-
+  std::vector<Node> nodes;
   TF_RETURN_IF_ERROR(
-      NodeLookups(*node, &node_record_set, &properties_record_set));
+      FindNodesByIdImpl({node_id}, /*skipped_ids_ok=*/true, nodes));
+  *node = nodes.at(0);
 
-  if (node_record_set.records_size() == 0)
-    return tensorflow::errors::NotFound(
-        absl::StrCat("Cannot find record by given id ", node_id));
-
-  TF_RETURN_IF_ERROR(ParseRecordSetToMessage(node_record_set, node));
-
-  // it is ok that there is no property associated with a node
-  if (properties_record_set.records_size() == 0)
-    return tensorflow::Status::OK();
-  // if there are properties associated with the node, parse the returned values
-  CHECK_EQ(properties_record_set.column_names_size(), 6);
-  for (const RecordSet::Record& record : properties_record_set.records()) {
-    PopulateNodeProperties(record, *node);
-  }
   return tensorflow::Status::OK();
 }
 
@@ -933,38 +944,6 @@ tensorflow::Status RDBMSMetadataAccessObject::FindEventsFromRecordSet(
     } else {
       event->mutable_path()->add_steps()->set_key(record.values(3));
     }
-  }
-  return tensorflow::Status::OK();
-}
-
-// Queries nodes related to a context. Node is either `Artifact` or `Execution`.
-// Returns INVALID_ARGUMENT error, if the `nodes` is null.
-template <typename Node>
-tensorflow::Status RDBMSMetadataAccessObject::FindNodesByContextImpl(
-    const int64 context_id, std::vector<Node>* nodes) {
-  if (nodes == nullptr)
-    return tensorflow::errors::InvalidArgument("Given array is NULL.");
-
-  constexpr bool is_artifact = std::is_same<Node, Artifact>::value;
-
-  RecordSet record_set;
-  // find node ids with the given context id
-  if (is_artifact) {
-    TF_RETURN_IF_ERROR(
-        executor_->SelectAttributionByContextID(context_id, &record_set));
-  } else {
-    TF_RETURN_IF_ERROR(
-        executor_->SelectAssociationByContextID(context_id, &record_set));
-  }
-
-  nodes->clear();
-  for (const RecordSet::Record& record : record_set.records()) {
-    nodes->push_back(Node());
-    Node& curr_node = nodes->back();
-    TF_RETURN_IF_ERROR(
-        ParseValueToField(curr_node.descriptor()->FindFieldByName("id"),
-                          record.values(2), &curr_node));
-    TF_RETURN_IF_ERROR(FindNodeImpl(curr_node.id(), &curr_node));
   }
   return tensorflow::Status::OK();
 }
@@ -1080,14 +1059,22 @@ tensorflow::Status RDBMSMetadataAccessObject::CreateContext(
   return status;
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindArtifactById(
-    const int64 artifact_id, Artifact* artifact) {
-  return FindNodeImpl(artifact_id, artifact);
+tensorflow::Status RDBMSMetadataAccessObject::FindArtifactsById(
+    const absl::Span<const int64> artifact_ids,
+    std::vector<Artifact>* artifacts) {
+  if (artifact_ids.empty()) {
+    return tensorflow::Status::OK();
+  }
+  return FindNodesByIdImpl(artifact_ids, /*skipped_ids_ok=*/true, *artifacts);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindExecutionById(
-    const int64 execution_id, Execution* execution) {
-  return FindNodeImpl(execution_id, execution);
+tensorflow::Status RDBMSMetadataAccessObject::FindExecutionsById(
+    const absl::Span<const int64> execution_ids,
+    std::vector<Execution>* executions) {
+  if (execution_ids.empty()) {
+    return tensorflow::Status::OK();
+  }
+  return FindNodesByIdImpl(execution_ids, /*skipped_ids_ok=*/true, *executions);
 }
 
 tensorflow::Status RDBMSMetadataAccessObject::FindContextsById(
@@ -1125,10 +1112,10 @@ tensorflow::Status RDBMSMetadataAccessObject::CreateEvent(const Event& event,
     return tensorflow::errors::InvalidArgument("No event type is specified.");
   RecordSet artifacts;
   TF_RETURN_IF_ERROR(
-      executor_->SelectArtifactByID(event.artifact_id(), &artifacts));
+      executor_->SelectArtifactsByID({event.artifact_id()}, &artifacts));
   RecordSet executions;
   TF_RETURN_IF_ERROR(
-      executor_->SelectExecutionByID(event.execution_id(), &executions));
+      executor_->SelectExecutionsByID({event.execution_id()}, &executions));
   RecordSet record_set;
   if (artifacts.records_size() == 0)
     return tensorflow::errors::InvalidArgument(
@@ -1204,8 +1191,8 @@ tensorflow::Status RDBMSMetadataAccessObject::CreateAssociation(
   if (!association.has_execution_id())
     return tensorflow::errors::InvalidArgument("No execution id is specified");
   RecordSet execution_id_header;
-  TF_RETURN_IF_ERROR(executor_->SelectExecutionByID(association.execution_id(),
-                                                    &execution_id_header));
+  TF_RETURN_IF_ERROR(executor_->SelectExecutionsByID(
+      {association.execution_id()}, &execution_id_header));
   if (execution_id_header.records_size() == 0)
     return tensorflow::errors::InvalidArgument("Execution id not found.");
 
@@ -1236,7 +1223,14 @@ tensorflow::Status RDBMSMetadataAccessObject::FindContextsByExecution(
 
 tensorflow::Status RDBMSMetadataAccessObject::FindExecutionsByContext(
     int64 context_id, std::vector<Execution>* executions) {
-  return FindNodesByContextImpl(context_id, executions);
+  RecordSet record_set;
+  TF_RETURN_IF_ERROR(
+      executor_->SelectAssociationByContextID(context_id, &record_set));
+  const std::vector<int64> ids = AssociationsToExecutionIds(record_set);
+  if (ids.empty()) {
+    return tensorflow::Status::OK();
+  }
+  return FindNodesByIdImpl(ids, /*skipped_ids_ok=*/false, *executions);
 }
 
 tensorflow::Status RDBMSMetadataAccessObject::CreateAttribution(
@@ -1252,8 +1246,8 @@ tensorflow::Status RDBMSMetadataAccessObject::CreateAttribution(
   if (!attribution.has_artifact_id())
     return tensorflow::errors::InvalidArgument("No artifact id is specified");
   RecordSet artifact_id_header;
-  TF_RETURN_IF_ERROR(executor_->SelectArtifactByID(attribution.artifact_id(),
-                                                   &artifact_id_header));
+  TF_RETURN_IF_ERROR(executor_->SelectArtifactsByID({attribution.artifact_id()},
+                                                    &artifact_id_header));
   if (artifact_id_header.records_size() == 0)
     return tensorflow::errors::InvalidArgument("Artifact id not found.");
 
@@ -1284,14 +1278,25 @@ tensorflow::Status RDBMSMetadataAccessObject::FindContextsByArtifact(
 
 tensorflow::Status RDBMSMetadataAccessObject::FindArtifactsByContext(
     int64 context_id, std::vector<Artifact>* artifacts) {
-  return FindNodesByContextImpl(context_id, artifacts);
+  RecordSet record_set;
+  TF_RETURN_IF_ERROR(
+      executor_->SelectAttributionByContextID(context_id, &record_set));
+  const std::vector<int64> ids = AttributionsToArtifactIds(record_set);
+  if (ids.empty()) {
+    return tensorflow::Status::OK();
+  }
+  return FindNodesByIdImpl(ids, /*skipped_ids_ok=*/false, *artifacts);
 }
 
 tensorflow::Status RDBMSMetadataAccessObject::FindArtifacts(
     std::vector<Artifact>* artifacts) {
   RecordSet record_set;
   TF_RETURN_IF_ERROR(executor_->SelectAllArtifactIDs(&record_set));
-  return FindManyNodesImpl(record_set, artifacts);
+  std::vector<int64> ids = ConvertToIds(record_set);
+  if (ids.empty()) {
+    return tensorflow::Status::OK();
+  }
+  return FindNodesByIdImpl(ids, /*skipped_ids_ok=*/false, *artifacts);
 }
 
 template <typename Node>
@@ -1364,8 +1369,14 @@ RDBMSMetadataAccessObject::FindArtifactByTypeIdAndArtifactName(
   RecordSet record_set;
   TF_RETURN_IF_ERROR(executor_->SelectArtifactByTypeIDAndArtifactName(
       type_id, name, &record_set));
+  const std::vector<int64> ids = ConvertToIds(record_set);
+  if (ids.empty()) {
+    return tensorflow::errors::NotFound(absl::StrCat(
+        "No artifacts found for type_id:", type_id, ", name:", name));
+  }
   std::vector<Artifact> artifacts;
-  TF_RETURN_IF_ERROR(FindManyNodesImpl(record_set, &artifacts));
+  TF_RETURN_IF_ERROR(
+      FindNodesByIdImpl(ids, /*skipped_ids_ok=*/false, artifacts));
   // By design, a <type_id, name> pair uniquely identifies an artifact.
   // Fails if multiple artifacts are found.
   CHECK_EQ(artifacts.size(), 1)
@@ -1379,14 +1390,23 @@ tensorflow::Status RDBMSMetadataAccessObject::FindArtifactsByTypeId(
     const int64 type_id, std::vector<Artifact>* artifacts) {
   RecordSet record_set;
   TF_RETURN_IF_ERROR(executor_->SelectArtifactsByTypeID(type_id, &record_set));
-  return FindManyNodesImpl(record_set, artifacts);
+  const std::vector<int64> ids = ConvertToIds(record_set);
+  if (ids.empty()) {
+    return tensorflow::errors::NotFound(
+        absl::StrCat("No artifacts found for type_id:", type_id));
+  }
+  return FindNodesByIdImpl(ids, /*skipped_ids_ok=*/false, *artifacts);
 }
 
 tensorflow::Status RDBMSMetadataAccessObject::FindExecutions(
     std::vector<Execution>* executions) {
   RecordSet record_set;
   TF_RETURN_IF_ERROR(executor_->SelectAllExecutionIDs(&record_set));
-  return FindManyNodesImpl(record_set, executions);
+  const std::vector<int64> ids = ConvertToIds(record_set);
+  if (ids.empty()) {
+    return tensorflow::Status::OK();
+  }
+  return FindNodesByIdImpl(ids, /*skipped_ids_ok=*/false, *executions);
 }
 
 tensorflow::Status
@@ -1395,8 +1415,14 @@ RDBMSMetadataAccessObject::FindExecutionByTypeIdAndExecutionName(
   RecordSet record_set;
   TF_RETURN_IF_ERROR(executor_->SelectExecutionByTypeIDAndExecutionName(
       type_id, name, &record_set));
+  const std::vector<int64> ids = ConvertToIds(record_set);
+  if (ids.empty()) {
+    return tensorflow::errors::NotFound(absl::StrCat(
+        "No executions found for type_id:", type_id, ", name:", name));
+  }
   std::vector<Execution> executions;
-  TF_RETURN_IF_ERROR(FindManyNodesImpl(record_set, &executions));
+  TF_RETURN_IF_ERROR(
+      FindNodesByIdImpl(ids, /*skipped_ids_ok=*/false, executions));
   // By design, a <type_id, name> pair uniquely identifies an execution.
   // Fails if multiple executions are found.
   CHECK_EQ(executions.size(), 1)
@@ -1410,7 +1436,12 @@ tensorflow::Status RDBMSMetadataAccessObject::FindExecutionsByTypeId(
     const int64 type_id, std::vector<Execution>* executions) {
   RecordSet record_set;
   TF_RETURN_IF_ERROR(executor_->SelectExecutionsByTypeID(type_id, &record_set));
-  return FindManyNodesImpl(record_set, executions);
+  const std::vector<int64> ids = ConvertToIds(record_set);
+  if (ids.empty()) {
+    return tensorflow::errors::NotFound(
+        absl::StrCat("No executions found for type_id:", type_id));
+  }
+  return FindNodesByIdImpl(ids, /*skipped_ids_ok=*/false, *executions);
 }
 
 tensorflow::Status RDBMSMetadataAccessObject::FindContexts(
@@ -1440,7 +1471,12 @@ tensorflow::Status RDBMSMetadataAccessObject::FindArtifactsByURI(
     const absl::string_view uri, std::vector<Artifact>* artifacts) {
   RecordSet record_set;
   TF_RETURN_IF_ERROR(executor_->SelectArtifactsByURI(uri, &record_set));
-  return FindManyNodesImpl(record_set, artifacts);
+  const std::vector<int64> ids = ConvertToIds(record_set);
+  if (ids.empty()) {
+    return tensorflow::errors::NotFound(
+        absl::StrCat("No artifacts found for uri:", uri));
+  }
+  return FindNodesByIdImpl(ids, /*skipped_ids_ok=*/false, *artifacts);
 }
 
 tensorflow::Status RDBMSMetadataAccessObject::FindContextByTypeIdAndContextName(

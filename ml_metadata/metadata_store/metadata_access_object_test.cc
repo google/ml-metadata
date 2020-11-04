@@ -20,6 +20,7 @@ limitations under the License.
 #include "google/protobuf/repeated_field.h"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/strings/str_format.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -176,6 +177,8 @@ QueryConfigMetadataAccessObjectContainer::SetDatabaseVersionIncompatible() {
 namespace {
 
 using ::ml_metadata::testing::ParseTextProtoOrDie;
+using ::testing::ElementsAre;
+using ::testing::IsEmpty;
 using ::testing::UnorderedElementsAre;
 
 TEST_P(MetadataAccessObjectTest, InitMetadataSourceCheckSchemaVersion) {
@@ -876,8 +879,12 @@ TEST_P(MetadataAccessObjectTest, FindArtifactById) {
       metadata_access_object_->CreateArtifact(want_artifact, &artifact_id));
 
   Artifact got_artifact;
-  TF_EXPECT_OK(
-      metadata_access_object_->FindArtifactById(artifact_id, &got_artifact));
+  {
+    std::vector<Artifact> artifacts;
+    TF_ASSERT_OK(
+        metadata_access_object_->FindArtifactsById({artifact_id}, &artifacts));
+    got_artifact = artifacts.at(0);
+  }
   EXPECT_THAT(got_artifact, EqualsProto(want_artifact, /*ignore_fields=*/{
                                             "id", "create_time_since_epoch",
                                             "last_update_time_since_epoch"}));
@@ -889,7 +896,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactById) {
             got_artifact.create_time_since_epoch());
 }
 
-TEST_P(MetadataAccessObjectTest, FindAllArtifacts) {
+TEST_P(MetadataAccessObjectTest, FindArtifacts) {
   TF_ASSERT_OK(Init());
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
     name: 'test_type'
@@ -900,45 +907,119 @@ TEST_P(MetadataAccessObjectTest, FindAllArtifacts) {
   int64 type_id;
   TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
 
-  Artifact want_artifact1 = ParseTextProtoOrDie<Artifact>(R"(
+  constexpr absl::string_view kArtifactTemplate = R"(
     uri: 'testuri://testing/uri'
+    type_id: %d
     properties {
       key: 'property_1'
-      value: { int_value: 3 }
+      value: { int_value: %d }
     }
     properties {
       key: 'property_2'
-      value: { double_value: 3.0 }
+      value: { double_value: %f }
     }
     properties {
       key: 'property_3'
-      value: { string_value: '3' }
+      value: { string_value: '%s' }
     }
     custom_properties {
       key: 'custom_property_1'
-      value: { string_value: '5' }
+      value: { string_value: '%s' }
     }
-  )");
-  want_artifact1.set_type_id(type_id);
-  int64 artifact1_id;
-  TF_ASSERT_OK(
-      metadata_access_object_->CreateArtifact(want_artifact1, &artifact1_id));
+  )";
 
-  Artifact want_artifact2 = want_artifact1;
-  int64 artifact2_id;
-  TF_ASSERT_OK(
-      metadata_access_object_->CreateArtifact(want_artifact2, &artifact2_id));
-  ASSERT_NE(artifact1_id, artifact2_id);
+  Artifact want_artifact1 = ParseTextProtoOrDie<Artifact>(
+      absl::StrFormat(kArtifactTemplate, type_id, 1, 2.0, "3", "4"));
+  {
+    int64 artifact1_id;
+    TF_ASSERT_OK(
+        metadata_access_object_->CreateArtifact(want_artifact1, &artifact1_id));
+    want_artifact1.set_id(artifact1_id);
+  }
 
-  std::vector<Artifact> got_artifacts;
-  TF_EXPECT_OK(metadata_access_object_->FindArtifacts(&got_artifacts));
-  EXPECT_EQ(got_artifacts.size(), 2);
-  EXPECT_THAT(want_artifact1, EqualsProto(got_artifacts[0], /*ignore_fields=*/{
-                                              "id", "create_time_since_epoch",
-                                              "last_update_time_since_epoch"}));
-  EXPECT_THAT(want_artifact2, EqualsProto(got_artifacts[1], /*ignore_fields=*/{
-                                              "id", "create_time_since_epoch",
-                                              "last_update_time_since_epoch"}));
+  Artifact want_artifact2 = ParseTextProtoOrDie<Artifact>(
+      absl::StrFormat(kArtifactTemplate, type_id, 11, 12.0, "13", "14"));
+  {
+    int64 artifact2_id;
+    TF_ASSERT_OK(
+        metadata_access_object_->CreateArtifact(want_artifact2, &artifact2_id));
+    want_artifact2.set_id(artifact2_id);
+  }
+  ASSERT_NE(want_artifact1.id(), want_artifact2.id());
+
+  // Test: retrieve by empty ids
+  {
+    std::vector<Artifact> got_artifacts;
+    TF_EXPECT_OK(
+        metadata_access_object_->FindArtifactsById({}, &got_artifacts));
+    EXPECT_THAT(got_artifacts, IsEmpty());
+  }
+  // Test: retrieve by unknown id
+  const int64 unknown_id = want_artifact1.id() + want_artifact2.id() + 1;
+  {
+    std::vector<Artifact> got_artifacts;
+    EXPECT_EQ(
+        tensorflow::error::NOT_FOUND,
+        metadata_access_object_->FindArtifactsById({unknown_id}, &got_artifacts)
+            .code());
+  }
+  {
+    std::vector<Artifact> got_artifacts;
+    EXPECT_EQ(tensorflow::error::NOT_FOUND,
+              metadata_access_object_
+                  ->FindArtifactsById({unknown_id, want_artifact1.id()},
+                                      &got_artifacts)
+                  .code());
+  }
+  // Test: retrieve by id(s)
+  {
+    std::vector<Artifact> got_artifacts;
+    TF_EXPECT_OK(metadata_access_object_->FindArtifactsById(
+        {want_artifact1.id()}, &got_artifacts));
+    EXPECT_THAT(got_artifacts,
+                ElementsAre(EqualsProto(
+                    want_artifact1,
+                    /*ignore_fields=*/{"create_time_since_epoch",
+                                       "last_update_time_since_epoch"})));
+  }
+  {
+    std::vector<Artifact> got_artifacts;
+    TF_EXPECT_OK(metadata_access_object_->FindArtifactsById(
+        {want_artifact2.id()}, &got_artifacts));
+    EXPECT_THAT(got_artifacts,
+                ElementsAre(EqualsProto(
+                    want_artifact2,
+                    /*ignore_fields=*/{"create_time_since_epoch",
+                                       "last_update_time_since_epoch"})));
+  }
+  {
+    std::vector<Artifact> got_artifacts;
+    TF_EXPECT_OK(metadata_access_object_->FindArtifactsById(
+        {want_artifact1.id(), want_artifact2.id()}, &got_artifacts));
+    EXPECT_THAT(
+        got_artifacts,
+        UnorderedElementsAre(
+            EqualsProto(want_artifact1,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(want_artifact2,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
+  // Test: Get all artifacts
+  {
+    std::vector<Artifact> got_artifacts;
+    TF_EXPECT_OK(metadata_access_object_->FindArtifacts(&got_artifacts));
+    EXPECT_THAT(
+        got_artifacts,
+        UnorderedElementsAre(
+            EqualsProto(want_artifact1,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(want_artifact2,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
 }
 
 TEST_P(MetadataAccessObjectTest, ListArtifactsInvalidPageSize) {
@@ -1538,7 +1619,7 @@ TEST_P(MetadataAccessObjectTest, GetContextsById) {
   {
     std::vector<Context> result;
     TF_EXPECT_OK(metadata_access_object_->FindContextsById({}, &result));
-    EXPECT_THAT(result, ::testing::IsEmpty());
+    EXPECT_THAT(result, IsEmpty());
   }
   // Test: no results
   {
@@ -1546,7 +1627,7 @@ TEST_P(MetadataAccessObjectTest, GetContextsById) {
     tensorflow::Status status =
         metadata_access_object_->FindContextsById({unknown_id}, &result);
     EXPECT_EQ(status.code(), tensorflow::error::NOT_FOUND) << status;
-    EXPECT_THAT(result, ::testing::IsEmpty());
+    EXPECT_THAT(result, IsEmpty());
   }
   // Test: retrieve a single context at a time
   {
@@ -1579,10 +1660,20 @@ TEST_P(MetadataAccessObjectTest, GetContextsById) {
   // Test: retrieve multiple contexts at a time
   {
     std::vector<Context> result;
-    const std::vector<int64> ids = {first_context.id(), unknown_id};
+    const std::vector<int64> ids = {first_context.id(), second_context.id(),
+                                    unknown_id};
     tensorflow::Status status =
         metadata_access_object_->FindContextsById(ids, &result);
     EXPECT_EQ(tensorflow::error::NOT_FOUND, status.code()) << status;
+    EXPECT_THAT(
+        result,
+        UnorderedElementsAre(
+            EqualsProto(first_context,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(second_context,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
   }
   {
     std::vector<Context> result;
@@ -1775,8 +1866,12 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
   TF_ASSERT_OK(
       metadata_access_object_->CreateArtifact(stored_artifact, &artifact_id));
   Artifact got_artifact_before_update;
-  TF_ASSERT_OK(metadata_access_object_->FindArtifactById(
-      artifact_id, &got_artifact_before_update));
+  {
+    std::vector<Artifact> artifacts;
+    TF_ASSERT_OK(
+        metadata_access_object_->FindArtifactsById({artifact_id}, &artifacts));
+    got_artifact_before_update = artifacts.at(0);
+  }
   EXPECT_THAT(got_artifact_before_update,
               EqualsProto(stored_artifact,
                           /*ignore_fields=*/{"id", "create_time_since_epoch",
@@ -1806,8 +1901,12 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
   TF_EXPECT_OK(metadata_access_object_->UpdateArtifact(updated_artifact));
 
   Artifact got_artifact_after_update;
-  TF_ASSERT_OK(metadata_access_object_->FindArtifactById(
-      artifact_id, &got_artifact_after_update));
+  {
+    std::vector<Artifact> artifacts;
+    TF_ASSERT_OK(
+        metadata_access_object_->FindArtifactsById({artifact_id}, &artifacts));
+    got_artifact_after_update = artifacts.at(0);
+  }
   EXPECT_THAT(got_artifact_after_update,
               EqualsProto(updated_artifact,
                           /*ignore_fields=*/{"create_time_since_epoch",
@@ -1833,8 +1932,12 @@ TEST_P(MetadataAccessObjectTest, UpdateNodeLastUpdateTimeSinceEpoch) {
   int64 artifact_id;
   TF_ASSERT_OK(metadata_access_object_->CreateArtifact(artifact, &artifact_id));
   Artifact curr_artifact;
-  TF_ASSERT_OK(
-      metadata_access_object_->FindArtifactById(artifact_id, &curr_artifact));
+  {
+    std::vector<Artifact> artifacts;
+    TF_ASSERT_OK(
+        metadata_access_object_->FindArtifactsById({artifact_id}, &artifacts));
+    curr_artifact = artifacts.at(0);
+  }
 
   // insert executions and links to artifacts
   auto update_and_get_last_update_time_since_epoch =
@@ -1843,8 +1946,12 @@ TEST_P(MetadataAccessObjectTest, UpdateNodeLastUpdateTimeSinceEpoch) {
         absl::SleepFor(absl::Milliseconds(1));
         TF_CHECK_OK(metadata_access_object_->UpdateArtifact(artifact));
         Artifact got_artifact_after_update;
-        TF_CHECK_OK(metadata_access_object_->FindArtifactById(
-            artifact.id(), &got_artifact_after_update));
+        {
+          std::vector<Artifact> artifacts;
+          TF_CHECK_OK(metadata_access_object_->FindArtifactsById(
+              {artifact.id()}, &artifacts));
+          got_artifact_after_update = artifacts.at(0);
+        }
         EXPECT_THAT(got_artifact_after_update,
                     EqualsProto(artifact, /*ignore_fields=*/{
                                     "last_update_time_since_epoch"}));
@@ -1963,9 +2070,12 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
     }
   )");
   want_execution1.set_type_id(type_id);
-  int64 execution1_id = -1;
-  TF_ASSERT_OK(metadata_access_object_->CreateExecution(want_execution1,
-                                                        &execution1_id));
+  {
+    int64 execution_id = -1;
+    TF_ASSERT_OK(metadata_access_object_->CreateExecution(want_execution1,
+                                                          &execution_id));
+    want_execution1.set_id(execution_id);
+  }
   // Creates execution 2 with type 2
   int64 type2_id = InsertType<ExecutionType>("test_type_with_no_property");
   Execution want_execution2 = ParseTextProtoOrDie<Execution>(R"(
@@ -1973,69 +2083,138 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
     last_known_state: RUNNING
   )");
   want_execution2.set_type_id(type2_id);
-  int64 execution2_id = -1;
-  TF_ASSERT_OK(metadata_access_object_->CreateExecution(want_execution2,
-                                                        &execution2_id));
-  EXPECT_NE(execution1_id, execution2_id);
+  {
+    int64 execution_id = -1;
+    TF_ASSERT_OK(metadata_access_object_->CreateExecution(want_execution2,
+                                                          &execution_id));
+    want_execution2.set_id(execution_id);
+  }
+  EXPECT_NE(want_execution1.id(), want_execution2.id());
 
+  // Test: retrieve one execution at a time
   Execution got_execution1;
-  TF_EXPECT_OK(metadata_access_object_->FindExecutionById(execution1_id,
-                                                          &got_execution1));
-
-  EXPECT_THAT(want_execution1,
-              EqualsProto(got_execution1,
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
-  EXPECT_GT(got_execution1.create_time_since_epoch(), 0);
-  EXPECT_GT(got_execution1.last_update_time_since_epoch(), 0);
-  EXPECT_LE(got_execution1.last_update_time_since_epoch(),
-            absl::ToUnixMillis(absl::Now()));
-  EXPECT_GE(got_execution1.last_update_time_since_epoch(),
-            got_execution1.create_time_since_epoch());
+  {
+    std::vector<Execution> executions;
+    TF_EXPECT_OK(metadata_access_object_->FindExecutionsById(
+        {want_execution1.id()}, &executions));
+    got_execution1 = executions.at(0);
+    EXPECT_THAT(
+        want_execution1,
+        EqualsProto(got_execution1,
+                    /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
+    EXPECT_GT(got_execution1.create_time_since_epoch(), 0);
+    EXPECT_GT(got_execution1.last_update_time_since_epoch(), 0);
+    EXPECT_LE(got_execution1.last_update_time_since_epoch(),
+              absl::ToUnixMillis(absl::Now()));
+    EXPECT_GE(got_execution1.last_update_time_since_epoch(),
+              got_execution1.create_time_since_epoch());
+  }
 
   Execution got_execution2;
-  TF_EXPECT_OK(metadata_access_object_->FindExecutionById(execution2_id,
-                                                          &got_execution2));
-  EXPECT_THAT(want_execution2,
-              EqualsProto(got_execution2,
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  {
+    std::vector<Execution> executions;
+    TF_EXPECT_OK(metadata_access_object_->FindExecutionsById(
+        {want_execution2.id()}, &executions));
+    got_execution2 = executions.at(0);
+    EXPECT_THAT(
+        got_execution2,
+        EqualsProto(want_execution2,
+                    /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
+    EXPECT_GT(got_execution2.create_time_since_epoch(), 0);
+    EXPECT_GT(got_execution2.last_update_time_since_epoch(), 0);
+    EXPECT_LE(got_execution2.last_update_time_since_epoch(),
+              absl::ToUnixMillis(absl::Now()));
+    EXPECT_GE(got_execution2.last_update_time_since_epoch(),
+              got_execution2.create_time_since_epoch());
+  }
 
-  std::vector<Execution> got_executions;
-  TF_EXPECT_OK(metadata_access_object_->FindExecutions(&got_executions));
-  EXPECT_EQ(got_executions.size(), 2);
-  EXPECT_THAT(want_execution1,
-              EqualsProto(got_executions[0],
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
-  EXPECT_THAT(want_execution2,
-              EqualsProto(got_executions[1],
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  // Test: empty input
+  {
+    std::vector<Execution> executions;
+    TF_EXPECT_OK(metadata_access_object_->FindExecutionsById({}, &executions));
+    EXPECT_THAT(executions, IsEmpty());
+  }
 
-  std::vector<Execution> type1_executions;
-  TF_EXPECT_OK(metadata_access_object_->FindExecutionsByTypeId(
-      type_id, &type1_executions));
-  EXPECT_EQ(type1_executions.size(), 1);
-  EXPECT_THAT(type1_executions[0], EqualsProto(got_execution1));
+  // Test: unknown id
+  const int64 unknown_id = want_execution1.id() + want_execution2.id() + 1;
+  {
+    std::vector<Execution> executions;
+    EXPECT_EQ(
+        metadata_access_object_->FindExecutionsById({unknown_id}, &executions)
+            .code(),
+        tensorflow::error::NOT_FOUND);
+  }
 
-  Execution got_execution_from_type_and_name1;
-  TF_ASSERT_OK(metadata_access_object_->FindExecutionByTypeIdAndExecutionName(
-      type_id, "my_execution1", &got_execution_from_type_and_name1));
-  EXPECT_THAT(got_execution_from_type_and_name1, EqualsProto(got_execution1));
+  // Test: retrieve multiple by ids
+  {
+    std::vector<Execution> got_executions;
+    EXPECT_EQ(tensorflow::error::NOT_FOUND,
+              metadata_access_object_
+                  ->FindExecutionsById(
+                      {unknown_id, want_execution1.id(), want_execution2.id()},
+                      &got_executions)
+                  .code());
+  }
+  {
+    std::vector<Execution> got_executions;
+    TF_EXPECT_OK(metadata_access_object_->FindExecutionsById(
+        {want_execution1.id(), want_execution2.id()}, &got_executions));
+    EXPECT_THAT(
+        got_executions,
+        UnorderedElementsAre(
+            EqualsProto(want_execution1,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(want_execution2,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
+  // Test: retrieve all executions
+  {
+    std::vector<Execution> got_executions;
+    TF_EXPECT_OK(metadata_access_object_->FindExecutions(&got_executions));
+    EXPECT_THAT(
+        got_executions,
+        UnorderedElementsAre(
+            EqualsProto(want_execution1,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(want_execution2,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
 
-  Execution got_execution_from_type_and_name2;
-  TF_ASSERT_OK(metadata_access_object_->FindExecutionByTypeIdAndExecutionName(
-      type2_id, "my_execution2", &got_execution_from_type_and_name2));
-  EXPECT_THAT(got_execution_from_type_and_name2, EqualsProto(got_execution2));
+  // Test: retrieve by type
+  {
+    std::vector<Execution> type1_executions;
+    TF_EXPECT_OK(metadata_access_object_->FindExecutionsByTypeId(
+        type_id, &type1_executions));
+    EXPECT_EQ(type1_executions.size(), 1);
+    EXPECT_THAT(type1_executions[0], EqualsProto(got_execution1));
+  }
 
-  Execution got_empty_execution;
-  EXPECT_EQ(metadata_access_object_
-                ->FindExecutionByTypeIdAndExecutionName(
-                    type_id, "my_execution2", &got_empty_execution)
-                .code(),
-            tensorflow::error::NOT_FOUND);
-  EXPECT_THAT(got_empty_execution, EqualsProto(Execution()));
+  // Test: retrieve by type and name
+  {
+    Execution got_execution_from_type_and_name1;
+    TF_ASSERT_OK(metadata_access_object_->FindExecutionByTypeIdAndExecutionName(
+        type_id, "my_execution1", &got_execution_from_type_and_name1));
+    EXPECT_THAT(got_execution_from_type_and_name1, EqualsProto(got_execution1));
+
+    Execution got_execution_from_type_and_name2;
+    TF_ASSERT_OK(metadata_access_object_->FindExecutionByTypeIdAndExecutionName(
+        type2_id, "my_execution2", &got_execution_from_type_and_name2));
+    EXPECT_THAT(got_execution_from_type_and_name2, EqualsProto(got_execution2));
+
+    Execution got_empty_execution;
+    EXPECT_EQ(metadata_access_object_
+                  ->FindExecutionByTypeIdAndExecutionName(
+                      type_id, "my_execution2", &got_empty_execution)
+                  .code(),
+              tensorflow::error::NOT_FOUND);
+    EXPECT_THAT(got_empty_execution, EqualsProto(Execution()));
+  }
 }
 
 TEST_P(MetadataAccessObjectTest, CreateExecutionWithDuplicatedNameError) {
@@ -2087,8 +2266,12 @@ TEST_P(MetadataAccessObjectTest, UpdateExecution) {
   TF_ASSERT_OK(metadata_access_object_->CreateExecution(stored_execution,
                                                         &execution_id));
   Execution got_execution_before_update;
-  TF_EXPECT_OK(metadata_access_object_->FindExecutionById(
-      execution_id, &got_execution_before_update));
+  {
+    std::vector<Execution> executions;
+    TF_EXPECT_OK(metadata_access_object_->FindExecutionsById({execution_id},
+                                                             &executions));
+    got_execution_before_update = executions.at(0);
+  }
   EXPECT_THAT(got_execution_before_update,
               EqualsProto(stored_execution,
                           /*ignore_fields=*/{"id", "create_time_since_epoch",
@@ -2111,8 +2294,12 @@ TEST_P(MetadataAccessObjectTest, UpdateExecution) {
   TF_EXPECT_OK(metadata_access_object_->UpdateExecution(updated_execution));
 
   Execution got_execution_after_update;
-  TF_EXPECT_OK(metadata_access_object_->FindExecutionById(
-      execution_id, &got_execution_after_update));
+  {
+    std::vector<Execution> executions;
+    TF_EXPECT_OK(metadata_access_object_->FindExecutionsById({execution_id},
+                                                             &executions));
+    got_execution_after_update = executions.at(0);
+  }
   EXPECT_THAT(got_execution_after_update,
               EqualsProto(updated_execution,
                           /*ignore_fields=*/{"create_time_since_epoch",

@@ -33,7 +33,8 @@
 
 ## Bug Fixes and Other Changes
 
-*   Optimizes GetContextsBy* calls to reduce number of backend queries.
+*   Optimizes GetContexts*/GetArtifact*/GetExecution* calls to reduce number of
+    backend queries.
 *   Documentation fixes for QueryExecutor methods.
 
 ## Breaking Changes

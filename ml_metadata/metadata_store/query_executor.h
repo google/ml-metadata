@@ -180,11 +180,18 @@ class QueryExecutor {
       const absl::optional<std::string>& name, absl::Time create_time,
       absl::Time update_time, int64* artifact_id) = 0;
 
-  // Queries an artifact from the Artifact table by its id.
-  // Returns a list of records that can be converted to artifacts.
-  virtual tensorflow::Status SelectArtifactByID(int64 artifact_id,
-                                                RecordSet* record_set) = 0;
-
+  // Retrieves artifacts from the database by their ids. Not found ids are
+  // skipped. For each matched artifact, returns a row that contains the
+  // following columns (order not important):
+  // - int: id
+  // - int: type_id
+  // - string: uri
+  // - int: state
+  // - string: name
+  // - int: create time (since epoch)
+  // - int: last update time (since epoch)
+  virtual tensorflow::Status SelectArtifactsByID(absl::Span<const int64> ids,
+                                                 RecordSet* record_set) = 0;
   // Queries an artifact from the Artifact table by its type_id and name.
   // Returns the artifact ID.
   virtual tensorflow::Status SelectArtifactByTypeIDAndArtifactName(
@@ -218,7 +225,7 @@ class QueryExecutor {
   // artifact id. Upon return, each property is mapped to a row in 'record_set'
   // using the convention spelled out in the class docstring.
   virtual tensorflow::Status SelectArtifactPropertyByArtifactID(
-      int64 artifact_id, RecordSet* record_set) = 0;
+      absl::Span<const int64> artifact_ids, RecordSet* record_set) = 0;
 
   // Updates a property of an artifact in the database.
   virtual tensorflow::Status UpdateArtifactProperty(
@@ -238,10 +245,17 @@ class QueryExecutor {
       const absl::optional<std::string>& name, absl::Time create_time,
       absl::Time update_time, int64* execution_id) = 0;
 
-  // Queries an execution from the database by its id. It has 1
-  // parameter. The result can be parsed into an Execution.
-  virtual tensorflow::Status SelectExecutionByID(int64 execution_id,
-                                                 RecordSet* record_set) = 0;
+  // Retrieves Executions based on the given ids. Not found ids are skipped.
+  // For each matched execution, returns a row that contains the following
+  // columns (order not important):
+  // - id
+  // - type_id
+  // - last_known_state
+  // - name
+  // - create_time_since_epoch
+  // - last_update_time_since_epoch
+  virtual tensorflow::Status SelectExecutionsByID(
+      absl::Span<const int64> execution_ids, RecordSet* record_set) = 0;
 
   // Queries an execution from the database by its type_id and name.
   virtual tensorflow::Status SelectExecutionByTypeIDAndExecutionName(
@@ -266,11 +280,11 @@ class QueryExecutor {
       int64 execution_id, const absl::string_view name, bool is_custom_property,
       const Value& value) = 0;
 
-  // Queries properties of an execution from the database by the execution id.
+  // Queries properties of executions matching the given 'ids'.
   // Upon return, each property is mapped to a row in 'record_set'
   // using the convention spelled out in the class docstring.
   virtual tensorflow::Status SelectExecutionPropertyByExecutionID(
-      int64 execution_id, RecordSet* record_set) = 0;
+      absl::Span<const int64> execution_ids, RecordSet* record_set) = 0;
 
   // Updates a property of an execution from the database.
   virtual tensorflow::Status UpdateExecutionProperty(
