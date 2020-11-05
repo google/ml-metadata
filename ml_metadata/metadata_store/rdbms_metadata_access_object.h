@@ -381,14 +381,9 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // If any ids are not found then returns NOT_FOUND if skipped_ids_ok is true,
   // otherwise INTERNAL error.
   template <typename Node>
-  tensorflow::Status FindNodesByIdImpl(absl::Span<const int64> node_ids,
-                                       bool skipped_ids_ok,
-                                       std::vector<Node>& nodes);
-
-  // Find nodes by ID, where the IDs are encoded in a record set.
-  template <typename Node>
-  tensorflow::Status FindManyNodesImpl(const RecordSet& record_set,
-                                       std::vector<Node>* nodes);
+  tensorflow::Status FindNodesImpl(absl::Span<const int64> node_ids,
+                                   bool skipped_ids_ok,
+                                   std::vector<Node>& nodes);
 
   // Updates a `Node` which is one of {`Artifact`, `Execution`, `Context`}.
   // Returns INVALID_ARGUMENT error, if the node cannot be found
@@ -403,6 +398,13 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // Returns INVALID_ARGUMENT error, if the `events` is null.
   tensorflow::Status FindEventsFromRecordSet(const RecordSet& event_record_set,
                                              std::vector<Event>* events);
+
+  // Retrieves the ids of the nodes based on 'options'. The returned record_set
+  // has a single row per id, with the corresponding value.
+  template <typename Node>
+  tensorflow::Status ListNodeIds(
+      const ListOperationOptions& options, RecordSet* record_set,
+      Node* tag = nullptr /* used only for template instantiation*/);
 
   // Queries nodes stored in the metadata source using `options`.
   // `options` is the ListOperationOptions proto message defined

@@ -176,6 +176,7 @@ class MetadataAccessObject {
   //    max_result_size set in `options`.
   // 2. `next_page_token` is populated with information necessary to fetch next
   //    page of results.
+  // An empty result set is returned if no artifacts are retrieved.
   // RETURNS INVALID_ARGUMENT if the `options` is invalid with one of
   //    the cases:
   // 1. order_by_field is not set or has an unspecified field.
@@ -193,6 +194,7 @@ class MetadataAccessObject {
   //    max_result_size set in `options`.
   // 2. `next_page_token` is populated with information necessary to fetch next
   //    page of results.
+  // An empty result set is returned if no executions are retrieved.
   // RETURNS INVALID_ARGUMENT if the `options` is invalid with one of
   //    the cases:
   // 1. order_by_field is not set or has an unspecified field.
@@ -210,6 +212,7 @@ class MetadataAccessObject {
   //    max_result_size set in `options`.
   // 2. `next_page_token` is populated with information necessary to fetch next
   //    page of results.
+  // An empty result set is returned if no contexts are retrieved.
   // RETURNS INVALID_ARGUMENT if the `options` is invalid with one of
   //    the cases:
   // 1. order_by_field is not set or has an unspecified field.
