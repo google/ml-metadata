@@ -101,13 +101,14 @@ class MetadataStore(object):
     """
     target = ':'.join([config.host, str(config.port)])
 
+    if config.HasField('client_timeout_sec'):
+      self._grpc_timeout_sec = config.client_timeout_sec
+
     options = None
     if (config.HasField('channel_arguments') and
         config.channel_arguments.HasField('max_receive_message_length')):
       options = [('grpc.max_receive_message_length',
                   config.channel_arguments.max_receive_message_length)]
-    if config.HasField('client_timeout_sec'):
-      self._grpc_timeout_sec = config.client_timeout_sec
 
     if not config.HasField('ssl_config'):
       return grpc.insecure_channel(target, options=options)
