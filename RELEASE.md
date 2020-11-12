@@ -1,5 +1,3 @@
-# Current version (not yet released; still in development)
-
 # Release 0.25.0
 
 ## Major Features and Improvements
