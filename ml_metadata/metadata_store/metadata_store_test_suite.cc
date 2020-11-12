@@ -369,6 +369,104 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeSame) {
   EXPECT_EQ(response_1.type_id(), response_2.type_id());
 }
 
+TEST_P(MetadataStoreTestSuite, PutArtifactTypeCanOmitFields) {
+  PutArtifactTypeRequest request_1 =
+      ParseTextProtoOrDie<PutArtifactTypeRequest>(
+          R"(
+            artifact_type: {
+              name: 'test_type'
+              properties { key: 'property_1' value: INT }
+              properties { key: 'property_2' value: STRING }
+            }
+          )");
+  PutArtifactTypeResponse response_1;
+  TF_ASSERT_OK(metadata_store_->PutArtifactType(request_1, &response_1));
+  ArtifactType stored_type = request_1.artifact_type();
+  stored_type.set_id(response_1.type_id());
+
+  // Do a list of updates with different options and verify the stored type.
+  auto verify_stored_type_equals = [this](const ArtifactType& want_type) {
+    GetArtifactTypesRequest get_request;
+    GetArtifactTypesResponse got_response;
+    TF_ASSERT_OK(metadata_store_->GetArtifactTypes(get_request, &got_response));
+    EXPECT_THAT(got_response.artifact_types(), SizeIs(1));
+    EXPECT_THAT(got_response.artifact_types(0), EqualsProto(want_type));
+  };
+
+  {
+    // can_omit_field is false
+    PutArtifactTypeRequest wrong_request =
+        ParseTextProtoOrDie<PutArtifactTypeRequest>(
+            R"(
+              artifact_type: {
+                name: 'test_type'
+                properties { key: 'property_2' value: STRING }
+              }
+            )");
+    PutArtifactTypeResponse response;
+    EXPECT_EQ(metadata_store_->PutArtifactType(wrong_request, &response).code(),
+              tensorflow::error::ALREADY_EXISTS);
+    verify_stored_type_equals(stored_type);
+  }
+
+  {
+    // can_omit_field is set to true
+    PutArtifactTypeRequest correct_request =
+        ParseTextProtoOrDie<PutArtifactTypeRequest>(
+            R"(
+              can_omit_fields: true
+              artifact_type: {
+                name: 'test_type'
+                properties { key: 'property_2' value: STRING }
+              }
+            )");
+    PutArtifactTypeResponse response;
+    TF_EXPECT_OK(metadata_store_->PutArtifactType(correct_request, &response));
+    EXPECT_EQ(response_1.type_id(), response.type_id());
+    verify_stored_type_equals(stored_type);
+  }
+
+  {
+    // can_omit_fields = true and can_add_fields = false
+    // the new properties cannot be inserted.
+    PutArtifactTypeRequest wrong_request =
+        ParseTextProtoOrDie<PutArtifactTypeRequest>(
+            R"(
+              can_omit_fields: true
+              artifact_type: {
+                name: 'test_type'
+                properties { key: 'property_3' value: DOUBLE }
+              }
+            )");
+    PutArtifactTypeResponse response;
+    EXPECT_EQ(metadata_store_->PutArtifactType(wrong_request, &response).code(),
+              tensorflow::error::ALREADY_EXISTS);
+    verify_stored_type_equals(stored_type);
+  }
+
+  {
+    // can_omit_fields = true and can_add_fields = true
+    // the new properties can be inserted.
+    PutArtifactTypeRequest correct_request =
+        ParseTextProtoOrDie<PutArtifactTypeRequest>(
+            R"(
+              can_add_fields: true
+              can_omit_fields: true
+              artifact_type: {
+                name: 'test_type'
+                properties { key: 'property_3' value: DOUBLE }
+              }
+            )");
+    PutArtifactTypeResponse response;
+    TF_EXPECT_OK(metadata_store_->PutArtifactType(correct_request, &response));
+    EXPECT_EQ(response_1.type_id(), response.type_id());
+
+    ArtifactType want_type = stored_type;
+    (*want_type.mutable_properties())["property_3"] = ml_metadata::DOUBLE;
+    verify_stored_type_equals(want_type);
+  }
+}
+
 // Test for failure.
 TEST_P(MetadataStoreTestSuite, GetArtifactTypeMissing) {
   const GetArtifactTypeRequest get_request =

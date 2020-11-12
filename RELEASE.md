@@ -18,7 +18,9 @@
     involved for the wheels to be available on the PyPI cloud service. You can
     always use the stable version of MLMD available on PyPI by running the
     command `pip install ml-metadata` .
+
 *   Upgrades MLMD schema version to 6.
+
     -   Add `ParentType` table for supporting type inheritance.
     -   Add `Type`.`version` column for Type evolution development.
     -   Add `Type`.`idx_type_name` index for type lookup APIs.
@@ -31,6 +33,10 @@
     -   Add indices on `create_time_since_epoch`, `last_update_time_since_epoch`
         for `Artifact`, `Execution` and `Context` for sorted listing queries.
 
+*   Allows omitting stored properties when using `put_artifact_type`,
+    `put_execution_type`, `put_context_type`, to help writing forward
+    compatibility MLMD type registration calls.
+
 ## Bug Fixes and Other Changes
 
 *   Optimizes GetContext*/GetArtifact*/GetExecution* and corresponding List*
@@ -40,6 +46,12 @@
 ## Breaking Changes
 
 ## Deprecations
+
+*   Deprecates `all_fields_match` and `can_delete_fields` from python APIs
+    `put_artifact_type`, `put_execution_type`, `put_context_type`. In previous
+    releases these parameters can only be set with default values, otherwise
+    Unimplemented error returns. This change should be no-op for all existing
+    users.
 
 # Release 0.24.0
 

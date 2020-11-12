@@ -22,6 +22,7 @@ import uuid
 
 from absl import flags
 from absl.testing import absltest
+from absl.testing import parameterized
 
 from ml_metadata import errors
 from ml_metadata.metadata_store import metadata_store
@@ -114,7 +115,7 @@ def _create_example_context_type_2(type_name):
   return context_type
 
 
-class MetadataStoreTest(absltest.TestCase):
+class MetadataStoreTest(parameterized.TestCase):
 
   def _get_test_type_name(self):
     return "test_type_{}".format(uuid.uuid4())
@@ -210,6 +211,73 @@ class MetadataStoreTest(absltest.TestCase):
     self.assertEqual(artifact_type.properties["baz"], metadata_store_pb2.DOUBLE)
     self.assertEqual(artifact_type.properties["new_property"],
                      metadata_store_pb2.INT)
+
+  @parameterized.parameters(
+      (metadata_store_pb2.ArtifactType(), _create_example_artifact_type,
+       metadata_store.MetadataStore.put_artifact_type,
+       metadata_store.MetadataStore.get_artifact_type),
+      (metadata_store_pb2.ExecutionType(), _create_example_execution_type,
+       metadata_store.MetadataStore.put_execution_type,
+       metadata_store.MetadataStore.get_execution_type),
+      (metadata_store_pb2.ContextType(), _create_example_context_type,
+       metadata_store.MetadataStore.put_context_type,
+       metadata_store.MetadataStore.get_context_type))
+  def test_put_type_with_omitted_fields_get_type(self, stored_type,
+                                                 create_type_fn, put_type_fn,
+                                                 get_type_fn):
+    store = _get_metadata_store()
+    type_name = self._get_test_type_name()
+    base_type = create_type_fn(type_name)
+    # store a type by adding more properties
+    stored_type.CopyFrom(base_type)
+    stored_type.properties["p1"] = metadata_store_pb2.INT
+    type_id = put_type_fn(store, stored_type)
+    # put a type with missing properties
+    with self.assertRaises(errors.AlreadyExistsError):
+      put_type_fn(store, base_type)
+    # when set can_omit_fields, the upsert is ok
+    put_type_fn(store, base_type, can_omit_fields=True)
+    # verify the stored type remains the same.
+    got_type = get_type_fn(store, type_name)
+    self.assertEqual(got_type.id, type_id)
+    self.assertEqual(got_type.name, type_name)
+    self.assertEqual(got_type.properties, stored_type.properties)
+
+  @parameterized.parameters(
+      (metadata_store_pb2.ArtifactType(), _create_example_artifact_type,
+       metadata_store.MetadataStore.put_artifact_type,
+       metadata_store.MetadataStore.get_artifact_type),
+      (metadata_store_pb2.ExecutionType(), _create_example_execution_type,
+       metadata_store.MetadataStore.put_execution_type,
+       metadata_store.MetadataStore.get_execution_type),
+      (metadata_store_pb2.ContextType(), _create_example_context_type,
+       metadata_store.MetadataStore.put_context_type,
+       metadata_store.MetadataStore.get_context_type))
+  def test_put_artifact_type_with_omitted_fields_and_add_fields(
+      self, stored_type, create_type_fn, put_type_fn, get_type_fn):
+    store = _get_metadata_store()
+    type_name = self._get_test_type_name()
+    base_type = create_type_fn(type_name)
+    # store a type by adding more properties
+    stored_type.CopyFrom(base_type)
+    stored_type.properties["p1"] = metadata_store_pb2.INT
+    type_id = put_type_fn(store, stored_type)
+    # put a type with missing properties and an additional property
+    base_type.properties["p2"] = metadata_store_pb2.DOUBLE
+    # base_type with missing properties cannot be updated
+    with self.assertRaises(errors.AlreadyExistsError):
+      put_type_fn(store, base_type)
+    # base_type with new properties cannot be updated
+    with self.assertRaises(errors.AlreadyExistsError):
+      put_type_fn(store, base_type, can_omit_fields=True)
+    # if both can_add_fields, and can_omit_fields are set, then it succeeds
+    put_type_fn(store, base_type, can_add_fields=True, can_omit_fields=True)
+    got_type = get_type_fn(store, type_name)
+    want_type = stored_type
+    want_type.properties["p2"] = metadata_store_pb2.DOUBLE
+    self.assertEqual(got_type.id, type_id)
+    self.assertEqual(got_type.name, type_name)
+    self.assertEqual(got_type.properties, want_type.properties)
 
   def test_get_artifact_types(self):
     store = _get_metadata_store()

@@ -62,178 +62,103 @@ class MetadataStore : public MetadataStoreServiceInterface {
   tensorflow::Status InitMetadataStoreIfNotExists(
       bool enable_upgrade_migration = false);
 
-  // Inserts or updates an artifact type.
+  // Inserts or updates a ArtifactType/ExecutionType/ContextType.
   //
-  // If no artifact type exists in the database with the given name, it creates
-  // a new artifact type and returns the type_id.
+  // If no type exists in the database with the given name, it
+  // creates a new type and returns the type_id.
   //
-  // If an artifact type with the same name already exists (let's call it
-  // old_artifact_type), the method enforces all stored fields must be present
-  // in request.artifact_type and must have the same type, otherwise it returns
-  // ALREADY_EXISTS.
-  // If can_add_fields is false and there are more fields in
-  // request.artifact_type than in old_artifact_type, return ALREADY_EXISTS.
-  // Otherwise it returns old_artifact_type.type_id.
+  // If the request type with the same name already exists (let's call it
+  // stored_type), the method enforces the stored_type can be updated only when
+  // the request type is backward compatible for the already stored instances.
+  //
+  // Backwards compatibility is violated iff:
+  //
+  //   a) there is a property where the request type and stored_type have
+  //      different value type (e.g., int vs. string)
+  //   b) `can_add_fields = false` and the request type has a new property that
+  //      is not stored.
+  //   c) `can_omit_fields = false` and stored_type has an existing property
+  //      that is not provided in the request type.
   //
   // For the fields of PutArtifactTypeRequest:
-  //   all_fields_match: must be true (otherwise returns UNIMPLEMENTED).
-  //   can_delete_fields: must be false (otherwise returns UNIMPLEMENTED).
-  //   can_add_fields: when set to true, new fields can be added.
-  //                   when set to false, returns ALREADY_EXISTS if the
-  //                   stored type is different from the one given.
-  //   artifact_type: the type to add or update; for add, id should be empty.
+  //
+  //   can_add_fields:
+  //     when set to true, new properties can be added;
+  //     when set to false, returns ALREADY_EXISTS if the request type has
+  //     properties that are not in stored_type.
+  //
+  //   can_omit_fields:
+  //     when set to true, stored properties can be omitted in the request type;
+  //     when set to false, returns ALREADY_EXISTS if the stored_type has
+  //     properties not in the request type.
+  //
   // Returns ALREADY_EXISTS error in the case listed above.
-  // Returns UNIMPLEMENTED error in the cases listed above.
-  // Returns INVALID_ARGUMENT error, if name field in request.artifact_type
-  //     is not given.
-  // Returns INVALID_ARGUMENT error, if any property type in
-  //     request.artifact_type is unknown.
+  // Returns INVALID_ARGUMENT error, if the given type has no name, or any
+  //     property value type is unknown.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status PutArtifactType(
       const PutArtifactTypeRequest& request,
       PutArtifactTypeResponse* response) override;
 
-  // Inserts or updates an execution type.
-  //
-  // If no execution type exists in the database with the given name, it creates
-  // a new execution type and returns the type_id.
-  //
-  // If an execution type with the same name already exists (let's call it
-  // old_execution_type), the method enforces all stored fields must be present
-  // in request.execution_type and must have the same type, otherwise it returns
-  // ALREADY_EXISTS.
-  // If can_add_fields is false and there are more fields in
-  // request.execution_type than in old_execution_type, return ALREADY_EXISTS.
-  // Otherwise it returns old_execution_type.type_id.
-  //
-  // For the fields of PutExecutionTypeRequest:
-  //   all_fields_match: must be true (otherwise returns UNIMPLEMENTED).
-  //                     it matches the given properties with the stored type,
-  //                     such that any stored property type must be the same
-  //                     with the given property.
-  //   can_delete_fields: must be false (otherwise returns UNIMPLEMENTED).
-  //   can_add_fields: when set to true, new fields can be added.
-  //                   when set to false, returns ALREADY_EXISTS if the
-  //                   stored type is different from the one given.
-  //   execution_type: the type to add or update; for add, id should be empty.
-  // Returns ALREADY_EXISTS in the case listed above.
-  // Returns UNIMPLEMENTED error in the cases listed above.
-  // Returns INVALID_ARGUMENT error, if name field in request.execution_type
-  //     is not given.
-  // Returns INVALID_ARGUMENT error, if any property type in
-  //     request.execution_type is unknown.
-  // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status PutExecutionType(
       const PutExecutionTypeRequest& request,
       PutExecutionTypeResponse* response) override;
 
-  // Inserts or updates a context type.
-  //
-  // If no context type exists in the database with the given name, it creates
-  // a new context type and returns the type_id.
-  //
-  // If an context type with the same name already exists (let's call it
-  // old_context_type), the method enforces all stored fields must be present
-  // in request.context_type and must have the same type, otherwise it returns
-  // ALREADY_EXISTS.
-  // If can_add_fields is false and there are more fields in
-  // request.context_type than in old_context_type, return ALREADY_EXISTS.
-  // Otherwise it returns old_context_type.type_id.
-  //
-  // For the fields of PutContextTypeRequest:
-  //   all_fields_match: must be true (otherwise returns UNIMPLEMENTED).
-  //                     it matches the given properties with the stored type,
-  //                     such that any stored property type must be the same
-  //                     with the given property.
-  //   can_delete_fields: must be false (otherwise returns UNIMPLEMENTED).
-  //   can_add_fields: when set to true, new fields can be added.
-  //                   when set to false, returns ALREADY_EXISTS if the
-  //                   stored type is different from the one given.
-  //   context_type: the type to add or update; for add, id should be empty.
-  // Returns ALREADY_EXISTS in the case listed above.
-  // Returns UNIMPLEMENTED error in the cases listed above.
-  // Returns INVALID_ARGUMENT error, if name field in request.context_type
-  //     is not given.
-  // Returns INVALID_ARGUMENT error, if any property type in
-  //     request.context_type is unknown.
-  // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status PutContextType(const PutContextTypeRequest& request,
                                     PutContextTypeResponse* response) override;
 
-  // Gets an execution type by name.
-  // If no type exists, returns a NOT_FOUND error.
-  // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetExecutionType(
-      const GetExecutionTypeRequest& request,
-      GetExecutionTypeResponse* response) override;
-
-  // Gets an artifact type by name.
+  // Gets an ArtifactType/ExecutionType/ContextType by name.
   // If no type exists, returns a NOT_FOUND error.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetArtifactType(
       const GetArtifactTypeRequest& request,
       GetArtifactTypeResponse* response) override;
 
-  // Gets an context type by name.
-  // If no type exists, returns a NOT_FOUND error.
-  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status GetExecutionType(
+      const GetExecutionTypeRequest& request,
+      GetExecutionTypeResponse* response) override;
+
   tensorflow::Status GetContextType(const GetContextTypeRequest& request,
                                     GetContextTypeResponse* response) override;
 
-  // Bulk inserts a list of types atomically. The types could be artifact
-  // type, execution type, or context type. If the type with the same name
-  // already exists, it compares given properties in the existed type. If all
-  // property matches, then the existing id is returned.
-  // Returns ALREADY_EXISTS if any of the type to be inserted is different from
-  //     the type with the same name existed.
-  // Returns INVALID_ARGUMENT if the given type message has no name, or the
+  // Bulk inserts a list of types atomically. The types could be ArtifactType,
+  // ExecutionType, or ContextType.
+  //
+  // Returns ALREADY_EXISTS if any type update is backward incompatible. Please
+  //     see comments in PutArtifactType for the detailed conditions.
+  // Returns INVALID_ARGUMENT if any given type message has no name, or its
   //     property value type is unknown.
   // Returns detailed INTERNAL error, if query execution fails.
   // TODO(huimiao) Surface the API in python/Go/gRPC.
   tensorflow::Status PutTypes(const PutTypesRequest& request,
                               PutTypesResponse* response) override;
 
-  // Gets all artifact types. If no artifact types found, it returns OK and
-  // empty response.
+  // Gets all ArtifactTypes/ExecutionTypes/ContextTypes.
+  // If no types found, it returns OK and empty response.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetArtifactTypes(
       const GetArtifactTypesRequest& request,
       GetArtifactTypesResponse* response) override;
 
-  // Gets all execution types. If no execution types found, it returns OK and
-  // empty response.
-  // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetExecutionTypes(
       const GetExecutionTypesRequest& request,
       GetExecutionTypesResponse* response) override;
 
-  // Gets all context types. If no context types found, it returns OK and
-  // empty response.
-  // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetContextTypes(
       const GetContextTypesRequest& request,
       GetContextTypesResponse* response) override;
 
-  // Gets a list of artifact types by ID.
-  // If no artifact types with an ID exists, the artifact type is skipped.
-  // Sets the error field if any other internal errors are returned.
+  // Gets a list of ArtifactTypes/ExecutionTypes/ContextTypes by ids.
+  // If no types with an ID exists, the type is skipped.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetArtifactTypesByID(
       const GetArtifactTypesByIDRequest& request,
       GetArtifactTypesByIDResponse* response) override;
 
-  // Gets a list of execution types by ID.
-  // If no artifact types with an ID exists, the artifact type is skipped.
-  // Sets the error field if any other internal errors are returned.
-  // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetExecutionTypesByID(
       const GetExecutionTypesByIDRequest& request,
       GetExecutionTypesByIDResponse* response) override;
 
-  // Gets a list of context types by ID.
-  // If no context types with an ID exists, the context type is skipped.
-  // Sets the error field if any other internal errors are returned.
-  // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetContextTypesByID(
       const GetContextTypesByIDRequest& request,
       GetContextTypesByIDResponse* response) override;

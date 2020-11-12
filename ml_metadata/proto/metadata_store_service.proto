@@ -77,20 +77,26 @@ message PutArtifactsResponse {
 }
 
 message PutArtifactTypeRequest {
-  // The field is required in any request.
+  // The field is required in any request. Stored types in MLMD can be updated
+  // by introducing new properties and remain backward compatible. If a type
+  // with the same name exists in the database, it updates the existing type,
+  // otherwise it creates a new type.
   optional ArtifactType artifact_type = 1;
-  // if true, you can add fields with this operation. If false,
-  // then if there are more fields in artifact_type than in the database,
-  // the call fails.
+
+  // If true then allows adding properties to an existing stored type.
+  // If false, then type update is not allowed and it raises AlreadyExists
+  // error if the given type has any new property that is not defined in the
+  // stored type.
   optional bool can_add_fields = 2;
 
-  // if true, you can remove fields with this operation. If
-  // false, then if there are more fields.
-  optional bool can_delete_fields = 3;
+  // If true then allows omitting properties of an existing stored type.
+  // If false, then no properties of the stored type can be omitted in the
+  // given type, otherwise it raises AlreadyExists error.
+  optional bool can_omit_fields = 5;
 
-  // if true, and an artifact type with the same name exists, then all
-  // fields must match.
-  optional bool all_fields_match = 4 [default = true];
+  // Deprecated fields.
+  optional bool can_delete_fields = 3 [deprecated = true];
+  optional bool all_fields_match = 4 [default = true, deprecated = true];
 }
 
 message PutArtifactTypeResponse {
@@ -108,20 +114,26 @@ message PutExecutionsResponse {
 }
 
 message PutExecutionTypeRequest {
-  // The field is required in any request.
+  // The field is required in any request. Stored types in MLMD can be updated
+  // by introducing new properties and remain backward compatible. If a type
+  // with the same name exists in the database, it updates the existing type,
+  // otherwise it creates a new type.
   optional ExecutionType execution_type = 1;
-  // if true, you can add fields with this operation. If false,
-  // then if there are more fields in execution_type than in the database,
-  // the call fails.
+
+  // If true then allows adding properties to an existing stored type.
+  // If false, then type update is not allowed and it raises AlreadyExists
+  // error if the given type has any new property that is not defined in the
+  // stored type.
   optional bool can_add_fields = 2;
 
-  // if true, you can remove fields with this operation. If
-  // false, then if there are more fields.
-  optional bool can_delete_fields = 3;
+  // If true then allows omitting properties of an existing stored type.
+  // If false, then no properties of the stored type can be omitted in the
+  // given type, otherwise it raises AlreadyExists error.
+  optional bool can_omit_fields = 5;
 
-  // if true, and an artifact type with the same name exists, then all
-  // fields must match.
-  optional bool all_fields_match = 4 [default = true];
+  // Deprecated fields.
+  optional bool can_delete_fields = 3 [deprecated = true];
+  optional bool all_fields_match = 4 [default = true, deprecated = true];
 }
 
 message PutExecutionTypeResponse {
@@ -188,17 +200,20 @@ message PutTypesRequest {
   repeated ExecutionType execution_types = 2;
   repeated ContextType context_types = 3;
 
-  // if true, you can add fields with this operation. If false,
-  // then if there are more fields of the type in the database, the call fails.
+  // If true then allows adding properties to an existing stored type.
+  // If false, then type update is not allowed and it raises AlreadyExists
+  // error if the given type has any new property that is not defined in the
+  // stored type.
   optional bool can_add_fields = 4;
 
-  // if true, you can remove fields with this operation. If false, then if
-  // there are more fields.
-  optional bool can_delete_fields = 5;
+  // If true then allows omitting properties of an existing stored type.
+  // If false, then no properties of the stored type can be omitted in the
+  // given type, otherwise it raises AlreadyExists error.
+  optional bool can_omit_fields = 7;
 
-  // if true, and an artifact type with the same name exists, then all fields
-  // must match.
-  optional bool all_fields_match = 6 [default = true];
+  // Deprecated fields.
+  optional bool can_delete_fields = 5 [deprecated = true];
+  optional bool all_fields_match = 6 [default = true, deprecated = true];
 }
 
 message PutTypesResponse {
@@ -211,19 +226,26 @@ message PutTypesResponse {
 }
 
 message PutContextTypeRequest {
-  // The field is required in any request.
+  // The field is required in any request. Stored types in MLMD can be updated
+  // by introducing new properties and remain backward compatible. If a type
+  // with the same name exists in the database, it updates the existing type,
+  // otherwise it creates a new type.
   optional ContextType context_type = 1;
-  // if true, you can add fields with this operation. If false, then if there
-  // are more fields in context_type than in the database, the call fails.
+
+  // If true then allows adding properties to an existing stored type.
+  // If false, then type update is not allowed and it raises AlreadyExists
+  // error if the given type has any new property that is not defined in the
+  // stored type.
   optional bool can_add_fields = 2;
 
-  // if true, you can remove fields with this operation. If false, then if there
-  // are less fields in context_type than in the database, the call fails.
-  optional bool can_delete_fields = 3;
+  // If true then allows omitting properties of an existing stored type.
+  // If false, then no properties of the stored type can be omitted in the
+  // given type, otherwise it raises AlreadyExists error.
+  optional bool can_omit_fields = 5;
 
-  // if true, and a context_type with the same name exists, then all fields
-  // must match.
-  optional bool all_fields_match = 4 [default = true];
+  // Deprecated fields.
+  optional bool can_delete_fields = 3 [deprecated = true];
+  optional bool all_fields_match = 4 [default = true, deprecated = true];
 }
 
 message PutContextTypeResponse {
@@ -548,6 +570,57 @@ message GetExecutionsByContextResponse {
 
 // LINT.IfChange
 service MetadataStoreService {
+  // Inserts or updates an ArtifactType.
+  //
+  // If no type exists in the database with the given name, it
+  // creates a new type and returns the type_id.
+  //
+  // If the request type with the same name already exists (let's call it
+  // stored_type), the method enforces the stored_type can be updated only when
+  // the request type is backward compatible for the already stored instances.
+  //
+  // Backwards compatibility is violated iff:
+  //
+  //   a) there is a property where the request type and stored_type have
+  //      different value type (e.g., int vs. string)
+  //   b) `can_add_fields = false` and the request type has a new property that
+  //      is not stored.
+  //   c) `can_omit_fields = false` and stored_type has an existing property
+  //      that is not provided in the request type.
+  //
+  // Args:
+  //   artifact_type: the type to be inserted or updated.
+  //   can_add_fields:
+  //     when set to true, new properties can be added;
+  //     when set to false, returns ALREADY_EXISTS if the request type has
+  //     properties that are not in stored_type.
+  //   can_omit_fields:
+  //     when set to true, stored properties can be omitted in the request type;
+  //     when set to false, returns ALREADY_EXISTS if the stored_type has
+  //     properties not in the request type.
+  //
+  // Returns:
+  //   The type_id of the stored type.
+  //
+  // Raises:
+  //   ALREADY_EXISTS error in the case listed above.
+  //   INVALID_ARGUMENT error, if the given type has no name, or any
+  //     property value type is unknown.
+  rpc PutArtifactType(PutArtifactTypeRequest)
+      returns (PutArtifactTypeResponse) {}
+
+  // Inserts or updates an ExecutionType. Please refer to PutArtifactType for
+  // type upsert API description.
+  rpc PutExecutionType(PutExecutionTypeRequest)
+      returns (PutExecutionTypeResponse) {}
+
+  // Inserts or updates an ContextType. Please refer to PutArtifactType for
+  // type upsert API description.
+  rpc PutContextType(PutContextTypeRequest) returns (PutContextTypeResponse) {}
+
+  // Bulk inserts types atomically.
+  rpc PutTypes(PutTypesRequest) returns (PutTypesResponse) {}
+
   // Inserts or updates artifacts in the database.
   //
   // If an artifact_id is specified for an artifact, it is an update.
@@ -561,36 +634,6 @@ service MetadataStoreService {
   // Returns:
   //   A list of artifact ids index-aligned with the input.
   rpc PutArtifacts(PutArtifactsRequest) returns (PutArtifactsResponse) {}
-
-  // Inserts or updates an artifact type.
-  //
-  // If no artifact type exists in the database with the given name, it creates
-  // a new artifact type (and a database).
-  //
-  // If an artifact type with the same name already exists (let's call it
-  // old_artifact_type), then the impact depends upon the other options.
-  //
-  // If artifact_type == old_artifact_type, then nothing happens.
-  //
-  // Otherwise, if there is a field where artifact_type and old_artifact_type
-  // have different types, then it fails.
-  //
-  // Otherwise, if can_add_fields is False and artifact_type has a field
-  // old_artifact_type is missing, then it fails.
-  //
-  // Otherwise, if all_fields_match is True and old_artifact_type has a field
-  // artifact_type is missing, then it fails.
-  //
-  // Otherwise, if can_delete_fields is True and old_artifact_type has a field
-  // artifact_type is missing, then it deletes that field.
-  //
-  // Otherwise, it does nothing.
-  // Args:
-  //   artifact_type: the type to add or update.
-  //
-  // Returns error if a constraint is violated.
-  rpc PutArtifactType(PutArtifactTypeRequest)
-      returns (PutArtifactTypeResponse) {}
 
   // Inserts or updates executions in the database.
   //
@@ -606,42 +649,6 @@ service MetadataStoreService {
   //   A list of execution ids index-aligned with the input.
   //
   rpc PutExecutions(PutExecutionsRequest) returns (PutExecutionsResponse) {}
-
-  // Inserts or updates an execution type.
-  //
-  // If no execution type exists in the database with the given name, it
-  // creates a new execution type (and a database).
-  //
-  // If an execution type with the same name already exists (let's call it
-  // old_execution_type), then the impact depends upon the other options.
-  //
-  // If execution_type == old_execution_type, then nothing happens.
-  //
-  // Otherwise, if there is a field where execution_type and old_execution_type
-  // have different types, then it fails.
-  //
-  // Otherwise, if can_add_fields is False and execution_type has a field
-  // old_execution_type is missing, then it fails.
-  //
-  // Otherwise, if all_fields_match is True and old_execution_type has a field
-  // execution_type is missing, then it fails.
-  //
-  // Otherwise, if can_delete_fields is True and old_execution_type has a field
-  // execution_type is missing, then it deletes that field.
-  //
-  // Otherwise, it does nothing.
-  // Args:
-  //   execution_type: the type to add or update.
-  //   can_add_fields: if true, you can add fields with this operation. If
-  // false, then if there are more fields in execution_type than in the
-  // database,
-  //     the call fails.
-  //   can_delete_fields: if true, you can remove fields with this operation.
-  // If false, then if there are more fields.
-  //
-  // Returns error if a constraint is violated.
-  rpc PutExecutionType(PutExecutionTypeRequest)
-      returns (PutExecutionTypeResponse) {}
 
   // Inserts events in the database.
   //
@@ -671,44 +678,6 @@ service MetadataStoreService {
   //   An execution id and a list of artifacts and contexts ids index-aligned
   //   with the input.
   rpc PutExecution(PutExecutionRequest) returns (PutExecutionResponse) {}
-
-  // Bulk inserts types atomically.
-  //
-  // If no type exists in the database with the given name, it creates
-  // a new type.
-  //
-  // If a type with the same name already exists (let's call it
-  // old_type), then the impact depends upon the other options.
-  //
-  // If type == old_type, then nothing happens.
-  //
-  // Otherwise, if there is a field where type and old_type have different
-  // types, then it fails.
-  //
-  // Args:
-  //   artifact_type: the artifact type to add or update.
-  //   execution_type: the execution type to add or update.
-  //
-  // Returns error if a constraint is violated.
-  rpc PutTypes(PutTypesRequest) returns (PutTypesResponse) {}
-
-  // Inserts or updates an ContextType.
-  //
-  // If no context type exists in the database with the given name, it
-  // creates a new context type (and a database).
-  //
-  // If an context type with the same name already exists (let's call it
-  // old_context_type), then the impact depends upon the other options.
-  //
-  // If context_type == old_context_type, nothing happens (its id is returned).
-  //
-  // Otherwise, when context_type and old_context_type have different types,
-  // a) if all_fields_match is True: then it fails.
-  // b) can_add_fields is True: it fails when old_context_type has additional
-  // fields than context_type.
-  //
-  // Returns error if a constraint is violated.
-  rpc PutContextType(PutContextTypeRequest) returns (PutContextTypeResponse) {}
 
   // Inserts or updates contexts in database and returns a list of context ids.
   //

@@ -29,46 +29,88 @@ namespace ml_metadata {
 namespace {
 using std::unique_ptr;
 
-// Checks if the `other_type` have the same names and all list of properties.
-// Returns true if the types are consistent.
-// For a type to be consistent:
-// - all properties in stored_type are in other_type, and have the same type.
-// - either can_add_fields is true or the set of properties in both types
-//   are identical.
+// Checks if the `stored_type` and `other_type` have the same names.
+// In addition, it checks whether the types are inconsistent:
+// a) `stored_type` and `other_type` have conflicting property value type
+// b) `can_omit_fields` is false, while `stored_type`/`other_type` is not empty.
+// c) `can_add_fields` is false, while `other_type`/`store_type` is not empty.
+// Returns OK if the types are consistent and an output_type that contains the
+// union of the properties in stored_type and other_type.
+// Returns FAILED_PRECONDITION, if the types are inconsistent.
 template <typename T>
-bool CheckFieldsConsistent(const T& stored_type, const T& other_type,
-                           bool can_add_fields) {
+tensorflow::Status CheckFieldsConsistent(const T& stored_type,
+                                         const T& other_type,
+                                         bool can_add_fields,
+                                         bool can_omit_fields, T& output_type) {
   if (stored_type.name() != other_type.name()) {
-    return false;
+    return tensorflow::errors::FailedPrecondition(
+        "Conflicting type name found in stored and given types: "
+        "stored type: ",
+        stored_type.DebugString(), "; given type: ", other_type.DebugString());
   }
-  // Make sure every property in a is in b, and has the same type.
+  // Make sure every property in stored_type matches with the one in other_type
+  // unless can_omit_fields is set to true.
+  int omitted_fields_count = 0;
   for (const auto& pair : stored_type.properties()) {
     const std::string& key = pair.first;
     const PropertyType value = pair.second;
     const auto other_iter = other_type.properties().find(key);
     if (other_iter == other_type.properties().end()) {
-      return false;
+      omitted_fields_count++;
+    } else if (other_iter->second != value) {
+      return tensorflow::errors::FailedPrecondition(
+          "Conflicting property value type found in stored and given types: "
+          "stored_type: ",
+          stored_type.DebugString(),
+          "; other_type: ", other_type.DebugString());
     }
-    if (other_iter->second != value) {
-      return false;
+    if (omitted_fields_count > 0 && !can_omit_fields) {
+      return tensorflow::errors::FailedPrecondition(
+          "can_omit_fields is false while stored type has more properties: "
+          "stored type: ",
+          stored_type.DebugString(),
+          "; given type: ", other_type.DebugString());
     }
   }
-  return can_add_fields ||
-         stored_type.properties_size() == other_type.properties_size();
+  if (stored_type.properties_size() - omitted_fields_count ==
+      other_type.properties_size()) {
+    output_type = stored_type;
+    return tensorflow::Status::OK();
+  }
+  if (!can_add_fields) {
+    return tensorflow::errors::FailedPrecondition(
+        "can_add_fields is false while the given type has more properties: "
+        "stored_type: ",
+        stored_type.DebugString(), "; other_type: ", other_type.DebugString());
+  }
+  // add new properties to output_types if can_add_fields is true.
+  output_type = stored_type;
+  for (const auto& pair : other_type.properties()) {
+    const std::string& property_name = pair.first;
+    const PropertyType value = pair.second;
+    if (stored_type.properties().find(property_name) ==
+        stored_type.properties().end()) {
+      (*output_type.mutable_properties())[property_name] = value;
+    }
+  }
+  return tensorflow::Status::OK();
 }
 
+// If there is no type having the same name, then inserts a new type.
 // If a type with the same name already exists (let's call it `old_type`), it
 // checks the consistency of `type` and `old_type` as described in
-// CheckFieldsConsistent according to can_add_fields.
-// If there are inconsistent, it returns ALREADY_EXISTS. If they are consistent
-// and the types are identical, it returns the old type_id. If they are
-// consistent and there are new fields in `type`, then those fields are added.
-// If there is no type having the same name, then insert a new type.
+// CheckFieldsConsistent according to can_add_fields and can_omit_fields.
+// It returns ALREADY_EXISTS if:
+//  a) any property in `type` has different value from the one in `old_type`
+//  b) can_add_fields = false, `type` has more properties than `old_type`
+//  c) can_omit_fields = false, `type` has less properties than `old_type`
+// If `type` is a valid update, then new fields in `type` are added.
 // Returns INVALID_ARGUMENT error, if name field in `type` is not given.
 // Returns INVALID_ARGUMENT error, if any property type in `type` is unknown.
 // Returns detailed INTERNAL error, if query execution fails.
 template <typename T>
 tensorflow::Status UpsertType(const T& type, bool can_add_fields,
+                              bool can_omit_fields,
                               MetadataAccessObject* metadata_access_object,
                               int64* type_id) {
   T stored_type;
@@ -81,15 +123,20 @@ tensorflow::Status UpsertType(const T& type, bool can_add_fields,
   if (tensorflow::errors::IsNotFound(status)) {
     return metadata_access_object->CreateType(type, type_id);
   }
-  // otherwise it is update type.
+  // otherwise it updates the type.
   *type_id = stored_type.id();
   // all properties in stored_type must match the given type.
   // if `can_add_fields` is set, then new properties can be added
-  if (!CheckFieldsConsistent(stored_type, type, can_add_fields)) {
+  // if `can_omit_fields` is set, then existing properties can be missing.
+  T output_type;
+  const tensorflow::Status check_status = CheckFieldsConsistent(
+      stored_type, type, can_add_fields, can_omit_fields, output_type);
+  if (!check_status.ok()) {
     return tensorflow::errors::AlreadyExists(
-        "Type already exists with different properties.");
+        "Type already exists with different properties: ",
+        check_status.error_message());
   }
-  return metadata_access_object->UpdateType(type);
+  return metadata_access_object->UpdateType(output_type);
 }
 
 // Updates or inserts an artifact. If the artifact.id is given, it updates the
@@ -246,9 +293,6 @@ tensorflow::Status MetadataStore::InitMetadataStoreIfNotExists(
 
 tensorflow::Status MetadataStore::PutTypes(const PutTypesRequest& request,
                                            PutTypesResponse* response) {
-  if (request.can_delete_fields()) {
-    return tensorflow::errors::Unimplemented("Cannot remove fields.");
-  }
   if (!request.all_fields_match()) {
     return tensorflow::errors::Unimplemented("Must match all fields.");
   }
@@ -257,23 +301,23 @@ tensorflow::Status MetadataStore::PutTypes(const PutTypesRequest& request,
     response->Clear();
     for (const ArtifactType& artifact_type : request.artifact_types()) {
       int64 artifact_type_id;
-      TF_RETURN_IF_ERROR(UpsertType(artifact_type, request.can_add_fields(),
-                                    metadata_access_object_.get(),
-                                    &artifact_type_id));
+      TF_RETURN_IF_ERROR(UpsertType(
+          artifact_type, request.can_add_fields(), request.can_omit_fields(),
+          metadata_access_object_.get(), &artifact_type_id));
       response->add_artifact_type_ids(artifact_type_id);
     }
     for (const ExecutionType& execution_type : request.execution_types()) {
       int64 execution_type_id;
-      TF_RETURN_IF_ERROR(UpsertType(execution_type, request.can_add_fields(),
-                                    metadata_access_object_.get(),
-                                    &execution_type_id));
+      TF_RETURN_IF_ERROR(UpsertType(
+          execution_type, request.can_add_fields(), request.can_omit_fields(),
+          metadata_access_object_.get(), &execution_type_id));
       response->add_execution_type_ids(execution_type_id);
     }
     for (const ContextType& context_type : request.context_types()) {
       int64 context_type_id;
-      TF_RETURN_IF_ERROR(UpsertType(context_type, request.can_add_fields(),
-                                    metadata_access_object_.get(),
-                                    &context_type_id));
+      TF_RETURN_IF_ERROR(UpsertType(
+          context_type, request.can_add_fields(), request.can_omit_fields(),
+          metadata_access_object_.get(), &context_type_id));
       response->add_context_type_ids(context_type_id);
     }
     return tensorflow::Status::OK();
@@ -282,9 +326,6 @@ tensorflow::Status MetadataStore::PutTypes(const PutTypesRequest& request,
 
 tensorflow::Status MetadataStore::PutArtifactType(
     const PutArtifactTypeRequest& request, PutArtifactTypeResponse* response) {
-  if (request.can_delete_fields()) {
-    return tensorflow::errors::Unimplemented("Cannot remove fields.");
-  }
   if (!request.all_fields_match()) {
     return tensorflow::errors::Unimplemented("Must match all fields.");
   }
@@ -294,6 +335,7 @@ tensorflow::Status MetadataStore::PutArtifactType(
         int64 type_id;
         TF_RETURN_IF_ERROR(UpsertType(request.artifact_type(),
                                       request.can_add_fields(),
+                                      request.can_omit_fields(),
                                       metadata_access_object_.get(), &type_id));
         response->set_type_id(type_id);
         return tensorflow::Status::OK();
@@ -303,9 +345,6 @@ tensorflow::Status MetadataStore::PutArtifactType(
 tensorflow::Status MetadataStore::PutExecutionType(
     const PutExecutionTypeRequest& request,
     PutExecutionTypeResponse* response) {
-  if (request.can_delete_fields()) {
-    return tensorflow::errors::Unimplemented("Cannot remove fields.");
-  }
   if (!request.all_fields_match()) {
     return tensorflow::errors::Unimplemented("Must match all fields.");
   }
@@ -315,6 +354,7 @@ tensorflow::Status MetadataStore::PutExecutionType(
         int64 type_id;
         TF_RETURN_IF_ERROR(UpsertType(request.execution_type(),
                                       request.can_add_fields(),
+                                      request.can_omit_fields(),
                                       metadata_access_object_.get(), &type_id));
         response->set_type_id(type_id);
         return tensorflow::Status::OK();
@@ -323,9 +363,6 @@ tensorflow::Status MetadataStore::PutExecutionType(
 
 tensorflow::Status MetadataStore::PutContextType(
     const PutContextTypeRequest& request, PutContextTypeResponse* response) {
-  if (request.can_delete_fields()) {
-    return tensorflow::errors::Unimplemented("Cannot remove fields.");
-  }
   if (!request.all_fields_match()) {
     return tensorflow::errors::Unimplemented("Must match all fields.");
   }
@@ -335,6 +372,7 @@ tensorflow::Status MetadataStore::PutContextType(
         int64 type_id;
         TF_RETURN_IF_ERROR(UpsertType(request.context_type(),
                                       request.can_add_fields(),
+                                      request.can_omit_fields(),
                                       metadata_access_object_.get(), &type_id));
         response->set_type_id(type_id);
         return tensorflow::Status::OK();

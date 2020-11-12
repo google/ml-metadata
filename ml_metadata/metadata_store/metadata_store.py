@@ -238,57 +238,49 @@ class MetadataStore(object):
   def put_artifact_type(self,
                         artifact_type: metadata_store_pb2.ArtifactType,
                         can_add_fields: bool = False,
-                        can_delete_fields: bool = False,
-                        all_fields_match: bool = True) -> int:
+                        can_omit_fields: bool = False) -> int:
     """Inserts or updates an artifact type.
 
-    Similar to put execution/context type, if no artifact type exists in the
-    database with the given name, it creates a new artifact type (and a
-    database).
+    If no type exists in the database with the given name, it creates a new
+    type and returns the type_id.
 
-    If an artifact type with the same name already exists (let's call it
-    old_artifact_type), then the impact depends upon the other options.
+    If the request type with the same name already exists (let's call it
+    stored_type), the method enforces the stored_type can be updated only when
+    the request type is backward compatible for the already stored instances.
 
-    If artifact_type == old_artifact_type, then nothing happens.
+    Backwards compatibility is violated iff:
 
-    Otherwise, if there is a field where artifact_type and old_artifact_type
-    have different types, then it fails.
-
-    Otherwise, if can_add_fields is False and artifact_type has a field
-    old_artifact_type is missing, then it fails.
-
-    Otherwise, if all_fields_match is True and old_artifact_type has a field
-    artifact_type is missing, then it fails.
-
-    Otherwise, if can_delete_fields is True and old_artifact_type has a field
-    artifact_type is missing, then it deletes that field.
-
-    Otherwise, it does nothing.
+      a) there is a property where the request type and stored_type have
+         different value type (e.g., int vs. string)
+      b) `can_add_fields = false` and the request type has a new property that
+         is not stored.
+      c) `can_omit_fields = false` and stored_type has an existing property
+         that is not provided in the request type.
 
     Args:
-      artifact_type: the type to add or update.
-      can_add_fields: if true, you can add fields with this operation. If false,
-        then if there are more fields in artifact_type than in the database, the
-        call fails.
-      can_delete_fields: if true, you can remove fields with this operation. If
-        false, then if there are more fields in the current type, they are not
-        removed.
-      all_fields_match: if true, all fields must match, and the method fails if
-        they are not the same.
+      artifact_type: the request type to be inserted or updated.
+      can_add_fields:
+          when true, new properties can be added;
+          when false, returns ALREADY_EXISTS if the request type has
+          properties that are not in stored_type.
+      can_omit_fields:
+          when true, stored properties can be omitted in the request type;
+          when false, returns ALREADY_EXISTS if the stored_type has
+          properties not in the request type.
 
     Returns:
       the type_id of the response.
 
     Raises:
-      InvalidArgumentError: If a constraint is violated.
+      AlreadyExistsError: If the type is not backward compatible.
+      InvalidArgumentError: If the request type has no name, or any property
+          value type is unknown.
     """
-    request = metadata_store_service_pb2.PutArtifactTypeRequest()
-    request.can_add_fields = can_add_fields
-    request.can_delete_fields = can_delete_fields
-    request.all_fields_match = all_fields_match
-    request.artifact_type.CopyFrom(artifact_type)
+    request = metadata_store_service_pb2.PutArtifactTypeRequest(
+        can_add_fields=can_add_fields,
+        can_omit_fields=can_omit_fields,
+        artifact_type=artifact_type)
     response = metadata_store_service_pb2.PutArtifactTypeResponse()
-
     self._call('PutArtifactType', request, response)
     return response.type_id
 
@@ -358,54 +350,49 @@ class MetadataStore(object):
   def put_execution_type(self,
                          execution_type: metadata_store_pb2.ExecutionType,
                          can_add_fields: bool = False,
-                         can_delete_fields: bool = False,
-                         all_fields_match: bool = True) -> int:
+                         can_omit_fields: bool = False) -> int:
     """Inserts or updates an execution type.
 
-    Similar to put artifact/context type, if no execution type exists in the
-    database with the given name, it creates a new execution type (and a
-    database).
+    If no type exists in the database with the given name, it creates a new
+    type and returns the type_id.
 
-    If an execution type with the same name already exists (let's call it
-    old_execution_type), then the impact depends upon the other options.
+    If the request type with the same name already exists (let's call it
+    stored_type), the method enforces the stored_type can be updated only when
+    the request type is backward compatible for the already stored instances.
 
-    If execution_type == old_execution_type, then nothing happens.
+    Backwards compatibility is violated iff:
 
-    Otherwise, if there is a field where execution_type and old_execution_type
-    have different types, then it fails.
+      a) there is a property where the request type and stored_type have
+         different value type (e.g., int vs. string)
+      b) `can_add_fields = false` and the request type has a new property that
+         is not stored.
+      c) `can_omit_fields = false` and stored_type has an existing property
+         that is not provided in the request type.
 
-    Otherwise, if can_add_fields is False and execution_type has a field
-    old_execution_type is missing, then it fails.
-
-    Otherwise, if all_fields_match is True and old_execution_type has a field
-    execution_type is missing, then it fails.
-
-    Otherwise, if can_delete_fields is True and old_execution_type has a field
-    execution_type is missing, then it deletes that field.
-
-    Otherwise, it does nothing.
     Args:
-      execution_type: the type to add or update.
-      can_add_fields: if true, you can add fields with this operation. If false,
-        then if there are more fields in execution_type than in the database,
-        the call fails.
-      can_delete_fields: if true, you can remove fields with this operation. If
-        false, then if there are more fields.
-      all_fields_match: if true, all fields must match, and the method fails if
-        they are not the same.
+      execution_type: the request type to be inserted or updated.
+      can_add_fields:
+          when true, new properties can be added;
+          when false, returns ALREADY_EXISTS if the request type has
+          properties that are not in stored_type.
+      can_omit_fields:
+          when true, stored properties can be omitted in the request type;
+          when false, returns ALREADY_EXISTS if the stored_type has
+          properties not in the request type.
 
     Returns:
-      the type id of the type.
-    Raises:
-      ValueError: If a constraint is violated.
-    """
-    request = metadata_store_service_pb2.PutExecutionTypeRequest()
-    request.can_add_fields = can_add_fields
-    request.can_delete_fields = can_delete_fields
-    request.all_fields_match = all_fields_match
-    request.execution_type.CopyFrom(execution_type)
-    response = metadata_store_service_pb2.PutExecutionTypeResponse()
+      the type_id of the response.
 
+    Raises:
+      AlreadyExistsError: If the type is not backward compatible.
+      InvalidArgumentError: If the request type has no name, or any property
+          value type is unknown.
+    """
+    request = metadata_store_service_pb2.PutExecutionTypeRequest(
+        can_add_fields=can_add_fields,
+        can_omit_fields=can_omit_fields,
+        execution_type=execution_type)
+    response = metadata_store_service_pb2.PutExecutionTypeResponse()
     self._call('PutExecutionType', request, response)
     return response.type_id
 
@@ -445,55 +432,48 @@ class MetadataStore(object):
   def put_context_type(self,
                        context_type: metadata_store_pb2.ContextType,
                        can_add_fields: bool = False,
-                       can_delete_fields: bool = False,
-                       all_fields_match: bool = True) -> int:
+                       can_omit_fields: bool = False) -> int:
     """Inserts or updates a context type.
 
-    Similar to put artifact/execution type, if no context type exists in the
-    database with the given name, it creates a new context type (and a
-    database).
+    If no type exists in the database with the given name, it creates a new
+    type and returns the type_id.
 
-    If a context type with the same name already exists (let's call it
-    old_context_type), then the impact depends upon the other options.
+    If the request type with the same name already exists (let's call it
+    stored_type), the method enforces the stored_type can be updated only when
+    the request type is backward compatible for the already stored instances.
 
-    If context_type == old_context_type, then nothing happens.
+    Backwards compatibility is violated iff:
 
-    Otherwise, if there is a field where context_type and old_context_type
-    have different types, then it fails.
-
-    Otherwise, if can_add_fields is False and context_type has a field
-    old_context_type is missing, then it fails.
-
-    Otherwise, if all_fields_match is True and old_context_type has a field
-    context_type is missing, then it fails.
-
-    Otherwise, if can_delete_fields is True and old_context_type has a field
-    context_type is missing, then it deletes that field.
-
-    Otherwise, it does nothing.
+      a) there is a property where the request type and stored_type have
+         different value type (e.g., int vs. string)
+      b) `can_add_fields = false` and the request type has a new property that
+         is not stored.
+      c) `can_omit_fields = false` and stored_type has an existing property
+         that is not provided in the request type.
 
     Args:
-      context_type: the type to add or update.
-      can_add_fields: if true, you can add fields with this operation. If false,
-        then if there are more fields in context_type than in the database, the
-        call fails.
-      can_delete_fields: if true, you can remove fields with this operation. If
-        false, then if there are more fields in the current type, they are not
-        removed.
-      all_fields_match: if true, all fields must match, and the method fails if
-        they are not the same.
+      context_type: the request type to be inserted or updated.
+      can_add_fields:
+          when true, new properties can be added;
+          when false, returns ALREADY_EXISTS if the request type has
+          properties that are not in stored_type.
+      can_omit_fields:
+          when true, stored properties can be omitted in the request type;
+          when false, returns ALREADY_EXISTS if the stored_type has
+          properties not in the request type.
 
     Returns:
       the type_id of the response.
 
     Raises:
-      InvalidArgumentError: If a constraint is violated.
+      AlreadyExistsError: If the type is not backward compatible.
+      InvalidArgumentError: If the request type has no name, or any property
+          value type is unknown.
     """
-    request = metadata_store_service_pb2.PutContextTypeRequest()
-    request.can_add_fields = can_add_fields
-    request.can_delete_fields = can_delete_fields
-    request.all_fields_match = all_fields_match
-    request.context_type.CopyFrom(context_type)
+    request = metadata_store_service_pb2.PutContextTypeRequest(
+        can_add_fields=can_add_fields,
+        can_omit_fields=can_omit_fields,
+        context_type=context_type)
     response = metadata_store_service_pb2.PutContextTypeResponse()
     self._call('PutContextType', request, response)
     return response.type_id
