@@ -15,6 +15,8 @@ limitations under the License.
 
 #include "ml_metadata/metadata_store/test_util.h"
 
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "ml_metadata/proto/metadata_store.pb.h"
@@ -41,6 +43,24 @@ TEST(TestUtilTest, EqualsProtoWithIgnoreFields) {
   Artifact empty_artifact;
   EXPECT_THAT(empty_artifact,
               EqualsProto(want_artifact, /*ignore_fields=*/{"id", "uri"}));
+}
+
+TEST(TestUtilTest, EqualsProtoWithUnorderedPointwise) {
+  std::vector<Artifact> want_artifacts(2);
+  want_artifacts[0].set_id(1);
+  want_artifacts[1].set_uri("2");
+  std::vector<Artifact> got_artifacts(2);
+  got_artifacts[0].set_uri("2");
+  got_artifacts[1].set_id(1);
+  EXPECT_THAT(want_artifacts, ::testing::UnorderedPointwise(
+                                  EqualsProto<Artifact>(), got_artifacts));
+  got_artifacts[0].set_uri("1");
+  EXPECT_THAT(want_artifacts, ::testing::Not(::testing::UnorderedPointwise(
+                                  EqualsProto<Artifact>(), got_artifacts)));
+  EXPECT_THAT(
+      want_artifacts,
+      ::testing::UnorderedPointwise(
+          EqualsProto<Artifact>(/*ignore_fields=*/{"uri"}), got_artifacts));
 }
 
 

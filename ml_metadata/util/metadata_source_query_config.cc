@@ -248,7 +248,7 @@ R"pb(
     parameter_num: 1
   }
   select_execution_by_type_id_and_name {
-    query: " SELECT `id` from `Execution` WHERE `type_id` = $0 and `name` = $1; "
+    query: " SELECT `id` from `Execution` WHERE `type_id` = $0 and `name` = $1;"
     parameter_num: 2
   }
   select_executions_by_type_id {
@@ -404,6 +404,22 @@ R"pb(
   check_parent_context_table {
     query: " SELECT `context_id`, `parent_context_id` "
            " FROM `ParentContext` LIMIT 1; "
+  }
+  insert_parent_context {
+    query: " INSERT INTO `ParentContext`( "
+           "   `context_id`, `parent_context_id` "
+           ") VALUES($0, $1);"
+    parameter_num: 2
+  }
+  select_parent_context_by_context_id {
+    query: " SELECT `context_id`, `parent_context_id` From `ParentContext` "
+           " WHERE `context_id` = $0; "
+    parameter_num: 1
+  }
+  select_parent_context_by_parent_context_id {
+    query: " SELECT `context_id`, `parent_context_id` From `ParentContext` "
+           " WHERE `parent_context_id` = $0; "
+    parameter_num: 1
   }
 )pb",
 R"pb(

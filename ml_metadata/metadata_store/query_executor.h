@@ -423,6 +423,24 @@ class QueryExecutor {
   virtual tensorflow::Status SelectAttributionByArtifactID(
       int64 artifact_id, RecordSet* record_set) = 0;
 
+  // Inserts a parent context.
+  // Returns OK if the insertion succeeds.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual tensorflow::Status InsertParentContext(int64 parent_id,
+                                                 int64 child_id) = 0;
+
+  // Returns parent contexts for the given context id. Each record has:
+  // Column 0: int: context id (= context_id)
+  // Column 1: int: parent context id
+  virtual tensorflow::Status SelectParentContextsByContextID(
+      int64 context_id, RecordSet* record_set) = 0;
+
+  // Returns child contexts for the given context id. Each record has:
+  // Column 0: int: context id
+  // Column 1: int: parent context id (= context_id)
+  virtual tensorflow::Status SelectChildContextsByContextID(
+      int64 context_id, RecordSet* record_set) = 0;
+
   // Below is a list of fields required for metadata source migrations when
   // the library being used having different versions from a pre-existing
   // database.

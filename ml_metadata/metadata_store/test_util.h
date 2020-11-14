@@ -17,6 +17,7 @@ limitations under the License.
 #define ML_METADATA_METADATA_STORE_TEST_UTIL_H_
 
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include "google/protobuf/text_format.h"
@@ -49,6 +50,29 @@ class ProtoStringMatcher {
   const std::vector<std::string>& ignore_fields_;
 };
 
+template <typename Message, typename Tuple>
+class TupleProtoMatcher : public ::testing::MatcherInterface<Tuple> {
+ public:
+  explicit TupleProtoMatcher(const std::vector<std::string>& ignore_fields)
+      : ignore_fields_(ignore_fields) {}
+
+  bool MatchAndExplain(
+      Tuple args,
+      ::testing::MatchResultListener* /* listener */) const override {
+    return ProtoStringMatcher<Message>(std::get<0>(args), ignore_fields_)
+        .MatchAndExplain(std::get<1>(args), nullptr);
+  }
+
+  void DescribeTo(::std::ostream* os) const override { *os << "are equal"; }
+
+  void DescribeNegationTo(::std::ostream* os) const override {
+    *os << "are not equal";
+  }
+
+ private:
+  const std::vector<std::string>& ignore_fields_;
+};
+
 template <typename Message>
 bool ProtoStringMatcher<Message>::MatchAndExplain(
     const Message& p, ::testing::MatchResultListener* /* listener */) const {
@@ -67,6 +91,15 @@ inline ::testing::PolymorphicMatcher<ProtoStringMatcher<Message>> EqualsProto(
     const Message& x, const std::vector<std::string>& ignore_fields = {}) {
   return ::testing::MakePolymorphicMatcher(
       ProtoStringMatcher<Message>(x, ignore_fields));
+}
+
+// A polymorphic matcher for a 2-tuple where first.Equals(second) = true.
+template <typename Message>
+inline ::testing::Matcher<::testing::tuple<Message, Message>> EqualsProto(
+    const std::vector<std::string>& ignore_fields = {}) {
+  return ::testing::MakeMatcher(
+      new TupleProtoMatcher<Message, ::testing::tuple<Message, Message>>(
+          ignore_fields));
 }
 
 // Parse input string as a protocol buffer.

@@ -199,6 +199,15 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   tensorflow::Status FindArtifactsByContext(
       int64 context_id, std::vector<Artifact>* artifacts) final;
 
+  tensorflow::Status CreateParentContext(
+      const ParentContext& parent_context) final;
+
+  tensorflow::Status FindParentContextsByContextId(
+      int64 context_id, std::vector<Context>* contexts) final;
+
+  tensorflow::Status FindChildContextsByContextId(
+      int64 context_id, std::vector<Context>* contexts) final;
+
   tensorflow::Status GetSchemaVersion(int64* db_version) final {
     return executor_->GetSchemaVersion(db_version);
   }
@@ -423,6 +432,16 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   tensorflow::Status ListNodes(const ListOperationOptions& options,
                                std::vector<Node>* nodes,
                                std::string* next_page_token);
+
+  // Traverse a ParentContext relation to look for parent or child context.
+  enum class ParentContextTraverseDirection { kParent, kChild };
+
+  // Queries the ParentContext with a context_id and returns a list of Context.
+  // If direction is kParent, then context_id is used to look for its parents.
+  // If direction is kChild, then context_id is used to look for its children.
+  tensorflow::Status FindLinkedContextsImpl(
+      int64 context_id, ParentContextTraverseDirection direction,
+      std::vector<Context>& output_contexts);
 
   std::unique_ptr<QueryExecutor> executor_;
 };

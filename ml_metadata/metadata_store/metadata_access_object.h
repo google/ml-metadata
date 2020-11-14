@@ -368,7 +368,7 @@ class MetadataAccessObject {
   // Creates an association, returns the assigned association id.
   // Returns INVALID_ARGUMENT error, if no context matches the context_id.
   // Returns INVALID_ARGUMENT error, if no execution matches the execution_id.
-  // Returns INTERNAL error, if the same association already exists.
+  // Returns ALREADY_EXISTS error, if the same association already exists.
   virtual tensorflow::Status CreateAssociation(const Association& association,
                                                int64* association_id) = 0;
 
@@ -385,7 +385,7 @@ class MetadataAccessObject {
   // Creates an attribution, returns the assigned attribution id.
   // Returns INVALID_ARGUMENT error, if no context matches the context_id.
   // Returns INVALID_ARGUMENT error, if no artifact matches the artifact_id.
-  // Returns AlreadyExists error, if the same attribution already exists.
+  // Returns ALREADY_EXISTS error, if the same attribution already exists.
   virtual tensorflow::Status CreateAttribution(const Attribution& attribution,
                                                int64* attribution_id) = 0;
 
@@ -398,6 +398,25 @@ class MetadataAccessObject {
   // Returns INVALID_ARGUMENT error, if the `artifacts` is null.
   virtual tensorflow::Status FindArtifactsByContext(
       int64 context_id, std::vector<Artifact>* artifacts) = 0;
+
+  // Creates a parent context, returns OK if succeeds.
+  // Returns INVALID_ARGUMENT error, if no context matches the child_id.
+  // Returns INVALID_ARGUMENT error, if no context matches the parent_id.
+  // Returns ALREADY_EXISTS error, if the same parent context already exists.
+  // TODO(b/155207795) Consider ParentContext transitive closure check when
+  // inserting a new record.
+  virtual tensorflow::Status CreateParentContext(
+      const ParentContext& parent_context) = 0;
+
+  // Queries the parent-contexts of a context_id.
+  // Returns INVALID_ARGUMENT error, if the `contexts` is null.
+  virtual tensorflow::Status FindParentContextsByContextId(
+      int64 context_id, std::vector<Context>* contexts) = 0;
+
+  // Queries the child-contexts of a context_id.
+  // Returns INVALID_ARGUMENT error, if the `contexts` is null.
+  virtual tensorflow::Status FindChildContextsByContextId(
+      int64 context_id, std::vector<Context>* contexts) = 0;
 
   // Resolves the schema version stored in the metadata source. The `db_version`
   // is set to 0, if it is a 0.13.2 release pre-existing database.

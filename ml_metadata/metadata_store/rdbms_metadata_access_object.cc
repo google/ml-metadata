@@ -118,6 +118,15 @@ std::vector<int64> AssociationsToExecutionIds(const RecordSet& record_set) {
   return ConvertToIds(record_set, /*position=*/2);
 }
 
+// Extracts a vector of parent context ids from parent context triplets.
+// If is_parent is true, then parent_context_ids are returned.
+// If is_parent is false, then context_ids for children are returned.
+std::vector<int64> ParentContextsToContextIds(const RecordSet& record_set,
+                                              bool is_parent) {
+  const int position = is_parent ? 1 : 0;
+  return ConvertToIds(record_set, position);
+}
+
 // Parses and converts a string value to a specific field in a message.
 // If the given string `value` is NULL (encoded as kMetadataSourceNull), then
 // leave the field unset.
@@ -297,6 +306,15 @@ tensorflow::Status ValidatePropertiesWithType(const Node& node,
           absl::StrCat("Found unmatched property type: ", property_name));
   }
   return tensorflow::Status::OK();
+}
+
+// Casts lower level db error messages for violating primary key constraint or
+// unique constraint. Returns true when the status error message indicates such
+// unique constraint is violated.
+bool IsUniqueConstraintViolated(const tensorflow::Status status) {
+  return tensorflow::errors::IsInternal(status) &&
+         (absl::StrContains(status.error_message(), "Duplicate") ||
+          absl::StrContains(status.error_message(), "UNIQUE"));
 }
 
 }  // namespace
@@ -1011,8 +1029,7 @@ tensorflow::Status RDBMSMetadataAccessObject::CreateArtifact(
     const Artifact& artifact, int64* artifact_id) {
   const tensorflow::Status& status =
       CreateNodeImpl<Artifact, ArtifactType>(artifact, artifact_id);
-  if (absl::StrContains(status.error_message(), "Duplicate") ||
-      absl::StrContains(status.error_message(), "UNIQUE")) {
+  if (IsUniqueConstraintViolated(status)) {
     return tensorflow::errors::AlreadyExists(
         "Given node already exists: ", artifact.DebugString(), status);
   }
@@ -1023,8 +1040,7 @@ tensorflow::Status RDBMSMetadataAccessObject::CreateExecution(
     const Execution& execution, int64* execution_id) {
   const tensorflow::Status& status =
       CreateNodeImpl<Execution, ExecutionType>(execution, execution_id);
-  if (absl::StrContains(status.error_message(), "Duplicate") ||
-      absl::StrContains(status.error_message(), "UNIQUE")) {
+  if (IsUniqueConstraintViolated(status)) {
     return tensorflow::errors::AlreadyExists(
         "Given node already exists: ", execution.DebugString(), status);
   }
@@ -1035,8 +1051,7 @@ tensorflow::Status RDBMSMetadataAccessObject::CreateContext(
     const Context& context, int64* context_id) {
   const tensorflow::Status& status =
       CreateNodeImpl<Context, ContextType>(context, context_id);
-  if (absl::StrContains(status.error_message(), "Duplicate") ||
-      absl::StrContains(status.error_message(), "UNIQUE")) {
+  if (IsUniqueConstraintViolated(status)) {
     return tensorflow::errors::AlreadyExists(
         "Given node already exists: ", context.DebugString(), status);
   }
@@ -1184,8 +1199,7 @@ tensorflow::Status RDBMSMetadataAccessObject::CreateAssociation(
   tensorflow::Status status = executor_->InsertAssociation(
       association.context_id(), association.execution_id(), association_id);
 
-  if (absl::StrContains(status.error_message(), "Duplicate") ||
-      absl::StrContains(status.error_message(), "UNIQUE")) {
+  if (IsUniqueConstraintViolated(status)) {
     return tensorflow::errors::AlreadyExists(
         "Given association already exists: ", association.DebugString(),
         status);
@@ -1239,8 +1253,7 @@ tensorflow::Status RDBMSMetadataAccessObject::CreateAttribution(
   tensorflow::Status status = executor_->InsertAttributionDirect(
       attribution.context_id(), attribution.artifact_id(), attribution_id);
 
-  if (absl::StrContains(status.error_message(), "Duplicate") ||
-      absl::StrContains(status.error_message(), "UNIQUE")) {
+  if (IsUniqueConstraintViolated(status)) {
     return tensorflow::errors::AlreadyExists(
         "Given attribution already exists: ", attribution.DebugString(),
         status);
@@ -1271,6 +1284,73 @@ tensorflow::Status RDBMSMetadataAccessObject::FindArtifactsByContext(
     return tensorflow::Status::OK();
   }
   return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *artifacts);
+}
+
+tensorflow::Status RDBMSMetadataAccessObject::CreateParentContext(
+    const ParentContext& parent_context) {
+  if (!parent_context.has_parent_id() || !parent_context.has_child_id()) {
+    return tensorflow::errors::InvalidArgument(
+        "Missing parent / child id in the parent_context: ",
+        parent_context.DebugString());
+  }
+  RecordSet contexts_id_header;
+  TF_RETURN_IF_ERROR(executor_->SelectContextsByID(
+      {parent_context.parent_id(), parent_context.child_id()},
+      &contexts_id_header));
+  if (contexts_id_header.records_size() < 2) {
+    return tensorflow::errors::InvalidArgument(
+        "Given parent / child id in the parent_context cannot be found: ",
+        parent_context.DebugString());
+  }
+  const tensorflow::Status status = executor_->InsertParentContext(
+      parent_context.parent_id(), parent_context.child_id());
+  if (IsUniqueConstraintViolated(status)) {
+    return tensorflow::errors::AlreadyExists(
+        "Given parent_context already exists: ", parent_context.DebugString(),
+        status);
+  }
+  return status;
+}
+
+tensorflow::Status RDBMSMetadataAccessObject::FindLinkedContextsImpl(
+    int64 context_id, ParentContextTraverseDirection direction,
+    std::vector<Context>& output_contexts) {
+  RecordSet record_set;
+  if (direction == ParentContextTraverseDirection::kParent) {
+    TF_RETURN_IF_ERROR(
+        executor_->SelectParentContextsByContextID(context_id, &record_set));
+  } else if (direction == ParentContextTraverseDirection::kChild) {
+    TF_RETURN_IF_ERROR(
+        executor_->SelectChildContextsByContextID(context_id, &record_set));
+  } else {
+    return tensorflow::errors::Internal("Unexpected ParentContext direction");
+  }
+  const bool is_parent = direction == ParentContextTraverseDirection::kParent;
+  const std::vector<int64> ids =
+      ParentContextsToContextIds(record_set, is_parent);
+  output_contexts.clear();
+  if (ids.empty()) {
+    return tensorflow::Status::OK();
+  }
+  return FindNodesImpl(ids, /*skipped_ids_ok=*/false, output_contexts);
+}
+
+tensorflow::Status RDBMSMetadataAccessObject::FindParentContextsByContextId(
+    int64 context_id, std::vector<Context>* contexts) {
+  if (contexts == nullptr) {
+    return tensorflow::errors::InvalidArgument("Given contexts is NULL.");
+  }
+  return FindLinkedContextsImpl(
+      context_id, ParentContextTraverseDirection::kParent, *contexts);
+}
+
+tensorflow::Status RDBMSMetadataAccessObject::FindChildContextsByContextId(
+    int64 context_id, std::vector<Context>* contexts) {
+  if (contexts == nullptr) {
+    return tensorflow::errors::InvalidArgument("Given contexts is NULL.");
+  }
+  return FindLinkedContextsImpl(
+      context_id, ParentContextTraverseDirection::kChild, *contexts);
 }
 
 tensorflow::Status RDBMSMetadataAccessObject::FindArtifacts(

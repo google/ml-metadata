@@ -24,6 +24,7 @@ limitations under the License.
 #include "absl/strings/substitute.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "absl/types/optional.h"
 #include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
@@ -179,7 +180,9 @@ namespace {
 using ::ml_metadata::testing::ParseTextProtoOrDie;
 using ::testing::ElementsAre;
 using ::testing::IsEmpty;
+using ::testing::SizeIs;
 using ::testing::UnorderedElementsAre;
+using ::testing::UnorderedPointwise;
 
 TEST_P(MetadataAccessObjectTest, InitMetadataSourceCheckSchemaVersion) {
   TF_ASSERT_OK(Init());
@@ -2875,6 +2878,148 @@ TEST_P(MetadataAccessObjectTest, PutEventsWithPaths) {
   TF_EXPECT_OK(metadata_access_object_->FindEventsByExecutions(
       {execution_id}, &events_with_execution));
   EXPECT_EQ(events_with_execution.size(), 2);
+}
+
+TEST_P(MetadataAccessObjectTest, CreateParentContext) {
+  if (!metadata_access_object_container_->HasParentContextSupport()) {
+    return;
+  }
+  TF_ASSERT_OK(Init());
+  ContextType context_type;
+  context_type.set_name("context_type_name");
+  int64 type_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(context_type, &type_id));
+  Context context1, context2;
+  context1.set_name("parent_context");
+  context1.set_type_id(type_id);
+  int64 context1_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateContext(context1, &context1_id));
+  context2.set_name("child_context");
+  context2.set_type_id(type_id);
+  int64 context2_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateContext(context2, &context2_id));
+
+  ParentContext parent_context;
+  parent_context.set_parent_id(context1_id);
+  parent_context.set_child_id(context2_id);
+  TF_EXPECT_OK(metadata_access_object_->CreateParentContext(parent_context));
+
+  // recreate the same context returns AlreadyExists
+  const tensorflow::Status status =
+      metadata_access_object_->CreateParentContext(parent_context);
+  EXPECT_EQ(status.code(), tensorflow::error::ALREADY_EXISTS);
+}
+
+TEST_P(MetadataAccessObjectTest, CreateParentContextInvalidArgumentError) {
+  if (!metadata_access_object_container_->HasParentContextSupport()) {
+    return;
+  }
+  // Prepare a stored context.
+  TF_ASSERT_OK(Init());
+  ContextType context_type;
+  context_type.set_name("context_type_name");
+  int64 type_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(context_type, &type_id));
+  Context context;
+  context.set_name("parent_context");
+  context.set_type_id(type_id);
+  int64 stored_context_id;
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateContext(context, &stored_context_id));
+  int64 not_exist_context_id = stored_context_id + 1;
+  int64 not_exist_context_id_2 = stored_context_id + 2;
+
+  // Enumerate the case of parent context requests which are invalid
+  auto verify_is_invalid_argument = [this](absl::string_view case_name,
+                                           absl::optional<int64> parent_id,
+                                           absl::optional<int64> child_id) {
+    ParentContext parent_context;
+    if (parent_id) {
+      parent_context.set_parent_id(parent_id.value());
+    }
+    if (child_id) {
+      parent_context.set_child_id(child_id.value());
+    }
+    const tensorflow::Status status =
+        metadata_access_object_->CreateParentContext(parent_context);
+    EXPECT_EQ(status.code(), tensorflow::error::INVALID_ARGUMENT) << case_name;
+  };
+
+  verify_is_invalid_argument(/*case_name=*/"no parent id, no child id",
+                             /*parent_id=*/absl::nullopt,
+                             /*child_id=*/absl::nullopt);
+  verify_is_invalid_argument(/*case_name=*/"no parent id",
+                             /*parent_id=*/stored_context_id,
+                             /*child_id=*/absl::nullopt);
+  verify_is_invalid_argument(/*case_name=*/"no child id",
+                             /*parent_id=*/absl::nullopt,
+                             /*child_id=*/stored_context_id);
+  verify_is_invalid_argument(/*case_name=*/"both parent and child id not found",
+                             /*parent_id=*/not_exist_context_id,
+                             /*child_id=*/not_exist_context_id_2);
+  verify_is_invalid_argument(/*case_name=*/"parent id not found",
+                             /*parent_id=*/not_exist_context_id,
+                             /*child_id=*/stored_context_id);
+  verify_is_invalid_argument(/*case_name=*/"child id not found",
+                             /*parent_id=*/stored_context_id,
+                             /*child_id=*/not_exist_context_id);
+}
+
+TEST_P(MetadataAccessObjectTest, CreateAndFindParentContext) {
+  if (!metadata_access_object_container_->HasParentContextSupport()) {
+    return;
+  }
+  TF_ASSERT_OK(Init());
+  ContextType context_type;
+  context_type.set_name("context_type_name");
+  int64 type_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(context_type, &type_id));
+  // Create some contexts to insert parent context relationship.
+  const int num_contexts = 5;
+  std::vector<Context> contexts(num_contexts);
+  for (int i = 0; i < num_contexts; i++) {
+    contexts[i].set_name(absl::StrCat("context", i));
+    contexts[i].set_type_id(type_id);
+    int64 ctx_id;
+    TF_ASSERT_OK(metadata_access_object_->CreateContext(contexts[i], &ctx_id));
+    contexts[i].set_id(ctx_id);
+  }
+
+  // Populate a list of parent contexts and capture expected results of number
+  // of parents and children per context.
+  std::unordered_map<int, std::vector<Context>> want_parents;
+  std::unordered_map<int, std::vector<Context>> want_children;
+  auto put_parent_context = [this, &contexts, &want_parents, &want_children](
+                                int64 parent_idx, int64 child_idx) {
+    ParentContext parent_context;
+    parent_context.set_parent_id(contexts[parent_idx].id());
+    parent_context.set_child_id(contexts[child_idx].id());
+    TF_ASSERT_OK(metadata_access_object_->CreateParentContext(parent_context));
+    want_parents[child_idx].push_back(contexts[parent_idx]);
+    want_children[parent_idx].push_back(contexts[child_idx]);
+  };
+  put_parent_context(/*parent_idx=*/0, /*child_idx=*/1);
+  put_parent_context(/*parent_idx=*/0, /*child_idx=*/2);
+  put_parent_context(/*parent_idx=*/0, /*child_idx=*/3);
+  put_parent_context(/*parent_idx=*/2, /*child_idx=*/3);
+  put_parent_context(/*parent_idx=*/4, /*child_idx=*/3);
+
+  // Verify the results by look up contexts
+  for (int i = 0; i < num_contexts; i++) {
+    const Context& curr_context = contexts[i];
+    std::vector<Context> got_parents, got_children;
+    TF_EXPECT_OK(metadata_access_object_->FindParentContextsByContextId(
+        curr_context.id(), &got_parents));
+    TF_EXPECT_OK(metadata_access_object_->FindChildContextsByContextId(
+        curr_context.id(), &got_children));
+    EXPECT_THAT(got_parents, SizeIs(want_parents[i].size()));
+    EXPECT_THAT(got_children, SizeIs(want_children[i].size()));
+    EXPECT_THAT(got_parents,
+                UnorderedPointwise(EqualsProto<Context>(/*ignore_fields=*/{
+                                       "create_time_since_epoch",
+                                       "last_update_time_since_epoch"}),
+                                   want_parents[i]));
+  }
 }
 
 TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {

@@ -463,6 +463,25 @@ class QueryConfigExecutor : public QueryExecutor {
                         {Bind(artifact_id)}, record_set);
   }
 
+  tensorflow::Status InsertParentContext(int64 parent_id,
+                                         int64 child_id) final {
+    return ExecuteQuery(query_config_.insert_parent_context(),
+                        {Bind(child_id), Bind(parent_id)});
+  }
+
+  tensorflow::Status SelectParentContextsByContextID(
+      int64 context_id, RecordSet* record_set) final {
+    return ExecuteQuery(query_config_.select_parent_context_by_context_id(),
+                        {Bind(context_id)}, record_set);
+  }
+
+  tensorflow::Status SelectChildContextsByContextID(
+      int64 context_id, RecordSet* record_set) final {
+    return ExecuteQuery(
+        query_config_.select_parent_context_by_parent_context_id(),
+        {Bind(context_id)}, record_set);
+  }
+
   tensorflow::Status CheckMLMDEnvTable() final {
     return ExecuteQuery(query_config_.check_mlmd_env_table());
   }
