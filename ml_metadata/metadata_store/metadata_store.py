@@ -495,12 +495,18 @@ class MetadataStore(object):
     self._call('PutEvents', request, response)
 
   def put_execution(
-      self, execution: metadata_store_pb2.Execution,
+      self,
+      execution: metadata_store_pb2.Execution,
       artifact_and_events: Sequence[Tuple[metadata_store_pb2.Artifact,
                                           Optional[metadata_store_pb2.Event]]],
-      contexts: Optional[Sequence[metadata_store_pb2.Context]]
+      contexts: Optional[Sequence[metadata_store_pb2.Context]],
+      reuse_context_if_already_exist: bool = False
   ) -> Tuple[int, List[int], List[int]]:
     """Inserts or updates an Execution with artifacts, events and contexts.
+
+    In contrast with other put methods, the method update an
+    execution atomically with its input/output artifacts and events and adds
+    attributions and associations to related contexts.
 
     If an execution_id, artifact_id or context_id is specified, it is an update,
     otherwise it does an insertion.
@@ -511,26 +517,34 @@ class MetadataStore(object):
         or generates. The event's execution id or artifact id can be empty, as
         the artifact or execution may not be stored beforehand. If given, the
         ids must match with the paired Artifact and the input execution.
-      contexts: The Contexts that the execution should be assotiated with and
+      contexts: The Contexts that the execution should be associated with and
         the artifacts should be attributed to.
+      reuse_context_if_already_exist: when there's a race to publish executions
+        with a new context (no id) with the same context.name, by default there
+        will be one writer succeeds and the rest of the writers fail with
+        AlreadyExists errors. If set is to True, failed writers will reuse the
+        stored context.
 
     Returns:
       the execution id, the list of artifact's id, and the list of context's id.
+
+    Raises:
+      InvalidArgumentError: If the id of the input nodes do not align with the
+          store. Please refer to InvalidArgument errors in other put methods.
+      AlreadyExistsError: If the new nodes to be created is already exists.
+          Please refer to AlreadyExists errors in other put methods.
     """
-    request = metadata_store_service_pb2.PutExecutionRequest()
-    request.execution.CopyFrom(execution)
+    request = metadata_store_service_pb2.PutExecutionRequest(
+        execution=execution,
+        contexts=(context for context in contexts),
+        options=metadata_store_service_pb2.PutExecutionRequest.Options(
+            reuse_context_if_already_exist=reuse_context_if_already_exist))
     # Add artifact_and_event pairs to the request.
     for pair in artifact_and_events:
-      artifact_and_event = request.artifact_event_pairs.add()
-      artifact_and_event.artifact.CopyFrom(pair[0])
-      if len(pair) == 2 and pair[1] is not None:
-        artifact_and_event.event.CopyFrom(pair[1])
-    # Add contexts to the request.
-    for context in contexts:
-      context_to_add = request.contexts.add()
-      context_to_add.CopyFrom(context)
+      if pair:
+        request.artifact_event_pairs.add(
+            artifact=pair[0], event=pair[1] if len(pair) == 2 else None)
     response = metadata_store_service_pb2.PutExecutionResponse()
-
     self._call('PutExecution', request, response)
     artifact_ids = [x for x in response.artifact_ids]
     context_ids = [x for x in response.context_ids]
