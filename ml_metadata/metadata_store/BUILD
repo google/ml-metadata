@@ -483,6 +483,7 @@ cc_library(
         ":test_util",
         "@com_google_protobuf//:protobuf",
         "@com_google_googletest//:gtest",
+        "@com_google_absl//absl/container:node_hash_map",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",

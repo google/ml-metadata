@@ -20,6 +20,7 @@ limitations under the License.
 #include "google/protobuf/repeated_field.h"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/container/node_hash_map.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/clock.h"
@@ -2987,7 +2988,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindParentContext) {
 
   // Populate a list of parent contexts and capture expected results of number
   // of parents and children per context.
-  std::unordered_map<int, std::vector<Context>> want_parents;
+  absl::node_hash_map<int, std::vector<Context>> want_parents;
   std::unordered_map<int, std::vector<Context>> want_children;
   auto put_parent_context = [this, &contexts, &want_parents, &want_children](
                                 int64 parent_idx, int64 child_idx) {
