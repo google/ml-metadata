@@ -394,32 +394,6 @@ tensorflow::Status RDBMSMetadataAccessObject::RetrieveNodesById(
   return tensorflow::Status::OK();
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::NodeLookups(
-    const Artifact& artifact, RecordSet* header, RecordSet* properties) {
-  TF_RETURN_IF_ERROR(executor_->SelectArtifactsByID({artifact.id()}, header));
-  TF_RETURN_IF_ERROR(executor_->SelectArtifactPropertyByArtifactID(
-      {artifact.id()}, properties));
-  return tensorflow::Status::OK();
-}
-
-// Generates a select queries for an Execution by id.
-tensorflow::Status RDBMSMetadataAccessObject::NodeLookups(
-    const Execution& execution, RecordSet* header, RecordSet* properties) {
-  TF_RETURN_IF_ERROR(executor_->SelectExecutionsByID({execution.id()}, header));
-  TF_RETURN_IF_ERROR(executor_->SelectExecutionPropertyByExecutionID(
-      {execution.id()}, properties));
-  return tensorflow::Status::OK();
-}
-
-// Lookup Context by id.
-tensorflow::Status RDBMSMetadataAccessObject::NodeLookups(
-    const Context& context, RecordSet* header, RecordSet* properties) {
-  TF_RETURN_IF_ERROR(executor_->SelectContextsByID({context.id()}, header));
-  TF_RETURN_IF_ERROR(
-      executor_->SelectContextPropertyByContextID({context.id()}, properties));
-  return tensorflow::Status::OK();
-}
-
 // Update an Artifact's type_id, URI and last_update_time.
 tensorflow::Status RDBMSMetadataAccessObject::RunNodeUpdate(
     const Artifact& artifact) {

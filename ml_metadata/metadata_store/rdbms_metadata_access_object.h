@@ -238,28 +238,6 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
       absl::Span<const int64> id, RecordSet* header, RecordSet* properties,
       T* tag = nullptr /* used only for the template */);
 
-  // Retrieves the information and properties for 'node' which is identified by
-  // a valid node.id(). Upon return, 'header' will contain all non-property
-  // information for the node. 'properties' will contain records of the node's
-  // properties according to the  conventions spelled out in
-  // QueryExecutor::Find{Node}PropertyBy{Node}Id(). Returns NOT_FOUND if the
-  // node is found. Return INTERNAL_ERROR in other cases.
-  template <typename T>
-  tensorflow::Status NodeLookups(const T& node, RecordSet* header,
-                                 RecordSet* properties);
-
-  // Lookup Artifact by id.
-  tensorflow::Status NodeLookups(const Artifact& artifact, RecordSet* header,
-                                 RecordSet* properties);
-
-  // Generates a select queries for an Execution by id.
-  tensorflow::Status NodeLookups(const Execution& execution, RecordSet* header,
-                                 RecordSet* properties);
-
-  // Lookup Context by id.
-  tensorflow::Status NodeLookups(const Context& context, RecordSet* header,
-                                 RecordSet* properties);
-
   // Update an Artifact's type_id and URI.
   tensorflow::Status RunNodeUpdate(const Artifact& artifact);
 
