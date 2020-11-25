@@ -36,6 +36,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/rdbms_metadata_access_object.h" // NOLINT
 #endif
 // clang-format on
+#include "absl/types/optional.h"
 #include "ml_metadata/metadata_store/list_operation_util.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
@@ -1143,7 +1144,28 @@ tensorflow::Status RDBMSMetadataAccessObject::FindContextsByExecution(
 tensorflow::Status RDBMSMetadataAccessObject::FindExecutionsByContext(
     int64 context_id, std::vector<Execution>* executions) {
   return FindNodesByContextImpl(context_id, executions);
+  std::string unused_next_page_toke;
+  return FindExecutionsByContext(context_id, absl::nullopt, executions,
+                                 &unused_next_page_toke);
 }
+
+tensorflow::Status RDBMSMetadataAccessObject::FindExecutionsByContext(
+    int64 context_id, absl::optional<ListOperationOptions> list_options,
+    std::vector<Execution>* executions, std::string* next_page_token) {
+  RecordSet record_set;
+  TF_RETURN_IF_ERROR(
+      executor_->SelectAssociationByContextID(context_id, &record_set));
+  const std::vector<int64> ids = AssociationsToExecutionIds(record_set);
+  if (ids.empty()) {
+    return tensorflow::Status::OK();
+  }
+
+  if (list_options.has_value()) {
+    return ListNodes<Execution>(list_options.value(), ids, executions,
+                                next_page_token);
+  } else {
+    return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *executions);
+  }
 
 tensorflow::Status RDBMSMetadataAccessObject::CreateAttribution(
     const Attribution& attribution, int64* attribution_id) {
@@ -1183,6 +1205,97 @@ tensorflow::Status RDBMSMetadataAccessObject::FindContextsByArtifact(
 tensorflow::Status RDBMSMetadataAccessObject::FindArtifactsByContext(
     int64 context_id, std::vector<Artifact>* artifacts) {
   return FindNodesByContextImpl(context_id, artifacts);
+  std::string unused_next_page_token;
+  return FindArtifactsByContext(context_id, absl::nullopt, artifacts,
+                                &unused_next_page_token);
+}
+
+tensorflow::Status RDBMSMetadataAccessObject::FindArtifactsByContext(
+    int64 context_id, absl::optional<ListOperationOptions> list_options,
+    std::vector<Artifact>* artifacts, std::string* next_page_token) {
+  RecordSet record_set;
+  TF_RETURN_IF_ERROR(
+      executor_->SelectAttributionByContextID(context_id, &record_set));
+  const std::vector<int64> ids = AttributionsToArtifactIds(record_set);
+  if (ids.empty()) {
+    return tensorflow::Status::OK();
+  }
+
+  if (list_options.has_value()) {
+    return ListNodes<Artifact>(list_options.value(), ids, artifacts,
+                               next_page_token);
+
+  } else {
+    return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *artifacts);
+  }
+}
+
+tensorflow::Status RDBMSMetadataAccessObject::CreateParentContext(
+    const ParentContext& parent_context) {
+  if (!parent_context.has_parent_id() || !parent_context.has_child_id()) {
+    return tensorflow::errors::InvalidArgument(
+        "Missing parent / child id in the parent_context: ",
+        parent_context.DebugString());
+  }
+  RecordSet contexts_id_header;
+  TF_RETURN_IF_ERROR(executor_->SelectContextsByID(
+      {parent_context.parent_id(), parent_context.child_id()},
+      &contexts_id_header));
+  if (contexts_id_header.records_size() < 2) {
+    return tensorflow::errors::InvalidArgument(
+        "Given parent / child id in the parent_context cannot be found: ",
+        parent_context.DebugString());
+  }
+  const tensorflow::Status status = executor_->InsertParentContext(
+      parent_context.parent_id(), parent_context.child_id());
+  if (IsUniqueConstraintViolated(status)) {
+    return tensorflow::errors::AlreadyExists(
+        "Given parent_context already exists: ", parent_context.DebugString(),
+        status);
+  }
+  return status;
+}
+
+tensorflow::Status RDBMSMetadataAccessObject::FindLinkedContextsImpl(
+    int64 context_id, ParentContextTraverseDirection direction,
+    std::vector<Context>& output_contexts) {
+  RecordSet record_set;
+  if (direction == ParentContextTraverseDirection::kParent) {
+    TF_RETURN_IF_ERROR(
+        executor_->SelectParentContextsByContextID(context_id, &record_set));
+  } else if (direction == ParentContextTraverseDirection::kChild) {
+    TF_RETURN_IF_ERROR(
+        executor_->SelectChildContextsByContextID(context_id, &record_set));
+  } else {
+    return tensorflow::errors::Internal("Unexpected ParentContext direction");
+  }
+  const bool is_parent = direction == ParentContextTraverseDirection::kParent;
+  const std::vector<int64> ids =
+      ParentContextsToContextIds(record_set, is_parent);
+  output_contexts.clear();
+  if (ids.empty()) {
+    return tensorflow::Status::OK();
+  }
+  return FindNodesImpl(ids, /*skipped_ids_ok=*/false, output_contexts);
+}
+
+tensorflow::Status RDBMSMetadataAccessObject::FindParentContextsByContextId(
+    int64 context_id, std::vector<Context>* contexts) {
+  if (contexts == nullptr) {
+    return tensorflow::errors::InvalidArgument("Given contexts is NULL.");
+  }
+  return FindLinkedContextsImpl(
+      context_id, ParentContextTraverseDirection::kParent, *contexts);
+}
+
+tensorflow::Status RDBMSMetadataAccessObject::FindChildContextsByContextId(
+    int64 context_id, std::vector<Context>* contexts) {
+  if (contexts == nullptr) {
+    return tensorflow::errors::InvalidArgument("Given contexts is NULL.");
+  }
+  return FindLinkedContextsImpl(
+      context_id, ParentContextTraverseDirection::kChild, *contexts);
+>>>>>>> 15ed9f7 (Update GetExecutionsByContext and GetArtifactsByContext to support pagination and ordering results by ID, create time and last update time fields.)
 }
 
 tensorflow::Status RDBMSMetadataAccessObject::FindArtifacts(
@@ -1190,11 +1303,43 @@ tensorflow::Status RDBMSMetadataAccessObject::FindArtifacts(
   RecordSet record_set;
   TF_RETURN_IF_ERROR(executor_->SelectAllArtifactIDs(&record_set));
   return FindManyNodesImpl(record_set, artifacts);
+  std::vector<int64> ids = ConvertToIds(record_set);
+  if (ids.empty()) {
+    return tensorflow::Status::OK();
+  }
+  return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *artifacts);
 }
+
+template <>
+tensorflow::Status RDBMSMetadataAccessObject::ListNodeIds(
+    const ListOperationOptions& options,
+    const absl::Span<const int64> candidate_ids, RecordSet* record_set,
+    Artifact* tag) {
+  return executor_->ListArtifactIDsUsingOptions(options, candidate_ids,
+                                                record_set);
+}
+
+template <>
+tensorflow::Status RDBMSMetadataAccessObject::ListNodeIds(
+    const ListOperationOptions& options,
+    const absl::Span<const int64> candidate_ids, RecordSet* record_set,
+    Execution* tag) {
+  return executor_->ListExecutionIDsUsingOptions(options, candidate_ids,
+                                                 record_set);
+}
+
+template <>
+tensorflow::Status RDBMSMetadataAccessObject::ListNodeIds(
+    const ListOperationOptions& options,
+    const absl::Span<const int64> candidate_ids, RecordSet* record_set,
+    Context* tag) {
+  return executor_->ListContextIDsUsingOptions(options, candidate_ids,
+                                               record_set);
 
 template <typename Node>
 tensorflow::Status RDBMSMetadataAccessObject::ListNodes(
-    const ListOperationOptions& options, std::vector<Node>* nodes,
+    const ListOperationOptions& options,
+    const absl::Span<const int64> candidate_ids, std::vector<Node>* nodes,
     std::string* next_page_token) {
   if (options.max_result_size() <= 0) {
     return tensorflow::errors::InvalidArgument(
@@ -1222,6 +1367,17 @@ tensorflow::Status RDBMSMetadataAccessObject::ListNodes(
   } else {
     return tensorflow::errors::InvalidArgument(
         "Invalid Node passed to ListNodes");
+  TF_RETURN_IF_ERROR(
+      ListNodeIds<Node>(updated_options, candidate_ids, &record_set));
+  const std::vector<int64> ids = ConvertToIds(record_set);
+  if (ids.empty()) {
+    return tensorflow::Status::OK();
+  }
+
+  // Map node ids to positions
+  absl::flat_hash_map<int64, size_t> position_by_id;
+  for (int i = 0; i < ids.size(); ++i) {
+    position_by_id[ids.at(i)] = i;
   }
 
   TF_RETURN_IF_ERROR(FindManyNodesImpl(record_set, nodes));
@@ -1241,19 +1397,22 @@ tensorflow::Status RDBMSMetadataAccessObject::ListNodes(
 tensorflow::Status RDBMSMetadataAccessObject::ListArtifacts(
     const ListOperationOptions& options, std::vector<Artifact>* artifacts,
     std::string* next_page_token) {
-  return ListNodes<Artifact>(options, artifacts, next_page_token);
+  return ListNodes<Artifact>(options, /*candidate_ids=*/{}, artifacts,
+                             next_page_token);
 }
 
 tensorflow::Status RDBMSMetadataAccessObject::ListExecutions(
     const ListOperationOptions& options, std::vector<Execution>* executions,
     std::string* next_page_token) {
-  return ListNodes<Execution>(options, executions, next_page_token);
+  return ListNodes<Execution>(options, /*candidate_ids=*/{}, executions,
+                              next_page_token);
 }
 
 tensorflow::Status RDBMSMetadataAccessObject::ListContexts(
     const ListOperationOptions& options, std::vector<Context>* contexts,
     std::string* next_page_token) {
-  return ListNodes<Context>(options, contexts, next_page_token);
+  return ListNodes<Context>(options, /*candidate_ids=*/{}, contexts,
+                            next_page_token);
 }
 
 tensorflow::Status
