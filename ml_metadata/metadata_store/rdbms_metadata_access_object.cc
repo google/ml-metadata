@@ -1303,6 +1303,15 @@ tensorflow::Status RDBMSMetadataAccessObject::FindArtifactsByContext(
   }
 }
 
+  if (list_options.has_value()) {
+    return ListNodes<Artifact>(list_options.value(), ids, artifacts,
+                               next_page_token);
+
+  } else {
+    return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *artifacts);
+  }
+}
+
 tensorflow::Status RDBMSMetadataAccessObject::FindArtifacts(
     std::vector<Artifact>* artifacts) {
   RecordSet record_set;
