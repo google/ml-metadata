@@ -890,6 +890,132 @@ class MetadataStoreTest(parameterized.TestCase):
     artifacts_by_context = store.get_artifacts_by_context(context_ids[0])
     self.assertLen(artifacts_by_context, 2)
 
+  def test_get_executions_by_context_with_pagination(self):
+    store = _get_metadata_store()
+    execution_type = metadata_store_pb2.ExecutionType(
+        name=self._get_test_type_name())
+    execution_type_id = store.put_execution_type(execution_type)
+
+    context_type = metadata_store_pb2.ContextType(
+        name=self._get_test_type_name())
+    context_type_id = store.put_context_type(context_type)
+    context = metadata_store_pb2.Context(
+        type_id=context_type_id, name=self._get_test_type_name())
+    context_ids = store.put_contexts([context])
+    context_id = context_ids[0]
+
+    executions = []
+    count = 0
+    while count < 102:
+      execution = metadata_store_pb2.Execution(type_id=execution_type_id)
+      executions.append(execution)
+      count += 1
+
+    execution_ids = store.put_executions(executions)
+
+    associations = []
+    count = 0
+    for execution_id in execution_ids:
+      association = metadata_store_pb2.Association(
+          context_id=context_id, execution_id=execution_id)
+      associations.append(association)
+
+    store.put_attributions_and_associations([], associations)
+
+    got_executions = store.get_executions_by_context(context_id)
+    reverse_index = len(execution_ids) - 1
+    for got_execution in got_executions:
+      self.assertEqual(got_execution.id, execution_ids[reverse_index])
+      reverse_index -= 1
+
+    self.assertEqual(reverse_index, -1)
+
+  def test_get_artifacts_by_context_with_pagination(self):
+    store = _get_metadata_store()
+    artifact_type = metadata_store_pb2.ArtifactType(
+        name=self._get_test_type_name())
+    artifact_type_id = store.put_artifact_type(artifact_type)
+
+    context_type = metadata_store_pb2.ContextType(
+        name=self._get_test_type_name())
+    context_type_id = store.put_context_type(context_type)
+    context = metadata_store_pb2.Context(
+        type_id=context_type_id, name=self._get_test_type_name())
+    context_ids = store.put_contexts([context])
+    context_id = context_ids[0]
+
+    artifacts = []
+    count = 0
+    while count < 102:
+      artifact = metadata_store_pb2.Artifact(type_id=artifact_type_id)
+      artifacts.append(artifact)
+      count += 1
+
+    artifact_ids = store.put_artifacts(artifacts)
+
+    attributions = []
+    count = 0
+    for artifact_id in artifact_ids:
+      attribution = metadata_store_pb2.Attribution(
+          context_id=context_id, artifact_id=artifact_id)
+      attributions.append(attribution)
+
+    store.put_attributions_and_associations(attributions, [])
+
+    got_artifacts = store.get_artifacts_by_context(context_id)
+    reverse_index = len(artifact_ids) - 1
+    for got_artifact in got_artifacts:
+      self.assertEqual(got_artifact.id, artifact_ids[reverse_index])
+      reverse_index -= 1
+
+    self.assertEqual(reverse_index, -1)
+
+  def test_put_execution_with_reuse_context_if_already_exist(self):
+    store = _get_metadata_store()
+    execution_type = metadata_store_pb2.ExecutionType(
+        name=self._get_test_type_name())
+    execution_type_id = store.put_execution_type(execution_type)
+    execution = metadata_store_pb2.Execution(type_id=execution_type_id)
+
+    context_type = metadata_store_pb2.ContextType(
+        name=self._get_test_type_name())
+    context_type_id = store.put_context_type(context_type)
+    context = metadata_store_pb2.Context(
+        type_id=context_type_id, name=self._get_test_type_name())
+
+    # mimic a race with calls to create new context with the same name
+    execution_id, _, context_ids = store.put_execution(
+        execution=execution, artifact_and_events=[], contexts=[context])
+
+    # the second call fails due to the context of the same name AlreadyExists
+    with self.assertRaises(errors.AlreadyExistsError):
+      store.put_execution(
+          execution=execution, artifact_and_events=[], contexts=[context])
+
+    # if set reuse_context_if_already_exist, the same call succeeds
+    # context ids are the same, and the execution ids are different.
+    execution_id2, _, context_ids2 = store.put_execution(
+        execution=execution,
+        artifact_and_events=[],
+        contexts=[context],
+        reuse_context_if_already_exist=True)
+    self.assertEqual(context_ids, context_ids2)
+    self.assertNotEqual(execution_id, execution_id2)
+    self.assertLen(store.get_executions_by_context(context_ids[0]), 2)
+
+  def test_put_execution_with_invalid_argument_errors(self):
+    store = _get_metadata_store()
+    execution_type = metadata_store_pb2.ExecutionType(
+        name=self._get_test_type_name())
+    execution_type_id = store.put_execution_type(execution_type)
+    not_exist_id = 1000
+    execution = metadata_store_pb2.Execution(
+        id=not_exist_id, type_id=execution_type_id)
+
+    with self.assertRaises(errors.InvalidArgumentError):
+      store.put_execution(
+          execution=execution, artifact_and_events=[], contexts=[])
+
   def test_put_context_type_get_context_type(self):
     store = _get_metadata_store()
     context_type_name = self._get_test_type_name()
