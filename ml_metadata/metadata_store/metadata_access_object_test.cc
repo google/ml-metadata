@@ -2576,6 +2576,143 @@ TEST_P(MetadataAccessObjectTest, CreateAndUseAssociation) {
   EXPECT_EQ(got_artifacts.size(), 0);
 }
 
+TEST_P(MetadataAccessObjectTest, GetAssociationUsingPagination) {
+  TF_ASSERT_OK(Init());
+  int64 execution_type_id = InsertType<ExecutionType>("execution_type");
+  int64 context_type_id = InsertType<ContextType>("context_type");
+  Execution execution1;
+  execution1.set_type_id(execution_type_id);
+  (*execution1.mutable_custom_properties())["custom"].set_int_value(3);
+  Execution execution2;
+  execution2.set_type_id(execution_type_id);
+  (*execution2.mutable_custom_properties())["custom"].set_int_value(5);
+
+  Context context = ParseTextProtoOrDie<Context>("name: 'context_instance'");
+  context.set_type_id(context_type_id);
+
+  int64 execution_id_1, execution_id_2, context_id;
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateExecution(execution1, &execution_id_1));
+  execution1.set_id(execution_id_1);
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateExecution(execution2, &execution_id_2));
+  execution2.set_id(execution_id_2);
+
+  TF_ASSERT_OK(metadata_access_object_->CreateContext(context, &context_id));
+  context.set_id(context_id);
+
+  Association association1;
+  association1.set_execution_id(execution_id_1);
+  association1.set_context_id(context_id);
+
+  Association association2;
+  association2.set_execution_id(execution_id_2);
+  association2.set_context_id(context_id);
+
+  int64 association_id_1;
+  TF_EXPECT_OK(metadata_access_object_->CreateAssociation(association1,
+                                                          &association_id_1));
+  int64 association_id_2;
+  TF_EXPECT_OK(metadata_access_object_->CreateAssociation(association2,
+                                                          &association_id_2));
+
+  ListOperationOptions list_options =
+      ParseTextProtoOrDie<ListOperationOptions>(R"(
+        max_result_size: 1,
+        order_by_field: { field: CREATE_TIME is_asc: false }
+      )");
+
+  std::string next_page_token;
+  std::vector<Execution> got_executions;
+  TF_EXPECT_OK(metadata_access_object_->FindExecutionsByContext(
+      context_id, list_options, &got_executions, &next_page_token));
+  EXPECT_THAT(got_executions, SizeIs(1));
+  EXPECT_THAT(execution2, EqualsProto(got_executions[0], /*ignore_fields=*/{
+                                          "create_time_since_epoch",
+                                          "last_update_time_since_epoch"}));
+  ASSERT_FALSE(next_page_token.empty());
+
+  list_options.set_next_page_token(next_page_token);
+  got_executions.clear();
+  TF_EXPECT_OK(metadata_access_object_->FindExecutionsByContext(
+      context_id, list_options, &got_executions, &next_page_token));
+  EXPECT_THAT(got_executions, SizeIs(1));
+  EXPECT_THAT(execution1, EqualsProto(got_executions[0], /*ignore_fields=*/{
+                                          "create_time_since_epoch",
+                                          "last_update_time_since_epoch"}));
+  ASSERT_TRUE(next_page_token.empty());
+}
+
+TEST_P(MetadataAccessObjectTest, GetAttributionUsingPagination) {
+  TF_ASSERT_OK(Init());
+  int64 artifact_type_id = InsertType<ArtifactType>("artifact_type");
+  int64 context_type_id = InsertType<ContextType>("context_type");
+  Artifact artifact1;
+  artifact1.set_uri("http://some_uri");
+  artifact1.set_type_id(artifact_type_id);
+  (*artifact1.mutable_custom_properties())["custom"].set_int_value(3);
+
+  Artifact artifact2;
+  artifact2.set_uri("http://some_uri");
+  artifact2.set_type_id(artifact_type_id);
+  (*artifact2.mutable_custom_properties())["custom"].set_int_value(5);
+
+  Context context = ParseTextProtoOrDie<Context>("name: 'context_instance'");
+  context.set_type_id(context_type_id);
+
+  int64 artifact_id_1, artifact_id_2, context_id;
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateArtifact(artifact1, &artifact_id_1));
+  artifact1.set_id(artifact_id_1);
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateArtifact(artifact2, &artifact_id_2));
+  artifact2.set_id(artifact_id_2);
+
+  TF_ASSERT_OK(metadata_access_object_->CreateContext(context, &context_id));
+  context.set_id(context_id);
+
+  Attribution attribution1;
+  attribution1.set_artifact_id(artifact_id_1);
+  attribution1.set_context_id(context_id);
+
+  Attribution attribution2;
+  attribution2.set_artifact_id(artifact_id_2);
+  attribution2.set_context_id(context_id);
+
+  int64 attribution_id_1;
+  TF_EXPECT_OK(metadata_access_object_->CreateAttribution(attribution1,
+                                                          &attribution_id_1));
+  int64 attribution_id_2;
+  TF_EXPECT_OK(metadata_access_object_->CreateAttribution(attribution2,
+                                                          &attribution_id_2));
+
+  ListOperationOptions list_options =
+      ParseTextProtoOrDie<ListOperationOptions>(R"(
+        max_result_size: 1,
+        order_by_field: { field: CREATE_TIME is_asc: false }
+      )");
+
+  std::string next_page_token;
+  std::vector<Artifact> got_artifacts;
+  TF_EXPECT_OK(metadata_access_object_->FindArtifactsByContext(
+      context_id, list_options, &got_artifacts, &next_page_token));
+  EXPECT_THAT(got_artifacts, SizeIs(1));
+  EXPECT_THAT(artifact2, EqualsProto(got_artifacts[0], /*ignore_fields=*/{
+                                         "create_time_since_epoch",
+                                         "last_update_time_since_epoch"}));
+  ASSERT_FALSE(next_page_token.empty());
+
+  got_artifacts.clear();
+  list_options.set_next_page_token(next_page_token);
+  TF_EXPECT_OK(metadata_access_object_->FindArtifactsByContext(
+      context_id, list_options, &got_artifacts, &next_page_token));
+  EXPECT_THAT(got_artifacts, SizeIs(1));
+  ASSERT_TRUE(next_page_token.empty());
+  EXPECT_THAT(artifact1, EqualsProto(got_artifacts[0], /*ignore_fields=*/{
+                                         "create_time_since_epoch",
+                                         "last_update_time_since_epoch"}));
+}
+
 TEST_P(MetadataAccessObjectTest, CreateAssociationError) {
   TF_ASSERT_OK(Init());
   Association association;

@@ -882,6 +882,86 @@ class MetadataStoreTest(parameterized.TestCase):
     artifacts_by_context = store.get_artifacts_by_context(context_ids[0])
     self.assertLen(artifacts_by_context, 2)
 
+  def test_get_executions_by_context_with_pagination(self):
+    store = _get_metadata_store()
+    execution_type = metadata_store_pb2.ExecutionType(
+        name=self._get_test_type_name())
+    execution_type_id = store.put_execution_type(execution_type)
+
+    context_type = metadata_store_pb2.ContextType(
+        name=self._get_test_type_name())
+    context_type_id = store.put_context_type(context_type)
+    context = metadata_store_pb2.Context(
+        type_id=context_type_id, name=self._get_test_type_name())
+    context_ids = store.put_contexts([context])
+    context_id = context_ids[0]
+
+    executions = []
+    count = 0
+    while count < 102:
+      execution = metadata_store_pb2.Execution(type_id=execution_type_id)
+      executions.append(execution)
+      count += 1
+
+    execution_ids = store.put_executions(executions)
+
+    associations = []
+    count = 0
+    for execution_id in execution_ids:
+      association = metadata_store_pb2.Association(
+          context_id=context_id, execution_id=execution_id)
+      associations.append(association)
+
+    store.put_attributions_and_associations([], associations)
+
+    got_executions = store.get_executions_by_context(context_id)
+    reverse_index = len(execution_ids) - 1
+    for got_execution in got_executions:
+      self.assertEqual(got_execution.id, execution_ids[reverse_index])
+      reverse_index -= 1
+
+    self.assertEqual(reverse_index, -1)
+
+  def test_get_artifacts_by_context_with_pagination(self):
+    store = _get_metadata_store()
+    artifact_type = metadata_store_pb2.ArtifactType(
+        name=self._get_test_type_name())
+    artifact_type_id = store.put_artifact_type(artifact_type)
+
+    context_type = metadata_store_pb2.ContextType(
+        name=self._get_test_type_name())
+    context_type_id = store.put_context_type(context_type)
+    context = metadata_store_pb2.Context(
+        type_id=context_type_id, name=self._get_test_type_name())
+    context_ids = store.put_contexts([context])
+    context_id = context_ids[0]
+
+    artifacts = []
+    count = 0
+    while count < 102:
+      artifact = metadata_store_pb2.Artifact(type_id=artifact_type_id)
+      artifacts.append(artifact)
+      count += 1
+
+    artifact_ids = store.put_artifacts(artifacts)
+
+    attributions = []
+    count = 0
+    for artifact_id in artifact_ids:
+      attribution = metadata_store_pb2.Attribution(
+          context_id=context_id, artifact_id=artifact_id)
+      attributions.append(attribution)
+
+    store.put_attributions_and_associations(attributions, [])
+
+    got_artifacts = store.get_artifacts_by_context(context_id)
+    reverse_index = len(artifact_ids) - 1
+    for got_artifact in got_artifacts:
+      self.assertEqual(got_artifact.id, artifact_ids[reverse_index])
+      reverse_index -= 1
+
+    self.assertEqual(reverse_index, -1)
+
   def test_put_execution_with_reuse_context_if_already_exist(self):
     store = _get_metadata_store()
     execution_type = metadata_store_pb2.ExecutionType(

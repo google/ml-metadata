@@ -480,24 +480,29 @@ class QueryExecutor {
   // Returns a list of IDs.
   virtual tensorflow::Status SelectAllContextIDs(RecordSet* set) = 0;
 
-  // List Artifact IDs using `options`.
-  // On success `record_set` is updated with artifact IDs based on `options`
+  // List Artifact IDs using `options`. If `candidate_ids` is not empty, then
+  // returned result is only built using ids in the `candidate_ids`. On success
+  // `record_set` is updated with artifact IDs based on `options`
   virtual tensorflow::Status ListArtifactIDsUsingOptions(
-      const ListOperationOptions& options, RecordSet* record_set) = 0;
+      const ListOperationOptions& options,
+      const absl::Span<const int64> candidate_ids, RecordSet* record_set) = 0;
 
-  // List Execution IDs using `options`.
-  // On success `set` is updated with execution IDs based on `options` and
+  // List Execution IDs using `options`. If `candidate_ids` is not empty, then
+  // returned result is only built using ids in the `candidate_ids`. On success
+  // `set` is updated with execution IDs based on `options` and
   // `next_page_token` is updated with information for the caller to use for
   // next page of results.
   virtual tensorflow::Status ListExecutionIDsUsingOptions(
-      const ListOperationOptions& options, RecordSet* record_set) = 0;
+      const ListOperationOptions& options,
+      const absl::Span<const int64> candidate_ids, RecordSet* record_set) = 0;
 
-  // List Context IDs using `options`.
-  // On success `set` is updated with context IDs based on `options` and
-  // `next_page_token` is updated with information for the caller to use for
-  // next page of results.
+  // List Context IDs using `options`. If `candidate_ids` is not empty, then
+  // returned result is only built using ids in the `candidate_ids`. On success
+  // `set` is updated with context IDs based on `options` and `next_page_token`
+  // is updated with information for the caller to use for next page of results.
   virtual tensorflow::Status ListContextIDsUsingOptions(
-      const ListOperationOptions& options, RecordSet* record_set) = 0;
+      const ListOperationOptions& options,
+      const absl::Span<const int64> candidate_ids, RecordSet* record_set) = 0;
 
 };
 

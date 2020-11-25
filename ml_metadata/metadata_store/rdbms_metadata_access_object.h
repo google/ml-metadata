@@ -190,6 +190,10 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   tensorflow::Status FindExecutionsByContext(
       int64 context_id, std::vector<Execution>* executions) final;
 
+  tensorflow::Status FindExecutionsByContext(
+      int64 context_id, absl::optional<ListOperationOptions> list_options,
+      std::vector<Execution>* executions, std::string* next_page_token) final;
+
   tensorflow::Status CreateAttribution(const Attribution& attribution,
                                        int64* attribution_id) final;
 
@@ -198,6 +202,10 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   tensorflow::Status FindArtifactsByContext(
       int64 context_id, std::vector<Artifact>* artifacts) final;
+
+  tensorflow::Status FindArtifactsByContext(
+      int64 context_id, absl::optional<ListOperationOptions> list_options,
+      std::vector<Artifact>* artifacts, std::string* next_page_token) final;
 
   tensorflow::Status CreateParentContext(
       const ParentContext& parent_context) final;
@@ -386,16 +394,24 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   tensorflow::Status FindEventsFromRecordSet(const RecordSet& event_record_set,
                                              std::vector<Event>* events);
 
-  // Retrieves the ids of the nodes based on 'options'. The returned record_set
+  // Retrieves the ids of the nodes based on 'options' and `candidate_ids`.
+  // If `candidate_ids` is non-empty, then only the nodes with those ids are
+  // considered when applying list options; when empty, all stored nodes are
+  // considered as candidates.
+  // The returned record_set
   // has a single row per id, with the corresponding value.
   template <typename Node>
   tensorflow::Status ListNodeIds(
-      const ListOperationOptions& options, RecordSet* record_set,
+      const ListOperationOptions& options,
+      const absl::Span<const int64> candidate_ids, RecordSet* record_set,
       Node* tag = nullptr /* used only for template instantiation*/);
 
   // Queries nodes stored in the metadata source using `options`.
   // `options` is the ListOperationOptions proto message defined
   // in metadata_store.
+  // If `candidate_ids` is non-empty, then only the nodes with those ids are
+  // considered when applying list options; when empty, all stored nodes are
+  // considered as candidates.
   // If successfull:
   // 1. `nodes` is updated with result set of size determined by
   //    max_result_size set in `options`.
@@ -408,6 +424,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // 3. next_page_token cannot be decoded.
   template <typename Node>
   tensorflow::Status ListNodes(const ListOperationOptions& options,
+                               const absl::Span<const int64> candidate_ids,
                                std::vector<Node>* nodes,
                                std::string* next_page_token);
 

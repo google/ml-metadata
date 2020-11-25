@@ -18,6 +18,7 @@ limitations under the License.
 #include <memory>
 #include <vector>
 
+#include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
@@ -382,6 +383,12 @@ class MetadataAccessObject {
   virtual tensorflow::Status FindExecutionsByContext(
       int64 context_id, std::vector<Execution>* executions) = 0;
 
+  // Queries the executions associated with a context_id.
+  // Returns INVALID_ARGUMENT error, if the `executions` is null.
+  virtual tensorflow::Status FindExecutionsByContext(
+      int64 context_id, absl::optional<ListOperationOptions> list_options,
+      std::vector<Execution>* executions, std::string* next_page_token) = 0;
+
   // Creates an attribution, returns the assigned attribution id.
   // Returns INVALID_ARGUMENT error, if no context matches the context_id.
   // Returns INVALID_ARGUMENT error, if no artifact matches the artifact_id.
@@ -398,6 +405,14 @@ class MetadataAccessObject {
   // Returns INVALID_ARGUMENT error, if the `artifacts` is null.
   virtual tensorflow::Status FindArtifactsByContext(
       int64 context_id, std::vector<Artifact>* artifacts) = 0;
+
+  // Queries the artifacts attributed to a context_id.
+  // If `list_options` is specified then results are paginated based on the
+  // fields set in `list_options`.
+  // Returns INVALID_ARGUMENT error, if the `artifacts` is null.
+  virtual tensorflow::Status FindArtifactsByContext(
+      int64 context_id, absl::optional<ListOperationOptions> list_options,
+      std::vector<Artifact>* artifacts, std::string* next_page_token) = 0;
 
   // Creates a parent context, returns OK if succeeds.
   // Returns INVALID_ARGUMENT error, if no context matches the child_id.
