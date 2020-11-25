@@ -18,6 +18,7 @@ limitations under the License.
 #include <memory>
 #include <vector>
 
+#include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
@@ -382,6 +383,12 @@ class MetadataAccessObject {
   virtual tensorflow::Status FindExecutionsByContext(
       int64 context_id, std::vector<Execution>* executions) = 0;
 
+  // Queries the executions associated with a context_id.
+  // Returns INVALID_ARGUMENT error, if the `executions` is null.
+  virtual tensorflow::Status FindExecutionsByContext(
+      int64 context_id, absl::optional<ListOperationOptions> list_options,
+      std::vector<Execution>* executions, std::string* next_page_token) = 0;
+
   // Creates an attribution, returns the assigned attribution id.
   // Returns INVALID_ARGUMENT error, if no context matches the context_id.
   // Returns INVALID_ARGUMENT error, if no artifact matches the artifact_id.
@@ -399,6 +406,36 @@ class MetadataAccessObject {
   virtual tensorflow::Status FindArtifactsByContext(
       int64 context_id, std::vector<Artifact>* artifacts) = 0;
 
+<<<<<<< HEAD
+=======
+  // Queries the artifacts attributed to a context_id.
+  // If `list_options` is specified then results are paginated based on the
+  // fields set in `list_options`.
+  // Returns INVALID_ARGUMENT error, if the `artifacts` is null.
+  virtual tensorflow::Status FindArtifactsByContext(
+      int64 context_id, absl::optional<ListOperationOptions> list_options,
+      std::vector<Artifact>* artifacts, std::string* next_page_token) = 0;
+
+  // Creates a parent context, returns OK if succeeds.
+  // Returns INVALID_ARGUMENT error, if no context matches the child_id.
+  // Returns INVALID_ARGUMENT error, if no context matches the parent_id.
+  // Returns ALREADY_EXISTS error, if the same parent context already exists.
+  // TODO(b/155207795) Consider ParentContext transitive closure check when
+  // inserting a new record.
+  virtual tensorflow::Status CreateParentContext(
+      const ParentContext& parent_context) = 0;
+
+  // Queries the parent-contexts of a context_id.
+  // Returns INVALID_ARGUMENT error, if the `contexts` is null.
+  virtual tensorflow::Status FindParentContextsByContextId(
+      int64 context_id, std::vector<Context>* contexts) = 0;
+
+  // Queries the child-contexts of a context_id.
+  // Returns INVALID_ARGUMENT error, if the `contexts` is null.
+  virtual tensorflow::Status FindChildContextsByContextId(
+      int64 context_id, std::vector<Context>* contexts) = 0;
+
+>>>>>>> 15ed9f7 (Update GetExecutionsByContext and GetArtifactsByContext to support pagination and ordering results by ID, create time and last update time fields.)
   // Resolves the schema version stored in the metadata source. The `db_version`
   // is set to 0, if it is a 0.13.2 release pre-existing database.
   // Returns DATA_LOSS error, if schema version info table exists but its value
