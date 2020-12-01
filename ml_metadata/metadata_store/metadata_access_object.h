@@ -406,8 +406,6 @@ class MetadataAccessObject {
   virtual tensorflow::Status FindArtifactsByContext(
       int64 context_id, std::vector<Artifact>* artifacts) = 0;
 
-<<<<<<< HEAD
-=======
   // Queries the artifacts attributed to a context_id.
   // If `list_options` is specified then results are paginated based on the
   // fields set in `list_options`.
@@ -435,7 +433,6 @@ class MetadataAccessObject {
   virtual tensorflow::Status FindChildContextsByContextId(
       int64 context_id, std::vector<Context>* contexts) = 0;
 
->>>>>>> 15ed9f7 (Update GetExecutionsByContext and GetArtifactsByContext to support pagination and ordering results by ID, create time and last update time fields.)
   // Resolves the schema version stored in the metadata source. The `db_version`
   // is set to 0, if it is a 0.13.2 release pre-existing database.
   // Returns DATA_LOSS error, if schema version info table exists but its value
