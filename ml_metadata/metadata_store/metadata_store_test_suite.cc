@@ -17,6 +17,7 @@ limitations under the License.
 #include <memory>
 
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
 #include "absl/strings/str_format.h"
 #include "absl/strings/substitute.h"
 #include "ml_metadata/metadata_store/constants.h"
@@ -1981,6 +1982,176 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContext) {
     EXPECT_EQ(get_executions_by_context_response.executions(0).id(),
               put_execution_response.execution_id());
   }
+}
+
+// Tests pagination with GetExecutionsWithContext API.
+TEST_P(MetadataStoreTestSuite, PutAndGetExecutionsWithContextUsingListOptions) {
+  PutTypesRequest put_types_request = ParseTextProtoOrDie<PutTypesRequest>(R"(
+    context_types: { name: 'context_type' }
+    execution_types: { name: 'execution_type' })");
+  PutTypesResponse put_types_response;
+  TF_ASSERT_OK(
+      metadata_store_->PutTypes(put_types_request, &put_types_response));
+  Context context1;
+  context1.set_type_id(put_types_response.context_type_ids(0));
+  context1.set_name("context1");
+
+  PutContextsRequest put_contexts_request;
+  *put_contexts_request.add_contexts() = context1;
+  PutContextsResponse put_contexts_response;
+
+  TF_ASSERT_OK(metadata_store_->PutContexts(put_contexts_request,
+                                            &put_contexts_response));
+
+  ASSERT_EQ(put_contexts_response.context_ids().size(), 1);
+  int64 context_id = put_contexts_response.context_ids(0);
+
+  PutExecutionRequest put_execution_request;
+  put_execution_request.mutable_execution()->set_type_id(
+      put_types_response.execution_type_ids(0));
+  // calls PutExecution and test end states.
+  PutExecutionResponse put_execution_response;
+  TF_ASSERT_OK(metadata_store_->PutExecution(put_execution_request,
+                                             &put_execution_response));
+  // check the nodes of the end state graph
+  ASSERT_GE(put_execution_response.execution_id(), 0);
+  int64 execution_id_1 = put_execution_response.execution_id();
+
+  TF_ASSERT_OK(metadata_store_->PutExecution(put_execution_request,
+                                             &put_execution_response));
+  // check the nodes of the end state graph
+  ASSERT_GE(put_execution_response.execution_id(), 1);
+  int64 execution_id_2 = put_execution_response.execution_id();
+
+  Association association1;
+  association1.set_context_id(context_id);
+  association1.set_execution_id(execution_id_1);
+
+  Association association2;
+  association2.set_context_id(context_id);
+  association2.set_execution_id(execution_id_2);
+
+  PutAttributionsAndAssociationsRequest put_attributions_associations_request;
+  *put_attributions_associations_request.add_associations() = association1;
+  *put_attributions_associations_request.add_associations() = association2;
+  PutAttributionsAndAssociationsResponse put_attributions_associations_response;
+
+  TF_ASSERT_OK(metadata_store_->PutAttributionsAndAssociations(
+      put_attributions_associations_request,
+      &put_attributions_associations_response));
+
+  ListOperationOptions list_options =
+      ParseTextProtoOrDie<ListOperationOptions>(R"(
+        max_result_size: 1,
+        order_by_field: { field: CREATE_TIME is_asc: false }
+      )");
+
+  GetExecutionsByContextRequest get_executions_by_context_request;
+  get_executions_by_context_request.set_context_id(context_id);
+  *get_executions_by_context_request.mutable_options() = list_options;
+
+  GetExecutionsByContextResponse get_executions_by_context_response;
+  TF_ASSERT_OK(metadata_store_->GetExecutionsByContext(
+      get_executions_by_context_request, &get_executions_by_context_response));
+
+  EXPECT_THAT(get_executions_by_context_response.executions(), SizeIs(1));
+  ASSERT_EQ(get_executions_by_context_response.executions(0).id(),
+            execution_id_2);
+  ASSERT_FALSE(get_executions_by_context_response.next_page_token().empty());
+
+  list_options.set_next_page_token(
+      get_executions_by_context_response.next_page_token());
+  *get_executions_by_context_request.mutable_options() = list_options;
+  TF_ASSERT_OK(metadata_store_->GetExecutionsByContext(
+      get_executions_by_context_request, &get_executions_by_context_response));
+
+  EXPECT_THAT(get_executions_by_context_response.executions(), SizeIs(1));
+  ASSERT_EQ(get_executions_by_context_response.executions(0).id(),
+            execution_id_1);
+  ASSERT_TRUE(get_executions_by_context_response.next_page_token().empty());
+}
+
+// Tests pagination with GetArtifactsWithContext API.
+TEST_P(MetadataStoreTestSuite, PutAndGetArtifactsWithContextUsingListOptions) {
+  PutTypesRequest put_types_request = ParseTextProtoOrDie<PutTypesRequest>(R"(
+    context_types: { name: 'context_type' }
+    artifact_types: { name: 'artifact_type' })");
+  PutTypesResponse put_types_response;
+  TF_ASSERT_OK(
+      metadata_store_->PutTypes(put_types_request, &put_types_response));
+  Context context1;
+  context1.set_type_id(put_types_response.context_type_ids(0));
+  context1.set_name("context1");
+
+  PutContextsRequest put_contexts_request;
+  *put_contexts_request.add_contexts() = context1;
+  PutContextsResponse put_contexts_response;
+
+  TF_ASSERT_OK(metadata_store_->PutContexts(put_contexts_request,
+                                            &put_contexts_response));
+
+  ASSERT_EQ(put_contexts_response.context_ids().size(), 1);
+  int64 context_id = put_contexts_response.context_ids(0);
+
+  PutArtifactsRequest put_artifacts_request_1;
+  Artifact artifact1;
+  artifact1.set_type_id(put_types_response.artifact_type_ids(0));
+  Artifact artifact2;
+  artifact2.set_type_id(put_types_response.artifact_type_ids(0));
+  *put_artifacts_request_1.add_artifacts() = artifact1;
+  *put_artifacts_request_1.add_artifacts() = artifact2;
+
+  PutArtifactsResponse put_artifacts_response;
+  TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request_1,
+                                             &put_artifacts_response));
+  ASSERT_EQ(put_artifacts_response.artifact_ids().size(), 2);
+  int64 artifact_id_1 = put_artifacts_response.artifact_ids(0);
+  int64 artifact_id_2 = put_artifacts_response.artifact_ids(1);
+
+  Attribution attribution1;
+  attribution1.set_context_id(context_id);
+  attribution1.set_artifact_id(artifact_id_1);
+
+  Attribution attribution2;
+  attribution2.set_context_id(context_id);
+  attribution2.set_artifact_id(artifact_id_2);
+
+  PutAttributionsAndAssociationsRequest put_attributions_associations_request;
+  *put_attributions_associations_request.add_attributions() = attribution1;
+  *put_attributions_associations_request.add_attributions() = attribution2;
+  PutAttributionsAndAssociationsResponse put_attributions_associations_response;
+
+  TF_ASSERT_OK(metadata_store_->PutAttributionsAndAssociations(
+      put_attributions_associations_request,
+      &put_attributions_associations_response));
+
+  ListOperationOptions list_options =
+      ParseTextProtoOrDie<ListOperationOptions>(R"(
+        max_result_size: 1,
+        order_by_field: { field: CREATE_TIME is_asc: false }
+      )");
+
+  GetArtifactsByContextRequest get_artifacts_by_context_request;
+  get_artifacts_by_context_request.set_context_id(context_id);
+  *get_artifacts_by_context_request.mutable_options() = list_options;
+
+  GetArtifactsByContextResponse get_artifacts_by_context_response;
+  TF_ASSERT_OK(metadata_store_->GetArtifactsByContext(
+      get_artifacts_by_context_request, &get_artifacts_by_context_response));
+
+  EXPECT_THAT(get_artifacts_by_context_response.artifacts(), SizeIs(1));
+  ASSERT_EQ(get_artifacts_by_context_response.artifacts(0).id(), artifact_id_2);
+  ASSERT_FALSE(get_artifacts_by_context_response.next_page_token().empty());
+
+  list_options.set_next_page_token(
+      get_artifacts_by_context_response.next_page_token());
+  *get_artifacts_by_context_request.mutable_options() = list_options;
+  TF_ASSERT_OK(metadata_store_->GetArtifactsByContext(
+      get_artifacts_by_context_request, &get_artifacts_by_context_response));
+
+  EXPECT_THAT(get_artifacts_by_context_response.artifacts(), SizeIs(1));
+  ASSERT_EQ(get_artifacts_by_context_response.artifacts(0).id(), artifact_id_1);
+  ASSERT_TRUE(get_artifacts_by_context_response.next_page_token().empty());
 }
 
 // Call PutExecution with a new context multiple times. If
