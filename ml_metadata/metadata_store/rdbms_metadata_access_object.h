@@ -203,8 +203,6 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   tensorflow::Status FindArtifactsByContext(
       int64 context_id, std::vector<Artifact>* artifacts) final;
 
-<<<<<<< HEAD
-=======
   tensorflow::Status FindArtifactsByContext(
       int64 context_id, absl::optional<ListOperationOptions> list_options,
       std::vector<Artifact>* artifacts, std::string* next_page_token) final;
@@ -218,7 +216,6 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   tensorflow::Status FindChildContextsByContextId(
       int64 context_id, std::vector<Context>* contexts) final;
 
->>>>>>> 15ed9f7 (Update GetExecutionsByContext and GetArtifactsByContext to support pagination and ordering results by ID, create time and last update time fields.)
   tensorflow::Status GetSchemaVersion(int64* db_version) final {
     return executor_->GetSchemaVersion(db_version);
   }
