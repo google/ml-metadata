@@ -1,17 +1,21 @@
-# Current version (not yet released; still in development)
+# Release 0.25.1
 
 ## Major Features and Improvements
 
-*   Adds `reuse_context_if_already_exist` option to `put_execution` python API
-    to better support concurrent execution publishing with the same new context.
 *   Supports pagination and ordering options in GetExecutionsByContext and
     GetArtifactsByContext APIs.
 
 ## Bug Fixes and Other Changes
 
+*   N/A
+
 ## Breaking changes
 
+*   N/A
+
 ## Deprecations
+
+*   N/A
 
 # Release 0.25.0
 
