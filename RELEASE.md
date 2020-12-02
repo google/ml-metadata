@@ -1,4 +1,4 @@
-# Current version (not yet released; still in development)
+# Release 0.25.1
 
 ## Major Features and Improvements
 
@@ -9,9 +9,15 @@
 
 ## Bug Fixes and Other Changes
 
+*   N/A
+
 ## Breaking changes
 
+*   N/A
+
 ## Deprecations
+
+*   N/A
 
 # Release 0.25.0
 
