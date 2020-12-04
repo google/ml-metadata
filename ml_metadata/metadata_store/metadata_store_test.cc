@@ -122,7 +122,7 @@ TEST(MetadataStoreExtendedTest, SpecifyDowngradeMigrationWhenCreate) {
 
 }  // namespace
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     MetadataStoreTest, MetadataStoreTestSuite, ::testing::Values([]() {
       return absl::make_unique<RDBMSMetadataStoreContainer>();
     }));

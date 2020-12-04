@@ -64,7 +64,7 @@ class SqliteMetadataAccessObjectContainer
 
 }  // namespace
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     SqliteMetadataAccessObjectTest, MetadataAccessObjectTest,
     ::testing::Values([]() {
       return absl::make_unique<SqliteMetadataAccessObjectContainer>();

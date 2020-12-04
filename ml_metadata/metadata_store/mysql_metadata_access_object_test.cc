@@ -72,7 +72,7 @@ class MySqlMetadataAccessObjectContainer
 
 }  // namespace
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     MySqlMetadataAccessObjectTest, MetadataAccessObjectTest,
     ::testing::Values([]() {
       return absl::make_unique<MySqlMetadataAccessObjectContainer>();

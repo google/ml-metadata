@@ -123,7 +123,7 @@ TEST(SqliteMetadataSourceExtendedTest, TestEscapeString) {
 
 }  // namespace
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     SqliteMetadataSourceCommonTest, MetadataSourceTestSuite,
     ::testing::Values([]() {
       return absl::make_unique<SqliteMetadataSourceContainer>();
