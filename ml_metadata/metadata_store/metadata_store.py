@@ -17,11 +17,6 @@ Provides access to a SQLite3 or a MySQL backend. Artifact types and execution
 types can be created on the fly.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-
-from __future__ import print_function
-
 import random
 import time
 from typing import Iterable, List, Optional, Sequence, Text, Tuple, Union
