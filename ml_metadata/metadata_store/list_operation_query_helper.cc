@@ -25,9 +25,6 @@ namespace ml_metadata {
 
 namespace {
 
-// Default maximum number of returned resources for List operation.
-constexpr int kDefaultMaxListOperationResultSize = 100;
-
 // Helper method to map Proto ListOperationOptions::OrderByField::Field to
 // Database column name.
 tensorflow::Status GetDbColumnNameForProtoField(
@@ -107,8 +104,9 @@ tensorflow::Status AppendLimitClause(const ListOperationOptions& options,
                      options.max_result_size()));
   }
 
-  const int max_result_size = std::min(options.max_result_size(),
-                                       kDefaultMaxListOperationResultSize + 1);
+  const int max_result_size =
+      std::min(options.max_result_size(),
+               GetDefaultMaxListOperationResultSize() + 1);
   absl::SubstituteAndAppend(&sql_query_clause, " LIMIT $0 ", max_result_size);
   return tensorflow::Status::OK();
 }

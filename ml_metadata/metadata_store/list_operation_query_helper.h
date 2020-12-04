@@ -85,6 +85,11 @@ tensorflow::Status AppendOrderByClause(const ListOperationOptions& options,
 tensorflow::Status AppendLimitClause(const ListOperationOptions& options,
                                      std::string& sql_query_clause);
 
+// Gets the maximum number of returned resources for List operation.
+inline constexpr int GetDefaultMaxListOperationResultSize() {
+  return 100;
+}
+
 }  // namespace ml_metadata
 
 #endif  // THIRD_PARTY_ML_METADATA_METADATA_STORE_LIST_OPERATION_QUERY_HELPER_H_
