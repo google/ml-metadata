@@ -890,6 +890,8 @@ class MetadataStoreTest(parameterized.TestCase):
     artifacts_by_context = store.get_artifacts_by_context(context_ids[0])
     self.assertLen(artifacts_by_context, 2)
 
+<<<<<<< HEAD
+=======
   def test_get_executions_by_context_with_pagination(self):
     store = _get_metadata_store()
     execution_type = metadata_store_pb2.ExecutionType(
@@ -1016,6 +1018,7 @@ class MetadataStoreTest(parameterized.TestCase):
       store.put_execution(
           execution=execution, artifact_and_events=[], contexts=[])
 
+>>>>>>> 15ed9f7 (Update GetExecutionsByContext and GetArtifactsByContext to support pagination and ordering results by ID, create time and last update time fields.)
   def test_put_context_type_get_context_type(self):
     store = _get_metadata_store()
     context_type_name = self._get_test_type_name()
