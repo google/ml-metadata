@@ -37,7 +37,6 @@ limitations under the License.
 #include "ml_metadata/metadata_store/rdbms_metadata_access_object.h" // NOLINT
 #endif
 // clang-format on
-#include "absl/types/optional.h"
 #include "ml_metadata/metadata_store/list_operation_util.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
@@ -1209,14 +1208,6 @@ tensorflow::Status RDBMSMetadataAccessObject::FindContextsByExecution(
 
 tensorflow::Status RDBMSMetadataAccessObject::FindExecutionsByContext(
     int64 context_id, std::vector<Execution>* executions) {
-  std::string unused_next_page_toke;
-  return FindExecutionsByContext(context_id, absl::nullopt, executions,
-                                 &unused_next_page_toke);
-}
-
-tensorflow::Status RDBMSMetadataAccessObject::FindExecutionsByContext(
-    int64 context_id, absl::optional<ListOperationOptions> list_options,
-    std::vector<Execution>* executions, std::string* next_page_token) {
   RecordSet record_set;
   TF_RETURN_IF_ERROR(
       executor_->SelectAssociationByContextID(context_id, &record_set));
@@ -1224,13 +1215,7 @@ tensorflow::Status RDBMSMetadataAccessObject::FindExecutionsByContext(
   if (ids.empty()) {
     return tensorflow::Status::OK();
   }
-
-  if (list_options.has_value()) {
-    return ListNodes<Execution>(list_options.value(), ids, executions,
-                                next_page_token);
-  } else {
-    return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *executions);
-  }
+  return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *executions);
 }
 
 tensorflow::Status RDBMSMetadataAccessObject::CreateAttribution(
@@ -1278,14 +1263,6 @@ tensorflow::Status RDBMSMetadataAccessObject::FindContextsByArtifact(
 
 tensorflow::Status RDBMSMetadataAccessObject::FindArtifactsByContext(
     int64 context_id, std::vector<Artifact>* artifacts) {
-  std::string unused_next_page_token;
-  return FindArtifactsByContext(context_id, absl::nullopt, artifacts,
-                                &unused_next_page_token);
-}
-
-tensorflow::Status RDBMSMetadataAccessObject::FindArtifactsByContext(
-    int64 context_id, absl::optional<ListOperationOptions> list_options,
-    std::vector<Artifact>* artifacts, std::string* next_page_token) {
   RecordSet record_set;
   TF_RETURN_IF_ERROR(
       executor_->SelectAttributionByContextID(context_id, &record_set));
@@ -1293,14 +1270,7 @@ tensorflow::Status RDBMSMetadataAccessObject::FindArtifactsByContext(
   if (ids.empty()) {
     return tensorflow::Status::OK();
   }
-
-  if (list_options.has_value()) {
-    return ListNodes<Artifact>(list_options.value(), ids, artifacts,
-                               next_page_token);
-
-  } else {
-    return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *artifacts);
-  }
+  return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *artifacts);
 }
 
 tensorflow::Status RDBMSMetadataAccessObject::FindArtifacts(
@@ -1316,35 +1286,26 @@ tensorflow::Status RDBMSMetadataAccessObject::FindArtifacts(
 
 template <>
 tensorflow::Status RDBMSMetadataAccessObject::ListNodeIds(
-    const ListOperationOptions& options,
-    const absl::Span<const int64> candidate_ids, RecordSet* record_set,
-    Artifact* tag) {
-  return executor_->ListArtifactIDsUsingOptions(options, candidate_ids,
-                                                record_set);
+    const ListOperationOptions& options, RecordSet* record_set, Artifact* tag) {
+  return executor_->ListArtifactIDsUsingOptions(options, record_set);
 }
 
 template <>
 tensorflow::Status RDBMSMetadataAccessObject::ListNodeIds(
-    const ListOperationOptions& options,
-    const absl::Span<const int64> candidate_ids, RecordSet* record_set,
+    const ListOperationOptions& options, RecordSet* record_set,
     Execution* tag) {
-  return executor_->ListExecutionIDsUsingOptions(options, candidate_ids,
-                                                 record_set);
+  return executor_->ListExecutionIDsUsingOptions(options, record_set);
 }
 
 template <>
 tensorflow::Status RDBMSMetadataAccessObject::ListNodeIds(
-    const ListOperationOptions& options,
-    const absl::Span<const int64> candidate_ids, RecordSet* record_set,
-    Context* tag) {
-  return executor_->ListContextIDsUsingOptions(options, candidate_ids,
-                                               record_set);
+    const ListOperationOptions& options, RecordSet* record_set, Context* tag) {
+  return executor_->ListContextIDsUsingOptions(options, record_set);
 }
 
 template <typename Node>
 tensorflow::Status RDBMSMetadataAccessObject::ListNodes(
-    const ListOperationOptions& options,
-    const absl::Span<const int64> candidate_ids, std::vector<Node>* nodes,
+    const ListOperationOptions& options, std::vector<Node>* nodes,
     std::string* next_page_token) {
   if (options.max_result_size() <= 0) {
     return tensorflow::errors::InvalidArgument(
@@ -1361,8 +1322,7 @@ tensorflow::Status RDBMSMetadataAccessObject::ListNodes(
 
   // Retrieve ids based on the list options
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(
-      ListNodeIds<Node>(updated_options, candidate_ids, &record_set));
+  TF_RETURN_IF_ERROR(ListNodeIds<Node>(updated_options, &record_set));
   const std::vector<int64> ids = ConvertToIds(record_set);
   if (ids.empty()) {
     return tensorflow::Status::OK();
@@ -1397,22 +1357,19 @@ tensorflow::Status RDBMSMetadataAccessObject::ListNodes(
 tensorflow::Status RDBMSMetadataAccessObject::ListArtifacts(
     const ListOperationOptions& options, std::vector<Artifact>* artifacts,
     std::string* next_page_token) {
-  return ListNodes<Artifact>(options, /*candidate_ids=*/{}, artifacts,
-                             next_page_token);
+  return ListNodes<Artifact>(options, artifacts, next_page_token);
 }
 
 tensorflow::Status RDBMSMetadataAccessObject::ListExecutions(
     const ListOperationOptions& options, std::vector<Execution>* executions,
     std::string* next_page_token) {
-  return ListNodes<Execution>(options, /*candidate_ids=*/{}, executions,
-                              next_page_token);
+  return ListNodes<Execution>(options, executions, next_page_token);
 }
 
 tensorflow::Status RDBMSMetadataAccessObject::ListContexts(
     const ListOperationOptions& options, std::vector<Context>* contexts,
     std::string* next_page_token) {
-  return ListNodes<Context>(options, /*candidate_ids=*/{}, contexts,
-                            next_page_token);
+  return ListNodes<Context>(options, contexts, next_page_token);
 }
 
 tensorflow::Status

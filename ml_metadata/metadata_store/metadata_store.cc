@@ -21,9 +21,7 @@ limitations under the License.
 #include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
-#include "absl/types/optional.h"
 #include "ml_metadata/metadata_store/metadata_access_object_factory.h"
-#include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
 #include "tensorflow/core/lib/core/errors.h"
 
@@ -1188,22 +1186,11 @@ tensorflow::Status MetadataStore::GetArtifactsByContext(
       [this, &request, &response]() -> tensorflow::Status {
         response->Clear();
         std::vector<Artifact> artifacts;
-        tensorflow::Status status;
-        std::string next_page_token;
-        auto list_options = request.has_options()
-                                ? absl::make_optional(request.options())
-                                : absl::nullopt;
         TF_RETURN_IF_ERROR(metadata_access_object_->FindArtifactsByContext(
-            request.context_id(), list_options, &artifacts, &next_page_token));
-
+            request.context_id(), &artifacts));
         for (const Artifact& artifact : artifacts) {
           *response->mutable_artifacts()->Add() = artifact;
         }
-
-        if (!next_page_token.empty()) {
-          response->set_next_page_token(next_page_token);
-        }
-
         return tensorflow::Status::OK();
       });
 }
@@ -1215,23 +1202,11 @@ tensorflow::Status MetadataStore::GetExecutionsByContext(
       [this, &request, &response]() -> tensorflow::Status {
         response->Clear();
         std::vector<Execution> executions;
-        tensorflow::Status status;
-        std::string next_page_token;
-        auto list_options = request.has_options()
-                                ? absl::make_optional(request.options())
-                                : absl::nullopt;
-
         TF_RETURN_IF_ERROR(metadata_access_object_->FindExecutionsByContext(
-            request.context_id(), list_options, &executions, &next_page_token));
-
+            request.context_id(), &executions));
         for (const Execution& execution : executions) {
           *response->mutable_executions()->Add() = execution;
         }
-
-        if (!next_page_token.empty()) {
-          response->set_next_page_token(next_page_token);
-        }
-
         return tensorflow::Status::OK();
       });
 }

@@ -502,16 +502,13 @@ class QueryConfigExecutor : public QueryExecutor {
       const int64 to_schema_version) final;
 
   tensorflow::Status ListArtifactIDsUsingOptions(
-      const ListOperationOptions& options,
-      const absl::Span<const int64> candidate_ids, RecordSet* record_set) final;
+      const ListOperationOptions& options, RecordSet* record_set) final;
 
   tensorflow::Status ListExecutionIDsUsingOptions(
-      const ListOperationOptions& options,
-      const absl::Span<const int64> candidate_ids, RecordSet* record_set) final;
+      const ListOperationOptions& options, RecordSet* record_set) final;
 
   tensorflow::Status ListContextIDsUsingOptions(
-      const ListOperationOptions& options,
-      const absl::Span<const int64> candidate_ids, RecordSet* record_set) final;
+      const ListOperationOptions& options, RecordSet* record_set) final;
 
 
  private:
@@ -652,15 +649,12 @@ class QueryConfigExecutor : public QueryExecutor {
   // TODO(martinz): consider promoting to MetadataAccessObject.
   tensorflow::Status UpgradeMetadataSourceIfOutOfDate(bool enable_migration);
 
-  // List Node IDs using `options` and `candidate_ids`. Template parameter
-  // `Node` specifies the table to use for listing. If `candidate_ids` is not
-  // empty then result set is constructed using only ids specified in
-  // `candidate_ids`.
+  // List Node IDs using `options`. Template parameter `Node` specifies the
+  // table to use for listing.
   // On success `record_set` is updated with Node IDs.
   template <typename Node>
   tensorflow::Status ListNodeIDsUsingOptions(
-      const ListOperationOptions& options,
-      const absl::Span<const int64> candidate_ids, RecordSet* record_set);
+      const ListOperationOptions& options, RecordSet* record_set);
 
   MetadataSourceQueryConfig query_config_;
 

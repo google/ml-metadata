@@ -553,38 +553,18 @@ message GetChildrenContextsByContextResponse {
 
 message GetArtifactsByContextRequest {
   optional int64 context_id = 1;
-
-  // Specify List options.
-  // Currently supports:
-  //   1. Field to order the results.
-  //   2. Page size.
-  optional ListOperationOptions options = 2;
 }
 
 message GetArtifactsByContextResponse {
   repeated Artifact artifacts = 1;
-
-  // Token to use to retreive next page of results if list options are used in
-  // the request.
-  optional string next_page_token = 2;
 }
 
 message GetExecutionsByContextRequest {
   optional int64 context_id = 1;
-
-  // Specify List options.
-  // Currently supports:
-  //   1. Field to order the results.
-  //   2. Page size.
-  optional ListOperationOptions options = 2;
 }
 
 message GetExecutionsByContextResponse {
   repeated Execution executions = 1;
-
-  // Token to use to retreive next page of results if list options are used in
-  // the request.
-  optional string next_page_token = 2;
 }
 
 

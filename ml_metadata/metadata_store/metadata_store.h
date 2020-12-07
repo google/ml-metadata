@@ -372,15 +372,13 @@ class MetadataStore : public MetadataStoreServiceInterface {
       const GetContextsByExecutionRequest& request,
       GetContextsByExecutionResponse* response) override;
 
-  // Gets all direct artifacts using list options that a context attributes to.
-  // If option is not set in the request, then all artifacts are returned.
+  // Gets all direct artifacts that a context attributes to.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetArtifactsByContext(
       const GetArtifactsByContextRequest& request,
       GetArtifactsByContextResponse* response) override;
 
-  // Gets direct executions using list options that a context associates with.
-  // If option is not set in the request, then all executions are returned.
+  // Gets all direct executions that a context associates with.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetExecutionsByContext(
       const GetExecutionsByContextRequest& request,

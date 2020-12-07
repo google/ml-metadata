@@ -38,7 +38,11 @@ cc_library(
     ],
     deps = [
         ":metadata_source",
-        "@com_google_absl//absl/types:optional",
+        "@com_google_protobuf//:protobuf",
+        
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:span",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
@@ -62,6 +66,7 @@ cc_library(
         "rdbms_metadata_access_object.h",
     ],
     deps = [
+        ":constants",
         ":list_operation_util",
         ":metadata_access_object_base",
         ":metadata_source",
@@ -72,7 +77,6 @@ cc_library(
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
-        "@com_google_absl//absl/types:optional",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
         "@org_tensorflow//tensorflow/core:lib",
@@ -175,7 +179,6 @@ cc_library(
         ":query_config_executor",
         ":rdbms_metadata_access_object",
         "@com_google_absl//absl/memory",
-        "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
@@ -251,7 +254,6 @@ cc_library(
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/memory",
-        "@com_google_absl//absl/types:optional",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/proto:metadata_store_service_proto",
         "@org_tensorflow//tensorflow/core:lib",
@@ -306,7 +308,6 @@ cc_library(
     ],
     deps = [
         ":types",
-        "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",

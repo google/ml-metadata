@@ -1062,23 +1062,12 @@ class MetadataStore(object):
     """
     request = metadata_store_service_pb2.GetArtifactsByContextRequest()
     request.context_id = context_id
-    request.options.max_result_size = 100
-    request.options.order_by_field.field = (
-        metadata_store_pb2.ListOperationOptions.OrderByField.Field.CREATE_TIME)
-    request.options.order_by_field.is_asc = False
+    response = metadata_store_service_pb2.GetArtifactsByContextResponse()
 
+    self._call('GetArtifactsByContext', request, response)
     result = []
-    while True:
-      response = metadata_store_service_pb2.GetArtifactsByContextResponse()
-      self._call('GetArtifactsByContext', request, response)
-      for x in response.artifacts:
-        result.append(x)
-
-      if not response.next_page_token:
-        break
-
-      request.options.next_page_token = response.next_page_token
-
+    for x in response.artifacts:
+      result.append(x)
     return result
 
   def get_executions_by_context(
@@ -1093,23 +1082,12 @@ class MetadataStore(object):
     """
     request = metadata_store_service_pb2.GetExecutionsByContextRequest()
     request.context_id = context_id
-    request.options.max_result_size = 100
-    request.options.order_by_field.field = (
-        metadata_store_pb2.ListOperationOptions.OrderByField.Field.CREATE_TIME)
-    request.options.order_by_field.is_asc = False
+    response = metadata_store_service_pb2.GetExecutionsByContextResponse()
 
+    self._call('GetExecutionsByContext', request, response)
     result = []
-    while True:
-      response = metadata_store_service_pb2.GetExecutionsByContextResponse()
-      self._call('GetExecutionsByContext', request, response)
-      for x in response.executions:
-        result.append(x)
-
-      if not response.next_page_token:
-        break
-
-      request.options.next_page_token = response.next_page_token
-
+    for x in response.executions:
+      result.append(x)
     return result
 
   def get_events_by_execution_ids(

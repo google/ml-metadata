@@ -478,8 +478,7 @@ tensorflow::Status QueryConfigExecutor::InsertExecutionType(
 
 template <typename Node>
 tensorflow::Status QueryConfigExecutor::ListNodeIDsUsingOptions(
-    const ListOperationOptions& options,
-    const absl::Span<const int64> candidate_ids, RecordSet* record_set) {
+    const ListOperationOptions& options, RecordSet* record_set) {
   int64 id_offset, field_offset;
   if (!options.next_page_token().empty()) {
     ListOperationNextPageToken next_page_token;
@@ -504,12 +503,6 @@ tensorflow::Status QueryConfigExecutor::ListNodeIDsUsingOptions(
     return tensorflow::errors::InvalidArgument(
         "Invalid Node passed to ListNodeIDsUsingOptions");
   }
-
-  if (!candidate_ids.empty()) {
-    absl::SubstituteAndAppend(&sql_query, " `id` IN ($0) AND ",
-                              Bind(candidate_ids));
-  }
-
   TF_RETURN_IF_ERROR(AppendOrderingThresholdClause(options, id_offset,
                                                    field_offset, sql_query));
   TF_RETURN_IF_ERROR(AppendOrderByClause(options, sql_query));
@@ -518,21 +511,18 @@ tensorflow::Status QueryConfigExecutor::ListNodeIDsUsingOptions(
 }
 
 tensorflow::Status QueryConfigExecutor::ListArtifactIDsUsingOptions(
-    const ListOperationOptions& options,
-    const absl::Span<const int64> candidate_ids, RecordSet* record_set) {
-  return ListNodeIDsUsingOptions<Artifact>(options, candidate_ids, record_set);
+    const ListOperationOptions& options, RecordSet* record_set) {
+  return ListNodeIDsUsingOptions<Artifact>(options, record_set);
 }
 
 tensorflow::Status QueryConfigExecutor::ListExecutionIDsUsingOptions(
-    const ListOperationOptions& options,
-    const absl::Span<const int64> candidate_ids, RecordSet* record_set) {
-  return ListNodeIDsUsingOptions<Execution>(options, candidate_ids, record_set);
+    const ListOperationOptions& options, RecordSet* record_set) {
+  return ListNodeIDsUsingOptions<Execution>(options, record_set);
 }
 
 tensorflow::Status QueryConfigExecutor::ListContextIDsUsingOptions(
-    const ListOperationOptions& options,
-    const absl::Span<const int64> candidate_ids, RecordSet* record_set) {
-  return ListNodeIDsUsingOptions<Context>(options, candidate_ids, record_set);
+    const ListOperationOptions& options, RecordSet* record_set) {
+  return ListNodeIDsUsingOptions<Context>(options, record_set);
 }
 
 

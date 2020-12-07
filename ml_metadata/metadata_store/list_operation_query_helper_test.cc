@@ -106,7 +106,7 @@ TEST(ListOperationQueryHelperTest, LimitOverMaxClause) {
   options.set_max_result_size(200);
   std::string limit_clause;
   TF_ASSERT_OK(AppendLimitClause(options, limit_clause));
-  EXPECT_EQ(limit_clause, " LIMIT 101 ");
+  EXPECT_EQ(limit_clause, " LIMIT 100 ");
 }
 
 TEST(ListOperationQueryHelperTest, InvalidLimit) {
@@ -116,5 +116,6 @@ TEST(ListOperationQueryHelperTest, InvalidLimit) {
   EXPECT_EQ(AppendLimitClause(options, limit_clause).code(),
             tensorflow::error::INVALID_ARGUMENT);
 }
+
 }  // namespace
 }  // namespace ml_metadata

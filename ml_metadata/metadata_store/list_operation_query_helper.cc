@@ -107,8 +107,8 @@ tensorflow::Status AppendLimitClause(const ListOperationOptions& options,
                      options.max_result_size()));
   }
 
-  const int max_result_size = std::min(options.max_result_size(),
-                                       kDefaultMaxListOperationResultSize + 1);
+  const int max_result_size =
+      std::min(options.max_result_size(), kDefaultMaxListOperationResultSize);
   absl::SubstituteAndAppend(&sql_query_clause, " LIMIT $0 ", max_result_size);
   return tensorflow::Status::OK();
 }
