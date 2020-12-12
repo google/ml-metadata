@@ -17,11 +17,13 @@ Provides access to a SQLite3 or a MySQL backend. Artifact types and execution
 types can be created on the fly.
 """
 
+import enum
 import random
 import time
 from typing import Iterable, List, Optional, Sequence, Text, Tuple, Union
 
 from absl import logging
+import attr
 import grpc
 
 from ml_metadata import errors
@@ -29,6 +31,36 @@ from ml_metadata.metadata_store import pywrap_tf_metadata_store_serialized as me
 from ml_metadata.proto import metadata_store_pb2
 from ml_metadata.proto import metadata_store_service_pb2
 from ml_metadata.proto import metadata_store_service_pb2_grpc
+
+
+@enum.unique
+class OrderByField(enum.Enum):
+  """Defines the available fields to order results in ListOperations."""
+
+  CREATE_TIME = (
+      metadata_store_pb2.ListOperationOptions.OrderByField.Field.CREATE_TIME)
+  UPDATE_TIME = (
+      metadata_store_pb2.ListOperationOptions.OrderByField.Field
+      .LAST_UPDATE_TIME)
+  ID = metadata_store_pb2.ListOperationOptions.OrderByField.Field.ID
+
+
+@attr.s(auto_attribs=True)
+class ListOptions(object):
+  """Defines the available options when listing nodes.
+
+    limit: The maximum size of the result. If a value is not specified then
+        all artifacts are returned.
+    order_by: The field to order the results. If the field is not
+        provided, then the order is up to the database backend implementation.
+    is_asc: Specifies `order_by` is ascending or descending. If `order_by`
+      is not given, the field is ignored. If `order_by` is set, then by
+      default descending order is used.
+  """
+
+  limit: Optional[int] = None
+  order_by: Optional[OrderByField] = None
+  is_asc: bool = False
 
 
 class MetadataStore(object):
@@ -815,22 +847,62 @@ class MetadataStore(object):
       result.append(x)
     return result
 
-  def get_artifacts(self) -> List[metadata_store_pb2.Artifact]:
-    """Gets all artifacts.
+  def get_artifacts(
+      self,
+      list_options: Optional[ListOptions] = None
+  ) -> List[metadata_store_pb2.Artifact]:
+    """Gets artifacts.
+
+    Args:
+      list_options: A set of options to limit the size and adjust order of the
+        returned artifacts.
 
     Returns:
-      A list of all artifacts.
+      A list of artifacts.
 
     Raises:
       InternalError: if query execution fails.
+      InvalidArgument: if list_options is invalid.
     """
-    request = metadata_store_service_pb2.GetArtifactsRequest()
-    response = metadata_store_service_pb2.GetArtifactsResponse()
 
-    self._call('GetArtifacts', request, response)
+    if list_options:
+      if list_options.limit and list_options.limit < 1:
+        raise _make_exception(
+            'Invalid list_options.limit value passed. list_options.limit is '
+            'expected to be greater than 1', errors.INVALID_ARGUMENT)
+
+    request = metadata_store_service_pb2.GetArtifactsRequest()
+    return_size = None
+    if list_options:
+      request.options.max_result_size = 100
+      request.options.order_by_field.is_asc = list_options.is_asc
+      if list_options.limit:
+        return_size = list_options.limit
+      if list_options.order_by:
+        request.options.order_by_field.field = list_options.order_by.value
+
     result = []
-    for x in response.artifacts:
-      result.append(x)
+    while True:
+      response = metadata_store_service_pb2.GetArtifactsResponse()
+      # Updating request max_result_size option to optimize and avoid
+      # discarding returned results.
+      if return_size and return_size < 100:
+        request.options.max_result_size = return_size
+
+      self._call('GetArtifacts', request, response)
+      for x in response.artifacts:
+        result.append(x)
+
+      if return_size:
+        return_size = return_size - len(response.artifacts)
+        if return_size <= 0:
+          break
+
+      if not response.HasField('next_page_token'):
+        break
+
+      request.options.next_page_token = response.next_page_token
+
     return result
 
   def get_contexts(self) -> List[metadata_store_pb2.Context]:

@@ -2,7 +2,13 @@
 
 ## Major Features and Improvements
 
+*   Exposes limit and order_by parameters to get_artifacts API in python
+    MetadataStore client to allow users to specify the maximum artifacts to
+    retrieve and the field the results to be ordered by.
+
 ## Bug Fixes and Other Changes
+
+*   Adds `attrs` as py client dependency.
 
 ## Breaking changes
 

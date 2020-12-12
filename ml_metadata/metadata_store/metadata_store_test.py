@@ -384,6 +384,53 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertEqual(artifact_result_0.properties["foo"].int_value, 3)
     self.assertEqual(artifact_result_1.id, artifact_id_1)
 
+  def test_get_artifacts_by_limit(self):
+    store = _get_metadata_store()
+    artifact_type = _create_example_artifact_type(self._get_test_type_name())
+    type_id = store.put_artifact_type(artifact_type)
+
+    artifact = metadata_store_pb2.Artifact(type_id=type_id)
+    artifact_ids = store.put_artifacts([artifact, artifact, artifact])
+
+    got_artifacts = store.get_artifacts(
+        list_options=metadata_store.ListOptions(limit=2))
+    self.assertLen(got_artifacts, 2)
+    self.assertEqual(got_artifacts[0].id, artifact_ids[2])
+    self.assertEqual(got_artifacts[1].id, artifact_ids[1])
+
+  def test_get_artifacts_by_paged_limit(self):
+    store = _get_metadata_store()
+    artifact_type = _create_example_artifact_type(self._get_test_type_name())
+    type_id = store.put_artifact_type(artifact_type)
+
+    artifact_ids = store.put_artifacts(
+        [metadata_store_pb2.Artifact(type_id=type_id) for i in range(200)])
+
+    got_artifacts = store.get_artifacts(
+        list_options=metadata_store.ListOptions(limit=103))
+    self.assertLen(got_artifacts, 103)
+    for i in range(103):
+      self.assertEqual(got_artifacts[i].id, artifact_ids[199 - i])
+
+  def test_get_artifacts_by_order_by_field(self):
+    store = _get_metadata_store()
+    artifact_type = _create_example_artifact_type(self._get_test_type_name())
+    type_id = store.put_artifact_type(artifact_type)
+
+    artifact_ids = store.put_artifacts(
+        [metadata_store_pb2.Artifact(type_id=type_id) for i in range(200)])
+
+    # Note: We don't test for is_asc = true as the current test infrastructure
+    # does not support ascending ordering as it reuses MySQL instance across
+    # tests.
+    got_artifacts = store.get_artifacts(
+        list_options=metadata_store.ListOptions(
+            limit=103, order_by=metadata_store.OrderByField.ID))
+
+    self.assertLen(got_artifacts, 103)
+    for i in range(103):
+      self.assertEqual(got_artifacts[i].id, artifact_ids[199 - i])
+
   def test_put_artifacts_get_artifacts_by_type(self):
     store = _get_metadata_store()
     artifact_type = _create_example_artifact_type(self._get_test_type_name())
