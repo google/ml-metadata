@@ -680,6 +680,50 @@ class MetadataStoreTest(parameterized.TestCase):
                      "Goodbye")
     self.assertEqual(execution_result_1.properties["foo"].int_value, -9)
 
+  def test_get_executions_by_limit(self):
+    store = _get_metadata_store()
+    execution_type = _create_example_execution_type(self._get_test_type_name())
+    type_id = store.put_execution_type(execution_type)
+
+    execution = metadata_store_pb2.Execution(type_id=type_id)
+    execution_ids = store.put_executions([execution, execution, execution])
+
+    got_executions = store.get_executions(
+        list_options=metadata_store.ListOptions(limit=2))
+    self.assertLen(got_executions, 2)
+    self.assertEqual(got_executions[0].id, execution_ids[2])
+    self.assertEqual(got_executions[1].id, execution_ids[1])
+
+  def test_get_executions_by_paged_limit(self):
+    store = _get_metadata_store()
+    execution_type = _create_example_execution_type(self._get_test_type_name())
+    type_id = store.put_execution_type(execution_type)
+
+    execution_ids = store.put_executions(
+        [metadata_store_pb2.Execution(type_id=type_id) for i in range(200)])
+
+    got_executions = store.get_executions(
+        list_options=metadata_store.ListOptions(limit=103))
+    self.assertLen(got_executions, 103)
+    for i in range(103):
+      self.assertEqual(got_executions[i].id, execution_ids[199 - i])
+
+  def test_get_executions_by_order_by_field(self):
+    store = _get_metadata_store()
+    execution_type = _create_example_execution_type(self._get_test_type_name())
+    type_id = store.put_execution_type(execution_type)
+
+    execution_ids = store.put_executions(
+        [metadata_store_pb2.Execution(type_id=type_id) for i in range(200)])
+
+    got_executions = store.get_executions(
+        list_options=metadata_store.ListOptions(
+            limit=103, order_by=metadata_store.OrderByField.ID))
+
+    self.assertLen(got_executions, 103)
+    for i in range(103):
+      self.assertEqual(got_executions[i].id, execution_ids[199 - i])
+
   def test_puts_executions_duplicated_name_with_the_same_type(self):
     store = _get_metadata_store()
     with self.assertRaises(errors.AlreadyExistsError):
@@ -1144,6 +1188,62 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertEqual(context_result_0.properties["bar"].string_value, "Hello")
     self.assertEqual(context_result_1.name, context_1_name)
     self.assertEqual(context_result_1.properties["foo"].int_value, -9)
+
+  def test_get_contexts_by_limit(self):
+    store = _get_metadata_store()
+    context_type = _create_example_context_type(self._get_test_type_name())
+    type_id = store.put_context_type(context_type)
+
+    context_ids = store.put_contexts([
+        metadata_store_pb2.Context(
+            name=self._get_test_type_name(), type_id=type_id),
+        metadata_store_pb2.Context(
+            name=self._get_test_type_name(), type_id=type_id),
+        metadata_store_pb2.Context(
+            name=self._get_test_type_name(), type_id=type_id)
+    ])
+
+    got_contexts = store.get_contexts(
+        list_options=metadata_store.ListOptions(limit=2))
+    self.assertLen(got_contexts, 2)
+    self.assertEqual(got_contexts[0].id, context_ids[2])
+    self.assertEqual(got_contexts[1].id, context_ids[1])
+
+  def test_get_contexts_by_paged_limit(self):
+    store = _get_metadata_store()
+    context_type = _create_example_context_type(self._get_test_type_name())
+    type_id = store.put_context_type(context_type)
+
+    context_ids = store.put_contexts([
+        metadata_store_pb2.Context(
+            name=self._get_test_type_name(), type_id=type_id)
+        for i in range(200)
+    ])
+
+    got_contexts = store.get_contexts(
+        list_options=metadata_store.ListOptions(limit=103))
+    self.assertLen(got_contexts, 103)
+    for i in range(103):
+      self.assertEqual(got_contexts[i].id, context_ids[199 - i])
+
+  def test_get_contexts_by_order_by_field(self):
+    store = _get_metadata_store()
+    context_type = _create_example_context_type(self._get_test_type_name())
+    type_id = store.put_context_type(context_type)
+
+    context_ids = store.put_contexts([
+        metadata_store_pb2.Context(
+            name=self._get_test_type_name(), type_id=type_id)
+        for i in range(200)
+    ])
+
+    got_contexts = store.get_contexts(
+        list_options=metadata_store.ListOptions(
+            limit=103, order_by=metadata_store.OrderByField.ID))
+
+    self.assertLen(got_contexts, 103)
+    for i in range(103):
+      self.assertEqual(got_contexts[i].id, context_ids[199 - i])
 
   def test_put_contexts_get_context_by_type_and_name(self):
     # Prepare test data.

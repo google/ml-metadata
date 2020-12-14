@@ -829,22 +829,61 @@ class MetadataStore(object):
       result.append(x)
     return result
 
-  def get_executions(self) -> List[metadata_store_pb2.Execution]:
-    """Gets all executions.
+  def get_executions(
+      self,
+      list_options: Optional[ListOptions] = None
+  ) -> List[metadata_store_pb2.Execution]:
+    """Gets executions.
+
+    Args:
+      list_options: A set of options to limit the size and adjust order of the
+        returned executions.
 
     Returns:
-      A list of all executions.
+      A list of executions.
 
     Raises:
       InternalError: if query execution fails.
+      InvalidArgument: if list_options is invalid.
     """
-    request = metadata_store_service_pb2.GetExecutionsRequest()
-    response = metadata_store_service_pb2.GetExecutionsResponse()
+    if list_options:
+      if list_options.limit and list_options.limit < 1:
+        raise _make_exception(
+            'Invalid list_options.limit value passed. list_options.limit '
+            'is expected to be greater than 1', errors.INVALID_ARGUMENT)
 
-    self._call('GetExecutions', request, response)
+    request = metadata_store_service_pb2.GetExecutionsRequest()
+    return_size = None
+    if list_options:
+      request.options.max_result_size = 100
+      request.options.order_by_field.is_asc = list_options.is_asc
+      if list_options.limit:
+        return_size = list_options.limit
+      if list_options.order_by:
+        request.options.order_by_field.field = list_options.order_by.value
+
     result = []
-    for x in response.executions:
-      result.append(x)
+    while True:
+      response = metadata_store_service_pb2.GetExecutionsResponse()
+      # Updating request max_result_size option to optimize and avoid
+      # discarding returned results.
+      if return_size and return_size < 100:
+        request.options.max_result_size = return_size
+
+      self._call('GetExecutions', request, response)
+      for x in response.executions:
+        result.append(x)
+
+      if return_size:
+        return_size = return_size - len(response.executions)
+        if return_size <= 0:
+          break
+
+      if not response.HasField('next_page_token'):
+        break
+
+      request.options.next_page_token = response.next_page_token
+
     return result
 
   def get_artifacts(
@@ -905,22 +944,61 @@ class MetadataStore(object):
 
     return result
 
-  def get_contexts(self) -> List[metadata_store_pb2.Context]:
-    """Gets all contexts.
+  def get_contexts(
+      self,
+      list_options: Optional[ListOptions] = None
+  ) -> List[metadata_store_pb2.Context]:
+    """Gets contexts.
+
+    Args:
+      list_options: A set of options to limit the size and adjust order of the
+        returned contexts.
 
     Returns:
-      A list of all contexts.
+      A list of contexts.
 
     Raises:
       InternalError: if query execution fails.
+      InvalidArgument: if list_options is invalid.
     """
-    request = metadata_store_service_pb2.GetContextsRequest()
-    response = metadata_store_service_pb2.GetContextsResponse()
+    if list_options:
+      if list_options.limit and list_options.limit < 1:
+        raise _make_exception(
+            'Invalid list_options.limit value passed. list_options.limit '
+            'is expected to be greater than 1', errors.INVALID_ARGUMENT)
 
-    self._call('GetContexts', request, response)
+    request = metadata_store_service_pb2.GetContextsRequest()
+    return_size = None
+    if list_options:
+      request.options.max_result_size = 100
+      request.options.order_by_field.is_asc = list_options.is_asc
+      if list_options.limit:
+        return_size = list_options.limit
+      if list_options.order_by:
+        request.options.order_by_field.field = list_options.order_by.value
+
     result = []
-    for x in response.contexts:
-      result.append(x)
+    while True:
+      response = metadata_store_service_pb2.GetContextsResponse()
+      # Updating request max_result_size option to optimize and avoid
+      # discarding returned results.
+      if return_size and return_size < 100:
+        request.options.max_result_size = return_size
+
+      self._call('GetContexts', request, response)
+      for x in response.contexts:
+        result.append(x)
+
+      if return_size:
+        return_size = return_size - len(response.contexts)
+        if return_size <= 0:
+          break
+
+      if not response.HasField('next_page_token'):
+        break
+
+      request.options.next_page_token = response.next_page_token
+
     return result
 
   def get_contexts_by_id(
