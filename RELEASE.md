@@ -2,6 +2,16 @@
 
 ## Major Features and Improvements
 
+## Bug Fixes and Other Changes
+
+## Breaking changes
+
+## Deprecations
+
+# Release 0.26.0
+
+## Major Features and Improvements
+
 *   Exposes limit and order_by parameters to get_artifacts, get_executions and
     get_contexts API in python MetadataStore client to allow users to specify
     the maximum results to retrieve and the field the results to be ordered by.
@@ -12,7 +22,11 @@
 
 ## Breaking changes
 
+*   N/A
+
 ## Deprecations
+
+*   N/A
 
 # Release 0.25.1
 
