@@ -181,6 +181,7 @@ namespace {
 using ::ml_metadata::testing::ParseTextProtoOrDie;
 using ::testing::ElementsAre;
 using ::testing::IsEmpty;
+using ::testing::Pointwise;
 using ::testing::SizeIs;
 using ::testing::UnorderedElementsAre;
 using ::testing::UnorderedPointwise;
