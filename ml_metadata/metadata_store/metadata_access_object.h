@@ -143,6 +143,26 @@ class MetadataAccessObject {
   virtual tensorflow::Status FindTypes(
       std::vector<ContextType>* context_types) = 0;
 
+  // Creates a parent type, returns OK if successful.
+  // Returns INVALID_ARGUMENT error, if type or parent_type does not have id.
+  // Returns INVALID_ARGUMENT error, if type and parent_type introduces cycle.
+  // Returns ALREADY_EXISTS error, if the same ParentType record already exists.
+  virtual tensorflow::Status CreateParentTypeInheritanceLink(
+      const ArtifactType& type, const ArtifactType& parent_type) = 0;
+  virtual tensorflow::Status CreateParentTypeInheritanceLink(
+      const ExecutionType& type, const ExecutionType& parent_type) = 0;
+  virtual tensorflow::Status CreateParentTypeInheritanceLink(
+      const ContextType& type, const ContextType& parent_type) = 0;
+
+  // Queries the parent types of a type_id.
+  // Returns NOT_FOUND error, if the given type_id is missing.
+  virtual tensorflow::Status FindParentTypesByTypeId(
+      int64 type_id, std::vector<ArtifactType>& output_parent_types) = 0;
+  virtual tensorflow::Status FindParentTypesByTypeId(
+      int64 type_id, std::vector<ExecutionType>& output_parent_types) = 0;
+  virtual tensorflow::Status FindParentTypesByTypeId(
+      int64 type_id, std::vector<ContextType>& output_parent_types) = 0;
+
   // Creates an artifact, returns the assigned artifact id. The id field of the
   // artifact is ignored.
   // Returns INVALID_ARGUMENT error, if the ArtifactType is not given.

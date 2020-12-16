@@ -33,7 +33,24 @@ limitations under the License.
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status.h"
+
 namespace ml_metadata {
+
+tensorflow::Status QueryConfigExecutor::CheckParentTypeTable() {
+  return ExecuteQuery(query_config_.check_parent_type_table());
+}
+
+tensorflow::Status QueryConfigExecutor::InsertParentType(int64 type_id,
+                                                         int64 parent_type_id) {
+  return ExecuteQuery(query_config_.insert_parent_type(),
+                      {Bind(type_id), Bind(parent_type_id)});
+}
+
+tensorflow::Status QueryConfigExecutor::SelectParentTypesByTypeID(
+    int64 type_id, RecordSet* record_set) {
+  return ExecuteQuery(query_config_.select_parent_type_by_type_id(),
+                      {Bind(type_id)}, record_set);
+}
 
 tensorflow::Status QueryConfigExecutor::InsertEventPath(
     int64 event_id, const Event::Path::Step& step) {
@@ -52,6 +69,29 @@ tensorflow::Status QueryConfigExecutor::InsertEventPath(
         {Bind(event_id), "step_key", Bind(false), Bind(step.key())});
   }
   return tensorflow::Status::OK();
+}
+
+tensorflow::Status QueryConfigExecutor::CheckParentContextTable() {
+  return ExecuteQuery(query_config_.check_parent_context_table());
+}
+
+tensorflow::Status QueryConfigExecutor::InsertParentContext(int64 parent_id,
+                                                            int64 child_id) {
+  return ExecuteQuery(query_config_.insert_parent_context(),
+                      {Bind(child_id), Bind(parent_id)});
+}
+
+tensorflow::Status QueryConfigExecutor::SelectParentContextsByContextID(
+    int64 context_id, RecordSet* record_set) {
+  return ExecuteQuery(query_config_.select_parent_context_by_context_id(),
+                      {Bind(context_id)}, record_set);
+}
+
+tensorflow::Status QueryConfigExecutor::SelectChildContextsByContextID(
+    int64 context_id, RecordSet* record_set) {
+  return ExecuteQuery(
+      query_config_.select_parent_context_by_parent_context_id(),
+      {Bind(context_id)}, record_set);
 }
 
 tensorflow::Status QueryConfigExecutor::GetSchemaVersion(int64* db_version) {

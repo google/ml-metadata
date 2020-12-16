@@ -93,6 +93,16 @@ R"pb(
     query: " SELECT `type_id`, `parent_type_id` "
            " FROM `ParentType` LIMIT 1; "
   }
+  insert_parent_type {
+    query: " INSERT INTO `ParentType`(`type_id`, `parent_type_id`) "
+           " VALUES($0, $1);"
+    parameter_num: 2
+  }
+  select_parent_type_by_type_id {
+    query: " SELECT `type_id`, `parent_type_id` "
+           " FROM `ParentType` WHERE `type_id` = $0; "
+    parameter_num: 1
+  }
   drop_type_property_table { query: " DROP TABLE IF EXISTS `TypeProperty`; " }
   create_type_property_table {
     query: " CREATE TABLE IF NOT EXISTS `TypeProperty` ( "

@@ -186,6 +186,18 @@ using ::testing::SizeIs;
 using ::testing::UnorderedElementsAre;
 using ::testing::UnorderedPointwise;
 
+// A utility method creates and stores a type based on the given text proto.
+// Returns stored type proto with id.
+template <class NodeType>
+NodeType CreateTypeFromTextProto(const std::string& type_text_proto,
+                                 MetadataAccessObject& metadata_access_object) {
+  NodeType type = ParseTextProtoOrDie<NodeType>(type_text_proto);
+  int64 type_id;
+  TF_CHECK_OK(metadata_access_object.CreateType(type, &type_id));
+  type.set_id(type_id);
+  return type;
+}
+
 TEST_P(MetadataAccessObjectTest, InitMetadataSourceCheckSchemaVersion) {
   TF_ASSERT_OK(Init());
   int64 schema_version;
@@ -274,6 +286,298 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceSchemaVersionMismatch2) {
     tensorflow::Status s =
         metadata_access_object_->InitMetadataSourceIfNotExists();
     EXPECT_EQ(s.code(), tensorflow::error::FAILED_PRECONDITION);
+  }
+}
+
+TEST_P(MetadataAccessObjectTest, CreateParentTypeInheritanceLink) {
+  if (!metadata_access_object_container_->HasParentTypeSupport()) {
+    return;
+  }
+  TF_ASSERT_OK(Init());
+
+  {
+    // Test: create artifact parent type inheritance link
+    const ArtifactType type1 = CreateTypeFromTextProto<ArtifactType>(
+        "name: 't1'", *metadata_access_object_);
+    const ArtifactType type2 = CreateTypeFromTextProto<ArtifactType>(
+        "name: 't2'", *metadata_access_object_);
+    // create parent type is ok.
+    TF_ASSERT_OK(
+        metadata_access_object_->CreateParentTypeInheritanceLink(type1, type2));
+    // recreate the same parent type returns AlreadyExists
+    const tensorflow::Status status =
+        metadata_access_object_->CreateParentTypeInheritanceLink(type1, type2);
+    EXPECT_EQ(status.code(), tensorflow::error::ALREADY_EXISTS);
+  }
+
+  {
+    // Test: create execution parent type inheritance link
+    const ExecutionType type1 = CreateTypeFromTextProto<ExecutionType>(
+        "name: 't1'", *metadata_access_object_);
+    const ExecutionType type2 = CreateTypeFromTextProto<ExecutionType>(
+        "name: 't2'", *metadata_access_object_);
+    // create parent type is ok.
+    TF_ASSERT_OK(
+        metadata_access_object_->CreateParentTypeInheritanceLink(type1, type2));
+    // recreate the same parent type returns AlreadyExists
+    const tensorflow::Status status =
+        metadata_access_object_->CreateParentTypeInheritanceLink(type1, type2);
+    EXPECT_EQ(status.code(), tensorflow::error::ALREADY_EXISTS);
+  }
+
+  {
+    // Test: create context parent type inheritance link
+    const ContextType type1 = CreateTypeFromTextProto<ContextType>(
+        "name: 't1'", *metadata_access_object_);
+    const ContextType type2 = CreateTypeFromTextProto<ContextType>(
+        "name: 't2'", *metadata_access_object_);
+    // create parent type is ok.
+    TF_ASSERT_OK(
+        metadata_access_object_->CreateParentTypeInheritanceLink(type1, type2));
+    // recreate the same parent type returns AlreadyExists
+    const tensorflow::Status status =
+        metadata_access_object_->CreateParentTypeInheritanceLink(type1, type2);
+    EXPECT_EQ(status.code(), tensorflow::error::ALREADY_EXISTS);
+  }
+}
+
+TEST_P(MetadataAccessObjectTest,
+       CreateParentTypeInheritanceLinkInvalidTypeIdError) {
+  if (!metadata_access_object_container_->HasParentTypeSupport()) {
+    return;
+  }
+  TF_ASSERT_OK(Init());
+  const ArtifactType stored_type1 = CreateTypeFromTextProto<ArtifactType>(
+      "name: 't1'", *metadata_access_object_);
+  const ArtifactType no_id_type1, no_id_type2;
+
+  {
+    const tensorflow::Status status =
+        metadata_access_object_->CreateParentTypeInheritanceLink(no_id_type1,
+                                                                 no_id_type2);
+    EXPECT_EQ(status.code(), tensorflow::error::INVALID_ARGUMENT);
+  }
+
+  {
+    const tensorflow::Status status =
+        metadata_access_object_->CreateParentTypeInheritanceLink(stored_type1,
+                                                                 no_id_type2);
+    EXPECT_EQ(status.code(), tensorflow::error::INVALID_ARGUMENT);
+  }
+
+  {
+    const tensorflow::Status status =
+        metadata_access_object_->CreateParentTypeInheritanceLink(no_id_type1,
+                                                                 stored_type1);
+    EXPECT_EQ(status.code(), tensorflow::error::INVALID_ARGUMENT);
+  }
+}
+
+TEST_P(MetadataAccessObjectTest, CreateParentTypeInheritanceLinkWithCycle) {
+  if (!metadata_access_object_container_->HasParentTypeSupport()) {
+    return;
+  }
+  TF_ASSERT_OK(Init());
+  const ArtifactType type1 = CreateTypeFromTextProto<ArtifactType>(
+      "name: 't1'", *metadata_access_object_);
+  const ArtifactType type2 = CreateTypeFromTextProto<ArtifactType>(
+      "name: 't2'", *metadata_access_object_);
+  const ArtifactType type3 = CreateTypeFromTextProto<ArtifactType>(
+      "name: 't3'", *metadata_access_object_);
+  const ArtifactType type4 = CreateTypeFromTextProto<ArtifactType>(
+      "name: 't4'", *metadata_access_object_);
+  const ArtifactType type5 = CreateTypeFromTextProto<ArtifactType>(
+      "name: 't4'", *metadata_access_object_);
+
+  {
+    // cannot add self as parent.
+    const tensorflow::Status status =
+        metadata_access_object_->CreateParentTypeInheritanceLink(type1, type1);
+    EXPECT_EQ(status.code(), tensorflow::error::INVALID_ARGUMENT);
+  }
+
+  // type1 -> type2
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateParentTypeInheritanceLink(type1, type2));
+
+  {
+    // cannot have bi-direction parent
+    const tensorflow::Status status =
+        metadata_access_object_->CreateParentTypeInheritanceLink(type2, type1);
+    EXPECT_EQ(status.code(), tensorflow::error::INVALID_ARGUMENT);
+  }
+
+  // type1 -> type2 -> type3
+  //      \-> type4 -> type5
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateParentTypeInheritanceLink(type2, type3));
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateParentTypeInheritanceLink(type1, type4));
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateParentTypeInheritanceLink(type4, type5));
+
+  {
+    // cannot have transitive parent
+    const tensorflow::Status status =
+        metadata_access_object_->CreateParentTypeInheritanceLink(type3, type1);
+    EXPECT_EQ(status.code(), tensorflow::error::INVALID_ARGUMENT);
+  }
+
+  {
+    // cannot have transitive parent
+    const tensorflow::Status status =
+        metadata_access_object_->CreateParentTypeInheritanceLink(type5, type1);
+    EXPECT_EQ(status.code(), tensorflow::error::INVALID_ARGUMENT);
+  }
+}
+
+TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeId) {
+  if (!metadata_access_object_container_->HasParentTypeSupport()) {
+    return;
+  }
+  TF_ASSERT_OK(Init());
+  // Setup: init the store with the following types and inheritance links
+  // ArtifactType:  type1 -> type2
+  //                     \-> type3
+  // ExecutionType: type4 -> type5
+  // ContextType:   type6 -> type7
+  //                type8
+  const ArtifactType type1 = CreateTypeFromTextProto<ArtifactType>(R"(
+          name: 't1'
+          properties { key: 'property_1' value: STRING }
+      )", *metadata_access_object_);
+  const ArtifactType type2 = CreateTypeFromTextProto<ArtifactType>(R"(
+          name: 't2'
+          properties { key: 'property_2' value: INT }
+      )", *metadata_access_object_);
+  const ArtifactType type3 = CreateTypeFromTextProto<ArtifactType>(R"(
+          name: 't3'
+          properties { key: 'property_3' value: DOUBLE }
+      )", *metadata_access_object_);
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateParentTypeInheritanceLink(type1, type2));
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateParentTypeInheritanceLink(type1, type3));
+
+  const ExecutionType type4 = CreateTypeFromTextProto<ExecutionType>(R"(
+          name: 't4'
+          properties { key: 'property_4' value: STRING }
+      )", *metadata_access_object_);
+  const ExecutionType type5 = CreateTypeFromTextProto<ExecutionType>(R"(
+            name: 't5'
+        )", *metadata_access_object_);
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateParentTypeInheritanceLink(type4, type5));
+
+  const ContextType type6 = CreateTypeFromTextProto<ContextType>(R"(
+          name: 't6'
+          properties { key: 'property_5' value: INT }
+          properties { key: 'property_6' value: DOUBLE }
+      )", *metadata_access_object_);
+  const ContextType type7 = CreateTypeFromTextProto<ContextType>(
+      "name: 't7'", *metadata_access_object_);
+  const ContextType type8 = CreateTypeFromTextProto<ContextType>(
+      "name: 't8'", *metadata_access_object_);
+  TF_ASSERT_OK(
+      metadata_access_object_->CreateParentTypeInheritanceLink(type6, type7));
+
+  // verify artifact types
+  {
+    std::vector<ArtifactType> parent_types;
+    TF_ASSERT_OK(metadata_access_object_->FindParentTypesByTypeId(
+        type1.id(), parent_types));
+    EXPECT_THAT(parent_types,
+                UnorderedElementsAre(EqualsProto(type2), EqualsProto(type3)));
+  }
+
+  {
+    std::vector<ArtifactType> parent_types;
+    TF_ASSERT_OK(metadata_access_object_->FindParentTypesByTypeId(
+        type2.id(), parent_types));
+    EXPECT_THAT(parent_types, IsEmpty());
+  }
+
+  {
+    std::vector<ArtifactType> parent_types;
+    TF_ASSERT_OK(metadata_access_object_->FindParentTypesByTypeId(
+        type3.id(), parent_types));
+    EXPECT_THAT(parent_types, IsEmpty());
+  }
+
+  // verify execution types
+  {
+    std::vector<ExecutionType> parent_types;
+    TF_ASSERT_OK(metadata_access_object_->FindParentTypesByTypeId(
+        type4.id(), parent_types));
+    EXPECT_THAT(parent_types,
+                UnorderedPointwise(EqualsProto<ExecutionType>(), {type5}));
+  }
+
+  {
+    std::vector<ExecutionType> parent_types;
+    TF_ASSERT_OK(metadata_access_object_->FindParentTypesByTypeId(
+        type5.id(), parent_types));
+    EXPECT_THAT(parent_types, IsEmpty());
+  }
+
+  // verify context types
+  {
+    std::vector<ContextType> parent_types;
+    TF_ASSERT_OK(metadata_access_object_->FindParentTypesByTypeId(
+        type6.id(), parent_types));
+    EXPECT_THAT(parent_types,
+                UnorderedPointwise(EqualsProto<ContextType>(), {type7}));
+  }
+
+  {
+    std::vector<ContextType> parent_types;
+    TF_ASSERT_OK(metadata_access_object_->FindParentTypesByTypeId(
+        type7.id(), parent_types));
+    EXPECT_THAT(parent_types, IsEmpty());
+  }
+
+  {
+    std::vector<ContextType> parent_types;
+    TF_ASSERT_OK(metadata_access_object_->FindParentTypesByTypeId(
+        type8.id(), parent_types));
+    EXPECT_THAT(parent_types, IsEmpty());
+  }
+}
+
+TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeIdError) {
+  if (!metadata_access_object_container_->HasParentTypeSupport()) {
+    return;
+  }
+  TF_ASSERT_OK(Init());
+  const int64 stored_artifact_type_id = InsertType<ArtifactType>("t1");
+  const int64 stored_execution_type_id = InsertType<ExecutionType>("t1");
+  const int64 stored_context_type_id = InsertType<ContextType>("t1");
+  const int64 unknown_artifact_type_id = stored_artifact_type_id + 1;
+  const int64 unknown_execution_type_id = stored_execution_type_id + 1;
+  const int64 unknown_context_type_id = stored_context_type_id + 1;
+
+  {
+    std::vector<ArtifactType> parent_artifact_types;
+    const tensorflow::Status status =
+        metadata_access_object_->FindParentTypesByTypeId(
+            unknown_artifact_type_id, parent_artifact_types);
+    EXPECT_EQ(status.code(), tensorflow::error::NOT_FOUND);
+  }
+
+  {
+    std::vector<ExecutionType> parent_execution_types;
+    const tensorflow::Status status =
+        metadata_access_object_->FindParentTypesByTypeId(
+            unknown_execution_type_id, parent_execution_types);
+    EXPECT_EQ(status.code(), tensorflow::error::NOT_FOUND);
+  }
+
+  {
+    std::vector<ContextType> parent_context_types;
+    const tensorflow::Status status =
+        metadata_access_object_->FindParentTypesByTypeId(
+            unknown_context_type_id, parent_context_types);
+    EXPECT_EQ(status.code(), tensorflow::error::NOT_FOUND);
   }
 }
 

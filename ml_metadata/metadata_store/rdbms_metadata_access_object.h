@@ -107,6 +107,20 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
       std::vector<ExecutionType>* execution_types) final;
   tensorflow::Status FindTypes(std::vector<ContextType>* context_types) final;
 
+  tensorflow::Status CreateParentTypeInheritanceLink(
+      const ArtifactType& type, const ArtifactType& parent_type) final;
+  tensorflow::Status CreateParentTypeInheritanceLink(
+      const ExecutionType& type, const ExecutionType& parent_type) final;
+  tensorflow::Status CreateParentTypeInheritanceLink(
+      const ContextType& type, const ContextType& parent_type) final;
+
+  tensorflow::Status FindParentTypesByTypeId(
+      int64 type_id, std::vector<ArtifactType>& output_parent_types) final;
+  tensorflow::Status FindParentTypesByTypeId(
+      int64 type_id, std::vector<ExecutionType>& output_parent_types) final;
+  tensorflow::Status FindParentTypesByTypeId(
+      int64 type_id, std::vector<ContextType>& output_parent_types) final;
+
   tensorflow::Status CreateArtifact(const Artifact& artifact,
                                     int64* artifact_id) final;
 
@@ -350,6 +364,19 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // Returns detailed INTERNAL error, if query execution fails.
   template <typename Type>
   tensorflow::Status UpdateTypeImpl(const Type& type);
+
+  // Creates a parent type, returns OK if succeeds.
+  // Returns INVALID_ARGUMENT error, if no type matches the type_id.
+  // Returns INVALID_ARGUMENT error, if no type matches the parent_type_id.
+  // Returns INVALID_ARGUMENT error, if adding the parent_type introduces cycle.
+  // Returns ALREADY_EXISTS error, if the same ParentType record already exists.
+  template <typename Type>
+  tensorflow::Status CreateParentTypeImpl(int64 type_id, int64 parent_type_id);
+
+  // Queries the parent types of a type_id.
+  template <typename Type>
+  tensorflow::Status FindParentTypesByTypeIdImpl(
+      int64 type_id, std::vector<Type>& output_parent_types);
 
   // Creates an `Node`, which is one of {`Artifact`, `Execution`, `Context`},
   // then returns the assigned node id. The node's id field is ignored. The node

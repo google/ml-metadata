@@ -24,6 +24,7 @@ limitations under the License.
 #include "google/protobuf/util/json_util.h"
 #include "google/protobuf/util/message_differencer.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
@@ -97,6 +98,11 @@ std::vector<int64> ConvertToIds(const RecordSet& record_set, int position = 0) {
     result.push_back(id);
   }
   return result;
+}
+
+// Extracts a vector of type ids from the parent_type triplets.
+std::vector<int64> ParentTypesToParentTypeIds(const RecordSet& record_set) {
+  return ConvertToIds(record_set, /*position=*/1);
 }
 
 // Extracts a vector of context ids from attribution triplets.
@@ -726,6 +732,60 @@ tensorflow::Status RDBMSMetadataAccessObject::UpdateTypeImpl(const Type& type) {
   return tensorflow::Status::OK();
 }
 
+template <typename Type>
+tensorflow::Status RDBMSMetadataAccessObject::CreateParentTypeImpl(
+    const int64 type_id, const int64 parent_type_id) {
+  // Check whether there is a cyclic dependency if we insert the tuple:
+  // (type_id, parent_type_id). We do a DFS traversal from `parent_type_id` as
+  // the root node and it introduces a cycle if any ancestors is `type_id`. It
+  // assumes that existing parent types inheritance are acyclic.
+  std::vector<int64> ancestor_ids = {parent_type_id};
+  absl::flat_hash_set<int64> visited_ancestors_ids;
+  while (!ancestor_ids.empty()) {
+    const int64 ancestor_id = ancestor_ids.back();
+    if (ancestor_id == type_id) {
+      return tensorflow::errors::InvalidArgument(
+          "There is a cycle detected of the given parent type.");
+    }
+    ancestor_ids.pop_back();
+    if (visited_ancestors_ids.contains(ancestor_id)) {
+      continue;
+    }
+    visited_ancestors_ids.insert(ancestor_id);
+    RecordSet record_set;
+    TF_RETURN_IF_ERROR(
+        executor_->SelectParentTypesByTypeID(ancestor_id, &record_set));
+    for (const int64 parent_id : ParentTypesToParentTypeIds(record_set)) {
+      ancestor_ids.push_back(parent_id);
+    }
+  }
+  const tensorflow::Status status =
+      executor_->InsertParentType(type_id, parent_type_id);
+  if (IsUniqueConstraintViolated(status)) {
+    return tensorflow::errors::AlreadyExists("The ParentType already exists.");
+  }
+  return status;
+}
+
+template <typename Type>
+tensorflow::Status RDBMSMetadataAccessObject::FindParentTypesByTypeIdImpl(
+    int64 type_id, std::vector<Type>& output_parent_types) {
+  // check the there's a Type instance with the given type_id
+  Type type;
+  TF_RETURN_IF_ERROR(FindTypeImpl(type_id, &type));
+  RecordSet record_set;
+  TF_RETURN_IF_ERROR(
+      executor_->SelectParentTypesByTypeID(type_id, &record_set));
+  const std::vector<int64> ids = ParentTypesToParentTypeIds(record_set);
+  const int output_size = output_parent_types.size();
+  output_parent_types.resize(output_size + ids.size());
+  // TODO(b/169075639) Use a single query to retrieve a list of types.
+  for (int i = output_size; i < output_size + ids.size(); i++) {
+    TF_RETURN_IF_ERROR(FindTypeImpl(ids[i], &output_parent_types.at(i)));
+  }
+  return tensorflow::Status::OK();
+}
+
 // Creates an `Node`, which is one of {`Artifact`, `Execution`, `Context`},
 // then returns the assigned node id. The node's id field is ignored. The node
 // should have a `NodeType`, which is one of {`ArtifactType`, `ExecutionType`,
@@ -1004,6 +1064,51 @@ tensorflow::Status RDBMSMetadataAccessObject::UpdateType(
 tensorflow::Status RDBMSMetadataAccessObject::UpdateType(
     const ContextType& type) {
   return UpdateTypeImpl(type);
+}
+
+tensorflow::Status RDBMSMetadataAccessObject::CreateParentTypeInheritanceLink(
+    const ArtifactType& type, const ArtifactType& parent_type) {
+  if (!type.has_id() || !parent_type.has_id()) {
+    return tensorflow::errors::InvalidArgument(
+        "Missing id in the given types: ", type.DebugString(),
+        parent_type.DebugString());
+  }
+  return CreateParentTypeImpl<ArtifactType>(type.id(), parent_type.id());
+}
+
+tensorflow::Status RDBMSMetadataAccessObject::CreateParentTypeInheritanceLink(
+    const ExecutionType& type, const ExecutionType& parent_type) {
+  if (!type.has_id() || !parent_type.has_id()) {
+    return tensorflow::errors::InvalidArgument(
+        "Missing id in the given types: ", type.DebugString(),
+        parent_type.DebugString());
+  }
+  return CreateParentTypeImpl<ExecutionType>(type.id(), parent_type.id());
+}
+
+tensorflow::Status RDBMSMetadataAccessObject::CreateParentTypeInheritanceLink(
+    const ContextType& type, const ContextType& parent_type) {
+  if (!type.has_id() || !parent_type.has_id()) {
+    return tensorflow::errors::InvalidArgument(
+        "Missing id in the given types: ", type.DebugString(),
+        parent_type.DebugString());
+  }
+  return CreateParentTypeImpl<ContextType>(type.id(), parent_type.id());
+}
+
+tensorflow::Status RDBMSMetadataAccessObject::FindParentTypesByTypeId(
+    int64 type_id, std::vector<ArtifactType>& output_parent_types) {
+  return FindParentTypesByTypeIdImpl(type_id, output_parent_types);
+}
+
+tensorflow::Status RDBMSMetadataAccessObject::FindParentTypesByTypeId(
+    int64 type_id, std::vector<ExecutionType>& output_parent_types) {
+  return FindParentTypesByTypeIdImpl(type_id, output_parent_types);
+}
+
+tensorflow::Status RDBMSMetadataAccessObject::FindParentTypesByTypeId(
+    int64 type_id, std::vector<ContextType>& output_parent_types) {
+  return FindParentTypesByTypeIdImpl(type_id, output_parent_types);
 }
 
 tensorflow::Status RDBMSMetadataAccessObject::CreateArtifact(

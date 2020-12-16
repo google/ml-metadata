@@ -170,6 +170,21 @@ class QueryExecutor {
   virtual tensorflow::Status SelectPropertyByTypeID(int64 type_id,
                                                     RecordSet* record_set) = 0;
 
+  // Checks the existence of the ParentType table.
+  virtual tensorflow::Status CheckParentTypeTable() = 0;
+
+  // Inserts a parent type record.
+  // Returns OK if the insertion succeeds.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual tensorflow::Status InsertParentType(int64 type_id,
+                                              int64 parent_type_id) = 0;
+
+  // Returns parent types for the type id. Each record has:
+  // Column 0: int: type_id (= type_id)
+  // Column 1: int: parent_type_id
+  virtual tensorflow::Status SelectParentTypesByTypeID(
+      int64 type_id, RecordSet* record_set) = 0;
+
   // Checks the existence of the Artifact table.
   virtual tensorflow::Status CheckArtifactTable() = 0;
 
@@ -422,6 +437,9 @@ class QueryExecutor {
   // Column 2: int: artifact id
   virtual tensorflow::Status SelectAttributionByArtifactID(
       int64 artifact_id, RecordSet* record_set) = 0;
+
+  // Checks the existence of the ParentContext table.
+  virtual tensorflow::Status CheckParentContextTable() = 0;
 
   // Inserts a parent context.
   // Returns OK if the insertion succeeds.

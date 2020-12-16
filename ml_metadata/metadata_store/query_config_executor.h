@@ -65,10 +65,6 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(query_config_.check_type_table());
   }
 
-  tensorflow::Status CheckParentTypeTable() {
-    return ExecuteQuery(query_config_.check_parent_type_table());
-  }
-
   tensorflow::Status InsertArtifactType(const std::string& name,
                                         int64* artifact_type_id) final {
     const std::vector<std::string> bound_name = {Bind(name)};
@@ -125,6 +121,14 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(query_config_.select_property_by_type_id(),
                         {Bind(type_id)}, record_set);
   }
+
+  tensorflow::Status CheckParentTypeTable() final;
+
+  tensorflow::Status InsertParentType(int64 type_id,
+                                      int64 parent_type_id) final;
+
+  tensorflow::Status SelectParentTypesByTypeID(int64 type_id,
+                                               RecordSet* record_set) final;
 
   // Queries the last inserted id.
   tensorflow::Status SelectLastInsertID(int64* id);
@@ -337,10 +341,6 @@ class QueryConfigExecutor : public QueryExecutor {
          Bind(absl::ToUnixMillis(update_time))});
   }
 
-  tensorflow::Status CheckParentContextTable() {
-    return ExecuteQuery(query_config_.check_parent_context_table());
-  }
-
   tensorflow::Status CheckContextPropertyTable() final {
     return ExecuteQuery(query_config_.check_context_property_table());
   }
@@ -463,24 +463,15 @@ class QueryConfigExecutor : public QueryExecutor {
                         {Bind(artifact_id)}, record_set);
   }
 
-  tensorflow::Status InsertParentContext(int64 parent_id,
-                                         int64 child_id) final {
-    return ExecuteQuery(query_config_.insert_parent_context(),
-                        {Bind(child_id), Bind(parent_id)});
-  }
+  tensorflow::Status CheckParentContextTable() final;
+
+  tensorflow::Status InsertParentContext(int64 parent_id, int64 child_id) final;
 
   tensorflow::Status SelectParentContextsByContextID(
-      int64 context_id, RecordSet* record_set) final {
-    return ExecuteQuery(query_config_.select_parent_context_by_context_id(),
-                        {Bind(context_id)}, record_set);
-  }
+      int64 context_id, RecordSet* record_set) final;
 
   tensorflow::Status SelectChildContextsByContextID(
-      int64 context_id, RecordSet* record_set) final {
-    return ExecuteQuery(
-        query_config_.select_parent_context_by_parent_context_id(),
-        {Bind(context_id)}, record_set);
-  }
+      int64 context_id, RecordSet* record_set) final;
 
   tensorflow::Status CheckMLMDEnvTable() final {
     return ExecuteQuery(query_config_.check_mlmd_env_table());
