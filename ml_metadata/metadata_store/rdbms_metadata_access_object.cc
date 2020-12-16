@@ -742,13 +742,19 @@ tensorflow::Status RDBMSMetadataAccessObject::CreateNodeImpl(const Node& node,
     return tensorflow::errors::InvalidArgument("Type id is missing.");
   const int64 type_id = node.type_id();
   NodeType node_type;
-  TF_RETURN_IF_ERROR(FindTypeImpl(type_id, &node_type));
+  TF_RETURN_WITH_CONTEXT_IF_ERROR(FindTypeImpl(type_id, &node_type),
+                                  "Cannot find type for ",
+                                  node.ShortDebugString());
 
   // validate properties
-  TF_RETURN_IF_ERROR(ValidatePropertiesWithType(node, node_type));
+  TF_RETURN_WITH_CONTEXT_IF_ERROR(ValidatePropertiesWithType(node, node_type),
+                                  "Cannot validate properties of ",
+                                  node.ShortDebugString());
 
   // insert a node and get the assigned id
-  TF_RETURN_IF_ERROR(CreateBasicNode(node, node_id));
+  TF_RETURN_WITH_CONTEXT_IF_ERROR(CreateBasicNode(node, node_id),
+                                  "Cannot create node for ",
+                                  node.ShortDebugString());
 
   // insert properties
   const google::protobuf::Map<std::string, Value> prev_properties;
