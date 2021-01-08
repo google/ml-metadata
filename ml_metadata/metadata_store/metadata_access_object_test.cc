@@ -2691,7 +2691,8 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
 
   std::vector<Context> got_type2_contexts;
   TF_EXPECT_OK(metadata_access_object_->FindContextsByTypeId(
-      type2_id, &got_type2_contexts));
+      type2_id, /*list_options=*/absl::nullopt, &got_type2_contexts,
+      /*next_page_token=*/nullptr));
   EXPECT_EQ(got_type2_contexts.size(), 1);
   EXPECT_THAT(got_type2_contexts[0], EqualsProto(got_contexts[1]));
 
@@ -2711,6 +2712,151 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
                 .code(),
             tensorflow::error::NOT_FOUND);
   EXPECT_THAT(got_empty_context, EqualsProto(Context()));
+}
+
+TEST_P(MetadataAccessObjectTest, ListContextsByType) {
+  TF_ASSERT_OK(Init());
+
+  // Setup: create a context type and insert two instances.
+  int64 type_id;
+  {
+    ContextType type = ParseTextProtoOrDie<ContextType>(R"(
+      name: 'test_type_with_predefined_property'
+      properties { key: 'property_1' value: INT }
+    )");
+
+    TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
+  }
+  Context context_1;
+  {
+    context_1 = ParseTextProtoOrDie<Context>(R"(
+      name: "context_1a"
+      properties {
+        key: 'property_1'
+        value: { int_value: 1 }
+      }
+      custom_properties {
+        key: 'custom_property_1'
+        value: { int_value: 3 }
+      }
+    )");
+    context_1.set_type_id(type_id);
+    int64 context_id = -1;
+    TF_EXPECT_OK(
+        metadata_access_object_->CreateContext(context_1, &context_id));
+    context_1.set_id(context_id);
+  }
+  Context context_2;
+  {
+    context_2 = ParseTextProtoOrDie<Context>(R"(
+      name: "context_1b"
+      properties {
+        key: 'property_1'
+        value: { int_value: 2 }
+      }
+      custom_properties {
+        key: 'custom_property_1'
+        value: { int_value: 4 }
+      }
+    )");
+    context_2.set_type_id(type_id);
+    int64 context_id = -1;
+    TF_EXPECT_OK(
+        metadata_access_object_->CreateContext(context_2, &context_id));
+    context_2.set_id(context_id);
+  }
+
+  // Setup: insert one more context type and an additional instance. This is
+  // additional data that will not retrieved by the test queries.
+  {
+    int64 type2_id;
+    ContextType type2 = ParseTextProtoOrDie<ContextType>(R"(
+      name: 'test_type_with_no_property'
+    )");
+    TF_ASSERT_OK(metadata_access_object_->CreateType(type2, &type2_id));
+
+    Context context = ParseTextProtoOrDie<Context>(R"(
+      name: "my_context2")");
+    context.set_type_id(type2_id);
+    int64 context_id = -1;
+    TF_EXPECT_OK(metadata_access_object_->CreateContext(context, &context_id));
+  }
+
+  // Test: List contexts by default ordering -- ID.
+  {
+    ListOperationOptions options;
+    options.set_max_result_size(1);
+
+    std::vector<Context> contexts;
+    std::string next_page_token;
+    TF_ASSERT_OK(metadata_access_object_->FindContextsByTypeId(
+        type_id, absl::make_optional(options), &contexts, &next_page_token));
+    EXPECT_THAT(next_page_token, Not(IsEmpty()));
+    EXPECT_THAT(contexts,
+                ElementsAre(EqualsProto(context_1, /*ignore_fields=*/{
+                                            "create_time_since_epoch",
+                                            "last_update_time_since_epoch"})));
+
+    contexts.clear();
+    options.set_next_page_token(next_page_token);
+    TF_ASSERT_OK(metadata_access_object_->FindContextsByTypeId(
+        type_id, absl::make_optional(options), &contexts, &next_page_token));
+    EXPECT_THAT(next_page_token, IsEmpty());
+    EXPECT_THAT(
+        contexts,
+        ElementsAre(
+            EqualsProto(context_2,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
+  // Test: List contexts by reverse default ordering (ID)
+  {
+    ListOperationOptions options;
+    options.mutable_order_by_field()->set_is_asc(false);
+    options.set_max_result_size(1);
+
+    std::vector<Context> contexts;
+    std::string next_page_token;
+    TF_ASSERT_OK(metadata_access_object_->FindContextsByTypeId(
+        type_id, absl::make_optional(options), &contexts, &next_page_token));
+    EXPECT_THAT(next_page_token, Not(IsEmpty()));
+    EXPECT_THAT(contexts,
+                ElementsAre(EqualsProto(context_2, /*ignore_fields=*/{
+                                            "create_time_since_epoch",
+                                            "last_update_time_since_epoch"})));
+
+    contexts.clear();
+    options.set_next_page_token(next_page_token);
+    TF_ASSERT_OK(metadata_access_object_->FindContextsByTypeId(
+        type_id, absl::make_optional(options), &contexts, &next_page_token));
+    EXPECT_THAT(next_page_token, IsEmpty());
+    EXPECT_THAT(
+        contexts,
+        ElementsAre(
+            EqualsProto(context_1,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
+  // Test: List contexts through a big max-result size.
+  {
+    ListOperationOptions options;
+    options.set_max_result_size(100);
+
+    std::vector<Context> contexts;
+    std::string next_page_token;
+    TF_ASSERT_OK(metadata_access_object_->FindContextsByTypeId(
+        type_id, absl::make_optional(options), &contexts, &next_page_token));
+    EXPECT_THAT(next_page_token, IsEmpty());
+    EXPECT_THAT(
+        contexts,
+        ElementsAre(
+            EqualsProto(context_1,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(context_2,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
 }
 
 TEST_P(MetadataAccessObjectTest, CreateContextError) {

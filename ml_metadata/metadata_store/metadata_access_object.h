@@ -349,7 +349,8 @@ class MetadataAccessObject {
   // Returns NOT_FOUND error, if no context can be found.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual tensorflow::Status FindContextsByTypeId(
-      int64 context_type_id, std::vector<Context>* contexts) = 0;
+      int64 type_id, absl::optional<ListOperationOptions> list_options,
+      std::vector<Context>* contexts, std::string* next_page_token) = 0;
 
   // Queries a context by a type_id and a context name.
   // Returns NOT_FOUND error, if no context can be found.

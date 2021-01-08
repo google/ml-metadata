@@ -177,8 +177,9 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   tensorflow::Status FindContexts(std::vector<Context>* contexts) final;
 
-  tensorflow::Status FindContextsByTypeId(int64 context_type_id,
-                                          std::vector<Context>* contexts) final;
+  tensorflow::Status FindContextsByTypeId(
+      int64 type_id, absl::optional<ListOperationOptions> list_options,
+      std::vector<Context>* contexts, std::string* next_page_token) final;
 
   tensorflow::Status FindContextByTypeIdAndContextName(int64 type_id,
                                                        absl::string_view name,
@@ -398,7 +399,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // `Context`} by the given 'ids'.
   // 'skipped_ids_ok' controls the return error value if any of the ids are not
   // found.
-  // Returns INVALID_ARGUMENT if node_ids is empty.
+  // Returns INVALID_ARGUMENT if node_ids is empty or nodes is not empty.
   // Returns detailed INTERNAL error if query execution fails.
   // If any ids are not found then returns NOT_FOUND if skipped_ids_ok is true,
   // otherwise INTERNAL error.

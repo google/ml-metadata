@@ -2619,34 +2619,66 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
         get_contexts_by_id_request, &get_contexts_by_id_response));
     EXPECT_THAT(get_contexts_by_id_response.contexts(), IsEmpty());
   }
-  GetContextsByTypeRequest get_contexts_by_type_request;
-  get_contexts_by_type_request.set_type_name("type2_name");
-  GetContextsByTypeResponse get_contexts_by_type_response;
-  TF_ASSERT_OK(metadata_store_->GetContextsByType(
-      get_contexts_by_type_request, &get_contexts_by_type_response));
-  ASSERT_THAT(get_contexts_by_type_response.contexts(), SizeIs(1));
-  EXPECT_THAT(get_contexts_by_type_response.contexts(0),
-              EqualsProto(want_context3,
-                          /*ignore_fields=*/{"create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
-
-  GetContextsRequest get_contexts_request;
-  GetContextsResponse get_contexts_response;
-  TF_ASSERT_OK(metadata_store_->GetContexts(get_contexts_request,
-                                            &get_contexts_response));
-  ASSERT_THAT(get_contexts_response.contexts(), SizeIs(3));
-  EXPECT_THAT(get_contexts_response.contexts(0),
-              EqualsProto(want_context1,
-                          /*ignore_fields=*/{"create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
-  EXPECT_THAT(get_contexts_response.contexts(1),
-              EqualsProto(want_context2,
-                          /*ignore_fields=*/{"create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
-  EXPECT_THAT(get_contexts_response.contexts(2),
-              EqualsProto(want_context3,
-                          /*ignore_fields=*/{"create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  // Test: GetContextsByType
+  {
+    GetContextsByTypeRequest get_contexts_by_type_request;
+    get_contexts_by_type_request.set_type_name("type2_name");
+    GetContextsByTypeResponse get_contexts_by_type_response;
+    TF_ASSERT_OK(metadata_store_->GetContextsByType(
+        get_contexts_by_type_request, &get_contexts_by_type_response));
+    ASSERT_THAT(get_contexts_by_type_response.contexts(), SizeIs(1));
+    EXPECT_THAT(
+        get_contexts_by_type_response.contexts(0),
+        EqualsProto(want_context3,
+                    /*ignore_fields=*/{"create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
+  }
+  // Test: GetContextsByType with list options
+  {
+    GetContextsByTypeRequest request;
+    request.set_type_name("test_type");
+    request.mutable_options()->set_max_result_size(1);
+    GetContextsByTypeResponse response;
+    TF_ASSERT_OK(metadata_store_->GetContextsByType(request, &response));
+    EXPECT_THAT(response.contexts(),
+                ElementsAre(EqualsProto(
+                    want_context1,
+                    /*ignore_fields=*/{"create_time_since_epoch",
+                                       "last_update_time_since_epoch"})));
+    ASSERT_THAT(response.next_page_token(), Not(IsEmpty()));
+    request.mutable_options()->set_next_page_token(response.next_page_token());
+    response.Clear();
+    TF_ASSERT_OK(metadata_store_->GetContextsByType(request, &response));
+    EXPECT_THAT(response.contexts(),
+                ElementsAre(EqualsProto(
+                    want_context2,
+                    /*ignore_fields=*/{"create_time_since_epoch",
+                                       "last_update_time_since_epoch"})));
+    EXPECT_THAT(response.next_page_token(), IsEmpty());
+  }
+  // Test: GetContexts
+  {
+    GetContextsRequest get_contexts_request;
+    GetContextsResponse get_contexts_response;
+    TF_ASSERT_OK(metadata_store_->GetContexts(get_contexts_request,
+                                              &get_contexts_response));
+    ASSERT_THAT(get_contexts_response.contexts(), SizeIs(3));
+    EXPECT_THAT(
+        get_contexts_response.contexts(0),
+        EqualsProto(want_context1,
+                    /*ignore_fields=*/{"create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
+    EXPECT_THAT(
+        get_contexts_response.contexts(1),
+        EqualsProto(want_context2,
+                    /*ignore_fields=*/{"create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
+    EXPECT_THAT(
+        get_contexts_response.contexts(2),
+        EqualsProto(want_context3,
+                    /*ignore_fields=*/{"create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
+  }
 }
 
 // Test creating a context and then getting it by its type and context name.

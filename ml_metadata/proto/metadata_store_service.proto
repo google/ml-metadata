@@ -317,7 +317,7 @@ message GetArtifactsResponse {
   // Returned artifacts.
   repeated Artifact artifacts = 1;
 
-  // Token to use to retreive next page of results if list options are used in
+  // Token to use to retrieve next page of results if list options are used in
   // the request.
   optional string next_page_token = 2;
 }
@@ -347,7 +347,7 @@ message GetExecutionsResponse {
   // Returned executions.
   repeated Execution executions = 1;
 
-  // Token to use to retreive next page of results if list options are used in
+  // Token to use to retrieve next page of results if list options are used in
   // the request.
   optional string next_page_token = 2;
 }
@@ -486,17 +486,25 @@ message GetContextsResponse {
   // Returned contexts.
   repeated Context contexts = 1;
 
-  // Token to use to retreive next page of results if list options are used in
+  // Token to use to retrieve next page of results if list options are used in
   // the request.
   optional string next_page_token = 2;
 }
 
 message GetContextsByTypeRequest {
   optional string type_name = 1;
+  // Specify options.
+  // Currently supports:
+  //   1. Field to order the results.
+  //   2. Page size.
+  optional ListOperationOptions options = 2;
 }
 
 message GetContextsByTypeResponse {
   repeated Context contexts = 1;
+  // Token to use to retrieve next page of results if list options are used in
+  // the request.
+  optional string next_page_token = 2;
 }
 
 message GetContextByTypeAndNameRequest {
@@ -564,7 +572,7 @@ message GetArtifactsByContextRequest {
 message GetArtifactsByContextResponse {
   repeated Artifact artifacts = 1;
 
-  // Token to use to retreive next page of results if list options are used in
+  // Token to use to retrieve next page of results if list options are used in
   // the request.
   optional string next_page_token = 2;
 }
@@ -582,7 +590,7 @@ message GetExecutionsByContextRequest {
 message GetExecutionsByContextResponse {
   repeated Execution executions = 1;
 
-  // Token to use to retreive next page of results if list options are used in
+  // Token to use to retrieve next page of results if list options are used in
   // the request.
   optional string next_page_token = 2;
 }

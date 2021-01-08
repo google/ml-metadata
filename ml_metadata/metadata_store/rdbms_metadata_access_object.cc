@@ -837,6 +837,10 @@ tensorflow::Status RDBMSMetadataAccessObject::FindNodesImpl(
     return tensorflow::errors::InvalidArgument("ids cannot be empty");
   }
 
+  if (!nodes.empty()) {
+    return tensorflow::errors::InvalidArgument("nodes parameter is not empty");
+  }
+
   RecordSet node_record_set;
   RecordSet properties_record_set;
 
@@ -1518,10 +1522,13 @@ tensorflow::Status RDBMSMetadataAccessObject::ListNodes(
                      options.max_result_size()));
   }
 
+  if (!nodes->empty()) {
+    return tensorflow::errors::InvalidArgument("nodes argument is not empty");
+  }
+
   // Retrieving page of size 1 greater that max_result_size to detect if this
   // is the last page.
-  ListOperationOptions updated_options;
-  updated_options.CopyFrom(options);
+  ListOperationOptions updated_options = options;
   updated_options.set_max_result_size(options.max_result_size() + 1);
 
   // Retrieve ids based on the list options
@@ -1671,7 +1678,8 @@ tensorflow::Status RDBMSMetadataAccessObject::FindContexts(
 }
 
 tensorflow::Status RDBMSMetadataAccessObject::FindContextsByTypeId(
-    const int64 type_id, std::vector<Context>* contexts) {
+    const int64 type_id, absl::optional<ListOperationOptions> list_options,
+    std::vector<Context>* contexts, std::string* next_page_token) {
   RecordSet record_set;
   TF_RETURN_IF_ERROR(executor_->SelectContextsByTypeID(type_id, &record_set));
   const std::vector<int64> ids = ConvertToIds(record_set);
@@ -1679,7 +1687,13 @@ tensorflow::Status RDBMSMetadataAccessObject::FindContextsByTypeId(
     return tensorflow::errors::NotFound(
         absl::StrCat("No contexts found with type_id: ", type_id));
   }
-  return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *contexts);
+
+  if (list_options) {
+    return ListNodes<Context>(list_options.value(), ids, contexts,
+                              next_page_token);
+  } else {
+    return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *contexts);
+  }
 }
 
 tensorflow::Status RDBMSMetadataAccessObject::FindArtifactsByURI(

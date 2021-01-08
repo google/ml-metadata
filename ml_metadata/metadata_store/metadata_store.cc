@@ -1080,23 +1080,35 @@ tensorflow::Status MetadataStore::GetContextsByType(
       [this, &request, &response]() -> tensorflow::Status {
         response->Clear();
         ContextType context_type;
-        tensorflow::Status status = metadata_access_object_->FindTypeByName(
-            request.type_name(), &context_type);
-        if (tensorflow::errors::IsNotFound(status)) {
-          return tensorflow::Status::OK();
-        } else if (!status.ok()) {
-          return status;
+        {
+          tensorflow::Status status = metadata_access_object_->FindTypeByName(
+              request.type_name(), &context_type);
+          if (tensorflow::errors::IsNotFound(status)) {
+            return tensorflow::Status::OK();
+          } else if (!status.ok()) {
+            return status;
+          }
         }
         std::vector<Context> contexts;
-        status = metadata_access_object_->FindContextsByTypeId(
-            context_type.id(), &contexts);
-        if (tensorflow::errors::IsNotFound(status)) {
-          return tensorflow::Status::OK();
-        } else if (!status.ok()) {
-          return status;
+        std::string next_page_token;
+        {
+          tensorflow::Status status;
+          status = metadata_access_object_->FindContextsByTypeId(
+              context_type.id(),
+              (request.has_options() ? absl::make_optional(request.options())
+                                     : absl::nullopt),
+              &contexts, &next_page_token);
+          if (tensorflow::errors::IsNotFound(status)) {
+            return tensorflow::Status::OK();
+          } else if (!status.ok()) {
+            return status;
+          }
         }
         for (const Context& context : contexts) {
           *response->mutable_contexts()->Add() = context;
+        }
+        if (request.has_options()) {
+          response->set_next_page_token(next_page_token);
         }
         return tensorflow::Status::OK();
       });
