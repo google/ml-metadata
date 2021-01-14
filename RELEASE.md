@@ -4,6 +4,9 @@
 
 ## Bug Fixes and Other Changes
 
+*   MLMD wheel for MacOS is now built with minimum OS version 10.9. This will
+    improve compatibility for the older MacOS versions.
+
 ## Breaking changes
 
 ## Deprecations

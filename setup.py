@@ -14,6 +14,7 @@
 """Package Setup script for ML Metadata."""
 
 import os
+import platform
 import subprocess
 
 import setuptools
@@ -88,6 +89,9 @@ class _BazelBuildCommand(setuptools.Command):
           'Could not find "bazel" binary. Please visit '
           'https://docs.bazel.build/versions/master/install.html for '
           'installation instruction.')
+    self._additional_build_options = []
+    if platform.system() == 'Darwin':
+      self._additional_build_options = ['--macos_minimum_os=10.9']
 
   def run(self):
     subprocess.check_call(
@@ -95,6 +99,7 @@ class _BazelBuildCommand(setuptools.Command):
          '--compilation_mode', 'opt',
          '--define', 'grpc_no_ares=true',
          '--verbose_failures',
+         *self._additional_build_options,
          '//ml_metadata:move_generated_files'],
         # Bazel should be invoked in a directory containing bazel WORKSPACE
         # file, which is the root directory.
