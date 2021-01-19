@@ -198,6 +198,55 @@ NodeType CreateTypeFromTextProto(const std::string& type_text_proto,
   return type;
 }
 
+// Utilities that create and store a node with the given text proto.
+// Returns stored node proto with id and timestamps.
+template <class Node>
+void CreateNodeFromTextProto(const std::string& node_text_proto, int64 type_id,
+                             MetadataAccessObject& metadata_access_object,
+                             Node& output);
+
+template <>
+void CreateNodeFromTextProto(const std::string& node_text_proto, int64 type_id,
+                             MetadataAccessObject& metadata_access_object,
+                             Artifact& output) {
+  Artifact node = ParseTextProtoOrDie<Artifact>(node_text_proto);
+  node.set_type_id(type_id);
+  int64 node_id;
+  TF_ASSERT_OK(metadata_access_object.CreateArtifact(node, &node_id));
+  std::vector<Artifact> nodes;
+  TF_ASSERT_OK(metadata_access_object.FindArtifactsById({node_id}, &nodes));
+  ASSERT_THAT(nodes, SizeIs(1));
+  output = nodes[0];
+}
+
+template <>
+void CreateNodeFromTextProto(const std::string& node_text_proto, int64 type_id,
+                             MetadataAccessObject& metadata_access_object,
+                             Execution& output) {
+  Execution node = ParseTextProtoOrDie<Execution>(node_text_proto);
+  node.set_type_id(type_id);
+  int64 node_id;
+  TF_ASSERT_OK(metadata_access_object.CreateExecution(node, &node_id));
+  std::vector<Execution> nodes;
+  TF_ASSERT_OK(metadata_access_object.FindExecutionsById({node_id}, &nodes));
+  ASSERT_THAT(nodes, SizeIs(1));
+  output = nodes[0];
+}
+
+template <>
+void CreateNodeFromTextProto(const std::string& node_text_proto, int64 type_id,
+                             MetadataAccessObject& metadata_access_object,
+                             Context& output) {
+  Context node = ParseTextProtoOrDie<Context>(node_text_proto);
+  node.set_type_id(type_id);
+  int64 node_id;
+  TF_ASSERT_OK(metadata_access_object.CreateContext(node, &node_id));
+  std::vector<Context> nodes;
+  TF_ASSERT_OK(metadata_access_object.FindContextsById({node_id}, &nodes));
+  ASSERT_THAT(nodes, SizeIs(1));
+  output = nodes[0];
+}
+
 TEST_P(MetadataAccessObjectTest, InitMetadataSourceCheckSchemaVersion) {
   TF_ASSERT_OK(Init());
   int64 schema_version;

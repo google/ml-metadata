@@ -539,7 +539,7 @@ tensorflow::Status QueryConfigExecutor::ListNodeIDsUsingOptions(
   } else if (std::is_same<Node, Execution>::value) {
     sql_query = "SELECT `id` FROM `Execution` WHERE";
   } else if (std::is_same<Node, Context>::value) {
-    sql_query = "select `id` FROM `Context` WHERE";
+    sql_query = "SELECT `id` FROM `Context` WHERE";
   } else {
     return tensorflow::errors::InvalidArgument(
         "Invalid Node passed to ListNodeIDsUsingOptions");
