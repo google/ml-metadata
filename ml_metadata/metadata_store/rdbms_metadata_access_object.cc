@@ -942,6 +942,12 @@ tensorflow::Status RDBMSMetadataAccessObject::UpdateNodeImpl(const Node& node) {
   google::protobuf::util::MessageDifferencer diff;
   diff.IgnoreField(Node::descriptor()->FindFieldByName("properties"));
   diff.IgnoreField(Node::descriptor()->FindFieldByName("custom_properties"));
+  // create_time_since_epoch and last_update_time_since_epoch are output only
+  // fields. Two nodes are treated as equal as long as other fields match.
+  diff.IgnoreField(
+      Node::descriptor()->FindFieldByName("create_time_since_epoch"));
+  diff.IgnoreField(
+      Node::descriptor()->FindFieldByName("last_update_time_since_epoch"));
   if (!diff.Compare(node, stored_node) ||
       num_changed_properties + num_changed_custom_properties > 0) {
     TF_RETURN_IF_ERROR(RunNodeUpdate(node));
