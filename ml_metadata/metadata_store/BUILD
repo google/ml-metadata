@@ -76,7 +76,9 @@ cc_library(
         "@com_google_absl//absl/types:optional",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/util:struct_utils",
         "@org_tensorflow//tensorflow/core:lib",
+        "@com_google_protobuf//:cc_wkt_protos",
     ],
 )
 
@@ -118,7 +120,9 @@ cc_library(
         "@com_google_absl//absl/time",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/util:struct_utils",
         "@org_tensorflow//tensorflow/core:lib",
+        "@com_google_protobuf//:cc_wkt_protos",
     ],
 )
 

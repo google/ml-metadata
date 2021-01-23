@@ -788,6 +788,7 @@ TEST_P(MetadataAccessObjectTest, FindTypeById) {
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
+    properties { key: 'property_4' value: STRUCT }
   )");
   int64 type_id;
   TF_ASSERT_OK(metadata_access_object_->CreateType(want_type, &type_id));
@@ -1089,6 +1090,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifact) {
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
+    properties { key: 'property_4' value: STRUCT }
   )");
   int64 type_id;
   TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
@@ -1106,6 +1108,28 @@ TEST_P(MetadataAccessObjectTest, CreateArtifact) {
     properties {
       key: 'property_3'
       value: { string_value: '3' }
+    }
+    properties {
+      key: 'property_4'
+      value: {
+        struct_value {
+          fields {
+            key: "json number"
+            value { number_value: 1234 }
+          }
+          fields {
+            key: "json object"
+            value {
+              struct_value {
+                fields {
+                  key: "nested json key"
+                  value { string_value: "string value" }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   )");
   artifact.set_type_id(type_id);
@@ -1135,6 +1159,28 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithCustomProperty) {
     custom_properties {
       key: 'custom_property_3'
       value: { string_value: '3' }
+    }
+    custom_properties {
+      key: 'property_4'
+      value: {
+        struct_value {
+          fields {
+            key: "json number"
+            value { number_value: 1234 }
+          }
+          fields {
+            key: "json object"
+            value {
+              struct_value {
+                fields {
+                  key: "nested json key"
+                  value { string_value: "string value" }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   )");
   artifact.set_type_id(type_id);

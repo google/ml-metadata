@@ -23,6 +23,7 @@ ml_metadata_proto_library(
     srcs = ["metadata_store.proto"],
     cc_api_version = 2,
     deps = [
+        "@com_google_protobuf//:cc_wkt_protos",
     ],
 )
 
@@ -69,7 +70,6 @@ ml_metadata_proto_library_go(
     importpath = "ml_metadata/proto/metadata_store_service_go_proto",
     deps = [":metadata_store_service_proto"],
 )
-
 
 ml_metadata_proto_library(
     name = "metadata_source_proto",

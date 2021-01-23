@@ -20,16 +20,20 @@ limitations under the License.
 #include <string>
 #include <vector>
 
+#include "google/protobuf/struct.pb.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/util/json_util.h"
 #include "google/protobuf/util/message_differencer.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
+#include "absl/strings/escaping.h"
+#include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
+#include "absl/strings/strip.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -42,6 +46,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/list_operation_util.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
+#include "ml_metadata/util/struct_utils.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status.h"
 
@@ -65,7 +70,8 @@ TypeKind ResolveTypeKind(const ContextType* const type) {
 // QueryExecutor::Get{X}PropertyBy{X}Id() where X in {Artifact, Execution,
 // Context}.
 template <typename Node>
-void PopulateNodeProperties(const RecordSet::Record& record, Node& node) {
+tensorflow::Status PopulateNodeProperties(const RecordSet::Record& record,
+                                          Node& node) {
   // Populate the property of the node.
   const std::string& property_name = record.values(1);
   bool is_custom_property;
@@ -83,8 +89,15 @@ void PopulateNodeProperties(const RecordSet::Record& record, Node& node) {
     property_value.set_double_value(double_value);
   } else {
     const std::string& string_value = record.values(5);
-    property_value.set_string_value(string_value);
+    if (IsStructSerializedString(string_value)) {
+      TF_RETURN_IF_ERROR(
+          StringToStruct(string_value, *property_value.mutable_struct_value()));
+    } else {
+      property_value.set_string_value(string_value);
+    }
   }
+
+  return tensorflow::Status::OK();
 }
 
 // Converts a record set that contains an id column at position per record to a
@@ -301,6 +314,10 @@ tensorflow::Status ValidatePropertiesWithType(const Node& node,
       }
       case PropertyType::STRING: {
         is_type_match = property_value.has_string_value();
+        break;
+      }
+      case PropertyType::STRUCT: {
+        is_type_match = property_value.has_struct_value();
         break;
       }
       default: {
@@ -868,7 +885,7 @@ tensorflow::Status RDBMSMetadataAccessObject::FindNodesImpl(
       CHECK(iter != node_by_id.end());
       Node& node = *iter->second;
 
-      PopulateNodeProperties(record, node);
+      TF_RETURN_IF_ERROR(PopulateNodeProperties(record, node));
     }
   }
 
@@ -1268,8 +1285,8 @@ tensorflow::Status RDBMSMetadataAccessObject::FindEventsByExecutions(
   }
 
   if (event_record_set.records_size() == 0) {
-      return tensorflow::errors::NotFound(
-          "Cannot find events by given execution ids.");
+    return tensorflow::errors::NotFound(
+        "Cannot find events by given execution ids.");
   }
   return FindEventsFromRecordSet(event_record_set, events);
 }

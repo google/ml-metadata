@@ -17,9 +17,11 @@ limitations under the License.
 #include <string>
 #include <vector>
 
+#include "google/protobuf/struct.pb.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/util/json_util.h"
 #include "absl/memory/memory.h"
+#include "absl/strings/escaping.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -31,6 +33,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/list_operation_util.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
+#include "ml_metadata/util/struct_utils.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status.h"
 
@@ -174,8 +177,8 @@ tensorflow::Status QueryConfigExecutor::UpgradeMetadataSourceIfOutOfDate(
           ExecuteQuery(upgrade_query.query()),
           absl::StrCat("Upgrade query failed: ", upgrade_query.query()));
     }
-    TF_RETURN_WITH_CONTEXT_IF_ERROR(
-        UpdateSchemaVersion(to_version), "Failed to update schema.");
+    TF_RETURN_WITH_CONTEXT_IF_ERROR(UpdateSchemaVersion(to_version),
+                                    "Failed to update schema.");
     db_version = to_version;
   }
   return tensorflow::Status::OK();
@@ -241,14 +244,14 @@ tensorflow::Status QueryConfigExecutor::DowngradeMetadataSource(
     }
     for (const MetadataSourceQueryConfig::TemplateQuery& downgrade_query :
          migration_schemes.at(to_version).downgrade_queries()) {
-      TF_RETURN_WITH_CONTEXT_IF_ERROR(
-          ExecuteQuery(downgrade_query),
-          "Failed to migrate existing db; the "
-          "migration transaction rolls back.");
+      TF_RETURN_WITH_CONTEXT_IF_ERROR(ExecuteQuery(downgrade_query),
+                                      "Failed to migrate existing db; the "
+                                      "migration transaction rolls back.");
     }
     // at version 0, v0.13.2, there is no schema version information.
     if (to_version > 0) {
-      TF_RETURN_WITH_CONTEXT_IF_ERROR(UpdateSchemaVersion(to_version),
+      TF_RETURN_WITH_CONTEXT_IF_ERROR(
+          UpdateSchemaVersion(to_version),
           "Failed to migrate existing db; the migration transaction rolls "
           "back.");
     }
@@ -313,6 +316,8 @@ std::string QueryConfigExecutor::BindValue(const Value& value) {
       return Bind(value.double_value());
     case PropertyType::STRING:
       return Bind(value.string_value());
+    case PropertyType::STRUCT:
+      return Bind(StructToString(value.struct_value()));
     default:
       LOG(FATAL) << "Unknown registered property type: " << value.value_case()
                  << "This is an internal error: properties should have been "
@@ -331,7 +336,8 @@ std::string QueryConfigExecutor::BindDataType(const Value& value) {
       return "double_value";
       break;
     }
-    case PropertyType::STRING: {
+    case PropertyType::STRING:
+    case PropertyType::STRUCT: {
       return "string_value";
       break;
     }
@@ -475,8 +481,8 @@ tensorflow::Status QueryConfigExecutor::InitMetadataSourceIfNotExists(
   std::vector<std::string> successful_checks;
   std::vector<std::string> failing_checks;
   for (const auto& check_pair : checks) {
-    const tensorflow::Status &check = check_pair.first;
-    const std::string &name = check_pair.second;
+    const tensorflow::Status& check = check_pair.first;
+    const std::string& name = check_pair.second;
     if (!check.ok()) {
       missing_schema_error_messages.push_back(check.error_message());
       failing_checks.push_back(name);
@@ -493,12 +499,11 @@ tensorflow::Status QueryConfigExecutor::InitMetadataSourceIfNotExists(
     return tensorflow::errors::Aborted(
         "There are a subset of tables in MLMD instance. This may be due to "
         "concurrent connection to the empty database. "
-        "Please retry the connection. checks: ", checks.size(),
-        " errors: ", missing_schema_error_messages.size(),
+        "Please retry the connection. checks: ",
+        checks.size(), " errors: ", missing_schema_error_messages.size(),
         ", present tables: ", absl::StrJoin(successful_checks, ", "),
         ", missing tables: ", absl::StrJoin(failing_checks, ", "),
-        " Errors: ",
-        absl::StrJoin(missing_schema_error_messages, "\n"));
+        " Errors: ", absl::StrJoin(missing_schema_error_messages, "\n"));
   }
 
   // no table exists, then init the MetadataSource
