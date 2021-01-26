@@ -28,7 +28,7 @@ namespace {
 
 // TODO(b/178235219): Remove this once we migrate to schema v7 and add a column
 // for storing serialized `Struct` values.
-constexpr absl::string_view kSerializedStructPrefix = "mlmd-struct::";
+constexpr char kSerializedStructPrefix[] = "mlmd-struct::";
 
 }
 
