@@ -2,6 +2,16 @@
 
 ## Major Features and Improvements
 
+## Bug Fixes and Other Changes
+
+## Breaking changes
+
+## Deprecations
+
+# Release 0.27.0
+
+## Major Features and Improvements
+
 *   Introduce `google.protobuf.Struct` as an additional `Value` type for storing
     complex, JSON-objects in MLMD.
 
@@ -12,7 +22,11 @@
 
 ## Breaking changes
 
+*   N/A
+
 ## Deprecations
+
+*   N/A
 
 # Release 0.26.0
 
