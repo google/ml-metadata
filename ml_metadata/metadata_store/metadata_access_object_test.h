@@ -22,6 +22,7 @@ limitations under the License.
 #include <gtest/gtest.h>
 #include "ml_metadata/metadata_store/metadata_access_object.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
+#include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
 
 namespace ml_metadata {
@@ -39,8 +40,26 @@ class MetadataAccessObjectContainer {
   // MetadataAccessObject is owned by MetadataAccessObjectContainer.
   virtual MetadataAccessObject* GetMetadataAccessObject() = 0;
 
+  // If the head library needs to support earlier schema version, this method
+  // should be overridden to test against an earlier schema version.
+  virtual absl::optional<int64> GetSchemaVersion() {
+    return absl::nullopt;
+  }
+
+  // Init a test db environment. By default the testsuite is run against the
+  // head schema. If GetSchemaVersion() is overridden, it prepares a
+  // db at tht particular schema version.
   virtual tensorflow::Status Init() {
-    return GetMetadataAccessObject()->InitMetadataSource();
+    TF_RETURN_IF_ERROR(GetMetadataAccessObject()->InitMetadataSource());
+    // If the test suite indicates the library at head should be tested against
+    // an existing db with a previous schema version, we downgrade the
+    // initialized schema to setup the test environment.
+    const absl::optional<int64> earlier_schema_version = GetSchemaVersion();
+    if (earlier_schema_version) {
+      TF_RETURN_IF_ERROR(GetMetadataAccessObject()->DowngradeMetadataSource(
+          *earlier_schema_version));
+    }
+    return tensorflow::Status::OK();
   }
 
   // Tests if there is upgrade verification.
@@ -100,11 +119,20 @@ class MetadataAccessObjectContainer {
 class QueryConfigMetadataAccessObjectContainer
     : public MetadataAccessObjectContainer {
  public:
+  // By default the container returns a query config based MetadataAccessObject
+  // that uses the query config at head. If earlier_schema_version is passed,
+  // it creates a MetadataAccessObject that supports querying the earlier
+  // db schema.
   QueryConfigMetadataAccessObjectContainer(
-      const MetadataSourceQueryConfig& config)
-      : config_(config) {}
+      const MetadataSourceQueryConfig& config,
+      absl::optional<int64> earlier_schema_version = absl::nullopt)
+      : config_(config), testing_schema_version_(earlier_schema_version) {}
 
   virtual ~QueryConfigMetadataAccessObjectContainer() = default;
+
+  absl::optional<int64> GetSchemaVersion() final {
+    return testing_schema_version_;
+  }
 
   bool HasUpgradeVerification(int64 version) final;
 
@@ -148,6 +176,8 @@ class QueryConfigMetadataAccessObjectContainer
           queries);
 
   MetadataSourceQueryConfig config_;
+  // If not set, by default, we test against the head version.
+  absl::optional<int64> testing_schema_version_;
 };
 
 // Represents the type of the Gunit Test param for the parameterized
@@ -199,6 +229,18 @@ class MetadataAccessObjectTest
 
   tensorflow::Status Init() {
     return metadata_access_object_container_->Init();
+  }
+
+  // Uses to skip the tests that are not relevant to any earlier schema version.
+  bool EarlierSchemaEnabled() {
+    return metadata_access_object_container_->GetSchemaVersion().has_value();
+  }
+
+  // Uses to indicate the minimum expected schema version to run a test.
+  bool SkipIfEarlierSchemaLessThan(int64 min_schema_version) {
+    return EarlierSchemaEnabled() &&
+           *metadata_access_object_container_->GetSchemaVersion() <
+               min_schema_version;
   }
 
   template <class NodeType>

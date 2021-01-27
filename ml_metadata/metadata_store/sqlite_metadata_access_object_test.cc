@@ -1,4 +1,4 @@
-/* Copyright 2019 Google LLC
+/* Copyright 2021 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -38,14 +38,16 @@ namespace {
 class SqliteMetadataAccessObjectContainer
     : public QueryConfigMetadataAccessObjectContainer {
  public:
-  SqliteMetadataAccessObjectContainer()
+  SqliteMetadataAccessObjectContainer(
+      absl::optional<int64> earlier_schema_version = absl::nullopt)
       : QueryConfigMetadataAccessObjectContainer(
-            util::GetSqliteMetadataSourceQueryConfig()) {
+            util::GetSqliteMetadataSourceQueryConfig(),
+            earlier_schema_version) {
     SqliteMetadataSourceConfig config;
     metadata_source_ = absl::make_unique<SqliteMetadataSource>(config);
     TF_CHECK_OK(CreateMetadataAccessObject(
         util::GetSqliteMetadataSourceQueryConfig(), metadata_source_.get(),
-        &metadata_access_object_));
+        earlier_schema_version, &metadata_access_object_));
   }
 
   ~SqliteMetadataAccessObjectContainer() override = default;
@@ -66,9 +68,15 @@ class SqliteMetadataAccessObjectContainer
 
 INSTANTIATE_TEST_SUITE_P(
     SqliteMetadataAccessObjectTest, MetadataAccessObjectTest,
-    ::testing::Values([]() {
-      return absl::make_unique<SqliteMetadataAccessObjectContainer>();
-    }));
+    ::testing::Values(
+        []() {
+          return absl::make_unique<SqliteMetadataAccessObjectContainer>();
+        },
+        // TODO(b/170421770) Support v5 temporarily until v6 is rollout.
+        []() {
+          return absl::make_unique<SqliteMetadataAccessObjectContainer>(
+              /*earlier_schema_version=*/5);
+        }));
 
 }  // namespace testing
 }  // namespace ml_metadata

@@ -1,4 +1,4 @@
-/* Copyright 2019 Google LLC
+/* Copyright 2021 Google LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -39,15 +39,16 @@ namespace {
 class MySqlMetadataAccessObjectContainer
     : public QueryConfigMetadataAccessObjectContainer {
  public:
-  MySqlMetadataAccessObjectContainer()
+  MySqlMetadataAccessObjectContainer(
+      absl::optional<int64> earlier_schema_version = absl::nullopt)
       : QueryConfigMetadataAccessObjectContainer(
-            util::GetMySqlMetadataSourceQueryConfig()) {
+            util::GetMySqlMetadataSourceQueryConfig(), earlier_schema_version) {
     metadata_source_initializer_ = GetTestMySqlMetadataSourceInitializer();
     metadata_source_ = metadata_source_initializer_->Init(
         TestMySqlMetadataSourceInitializer::ConnectionType::kTcp);
-    TF_CHECK_OK(
-        CreateMetadataAccessObject(util::GetMySqlMetadataSourceQueryConfig(),
-                                   metadata_source_, &metadata_access_object_));
+    TF_CHECK_OK(CreateMetadataAccessObject(
+        util::GetMySqlMetadataSourceQueryConfig(), metadata_source_,
+        earlier_schema_version, &metadata_access_object_));
   }
 
   ~MySqlMetadataAccessObjectContainer() override {
@@ -74,9 +75,15 @@ class MySqlMetadataAccessObjectContainer
 
 INSTANTIATE_TEST_SUITE_P(
     MySqlMetadataAccessObjectTest, MetadataAccessObjectTest,
-    ::testing::Values([]() {
-      return absl::make_unique<MySqlMetadataAccessObjectContainer>();
-    }));
+    ::testing::Values(
+        []() {
+          return absl::make_unique<MySqlMetadataAccessObjectContainer>();
+        },
+        // TODO(b/170421770) Support v5 temporarily until v6 is rollout.
+        []() {
+          return absl::make_unique<MySqlMetadataAccessObjectContainer>(
+              /*earlier_schema_version=*/5);
+        }));
 
 }  // namespace testing
 }  // namespace ml_metadata

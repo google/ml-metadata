@@ -39,18 +39,29 @@ limitations under the License.
 
 namespace ml_metadata {
 
+static constexpr int64 kSchemaVersionSix = 6;
+
+QueryConfigExecutor::QueryConfigExecutor(
+    const MetadataSourceQueryConfig& query_config, MetadataSource* source,
+    int64 query_version)
+    : QueryExecutor(query_version),
+      query_config_(query_config),
+      metadata_source_(source) {}
+
 tensorflow::Status QueryConfigExecutor::CheckParentTypeTable() {
   return ExecuteQuery(query_config_.check_parent_type_table());
 }
 
 tensorflow::Status QueryConfigExecutor::InsertParentType(int64 type_id,
                                                          int64 parent_type_id) {
+  TF_RETURN_IF_ERROR(VerifyCurrentQueryVersionIsAtLeast(kSchemaVersionSix));
   return ExecuteQuery(query_config_.insert_parent_type(),
                       {Bind(type_id), Bind(parent_type_id)});
 }
 
 tensorflow::Status QueryConfigExecutor::SelectParentTypesByTypeID(
     int64 type_id, RecordSet* record_set) {
+  TF_RETURN_IF_ERROR(VerifyCurrentQueryVersionIsAtLeast(kSchemaVersionSix));
   return ExecuteQuery(query_config_.select_parent_type_by_type_id(),
                       {Bind(type_id)}, record_set);
 }
@@ -80,18 +91,21 @@ tensorflow::Status QueryConfigExecutor::CheckParentContextTable() {
 
 tensorflow::Status QueryConfigExecutor::InsertParentContext(int64 parent_id,
                                                             int64 child_id) {
+  TF_RETURN_IF_ERROR(VerifyCurrentQueryVersionIsAtLeast(kSchemaVersionSix));
   return ExecuteQuery(query_config_.insert_parent_context(),
                       {Bind(child_id), Bind(parent_id)});
 }
 
 tensorflow::Status QueryConfigExecutor::SelectParentContextsByContextID(
     int64 context_id, RecordSet* record_set) {
+  TF_RETURN_IF_ERROR(VerifyCurrentQueryVersionIsAtLeast(kSchemaVersionSix));
   return ExecuteQuery(query_config_.select_parent_context_by_context_id(),
                       {Bind(context_id)}, record_set);
 }
 
 tensorflow::Status QueryConfigExecutor::SelectChildContextsByContextID(
     int64 context_id, RecordSet* record_set) {
+  TF_RETURN_IF_ERROR(VerifyCurrentQueryVersionIsAtLeast(kSchemaVersionSix));
   return ExecuteQuery(
       query_config_.select_parent_context_by_parent_context_id(),
       {Bind(context_id)}, record_set);
@@ -457,6 +471,12 @@ tensorflow::Status QueryConfigExecutor::InitMetadataSource() {
 
 tensorflow::Status QueryConfigExecutor::InitMetadataSourceIfNotExists(
     const bool enable_upgrade_migration) {
+  // If |query_schema_version_| is given, then the query executor is expected to
+  // work with an existing db with an earlier schema version equals to that.
+  if (query_schema_version()) {
+    return CheckSchemaVersionAlignsWithQueryVersion();
+  }
+  // When working at head, we reuse existing db or create a new db.
   // check db version, and make it to align with the lib version.
   TF_RETURN_IF_ERROR(
       UpgradeMetadataSourceIfOutOfDate(enable_upgrade_migration));

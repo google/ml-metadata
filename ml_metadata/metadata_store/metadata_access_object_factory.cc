@@ -31,12 +31,16 @@ namespace {
 // The MetadataSource is used to execute specific queries.
 tensorflow::Status CreateRDBMSMetadataAccessObject(
     const MetadataSourceQueryConfig& query_config,
-    MetadataSource* const metadata_source,
+    MetadataSource* const metadata_source, absl::optional<int64> schema_version,
     std::unique_ptr<MetadataAccessObject>* result) {
   if (!metadata_source->is_connected())
     TF_RETURN_IF_ERROR(metadata_source->Connect());
   std::unique_ptr<QueryExecutor> executor =
-      absl::WrapUnique(new QueryConfigExecutor(query_config, metadata_source));
+      schema_version && *schema_version != query_config.schema_version()
+          ? absl::WrapUnique(new QueryConfigExecutor(
+                query_config, metadata_source, *schema_version))
+          : absl::WrapUnique(
+                new QueryConfigExecutor(query_config, metadata_source));
   *result =
       absl::WrapUnique(new RDBMSMetadataAccessObject(std::move(executor)));
   return tensorflow::Status::OK();
@@ -49,16 +53,25 @@ tensorflow::Status CreateMetadataAccessObject(
     const MetadataSourceQueryConfig& query_config,
     MetadataSource* const metadata_source,
     std::unique_ptr<MetadataAccessObject>* result) {
+  return CreateMetadataAccessObject(query_config, metadata_source,
+                                    /*schema_version=*/absl::nullopt,
+                                    result);
+}
+
+tensorflow::Status CreateMetadataAccessObject(
+    const MetadataSourceQueryConfig& query_config,
+    MetadataSource* const metadata_source, absl::optional<int64> schema_version,
+    std::unique_ptr<MetadataAccessObject>* result) {
   switch (query_config.metadata_source_type()) {
     case UNKNOWN_METADATA_SOURCE:
       return tensorflow::errors::InvalidArgument(
           "Metadata source type is not specified.");
     case MYSQL_METADATA_SOURCE:
       return CreateRDBMSMetadataAccessObject(query_config, metadata_source,
-                                             result);
+                                             schema_version, result);
     case SQLITE_METADATA_SOURCE:
       return CreateRDBMSMetadataAccessObject(query_config, metadata_source,
-                                             result);
+                                             schema_version, result);
     default:
       return tensorflow::errors::Unimplemented("Unknown Metadata source type.");
   }

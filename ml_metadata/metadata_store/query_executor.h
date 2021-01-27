@@ -47,10 +47,17 @@ namespace ml_metadata {
 // Some methods might add additional columns
 class QueryExecutor {
  public:
+  // By default, for any empty db, the head schema should be used to init new
+  // db instances. Giving an optional `query_schema_version` allows the query
+  // executor to work with an existing db with an earlier schema version other
+  // than the current library version. The earlier `query_schema_version` is
+  // useful for multi-tenant applications to have better availability when
+  // configured with a set of existing backends with different schema versions.
+  explicit QueryExecutor(
+      absl::optional<int64> query_schema_version = absl::nullopt);
   virtual ~QueryExecutor() = default;
 
   // default & copy constructors are disallowed.
-  QueryExecutor() = default;
   QueryExecutor(const QueryExecutor&) = delete;
   QueryExecutor& operator=(const QueryExecutor&) = delete;
 
@@ -59,13 +66,19 @@ class QueryExecutor {
   // Returns detailed INTERNAL error, if query execution fails.
   virtual tensorflow::Status InitMetadataSource() = 0;
 
-  // Initializes the metadata source and creates schema.
+  // Initializes the metadata source and creates schema if not exist.
   // Returns OK and does nothing, if all required schema exist.
   // Returns OK and creates schema, if no schema exists yet.
   // Returns DATA_LOSS error, if the MLMDENv has more than one schema version.
   // Returns ABORTED error, if any required schema is missing.
   // Returns FAILED_PRECONDITION error, if library and db have incompatible
   //   schema versions, and upgrade migrations are not enabled.
+  //
+  // When |query_schema_version_| is set:
+  // Returns OK and does nothing, if the |query_schema_version_| aligns with
+  //   the db schema version in the metadata source.
+  // Returns FAILED_PRECONDITION error, if the given db is empty or at another
+  //   schema version.
   // Returns detailed INTERNAL error, if create schema query execution fails.
   virtual tensorflow::Status InitMetadataSourceIfNotExists(
       bool enable_upgrade_migration = false) = 0;
@@ -459,18 +472,6 @@ class QueryExecutor {
   virtual tensorflow::Status SelectChildContextsByContextID(
       int64 context_id, RecordSet* record_set) = 0;
 
-  // Below is a list of fields required for metadata source migrations when
-  // the library being used having different versions from a pre-existing
-  // database.
-
-  // The version of the current query config. Increase the version by 1 in any
-  // CL that includes physical schema changes and provides a migration function
-  // that uses a list migration queries. The database stores it to indicate the
-  // current database version. When metadata source creates, it compares the
-  // given `schema_version` in query config with the `schema_version` stored in
-  // the database, and migrate the database if needed.
-  int64 SchemaVersion();
-
   // Checks the MLMDEnv table and query the schema version.
   // At MLMD release v0.13.2, by default it is v0.
   virtual tensorflow::Status CheckMLMDEnvTable() = 0;
@@ -522,6 +523,31 @@ class QueryExecutor {
       const ListOperationOptions& options,
       const absl::Span<const int64> candidate_ids, RecordSet* record_set) = 0;
 
+
+ protected:
+  // Uses the method to document the min schema version of an API explicitly.
+  // Returns FailedPrecondition, if the |query_schema_version_| is less than the
+  //   mininum schema version that the API is expected to work with.
+  tensorflow::Status VerifyCurrentQueryVersionIsAtLeast(
+      int64 min_schema_version) const;
+
+  // If |query_schema_version_| is given, then the query executor is expected to
+  // work with an existing db with an earlier schema version (=
+  // query_schema_version_). Returns FailedPrecondition, if the db is empty or
+  // the db is initialized
+  //   with a schema_version != query_schema_version_.
+  tensorflow::Status CheckSchemaVersionAlignsWithQueryVersion();
+
+  // Access the query_schema_version_ if any.
+  absl::optional<int64> query_schema_version() const {
+    return query_schema_version_;
+  }
+
+ private:
+  // By default, the query executor assumes that the db schema version aligns
+  // with the library version. If set, the query executor is switched to use
+  // the queries to talk to an earlier schema_version = query_schema_version_.
+  absl::optional<int64> query_schema_version_ = absl::nullopt;
 };
 
 }  // namespace ml_metadata

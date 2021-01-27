@@ -47,6 +47,11 @@ class QueryConfigExecutor : public QueryExecutor {
                       MetadataSource* source)
       : query_config_(query_config), metadata_source_(source) {}
 
+  // A `query_version` can be passed to the QueryConfigExecutor to work with
+  // an existing db with an earlier schema version.
+  QueryConfigExecutor(const MetadataSourceQueryConfig& query_config,
+                      MetadataSource* source, int64 query_version);
+
   // default & copy constructors are disallowed.
   QueryConfigExecutor() = delete;
   QueryConfigExecutor(const QueryConfigExecutor&) = delete;

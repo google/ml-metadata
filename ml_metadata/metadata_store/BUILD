@@ -84,6 +84,9 @@ cc_library(
 
 cc_library(
     name = "query_executor",
+    srcs = [
+        "query_executor.cc",
+    ],
     hdrs = [
         "query_executor.h",
     ],

@@ -248,6 +248,8 @@ void CreateNodeFromTextProto(const std::string& node_text_proto, int64 type_id,
 }
 
 TEST_P(MetadataAccessObjectTest, InitMetadataSourceCheckSchemaVersion) {
+  // Skip schema/library version consistency check for earlier schema version.
+  if (EarlierSchemaEnabled()) { return; }
   TF_ASSERT_OK(Init());
   int64 schema_version;
   TF_ASSERT_OK(metadata_access_object_->GetSchemaVersion(&schema_version));
@@ -256,6 +258,8 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceCheckSchemaVersion) {
 }
 
 TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExists) {
+  // Skip empty db init tests for earlier schema version.
+  if (EarlierSchemaEnabled()) { return; }
   // creates the schema and insert some records
   TF_EXPECT_OK(metadata_access_object_->InitMetadataSourceIfNotExists());
   ArtifactType want_type =
@@ -270,6 +274,8 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExists) {
 }
 
 TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExistsErrorAborted) {
+  // Skip empty db init tests for earlier schema version.
+  if (EarlierSchemaEnabled()) { return; }
   // creates the schema and insert some records
   TF_ASSERT_OK(metadata_access_object_->InitMetadataSourceIfNotExists());
   {
@@ -282,6 +288,8 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExistsErrorAborted) {
 }
 
 TEST_P(MetadataAccessObjectTest, InitForReset) {
+  // Skip empty db init tests for earlier schema version.
+  if (EarlierSchemaEnabled()) { return; }
   // Tests if Init() can reset a corrupted database.
   // Not applicable to all databases.
   if (!metadata_access_object_container_->PerformExtendedTests()) {
@@ -293,6 +301,8 @@ TEST_P(MetadataAccessObjectTest, InitForReset) {
 }
 
 TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExistsErrorAborted2) {
+  // Skip partial schema initialization for earlier schema version.
+  if (EarlierSchemaEnabled()) { return; }
   // Drop the artifact table (or artifact property table).
   TF_EXPECT_OK(Init());
   {
@@ -307,6 +317,9 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExistsErrorAborted2) {
 }
 
 TEST_P(MetadataAccessObjectTest, InitMetadataSourceSchemaVersionMismatch) {
+  // Skip schema/library version consistency test for earlier schema version.
+  if (EarlierSchemaEnabled()) { return; }
+  // Skip partial schema initialization for earlier schema version.
   if (!metadata_access_object_container_->PerformExtendedTests()) {
     return;
   }
@@ -323,6 +336,8 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceSchemaVersionMismatch) {
 }
 
 TEST_P(MetadataAccessObjectTest, InitMetadataSourceSchemaVersionMismatch2) {
+  // Skip schema/library version consistency test for earlier schema version.
+  if (EarlierSchemaEnabled()) { return; }
   // reset the database by recreating all missing tables
   TF_EXPECT_OK(Init());
   {
@@ -338,7 +353,31 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceSchemaVersionMismatch2) {
   }
 }
 
+TEST_P(MetadataAccessObjectTest,
+       EarlierSchemaInitMetadataSourceIfNotExistErrorEmptyDB) {
+  if (!EarlierSchemaEnabled()) { return; }
+  const tensorflow::Status status =
+      metadata_access_object_->InitMetadataSourceIfNotExists();
+  EXPECT_TRUE(tensorflow::errors::IsFailedPrecondition(status))
+      << "Expected FAILED_PRECONDITION but got " << status;
+}
+
+TEST_P(MetadataAccessObjectTest,
+       EarlierSchemaInitMetadataSourceIfNotExistErrorIncompatibleSchema) {
+  if (!EarlierSchemaEnabled()) { return; }
+  // Populates an existing db at an incompatible schema_version.
+  TF_ASSERT_OK(Init());
+  TF_ASSERT_OK(
+      metadata_access_object_container_->SetDatabaseVersionIncompatible());
+  const tensorflow::Status status =
+      metadata_access_object_->InitMetadataSourceIfNotExists();
+  EXPECT_TRUE(tensorflow::errors::IsFailedPrecondition(status))
+      << "Expected FAILED_PRECONDITION but got " << status;
+}
+
 TEST_P(MetadataAccessObjectTest, CreateParentTypeInheritanceLink) {
+  // Earlier schema version does not have the parent type table yet.
+  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/6)) { return; }
   if (!metadata_access_object_container_->HasParentTypeSupport()) {
     return;
   }
@@ -423,6 +462,8 @@ TEST_P(MetadataAccessObjectTest,
 }
 
 TEST_P(MetadataAccessObjectTest, CreateParentTypeInheritanceLinkWithCycle) {
+  // Earlier schema version does not have the parent type table yet.
+  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/6)) { return; }
   if (!metadata_access_object_container_->HasParentTypeSupport()) {
     return;
   }
@@ -481,6 +522,8 @@ TEST_P(MetadataAccessObjectTest, CreateParentTypeInheritanceLinkWithCycle) {
 }
 
 TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeId) {
+  // Earlier schema version does not have the parent type table yet.
+  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/6)) { return; }
   if (!metadata_access_object_container_->HasParentTypeSupport()) {
     return;
   }
@@ -3565,6 +3608,8 @@ TEST_P(MetadataAccessObjectTest, PutEventsWithPaths) {
 }
 
 TEST_P(MetadataAccessObjectTest, CreateParentContext) {
+  // Earlier schema version does not have the parent context table yet.
+  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/6)) { return; }
   if (!metadata_access_object_container_->HasParentContextSupport()) {
     return;
   }
@@ -3650,6 +3695,8 @@ TEST_P(MetadataAccessObjectTest, CreateParentContextInvalidArgumentError) {
 }
 
 TEST_P(MetadataAccessObjectTest, CreateAndFindParentContext) {
+  // Earlier schema version does not have the parent context table yet.
+  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/6)) { return; }
   if (!metadata_access_object_container_->HasParentContextSupport()) {
     return;
   }
@@ -3707,6 +3754,8 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindParentContext) {
 }
 
 TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
+  // Skip upgrade/downgrade migration tests for earlier schema version.
+  if (EarlierSchemaEnabled()) { return; }
   // setup the database using the previous version.
   // Calling this with the minimum version sets up the original database.
   int64 lib_version = metadata_access_object_->GetLibraryVersion();
@@ -3751,6 +3800,8 @@ TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
 }
 
 TEST_P(MetadataAccessObjectTest, DowngradeToV0FromCurrentLibVersion) {
+  // Skip upgrade/downgrade migration tests for earlier schema version.
+  if (EarlierSchemaEnabled()) { return; }
   // should not use downgrade when the database is empty.
   EXPECT_EQ(metadata_access_object_
                 ->DowngradeMetadataSource(
@@ -3783,6 +3834,8 @@ TEST_P(MetadataAccessObjectTest, DowngradeToV0FromCurrentLibVersion) {
 }
 
 TEST_P(MetadataAccessObjectTest, AutoMigrationTurnedOffByDefault) {
+  // Skip upgrade/downgrade migration tests for earlier schema version.
+  if (EarlierSchemaEnabled()) { return; }
   // init the database to the current library version.
   TF_ASSERT_OK(metadata_access_object_->InitMetadataSourceIfNotExists());
   // downgrade when the database to version 0.

@@ -35,6 +35,16 @@ tensorflow::Status CreateMetadataAccessObject(
     MetadataSource* const metadata_source,
     std::unique_ptr<MetadataAccessObject>* result);
 
+// For multi-tenant applications to have better availability when configured
+// with a set of existing backends with different schema versions, an
+// `schema_version` can be set to allow the MetadataAccessObject
+// works with an existing db having that particular schema version.
+tensorflow::Status CreateMetadataAccessObject(
+    const MetadataSourceQueryConfig& query_config,
+    MetadataSource* const metadata_source,
+    absl::optional<int64> schema_version,
+    std::unique_ptr<MetadataAccessObject>* result);
+
 }  // namespace ml_metadata
 
 #endif  // THIRD_PARTY_ML_METADATA_METADATA_STORE_METADATA_ACCESS_OBJECT_FACTORY_H_
