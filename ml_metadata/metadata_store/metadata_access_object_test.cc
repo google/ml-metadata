@@ -247,6 +247,52 @@ void CreateNodeFromTextProto(const std::string& node_text_proto, int64 type_id,
   output = nodes[0];
 }
 
+// Utilities that waits for a millisecond to update a node and returns stored
+// node proto with updated timestamps.
+template <class Node>
+void UpdateAndReturnNode(const Node& updated_node,
+                         MetadataAccessObject& metadata_access_object,
+                         Node& output);
+
+template <>
+void UpdateAndReturnNode(const Artifact& updated_node,
+                         MetadataAccessObject& metadata_access_object,
+                         Artifact& output) {
+  absl::SleepFor(absl::Milliseconds(1));
+  TF_EXPECT_OK(metadata_access_object.UpdateArtifact(updated_node));
+  std::vector<Artifact> artifacts;
+  TF_ASSERT_OK(metadata_access_object.FindArtifactsById({updated_node.id()},
+                                                        &artifacts));
+  ASSERT_THAT(artifacts, SizeIs(1));
+  output = artifacts.at(0);
+}
+
+template <>
+void UpdateAndReturnNode(const Execution& updated_node,
+                         MetadataAccessObject& metadata_access_object,
+                         Execution& output) {
+  absl::SleepFor(absl::Milliseconds(1));
+  TF_EXPECT_OK(metadata_access_object.UpdateExecution(updated_node));
+  std::vector<Execution> executions;
+  TF_ASSERT_OK(metadata_access_object.FindExecutionsById({updated_node.id()},
+                                                         &executions));
+  ASSERT_THAT(executions, SizeIs(1));
+  output = executions.at(0);
+}
+
+template <>
+void UpdateAndReturnNode(const Context& updated_node,
+                         MetadataAccessObject& metadata_access_object,
+                         Context& output) {
+  absl::SleepFor(absl::Milliseconds(1));
+  TF_EXPECT_OK(metadata_access_object.UpdateContext(updated_node));
+  std::vector<Context> contexts;
+  TF_ASSERT_OK(
+      metadata_access_object.FindContextsById({updated_node.id()}, &contexts));
+  ASSERT_THAT(contexts, SizeIs(1));
+  output = contexts.at(0);
+}
+
 TEST_P(MetadataAccessObjectTest, InitMetadataSourceCheckSchemaVersion) {
   // Skip schema/library version consistency check for earlier schema version.
   if (EarlierSchemaEnabled()) { return; }
