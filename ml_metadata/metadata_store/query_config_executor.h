@@ -70,44 +70,29 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(query_config_.check_type_table());
   }
 
-  tensorflow::Status InsertArtifactType(const std::string& name,
-                                        int64* artifact_type_id) final {
-    const std::vector<std::string> bound_name = {Bind(name)};
-    return ExecuteQuerySelectLastInsertID(query_config_.insert_artifact_type(),
-                                          bound_name, artifact_type_id);
-  }
+  tensorflow::Status InsertArtifactType(
+      const std::string& name, absl::optional<absl::string_view> version,
+      absl::optional<absl::string_view> description, int64* type_id) final;
 
-  tensorflow::Status InsertExecutionType(const std::string& type_name,
-                                         bool has_input_type,
-                                         const google::protobuf::Message& input_type,
-                                         bool has_output_type,
-                                         const google::protobuf::Message& output_type,
-                                         int64* execution_type_id) final;
+  tensorflow::Status InsertExecutionType(
+      const std::string& name, absl::optional<absl::string_view> version,
+      absl::optional<absl::string_view> description,
+      const ArtifactStructType* input_type,
+      const ArtifactStructType* output_type, int64* type_id) final;
 
-  tensorflow::Status InsertContextType(const std::string& type_name,
-                                       int64* context_id) final {
-    return ExecuteQuerySelectLastInsertID(query_config_.insert_context_type(),
-                                          {Bind(type_name)}, context_id);
-  }
+  tensorflow::Status InsertContextType(
+      const std::string& name, absl::optional<absl::string_view> version,
+      absl::optional<absl::string_view> description, int64* type_id) final;
 
   tensorflow::Status SelectTypeByID(int64 type_id, TypeKind type_kind,
-                                    RecordSet* record_set) final {
-    return ExecuteQuery(query_config_.select_type_by_id(),
-                        {Bind(type_id), Bind(type_kind)}, record_set);
-  }
+                                    RecordSet* record_set) final;
 
   tensorflow::Status SelectTypeByName(const absl::string_view type_name,
                                       TypeKind type_kind,
-                                      RecordSet* record_set) final {
-    return ExecuteQuery(query_config_.select_type_by_name(),
-                        {Bind(type_name), Bind(type_kind)}, record_set);
-  }
+                                      RecordSet* record_set) final;
 
   tensorflow::Status SelectAllTypes(TypeKind type_kind,
-                                    RecordSet* record_set) final {
-    return ExecuteQuery(query_config_.select_all_types(), {Bind(type_kind)},
-                        record_set);
-  }
+                                    RecordSet* record_set) final;
 
   tensorflow::Status CheckTypePropertyTable() final {
     return ExecuteQuery(query_config_.check_type_property_table());
@@ -565,7 +550,7 @@ class QueryConfigExecutor : public QueryExecutor {
   // Utility methods to bind the value to a SQL clause.
   std::string BindValue(const Value& value);
   std::string BindDataType(const Value& value);
-  std::string Bind(bool exists, const google::protobuf::Message& message);
+  std::string Bind(const ArtifactStructType* message);
 
   // Utility method to bind an TypeKind to a SQL clause.
   // TypeKind is an enum (integer), EscapeString is not applicable.

@@ -568,21 +568,35 @@ tensorflow::Status RDBMSMetadataAccessObject::ModifyProperties(
 // Creates a query to insert an artifact type.
 tensorflow::Status RDBMSMetadataAccessObject::InsertTypeID(
     const ArtifactType& type, int64* type_id) {
-  return executor_->InsertArtifactType(type.name(), type_id);
+  return executor_->InsertArtifactType(
+      type.name(),
+      type.has_version() ? absl::make_optional(type.version()) : absl::nullopt,
+      type.has_description() ? absl::make_optional(type.description())
+                             : absl::nullopt,
+      type_id);
 }
 
 // Creates a query to insert an execution type.
 tensorflow::Status RDBMSMetadataAccessObject::InsertTypeID(
     const ExecutionType& type, int64* type_id) {
   return executor_->InsertExecutionType(
-      type.name(), type.has_input_type(), type.input_type(),
-      type.has_output_type(), type.output_type(), type_id);
+      type.name(),
+      type.has_version() ? absl::make_optional(type.version()) : absl::nullopt,
+      type.has_description() ? absl::make_optional(type.description())
+                             : absl::nullopt,
+      type.has_input_type() ? &type.input_type() : nullptr,
+      type.has_output_type() ? &type.output_type() : nullptr, type_id);
 }
 
 // Creates a query to insert a context type.
 tensorflow::Status RDBMSMetadataAccessObject::InsertTypeID(
     const ContextType& type, int64* type_id) {
-  return executor_->InsertContextType(type.name(), type_id);
+  return executor_->InsertContextType(
+      type.name(),
+      type.has_version() ? absl::make_optional(type.version()) : absl::nullopt,
+      type.has_description() ? absl::make_optional(type.description())
+                             : absl::nullopt,
+      type_id);
 }
 
 // Creates a `Type` where acceptable ones are in {ArtifactType, ExecutionType,

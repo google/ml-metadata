@@ -87,6 +87,11 @@ message ArtifactType {
   // The name of the type. It must be unique among ArtifactTypes within a
   // database instance.
   optional string name = 2;
+  // An optional version of the type.
+  // EXPERIMENTAL: please do not set until related APIs and docs are available.
+  optional string version = 4;
+  // An optional description about the type.
+  optional string description = 5;
   // The schema of the type.
   // Properties are always optional in the artifact.
   // Properties of an artifact type can be expanded but not contracted (i.e.,
@@ -252,6 +257,11 @@ message ExecutionType {
   // The name of the type. It must be unique among ExecutionTypes within a
   // database instance.
   optional string name = 2;
+  // An optional version of the type.
+  // EXPERIMENTAL: please do not set until related APIs and docs are available.
+  optional string version = 6;
+  // An optional description about the type.
+  optional string description = 7;
   // The schema of the type.
   // Properties are always optional in the execution.
   map<string, PropertyType> properties = 3;
@@ -284,6 +294,11 @@ message ContextType {
   // The name of the type, e.g., Pipeline, Task, Session, User, etc. It must be
   // unique among ContextTypes within a database instance.
   optional string name = 2;
+  // An optional version of the type.
+  // EXPERIMENTAL: please do not set until related APIs and docs are available.
+  optional string version = 4;
+  // An optional description about the type.
+  optional string description = 5;
   // The schema of the type, e.g., name: string, owner: string
   // Properties are always optional in the context.
   // Properties of an context type can be expanded but not contracted (i.e.,

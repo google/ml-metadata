@@ -67,4 +67,8 @@ tensorflow::Status QueryExecutor::CheckSchemaVersionAlignsWithQueryVersion() {
   return tensorflow::Status::OK();
 }
 
+bool QueryExecutor::IsQuerySchemaVersionEquals(int64 schema_version) const {
+  return query_schema_version_ && *query_schema_version_ == schema_version;
+}
+
 }  // namespace ml_metadata

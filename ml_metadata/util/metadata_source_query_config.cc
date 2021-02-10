@@ -48,37 +48,38 @@ R"pb(
   }
   insert_artifact_type {
     query: " INSERT INTO `Type`( "
-           "   `name`, `type_kind` "
-           ") VALUES($0, 1);"
-    parameter_num: 1
+           "   `name`, `type_kind`, `version`, `description` "
+           ") VALUES($0, 1, $1, $2);"
+    parameter_num: 3
   }
   insert_execution_type {
     query: " INSERT INTO `Type`( "
-           "   `name`, `type_kind`, `input_type`,  `output_type` "
-           ") VALUES($0, 0, $1, $2);"
-    parameter_num: 3
+           "   `name`, `type_kind`, `version`, `description`, "
+           "   `input_type`, `output_type` "
+           ") VALUES($0, 0, $1, $2, $3, $4);"
+    parameter_num: 5
   }
   insert_context_type {
     query: " INSERT INTO `Type`( "
-           "   `name`, `type_kind` "
-           ") VALUES($0, 2);"
-    parameter_num: 1
+           "   `name`, `type_kind`, `version`, `description` "
+           ") VALUES($0, 2, $1, $2);"
+    parameter_num: 3
   }
   select_type_by_id {
-    query: " SELECT `id`, `name`, `input_type`, `output_type` "
-           " from `Type` "
+    query: " SELECT `id`, `name`, `version`, `description`, "
+           "        `input_type`, `output_type` FROM `Type` "
            " WHERE id = $0 and type_kind = $1; "
     parameter_num: 2
   }
   select_type_by_name {
-    query: " SELECT `id`, `name`, `input_type`, `output_type` "
-           " from `Type` "
+    query: " SELECT `id`, `name`, `version`, `description`, "
+           "        `input_type`, `output_type` FROM `Type` "
            " WHERE name = $0 and type_kind = $1; "
     parameter_num: 2
   }
   select_all_types {
-    query: " SELECT `id`, `name`, `input_type`, `output_type` "
-           " from `Type` "
+    query: " SELECT `id`, `name`, `version`, `description`, "
+           "        `input_type`, `output_type` FROM `Type` "
            " WHERE type_kind = $0; "
     parameter_num: 1
   }

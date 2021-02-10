@@ -74,18 +74,24 @@ message MetadataSourceQueryConfig {
   // Checks the existence of the Type table.
   TemplateQuery check_type_table = 44;
 
-  // Inserts an artifact type into the Type table. It has 1 parameter.
-  // $0 is the type name
+  // Inserts an artifact type into the Type table. It has 3 parameters.
+  // $0 is the name
+  // $1 is the version
+  // $2 is the description
   TemplateQuery insert_artifact_type = 54;
 
   // Inserts an execution type into the Type table. It has 3 parameters.
   // $0 is the type name
-  // $1 is the input_type serialized as JSON or null.
-  // $2 is the output_type serialized as JSON or null.
+  // $1 is the version
+  // $2 is the description
+  // $3 is the input_type serialized as JSON or null.
+  // $4 is the output_type serialized as JSON or null.
   TemplateQuery insert_execution_type = 55;
 
   // Inserts a context type into the Type table. It has 1 parameter.
   // $0 is the type name
+  // $1 is the version
+  // $2 is the description
   TemplateQuery insert_context_type = 58;
 
   // Queries a type by its type id. It has 2 parameter.

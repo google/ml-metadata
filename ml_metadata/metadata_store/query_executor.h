@@ -129,31 +129,55 @@ class QueryExecutor {
   // Each of the following methods roughly corresponds to a query (or two).
   virtual tensorflow::Status CheckTypeTable() = 0;
 
-  // Inserts an artifact type into the database.
-  // name is the name of the type.
-  // type_id is the ID of the artifact type,
-  virtual tensorflow::Status InsertArtifactType(const std::string& name,
-                                                int64* type_id) = 0;
+  // Inserts a type (ArtifactType/ExecutionType/ContextType).
+  //
+  // A type has a name and a set of strong typed properties describing the
+  // schema of any stored instance associated with that type.
+  // A type can be evolved in multiple ways:
+  // a) it can be updated in-place by adding more properties, but not remove
+  //    or change value type of registered properties. The in-place updates
+  //    remain backward-compatible for all stored instances of that type.
+  // b) it can be annotated with a different version for non-backward
+  //    compatible changes, e.g., deprecate properties, re-purpose property
+  //    name, change property value types.
+  //
+  // `name` is mandatory for the type. If `version` is not given, `name` is
+  //    unique among stored types. If `version` is given, a type can have
+  //    multiple `versions` with the same `name`.
+  // `version` is an optional field to annotate the version for the type. A
+  //    (`name`, `version`) tuple has its own id and may not be compatible with
+  //    other versions of the same `name`.
+  // `description` is an optional field to capture auxiliary type information.
+  //
+  // `type_id` is the output ID of the artifact type.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual tensorflow::Status InsertArtifactType(
+      const std::string& name, absl::optional<absl::string_view> version,
+      absl::optional<absl::string_view> description, int64* type_id) = 0;
 
-  // Inserts an execution type into the database.
-  // type_name is the name of the type.
-  // if has_input_type is true, input_type must be a valid protocol buffer.
-  // if has_output_type is true, output_type must be a valid protocol buffer.
-  // type_id is the resulting type of the execution.
+  // Inserts an ExecutionType into the database.
+  // `input_type` is an optional field to describe the input artifact types.
+  // `output_type` is an optional field to describe the output artifact types.
+  // `type_id` is the ID of the execution type.
+  // Returns detailed INTERNAL error, if query execution fails.
   virtual tensorflow::Status InsertExecutionType(
-      const std::string& type_name, bool has_input_type,
-      const google::protobuf::Message& input_type, bool has_output_type,
-      const google::protobuf::Message& output_type, int64* type_id) = 0;
+      const std::string& name, absl::optional<absl::string_view> version,
+      absl::optional<absl::string_view> description,
+      const ArtifactStructType* input_type,
+      const ArtifactStructType* output_type, int64* type_id) = 0;
 
-  // Inserts a context type into the database.
-  // type_name is the name of the type.
-  // type_id is the ID of the context type.
-  virtual tensorflow::Status InsertContextType(const std::string& type_name,
-                                               int64* type_id) = 0;
+  // Inserts a ContextType into the database.
+  // `type_id` is the ID of the context type.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual tensorflow::Status InsertContextType(
+      const std::string& name, absl::optional<absl::string_view> version,
+      absl::optional<absl::string_view> description, int64* type_id) = 0;
 
   // Queries a type by its type id.
   // Returns a message that can be converted to an ArtifactType,
   // ContextType, or ExecutionType.
+  // TODO(b/171597866) Improve document and describe the returned `record_set`.
+  // for the query executor APIs.
   virtual tensorflow::Status SelectTypeByID(int64 type_id, TypeKind type_kind,
                                             RecordSet* record_set) = 0;
 
@@ -537,6 +561,11 @@ class QueryExecutor {
   // the db is initialized
   //   with a schema_version != query_schema_version_.
   tensorflow::Status CheckSchemaVersionAlignsWithQueryVersion();
+
+  // Uses the method to document the query branches for earlier schema for
+  // ease of cleanup after the temporary branches after the migration.
+  // Returns true if |query_schema_version_| = `schema_version`.
+  bool IsQuerySchemaVersionEquals(int64 schema_version) const;
 
   // Access the query_schema_version_ if any.
   absl::optional<int64> query_schema_version() const {
