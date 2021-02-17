@@ -3868,29 +3868,26 @@ TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
     TF_ASSERT_OK(metadata_access_object_->GetSchemaVersion(&v0_13_2_version));
     ASSERT_EQ(0, v0_13_2_version);
   }
-  // If there is only one version, then the following tests don't make sense.
-  if (metadata_access_object_container_->MinimumVersion() < lib_version) {
-    // expect to have an error when connecting an older database version without
-    // enabling upgrade migration
-    tensorflow::Status status =
-        metadata_access_object_->InitMetadataSourceIfNotExists();
-    ASSERT_EQ(status.code(), tensorflow::error::FAILED_PRECONDITION)
-        << "Error: " << status.error_message();
 
-    // then init the store and the migration queries runs.
-    TF_ASSERT_OK(metadata_access_object_->InitMetadataSourceIfNotExists(
-        /*enable_upgrade_migration=*/true));
-    // at the end state, schema version should becomes the library version and
-    // all migration queries should all succeed.
-    int64 curr_version = 0;
-    TF_ASSERT_OK(metadata_access_object_->GetSchemaVersion(&curr_version));
-    ASSERT_EQ(lib_version, curr_version);
-    // check the verification queries in the previous version scheme
-    if (metadata_access_object_container_->HasUpgradeVerification(
-            lib_version)) {
-      TF_ASSERT_OK(
-          metadata_access_object_container_->UpgradeVerification(lib_version));
-    }
+  // expect to have an error when connecting an older database version without
+  // enabling upgrade migration
+  tensorflow::Status status =
+      metadata_access_object_->InitMetadataSourceIfNotExists();
+  ASSERT_EQ(status.code(), tensorflow::error::FAILED_PRECONDITION)
+      << "Error: " << status.error_message();
+
+  // then init the store and the migration queries runs.
+  TF_ASSERT_OK(metadata_access_object_->InitMetadataSourceIfNotExists(
+      /*enable_upgrade_migration=*/true));
+  // at the end state, schema version should becomes the library version and
+  // all migration queries should all succeed.
+  int64 curr_version = 0;
+  TF_ASSERT_OK(metadata_access_object_->GetSchemaVersion(&curr_version));
+  ASSERT_EQ(lib_version, curr_version);
+  // check the verification queries in the previous version scheme
+  if (metadata_access_object_container_->HasUpgradeVerification(lib_version)) {
+    TF_ASSERT_OK(
+        metadata_access_object_container_->UpgradeVerification(lib_version));
   }
 }
 
