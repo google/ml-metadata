@@ -87,9 +87,10 @@ class QueryConfigExecutor : public QueryExecutor {
   tensorflow::Status SelectTypeByID(int64 type_id, TypeKind type_kind,
                                     RecordSet* record_set) final;
 
-  tensorflow::Status SelectTypeByName(const absl::string_view type_name,
-                                      TypeKind type_kind,
-                                      RecordSet* record_set) final;
+  tensorflow::Status SelectTypeByNameAndVersion(
+      absl::string_view type_name,
+      absl::optional<absl::string_view> type_version, TypeKind type_kind,
+      RecordSet* record_set) final;
 
   tensorflow::Status SelectAllTypes(TypeKind type_kind,
                                     RecordSet* record_set) final;

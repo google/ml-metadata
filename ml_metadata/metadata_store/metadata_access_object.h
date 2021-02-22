@@ -121,16 +121,21 @@ class MetadataAccessObject {
   virtual tensorflow::Status FindTypeById(int64 type_id,
                                           ContextType* context_type) = 0;
 
-  // Queries a type by its name. A type is one of
-  // {ArtifactType, ExecutionType, ContextType}
-  // Returns NOT_FOUND error, if the given name cannot be found.
+  // Queries a type by its name and version. A type is one of
+  // {ArtifactType, ExecutionType, ContextType}. The type version is optional.
+  // If not given or the version is an empty string, the type with
+  // (name, version = NULL) is returned.
+  // Returns NOT_FOUND error, if the given name, version cannot be found.
   // Returns detailed INTERNAL error, if query execution fails.
-  virtual tensorflow::Status FindTypeByName(absl::string_view name,
-                                            ArtifactType* artifact_type) = 0;
-  virtual tensorflow::Status FindTypeByName(absl::string_view name,
-                                            ExecutionType* execution_type) = 0;
-  virtual tensorflow::Status FindTypeByName(absl::string_view name,
-                                            ContextType* context_type) = 0;
+  virtual tensorflow::Status FindTypeByNameAndVersion(
+      absl::string_view name, absl::optional<absl::string_view> version,
+      ArtifactType* artifact_type) = 0;
+  virtual tensorflow::Status FindTypeByNameAndVersion(
+      absl::string_view name, absl::optional<absl::string_view> version,
+      ExecutionType* execution_type) = 0;
+  virtual tensorflow::Status FindTypeByNameAndVersion(
+      absl::string_view name, absl::optional<absl::string_view> version,
+      ContextType* context_type) = 0;
 
   // Returns a list of all known type instances. A type is one of
   // {ArtifactType, ExecutionType, ContextType}

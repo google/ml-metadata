@@ -95,12 +95,15 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   tensorflow::Status FindTypeById(int64 type_id,
                                   ContextType* context_type) final;
 
-  tensorflow::Status FindTypeByName(absl::string_view name,
-                                    ArtifactType* artifact_type) final;
-  tensorflow::Status FindTypeByName(absl::string_view name,
-                                    ExecutionType* execution_type) final;
-  tensorflow::Status FindTypeByName(absl::string_view name,
-                                    ContextType* context_type) final;
+  tensorflow::Status FindTypeByNameAndVersion(
+      absl::string_view name, absl::optional<absl::string_view> version,
+      ArtifactType* artifact_type) final;
+  tensorflow::Status FindTypeByNameAndVersion(
+      absl::string_view name, absl::optional<absl::string_view> version,
+      ExecutionType* execution_type) final;
+  tensorflow::Status FindTypeByNameAndVersion(
+      absl::string_view name, absl::optional<absl::string_view> version,
+      ContextType* context_type) final;
 
   tensorflow::Status FindTypes(std::vector<ArtifactType>* artifact_types) final;
   tensorflow::Status FindTypes(
@@ -322,16 +325,6 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   template <typename Type>
   tensorflow::Status CreateTypeImpl(const Type& type, int64* type_id);
 
-  // Generates a query to find type by id
-  tensorflow::Status RunFindTypeByID(const int64 condition,
-                                     const TypeKind type_kind,
-                                     RecordSet* record_set);
-
-  // Generates a query to find type by name
-  tensorflow::Status RunFindTypeByID(absl::string_view condition,
-                                     const TypeKind type_kind,
-                                     RecordSet* record_set);
-
   // Generates a query to find all type instances.
   tensorflow::Status GenerateFindAllTypeInstancesQuery(const TypeKind type_kind,
                                                        RecordSet* record_set);
@@ -342,13 +335,21 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   tensorflow::Status FindTypesFromRecordSet(const RecordSet& type_record_set,
                                             std::vector<MessageType>* types);
 
-  // Finds a type by query conditions. Acceptable types are {ArtifactType,
-  // ExecutionType, ContextType} (`MessageType`). The types can be queried by
-  // two kinds of query conditions, which are type id (int64) or type name
-  // (string_view). Returns NOT_FOUND error, if the given type_id cannot be
-  // found. Returns detailed INTERNAL error, if query execution fails.
-  template <typename QueryCondition, typename MessageType>
-  tensorflow::Status FindTypeImpl(const QueryCondition condition,
+  // Finds a type by its type_id. Acceptable types are {ArtifactType,
+  // ExecutionType, ContextType} (`MessageType`).
+  // Returns NOT_FOUND error, if the given type_id cannot be found.
+  // Returns detailed INTERNAL error, if query execution fails.
+  template <typename MessageType>
+  tensorflow::Status FindTypeImpl(int64 type_id, MessageType* type);
+
+  // Finds a type by its name and an optional version.
+  // Acceptable types are {ArtifactType,
+  // ExecutionType, ContextType} (`MessageType`).
+  // Returns NOT_FOUND error, if the given name and version cannot be found.
+  // Returns detailed INTERNAL error, if query execution fails.
+  template <typename MessageType>
+  tensorflow::Status FindTypeImpl(absl::string_view name,
+                                  absl::optional<absl::string_view> version,
                                   MessageType* type);
 
   // Finds all type instances of the type `MessageType`.

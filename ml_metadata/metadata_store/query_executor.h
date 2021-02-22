@@ -181,12 +181,15 @@ class QueryExecutor {
   virtual tensorflow::Status SelectTypeByID(int64 type_id, TypeKind type_kind,
                                             RecordSet* record_set) = 0;
 
-  // Queries a type by its type name.
+  // Queries a type by its type name and an optional version. If version is
+  // not given or the version is an empty string, (type_name, version = NULL)
+  // is used to retrieve types.
   // Returns a message that can be converted to an ArtifactType,
   // ContextType, or ExecutionType.
-  virtual tensorflow::Status SelectTypeByName(const absl::string_view type_name,
-                                              TypeKind type_kind,
-                                              RecordSet* record_set) = 0;
+  virtual tensorflow::Status SelectTypeByNameAndVersion(
+      absl::string_view type_name,
+      absl::optional<absl::string_view> type_version, TypeKind type_kind,
+      RecordSet* record_set) = 0;
 
   // Queries for all type instances.
   // Returns a message that can be converted to an ArtifactType,

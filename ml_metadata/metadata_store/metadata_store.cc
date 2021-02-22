@@ -98,10 +98,11 @@ tensorflow::Status CheckFieldsConsistent(const T& stored_type,
   return tensorflow::Status::OK();
 }
 
-// If there is no type having the same name, then inserts a new type.
-// If a type with the same name already exists (let's call it `old_type`), it
-// checks the consistency of `type` and `old_type` as described in
-// CheckFieldsConsistent according to can_add_fields and can_omit_fields.
+// If there is no type having the same name and version, then inserts a new
+// type. If a type with the same name and version already exists
+// (let's call it `old_type`), it checks the consistency of `type` and
+// `old_type` as described in CheckFieldsConsistent according to
+// can_add_fields and can_omit_fields.
 // It returns ALREADY_EXISTS if:
 //  a) any property in `type` has different value from the one in `old_type`
 //  b) can_add_fields = false, `type` has more properties than `old_type`
@@ -117,7 +118,8 @@ tensorflow::Status UpsertType(const T& type, bool can_add_fields,
                               int64* type_id) {
   T stored_type;
   const tensorflow::Status status =
-      metadata_access_object->FindTypeByName(type.name(), &stored_type);
+      metadata_access_object->FindTypeByNameAndVersion(
+          type.name(), type.version(), &stored_type);
   if (!status.ok() && !tensorflow::errors::IsNotFound(status)) {
     return status;
   }
@@ -276,6 +278,14 @@ tensorflow::Status UpsertArtifactAndEvent(
   return metadata_access_object->CreateEvent(event, &dummy_event_id);
 }
 
+// A util to handle type_version in type read/write API requests.
+template <typename T>
+absl::optional<std::string> GetRequestTypeVersion(const T& type_request) {
+  return type_request.has_type_version() && !type_request.type_version().empty()
+             ? absl::make_optional(type_request.type_version())
+             : absl::nullopt;
+}
+
 }  // namespace
 
 tensorflow::Status MetadataStore::InitMetadataStore() {
@@ -383,12 +393,13 @@ tensorflow::Status MetadataStore::PutContextType(
 
 tensorflow::Status MetadataStore::GetArtifactType(
     const GetArtifactTypeRequest& request, GetArtifactTypeResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
-        response->Clear();
-        return metadata_access_object_->FindTypeByName(
-            request.type_name(), response->mutable_artifact_type());
-      });
+  return transaction_executor_->Execute([this, &request,
+                                         &response]() -> tensorflow::Status {
+    response->Clear();
+    return metadata_access_object_->FindTypeByNameAndVersion(
+        request.type_name(), GetRequestTypeVersion(request),
+        response->mutable_artifact_type());
+  });
 }
 
 tensorflow::Status MetadataStore::GetExecutionType(
@@ -397,8 +408,9 @@ tensorflow::Status MetadataStore::GetExecutionType(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
         response->Clear();
-        return metadata_access_object_->FindTypeByName(
-            request.type_name(), response->mutable_execution_type());
+        return metadata_access_object_->FindTypeByNameAndVersion(
+            request.type_name(), GetRequestTypeVersion(request),
+            response->mutable_execution_type());
       });
 }
 
@@ -407,8 +419,9 @@ tensorflow::Status MetadataStore::GetContextType(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> tensorflow::Status {
         response->Clear();
-        return metadata_access_object_->FindTypeByName(
-            request.type_name(), response->mutable_context_type());
+        return metadata_access_object_->FindTypeByNameAndVersion(
+            request.type_name(), GetRequestTypeVersion(request),
+            response->mutable_context_type());
       });
 }
 
@@ -968,8 +981,10 @@ tensorflow::Status MetadataStore::GetArtifactsByType(
       [this, &request, &response]() -> tensorflow::Status {
         response->Clear();
         ArtifactType artifact_type;
-        tensorflow::Status status = metadata_access_object_->FindTypeByName(
-            request.type_name(), &artifact_type);
+        // TODO(b/173448063) Supporting listing nodes by type with version.
+        tensorflow::Status status =
+            metadata_access_object_->FindTypeByNameAndVersion(
+                request.type_name(), /*version=*/absl::nullopt, &artifact_type);
         if (tensorflow::errors::IsNotFound(status)) {
           return tensorflow::Status::OK();
         } else if (!status.ok()) {
@@ -997,8 +1012,9 @@ tensorflow::Status MetadataStore::GetArtifactByTypeAndName(
       [this, &request, &response]() -> tensorflow::Status {
         response->Clear();
         ArtifactType artifact_type;
-        tensorflow::Status status = metadata_access_object_->FindTypeByName(
-            request.type_name(), &artifact_type);
+        tensorflow::Status status =
+            metadata_access_object_->FindTypeByNameAndVersion(
+                request.type_name(), /*version=*/absl::nullopt, &artifact_type);
         if (tensorflow::errors::IsNotFound(status)) {
           return tensorflow::Status::OK();
         } else if (!status.ok()) {
@@ -1024,8 +1040,10 @@ tensorflow::Status MetadataStore::GetExecutionsByType(
       [this, &request, &response]() -> tensorflow::Status {
         response->Clear();
         ExecutionType execution_type;
-        tensorflow::Status status = metadata_access_object_->FindTypeByName(
-            request.type_name(), &execution_type);
+        tensorflow::Status status =
+            metadata_access_object_->FindTypeByNameAndVersion(
+                request.type_name(), /*version=*/absl::nullopt,
+                &execution_type);
         if (tensorflow::errors::IsNotFound(status)) {
           return tensorflow::Status::OK();
         } else if (!status.ok()) {
@@ -1053,8 +1071,10 @@ tensorflow::Status MetadataStore::GetExecutionByTypeAndName(
       [this, &request, &response]() -> tensorflow::Status {
         response->Clear();
         ExecutionType execution_type;
-        tensorflow::Status status = metadata_access_object_->FindTypeByName(
-            request.type_name(), &execution_type);
+        tensorflow::Status status =
+            metadata_access_object_->FindTypeByNameAndVersion(
+                request.type_name(), /*version=*/absl::nullopt,
+                &execution_type);
         if (tensorflow::errors::IsNotFound(status)) {
           return tensorflow::Status::OK();
         } else if (!status.ok()) {
@@ -1081,8 +1101,10 @@ tensorflow::Status MetadataStore::GetContextsByType(
         response->Clear();
         ContextType context_type;
         {
-          tensorflow::Status status = metadata_access_object_->FindTypeByName(
-              request.type_name(), &context_type);
+          tensorflow::Status status =
+              metadata_access_object_->FindTypeByNameAndVersion(
+                  request.type_name(), /*version=*/absl::nullopt,
+                  &context_type);
           if (tensorflow::errors::IsNotFound(status)) {
             return tensorflow::Status::OK();
           } else if (!status.ok()) {
@@ -1121,8 +1143,9 @@ tensorflow::Status MetadataStore::GetContextByTypeAndName(
       [this, &request, &response]() -> tensorflow::Status {
         response->Clear();
         ContextType context_type;
-        tensorflow::Status status = metadata_access_object_->FindTypeByName(
-            request.type_name(), &context_type);
+        tensorflow::Status status =
+            metadata_access_object_->FindTypeByNameAndVersion(
+                request.type_name(), /*version=*/absl::nullopt, &context_type);
         if (tensorflow::errors::IsNotFound(status)) {
           return tensorflow::Status::OK();
         } else if (!status.ok()) {

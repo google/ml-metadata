@@ -787,8 +787,9 @@ TEST_P(MetadataAccessObjectTest, StoreTypeWithVersionAndDescriptions) {
         CreateTypeFromTextProto<ExecutionType>(kTypeStr,
                                                *metadata_access_object_);
     ExecutionType got_execution_type;
-    TF_EXPECT_OK(metadata_access_object_->FindTypeByName(
-        want_execution_type.name(), &got_execution_type));
+    TF_EXPECT_OK(metadata_access_object_->FindTypeByNameAndVersion(
+        want_execution_type.name(), want_execution_type.version(),
+        &got_execution_type));
     EXPECT_THAT(want_execution_type, EqualsProto(got_execution_type));
   }
 
@@ -799,6 +800,56 @@ TEST_P(MetadataAccessObjectTest, StoreTypeWithVersionAndDescriptions) {
     TF_EXPECT_OK(metadata_access_object_->FindTypes(&got_context_types));
     EXPECT_THAT(got_context_types, SizeIs(1));
     EXPECT_THAT(want_context_type, EqualsProto(got_context_types[0]));
+  }
+}
+
+TEST_P(MetadataAccessObjectTest, StoreTypeWithEmptyVersion) {
+  // Earlier schema version does not have the type version and description yet.
+  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/6)) {
+    return;
+  }
+  if (!metadata_access_object_container_->HasTypeVersionSupport()) {
+    return;
+  }
+  TF_ASSERT_OK(Init());
+  // When the input version = empty string, it is treated as unset.
+  static constexpr char kEmptyStringVersionTypeStr[] =
+      "name: 'test_type' version: ''";
+
+  {
+    const ArtifactType want_artifact_type =
+        CreateTypeFromTextProto<ArtifactType>(kEmptyStringVersionTypeStr,
+                                              *metadata_access_object_);
+    ArtifactType got_artifact_type;
+    TF_ASSERT_OK(metadata_access_object_->FindTypeById(want_artifact_type.id(),
+                                                       &got_artifact_type));
+    EXPECT_FALSE(got_artifact_type.has_version());
+    EXPECT_THAT(want_artifact_type,
+                EqualsProto(got_artifact_type, /*ignore_fields=*/{"version"}));
+  }
+
+  {
+    const ExecutionType want_execution_type =
+        CreateTypeFromTextProto<ExecutionType>(kEmptyStringVersionTypeStr,
+                                               *metadata_access_object_);
+    ExecutionType got_execution_type;
+    TF_ASSERT_OK(metadata_access_object_->FindTypeByNameAndVersion(
+        want_execution_type.name(), want_execution_type.version(),
+        &got_execution_type));
+    EXPECT_FALSE(got_execution_type.has_version());
+    EXPECT_THAT(want_execution_type,
+                EqualsProto(got_execution_type, /*ignore_fields=*/{"version"}));
+  }
+
+  {
+    const ContextType want_context_type = CreateTypeFromTextProto<ContextType>(
+        kEmptyStringVersionTypeStr, *metadata_access_object_);
+    std::vector<ContextType> got_context_types;
+    TF_ASSERT_OK(metadata_access_object_->FindTypes(&got_context_types));
+    ASSERT_THAT(got_context_types, SizeIs(1));
+    EXPECT_FALSE(got_context_types[0].has_version());
+    EXPECT_THAT(want_context_type, EqualsProto(got_context_types[0],
+                                               /*ignore_fields=*/{"version"}));
   }
 }
 
@@ -1068,16 +1119,21 @@ TEST_P(MetadataAccessObjectTest, FindTypeByName) {
   TF_ASSERT_OK(metadata_access_object_->CreateType(want_type, &type_id));
 
   ExecutionType got_type;
-  TF_EXPECT_OK(metadata_access_object_->FindTypeByName("test_type", &got_type));
+  TF_EXPECT_OK(metadata_access_object_->FindTypeByNameAndVersion(
+      "test_type", /*version=*/absl::nullopt, &got_type));
   EXPECT_THAT(want_type, EqualsProto(got_type, /*ignore_fields=*/{"id"}));
 
   // The type with this name is an execution type, not an artifact/context type.
   ArtifactType artifact_type;
-  EXPECT_EQ(metadata_access_object_->FindTypeByName("test_type", &artifact_type)
+  EXPECT_EQ(metadata_access_object_
+                ->FindTypeByNameAndVersion(
+                    "test_type", /*version=*/absl::nullopt, &artifact_type)
                 .code(),
             tensorflow::error::NOT_FOUND);
   ContextType context_type;
-  EXPECT_EQ(metadata_access_object_->FindTypeByName("test_type", &context_type)
+  EXPECT_EQ(metadata_access_object_
+                ->FindTypeByNameAndVersion(
+                    "test_type", /*version=*/absl::nullopt, &context_type)
                 .code(),
             tensorflow::error::NOT_FOUND);
 }
@@ -1096,16 +1152,21 @@ TEST_P(MetadataAccessObjectTest, FindTypeByNameNoSignature) {
   want_type.set_id(type_id);
 
   ExecutionType got_type;
-  TF_EXPECT_OK(metadata_access_object_->FindTypeByName("test_type", &got_type));
+  TF_EXPECT_OK(metadata_access_object_->FindTypeByNameAndVersion(
+      "test_type", /*version=*/absl::nullopt, &got_type));
   EXPECT_THAT(want_type, EqualsProto(got_type, /*ignore_fields=*/{"id"}));
 
   // The type with this name is an execution type, not an artifact/context type.
   ArtifactType artifact_type;
-  EXPECT_EQ(metadata_access_object_->FindTypeByName("test_type", &artifact_type)
+  EXPECT_EQ(metadata_access_object_
+                ->FindTypeByNameAndVersion(
+                    "test_type", /*version=*/absl::nullopt, &artifact_type)
                 .code(),
             tensorflow::error::NOT_FOUND);
   ContextType context_type;
-  EXPECT_EQ(metadata_access_object_->FindTypeByName("test_type", &context_type)
+  EXPECT_EQ(metadata_access_object_
+                ->FindTypeByNameAndVersion(
+                    "test_type", /*version=*/absl::nullopt, &context_type)
                 .code(),
             tensorflow::error::NOT_FOUND);
 }

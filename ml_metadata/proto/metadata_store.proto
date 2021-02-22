@@ -87,7 +87,7 @@ message ArtifactType {
   // The name of the type. It must be unique among ArtifactTypes within a
   // database instance.
   optional string name = 2;
-  // An optional version of the type.
+  // An optional version of the type. An empty string is treated as unset.
   // EXPERIMENTAL: please do not set until related APIs and docs are available.
   optional string version = 4;
   // An optional description about the type.
@@ -257,7 +257,7 @@ message ExecutionType {
   // The name of the type. It must be unique among ExecutionTypes within a
   // database instance.
   optional string name = 2;
-  // An optional version of the type.
+  // An optional version of the type. An empty string is treated as unset.
   // EXPERIMENTAL: please do not set until related APIs and docs are available.
   optional string version = 6;
   // An optional description about the type.
@@ -294,7 +294,7 @@ message ContextType {
   // The name of the type, e.g., Pipeline, Task, Session, User, etc. It must be
   // unique among ContextTypes within a database instance.
   optional string name = 2;
-  // An optional version of the type.
+  // An optional version of the type. An empty string is treated as unset.
   // EXPERIMENTAL: please do not set until related APIs and docs are available.
   optional string version = 4;
   // An optional description about the type.

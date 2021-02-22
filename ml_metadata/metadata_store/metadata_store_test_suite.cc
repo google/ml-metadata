@@ -33,6 +33,7 @@ using ::ml_metadata::testing::EqualsProto;
 using ::ml_metadata::testing::ParseTextProtoOrDie;
 using ::testing::ElementsAre;
 using ::testing::IsEmpty;
+using ::testing::Pointwise;
 using ::testing::SizeIs;
 using ::testing::UnorderedElementsAre;
 
@@ -652,6 +653,169 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypeGetExecutionTypesByIDTwo) {
       << "Type ID should be the same as the type created.";
   EXPECT_THAT(result_2, EqualsProto(expected_result_2))
       << "The name should be the same as the one returned.";
+}
+
+TEST_P(MetadataStoreTestSuite, PutTypeWithVersionsGetType) {
+  if (!metadata_store_container_->HasTypeVersionSupport()) {
+    return;
+  }
+  // Setup: a list of type pbtxt used to upsert types in an order.
+  // The list of types share the same name with different versions, and the
+  // expected output is three different types.
+  const std::vector<absl::string_view> type_definitions = {
+      R"( name: 'test_type'
+        properties { key: 'property_1' value: STRING })",
+      R"( name: 'test_type'
+        version: '1'
+        properties { key: 'property_1' value: INT })",
+      R"( name: 'test_type'
+        version: '2'
+        properties { key: 'property_1' value: DOUBLE })",
+  };
+  std::vector<ArtifactType> want_types;
+  for (absl::string_view type_definition : type_definitions) {
+    PutArtifactTypeRequest put_request;
+    *put_request.mutable_artifact_type() =
+        ParseTextProtoOrDie<ArtifactType>(std::string(type_definition));
+    PutArtifactTypeResponse put_response;
+    TF_ASSERT_OK(metadata_store_->PutArtifactType(put_request, &put_response));
+    ASSERT_TRUE(put_response.has_type_id());
+    want_types.push_back(put_request.artifact_type());
+    want_types.back().set_id(put_response.type_id());
+  }
+  std::vector<ArtifactType> got_types;
+  for (const ArtifactType& want_type : want_types) {
+    GetArtifactTypeRequest get_request;
+    get_request.set_type_name(want_type.name());
+    if (want_type.has_version()) {
+      get_request.set_type_version(want_type.version());
+    }
+    GetArtifactTypeResponse get_response;
+    TF_ASSERT_OK(metadata_store_->GetArtifactType(get_request, &get_response));
+    got_types.push_back(get_response.artifact_type());
+  }
+  EXPECT_THAT(got_types, Pointwise(EqualsProto<ArtifactType>(), want_types));
+}
+
+TEST_P(MetadataStoreTestSuite, EvolveTypeWithVersionsGetType) {
+  if (!metadata_store_container_->HasTypeVersionSupport()) {
+    return;
+  }
+  // Setup: a list of type pbtxt used to upsert types in an order.
+  // The list of types share the same name and version, and evolved by adding
+  // more properties. The expected output is a single type with 3 properties.
+  const std::vector<absl::string_view> type_definitions = {
+      R"( name: 'test_type'
+        version: '1'
+        properties { key: 'property_1' value: STRING })",
+      R"( name: 'test_type'
+        version: '1'
+        properties { key: 'property_1' value: STRING }
+        properties { key: 'property_2' value: INT })",
+      R"( name: 'test_type'
+        version: '1'
+        properties { key: 'property_3' value: DOUBLE })",
+  };
+  // Create the first version of the type with version.
+  {
+    PutExecutionTypeRequest put_request;
+    *put_request.mutable_execution_type() =
+        ParseTextProtoOrDie<ExecutionType>(std::string(type_definitions[0]));
+    PutExecutionTypeResponse put_response;
+    TF_ASSERT_OK(metadata_store_->PutExecutionType(put_request, &put_response));
+    ASSERT_TRUE(put_response.has_type_id());
+    ExecutionType want_type = put_request.execution_type();
+    want_type.set_id(put_response.type_id());
+    GetExecutionTypesResponse get_response;
+    TF_ASSERT_OK(metadata_store_->GetExecutionTypes({}, &get_response));
+    EXPECT_THAT(get_response.execution_types(),
+                Pointwise(EqualsProto<ExecutionType>(), {want_type}));
+  }
+  // Update the stored type with version by adding properties
+  {
+    PutExecutionTypeRequest put_request;
+    *put_request.mutable_execution_type() =
+        ParseTextProtoOrDie<ExecutionType>(std::string(type_definitions[1]));
+    PutExecutionTypeResponse put_response;
+    // Update the type with the same name and version fails.
+    EXPECT_TRUE(tensorflow::errors::IsAlreadyExists(
+        metadata_store_->PutExecutionType(put_request, &put_response)));
+    // The type evolution succeeds for types with versions
+    put_request.set_can_add_fields(true);
+    TF_ASSERT_OK(metadata_store_->PutExecutionType(put_request, &put_response));
+    ExecutionType want_type = put_request.execution_type();
+    want_type.set_id(put_response.type_id());
+    GetExecutionTypesResponse get_response;
+    TF_ASSERT_OK(metadata_store_->GetExecutionTypes({}, &get_response));
+    EXPECT_THAT(get_response.execution_types(),
+                Pointwise(EqualsProto<ExecutionType>(), {want_type}));
+  }
+  // Update the stored type with version by omitting properties
+  {
+    PutExecutionTypeRequest put_request;
+    *put_request.mutable_execution_type() =
+        ParseTextProtoOrDie<ExecutionType>(std::string(type_definitions[2]));
+    // Update the type with the same name and version fails.
+    put_request.set_can_add_fields(true);
+    PutExecutionTypeResponse put_response;
+    EXPECT_TRUE(tensorflow::errors::IsAlreadyExists(
+        metadata_store_->PutExecutionType(put_request, &put_response)));
+    // The type evolution succeeds for types with versions
+    put_request.set_can_omit_fields(true);
+    TF_ASSERT_OK(metadata_store_->PutExecutionType(put_request, &put_response));
+    GetExecutionTypesResponse get_response;
+    TF_ASSERT_OK(metadata_store_->GetExecutionTypes({}, &get_response));
+    ExecutionType want_type = put_request.execution_type();
+    want_type.set_id(put_response.type_id());
+    (*want_type.mutable_properties())["property_1"] = STRING;
+    (*want_type.mutable_properties())["property_2"] = INT;
+    EXPECT_THAT(get_response.execution_types(),
+                Pointwise(EqualsProto<ExecutionType>(), {want_type}));
+  }
+}
+
+TEST_P(MetadataStoreTestSuite, TypeWithNullAndEmptyStringVersionsGetType) {
+  if (!metadata_store_container_->HasTypeVersionSupport()) {
+    return;
+  }
+  // Test the behavior of registering types with NULL version and empty string
+  // version names. The expected behavior is that two types are registered.
+  const std::vector<absl::string_view> type_definitions = {
+      R"( name: 'test_type'
+        properties { key: 'property_1' value: STRING })",
+      R"( name: 'test_type'
+        version: ''
+        properties { key: 'property_1' value: STRING })",
+      R"( name: 'test_type_2'
+        version: ''
+        properties { key: 'property_1' value: STRING })",
+      R"( name: 'test_type_2'
+        properties { key: 'property_1' value: STRING })",
+  };
+
+  std::vector<ContextType> want_types;
+  for (int i = 0; i < 4; i++) {
+    PutContextTypeRequest put_request;
+    *put_request.mutable_context_type() =
+        ParseTextProtoOrDie<ContextType>(std::string(type_definitions[i]));
+    want_types.push_back(put_request.context_type());
+    PutContextTypeResponse put_response;
+    const tensorflow::Status status =
+        metadata_store_->PutContextType(put_request, &put_response);
+    if (status.ok()) {
+      ASSERT_TRUE(put_response.has_type_id());
+      want_types.back().set_id(put_response.type_id());
+    } else {
+      EXPECT_TRUE(tensorflow::errors::IsAlreadyExists(status));
+    }
+  }
+  GetContextTypesResponse get_response;
+  TF_ASSERT_OK(metadata_store_->GetContextTypes({}, &get_response));
+  EXPECT_THAT(get_response.context_types(), SizeIs(2));
+  EXPECT_THAT(get_response.context_types(0), EqualsProto(want_types[0]));
+  EXPECT_FALSE(get_response.context_types(1).has_version());
+  EXPECT_THAT(get_response.context_types(1),
+              EqualsProto(want_types[2], /*ignore_fields=*/{"version"}));
 }
 
 TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {

@@ -74,8 +74,14 @@ R"pb(
   select_type_by_name {
     query: " SELECT `id`, `name`, `version`, `description`, "
            "        `input_type`, `output_type` FROM `Type` "
-           " WHERE name = $0 and type_kind = $1; "
+           " WHERE name = $0 AND version IS NULL AND type_kind = $1; "
     parameter_num: 2
+  }
+  select_type_by_name_and_version {
+    query: " SELECT `id`, `name`, `version`, `description`, "
+           "        `input_type`, `output_type` FROM `Type` "
+           " WHERE name = $0 AND version = $1 AND type_kind = $2; "
+    parameter_num: 3
   }
   select_all_types {
     query: " SELECT `id`, `name`, `version`, `description`, "

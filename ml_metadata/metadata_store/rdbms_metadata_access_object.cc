@@ -341,6 +341,14 @@ bool IsUniqueConstraintViolated(const tensorflow::Status status) {
           absl::StrContains(status.error_message(), "UNIQUE"));
 }
 
+// A util to handle `version` in ArtifactType/ExecutionType/ContextType protos.
+template <typename T>
+absl::optional<std::string> GetTypeVersion(const T& type_message) {
+  return type_message.has_version() && !type_message.version().empty()
+             ? absl::make_optional(type_message.version())
+             : absl::nullopt;
+}
+
 }  // namespace
 
 // Creates an Artifact (without properties).
@@ -569,8 +577,7 @@ tensorflow::Status RDBMSMetadataAccessObject::ModifyProperties(
 tensorflow::Status RDBMSMetadataAccessObject::InsertTypeID(
     const ArtifactType& type, int64* type_id) {
   return executor_->InsertArtifactType(
-      type.name(),
-      type.has_version() ? absl::make_optional(type.version()) : absl::nullopt,
+      type.name(), GetTypeVersion(type),
       type.has_description() ? absl::make_optional(type.description())
                              : absl::nullopt,
       type_id);
@@ -580,8 +587,7 @@ tensorflow::Status RDBMSMetadataAccessObject::InsertTypeID(
 tensorflow::Status RDBMSMetadataAccessObject::InsertTypeID(
     const ExecutionType& type, int64* type_id) {
   return executor_->InsertExecutionType(
-      type.name(),
-      type.has_version() ? absl::make_optional(type.version()) : absl::nullopt,
+      type.name(), GetTypeVersion(type),
       type.has_description() ? absl::make_optional(type.description())
                              : absl::nullopt,
       type.has_input_type() ? &type.input_type() : nullptr,
@@ -592,8 +598,7 @@ tensorflow::Status RDBMSMetadataAccessObject::InsertTypeID(
 tensorflow::Status RDBMSMetadataAccessObject::InsertTypeID(
     const ContextType& type, int64* type_id) {
   return executor_->InsertContextType(
-      type.name(),
-      type.has_version() ? absl::make_optional(type.version()) : absl::nullopt,
+      type.name(), GetTypeVersion(type),
       type.has_description() ? absl::make_optional(type.description())
                              : absl::nullopt,
       type_id);
@@ -635,23 +640,6 @@ tensorflow::Status RDBMSMetadataAccessObject::CreateTypeImpl(const Type& type,
   return tensorflow::Status::OK();
 }
 
-// Generates a query to find type by id
-tensorflow::Status RDBMSMetadataAccessObject::RunFindTypeByID(
-    const int64 condition, const TypeKind type_kind, RecordSet* record_set) {
-  TF_RETURN_IF_ERROR(
-      executor_->SelectTypeByID(condition, type_kind, record_set));
-  return tensorflow::Status::OK();
-}
-
-// Generates a query to find type by name
-tensorflow::Status RDBMSMetadataAccessObject::RunFindTypeByID(
-    absl::string_view condition, const TypeKind type_kind,
-    RecordSet* record_set) {
-  TF_RETURN_IF_ERROR(
-      executor_->SelectTypeByName(condition, type_kind, record_set));
-  return tensorflow::Status::OK();
-}
-
 // Generates a query to find all type instances.
 tensorflow::Status RDBMSMetadataAccessObject::GenerateFindAllTypeInstancesQuery(
     const TypeKind type_kind, RecordSet* record_set) {
@@ -681,24 +669,37 @@ tensorflow::Status RDBMSMetadataAccessObject::FindTypesFromRecordSet(
   return tensorflow::Status::OK();
 }
 
-// Finds a type by query conditions. Acceptable types are {ArtifactType,
-// ExecutionType, ContextType} (`MessageType`). The types can be queried by two
-// kinds of query conditions, which are type id (int64) or type
-// name (string_view).
-// Returns NOT_FOUND error, if the given type_id cannot be found.
-// Returns detailed INTERNAL error, if query execution fails.
-template <typename QueryCondition, typename MessageType>
-tensorflow::Status RDBMSMetadataAccessObject::FindTypeImpl(
-    const QueryCondition condition, MessageType* type) {
+template <typename MessageType>
+tensorflow::Status RDBMSMetadataAccessObject::FindTypeImpl(int64 type_id,
+                                                           MessageType* type) {
   const TypeKind type_kind = ResolveTypeKind(type);
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(RunFindTypeByID(condition, type_kind, &record_set));
+  TF_RETURN_IF_ERROR(
+      executor_->SelectTypeByID(type_id, type_kind, &record_set));
   std::vector<MessageType> types;
   TF_RETURN_IF_ERROR(FindTypesFromRecordSet(record_set, &types));
-
   if (types.empty()) {
-    return tensorflow::errors::NotFound(
-        absl::StrCat("No type found for query: ", condition));
+    return tensorflow::errors::NotFound("No type found for query, type_id: ",
+                                        type_id);
+  }
+  *type = std::move(types[0]);
+  return tensorflow::Status::OK();
+}
+
+template <typename MessageType>
+tensorflow::Status RDBMSMetadataAccessObject::FindTypeImpl(
+    absl::string_view name, absl::optional<absl::string_view> version,
+    MessageType* type) {
+  const TypeKind type_kind = ResolveTypeKind(type);
+  RecordSet record_set;
+  TF_RETURN_IF_ERROR(executor_->SelectTypeByNameAndVersion(
+      name, version, type_kind, &record_set));
+  std::vector<MessageType> types;
+  TF_RETURN_IF_ERROR(FindTypesFromRecordSet(record_set, &types));
+  if (types.empty()) {
+    return tensorflow::errors::NotFound("No type found for query, name: `",
+                                        name, "`, version: `",
+                                        version ? *version : "nullopt", "`");
   }
   *type = std::move(types[0]);
   return tensorflow::Status::OK();
@@ -731,7 +732,8 @@ tensorflow::Status RDBMSMetadataAccessObject::UpdateTypeImpl(const Type& type) {
   }
   // find the current stored type and validate the id.
   Type stored_type;
-  TF_RETURN_IF_ERROR(FindTypeImpl(type.name(), &stored_type));
+  TF_RETURN_IF_ERROR(FindTypeByNameAndVersion(type.name(), GetTypeVersion(type),
+                                              &stored_type));
   if (type.has_id() && type.id() != stored_type.id()) {
     return tensorflow::errors::InvalidArgument(
         "Given type id is different from the existing type: ",
@@ -1077,19 +1079,22 @@ tensorflow::Status RDBMSMetadataAccessObject::FindTypes(
   return FindAllTypeInstancesImpl(context_types);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindTypeByName(
-    absl::string_view name, ArtifactType* artifact_type) {
-  return FindTypeImpl(name, artifact_type);
+tensorflow::Status RDBMSMetadataAccessObject::FindTypeByNameAndVersion(
+    absl::string_view name, absl::optional<absl::string_view> version,
+    ArtifactType* artifact_type) {
+  return FindTypeImpl(name, version, artifact_type);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindTypeByName(
-    absl::string_view name, ExecutionType* execution_type) {
-  return FindTypeImpl(name, execution_type);
+tensorflow::Status RDBMSMetadataAccessObject::FindTypeByNameAndVersion(
+    absl::string_view name, absl::optional<absl::string_view> version,
+    ExecutionType* execution_type) {
+  return FindTypeImpl(name, version, execution_type);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindTypeByName(
-    absl::string_view name, ContextType* context_type) {
-  return FindTypeImpl(name, context_type);
+tensorflow::Status RDBMSMetadataAccessObject::FindTypeByNameAndVersion(
+    absl::string_view name, absl::optional<absl::string_view> version,
+    ContextType* context_type) {
+  return FindTypeImpl(name, version, context_type);
 }
 
 tensorflow::Status RDBMSMetadataAccessObject::UpdateType(

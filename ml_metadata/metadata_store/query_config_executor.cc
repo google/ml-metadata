@@ -653,9 +653,9 @@ tensorflow::Status QueryConfigExecutor::SelectTypeByID(int64 type_id,
                       {Bind(type_id), Bind(type_kind)}, record_set);
 }
 
-tensorflow::Status QueryConfigExecutor::SelectTypeByName(
-    const absl::string_view type_name, TypeKind type_kind,
-    RecordSet* record_set) {
+tensorflow::Status QueryConfigExecutor::SelectTypeByNameAndVersion(
+    absl::string_view type_name, absl::optional<absl::string_view> type_version,
+    TypeKind type_kind, RecordSet* record_set) {
   if (IsQuerySchemaVersionEquals(kSchemaVersion5)) {
     MetadataSourceQueryConfig::TemplateQuery select_type_by_name;
     TF_RETURN_IF_ERROR(GetTemplateQueryOrDie(
@@ -663,8 +663,14 @@ tensorflow::Status QueryConfigExecutor::SelectTypeByName(
     return ExecuteQuery(select_type_by_name, {Bind(type_name), Bind(type_kind)},
                         record_set);
   }
-  return ExecuteQuery(query_config_.select_type_by_name(),
-                      {Bind(type_name), Bind(type_kind)}, record_set);
+  if (type_version && !type_version->empty()) {
+    return ExecuteQuery(query_config_.select_type_by_name_and_version(),
+                        {Bind(type_name), Bind(*type_version), Bind(type_kind)},
+                        record_set);
+  } else {
+    return ExecuteQuery(query_config_.select_type_by_name(),
+                        {Bind(type_name), Bind(type_kind)}, record_set);
+  }
 }
 
 tensorflow::Status QueryConfigExecutor::SelectAllTypes(TypeKind type_kind,
