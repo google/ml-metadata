@@ -71,8 +71,7 @@ message Artifact {
   optional int64 last_update_time_since_epoch = 10;
 }
 
-// TODO(martinz): consider moving this inside some message, to avoid having
-// literals directly in apo package.
+// The list of supported property value types.
 enum PropertyType {
   UNKNOWN = 0;
   INT = 1;
