@@ -504,15 +504,18 @@ class QueryConfigExecutor : public QueryExecutor {
 
   tensorflow::Status ListArtifactIDsUsingOptions(
       const ListOperationOptions& options,
-      const absl::Span<const int64> candidate_ids, RecordSet* record_set) final;
+      absl::optional<absl::Span<const int64>> candidate_ids,
+      RecordSet* record_set) final;
 
   tensorflow::Status ListExecutionIDsUsingOptions(
       const ListOperationOptions& options,
-      const absl::Span<const int64> candidate_ids, RecordSet* record_set) final;
+      absl::optional<absl::Span<const int64>> candidate_ids,
+      RecordSet* record_set) final;
 
   tensorflow::Status ListContextIDsUsingOptions(
       const ListOperationOptions& options,
-      const absl::Span<const int64> candidate_ids, RecordSet* record_set) final;
+      absl::optional<absl::Span<const int64>> candidate_ids,
+      RecordSet* record_set) final;
 
 
  private:
@@ -661,7 +664,8 @@ class QueryConfigExecutor : public QueryExecutor {
   template <typename Node>
   tensorflow::Status ListNodeIDsUsingOptions(
       const ListOperationOptions& options,
-      const absl::Span<const int64> candidate_ids, RecordSet* record_set);
+      absl::optional<absl::Span<const int64>> candidate_ids,
+      RecordSet* record_set);
 
   MetadataSourceQueryConfig query_config_;
 

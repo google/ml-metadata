@@ -3458,6 +3458,37 @@ TEST_P(MetadataAccessObjectTest, GetAttributionUsingPagination) {
                                          "last_update_time_since_epoch"}));
 }
 
+TEST_P(MetadataAccessObjectTest, GetEmptyAttributionAssociationWithPagination) {
+  TF_ASSERT_OK(Init());
+  const ContextType context_type = CreateTypeFromTextProto<ContextType>(
+      "name: 't1'", *metadata_access_object_);
+  Context context = ParseTextProtoOrDie<Context>("name: 'c1'");
+  context.set_type_id(context_type.id());
+  int64 context_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateContext(context, &context_id));
+  context.set_id(context_id);
+  const ListOperationOptions list_options =
+      ParseTextProtoOrDie<ListOperationOptions>(R"(
+        max_result_size: 1,
+        order_by_field: { field: CREATE_TIME is_asc: false }
+      )");
+  {
+    std::vector<Artifact> got_artifacts;
+    std::string next_page_token;
+    TF_EXPECT_OK(metadata_access_object_->FindArtifactsByContext(
+        context_id, list_options, &got_artifacts, &next_page_token));
+    EXPECT_THAT(got_artifacts, IsEmpty());
+  }
+
+  {
+    std::vector<Execution> got_executions;
+    std::string next_page_token;
+    TF_EXPECT_OK(metadata_access_object_->FindExecutionsByContext(
+        context_id, list_options, &got_executions, &next_page_token));
+    EXPECT_THAT(got_executions, IsEmpty());
+  }
+}
+
 TEST_P(MetadataAccessObjectTest, CreateAssociationError) {
   TF_ASSERT_OK(Init());
   Association association;
