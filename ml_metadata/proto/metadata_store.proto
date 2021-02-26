@@ -344,6 +344,25 @@ message ParentContext {
   optional int64 parent_id = 2;
 }
 
+// A self-contained provenance (sub)graph representation consists of MLMD nodes
+// and their relationships. It is used to represent the query results from the
+// persistent backend (e.g., lineage about a node, reachability of two nodes).
+message LineageGraph {
+  // extracted types
+  repeated ArtifactType artifact_types = 1;
+  repeated ExecutionType execution_types = 2;
+  repeated ContextType context_types = 3;
+  // extracted nodes
+  repeated Artifact artifacts = 4;
+  repeated Execution executions = 5;
+  repeated Context contexts = 6;
+  // extracted edges
+  repeated Event events = 7;
+  repeated Attribution attributions = 8;
+  repeated Association associations = 9;
+}
+
+// The list of ArtifactStruct is EXPERIMENTAL and not in use yet.
 // The type of an ArtifactStruct.
 // An artifact struct type represents an infinite set of artifact structs.
 // It can specify the input or output type of an ExecutionType.
