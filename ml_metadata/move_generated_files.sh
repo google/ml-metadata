@@ -27,8 +27,6 @@ function _is_macos() {
 
 function mlmd::move_generated_files() {
   set -eux
-  cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-bin/ml_metadata/metadata_store/pywrap_tf_metadata_store_serialized.py \
-    ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/metadata_store
 
   # Newer bazel does not create bazel-genfiles any more (see
   # https://github.com/bazelbuild/bazel/issues/6761). It's merged with
@@ -49,12 +47,16 @@ function mlmd::move_generated_files() {
     ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
 
   if _is_windows; then
-    cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-out/x64_windows-opt/genfiles/ml_metadata/metadata_store/_pywrap_tf_metadata_store_serialized.pyd \
-      ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/metadata_store
+    MLMD_EXTENSION="ml_metadata/metadata_store/pywrap/metadata_store_extension.pyd"
+    cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-out/x64_windows-opt/bin/${MLMD_EXTENSION} \
+      ${BUILD_WORKSPACE_DIRECTORY}/${MLMD_EXTENSION}
   else
-    cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-bin/ml_metadata/metadata_store/_pywrap_tf_metadata_store_serialized.so \
-      ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/metadata_store
+    MLMD_EXTENSION="ml_metadata/metadata_store/pywrap/metadata_store_extension.so"
+    cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-bin/${MLMD_EXTENSION} \
+      ${BUILD_WORKSPACE_DIRECTORY}/${MLMD_EXTENSION}
   fi
+
+  chmod +w "${BUILD_WORKSPACE_DIRECTORY}/${MLMD_EXTENSION}"
 }
 
 mlmd::move_generated_files

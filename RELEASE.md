@@ -4,6 +4,8 @@
 
 ## Bug Fixes and Other Changes
 
+*   Uses Pybind11 instead of SWIG to wrap C++ libraries for MLMD python client.
+
 ## Breaking Changes
 
 ## Deprecations

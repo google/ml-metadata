@@ -18,7 +18,6 @@ load(
     "ml_metadata_go_library",
     "ml_metadata_go_test",
     "ml_metadata_go_wrap_cc",
-    "ml_metadata_py_wrap_cc",
 )
 
 licenses(["notice"])  # Apache 2.0
@@ -419,19 +418,6 @@ ml_metadata_cc_test(
 cc_library(
     name = "types",
     hdrs = ["types.h"],
-)
-
-# Note that the name of the target should follow specific naming
-# pattern specified in tensorflow/tf_exported_symbols.lds in order
-# for the init function in the generated .so file to be exported.
-ml_metadata_py_wrap_cc(
-    name = "pywrap_tf_metadata_store_serialized",
-    srcs = ["tf_metadata_store_serialized.i"],
-    deps = [
-        ":metadata_store_factory",
-        "@local_config_python//:python_headers",
-        "@org_tensorflow//tensorflow/core:lib",
-    ],
 )
 
 cc_library(

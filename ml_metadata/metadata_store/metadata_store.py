@@ -27,7 +27,7 @@ import attr
 import grpc
 
 from ml_metadata import errors
-from ml_metadata.metadata_store import pywrap_tf_metadata_store_serialized as metadata_store_serialized # pylint: disable=line-too-long
+from ml_metadata.metadata_store.pywrap.metadata_store_extension import metadata_store as metadata_store_serialized
 from ml_metadata.proto import metadata_store_pb2
 from ml_metadata.proto import metadata_store_service_pb2
 from ml_metadata.proto import metadata_store_service_pb2_grpc
@@ -155,10 +155,6 @@ class MetadataStore(object):
                                                certificate_chain)
     return grpc.secure_channel(target, credentials, options=options)
 
-  def __del__(self):
-    if self._using_db_connection and hasattr(self, '_metadata_store'):
-      metadata_store_serialized.DestroyMetadataStore(self._metadata_store)
-
   def _call(self, method_name, request, response):
     """Calls method with retry when Aborted error is returned.
 
@@ -186,16 +182,16 @@ class MetadataStore(object):
         time.sleep(wait_seconds)
 
   def _call_method(self, method_name, request, response) -> None:
-    """Calls method using SWIG or gRPC.
+    """Calls method using wrapped C++ library or gRPC.
 
     Args:
-      method_name: the method to call in SWIG or gRPC.
+      method_name: the method to call in wrapped C++ library or gRPC.
       request: a protobuf message, serialized and sent to the method.
       response: a protobuf message, filled from the return value of the method.
     """
     if self._using_db_connection:
-      swig_method = getattr(metadata_store_serialized, method_name)
-      self._swig_call(swig_method, request, response)
+      cc_method = getattr(metadata_store_serialized, method_name)
+      self._pywrap_cc_call(cc_method, request, response)
     else:
       grpc_method = getattr(self._metadata_store_stub, method_name)
       try:
@@ -206,23 +202,22 @@ class MetadataStore(object):
         # https://grpc.github.io/grpc/python/_modules/grpc.html#StatusCode
         raise _make_exception(e.details(), e.code().value[0])  # pytype: disable=attribute-error
 
-  def _swig_call(self, method, request, response) -> None:
+  def _pywrap_cc_call(self, method, request, response) -> None:
     """Calls method, serializing and deserializing inputs and outputs.
 
     Note that this does not check the types of request and response.
 
     This can throw a variety of Python errors, based upon the underlying
-    tensorflow error returned in MetadataStore.
-    See _CODE_TO_EXCEPTION_CLASS in tensorflow/python/framework/errors_impl.py
-    for the mapping.
+    errors returned in MetadataStore. See _CODE_TO_EXCEPTION_CLASS in
+    ml_metadata/errors.py for the mapping.
 
     Args:
-      method: the method to call in SWIG.
+      method: the method to call exposed in the pybind11 module.
       request: a protobuf message, serialized and sent to the method.
       response: a protobuf message, filled from the return value of the method.
 
     Raises:
-      Error: whatever tensorflow error is returned by the method.
+      Error: ml_metadata error returned by the method.
     """
     [response_str, error_message, status_code] = method(
         self._metadata_store, request.SerializeToString())
