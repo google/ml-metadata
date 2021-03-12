@@ -42,9 +42,6 @@ namespace ml_metadata {
 
 namespace {
 
-constexpr int64 kSchemaVersion5 = 5;
-constexpr int64 kSchemaVersion6 = 6;
-
 // Prepares a template query used for earlier query schema version.
 tensorflow::Status GetTemplateQueryOrDie(
     const std::string& query,
@@ -57,49 +54,6 @@ tensorflow::Status GetTemplateQueryOrDie(
 }
 
 }  // namespace
-
-// A set of utilities that is used during multi-tenant MLMD server migrations.
-// During the migration time, it is possible that the lib is used to query
-// different sources that are at different schema versions (vj < vi = head).
-namespace query_version {
-namespace v5 {
-
-static constexpr char kInsertArtifactType[] = R"pb(
-  query: "INSERT INTO `Type`( `name`, `type_kind`) VALUES($0, 1);"
-  parameter_num: 1
-)pb";
-
-static constexpr char kInsertExecutionType[] = R"pb(
-  query: "INSERT INTO `Type`(`name`, `type_kind`, `input_type`, `output_type`) "
-         "VALUES($0, 0, $1, $2);"
-  parameter_num: 3
-)pb";
-
-static constexpr char kInsertContextType[] = R"pb(
-  query: "INSERT INTO `Type`(`name`, `type_kind`) VALUES($0, 2);"
-  parameter_num: 1
-)pb";
-
-static constexpr char kSelectTypeById[] = R"pb(
-  query: " SELECT `id`, `name`, `input_type`, `output_type` FROM `Type` "
-         " WHERE id = $0 and type_kind = $1; "
-  parameter_num: 2
-)pb";
-
-static constexpr char kSelectTypeByName[] = R"pb(
-  query: " SELECT `id`, `name`, `input_type`, `output_type` FROM `Type` "
-         " WHERE name = $0 and type_kind = $1; "
-  parameter_num: 2
-)pb";
-
-static constexpr char kSelectAllTypes[] = R"pb(
-  query: " SELECT `id`, `name`, `input_type`, `output_type` FROM `Type` "
-         " WHERE type_kind = $0; "
-  parameter_num: 1
-)pb";
-
-}  // namespace v5
-}  // namespace query_version
 
 QueryConfigExecutor::QueryConfigExecutor(
     const MetadataSourceQueryConfig& query_config, MetadataSource* source,
@@ -114,14 +68,12 @@ tensorflow::Status QueryConfigExecutor::CheckParentTypeTable() {
 
 tensorflow::Status QueryConfigExecutor::InsertParentType(int64 type_id,
                                                          int64 parent_type_id) {
-  TF_RETURN_IF_ERROR(VerifyCurrentQueryVersionIsAtLeast(kSchemaVersion6));
   return ExecuteQuery(query_config_.insert_parent_type(),
                       {Bind(type_id), Bind(parent_type_id)});
 }
 
 tensorflow::Status QueryConfigExecutor::SelectParentTypesByTypeID(
     int64 type_id, RecordSet* record_set) {
-  TF_RETURN_IF_ERROR(VerifyCurrentQueryVersionIsAtLeast(kSchemaVersion6));
   return ExecuteQuery(query_config_.select_parent_type_by_type_id(),
                       {Bind(type_id)}, record_set);
 }
@@ -151,21 +103,18 @@ tensorflow::Status QueryConfigExecutor::CheckParentContextTable() {
 
 tensorflow::Status QueryConfigExecutor::InsertParentContext(int64 parent_id,
                                                             int64 child_id) {
-  TF_RETURN_IF_ERROR(VerifyCurrentQueryVersionIsAtLeast(kSchemaVersion6));
   return ExecuteQuery(query_config_.insert_parent_context(),
                       {Bind(child_id), Bind(parent_id)});
 }
 
 tensorflow::Status QueryConfigExecutor::SelectParentContextsByContextID(
     int64 context_id, RecordSet* record_set) {
-  TF_RETURN_IF_ERROR(VerifyCurrentQueryVersionIsAtLeast(kSchemaVersion6));
   return ExecuteQuery(query_config_.select_parent_context_by_context_id(),
                       {Bind(context_id)}, record_set);
 }
 
 tensorflow::Status QueryConfigExecutor::SelectChildContextsByContextID(
     int64 context_id, RecordSet* record_set) {
-  TF_RETURN_IF_ERROR(VerifyCurrentQueryVersionIsAtLeast(kSchemaVersion6));
   return ExecuteQuery(
       query_config_.select_parent_context_by_parent_context_id(),
       {Bind(context_id)}, record_set);
@@ -592,13 +541,6 @@ tensorflow::Status QueryConfigExecutor::InitMetadataSourceIfNotExists(
 tensorflow::Status QueryConfigExecutor::InsertArtifactType(
     const std::string& name, absl::optional<absl::string_view> version,
     absl::optional<absl::string_view> description, int64* type_id) {
-  if (IsQuerySchemaVersionEquals(kSchemaVersion5)) {
-    MetadataSourceQueryConfig::TemplateQuery insert_artifact_type;
-    TF_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-        query_version::v5::kInsertArtifactType, insert_artifact_type));
-    return ExecuteQuerySelectLastInsertID(insert_artifact_type, {Bind(name)},
-                                          type_id);
-  }
   return ExecuteQuerySelectLastInsertID(
       query_config_.insert_artifact_type(),
       {Bind(name), Bind(version), Bind(description)}, type_id);
@@ -609,14 +551,6 @@ tensorflow::Status QueryConfigExecutor::InsertExecutionType(
     absl::optional<absl::string_view> description,
     const ArtifactStructType* input_type, const ArtifactStructType* output_type,
     int64* type_id) {
-  if (IsQuerySchemaVersionEquals(kSchemaVersion5)) {
-    MetadataSourceQueryConfig::TemplateQuery insert_execution_type;
-    TF_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-        query_version::v5::kInsertExecutionType, insert_execution_type));
-    return ExecuteQuerySelectLastInsertID(
-        insert_execution_type,
-        {Bind(name), Bind(input_type), Bind(output_type)}, type_id);
-  }
   return ExecuteQuerySelectLastInsertID(
       query_config_.insert_execution_type(),
       {Bind(name), Bind(version), Bind(description), Bind(input_type),
@@ -627,13 +561,6 @@ tensorflow::Status QueryConfigExecutor::InsertExecutionType(
 tensorflow::Status QueryConfigExecutor::InsertContextType(
     const std::string& name, absl::optional<absl::string_view> version,
     absl::optional<absl::string_view> description, int64* type_id) {
-  if (IsQuerySchemaVersionEquals(kSchemaVersion5)) {
-    MetadataSourceQueryConfig::TemplateQuery insert_context_type;
-    TF_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-        query_version::v5::kInsertContextType, insert_context_type));
-    return ExecuteQuerySelectLastInsertID(insert_context_type, {Bind(name)},
-                                          type_id);
-  }
   return ExecuteQuerySelectLastInsertID(
       query_config_.insert_context_type(),
       {Bind(name), Bind(version), Bind(description)}, type_id);
@@ -642,13 +569,6 @@ tensorflow::Status QueryConfigExecutor::InsertContextType(
 tensorflow::Status QueryConfigExecutor::SelectTypeByID(int64 type_id,
                                                        TypeKind type_kind,
                                                        RecordSet* record_set) {
-  if (IsQuerySchemaVersionEquals(kSchemaVersion5)) {
-    MetadataSourceQueryConfig::TemplateQuery select_type_by_id;
-    TF_RETURN_IF_ERROR(GetTemplateQueryOrDie(query_version::v5::kSelectTypeById,
-                                             select_type_by_id));
-    return ExecuteQuery(select_type_by_id, {Bind(type_id), Bind(type_kind)},
-                        record_set);
-  }
   return ExecuteQuery(query_config_.select_type_by_id(),
                       {Bind(type_id), Bind(type_kind)}, record_set);
 }
@@ -656,13 +576,6 @@ tensorflow::Status QueryConfigExecutor::SelectTypeByID(int64 type_id,
 tensorflow::Status QueryConfigExecutor::SelectTypeByNameAndVersion(
     absl::string_view type_name, absl::optional<absl::string_view> type_version,
     TypeKind type_kind, RecordSet* record_set) {
-  if (IsQuerySchemaVersionEquals(kSchemaVersion5)) {
-    MetadataSourceQueryConfig::TemplateQuery select_type_by_name;
-    TF_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-        query_version::v5::kSelectTypeByName, select_type_by_name));
-    return ExecuteQuery(select_type_by_name, {Bind(type_name), Bind(type_kind)},
-                        record_set);
-  }
   if (type_version && !type_version->empty()) {
     return ExecuteQuery(query_config_.select_type_by_name_and_version(),
                         {Bind(type_name), Bind(*type_version), Bind(type_kind)},
@@ -675,12 +588,6 @@ tensorflow::Status QueryConfigExecutor::SelectTypeByNameAndVersion(
 
 tensorflow::Status QueryConfigExecutor::SelectAllTypes(TypeKind type_kind,
                                                        RecordSet* record_set) {
-  if (IsQuerySchemaVersionEquals(kSchemaVersion5)) {
-    MetadataSourceQueryConfig::TemplateQuery select_all_types;
-    TF_RETURN_IF_ERROR(GetTemplateQueryOrDie(query_version::v5::kSelectAllTypes,
-                                             select_all_types));
-    return ExecuteQuery(select_all_types, {Bind(type_kind)}, record_set);
-  }
   return ExecuteQuery(query_config_.select_all_types(), {Bind(type_kind)},
                       record_set);
 }

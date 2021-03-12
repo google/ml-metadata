@@ -48,43 +48,5 @@ TEST(MetadataAccessObjectFactory, CreateMetadataAccessObject) {
   EXPECT_EQ(schema_version, library_version);
 }
 
-// Test that the head library is capable of creating MetadataAccessObjects at
-// different query_versions.
-TEST(MetadataAccessObjectFactory, CreateMetadataAccessObjectAtSchemaVersion5) {
-  // Create MetadataAccessObject with default schema_version = library_version,
-  // then downgrade the source to 5. Then create an instance of
-  // MetadataAccessObject with that query_version.
-  constexpr int64 kLibSchemaVersion = 6;
-  const int64 earlier_schema_version = kLibSchemaVersion - 1;
-  SqliteMetadataSourceConfig config;
-  std::unique_ptr<MetadataSource> metadata_source =
-      absl::make_unique<SqliteMetadataSource>(config);
-
-  {
-    std::unique_ptr<MetadataAccessObject> metadata_access_object;
-    TF_ASSERT_OK(CreateMetadataAccessObject(
-        util::GetSqliteMetadataSourceQueryConfig(), metadata_source.get(),
-        kLibSchemaVersion, &metadata_access_object));
-    TF_ASSERT_OK(metadata_source->Begin());
-    TF_ASSERT_OK(metadata_access_object->InitMetadataSource());
-    TF_ASSERT_OK(metadata_access_object->DowngradeMetadataSource(
-        earlier_schema_version));
-    int64 schema_version;
-    TF_ASSERT_OK(metadata_access_object->GetSchemaVersion(&schema_version));
-    TF_ASSERT_OK(metadata_source->Commit());
-    ASSERT_EQ(schema_version, earlier_schema_version);
-  }
-
-  {
-    std::unique_ptr<MetadataAccessObject> metadata_access_object;
-    TF_ASSERT_OK(metadata_source->Begin());
-    TF_ASSERT_OK(CreateMetadataAccessObject(
-        util::GetSqliteMetadataSourceQueryConfig(), metadata_source.get(),
-        earlier_schema_version, &metadata_access_object));
-    TF_EXPECT_OK(metadata_access_object->InitMetadataSourceIfNotExists());
-    TF_ASSERT_OK(metadata_source->Commit());
-  }
-}
-
 }  // namespace
 }  // namespace ml_metadata

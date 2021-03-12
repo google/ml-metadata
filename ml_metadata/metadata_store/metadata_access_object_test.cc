@@ -422,8 +422,6 @@ TEST_P(MetadataAccessObjectTest,
 }
 
 TEST_P(MetadataAccessObjectTest, CreateParentTypeInheritanceLink) {
-  // Earlier schema version does not have the parent type table yet.
-  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/6)) { return; }
   if (!metadata_access_object_container_->HasParentTypeSupport()) {
     return;
   }
@@ -477,8 +475,6 @@ TEST_P(MetadataAccessObjectTest, CreateParentTypeInheritanceLink) {
 
 TEST_P(MetadataAccessObjectTest,
        CreateParentTypeInheritanceLinkInvalidTypeIdError) {
-  // Earlier schema version does not have the parent type table yet.
-  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/6)) { return; }
   if (!metadata_access_object_container_->HasParentTypeSupport()) {
     return;
   }
@@ -510,8 +506,6 @@ TEST_P(MetadataAccessObjectTest,
 }
 
 TEST_P(MetadataAccessObjectTest, CreateParentTypeInheritanceLinkWithCycle) {
-  // Earlier schema version does not have the parent type table yet.
-  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/6)) { return; }
   if (!metadata_access_object_container_->HasParentTypeSupport()) {
     return;
   }
@@ -570,8 +564,6 @@ TEST_P(MetadataAccessObjectTest, CreateParentTypeInheritanceLinkWithCycle) {
 }
 
 TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeId) {
-  // Earlier schema version does not have the parent type table yet.
-  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/6)) { return; }
   if (!metadata_access_object_container_->HasParentTypeSupport()) {
     return;
   }
@@ -685,8 +677,6 @@ TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeId) {
 }
 
 TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeIdError) {
-  // Earlier schema version does not have the parent type table yet.
-  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/6)) { return; }
   if (!metadata_access_object_container_->HasParentTypeSupport()) {
     return;
   }
@@ -758,10 +748,6 @@ TEST_P(MetadataAccessObjectTest, CreateType) {
 }
 
 TEST_P(MetadataAccessObjectTest, StoreTypeWithVersionAndDescriptions) {
-  // Earlier schema version does not have the type version and description yet.
-  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/6)) {
-    return;
-  }
   if (!metadata_access_object_container_->HasTypeVersionSupport()) {
     return;
   }
@@ -804,10 +790,6 @@ TEST_P(MetadataAccessObjectTest, StoreTypeWithVersionAndDescriptions) {
 }
 
 TEST_P(MetadataAccessObjectTest, StoreTypeWithEmptyVersion) {
-  // Earlier schema version does not have the type version and description yet.
-  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/6)) {
-    return;
-  }
   if (!metadata_access_object_container_->HasTypeVersionSupport()) {
     return;
   }
@@ -3795,8 +3777,6 @@ TEST_P(MetadataAccessObjectTest, PutEventsWithPaths) {
 }
 
 TEST_P(MetadataAccessObjectTest, CreateParentContext) {
-  // Earlier schema version does not have the parent context table yet.
-  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/6)) { return; }
   if (!metadata_access_object_container_->HasParentContextSupport()) {
     return;
   }
@@ -3882,8 +3862,6 @@ TEST_P(MetadataAccessObjectTest, CreateParentContextInvalidArgumentError) {
 }
 
 TEST_P(MetadataAccessObjectTest, CreateAndFindParentContext) {
-  // Earlier schema version does not have the parent context table yet.
-  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/6)) { return; }
   if (!metadata_access_object_container_->HasParentContextSupport()) {
     return;
   }
