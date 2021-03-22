@@ -148,7 +148,7 @@ setup(
     # Make sure to sync the versions of common dependencies (absl-py, numpy,
     # six, and protobuf) with TF.
     install_requires=[
-        'absl-py>=0.9,<0.11',
+        'absl-py>=0.9,<0.13',
         'attrs>=20.3,<21',
         'grpcio>=1.8.6,<2',
         'protobuf>=3.7,<4',
