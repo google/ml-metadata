@@ -31,6 +31,10 @@ namespace ml_metadata {
 namespace testing {
 namespace {
 
+using ::testing::SizeIs;
+using ::testing::UnorderedElementsAreArray;
+using ::testing::UnorderedPointwise;
+
 std::unique_ptr<MetadataStore> CreateMetadataStore() {
   auto metadata_source =
       absl::make_unique<SqliteMetadataSource>(SqliteMetadataSourceConfig());

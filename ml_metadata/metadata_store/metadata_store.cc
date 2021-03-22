@@ -1223,7 +1223,6 @@ tensorflow::Status MetadataStore::GetArtifactsByContext(
       [this, &request, &response]() -> tensorflow::Status {
         response->Clear();
         std::vector<Artifact> artifacts;
-        tensorflow::Status status;
         std::string next_page_token;
         auto list_options = request.has_options()
                                 ? absl::make_optional(request.options())
@@ -1250,7 +1249,6 @@ tensorflow::Status MetadataStore::GetExecutionsByContext(
       [this, &request, &response]() -> tensorflow::Status {
         response->Clear();
         std::vector<Execution> executions;
-        tensorflow::Status status;
         std::string next_page_token;
         auto list_options = request.has_options()
                                 ? absl::make_optional(request.options())

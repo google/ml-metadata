@@ -247,6 +247,18 @@ void CreateNodeFromTextProto(const std::string& node_text_proto, int64 type_id,
   output = nodes[0];
 }
 
+void CreateEventFromTextProto(const std::string& event_text_proto,
+                              const Artifact& artifact,
+                              const Execution& execution,
+                              MetadataAccessObject& metadata_access_object,
+                              Event& output_event) {
+  output_event = ParseTextProtoOrDie<Event>("type: INPUT");
+  output_event.set_artifact_id(artifact.id());
+  output_event.set_execution_id(execution.id());
+  int64 dummy_id;
+  TF_ASSERT_OK(metadata_access_object.CreateEvent(output_event, &dummy_id));
+}
+
 // Utilities that waits for a millisecond to update a node and returns stored
 // node proto with updated timestamps.
 template <class Node>
