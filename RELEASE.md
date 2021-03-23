@@ -4,12 +4,28 @@
 
 ## Bug Fixes and Other Changes
 
+## Breaking Changes
+
+## Deprecations
+
+# Release 0.29.0
+
+## Major Features and Improvements
+
+*   N/A
+
+## Bug Fixes and Other Changes
+
 *   Uses Pybind11 instead of SWIG to wrap C++ libraries for MLMD python client.
 *   Depends on `absl-py>=0.9,<0.13`.
 
 ## Breaking Changes
 
+*   N/A
+
 ## Deprecations
+
+*   N/A
 
 # Release 0.28.0
 
