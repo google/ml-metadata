@@ -18,6 +18,7 @@ limitations under the License.
 #include <memory>
 #include <vector>
 
+#include "absl/container/flat_hash_set.h"
 #include "ml_metadata/metadata_store/metadata_access_object.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/metadata_store/query_executor.h"
@@ -467,6 +468,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   tensorflow::Status FindLinkedContextsImpl(
       int64 context_id, ParentContextTraverseDirection direction,
       std::vector<Context>& output_contexts);
+
 
   std::unique_ptr<QueryExecutor> executor_;
 };

@@ -1233,7 +1233,6 @@ tensorflow::Status RDBMSMetadataAccessObject::UpdateContext(
 }
 
 tensorflow::Status RDBMSMetadataAccessObject::CreateEvent(const Event& event,
-
                                                           int64* event_id) {
   // validate the given event
   if (!event.has_artifact_id())
