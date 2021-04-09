@@ -42,7 +42,7 @@ from tensorflow_docs.api_generator import generate_lib
 from tensorflow_docs.api_generator import public_api
 
 import ml_metadata.metadata_store as mlmd
-from ml_metadata.metadata_store import pywrap_tf_metadata_store_serialized
+from ml_metadata.metadata_store import pywrap
 
 flags.DEFINE_string('output_dir', '/tmp/mlmd_api', 'Where to output the docs')
 flags.DEFINE_string(
@@ -62,7 +62,7 @@ suppress_docs_for = [
     absolute_import,
     division,
     print_function,
-    pywrap_tf_metadata_store_serialized
+    pywrap,
 ]
 
 

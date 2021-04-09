@@ -12,4 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Init module for ML Metadata."""
+from ml_metadata.metadata_store.metadata_store import downgrade_schema
 from ml_metadata.metadata_store.metadata_store import MetadataStore

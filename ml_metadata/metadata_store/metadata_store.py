@@ -700,8 +700,8 @@ class MetadataStore(object):
      The type with name type_name and version type version.
 
     Raises:
-    tensorflow.errors.NotFoundError: if no type exists
-    tensorflow.errors.InternalError: if query execution fails
+      NotFoundError: if no type exists
+      InternalError: if query execution fails
     """
     request = metadata_store_service_pb2.GetArtifactTypeRequest()
     request.type_name = type_name
@@ -719,7 +719,7 @@ class MetadataStore(object):
      A list of all known ArtifactTypes.
 
     Raises:
-    tensorflow.errors.InternalError: if query execution fails
+     InternalError: if query execution fails
     """
     request = metadata_store_service_pb2.GetArtifactTypesRequest()
     response = metadata_store_service_pb2.GetArtifactTypesResponse()
@@ -745,8 +745,8 @@ class MetadataStore(object):
      The type with name type_name and version type_version.
 
     Raises:
-    tensorflow.errors.NotFoundError: if no type exists
-    tensorflow.errors.InternalError: if query execution fails
+      NotFoundError: if no type exists
+      InternalError: if query execution fails
     """
     request = metadata_store_service_pb2.GetExecutionTypeRequest()
     request.type_name = type_name
@@ -764,7 +764,7 @@ class MetadataStore(object):
      A list of all known ExecutionTypes.
 
     Raises:
-    tensorflow.errors.InternalError: if query execution fails
+     InternalError: if query execution fails
     """
     request = metadata_store_service_pb2.GetExecutionTypesRequest()
     response = metadata_store_service_pb2.GetExecutionTypesResponse()
@@ -790,8 +790,8 @@ class MetadataStore(object):
      The type with name type_name and version type_version.
 
     Raises:
-    tensorflow.errors.NotFoundError: if no type exists
-    tensorflow.errors.InternalError: if query execution fails
+      NotFoundError: if no type exists
+      InternalError: if query execution fails
     """
     request = metadata_store_service_pb2.GetContextTypeRequest()
     request.type_name = type_name
@@ -809,7 +809,7 @@ class MetadataStore(object):
      A list of all known ContextTypes.
 
     Raises:
-    tensorflow.errors.InternalError: if query execution fails
+     InternalError: if query execution fails
     """
     request = metadata_store_service_pb2.GetContextTypesRequest()
     response = metadata_store_service_pb2.GetContextTypesResponse()
@@ -1414,7 +1414,6 @@ def downgrade_schema(config: metadata_store_pb2.ConnectionConfig,
     logging.log(logging.INFO, str(e))
 
 
-# See  _make_specific_exception in tensorflow.python.framework.errors
 def _make_exception(msg, error_code):
   try:
     exc_type = errors.exception_type_from_error_code(error_code)
