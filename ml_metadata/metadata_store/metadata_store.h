@@ -64,12 +64,19 @@ class MetadataStore : public MetadataStoreServiceInterface {
 
   // Inserts or updates a ArtifactType/ExecutionType/ContextType.
   //
-  // If no type exists in the database with the given name, it
-  // creates a new type and returns the type_id.
+  // A type has a set of strong typed properties describing the schema of any
+  // stored instance associated with that type. A type is identified by a name
+  // and an optional version.
   //
-  // If the request type with the same name already exists (let's call it
-  // stored_type), the method enforces the stored_type can be updated only when
-  // the request type is backward compatible for the already stored instances.
+  // Type Creation:
+  // If no type exists in the database with the given identifier
+  // (name, version), it creates a new type and returns the type_id.
+  //
+  // Type Evolution:
+  // If the request type with the same (name, version) already exists
+  // (let's call it stored_type), the method enforces the stored_type can be
+  // updated only when the request type is backward compatible for the already
+  // stored instances.
   //
   // Backwards compatibility is violated iff:
   //
@@ -79,6 +86,12 @@ class MetadataStore : public MetadataStoreServiceInterface {
   //      is not stored.
   //   c) `can_omit_fields = false` and stored_type has an existing property
   //      that is not provided in the request type.
+  //
+  // If non-backward type change is required in the application, e.g.,
+  // deprecate properties, re-purpose property name, change value types,
+  // a new type can be created with a different (name, version) identifier.
+  // Note the type version is optional, and a version value with empty string
+  // is treated as unset.
   //
   // For the fields of PutArtifactTypeRequest:
   //

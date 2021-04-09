@@ -263,12 +263,19 @@ class MetadataStore(object):
                         can_omit_fields: bool = False) -> int:
     """Inserts or updates an artifact type.
 
-    If no type exists in the database with the given name, it creates a new
-    type and returns the type_id.
+    A type has a set of strong typed properties describing the schema of any
+    stored instance associated with that type. A type is identified by a name
+    and an optional version.
 
-    If the request type with the same name already exists (let's call it
-    stored_type), the method enforces the stored_type can be updated only when
-    the request type is backward compatible for the already stored instances.
+    Type Creation:
+    If no type exists in the database with the given identifier
+    (name, version), it creates a new type and returns the type_id.
+
+    Type Evolution:
+    If the request type with the same (name, version) already exists
+    (let's call it stored_type), the method enforces the stored_type can be
+    updated only when the request type is backward compatible for the already
+    stored instances.
 
     Backwards compatibility is violated iff:
 
@@ -278,6 +285,12 @@ class MetadataStore(object):
          is not stored.
       c) `can_omit_fields = false` and stored_type has an existing property
          that is not provided in the request type.
+
+    If non-backward type change is required in the application, e.g.,
+    deprecate properties, re-purpose property name, change value types,
+    a new type can be created with a different (name, version) identifier.
+    Note the type version is optional, and a version value with empty string
+    is treated as unset.
 
     Args:
       artifact_type: the request type to be inserted or updated.
@@ -375,12 +388,19 @@ class MetadataStore(object):
                          can_omit_fields: bool = False) -> int:
     """Inserts or updates an execution type.
 
-    If no type exists in the database with the given name, it creates a new
-    type and returns the type_id.
+    A type has a set of strong typed properties describing the schema of any
+    stored instance associated with that type. A type is identified by a name
+    and an optional version.
 
-    If the request type with the same name already exists (let's call it
-    stored_type), the method enforces the stored_type can be updated only when
-    the request type is backward compatible for the already stored instances.
+    Type Creation:
+    If no type exists in the database with the given identifier
+    (name, version), it creates a new type and returns the type_id.
+
+    Type Evolution:
+    If the request type with the same (name, version) already exists
+    (let's call it stored_type), the method enforces the stored_type can be
+    updated only when the request type is backward compatible for the already
+    stored instances.
 
     Backwards compatibility is violated iff:
 
@@ -390,6 +410,12 @@ class MetadataStore(object):
          is not stored.
       c) `can_omit_fields = false` and stored_type has an existing property
          that is not provided in the request type.
+
+    If non-backward type change is required in the application, e.g.,
+    deprecate properties, re-purpose property name, change value types,
+    a new type can be created with a different (name, version) identifier.
+    Note the type version is optional, and a version value with empty string
+    is treated as unset.
 
     Args:
       execution_type: the request type to be inserted or updated.
@@ -457,12 +483,19 @@ class MetadataStore(object):
                        can_omit_fields: bool = False) -> int:
     """Inserts or updates a context type.
 
-    If no type exists in the database with the given name, it creates a new
-    type and returns the type_id.
+    A type has a set of strong typed properties describing the schema of any
+    stored instance associated with that type. A type is identified by a name
+    and an optional version.
 
-    If the request type with the same name already exists (let's call it
-    stored_type), the method enforces the stored_type can be updated only when
-    the request type is backward compatible for the already stored instances.
+    Type Creation:
+    If no type exists in the database with the given identifier
+    (name, version), it creates a new type and returns the type_id.
+
+    Type Evolution:
+    If the request type with the same (name, version) already exists
+    (let's call it stored_type), the method enforces the stored_type can be
+    updated only when the request type is backward compatible for the already
+    stored instances.
 
     Backwards compatibility is violated iff:
 
@@ -472,6 +505,12 @@ class MetadataStore(object):
          is not stored.
       c) `can_omit_fields = false` and stored_type has an existing property
          that is not provided in the request type.
+
+    If non-backward type change is required in the application, e.g.,
+    deprecate properties, re-purpose property name, change value types,
+    a new type can be created with a different (name, version) identifier.
+    Note the type version is optional, and a version value with empty string
+    is treated as unset.
 
     Args:
       context_type: the request type to be inserted or updated.
@@ -647,14 +686,18 @@ class MetadataStore(object):
     return result
 
   def get_artifact_type(
-      self, type_name: Text) -> metadata_store_pb2.ArtifactType:
-    """Gets an artifact type by name.
+      self,
+      type_name: Text,
+      type_version: Text = None) -> metadata_store_pb2.ArtifactType:
+    """Gets an artifact type by name and version.
 
     Args:
      type_name: the type with that name.
+     type_version: an optional version of the type, if not given, then only the
+       type_name is used to look for types with no versions.
 
     Returns:
-     The type with name type_name.
+     The type with name type_name and version type version.
 
     Raises:
     tensorflow.errors.NotFoundError: if no type exists
@@ -662,6 +705,8 @@ class MetadataStore(object):
     """
     request = metadata_store_service_pb2.GetArtifactTypeRequest()
     request.type_name = type_name
+    if type_version:
+      request.type_version = type_version
     response = metadata_store_service_pb2.GetArtifactTypeResponse()
 
     self._call('GetArtifactType', request, response)
@@ -686,14 +731,18 @@ class MetadataStore(object):
     return result
 
   def get_execution_type(
-      self, type_name: Text) -> metadata_store_pb2.ExecutionType:
-    """Gets an execution type by name.
+      self,
+      type_name: Text,
+      type_version: Text = None) -> metadata_store_pb2.ExecutionType:
+    """Gets an execution type by name and version.
 
     Args:
      type_name: the type with that name.
+     type_version: an optional version of the type, if not given, then only the
+       type_name is used to look for types with no versions.
 
     Returns:
-     The type with name type_name.
+     The type with name type_name and version type_version.
 
     Raises:
     tensorflow.errors.NotFoundError: if no type exists
@@ -701,6 +750,8 @@ class MetadataStore(object):
     """
     request = metadata_store_service_pb2.GetExecutionTypeRequest()
     request.type_name = type_name
+    if type_version:
+      request.type_version = type_version
     response = metadata_store_service_pb2.GetExecutionTypeResponse()
 
     self._call('GetExecutionType', request, response)
@@ -725,14 +776,18 @@ class MetadataStore(object):
     return result
 
   def get_context_type(
-      self, type_name: Text) -> metadata_store_pb2.ContextType:
-    """Gets a context type by name.
+      self,
+      type_name: Text,
+      type_version: Text = None) -> metadata_store_pb2.ContextType:
+    """Gets a context type by name and version.
 
     Args:
      type_name: the type with that name.
+     type_version: an optional version of the type, if not given, then only the
+       type_name is used to look for types with no versions.
 
     Returns:
-     The type with name type_name.
+     The type with name type_name and version type_version.
 
     Raises:
     tensorflow.errors.NotFoundError: if no type exists
@@ -740,6 +795,8 @@ class MetadataStore(object):
     """
     request = metadata_store_service_pb2.GetContextTypeRequest()
     request.type_name = type_name
+    if type_version:
+      request.type_version = type_version
     response = metadata_store_service_pb2.GetContextTypeResponse()
 
     self._call('GetContextType', request, response)

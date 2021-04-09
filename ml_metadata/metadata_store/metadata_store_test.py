@@ -60,54 +60,36 @@ def _get_metadata_store(grpc_max_receive_message_length=None,
   return metadata_store.MetadataStore(connection_config)
 
 
-def _create_example_artifact_type(type_name):
+def _create_example_artifact_type(type_name, type_version=None):
   artifact_type = metadata_store_pb2.ArtifactType()
   artifact_type.name = type_name
+  if type_version:
+    artifact_type.version = type_version
   artifact_type.properties["foo"] = metadata_store_pb2.INT
   artifact_type.properties["bar"] = metadata_store_pb2.STRING
   artifact_type.properties["baz"] = metadata_store_pb2.DOUBLE
   return artifact_type
 
 
-def _create_example_artifact_type_2(type_name):
-  artifact_type = metadata_store_pb2.ArtifactType()
-  artifact_type.name = type_name
-  artifact_type.properties["foo"] = metadata_store_pb2.INT
-  artifact_type.properties["bar"] = metadata_store_pb2.STRING
-  artifact_type.properties["baz"] = metadata_store_pb2.DOUBLE
-  return artifact_type
-
-
-def _create_example_execution_type(type_name):
+def _create_example_execution_type(type_name, type_version=None):
   execution_type = metadata_store_pb2.ExecutionType()
   execution_type.name = type_name
+  if type_version:
+    execution_type.version = type_version
   execution_type.properties["foo"] = metadata_store_pb2.INT
   execution_type.properties["bar"] = metadata_store_pb2.STRING
+  execution_type.properties["baz"] = metadata_store_pb2.DOUBLE
   return execution_type
 
 
-def _create_example_execution_type_2(type_name):
-  execution_type = metadata_store_pb2.ExecutionType()
-  execution_type.name = type_name
-  execution_type.properties["foo"] = metadata_store_pb2.INT
-  execution_type.properties["bar"] = metadata_store_pb2.STRING
-  return execution_type
-
-
-def _create_example_context_type(type_name):
+def _create_example_context_type(type_name, type_version=None):
   context_type = metadata_store_pb2.ContextType()
   context_type.name = type_name
+  if type_version:
+    context_type.version = type_version
   context_type.properties["foo"] = metadata_store_pb2.INT
   context_type.properties["bar"] = metadata_store_pb2.STRING
   context_type.properties["baz"] = metadata_store_pb2.DOUBLE
-  return context_type
-
-
-def _create_example_context_type_2(type_name):
-  context_type = metadata_store_pb2.ContextType()
-  context_type.name = type_name
-  context_type.properties["foo"] = metadata_store_pb2.INT
-  context_type.properties["bar"] = metadata_store_pb2.STRING
   return context_type
 
 
@@ -115,6 +97,9 @@ class MetadataStoreTest(parameterized.TestCase):
 
   def _get_test_type_name(self):
     return "test_type_{}".format(uuid.uuid4())
+
+  def _get_test_type_version(self):
+    return "test_version_{}".format(uuid.uuid4())
 
   def _get_test_db_name(self):
     return "test_mlmd_{}.db".format(uuid.uuid4())
@@ -204,8 +189,65 @@ class MetadataStoreTest(parameterized.TestCase):
                      metadata_store_pb2.INT)
     self.assertEqual(artifact_type_result.properties["bar"],
                      metadata_store_pb2.STRING)
-    self.assertEqual(artifact_type.properties["baz"], metadata_store_pb2.DOUBLE)
-    self.assertEqual(artifact_type.properties["new_property"],
+    self.assertEqual(artifact_type_result.properties["baz"],
+                     metadata_store_pb2.DOUBLE)
+    self.assertEqual(artifact_type_result.properties["new_property"],
+                     metadata_store_pb2.INT)
+
+  @parameterized.parameters((_create_example_artifact_type,
+                             metadata_store.MetadataStore.put_artifact_type,
+                             metadata_store.MetadataStore.get_artifact_type),
+                            (_create_example_execution_type,
+                             metadata_store.MetadataStore.put_execution_type,
+                             metadata_store.MetadataStore.get_execution_type),
+                            (_create_example_context_type,
+                             metadata_store.MetadataStore.put_context_type,
+                             metadata_store.MetadataStore.get_context_type))
+  def test_put_type_get_type_with_version(self, create_type_fn, put_type_fn,
+                                          get_type_fn):
+    store = _get_metadata_store()
+    type_name = self._get_test_type_name()
+    type_version = self._get_test_type_version()
+    test_type = create_type_fn(type_name, type_version)
+
+    type_id = put_type_fn(store, test_type)
+    type_result = get_type_fn(store, type_name, type_version)
+
+    self.assertEqual(type_result.id, type_id)
+    self.assertEqual(type_result.name, type_name)
+    self.assertEqual(type_result.version, type_version)
+    self.assertEqual(type_result.properties["foo"], metadata_store_pb2.INT)
+    self.assertEqual(type_result.properties["bar"], metadata_store_pb2.STRING)
+    self.assertEqual(type_result.properties["baz"], metadata_store_pb2.DOUBLE)
+
+  @parameterized.parameters((_create_example_artifact_type,
+                             metadata_store.MetadataStore.put_artifact_type,
+                             metadata_store.MetadataStore.get_artifact_type),
+                            (_create_example_execution_type,
+                             metadata_store.MetadataStore.put_execution_type,
+                             metadata_store.MetadataStore.get_execution_type),
+                            (_create_example_context_type,
+                             metadata_store.MetadataStore.put_context_type,
+                             metadata_store.MetadataStore.get_context_type))
+  def test_put_type_with_update_get_type_with_version(self, create_type_fn,
+                                                      put_type_fn, get_type_fn):
+    store = _get_metadata_store()
+    type_name = self._get_test_type_name()
+    type_version = self._get_test_type_version()
+    test_type = create_type_fn(type_name, type_version)
+
+    type_id = put_type_fn(store, test_type)
+    test_type.properties["new_property"] = metadata_store_pb2.INT
+    put_type_fn(store, test_type, can_add_fields=True)
+    type_result = get_type_fn(store, type_name, type_version)
+
+    self.assertEqual(type_result.id, type_id)
+    self.assertEqual(type_result.name, type_name)
+    self.assertEqual(type_result.version, type_version)
+    self.assertEqual(type_result.properties["foo"], metadata_store_pb2.INT)
+    self.assertEqual(type_result.properties["bar"], metadata_store_pb2.STRING)
+    self.assertEqual(type_result.properties["baz"], metadata_store_pb2.DOUBLE)
+    self.assertEqual(type_result.properties["new_property"],
                      metadata_store_pb2.INT)
 
   @parameterized.parameters(
@@ -249,8 +291,10 @@ class MetadataStoreTest(parameterized.TestCase):
       (metadata_store_pb2.ContextType(), _create_example_context_type,
        metadata_store.MetadataStore.put_context_type,
        metadata_store.MetadataStore.get_context_type))
-  def test_put_artifact_type_with_omitted_fields_and_add_fields(
-      self, stored_type, create_type_fn, put_type_fn, get_type_fn):
+  def test_put_type_with_omitted_fields_and_add_fields(self, stored_type,
+                                                       create_type_fn,
+                                                       put_type_fn,
+                                                       get_type_fn):
     store = _get_metadata_store()
     type_name = self._get_test_type_name()
     base_type = create_type_fn(type_name)
@@ -275,11 +319,78 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertEqual(got_type.name, type_name)
     self.assertEqual(got_type.properties, want_type.properties)
 
+  @parameterized.parameters(
+      (metadata_store_pb2.ArtifactType(), _create_example_artifact_type,
+       metadata_store.MetadataStore.put_artifact_type,
+       metadata_store.MetadataStore.get_artifact_type),
+      (metadata_store_pb2.ExecutionType(), _create_example_execution_type,
+       metadata_store.MetadataStore.put_execution_type,
+       metadata_store.MetadataStore.get_execution_type),
+      (metadata_store_pb2.ContextType(), _create_example_context_type,
+       metadata_store.MetadataStore.put_context_type,
+       metadata_store.MetadataStore.get_context_type))
+  def test_put_type_with_omitted_fields_get_type_with_version(
+      self, stored_type, create_type_fn, put_type_fn, get_type_fn):
+    store = _get_metadata_store()
+    type_name = self._get_test_type_name()
+    type_version = self._get_test_type_version()
+    base_type = create_type_fn(type_name, type_version)
+    # store a type by adding more properties
+    stored_type.CopyFrom(base_type)
+    stored_type.properties["p1"] = metadata_store_pb2.INT
+    type_id = put_type_fn(store, stored_type)
+    # put a type with missing properties
+    with self.assertRaises(errors.AlreadyExistsError):
+      put_type_fn(store, base_type)
+    # when set can_omit_fields, the upsert is ok
+    put_type_fn(store, base_type, can_omit_fields=True)
+    # verify the stored type remains the same.
+    got_type = get_type_fn(store, type_name, type_version)
+    self.assertEqual(got_type.id, type_id)
+    self.assertEqual(got_type.name, type_name)
+    self.assertEqual(got_type.properties, stored_type.properties)
+
+  @parameterized.parameters(
+      (metadata_store_pb2.ArtifactType(), _create_example_artifact_type,
+       metadata_store.MetadataStore.put_artifact_type,
+       metadata_store.MetadataStore.get_artifact_type),
+      (metadata_store_pb2.ExecutionType(), _create_example_execution_type,
+       metadata_store.MetadataStore.put_execution_type,
+       metadata_store.MetadataStore.get_execution_type),
+      (metadata_store_pb2.ContextType(), _create_example_context_type,
+       metadata_store.MetadataStore.put_context_type,
+       metadata_store.MetadataStore.get_context_type))
+  def test_put_type_with_omitted_fields_and_add_fields_with_version(
+      self, stored_type, create_type_fn, put_type_fn, get_type_fn):
+    store = _get_metadata_store()
+    type_name = self._get_test_type_name()
+    type_version = self._get_test_type_version()
+    base_type = create_type_fn(type_name, type_version)
+    # store a type by adding more properties
+    stored_type.CopyFrom(base_type)
+    stored_type.properties["p1"] = metadata_store_pb2.INT
+    type_id = put_type_fn(store, stored_type)
+    # put a type with missing properties and an additional property
+    base_type.properties["p2"] = metadata_store_pb2.DOUBLE
+    # base_type with missing properties cannot be updated
+    with self.assertRaises(errors.AlreadyExistsError):
+      put_type_fn(store, base_type)
+    # base_type with new properties cannot be updated
+    with self.assertRaises(errors.AlreadyExistsError):
+      put_type_fn(store, base_type, can_omit_fields=True)
+    # if both can_add_fields, and can_omit_fields are set, then it succeeds
+    put_type_fn(store, base_type, can_add_fields=True, can_omit_fields=True)
+    got_type = get_type_fn(store, type_name, type_version)
+    want_type = stored_type
+    want_type.properties["p2"] = metadata_store_pb2.DOUBLE
+    self.assertEqual(got_type.id, type_id)
+    self.assertEqual(got_type.name, type_name)
+    self.assertEqual(got_type.properties, want_type.properties)
+
   def test_get_artifact_types(self):
     store = _get_metadata_store()
     artifact_type_1 = _create_example_artifact_type(self._get_test_type_name())
-    artifact_type_2 = _create_example_artifact_type_2(
-        self._get_test_type_name())
+    artifact_type_2 = _create_example_artifact_type(self._get_test_type_name())
 
     type_id_1 = store.put_artifact_type(artifact_type_1)
     artifact_type_1.id = type_id_1
@@ -295,7 +406,7 @@ class MetadataStoreTest(parameterized.TestCase):
     store = _get_metadata_store()
     execution_type_1 = _create_example_execution_type(
         self._get_test_type_name())
-    execution_type_2 = _create_example_execution_type_2(
+    execution_type_2 = _create_example_execution_type(
         self._get_test_type_name())
 
     type_id_1 = store.put_execution_type(execution_type_1)
@@ -313,7 +424,7 @@ class MetadataStoreTest(parameterized.TestCase):
       return
     store = _get_metadata_store()
     context_type_1 = _create_example_context_type(self._get_test_type_name())
-    context_type_2 = _create_example_context_type_2(self._get_test_type_name())
+    context_type_2 = _create_example_context_type(self._get_test_type_name())
 
     type_id_1 = store.put_context_type(context_type_1)
     context_type_1.id = type_id_1
@@ -510,7 +621,7 @@ class MetadataStoreTest(parameterized.TestCase):
     store = _get_metadata_store()
     execution_type = _create_example_execution_type(self._get_test_type_name())
     type_id = store.put_execution_type(execution_type)
-    execution_type_2 = _create_example_execution_type_2(
+    execution_type_2 = _create_example_execution_type(
         self._get_test_type_name())
     type_id_2 = store.put_execution_type(execution_type_2)
     execution_0 = metadata_store_pb2.Execution()
@@ -1277,7 +1388,7 @@ class MetadataStoreTest(parameterized.TestCase):
     store = _get_metadata_store()
     context_type = _create_example_context_type(self._get_test_type_name())
     type_id = store.put_context_type(context_type)
-    context_type_2 = _create_example_context_type_2(self._get_test_type_name())
+    context_type_2 = _create_example_context_type(self._get_test_type_name())
     type_id_2 = store.put_context_type(context_type_2)
     context_0 = metadata_store_pb2.Context()
     context_0.type_id = type_id

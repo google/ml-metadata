@@ -2,6 +2,9 @@
 
 ## Major Features and Improvements
 
+*   Supports versioned type creation and listing in python APIs for non-backward
+    compatible type evolutions.
+
 ## Bug Fixes and Other Changes
 
 ## Breaking Changes
