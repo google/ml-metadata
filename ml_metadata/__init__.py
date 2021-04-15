@@ -13,9 +13,11 @@
 # limitations under the License.
 """Init module for ML Metadata."""
 # Import metadata_store API.
+
+from ml_metadata import proto
+
 from ml_metadata.metadata_store import downgrade_schema
 from ml_metadata.metadata_store import MetadataStore
-
 
 # Import version string.
 from ml_metadata.version import __version__

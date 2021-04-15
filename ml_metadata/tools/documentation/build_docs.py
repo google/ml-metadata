@@ -41,34 +41,60 @@ from tensorflow_docs.api_generator import doc_controls
 from tensorflow_docs.api_generator import generate_lib
 from tensorflow_docs.api_generator import public_api
 
-import ml_metadata.metadata_store as mlmd
-from ml_metadata.metadata_store import pywrap
+import ml_metadata as mlmd
+
+from google.protobuf.reflection import GeneratedProtocolMessageType
 
 flags.DEFINE_string('output_dir', '/tmp/mlmd_api', 'Where to output the docs')
 flags.DEFINE_string(
     'code_url_prefix',
-    'https://github.com/google/ml-metadata/tree/master/ml_metadata/metadata_store',
+    'https://github.com/google/ml-metadata/tree/master/ml_metadata',
     'The url prefix for links to code.')
 
 flags.DEFINE_bool('search_hints', True,
                   'Include metadata search hints in the generated files')
 
-flags.DEFINE_string('site_path', 'mlmd/api_docs/python',
+flags.DEFINE_string('site_path', 'ml_metadata/api_docs/python',
                     'Path prefix in the _toc.yaml')
 
 FLAGS = flags.FLAGS
 
-suppress_docs_for = [
-    absolute_import,
-    division,
-    print_function,
-    pywrap,
-]
+
+def ignore_proto_method(path, parent, children):
+  """Remove all the proto inherited methods.
+
+  Args:
+    path: A tuple of name parts forming the attribute-lookup path to this
+      object. For `tf.keras.layers.Dense` path is:
+        ("tf","keras","layers","Dense")
+    parent: The parent object.
+    children: A list of (name, value) pairs. The attributes of the patent.
+
+  Returns:
+    A filtered list of children `(name, value)` pairs. With all proto methods
+    removed.
+  """
+  del path
+  new_children = []
+  if not isinstance(parent, GeneratedProtocolMessageType):
+    return children
+  new_children = []
+  for (name, obj) in children:
+    if 'function' in str(obj.__class__):
+      continue
+    new_children.append((name, obj))
+  return new_children
 
 
 def main(args):
   if args[1:]:
     raise ValueError('Unrecognized command line args', args[1:])
+
+  suppress_docs_for = []
+  for name in ['version', 'goo'+'gle', 'metadata_store', 'pywrap']:
+    submodule = getattr(mlmd, name, None)
+    if submodule is not None:
+      suppress_docs_for.append(submodule)
 
   for obj in suppress_docs_for:
     doc_controls.do_not_generate_docs(obj)
@@ -84,7 +110,7 @@ def main(args):
       callbacks=[
           # This filters out objects not defined in the current module or its
           # sub-modules.
-          public_api.local_definitions_filter
+          public_api.local_definitions_filter, ignore_proto_method
       ])
 
   doc_generator.build(output_dir=FLAGS.output_dir)
