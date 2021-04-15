@@ -685,17 +685,6 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertEqual(artifact_result.properties["bar"].string_value, "Goodbye")
     self.assertEqual(artifact_result.properties["foo"].int_value, artifact_id)
 
-  def test_create_artifact_with_type_get_artifacts_by_id(self):
-    store = _get_metadata_store()
-    artifact_type = _create_example_artifact_type(self._get_test_type_name())
-    artifact = metadata_store_pb2.Artifact()
-    artifact.properties["foo"].int_value = 3
-    artifact.properties["bar"].string_value = "Hello"
-    artifact_id = store.create_artifact_with_type(artifact, artifact_type)
-    [artifact_result] = store.get_artifacts_by_id([artifact_id])
-    self.assertEqual(artifact_result.properties["bar"].string_value, "Hello")
-    self.assertEqual(artifact_result.properties["foo"].int_value, 3)
-
   def test_put_execution_type_get_execution_type(self):
     store = _get_metadata_store()
     execution_type_name = self._get_test_type_name()

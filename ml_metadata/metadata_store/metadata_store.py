@@ -27,6 +27,7 @@ import attr
 import grpc
 
 from ml_metadata import errors
+from ml_metadata import proto
 from ml_metadata.metadata_store.pywrap.metadata_store_extension import metadata_store as metadata_store_serialized
 from ml_metadata.proto import metadata_store_pb2
 from ml_metadata.proto import metadata_store_service_pb2
@@ -49,13 +50,13 @@ class OrderByField(enum.Enum):
 class ListOptions(object):
   """Defines the available options when listing nodes.
 
-    limit: The maximum size of the result. If a value is not specified then
-        all artifacts are returned.
-    order_by: The field to order the results. If the field is not
-        provided, then the order is up to the database backend implementation.
-    is_asc: Specifies `order_by` is ascending or descending. If `order_by`
-      is not given, the field is ignored. If `order_by` is set, then by
-      default descending order is used.
+  limit: The maximum size of the result. If a value is not specified then all
+    artifacts are returned.
+  order_by: The field to order the results. If the field is not provided, then
+    the order is up to the database backend implementation.
+  is_asc: Specifies `order_by` is ascending or descending. If `order_by` is not
+    given, the field is ignored. If `order_by` is set, then by default
+    descending order is used.
   """
 
   limit: Optional[int] = None
@@ -64,27 +65,26 @@ class ListOptions(object):
 
 
 class MetadataStore(object):
-  """A store for the artifact metadata."""
+  """A store for the metadata."""
 
   def __init__(self,
-               config: Union[metadata_store_pb2.ConnectionConfig,
-                             metadata_store_pb2.MetadataStoreClientConfig],
+               config: Union[proto.ConnectionConfig,
+                             proto.MetadataStoreClientConfig],
                enable_upgrade_migration: bool = False):
     """Initialize the MetadataStore.
 
     MetadataStore can directly connect to either the metadata database or
-    the metadata store server.
+    the MLMD MetadataStore gRPC server.
 
     Args:
-      config: metadata_store_pb2.ConnectionConfig or
-        metadata_store_pb2.MetadataStoreClientConfig. Configuration to
-        connect to the database or the metadata store server.
+      config: `proto.ConnectionConfig` or `proto.MetadataStoreClientConfig`.
+        Configuration to connect to the database or the metadata store server.
       enable_upgrade_migration: if set to True, the library upgrades the db
         schema and migrates all data if it connects to an old version backend.
-        It is ignored when using GRPC client connection config.
+        It is ignored when using gRPC `proto.MetadataStoreClientConfig`.
     """
     self._max_num_retries = 5
-    if isinstance(config, metadata_store_pb2.ConnectionConfig):
+    if isinstance(config, proto.ConnectionConfig):
       self._using_db_connection = True
       migration_options = metadata_store_pb2.MigrationOptions()
       migration_options.enable_upgrade_migration = enable_upgrade_migration
@@ -98,10 +98,10 @@ class MetadataStore(object):
                     'retry options is overwritten: max_num_retries = %d',
                     self._max_num_retries)
       return
-    if not isinstance(config, metadata_store_pb2.MetadataStoreClientConfig):
+    if not isinstance(config, proto.MetadataStoreClientConfig):
       raise ValueError('MetadataStore is expecting either '
-                       'metadata_store_pb2.ConnectionConfig or '
-                       'metadata_store_pb2.MetadataStoreClientConfig')
+                       'proto.ConnectionConfig or '
+                       'proto.MetadataStoreClientConfig')
     self._grpc_timeout_sec = None
     self._using_db_connection = False
     if enable_upgrade_migration:
@@ -114,14 +114,14 @@ class MetadataStore(object):
     logging.log(logging.INFO, 'MetadataStore with gRPC connection initialized')
     logging.log(logging.DEBUG, 'ConnectionConfig: %s', config)
 
-  def _get_channel(self, config: metadata_store_pb2.MetadataStoreClientConfig):
+  def _get_channel(self, config: proto.MetadataStoreClientConfig):
     """Configures the channel, which could be secure or insecure.
 
     It returns a channel that can be specified to be secure or insecure,
     depending on whether ssl_config is specified in the config.
 
     Args:
-      config: metadata_store_pb2.MetadataStoreClientConfig.
+      config: proto.MetadataStoreClientConfig.
 
     Returns:
       an initialized gRPC channel.
@@ -225,12 +225,11 @@ class MetadataStore(object):
       raise _make_exception(error_message.decode('utf-8'), status_code)
     response.ParseFromString(response_str)
 
-  def put_artifacts(
-      self, artifacts: Sequence[metadata_store_pb2.Artifact]) -> List[int]:
+  def put_artifacts(self, artifacts: Sequence[proto.Artifact]) -> List[int]:
     """Inserts or updates artifacts in the database.
 
-    If an artifact_id is specified for an artifact, it is an update.
-    If an artifact_id is unspecified, it will insert a new artifact.
+    If an artifact id is specified for an artifact, it is an update.
+    If an artifact id is unspecified, it will insert a new artifact.
     For new artifacts, type must be specified.
     For old artifacts, type must be unchanged or unspecified.
     When the name of an artifact is given, it should be unique among artifacts
@@ -243,8 +242,8 @@ class MetadataStore(object):
       A list of artifact ids index-aligned with the input.
 
     Raises:
-      AlreadyExistsError: If artifact's name is specified and it is already
-        used by stored artifacts of that ArtifactType.
+      errors.AlreadyExistsError: If artifact's name is specified and it is
+        already used by stored artifacts of that ArtifactType.
     """
     request = metadata_store_service_pb2.PutArtifactsRequest()
     for x in artifacts:
@@ -258,7 +257,7 @@ class MetadataStore(object):
     return result
 
   def put_artifact_type(self,
-                        artifact_type: metadata_store_pb2.ArtifactType,
+                        artifact_type: proto.ArtifactType,
                         can_add_fields: bool = False,
                         can_omit_fields: bool = False) -> int:
     """Inserts or updates an artifact type.
@@ -279,11 +278,11 @@ class MetadataStore(object):
 
     Backwards compatibility is violated iff:
 
-      a) there is a property where the request type and stored_type have
+      1. there is a property where the request type and stored_type have
          different value type (e.g., int vs. string)
-      b) `can_add_fields = false` and the request type has a new property that
+      2. `can_add_fields = false` and the request type has a new property that
          is not stored.
-      c) `can_omit_fields = false` and stored_type has an existing property
+      3. `can_omit_fields = false` and stored_type has an existing property
          that is not provided in the request type.
 
     If non-backward type change is required in the application, e.g.,
@@ -295,21 +294,21 @@ class MetadataStore(object):
     Args:
       artifact_type: the request type to be inserted or updated.
       can_add_fields:
-          when true, new properties can be added;
-          when false, returns ALREADY_EXISTS if the request type has
-          properties that are not in stored_type.
+        when true, new properties can be added;
+        when false, returns ALREADY_EXISTS if the request type has properties
+        that are not in stored_type.
       can_omit_fields:
-          when true, stored properties can be omitted in the request type;
-          when false, returns ALREADY_EXISTS if the stored_type has
-          properties not in the request type.
+        when true, stored properties can be omitted in the request type;
+        when false, returns ALREADY_EXISTS if the stored_type has properties
+        not in the request type.
 
     Returns:
       the type_id of the response.
 
     Raises:
-      AlreadyExistsError: If the type is not backward compatible.
-      InvalidArgumentError: If the request type has no name, or any property
-          value type is unknown.
+      errors.AlreadyExistsError: If the type is not backward compatible.
+      errors.InvalidArgumentError: If the request type has no name, or any
+        property value type is unknown.
     """
     request = metadata_store_service_pb2.PutArtifactTypeRequest(
         can_add_fields=can_add_fields,
@@ -319,43 +318,11 @@ class MetadataStore(object):
     self._call('PutArtifactType', request, response)
     return response.type_id
 
-  def create_artifact_with_type(
-      self, artifact: metadata_store_pb2.Artifact,
-      artifact_type: metadata_store_pb2.ArtifactType) -> int:
-    """Creates an artifact with a type.
-
-    This first gets the type (or creates it if it does not exist), and then
-    puts the artifact into the database with that type.
-
-    The type_id should not be specified in the artifact (it is ignored).
-
-    Note that this is not a transaction!
-    1. First, the type is created as a transaction.
-    2. Then the artifact is created as a transaction.
-
-    Args:
-      artifact: the artifact to create (no id or type_id)
-      artifact_type: the type of the new artifact (no id)
-
-    Returns:
-      the artifact ID of the resulting type.
-
-    Raises:
-      InvalidArgument: if the type is not the same as one with the same name
-        already in the database.
-    """
-    type_id = self.put_artifact_type(artifact_type)
-    artifact_copy = metadata_store_pb2.Artifact()
-    artifact_copy.CopyFrom(artifact)
-    artifact_copy.type_id = type_id
-    return self.put_artifacts([artifact_copy])[0]
-
-  def put_executions(
-      self, executions: Sequence[metadata_store_pb2.Execution]) -> List[int]:
+  def put_executions(self, executions: Sequence[proto.Execution]) -> List[int]:
     """Inserts or updates executions in the database.
 
-    If an execution_id is specified for an execution, it is an update.
-    If an execution_id is unspecified, it will insert a new execution.
+    If an execution id is specified for an execution, it is an update.
+    If an execution id is unspecified, it will insert a new execution.
     For new executions, type must be specified.
     For old executions, type must be unchanged or unspecified.
     When the name of an execution is given, it should be unique among
@@ -368,8 +335,8 @@ class MetadataStore(object):
       A list of execution ids index-aligned with the input.
 
     Raises:
-      AlreadyExistsError: If execution's name is specified and it is already
-        used by stored executions of that ExecutionType.
+      errors.AlreadyExistsError: If execution's name is specified and it is
+        already used by stored executions of that ExecutionType.
     """
     request = metadata_store_service_pb2.PutExecutionsRequest()
     for x in executions:
@@ -383,7 +350,7 @@ class MetadataStore(object):
     return result
 
   def put_execution_type(self,
-                         execution_type: metadata_store_pb2.ExecutionType,
+                         execution_type: proto.ExecutionType,
                          can_add_fields: bool = False,
                          can_omit_fields: bool = False) -> int:
     """Inserts or updates an execution type.
@@ -404,11 +371,11 @@ class MetadataStore(object):
 
     Backwards compatibility is violated iff:
 
-      a) there is a property where the request type and stored_type have
+      1. there is a property where the request type and stored_type have
          different value type (e.g., int vs. string)
-      b) `can_add_fields = false` and the request type has a new property that
+      2. `can_add_fields = false` and the request type has a new property that
          is not stored.
-      c) `can_omit_fields = false` and stored_type has an existing property
+      3. `can_omit_fields = false` and stored_type has an existing property
          that is not provided in the request type.
 
     If non-backward type change is required in the application, e.g.,
@@ -420,21 +387,21 @@ class MetadataStore(object):
     Args:
       execution_type: the request type to be inserted or updated.
       can_add_fields:
-          when true, new properties can be added;
-          when false, returns ALREADY_EXISTS if the request type has
-          properties that are not in stored_type.
+        when true, new properties can be added;
+        when false, returns ALREADY_EXISTS if the request type has properties
+        that are not in stored_type.
       can_omit_fields:
-          when true, stored properties can be omitted in the request type;
-          when false, returns ALREADY_EXISTS if the stored_type has
-          properties not in the request type.
+        when true, stored properties can be omitted in the request type;
+        when false, returns ALREADY_EXISTS if the stored_type has properties
+        not in the request type.
 
     Returns:
       the type_id of the response.
 
     Raises:
-      AlreadyExistsError: If the type is not backward compatible.
-      InvalidArgumentError: If the request type has no name, or any property
-          value type is unknown.
+      errors.AlreadyExistsError: If the type is not backward compatible.
+      errors.InvalidArgumentError: If the request type has no name, or any
+        property value type is unknown.
     """
     request = metadata_store_service_pb2.PutExecutionTypeRequest(
         can_add_fields=can_add_fields,
@@ -444,12 +411,11 @@ class MetadataStore(object):
     self._call('PutExecutionType', request, response)
     return response.type_id
 
-  def put_contexts(self,
-                   contexts: Sequence[metadata_store_pb2.Context]) -> List[int]:
+  def put_contexts(self, contexts: Sequence[proto.Context]) -> List[int]:
     """Inserts or updates contexts in the database.
 
-    If an context_id is specified for an context, it is an update.
-    If an context_id is unspecified, it will insert a new context.
+    If an context id is specified for an context, it is an update.
+    If an context id is unspecified, it will insert a new context.
     For new contexts, type must be specified.
     For old contexts, type must be unchanged or unspecified.
     The name of a context cannot be empty, and it should be unique among
@@ -462,9 +428,9 @@ class MetadataStore(object):
       A list of context ids index-aligned with the input.
 
     Raises:
-      InvalidArgumentError: If name of the new contexts are empty.
-      AlreadyExistsError: If name of the new contexts already used by stored
-        contexts of that ContextType.
+      errors.InvalidArgumentError: If name of the new contexts are empty.
+      errors.AlreadyExistsError: If name of the new contexts already used by
+        stored contexts of that ContextType.
     """
     request = metadata_store_service_pb2.PutContextsRequest()
     for x in contexts:
@@ -478,7 +444,7 @@ class MetadataStore(object):
     return result
 
   def put_context_type(self,
-                       context_type: metadata_store_pb2.ContextType,
+                       context_type: proto.ContextType,
                        can_add_fields: bool = False,
                        can_omit_fields: bool = False) -> int:
     """Inserts or updates a context type.
@@ -499,11 +465,11 @@ class MetadataStore(object):
 
     Backwards compatibility is violated iff:
 
-      a) there is a property where the request type and stored_type have
+      1. there is a property where the request type and stored_type have
          different value type (e.g., int vs. string)
-      b) `can_add_fields = false` and the request type has a new property that
+      2. `can_add_fields = false` and the request type has a new property that
          is not stored.
-      c) `can_omit_fields = false` and stored_type has an existing property
+      3. `can_omit_fields = false` and stored_type has an existing property
          that is not provided in the request type.
 
     If non-backward type change is required in the application, e.g.,
@@ -515,21 +481,21 @@ class MetadataStore(object):
     Args:
       context_type: the request type to be inserted or updated.
       can_add_fields:
-          when true, new properties can be added;
-          when false, returns ALREADY_EXISTS if the request type has
-          properties that are not in stored_type.
+        when true, new properties can be added;
+        when false, returns ALREADY_EXISTS if the request type has properties
+        that are not in stored_type.
       can_omit_fields:
-          when true, stored properties can be omitted in the request type;
-          when false, returns ALREADY_EXISTS if the stored_type has
-          properties not in the request type.
+        when true, stored properties can be omitted in the request type;
+        when false, returns ALREADY_EXISTS if the stored_type has properties
+        not in the request type.
 
     Returns:
       the type_id of the response.
 
     Raises:
-      AlreadyExistsError: If the type is not backward compatible.
-      InvalidArgumentError: If the request type has no name, or any property
-          value type is unknown.
+      errors.AlreadyExistsError: If the type is not backward compatible.
+      errors.InvalidArgumentError: If the request type has no name, or any
+        property value type is unknown.
     """
     request = metadata_store_service_pb2.PutContextTypeRequest(
         can_add_fields=can_add_fields,
@@ -539,7 +505,7 @@ class MetadataStore(object):
     self._call('PutContextType', request, response)
     return response.type_id
 
-  def put_events(self, events: Sequence[metadata_store_pb2.Event]) -> None:
+  def put_events(self, events: Sequence[proto.Event]) -> None:
     """Inserts events in the database.
 
     The execution_id and artifact_id must already exist.
@@ -557,10 +523,10 @@ class MetadataStore(object):
 
   def put_execution(
       self,
-      execution: metadata_store_pb2.Execution,
-      artifact_and_events: Sequence[Tuple[metadata_store_pb2.Artifact,
-                                          Optional[metadata_store_pb2.Event]]],
-      contexts: Optional[Sequence[metadata_store_pb2.Context]],
+      execution: proto.Execution,
+      artifact_and_events: Sequence[Tuple[proto.Artifact,
+                                          Optional[proto.Event]]],
+      contexts: Optional[Sequence[proto.Context]],
       reuse_context_if_already_exist: bool = False
   ) -> Tuple[int, List[int], List[int]]:
     """Inserts or updates an Execution with artifacts, events and contexts.
@@ -590,10 +556,11 @@ class MetadataStore(object):
       the execution id, the list of artifact's id, and the list of context's id.
 
     Raises:
-      InvalidArgumentError: If the id of the input nodes do not align with the
-          store. Please refer to InvalidArgument errors in other put methods.
-      AlreadyExistsError: If the new nodes to be created is already exists.
-          Please refer to AlreadyExists errors in other put methods.
+      errors.InvalidArgumentError: If the id of the input nodes do not align
+        with the store. Please refer to InvalidArgument errors in other put
+        methods.
+      errors.AlreadyExistsError: If the new nodes to be created is already
+        exists. Please refer to AlreadyExists errors in other put methods.
     """
     request = metadata_store_service_pb2.PutExecutionRequest(
         execution=execution,
@@ -611,9 +578,15 @@ class MetadataStore(object):
     context_ids = [x for x in response.context_ids]
     return response.execution_id, artifact_ids, context_ids
 
-  def get_artifacts_by_type(
-      self, type_name: Text) -> List[metadata_store_pb2.Artifact]:
-    """Gets all the artifacts of a given type."""
+  def get_artifacts_by_type(self, type_name: Text) -> List[proto.Artifact]:
+    """Gets all the artifacts of a given type.
+
+    Args:
+      type_name: The artifact type name to look for.
+
+    Returns:
+      The Artifacts matching the type.
+    """
     request = metadata_store_service_pb2.GetArtifactsByTypeRequest()
     request.type_name = type_name
     response = metadata_store_service_pb2.GetArtifactsByTypeResponse()
@@ -625,8 +598,7 @@ class MetadataStore(object):
     return result
 
   def get_artifact_by_type_and_name(
-      self, type_name: Text,
-      artifact_name: Text) -> Optional[metadata_store_pb2.Artifact]:
+      self, type_name: Text, artifact_name: Text) -> Optional[proto.Artifact]:
     """Get the artifact of the given type and name.
 
     The API fails if more than one artifact is found.
@@ -649,9 +621,15 @@ class MetadataStore(object):
       return None
     return response.artifact
 
-  def get_artifacts_by_uri(self,
-                           uri: Text) -> List[metadata_store_pb2.Artifact]:
-    """Gets all the artifacts of a given uri."""
+  def get_artifacts_by_uri(self, uri: Text) -> List[proto.Artifact]:
+    """Gets all the artifacts of a given uri.
+
+    Args:
+      uri: The artifact uri to look for.
+
+    Returns:
+      The Artifacts matching the uri.
+    """
     request = metadata_store_service_pb2.GetArtifactsByURIRequest()
     request.uris.append(uri)
     response = metadata_store_service_pb2.GetArtifactsByURIResponse()
@@ -662,8 +640,8 @@ class MetadataStore(object):
       result.append(x)
     return result
 
-  def get_artifacts_by_id(
-      self, artifact_ids: Iterable[int]) -> List[metadata_store_pb2.Artifact]:
+  def get_artifacts_by_id(self,
+                          artifact_ids: Iterable[int]) -> List[proto.Artifact]:
     """Gets all artifacts with matching ids.
 
     The result is not index-aligned: if an id is not found, it is not returned.
@@ -685,23 +663,22 @@ class MetadataStore(object):
       result.append(x)
     return result
 
-  def get_artifact_type(
-      self,
-      type_name: Text,
-      type_version: Text = None) -> metadata_store_pb2.ArtifactType:
+  def get_artifact_type(self,
+                        type_name: Text,
+                        type_version: Text = None) -> proto.ArtifactType:
     """Gets an artifact type by name and version.
 
     Args:
-     type_name: the type with that name.
-     type_version: an optional version of the type, if not given, then only the
-       type_name is used to look for types with no versions.
+      type_name: the type with that name.
+      type_version: an optional version of the type, if not given, then only
+        the type_name is used to look for types with no versions.
 
     Returns:
-     The type with name type_name and version type version.
+      The type with name type_name and version type version.
 
     Raises:
-      NotFoundError: if no type exists
-      InternalError: if query execution fails
+      errors.NotFoundError: if no type exists.
+      errors.InternalError: if query execution fails.
     """
     request = metadata_store_service_pb2.GetArtifactTypeRequest()
     request.type_name = type_name
@@ -712,14 +689,14 @@ class MetadataStore(object):
     self._call('GetArtifactType', request, response)
     return response.artifact_type
 
-  def get_artifact_types(self) -> List[metadata_store_pb2.ArtifactType]:
+  def get_artifact_types(self) -> List[proto.ArtifactType]:
     """Gets all artifact types.
 
     Returns:
-     A list of all known ArtifactTypes.
+      A list of all known ArtifactTypes.
 
     Raises:
-     InternalError: if query execution fails
+      errors.InternalError: if query execution fails.
     """
     request = metadata_store_service_pb2.GetArtifactTypesRequest()
     response = metadata_store_service_pb2.GetArtifactTypesResponse()
@@ -730,23 +707,22 @@ class MetadataStore(object):
       result.append(x)
     return result
 
-  def get_execution_type(
-      self,
-      type_name: Text,
-      type_version: Text = None) -> metadata_store_pb2.ExecutionType:
+  def get_execution_type(self,
+                         type_name: Text,
+                         type_version: Text = None) -> proto.ExecutionType:
     """Gets an execution type by name and version.
 
     Args:
-     type_name: the type with that name.
-     type_version: an optional version of the type, if not given, then only the
-       type_name is used to look for types with no versions.
+      type_name: the type with that name.
+      type_version: an optional version of the type, if not given, then only
+        the type_name is used to look for types with no versions.
 
     Returns:
-     The type with name type_name and version type_version.
+      The type with name type_name and version type_version.
 
     Raises:
-      NotFoundError: if no type exists
-      InternalError: if query execution fails
+      errors.NotFoundError: if no type exists.
+      errors.InternalError: if query execution fails.
     """
     request = metadata_store_service_pb2.GetExecutionTypeRequest()
     request.type_name = type_name
@@ -757,14 +733,14 @@ class MetadataStore(object):
     self._call('GetExecutionType', request, response)
     return response.execution_type
 
-  def get_execution_types(self) -> List[metadata_store_pb2.ExecutionType]:
+  def get_execution_types(self) -> List[proto.ExecutionType]:
     """Gets all execution types.
 
     Returns:
-     A list of all known ExecutionTypes.
+      A list of all known ExecutionTypes.
 
     Raises:
-     InternalError: if query execution fails
+      errors.InternalError: if query execution fails.
     """
     request = metadata_store_service_pb2.GetExecutionTypesRequest()
     response = metadata_store_service_pb2.GetExecutionTypesResponse()
@@ -775,23 +751,22 @@ class MetadataStore(object):
       result.append(x)
     return result
 
-  def get_context_type(
-      self,
-      type_name: Text,
-      type_version: Text = None) -> metadata_store_pb2.ContextType:
+  def get_context_type(self,
+                       type_name: Text,
+                       type_version: Text = None) -> proto.ContextType:
     """Gets a context type by name and version.
 
     Args:
-     type_name: the type with that name.
-     type_version: an optional version of the type, if not given, then only the
-       type_name is used to look for types with no versions.
+      type_name: the type with that name.
+      type_version: an optional version of the type, if not given, then only
+        the type_name is used to look for types with no versions.
 
     Returns:
-     The type with name type_name and version type_version.
+      The type with name type_name and version type_version.
 
     Raises:
-      NotFoundError: if no type exists
-      InternalError: if query execution fails
+      errors.NotFoundError: if no type exists.
+      errors.InternalError: if query execution fails.
     """
     request = metadata_store_service_pb2.GetContextTypeRequest()
     request.type_name = type_name
@@ -802,14 +777,14 @@ class MetadataStore(object):
     self._call('GetContextType', request, response)
     return response.context_type
 
-  def get_context_types(self) -> List[metadata_store_pb2.ContextType]:
+  def get_context_types(self) -> List[proto.ContextType]:
     """Gets all context types.
 
     Returns:
-     A list of all known ContextTypes.
+      A list of all known ContextTypes.
 
     Raises:
-     InternalError: if query execution fails
+      errors.InternalError: if query execution fails.
     """
     request = metadata_store_service_pb2.GetContextTypesRequest()
     response = metadata_store_service_pb2.GetContextTypesResponse()
@@ -820,9 +795,15 @@ class MetadataStore(object):
       result.append(x)
     return result
 
-  def get_executions_by_type(
-      self, type_name: Text) -> List[metadata_store_pb2.Execution]:
-    """Gets all the executions of a given type."""
+  def get_executions_by_type(self, type_name: Text) -> List[proto.Execution]:
+    """Gets all the executions of a given type.
+
+    Args:
+      type_name: The execution type name to look for.
+
+    Returns:
+      The Executions matching the type.
+    """
     request = metadata_store_service_pb2.GetExecutionsByTypeRequest()
     request.type_name = type_name
     response = metadata_store_service_pb2.GetExecutionsByTypeResponse()
@@ -834,8 +815,7 @@ class MetadataStore(object):
     return result
 
   def get_execution_by_type_and_name(
-      self, type_name: Text,
-      execution_name: Text) -> Optional[metadata_store_pb2.Execution]:
+      self, type_name: Text, execution_name: Text) -> Optional[proto.Execution]:
     """Get the execution of the given type and name.
 
     The API fails if more than one execution is found.
@@ -859,7 +839,7 @@ class MetadataStore(object):
     return response.execution
 
   def get_executions_by_id(
-      self, execution_ids: Iterable[int]) -> List[metadata_store_pb2.Execution]:
+      self, execution_ids: Iterable[int]) -> List[proto.Execution]:
     """Gets all executions with matching ids.
 
     The result is not index-aligned: if an id is not found, it is not returned.
@@ -883,8 +863,7 @@ class MetadataStore(object):
 
   def get_executions(
       self,
-      list_options: Optional[ListOptions] = None
-  ) -> List[metadata_store_pb2.Execution]:
+      list_options: Optional[ListOptions] = None) -> List[proto.Execution]:
     """Gets executions.
 
     Args:
@@ -895,8 +874,8 @@ class MetadataStore(object):
       A list of executions.
 
     Raises:
-      InternalError: if query execution fails.
-      InvalidArgument: if list_options is invalid.
+      errors.InternalError: if query execution fails.
+      errors.InvalidArgument: if list_options is invalid.
     """
     if list_options:
       if list_options.limit and list_options.limit < 1:
@@ -938,10 +917,9 @@ class MetadataStore(object):
 
     return result
 
-  def get_artifacts(
-      self,
-      list_options: Optional[ListOptions] = None
-  ) -> List[metadata_store_pb2.Artifact]:
+  def get_artifacts(self,
+                    list_options: Optional[ListOptions] = None
+                   ) -> List[proto.Artifact]:
     """Gets artifacts.
 
     Args:
@@ -952,8 +930,8 @@ class MetadataStore(object):
       A list of artifacts.
 
     Raises:
-      InternalError: if query execution fails.
-      InvalidArgument: if list_options is invalid.
+      errors.InternalError: if query execution fails.
+      errors.InvalidArgument: if list_options is invalid.
     """
 
     if list_options:
@@ -996,10 +974,9 @@ class MetadataStore(object):
 
     return result
 
-  def get_contexts(
-      self,
-      list_options: Optional[ListOptions] = None
-  ) -> List[metadata_store_pb2.Context]:
+  def get_contexts(self,
+                   list_options: Optional[ListOptions] = None
+                  ) -> List[proto.Context]:
     """Gets contexts.
 
     Args:
@@ -1010,8 +987,8 @@ class MetadataStore(object):
       A list of contexts.
 
     Raises:
-      InternalError: if query execution fails.
-      InvalidArgument: if list_options is invalid.
+      errors.InternalError: if query execution fails.
+      errors.InvalidArgument: if list_options is invalid.
     """
     if list_options:
       if list_options.limit and list_options.limit < 1:
@@ -1053,8 +1030,8 @@ class MetadataStore(object):
 
     return result
 
-  def get_contexts_by_id(
-      self, context_ids: Iterable[int]) -> List[metadata_store_pb2.Context]:
+  def get_contexts_by_id(self,
+                         context_ids: Iterable[int]) -> List[proto.Context]:
     """Gets all contexts with matching ids.
 
     The result is not index-aligned: if an id is not found, it is not returned.
@@ -1076,8 +1053,7 @@ class MetadataStore(object):
       result.append(x)
     return result
 
-  def get_contexts_by_type(self,
-                           type_name: Text) -> List[metadata_store_pb2.Context]:
+  def get_contexts_by_type(self, type_name: Text) -> List[proto.Context]:
     """Gets all the contexts of a given type.
 
     Args:
@@ -1097,8 +1073,7 @@ class MetadataStore(object):
     return result
 
   def get_context_by_type_and_name(
-      self, type_name: Text,
-      context_name: Text) -> Optional[metadata_store_pb2.Context]:
+      self, type_name: Text, context_name: Text) -> Optional[proto.Context]:
     """Get the context of the given type and context name.
 
     The API fails if more than one contexts are found.
@@ -1122,7 +1097,7 @@ class MetadataStore(object):
     return response.context
 
   def get_artifact_types_by_id(
-      self, type_ids: Iterable[int]) -> List[metadata_store_pb2.ArtifactType]:
+      self, type_ids: Iterable[int]) -> List[proto.ArtifactType]:
     """Gets artifact types by ID.
 
     Args:
@@ -1132,7 +1107,7 @@ class MetadataStore(object):
       A list of artifact types.
 
     Raises:
-      InternalError: if query execution fails.
+      errors.InternalError: if query execution fails.
     """
     request = metadata_store_service_pb2.GetArtifactTypesByIDRequest()
     response = metadata_store_service_pb2.GetArtifactTypesByIDResponse()
@@ -1146,7 +1121,7 @@ class MetadataStore(object):
     return result
 
   def get_execution_types_by_id(
-      self, type_ids: Iterable[int]) -> List[metadata_store_pb2.ExecutionType]:
+      self, type_ids: Iterable[int]) -> List[proto.ExecutionType]:
     """Gets execution types by ID.
 
     Args:
@@ -1159,7 +1134,7 @@ class MetadataStore(object):
       type_ids: ids to look for.
 
     Raises:
-      InternalError: if query execution fails.
+      errors.InternalError: if query execution fails.
     """
     request = metadata_store_service_pb2.GetExecutionTypesByIDRequest()
     response = metadata_store_service_pb2.GetExecutionTypesByIDResponse()
@@ -1173,7 +1148,7 @@ class MetadataStore(object):
     return result
 
   def get_context_types_by_id(
-      self, type_ids: Iterable[int]) -> List[metadata_store_pb2.ContextType]:
+      self, type_ids: Iterable[int]) -> List[proto.ContextType]:
     """Gets context types by ID.
 
     Args:
@@ -1186,7 +1161,7 @@ class MetadataStore(object):
       type_ids: ids to look for.
 
     Raises:
-      InternalError: if query execution fails.
+      errors.InternalError: if query execution fails.
     """
     request = metadata_store_service_pb2.GetContextTypesByIDRequest()
     response = metadata_store_service_pb2.GetContextTypesByIDResponse()
@@ -1200,8 +1175,8 @@ class MetadataStore(object):
     return result
 
   def put_attributions_and_associations(
-      self, attributions: Sequence[metadata_store_pb2.Attribution],
-      associations: Sequence[metadata_store_pb2.Association]) -> None:
+      self, attributions: Sequence[proto.Attribution],
+      associations: Sequence[proto.Association]) -> None:
     """Inserts attribution and association relationships in the database.
 
     The context_id, artifact_id, and execution_id must already exist.
@@ -1221,8 +1196,7 @@ class MetadataStore(object):
     )
     self._call('PutAttributionsAndAssociations', request, response)
 
-  def get_contexts_by_artifact(
-      self, artifact_id: int) -> List[metadata_store_pb2.Context]:
+  def get_contexts_by_artifact(self, artifact_id: int) -> List[proto.Context]:
     """Gets all context that an artifact is attributed to.
 
     Args:
@@ -1241,8 +1215,7 @@ class MetadataStore(object):
       result.append(x)
     return result
 
-  def get_contexts_by_execution(
-      self, execution_id: int) -> List[metadata_store_pb2.Context]:
+  def get_contexts_by_execution(self, execution_id: int) -> List[proto.Context]:
     """Gets all context that an execution is associated with.
 
     Args:
@@ -1261,8 +1234,7 @@ class MetadataStore(object):
       result.append(x)
     return result
 
-  def get_artifacts_by_context(
-      self, context_id: int) -> List[metadata_store_pb2.Artifact]:
+  def get_artifacts_by_context(self, context_id: int) -> List[proto.Artifact]:
     """Gets all direct artifacts that a context attributes to.
 
     Args:
@@ -1292,8 +1264,7 @@ class MetadataStore(object):
 
     return result
 
-  def get_executions_by_context(
-      self, context_id: int) -> List[metadata_store_pb2.Execution]:
+  def get_executions_by_context(self, context_id: int) -> List[proto.Execution]:
     """Gets all direct executions that a context associates with.
 
     Args:
@@ -1324,7 +1295,7 @@ class MetadataStore(object):
     return result
 
   def get_events_by_execution_ids(
-      self, execution_ids: Iterable[int]) -> List[metadata_store_pb2.Event]:
+      self, execution_ids: Iterable[int]) -> List[proto.Event]:
     """Gets all events with matching execution ids.
 
     Args:
@@ -1334,7 +1305,7 @@ class MetadataStore(object):
       Events with the execution IDs given.
 
     Raises:
-      InternalError: if query execution fails.
+      errors.InternalError: if query execution fails.
     """
     request = metadata_store_service_pb2.GetEventsByExecutionIDsRequest()
     for x in execution_ids:
@@ -1348,7 +1319,7 @@ class MetadataStore(object):
     return result
 
   def get_events_by_artifact_ids(
-      self, artifact_ids: Iterable[int]) -> List[metadata_store_pb2.Event]:
+      self, artifact_ids: Iterable[int]) -> List[proto.Event]:
     """Gets all events with matching artifact ids.
 
     Args:
@@ -1358,7 +1329,7 @@ class MetadataStore(object):
       Events with the execution IDs given.
 
     Raises:
-      InternalError: if query execution fails.
+      errors.InternalError: if query execution fails.
     """
 
     request = metadata_store_service_pb2.GetEventsByArtifactIDsRequest()
@@ -1373,7 +1344,7 @@ class MetadataStore(object):
     return result
 
 
-def downgrade_schema(config: metadata_store_pb2.ConnectionConfig,
+def downgrade_schema(config: proto.ConnectionConfig,
                      downgrade_to_schema_version: int) -> None:
   """Downgrades the db specified in the connection config to a schema version.
 
@@ -1385,15 +1356,15 @@ def downgrade_schema(config: metadata_store_pb2.ConnectionConfig,
   the database.
 
   Args:
-    config: a metadata_store_pb2.ConnectionConfig having the connection params
+    config: a `proto.ConnectionConfig` having the connection params.
     downgrade_to_schema_version: downgrades the given database to a specific
       version. For v0.13.2 release, the schema_version is 0. For 0.14.0 and
       0.15.0 release, the schema_version is 4. More details are described in
       g3doc/get_start.md#upgrade-mlmd-library
 
   Raises:
-    InvalidArgumentError: if the `downgrade_to_schema_version` is not given or
-      it is negative or greater than the library version.
+    errors.InvalidArgumentError: if the `downgrade_to_schema_version` is not
+      given or it is negative or greater than the library version.
     RuntimeError: if the downgrade is not finished, return detailed error.
   """
   if downgrade_to_schema_version < 0:
@@ -1415,6 +1386,16 @@ def downgrade_schema(config: metadata_store_pb2.ConnectionConfig,
 
 
 def _make_exception(msg, error_code):
+  """Makes an exception with MLMD error code.
+
+  Args:
+    msg: Error message.
+    error_code: MLMD error code.
+
+  Returns:
+    An exception.
+  """
+
   try:
     exc_type = errors.exception_type_from_error_code(error_code)
     # log internal backend engine errors only.

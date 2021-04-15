@@ -11,6 +11,8 @@
 
 ## Deprecations
 
+*   Drops `create_artifact_with_type` from MetadataStore python class.
+
 # Release 0.29.0
 
 ## Major Features and Improvements
