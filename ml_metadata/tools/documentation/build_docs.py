@@ -86,6 +86,30 @@ def ignore_proto_method(path, parent, children):
   return new_children
 
 
+def ignore_attrs_method(path, parent, children):
+  """Remove auto generated attrs methods.
+
+  Args:
+    path: A tuple of name parts forming the attribute-lookup path to this
+      object. For `tf.keras.layers.Dense` path is:
+        ("tf","keras","layers","Dense")
+    parent: The parent object.
+    children: A list of (name, value) pairs. The attributes of the patent.
+
+  Returns:
+    A filtered list of children `(name, value)` pairs. With all attrs auto
+    generated methods removed (e.g., __eq__, __ge__, __gt__)
+  """
+  del path
+  del parent
+  new_children = []
+  for (name, obj) in children:
+    if name in ['__eq__', '__ge__', '__gt__', '__le__', '__lt__', '__ne__']:
+      continue
+    new_children.append((name, obj))
+  return new_children
+
+
 def main(args):
   if args[1:]:
     raise ValueError('Unrecognized command line args', args[1:])
@@ -110,7 +134,8 @@ def main(args):
       callbacks=[
           # This filters out objects not defined in the current module or its
           # sub-modules.
-          public_api.local_definitions_filter, ignore_proto_method
+          public_api.local_definitions_filter, ignore_proto_method,
+          ignore_attrs_method
       ])
 
   doc_generator.build(output_dir=FLAGS.output_dir)

@@ -50,13 +50,14 @@ class OrderByField(enum.Enum):
 class ListOptions(object):
   """Defines the available options when listing nodes.
 
-  limit: The maximum size of the result. If a value is not specified then all
-    artifacts are returned.
-  order_by: The field to order the results. If the field is not provided, then
-    the order is up to the database backend implementation.
-  is_asc: Specifies `order_by` is ascending or descending. If `order_by` is not
-    given, the field is ignored. If `order_by` is set, then by default
-    descending order is used.
+  Attributes:
+    limit: The maximum size of the result. If a value is not specified then all
+      artifacts are returned.
+    order_by: The field to order the results. If the field is not provided,
+      then the order is up to the database backend implementation.
+    is_asc: Specifies `order_by` is ascending or descending. If `order_by` is
+      not given, the field is ignored. If `order_by` is set, then by default
+      descending order is used.
   """
 
   limit: Optional[int] = None
