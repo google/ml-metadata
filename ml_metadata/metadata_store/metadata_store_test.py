@@ -560,6 +560,52 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertLen(artifact_result, 1)
     self.assertEqual(artifact_result[0].id, artifact_id_1)
 
+  @parameterized.parameters(
+      (metadata_store_pb2.Artifact(), _create_example_artifact_type,
+       metadata_store.MetadataStore.put_artifact_type,
+       metadata_store.MetadataStore.put_artifacts,
+       metadata_store.MetadataStore.get_artifacts_by_type),
+      (metadata_store_pb2.Execution(), _create_example_execution_type,
+       metadata_store.MetadataStore.put_execution_type,
+       metadata_store.MetadataStore.put_executions,
+       metadata_store.MetadataStore.get_executions_by_type),
+      (metadata_store_pb2.Context(), _create_example_context_type,
+       metadata_store.MetadataStore.put_context_type,
+       metadata_store.MetadataStore.put_contexts,
+       metadata_store.MetadataStore.get_contexts_by_type))
+  def test_put_nodes_get_nodes_by_type_with_version(self, test_node,
+                                                    create_type_fn, put_type_fn,
+                                                    put_nodes_fn,
+                                                    get_nodes_by_type_fn):
+    # Prepares test data.
+    store = _get_metadata_store()
+    test_type = create_type_fn(self._get_test_type_name(),
+                               self._get_test_type_version())
+    type_id = put_type_fn(store, test_type)
+
+    test_node.type_id = type_id
+    test_node.name = "test_node"
+    test_node.properties["foo"].int_value = 3
+    test_node.properties["bar"].string_value = "Hello"
+
+    [node_id] = put_nodes_fn(store, [test_node])
+
+    # Tests node found case.
+    node_result = get_nodes_by_type_fn(store, test_type.name, test_type.version)
+    self.assertLen(node_result, 1)
+    self.assertEqual(node_result[0].id, node_id)
+
+    # Tests node not found cases.
+    empty_node_result_1 = get_nodes_by_type_fn(store, test_type.name,
+                                               "random_version")
+    self.assertEmpty(empty_node_result_1)
+    empty_node_result_2 = get_nodes_by_type_fn(store, "random_name",
+                                               test_type.version)
+    self.assertEmpty(empty_node_result_2)
+    empty_node_result_3 = get_nodes_by_type_fn(store, "random_name",
+                                               "random_version")
+    self.assertEmpty(empty_node_result_3)
+
   def test_put_artifacts_get_artifact_by_type_and_name(self):
     # Prepare test data.
     store = _get_metadata_store()
@@ -587,6 +633,72 @@ class MetadataStoreTest(parameterized.TestCase):
     empty_artifact = store.get_artifact_by_type_and_name(
         "random_name", "random_name")
     self.assertIsNone(empty_artifact)
+
+  @parameterized.parameters(
+      (metadata_store_pb2.Artifact(), _create_example_artifact_type,
+       metadata_store.MetadataStore.put_artifact_type,
+       metadata_store.MetadataStore.put_artifacts,
+       metadata_store.MetadataStore.get_artifact_by_type_and_name),
+      (metadata_store_pb2.Execution(), _create_example_execution_type,
+       metadata_store.MetadataStore.put_execution_type,
+       metadata_store.MetadataStore.put_executions,
+       metadata_store.MetadataStore.get_execution_by_type_and_name),
+      (metadata_store_pb2.Context(), _create_example_context_type,
+       metadata_store.MetadataStore.put_context_type,
+       metadata_store.MetadataStore.put_contexts,
+       metadata_store.MetadataStore.get_context_by_type_and_name))
+  def test_put_nodes_get_nodes_by_type_and_name_with_version(
+      self, test_node, create_type_fn, put_type_fn, put_nodes_fn,
+      get_nodes_by_type_and_name_fn):
+    # Prepares test data.
+    store = _get_metadata_store()
+    test_type = create_type_fn(self._get_test_type_name(),
+                               self._get_test_type_version())
+    type_id = put_type_fn(store, test_type)
+
+    test_node.type_id = type_id
+    test_node.name = "test_node"
+    test_node.properties["foo"].int_value = 3
+    test_node.properties["bar"].string_value = "Hello"
+
+    [node_id] = put_nodes_fn(store, [test_node])
+
+    # Tests node found case.
+    got_node = get_nodes_by_type_and_name_fn(store, test_type.name,
+                                             test_node.name, test_type.version)
+    self.assertEqual(got_node.id, node_id)
+    self.assertEqual(got_node.type_id, type_id)
+    self.assertEqual(got_node.name, test_node.name)
+
+    # Tests node not found cases.
+    null_got_node_1 = get_nodes_by_type_and_name_fn(
+        store, test_type.name, "random_node_name"
+        "random_version")
+    self.assertIsNone(null_got_node_1)
+    null_got_node_2 = get_nodes_by_type_and_name_fn(store, "random_name",
+                                                    test_node.name,
+                                                    "random_version")
+    self.assertIsNone(null_got_node_2)
+    null_got_node_3 = get_nodes_by_type_and_name_fn(store, "random_name",
+                                                    "random_node_name",
+                                                    test_type.version)
+    self.assertIsNone(null_got_node_3)
+    null_got_node_4 = get_nodes_by_type_and_name_fn(store, test_type.name,
+                                                    test_node.name,
+                                                    "random_version")
+    self.assertIsNone(null_got_node_4)
+    null_got_node_5 = get_nodes_by_type_and_name_fn(store, test_type.name,
+                                                    "random_node_name",
+                                                    test_type.version)
+    self.assertIsNone(null_got_node_5)
+    null_got_node_6 = get_nodes_by_type_and_name_fn(store, "random_name",
+                                                    test_node.name,
+                                                    test_type.version)
+    self.assertIsNone(null_got_node_6)
+    null_got_node_7 = get_nodes_by_type_and_name_fn(store, "random_name",
+                                                    "random_node_name",
+                                                    "random_version")
+    self.assertIsNone(null_got_node_7)
 
   def test_put_artifacts_get_artifacts_by_uri(self):
     store = _get_metadata_store()

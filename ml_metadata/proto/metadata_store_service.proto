@@ -277,6 +277,8 @@ message PutParentContextsResponse {}
 
 message GetArtifactsByTypeRequest {
   optional string type_name = 1;
+  // If not set, it looks for the type with type_name with default type_version.
+  optional string type_version = 2;
 }
 
 message GetArtifactsByTypeResponse {
@@ -285,6 +287,9 @@ message GetArtifactsByTypeResponse {
 
 message GetArtifactByTypeAndNameRequest {
   optional string type_name = 1;
+  // If not set, it looks for the type with type_name and artifact_name with
+  // default type_version.
+  optional string type_version = 3;
   optional string artifact_name = 2;
 }
 
@@ -383,6 +388,8 @@ message GetContextTypesResponse {
 
 message GetExecutionsByTypeRequest {
   optional string type_name = 1;
+  // If not set, it looks for the type with type_name with default type_version.
+  optional string type_version = 2;
 }
 
 message GetExecutionsByTypeResponse {
@@ -391,6 +398,9 @@ message GetExecutionsByTypeResponse {
 
 message GetExecutionByTypeAndNameRequest {
   optional string type_name = 1;
+  // If not set, it looks for the type with type_name and execution_name with
+  // default type_version.
+  optional string type_version = 3;
   optional string execution_name = 2;
 }
 
@@ -504,6 +514,9 @@ message GetContextsByTypeRequest {
   //   1. Field to order the results.
   //   2. Page size.
   optional ListOperationOptions options = 2;
+  // If not set, it looks for the type with type_name and options with default
+  // type_version.
+  optional string type_version = 3;
 }
 
 message GetContextsByTypeResponse {
@@ -515,6 +528,9 @@ message GetContextsByTypeResponse {
 
 message GetContextByTypeAndNameRequest {
   optional string type_name = 1;
+  // If not set, it looks for the type with type_name and context_name with
+  // default type_version.
+  optional string type_version = 3;
   optional string context_name = 2;
 }
 

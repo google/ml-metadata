@@ -4,6 +4,7 @@
 
 *   Supports versioned type creation and listing in python APIs for non-backward
     compatible type evolutions.
+*   Supports listing nodes by type with version in MLMD APIs.
 
 ## Bug Fixes and Other Changes
 

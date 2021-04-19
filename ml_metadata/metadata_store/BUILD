@@ -275,6 +275,7 @@ cc_library(
         ":metadata_store",
         ":test_util",
         "@com_google_googletest//:gtest",
+        "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "@org_tensorflow//tensorflow/core:lib",

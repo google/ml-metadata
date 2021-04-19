@@ -579,17 +579,23 @@ class MetadataStore(object):
     context_ids = [x for x in response.context_ids]
     return response.execution_id, artifact_ids, context_ids
 
-  def get_artifacts_by_type(self, type_name: Text) -> List[proto.Artifact]:
+  def get_artifacts_by_type(self,
+                            type_name: Text,
+                            type_version: Text = None) -> List[proto.Artifact]:
     """Gets all the artifacts of a given type.
 
     Args:
       type_name: The artifact type name to look for.
+      type_version: An optional artifact type version. If not given, then only
+        the type_name are used to look for the artifacts with default version.
 
     Returns:
-      The Artifacts matching the type.
+      Artifacts that matches the type.
     """
     request = metadata_store_service_pb2.GetArtifactsByTypeRequest()
     request.type_name = type_name
+    if type_version:
+      request.type_version = type_version
     response = metadata_store_service_pb2.GetArtifactsByTypeResponse()
 
     self._call('GetArtifactsByType', request, response)
@@ -599,7 +605,10 @@ class MetadataStore(object):
     return result
 
   def get_artifact_by_type_and_name(
-      self, type_name: Text, artifact_name: Text) -> Optional[proto.Artifact]:
+      self,
+      type_name: Text,
+      artifact_name: Text,
+      type_version: Text = None) -> Optional[proto.Artifact]:
     """Get the artifact of the given type and name.
 
     The API fails if more than one artifact is found.
@@ -607,6 +616,9 @@ class MetadataStore(object):
     Args:
       type_name: The artifact type name to look for.
       artifact_name: The artifact name to look for.
+      type_version: An optional artifact type version. If not given, then only
+        the type_name and artifact_name are used to look for the artifact with
+        default version.
 
     Returns:
       The Artifact matching the type and name.
@@ -615,6 +627,8 @@ class MetadataStore(object):
     request = metadata_store_service_pb2.GetArtifactByTypeAndNameRequest()
     request.type_name = type_name
     request.artifact_name = artifact_name
+    if type_version:
+      request.type_version = type_version
     response = metadata_store_service_pb2.GetArtifactByTypeAndNameResponse()
 
     self._call('GetArtifactByTypeAndName', request, response)
@@ -796,19 +810,25 @@ class MetadataStore(object):
       result.append(x)
     return result
 
-  def get_executions_by_type(self, type_name: Text) -> List[proto.Execution]:
+  def get_executions_by_type(
+      self,
+      type_name: Text,
+      type_version: Text = None) -> List[proto.Execution]:
     """Gets all the executions of a given type.
 
     Args:
       type_name: The execution type name to look for.
+      type_version: An optional execution type version. If not given, then only
+        the type_name are used to look for the executions with default version.
 
     Returns:
-      The Executions matching the type.
+      Executions that matches the type.
     """
     request = metadata_store_service_pb2.GetExecutionsByTypeRequest()
     request.type_name = type_name
     response = metadata_store_service_pb2.GetExecutionsByTypeResponse()
-
+    if type_version:
+      request.type_version = type_version
     self._call('GetExecutionsByType', request, response)
     result = []
     for x in response.executions:
@@ -816,7 +836,10 @@ class MetadataStore(object):
     return result
 
   def get_execution_by_type_and_name(
-      self, type_name: Text, execution_name: Text) -> Optional[proto.Execution]:
+      self,
+      type_name: Text,
+      execution_name: Text,
+      type_version: Text = None) -> Optional[proto.Execution]:
     """Get the execution of the given type and name.
 
     The API fails if more than one execution is found.
@@ -824,6 +847,9 @@ class MetadataStore(object):
     Args:
       type_name: The execution type name to look for.
       execution_name: The execution name to look for.
+      type_version: An optional execution type version. If not given, then only
+        the type_name and execution_name are used to look for the execution with
+        default version.
 
     Returns:
       The Execution matching the type and name.
@@ -832,6 +858,8 @@ class MetadataStore(object):
     request = metadata_store_service_pb2.GetExecutionByTypeAndNameRequest()
     request.type_name = type_name
     request.execution_name = execution_name
+    if type_version:
+      request.type_version = type_version
     response = metadata_store_service_pb2.GetExecutionByTypeAndNameResponse()
 
     self._call('GetExecutionByTypeAndName', request, response)
@@ -1054,17 +1082,23 @@ class MetadataStore(object):
       result.append(x)
     return result
 
-  def get_contexts_by_type(self, type_name: Text) -> List[proto.Context]:
+  def get_contexts_by_type(self,
+                           type_name: Text,
+                           type_version: Text = None) -> List[proto.Context]:
     """Gets all the contexts of a given type.
 
     Args:
       type_name: The context type name to look for.
+      type_version: An optional context type version. If not given, then only
+        the type_name are used to look for the contexts with default version.
 
     Returns:
-      Contexts that matches the context type name.
+      Contexts that matches the type.
     """
     request = metadata_store_service_pb2.GetContextsByTypeRequest()
     request.type_name = type_name
+    if type_version:
+      request.type_version = type_version
     response = metadata_store_service_pb2.GetContextsByTypeResponse()
 
     self._call('GetContextsByType', request, response)
@@ -1074,7 +1108,10 @@ class MetadataStore(object):
     return result
 
   def get_context_by_type_and_name(
-      self, type_name: Text, context_name: Text) -> Optional[proto.Context]:
+      self,
+      type_name: Text,
+      context_name: Text,
+      type_version: Text = None) -> Optional[proto.Context]:
     """Get the context of the given type and context name.
 
     The API fails if more than one contexts are found.
@@ -1082,6 +1119,9 @@ class MetadataStore(object):
     Args:
       type_name: The context type name to look for.
       context_name: The context name to look for.
+      type_version: An optional context type version. If not given, then only
+        the type_name and context_name are used to look for the context with
+        default version.
 
     Returns:
       The Context matching the type and context name.
@@ -1090,6 +1130,8 @@ class MetadataStore(object):
     request = metadata_store_service_pb2.GetContextByTypeAndNameRequest()
     request.type_name = type_name
     request.context_name = context_name
+    if type_version:
+      request.type_version = type_version
     response = metadata_store_service_pb2.GetContextByTypeAndNameResponse()
 
     self._call('GetContextByTypeAndName', request, response)

@@ -87,7 +87,6 @@ message ArtifactType {
   // database instance.
   optional string name = 2;
   // An optional version of the type. An empty string is treated as unset.
-  // EXPERIMENTAL: please do not set until related APIs and docs are available.
   optional string version = 4;
   // An optional description about the type.
   optional string description = 5;
@@ -257,7 +256,6 @@ message ExecutionType {
   // database instance.
   optional string name = 2;
   // An optional version of the type. An empty string is treated as unset.
-  // EXPERIMENTAL: please do not set until related APIs and docs are available.
   optional string version = 6;
   // An optional description about the type.
   optional string description = 7;
@@ -294,7 +292,6 @@ message ContextType {
   // unique among ContextTypes within a database instance.
   optional string name = 2;
   // An optional version of the type. An empty string is treated as unset.
-  // EXPERIMENTAL: please do not set until related APIs and docs are available.
   optional string version = 4;
   // An optional description about the type.
   optional string description = 5;

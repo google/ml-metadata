@@ -56,7 +56,7 @@ cd bazel-bin/ml_metadata/tools/mlmd_bench/
 ./mlmd_bench --config_file_path=<input mlmd_bench config .pbtxt file path> --output_report_path=<output mlmd_bench summary report file path>
 ```
 
-The input should be a MLMDBenchConfig protocol buffer message in text format, e.g.:
+The input should be a `MLMDBenchConfig` Protocol Buffers message in text format, e.g.:
 
 ```shell
 mlmd_config: {
@@ -76,7 +76,7 @@ workload_configs: {
 thread_env_config: { num_threads: 10 }
 ```
 
-The output is a `MLMDBenchReport` proto message in text format, e.g.:
+The output is a `MLMDBenchReport` Protocol Buffers message in text format, e.g.:
 
 ```shell
 summaries {

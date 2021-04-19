@@ -18,7 +18,9 @@ limitations under the License.
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/algorithm/container.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/metadata_store/test_util.h"
@@ -36,6 +38,139 @@ using ::testing::IsEmpty;
 using ::testing::Pointwise;
 using ::testing::SizeIs;
 using ::testing::UnorderedElementsAre;
+
+// A list of test utils for inserting types and nodes.
+template <typename T>
+void InsertTypeAndSetTypeID(MetadataStore* metadata_store, T& curr_type);
+
+template <>
+void InsertTypeAndSetTypeID(MetadataStore* metadata_store,
+                            ArtifactType& curr_type) {
+  PutArtifactTypeRequest put_type_request;
+  *put_type_request.mutable_artifact_type() = curr_type;
+  PutArtifactTypeResponse put_type_response;
+  TF_ASSERT_OK(
+      metadata_store->PutArtifactType(put_type_request, &put_type_response));
+  ASSERT_TRUE(put_type_response.has_type_id());
+  curr_type.set_id(put_type_response.type_id());
+}
+
+template <>
+void InsertTypeAndSetTypeID(MetadataStore* metadata_store,
+                            ExecutionType& curr_type) {
+  PutExecutionTypeRequest put_type_request;
+  *put_type_request.mutable_execution_type() = curr_type;
+  PutExecutionTypeResponse put_type_response;
+  TF_ASSERT_OK(
+      metadata_store->PutExecutionType(put_type_request, &put_type_response));
+  ASSERT_TRUE(put_type_response.has_type_id());
+  curr_type.set_id(put_type_response.type_id());
+}
+
+template <>
+void InsertTypeAndSetTypeID(MetadataStore* metadata_store,
+                            ContextType& curr_type) {
+  PutContextTypeRequest put_type_request;
+  *put_type_request.mutable_context_type() = curr_type;
+  PutContextTypeResponse put_type_response;
+  TF_ASSERT_OK(
+      metadata_store->PutContextType(put_type_request, &put_type_response));
+  ASSERT_TRUE(put_type_response.has_type_id());
+  curr_type.set_id(put_type_response.type_id());
+}
+
+template <typename NT>
+void InsertNodeAndSetNodeID(MetadataStore* metadata_store,
+                            std::vector<NT>& nodes);
+
+template <>
+void InsertNodeAndSetNodeID(MetadataStore* metadata_store,
+                            std::vector<Artifact>& nodes) {
+  PutArtifactsRequest put_nodes_request;
+  absl::c_copy(nodes, google::protobuf::RepeatedFieldBackInserter(
+                          put_nodes_request.mutable_artifacts()));
+  PutArtifactsResponse put_nodes_response;
+  TF_ASSERT_OK(
+      metadata_store->PutArtifacts(put_nodes_request, &put_nodes_response));
+  for (size_t i = 0; i < put_nodes_response.artifact_ids_size(); ++i) {
+    nodes[i].set_id(put_nodes_response.artifact_ids(i));
+  }
+}
+
+template <>
+void InsertNodeAndSetNodeID(MetadataStore* metadata_store,
+                            std::vector<Execution>& nodes) {
+  PutExecutionsRequest put_nodes_request;
+  absl::c_copy(nodes, google::protobuf::RepeatedFieldBackInserter(
+                          put_nodes_request.mutable_executions()));
+  PutExecutionsResponse put_nodes_response;
+  TF_ASSERT_OK(
+      metadata_store->PutExecutions(put_nodes_request, &put_nodes_response));
+  for (size_t i = 0; i < put_nodes_response.execution_ids_size(); ++i) {
+    nodes[i].set_id(put_nodes_response.execution_ids(i));
+  }
+}
+
+template <>
+void InsertNodeAndSetNodeID(MetadataStore* metadata_store,
+                            std::vector<Context>& nodes) {
+  PutContextsRequest put_nodes_request;
+  absl::c_copy(nodes, google::protobuf::RepeatedFieldBackInserter(
+                          put_nodes_request.mutable_contexts()));
+  PutContextsResponse put_nodes_response;
+  TF_ASSERT_OK(
+      metadata_store->PutContexts(put_nodes_request, &put_nodes_response));
+  for (size_t i = 0; i < put_nodes_response.context_ids_size(); ++i) {
+    nodes[i].set_id(put_nodes_response.context_ids(i));
+  }
+}
+
+// The utility function to prepare types and nodes for list node through type
+// test cases.
+template <typename T, typename NT>
+void PrepareTypesAndNodesForListNodeThroughType(MetadataStore* metadata_store,
+                                                std::vector<T>& types,
+                                                std::vector<NT>& nodes) {
+  // Setup: Prepares a list of type pbtxt and a list of node pbtxt.
+  const std::vector<absl ::string_view> type_definitions = {
+      R"( name: 'test_type'
+        properties { key: 'test_property' value: STRING })",
+      R"( name: 'test_type'
+        version: 'v1'
+        properties { key: 'test_property' value: STRING })",
+  };
+  const std::vector<absl::string_view> node_definitions = {
+      R"( name: 'test_node_name_for_node_0_and_node_2'
+        properties {
+            key: 'test_property'
+            value: { string_value: 'foo' }
+          })",
+      R"( name: 'test_node_name_for_node_1'
+        properties {
+            key: 'test_property'
+            value: { string_value: 'bar' }
+          })",
+  };
+
+  // Insert types for the later nodes insertion.
+  for (absl::string_view type_definition : type_definitions) {
+    T curr_type = ParseTextProtoOrDie<T>(std::string(type_definition));
+    InsertTypeAndSetTypeID(metadata_store, curr_type);
+    types.push_back(curr_type);
+  }
+
+  // Insert nodes under the previous types
+  // `nodes[0]` and `nodes[2]` will have the same name.
+  // `nodes[0]` is inserted under `types[0]` while `nodes[1]` and `nodes[2]` are
+  // inserted under `types[1]`.
+  nodes[0] = ParseTextProtoOrDie<NT>(std::string(node_definitions[0]));
+  nodes[0].set_type_id(types[0].id());
+  nodes[1] = ParseTextProtoOrDie<NT>(std::string(node_definitions[1]));
+  nodes[1].set_type_id(types[1].id());
+  nodes[2] = ParseTextProtoOrDie<NT>(std::string(node_definitions[0]));
+  nodes[2].set_type_id(types[1].id());
+  InsertNodeAndSetNodeID(metadata_store, nodes);
+}
 
 TEST_P(MetadataStoreTestSuite, InitMetadataStoreIfNotExists) {
   TF_ASSERT_OK(metadata_store_->InitMetadataStoreIfNotExists());
@@ -816,6 +951,228 @@ TEST_P(MetadataStoreTestSuite, TypeWithNullAndEmptyStringVersionsGetType) {
   EXPECT_FALSE(get_response.context_types(1).has_version());
   EXPECT_THAT(get_response.context_types(1),
               EqualsProto(want_types[2], /*ignore_fields=*/{"version"}));
+}
+
+TEST_P(MetadataStoreTestSuite, PutTypesAndArtifactsGetArtifactsThroughType) {
+  if (!metadata_store_container_->HasTypeVersionSupport()) {
+    return;
+  }
+
+  std::vector<ArtifactType> types;
+  std::vector<Artifact> nodes(3);
+  PrepareTypesAndNodesForListNodeThroughType(metadata_store_, types, nodes);
+
+  auto verify_get_artifacts_by_type =
+      [this](string type_name, absl::optional<string> version,
+             std::vector<Artifact> want_artifacts) {
+        GetArtifactsByTypeRequest get_nodes_request;
+        get_nodes_request.set_type_name(type_name);
+        if (version) {
+          get_nodes_request.set_type_version(*version);
+        }
+        GetArtifactsByTypeResponse get_nodes_response;
+        TF_ASSERT_OK(metadata_store_->GetArtifactsByType(get_nodes_request,
+                                                         &get_nodes_response));
+        EXPECT_THAT(get_nodes_response.artifacts(),
+                    UnorderedPointwise(EqualsProto<Artifact>(/*ignore_fields=*/{
+                                           "uri", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+                                       want_artifacts));
+      };
+
+  auto verify_get_artifact_by_type_and_name =
+      [this](string type_name, absl::optional<string> version,
+             string artifact_name, Artifact want_artifact) {
+        GetArtifactByTypeAndNameRequest get_node_request;
+        get_node_request.set_type_name(type_name);
+        if (version) {
+          get_node_request.set_type_version(*version);
+        }
+        get_node_request.set_artifact_name(artifact_name);
+        GetArtifactByTypeAndNameResponse get_node_response;
+        TF_ASSERT_OK(metadata_store_->GetArtifactByTypeAndName(
+            get_node_request, &get_node_response));
+        EXPECT_THAT(get_node_response.artifact(),
+                    EqualsProto<Artifact>(want_artifact, /*ignore_fields=*/{
+                                              "uri", "create_time_since_epoch",
+                                              "last_update_time_since_epoch"}));
+      };
+
+  // Fetches the node according through the types.
+  // Test no.1: lists the nodes by `types[0]` without version, expecting
+  // `nodes[0]`.
+  verify_get_artifacts_by_type(types[0].name(), types[0].version(), {nodes[0]});
+
+  // Test no.2: lists the nodes by `types[1]` with version, expecting `nodes[1]`
+  // and `nodes[2]`.
+  verify_get_artifacts_by_type(types[1].name(), types[1].version(),
+                               {nodes[1], nodes[2]});
+
+  // Test no.3: lists the node by `test_node_name_for_node_0_and_node_2` and
+  // `types[0]` without version, expecting `nodes[0]`.
+  verify_get_artifact_by_type_and_name(types[0].name(), types[0].version(),
+                                       nodes[2].name(), nodes[0]);
+
+  // Test no.4: lists the node by `test_node_name_for_node_0_and_node_2` and
+  // `types[1]` with version, expecting `nodes[2]`.
+  verify_get_artifact_by_type_and_name(types[1].name(), types[1].version(),
+                                       nodes[0].name(), nodes[2]);
+
+  // Test no.5: Unknown type, expecting empty nodes / node result.
+  verify_get_artifacts_by_type("Unknown_type_name",
+                               absl::make_optional("Unknown_type_version"), {});
+  verify_get_artifact_by_type_and_name(
+      "Unknown_type_name", absl::make_optional("Unknown_type_version"),
+      nodes[0].name(), {});
+}
+
+TEST_P(MetadataStoreTestSuite, PutTypesAndExecutionsGetExecutionsThroughType) {
+  if (!metadata_store_container_->HasTypeVersionSupport()) {
+    return;
+  }
+
+  std::vector<ExecutionType> types;
+  std::vector<Execution> nodes(3);
+  PrepareTypesAndNodesForListNodeThroughType(metadata_store_, types, nodes);
+
+  auto verify_get_executions_by_type =
+      [this](string type_name, absl::optional<string> version,
+             std::vector<Execution> want_executions) {
+        GetExecutionsByTypeRequest get_nodes_request;
+        get_nodes_request.set_type_name(type_name);
+        if (version) {
+          get_nodes_request.set_type_version(*version);
+        }
+        GetExecutionsByTypeResponse get_nodes_response;
+        TF_ASSERT_OK(metadata_store_->GetExecutionsByType(get_nodes_request,
+                                                          &get_nodes_response));
+        EXPECT_THAT(
+            get_nodes_response.executions(),
+            UnorderedPointwise(
+                EqualsProto<Execution>(/*ignore_fields=*/{
+                    "create_time_since_epoch", "last_update_time_since_epoch"}),
+                want_executions));
+      };
+
+  auto verify_get_execution_by_type_and_name =
+      [this](string type_name, absl::optional<string> version,
+             string execution_name, Execution want_execution) {
+        GetExecutionByTypeAndNameRequest get_node_request;
+        get_node_request.set_type_name(type_name);
+        if (version) {
+          get_node_request.set_type_version(*version);
+        }
+        get_node_request.set_execution_name(execution_name);
+        GetExecutionByTypeAndNameResponse get_node_response;
+        TF_ASSERT_OK(metadata_store_->GetExecutionByTypeAndName(
+            get_node_request, &get_node_response));
+        EXPECT_THAT(
+            get_node_response.execution(),
+            EqualsProto<Execution>(want_execution, /*ignore_fields=*/{
+                                       "create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
+      };
+
+  // Fetches the node according through the types.
+  // Test no.1: lists the nodes by `types[0]` without version, expecting
+  // `nodes[0]`.
+  verify_get_executions_by_type(types[0].name(), types[0].version(),
+                                {nodes[0]});
+
+  // Test no.2: lists the nodes by `types[1]` with version, expecting `nodes[1]`
+  // and `nodes[2]`.
+  verify_get_executions_by_type(types[1].name(), types[1].version(),
+                                {nodes[1], nodes[2]});
+
+  // Test no.3: lists the node by `test_node_name_for_node_0_and_node_2` and
+  // `types[0]` without version, expecting `nodes[0]`.
+  verify_get_execution_by_type_and_name(types[0].name(), types[0].version(),
+                                        nodes[2].name(), nodes[0]);
+
+  // Test no.4: lists the node by `test_node_name_for_node_0_and_node_2` and
+  // `types[1]` with version, expecting `nodes[2]`.
+  verify_get_execution_by_type_and_name(types[1].name(), types[1].version(),
+                                        nodes[0].name(), nodes[2]);
+
+  // Test no.5: Unknown type, expecting empty nodes / node result.
+  verify_get_executions_by_type(
+      "Unknown_type_name", absl::make_optional("Unknown_type_version"), {});
+  verify_get_execution_by_type_and_name(
+      "Unknown_type_name", absl::make_optional("Unknown_type_version"),
+      nodes[0].name(), {});
+}
+
+TEST_P(MetadataStoreTestSuite, PutTypesAndContextsGetContextsThroughType) {
+  if (!metadata_store_container_->HasTypeVersionSupport()) {
+    return;
+  }
+
+  std::vector<ContextType> types;
+  std::vector<Context> nodes(3);
+  PrepareTypesAndNodesForListNodeThroughType(metadata_store_, types, nodes);
+
+  auto verify_get_contexts_by_type =
+      [this](string type_name, absl::optional<string> version,
+             std::vector<Context> want_contexts) {
+        GetContextsByTypeRequest get_nodes_request;
+        get_nodes_request.set_type_name(type_name);
+        if (version) {
+          get_nodes_request.set_type_version(*version);
+        }
+        GetContextsByTypeResponse get_nodes_response;
+        TF_ASSERT_OK(metadata_store_->GetContextsByType(get_nodes_request,
+                                                        &get_nodes_response));
+        EXPECT_THAT(get_nodes_response.contexts(),
+                    UnorderedPointwise(EqualsProto<Context>(/*ignore_fields=*/{
+                                           "create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+                                       want_contexts));
+      };
+
+  auto verify_get_context_by_type_and_name =
+      [this](string type_name, absl::optional<string> version,
+             string context_name, Context want_context) {
+        GetContextByTypeAndNameRequest get_node_request;
+        get_node_request.set_type_name(type_name);
+        if (version) {
+          get_node_request.set_type_version(*version);
+        }
+        get_node_request.set_context_name(context_name);
+        GetContextByTypeAndNameResponse get_node_response;
+        TF_ASSERT_OK(metadata_store_->GetContextByTypeAndName(
+            get_node_request, &get_node_response));
+        EXPECT_THAT(get_node_response.context(),
+                    EqualsProto<Context>(want_context, /*ignore_fields=*/{
+                                             "create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
+      };
+
+  // Fetches the node according through the types.
+  // Test no.1: lists the nodes by `types[0]` without version, expecting
+  // `nodes[0]`.
+  verify_get_contexts_by_type(types[0].name(), types[0].version(), {nodes[0]});
+
+  // Test no.2: lists the nodes by `types[1]` with version, expecting `nodes[1]`
+  // and `nodes[2]`.
+  verify_get_contexts_by_type(types[1].name(), types[1].version(),
+                              {nodes[1], nodes[2]});
+
+  // Test no.3: lists the node by `test_node_name_for_node_0_and_node_2` and
+  // `types[0]` without version, expecting `nodes[0]`.
+  verify_get_context_by_type_and_name(types[0].name(), types[0].version(),
+                                      nodes[2].name(), nodes[0]);
+
+  // Test no.4: lists the node by `test_node_name_for_node_0_and_node_2` and
+  // `types[1]` with version, expecting `nodes[2]`.
+  verify_get_context_by_type_and_name(types[1].name(), types[1].version(),
+                                      nodes[0].name(), nodes[2]);
+
+  // Test no.5: Unknown type, expecting empty nodes / node result.
+  verify_get_contexts_by_type("Unknown_type_name",
+                              absl::make_optional("Unknown_type_version"), {});
+  verify_get_context_by_type_and_name(
+      "Unknown_type_name", absl::make_optional("Unknown_type_version"),
+      nodes[0].name(), {});
 }
 
 TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {
@@ -2843,60 +3200,6 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
                     /*ignore_fields=*/{"create_time_since_epoch",
                                        "last_update_time_since_epoch"}));
   }
-}
-
-// Test creating a context and then getting it by its type and context name.
-TEST_P(MetadataStoreTestSuite, PutContextGetContextsByTypeAndName) {
-  // Create a context type
-  const PutContextTypeRequest put_context_type_request =
-      ParseTextProtoOrDie<PutContextTypeRequest>(R"(
-        all_fields_match: true
-        context_type: { name: 'test_type' }
-      )");
-  PutContextTypeResponse put_context_type_response;
-  TF_ASSERT_OK(metadata_store_->PutContextType(put_context_type_request,
-                                               &put_context_type_response));
-  ASSERT_TRUE(put_context_type_response.has_type_id());
-  const int64 type_id = put_context_type_response.type_id();
-
-  // Create a context
-  PutContextsRequest put_contexts_request =
-      ParseTextProtoOrDie<PutContextsRequest>(R"(
-        contexts: { name: 'context_name' }
-      )");
-  put_contexts_request.mutable_contexts(0)->set_type_id(type_id);
-  PutContextsResponse put_contexts_response;
-  TF_ASSERT_OK(metadata_store_->PutContexts(put_contexts_request,
-                                            &put_contexts_response));
-  ASSERT_THAT(put_contexts_response.context_ids(), SizeIs(1));
-  const int64 id1 = put_contexts_response.context_ids(0);
-
-  // Test the returned context is the same as the created one.
-  Context want_context1 = *put_contexts_request.mutable_contexts(0);
-  want_context1.set_id(id1);
-
-  GetContextByTypeAndNameRequest get_context_by_type_and_name_request;
-  get_context_by_type_and_name_request.set_type_name("test_type");
-  get_context_by_type_and_name_request.set_context_name("context_name");
-  GetContextByTypeAndNameResponse get_context_by_type_and_name_response;
-  TF_ASSERT_OK(metadata_store_->GetContextByTypeAndName(
-      get_context_by_type_and_name_request,
-      &get_context_by_type_and_name_response));
-  ASSERT_TRUE(get_context_by_type_and_name_response.has_context());
-  EXPECT_THAT(get_context_by_type_and_name_response.context(),
-              EqualsProto(want_context1,
-                          /*ignore_fields=*/{"create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
-
-  // Test that no context is found given the input type and name.
-  GetContextByTypeAndNameRequest get_no_context_by_type_and_name_request;
-  get_context_by_type_and_name_request.set_type_name("test_type1");
-  get_context_by_type_and_name_request.set_context_name("context3");
-  GetContextByTypeAndNameResponse get_no_context_by_type_and_name_response;
-  TF_ASSERT_OK(metadata_store_->GetContextByTypeAndName(
-      get_no_context_by_type_and_name_request,
-      &get_no_context_by_type_and_name_response));
-  EXPECT_FALSE(get_no_context_by_type_and_name_response.has_context());
 }
 
 TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
