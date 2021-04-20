@@ -2,13 +2,27 @@
 
 ## Major Features and Improvements
 
+## Bug Fixes and Other Changes
+
+## Breaking Changes
+
+## Deprecations
+
+# Release 0.30.0
+
+## Major Features and Improvements
+
 *   Supports versioned type creation and listing in python APIs for non-backward
     compatible type evolutions.
 *   Supports listing nodes by type with version in MLMD APIs.
 
 ## Bug Fixes and Other Changes
 
+*   N/A
+
 ## Breaking Changes
+
+*   N/A
 
 ## Deprecations
 
