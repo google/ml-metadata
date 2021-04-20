@@ -19,6 +19,7 @@ limitations under the License.
 #include "gflags/gflags.h"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
 #include "absl/memory/memory.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/metadata_store/metadata_source_test_suite.h"
@@ -81,7 +82,7 @@ class MysqlMetadataSourceContainer : public MetadataSourceContainer {
 // with TestEscapeString below.
 TEST(MySqlMetadataSourceExtendedTest, TestConnectBySocket) {
   // TODO(b/140584643) Fix MacOS Kokoro test to enable connecting via sockets.
-  if (!FLAGS_enable_sockets) {
+  if (!(FLAGS_enable_sockets)) {
     GTEST_SKIP() << "Socket tests disabled.";
   }
 

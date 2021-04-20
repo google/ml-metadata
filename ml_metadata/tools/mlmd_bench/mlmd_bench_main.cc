@@ -16,6 +16,7 @@ limitations under the License.
 #include <iostream>
 
 #include "gflags/gflags.h"
+
 #include "ml_metadata/tools/mlmd_bench/benchmark.h"
 #include "ml_metadata/tools/mlmd_bench/proto/mlmd_bench.pb.h"
 #include "ml_metadata/tools/mlmd_bench/thread_runner.h"
@@ -63,7 +64,7 @@ int main(int argc, char** argv) {
   // Configurations for `mlmd_bench`.
   ml_metadata::MLMDBenchConfig mlmd_bench_config;
   TF_CHECK_OK(ml_metadata::InitAndValidateMLMDBenchConfig(
-      FLAGS_config_file_path, mlmd_bench_config));
+      (FLAGS_config_file_path), mlmd_bench_config));
   // Feeds the `mlmd_bench_config` into the benchmark for generating executable
   // workloads.
   ml_metadata::Benchmark benchmark(mlmd_bench_config);
@@ -74,6 +75,6 @@ int main(int argc, char** argv) {
   TF_CHECK_OK(runner.Run(benchmark));
 
   TF_CHECK_OK(ml_metadata::WriteProtoResultToDisk(
-      FLAGS_output_report_path, benchmark.mlmd_bench_report()));
+      (FLAGS_output_report_path), benchmark.mlmd_bench_report()));
   return 0;
 }

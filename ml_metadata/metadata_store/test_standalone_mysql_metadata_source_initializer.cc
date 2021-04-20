@@ -15,6 +15,7 @@ limitations under the License.
 #include <memory>
 
 #include "gflags/gflags.h"
+
 #include "absl/memory/memory.h"
 #include "ml_metadata/metadata_store/mysql_metadata_source.h"
 #include "ml_metadata/metadata_store/test_mysql_metadata_source_initializer.h"
@@ -47,16 +48,16 @@ class TestStandaloneMySqlMetadataSourceInitializer
 
   MySqlMetadataSource* Init(ConnectionType connection_type) override {
     MySQLDatabaseConfig config;
-    config.set_database(FLAGS_db_name);
-    config.set_user(FLAGS_user_name);
-    config.set_password(FLAGS_password);
+    config.set_database((FLAGS_db_name));
+    config.set_user((FLAGS_user_name));
+    config.set_password((FLAGS_password));
     switch (connection_type) {
       case ConnectionType::kTcp:
-        config.set_port(FLAGS_port);
-        config.set_host(FLAGS_host_name);
+        config.set_port((FLAGS_port));
+        config.set_host((FLAGS_host_name));
         break;
       case ConnectionType::kSocket:
-        config.set_socket(FLAGS_socket);
+        config.set_socket((FLAGS_socket));
         break;
       default:
         QCHECK(false) << "Invalid connection_type: "

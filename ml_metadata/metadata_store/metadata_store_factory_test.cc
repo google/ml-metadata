@@ -13,13 +13,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/metadata_store_factory.h"
-#include "ml_metadata/metadata_store/metadata_store.h"
 
 #include <memory>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
 #include "ml_metadata/metadata_store/metadata_access_object.h"
+#include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"

@@ -22,6 +22,7 @@ limitations under the License.
 #include "grpcpp/security/server_credentials.h"
 #include "grpcpp/server.h"
 #include "grpcpp/server_builder.h"
+
 #include "absl/strings/str_cat.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/metadata_store/metadata_store_factory.h"
@@ -182,8 +183,8 @@ DEFINE_int64(downgrade_db_schema_version, -1,
 int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  if (FLAGS_grpc_port <= 0) {
-    LOG(ERROR) << "grpc_port is invalid: " << FLAGS_grpc_port;
+  if ((FLAGS_grpc_port) <= 0) {
+    LOG(ERROR) << "grpc_port is invalid: " << (FLAGS_grpc_port);
     return -1;
   }
 
@@ -191,12 +192,16 @@ int main(int argc, char** argv) {
   ml_metadata::ConnectionConfig connection_config;
 
   if (!ParseMetadataStoreServerConfigOrDie(
-          FLAGS_metadata_store_server_config_file, &server_config) &&
+          (FLAGS_metadata_store_server_config_file),
+          &server_config) &&
       !ParseMySQLFlagsBasedServerConfigOrDie(
-          FLAGS_mysql_config_host, FLAGS_mysql_config_port,
-          FLAGS_mysql_config_database, FLAGS_mysql_config_user,
-          FLAGS_mysql_config_password, FLAGS_enable_database_upgrade,
-          FLAGS_downgrade_db_schema_version, &server_config)) {
+          (FLAGS_mysql_config_host),
+          (FLAGS_mysql_config_port),
+          (FLAGS_mysql_config_database),
+          (FLAGS_mysql_config_user),
+          (FLAGS_mysql_config_password),
+          (FLAGS_enable_database_upgrade),
+          (FLAGS_downgrade_db_schema_version), &server_config)) {
     LOG(WARNING) << "The connection_config is not given. Using in memory fake "
                     "database, any metadata will not be persistent";
     connection_config.mutable_fake_database();
@@ -208,7 +213,8 @@ int main(int argc, char** argv) {
   std::unique_ptr<ml_metadata::MetadataStore> metadata_store;
   tensorflow::Status status = ml_metadata::CreateMetadataStore(
       connection_config, server_config.migration_options(), &metadata_store);
-  for (int i = 0; i < FLAGS_metadata_store_connection_retries; i++) {
+  for (int i = 0; i < (FLAGS_metadata_store_connection_retries);
+       i++) {
     if (status.ok() || !tensorflow::errors::IsAborted(status)) {
       break;
     }
@@ -225,7 +231,8 @@ int main(int argc, char** argv) {
   ml_metadata::MetadataStoreServiceImpl metadata_store_service(
       connection_config);
 
-  const string server_address = absl::StrCat("0.0.0.0:", FLAGS_grpc_port);
+  const string server_address =
+      absl::StrCat("0.0.0.0:", (FLAGS_grpc_port));
   ::grpc::ServerBuilder builder;
 
   std::shared_ptr<::grpc::ServerCredentials> credentials =
@@ -235,7 +242,7 @@ int main(int argc, char** argv) {
   }
 
   builder.AddListeningPort(server_address, credentials);
-  AddGrpcChannelArgs(FLAGS_grpc_channel_arguments, &builder);
+  AddGrpcChannelArgs((FLAGS_grpc_channel_arguments), &builder);
   builder.RegisterService(&metadata_store_service);
   std::unique_ptr<::grpc::Server> server(builder.BuildAndStart());
   LOG(INFO) << "Server listening on " << server_address;
