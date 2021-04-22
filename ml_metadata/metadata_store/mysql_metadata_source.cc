@@ -133,13 +133,15 @@ Status MySqlMetadataSource::ConnectImpl() {
   }
 
   // Connect to the MYSQL server.
-  if (!mysql_real_connect(
+  db_ = mysql_real_connect(
           db_, config_.host().empty() ? nullptr : config_.host().c_str(),
           config_.user().empty() ? nullptr : config_.user().c_str(),
           config_.password().empty() ? nullptr : config_.password().c_str(),
           /*db=*/nullptr, config_.port(),
           config_.socket().empty() ? nullptr : config_.socket().c_str(),
-          /*clientflag=*/0UL)) {
+          /*clientflag=*/0UL);
+
+  if (!db_) {
     return errors::Internal("mysql_real_connect failed: errno: ",
                             mysql_errno(db_), ", error: ", mysql_error(db_));
   }
