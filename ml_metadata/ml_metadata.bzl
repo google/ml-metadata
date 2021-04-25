@@ -106,6 +106,7 @@ def ml_metadata_proto_library_go(
         importpath = None,
         cc_proto_deps = [],
         go_proto_deps = [],
+        sub_proto_deps = [],
         gen_oss_grpc = False):
     """Opensource go_proto_library."""
     proto_library_name = deps[0][1:] + "_copy"
@@ -114,6 +115,10 @@ def ml_metadata_proto_library_go(
     proto_library_deps = []
     for dep in cc_proto_deps:
         proto_library_deps.append(dep + "_copy")
+
+    for dep in sub_proto_deps:
+        proto_library_deps.append(dep)
+
     native.proto_library(
         name = proto_library_name,
         srcs = srcs,

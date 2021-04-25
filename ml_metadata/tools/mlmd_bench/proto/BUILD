@@ -1,3 +1,6 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+
 # Copyright 2020 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,4 +30,23 @@ ml_metadata_proto_library(
     deps = [
         "//ml_metadata/proto:metadata_store_proto",
     ],
+)
+
+proto_library(
+    name = "ml_metadata_proto",
+    srcs = ["mlmd_bench.proto"],
+    deps = ["//ml_metadata/proto:ml_metadata_proto"],
+)
+
+go_proto_library(
+    name = "ml_metadata_go_proto",
+    importpath = "github.com/google/ml-metadata/ml_metadata/tools/mlmd_bench/proto",
+    proto = ":ml_metadata_proto",
+    deps = ["//ml_metadata/proto:go_default_library"],
+)
+
+go_library(
+    name = "go_default_library",
+    embed = [":ml_metadata_go_proto"],
+    importpath = "github.com/google/ml-metadata/ml_metadata/tools/mlmd_bench/proto",
 )
