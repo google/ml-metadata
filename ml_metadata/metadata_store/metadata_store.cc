@@ -1186,6 +1186,20 @@ tensorflow::Status MetadataStore::PutAttributionsAndAssociations(
       });
 }
 
+tensorflow::Status MetadataStore::PutParentContexts(
+    const PutParentContextsRequest& request,
+    PutParentContextsResponse* response) {
+  return transaction_executor_->Execute(
+      [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
+        for (const ParentContext& parent_context : request.parent_contexts()) {
+          TF_RETURN_IF_ERROR(
+              metadata_access_object_->CreateParentContext(parent_context));
+        }
+        return tensorflow::Status::OK();
+      });
+}
+
 tensorflow::Status MetadataStore::GetContextsByArtifact(
     const GetContextsByArtifactRequest& request,
     GetContextsByArtifactResponse* response) {
@@ -1267,6 +1281,44 @@ tensorflow::Status MetadataStore::GetExecutionsByContext(
           response->set_next_page_token(next_page_token);
         }
 
+        return tensorflow::Status::OK();
+      });
+}
+
+tensorflow::Status MetadataStore::GetParentContextsByContext(
+    const GetParentContextsByContextRequest& request,
+    GetParentContextsByContextResponse* response) {
+  return transaction_executor_->Execute(
+      [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
+        std::vector<Context> parent_contexts;
+        const tensorflow::Status status =
+            metadata_access_object_->FindParentContextsByContextId(
+                request.context_id(), &parent_contexts);
+        if (!status.ok() && !tensorflow::errors::IsNotFound(status)) {
+          return status;
+        }
+        absl::c_copy(parent_contexts, google::protobuf::RepeatedPtrFieldBackInserter(
+                                          response->mutable_contexts()));
+        return tensorflow::Status::OK();
+      });
+}
+
+tensorflow::Status MetadataStore::GetChildrenContextsByContext(
+    const GetChildrenContextsByContextRequest& request,
+    GetChildrenContextsByContextResponse* response) {
+  return transaction_executor_->Execute(
+      [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
+        std::vector<Context> child_contexts;
+        const tensorflow::Status status =
+            metadata_access_object_->FindChildContextsByContextId(
+                request.context_id(), &child_contexts);
+        if (!status.ok() && !tensorflow::errors::IsNotFound(status)) {
+          return status;
+        }
+        absl::c_copy(child_contexts, google::protobuf::RepeatedPtrFieldBackInserter(
+                                         response->mutable_contexts()));
         return tensorflow::Status::OK();
       });
 }

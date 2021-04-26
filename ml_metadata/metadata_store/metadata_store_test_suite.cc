@@ -15,6 +15,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/metadata_store_test_suite.h"
 
 #include <memory>
+#include <unordered_map>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -3355,6 +3356,198 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
           EqualsProto(want_artifact_2,
                       /*ignore_fields=*/{"create_time_since_epoch",
                                          "last_update_time_since_epoch"})));
+}
+
+TEST_P(MetadataStoreTestSuite, PutParentContextsAlreadyExistsError) {
+  // Inserts a context type.
+  ContextType context_type;
+  context_type.set_name("context_type_name");
+  PutContextTypeRequest put_type_request;
+  *put_type_request.mutable_context_type() = context_type;
+  PutContextTypeResponse put_type_response;
+  TF_ASSERT_OK(
+      metadata_store_->PutContextType(put_type_request, &put_type_response));
+  context_type.set_id(put_type_response.type_id());
+
+  // Inserts two connected contexts.
+  Context context_1, context_2;
+  context_1.set_name("child_context");
+  context_1.set_type_id(context_type.id());
+  context_2.set_name("parent_context");
+  context_2.set_type_id(context_type.id());
+  PutContextsRequest put_contexts_request;
+  *put_contexts_request.add_contexts() = context_1;
+  *put_contexts_request.add_contexts() = context_2;
+  PutContextsResponse put_contexts_response;
+  TF_ASSERT_OK(metadata_store_->PutContexts(put_contexts_request,
+                                            &put_contexts_response));
+  context_1.set_id(put_contexts_response.context_ids(0));
+  context_2.set_id(put_contexts_response.context_ids(1));
+
+  // Inserts a parent context.
+  ParentContext parent_context;
+  parent_context.set_parent_id(context_2.id());
+  parent_context.set_child_id(context_1.id());
+  PutParentContextsRequest put_parent_contexts_request;
+  *put_parent_contexts_request.add_parent_contexts() = parent_context;
+  PutParentContextsResponse put_parent_contexts_response;
+  TF_EXPECT_OK(metadata_store_->PutParentContexts(
+      put_parent_contexts_request, &put_parent_contexts_response));
+
+  // Recreates the same parent context should returns AlreadyExists error.
+  const tensorflow::Status status = metadata_store_->PutParentContexts(
+      put_parent_contexts_request, &put_parent_contexts_response);
+  EXPECT_EQ(status.code(), tensorflow::error::ALREADY_EXISTS);
+}
+
+TEST_P(MetadataStoreTestSuite, PutParentContextsInvalidArgumentError) {
+  // Inserts a context type.
+  ContextType context_type;
+  context_type.set_name("context_type_name");
+  PutContextTypeRequest put_type_request;
+  *put_type_request.mutable_context_type() = context_type;
+  PutContextTypeResponse put_type_response;
+  TF_ASSERT_OK(
+      metadata_store_->PutContextType(put_type_request, &put_type_response));
+  context_type.set_id(put_type_response.type_id());
+
+  // Creates two not exist context ids.
+  Context stored_context;
+  stored_context.set_name("stored_context");
+  stored_context.set_type_id(context_type.id());
+  PutContextsRequest put_contexts_request;
+  *put_contexts_request.add_contexts() = stored_context;
+  PutContextsResponse put_contexts_response;
+  TF_ASSERT_OK(metadata_store_->PutContexts(put_contexts_request,
+                                            &put_contexts_response));
+  int stored_context_id = put_contexts_response.context_ids(0);
+  int64 not_exist_context_id = stored_context_id + 1;
+  int64 not_exist_context_id_2 = stored_context_id + 2;
+
+  // Enumerates the case of creating parent context with invalid argument
+  // (context id cannot be found in the database).
+  auto verify_is_invalid_argument = [this](absl::string_view case_name,
+                                           absl::optional<int64> parent_id,
+                                           absl::optional<int64> child_id) {
+    ParentContext parent_context;
+    if (parent_id) {
+      parent_context.set_parent_id(parent_id.value());
+    }
+    if (child_id) {
+      parent_context.set_child_id(child_id.value());
+    }
+    PutParentContextsRequest put_parent_contexts_request;
+    *put_parent_contexts_request.add_parent_contexts() = parent_context;
+    PutParentContextsResponse put_parent_contexts_response;
+    const tensorflow::Status status = metadata_store_->PutParentContexts(
+        put_parent_contexts_request, &put_parent_contexts_response);
+    EXPECT_EQ(status.code(), tensorflow::error::INVALID_ARGUMENT) << case_name;
+  };
+
+  verify_is_invalid_argument(/*case_name=*/"no parent id, no child id",
+                             /*parent_id=*/absl::nullopt,
+                             /*child_id=*/absl::nullopt);
+  verify_is_invalid_argument(/*case_name=*/"no parent id",
+                             /*parent_id=*/stored_context_id,
+                             /*child_id=*/absl::nullopt);
+  verify_is_invalid_argument(/*case_name=*/"no child id",
+                             /*parent_id=*/absl::nullopt,
+                             /*child_id=*/stored_context_id);
+  verify_is_invalid_argument(
+      /*case_name=*/"both parent and child id are not valid",
+      /*parent_id=*/not_exist_context_id,
+      /*child_id=*/not_exist_context_id_2);
+  verify_is_invalid_argument(/*case_name=*/"parent id is not valid",
+                             /*parent_id=*/not_exist_context_id,
+                             /*child_id=*/stored_context_id);
+  verify_is_invalid_argument(/*case_name=*/"child id is not valid",
+                             /*parent_id=*/stored_context_id,
+                             /*child_id=*/not_exist_context_id);
+}
+
+TEST_P(MetadataStoreTestSuite, PutParentContextsAndGetLinkedContextByContext) {
+  // Inserts a context type.
+  ContextType context_type;
+  context_type.set_name("context_type_name");
+  PutContextTypeRequest put_type_request;
+  *put_type_request.mutable_context_type() = context_type;
+  PutContextTypeResponse put_type_response;
+  TF_ASSERT_OK(
+      metadata_store_->PutContextType(put_type_request, &put_type_response));
+  context_type.set_id(put_type_response.type_id());
+
+  // Creates some contexts to be inserted into the later parent context
+  // relationship.
+  const int num_contexts = 7;
+  std::vector<Context> contexts(num_contexts);
+  PutContextsRequest put_contexts_request;
+  for (int i = 0; i < num_contexts; i++) {
+    contexts[i].set_name(absl::StrCat("context_", i));
+    contexts[i].set_type_id(context_type.id());
+    *put_contexts_request.add_contexts() = contexts[i];
+  }
+  PutContextsResponse put_contexts_response;
+  TF_ASSERT_OK(metadata_store_->PutContexts(put_contexts_request,
+                                            &put_contexts_response));
+  for (int i = 0; i < num_contexts; i++) {
+    contexts[i].set_id(put_contexts_response.context_ids(i));
+  }
+
+  // Prepares a list of parent contexts and stores every parent context
+  // relationship for each context.
+  std::unordered_map<int, std::vector<Context>> want_parents;
+  std::unordered_map<int, std::vector<Context>> want_children;
+  PutParentContextsRequest put_parent_contexts_request;
+
+  auto put_parent_context = [&contexts, &want_parents, &want_children,
+                             &put_parent_contexts_request](int64 parent_idx,
+                                                           int64 child_idx) {
+    ParentContext parent_context;
+    parent_context.set_parent_id(contexts[parent_idx].id());
+    parent_context.set_child_id(contexts[child_idx].id());
+    put_parent_contexts_request.add_parent_contexts()->CopyFrom(parent_context);
+    want_parents[child_idx].push_back(contexts[parent_idx]);
+    want_children[parent_idx].push_back(contexts[child_idx]);
+  };
+
+  put_parent_context(/*parent_idx=*/0, /*child_idx=*/1);
+  put_parent_context(/*parent_idx=*/0, /*child_idx=*/2);
+  put_parent_context(/*parent_idx=*/2, /*child_idx=*/3);
+  put_parent_context(/*parent_idx=*/1, /*child_idx=*/6);
+  put_parent_context(/*parent_idx=*/4, /*child_idx=*/5);
+  put_parent_context(/*parent_idx=*/5, /*child_idx=*/6);
+
+  PutParentContextsResponse put_parent_contexts_response;
+  TF_ASSERT_OK(metadata_store_->PutParentContexts(
+      put_parent_contexts_request, &put_parent_contexts_response));
+
+  // Verifies the parent contexts by looking up and stored result.
+  for (int i = 0; i < num_contexts; i++) {
+    GetParentContextsByContextRequest get_parents_request;
+    get_parents_request.set_context_id(contexts[i].id());
+    GetParentContextsByContextResponse get_parents_response;
+    TF_ASSERT_OK(metadata_store_->GetParentContextsByContext(
+        get_parents_request, &get_parents_response));
+    GetChildrenContextsByContextRequest get_children_request;
+    get_children_request.set_context_id(contexts[i].id());
+    GetChildrenContextsByContextResponse get_children_response;
+    TF_ASSERT_OK(metadata_store_->GetChildrenContextsByContext(
+        get_children_request, &get_children_response));
+    EXPECT_THAT(get_parents_response.contexts(),
+                SizeIs(want_parents[i].size()));
+    EXPECT_THAT(get_children_response.contexts(),
+                SizeIs(want_children[i].size()));
+    EXPECT_THAT(get_parents_response.contexts(),
+                UnorderedPointwise(EqualsProto<Context>(/*ignore_fields=*/{
+                                       "create_time_since_epoch",
+                                       "last_update_time_since_epoch"}),
+                                   want_parents[i]));
+    EXPECT_THAT(get_children_response.contexts(),
+                UnorderedPointwise(EqualsProto<Context>(/*ignore_fields=*/{
+                                       "create_time_since_epoch",
+                                       "last_update_time_since_epoch"}),
+                                   want_children[i]));
+  }
 }
 
 }  // namespace

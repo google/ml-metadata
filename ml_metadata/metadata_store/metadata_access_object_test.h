@@ -71,9 +71,6 @@ class MetadataAccessObjectContainer {
   // Tests if there is filter query support.
   virtual bool HasFilterQuerySupport() { return false; }
 
-  // Tests if there is parent context query support.
-  virtual bool HasParentContextSupport() { return false; }
-
   // Tests if there is parent type query support.
   virtual bool HasParentTypeSupport() { return false;}
 
@@ -142,8 +139,6 @@ class QueryConfigMetadataAccessObjectContainer
   bool HasDowngradeVerification(int64 version) final;
 
   bool HasFilterQuerySupport() final { return true; }
-
-  bool HasParentContextSupport() final { return true; }
 
   bool HasParentTypeSupport() final { return true;}
 

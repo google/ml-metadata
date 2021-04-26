@@ -3789,9 +3789,6 @@ TEST_P(MetadataAccessObjectTest, PutEventsWithPaths) {
 }
 
 TEST_P(MetadataAccessObjectTest, CreateParentContext) {
-  if (!metadata_access_object_container_->HasParentContextSupport()) {
-    return;
-  }
   TF_ASSERT_OK(Init());
   ContextType context_type;
   context_type.set_name("context_type_name");
@@ -3819,9 +3816,6 @@ TEST_P(MetadataAccessObjectTest, CreateParentContext) {
 }
 
 TEST_P(MetadataAccessObjectTest, CreateParentContextInvalidArgumentError) {
-  if (!metadata_access_object_container_->HasParentContextSupport()) {
-    return;
-  }
   // Prepare a stored context.
   TF_ASSERT_OK(Init());
   ContextType context_type;
@@ -3874,9 +3868,6 @@ TEST_P(MetadataAccessObjectTest, CreateParentContextInvalidArgumentError) {
 }
 
 TEST_P(MetadataAccessObjectTest, CreateAndFindParentContext) {
-  if (!metadata_access_object_container_->HasParentContextSupport()) {
-    return;
-  }
   TF_ASSERT_OK(Init());
   ContextType context_type;
   context_type.set_name("context_type_name");

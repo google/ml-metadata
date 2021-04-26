@@ -373,6 +373,15 @@ class MetadataStore : public MetadataStoreServiceInterface {
       const PutAttributionsAndAssociationsRequest& request,
       PutAttributionsAndAssociationsResponse* response) override;
 
+  // Inserts parent contexts in the database.
+  // The `child_id` and `parent_id` in every parent context must already exist.
+  // Returns INVALID_ARGUMENT error, if no context matches the child_id.
+  // Returns INVALID_ARGUMENT error, if no context matches the parent_id.
+  // Returns ALREADY_EXISTS error, if the same parent context already exists.
+  tensorflow::Status PutParentContexts(
+      const PutParentContextsRequest& request,
+      PutParentContextsResponse* response) override;
+
   // Gets all context that an artifact is attributed to.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status GetContextsByArtifact(
@@ -398,6 +407,18 @@ class MetadataStore : public MetadataStoreServiceInterface {
   tensorflow::Status GetExecutionsByContext(
       const GetExecutionsByContextRequest& request,
       GetExecutionsByContextResponse* response) override;
+
+  // Gets all parent contexts of a context.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status GetParentContextsByContext(
+      const GetParentContextsByContextRequest& request,
+      GetParentContextsByContextResponse* response) override;
+
+  // Gets all children contexts of a context.
+  // Returns detailed INTERNAL error, if query execution fails.
+  tensorflow::Status GetChildrenContextsByContext(
+      const GetChildrenContextsByContextRequest& request,
+      GetChildrenContextsByContextResponse* response) override;
 
 
  private:
