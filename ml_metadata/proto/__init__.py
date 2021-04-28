@@ -28,6 +28,7 @@ Context = metadata_store_pb2.Context
 Event = metadata_store_pb2.Event
 Attribution = metadata_store_pb2.Attribution
 Association = metadata_store_pb2.Association
+ParentContext = metadata_store_pb2.ParentContext
 
 ArtifactType = metadata_store_pb2.ArtifactType
 ExecutionType = metadata_store_pb2.ExecutionType
@@ -71,6 +72,10 @@ An attribution represents the relationship between artifacts and contexts.
 
 Association.__doc__ = """
 An association represents the relationship between executions and contexts.
+"""
+
+ParentContext.__doc__ = """
+A parental context represents the relationship between contexts.
 """
 
 ArtifactType.__doc__ = """

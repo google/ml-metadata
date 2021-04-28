@@ -2,7 +2,8 @@
 
 ## Major Features and Improvements
 
-*   Implements ParentContext creation and retrieval in MLMD gRPC APIs.
+*   Implements ParentContext creation and retrieval in MLMD python and gRPC
+    APIs.
 
 ## Bug Fixes and Other Changes
 

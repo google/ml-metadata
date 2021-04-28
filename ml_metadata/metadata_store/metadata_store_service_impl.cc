@@ -707,6 +707,26 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   return transaction_status;
 }
 
+::grpc::Status MetadataStoreServiceImpl::PutParentContexts(
+    ::grpc::ServerContext* context, const PutParentContextsRequest* request,
+    PutParentContextsResponse* response) {
+  std::unique_ptr<MetadataStore> metadata_store;
+  const ::grpc::Status connection_status =
+      ConnectMetadataStore(connection_config_, &metadata_store);
+  if (!connection_status.ok()) {
+    LOG(WARNING) << "Failed to connect to the database: "
+                 << connection_status.error_message();
+    return connection_status;
+  }
+  const ::grpc::Status transaction_status =
+      ToGRPCStatus(metadata_store->PutParentContexts(*request, response));
+  if (!transaction_status.ok()) {
+    LOG(WARNING) << "PutParentContexts failed: "
+                 << transaction_status.error_message();
+  }
+  return transaction_status;
+}
+
 ::grpc::Status MetadataStoreServiceImpl::GetContextsByArtifact(
     ::grpc::ServerContext* context, const GetContextsByArtifactRequest* request,
     GetContextsByArtifactResponse* response) {
@@ -784,6 +804,48 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
       ToGRPCStatus(metadata_store->GetExecutionsByContext(*request, response));
   if (!transaction_status.ok()) {
     LOG(WARNING) << "GetExecutionsByContext failed: "
+                 << transaction_status.error_message();
+  }
+  return transaction_status;
+}
+
+::grpc::Status MetadataStoreServiceImpl::GetParentContextsByContext(
+    ::grpc::ServerContext* context,
+    const GetParentContextsByContextRequest* request,
+    GetParentContextsByContextResponse* response) {
+  std::unique_ptr<MetadataStore> metadata_store;
+  const ::grpc::Status connection_status =
+      ConnectMetadataStore(connection_config_, &metadata_store);
+  if (!connection_status.ok()) {
+    LOG(WARNING) << "Failed to connect to the database: "
+                 << connection_status.error_message();
+    return connection_status;
+  }
+  const ::grpc::Status transaction_status = ToGRPCStatus(
+      metadata_store->GetParentContextsByContext(*request, response));
+  if (!transaction_status.ok()) {
+    LOG(WARNING) << "GetParentContextsByContext failed: "
+                 << transaction_status.error_message();
+  }
+  return transaction_status;
+}
+
+::grpc::Status MetadataStoreServiceImpl::GetChildrenContextsByContext(
+    ::grpc::ServerContext* context,
+    const GetChildrenContextsByContextRequest* request,
+    GetChildrenContextsByContextResponse* response) {
+  std::unique_ptr<MetadataStore> metadata_store;
+  const ::grpc::Status connection_status =
+      ConnectMetadataStore(connection_config_, &metadata_store);
+  if (!connection_status.ok()) {
+    LOG(WARNING) << "Failed to connect to the database: "
+                 << connection_status.error_message();
+    return connection_status;
+  }
+  const ::grpc::Status transaction_status = ToGRPCStatus(
+      metadata_store->GetChildrenContextsByContext(*request, response));
+  if (!transaction_status.ok()) {
+    LOG(WARNING) << "GetChildrenContextsByContext failed: "
                  << transaction_status.error_message();
   }
   return transaction_status;

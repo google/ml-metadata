@@ -175,6 +175,10 @@ class MetadataStoreServiceImpl final
       const PutAttributionsAndAssociationsRequest* request,
       PutAttributionsAndAssociationsResponse* response) override;
 
+  ::grpc::Status PutParentContexts(
+      ::grpc::ServerContext* context, const PutParentContextsRequest* request,
+      PutParentContextsResponse* response) override;
+
   ::grpc::Status GetContextsByArtifact(
       ::grpc::ServerContext* context,
       const GetContextsByArtifactRequest* request,
@@ -194,6 +198,16 @@ class MetadataStoreServiceImpl final
       ::grpc::ServerContext* context,
       const GetExecutionsByContextRequest* request,
       GetExecutionsByContextResponse* response) override;
+
+  ::grpc::Status GetParentContextsByContext(
+      ::grpc::ServerContext* context,
+      const GetParentContextsByContextRequest* request,
+      GetParentContextsByContextResponse* response) override;
+
+  ::grpc::Status GetChildrenContextsByContext(
+      ::grpc::ServerContext* context,
+      const GetChildrenContextsByContextRequest* request,
+      GetChildrenContextsByContextResponse* response) override;
 
  private:
   const ConnectionConfig connection_config_;

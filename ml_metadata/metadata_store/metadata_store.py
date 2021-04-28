@@ -1239,6 +1239,26 @@ class MetadataStore(object):
     )
     self._call('PutAttributionsAndAssociations', request, response)
 
+  def put_parent_contexts(
+      self, parent_contexts: Sequence[proto.ParentContext]) -> None:
+    """Inserts parent contexts in the database.
+
+    The `child_id` and `parent_id` in every parent context must already exist.
+
+    Args:
+      parent_contexts: A list of parent contexts to insert.
+
+    Raises:
+      errors.InvalidArgumentError: if no context matches the `child_id` or no
+        context matches the `parent_id` in any parent context.
+      errors.AlreadyExistsError: if the same parent context already exists.
+    """
+    request = metadata_store_service_pb2.PutParentContextsRequest()
+    for x in parent_contexts:
+      request.parent_contexts.add().CopyFrom(x)
+    response = metadata_store_service_pb2.PutParentContextsResponse()
+    self._call('PutParentContexts', request, response)
+
   def get_contexts_by_artifact(self, artifact_id: int) -> List[proto.Context]:
     """Gets all context that an artifact is attributed to.
 
@@ -1383,6 +1403,50 @@ class MetadataStore(object):
     self._call('GetEventsByArtifactIDs', request, response)
     result = []
     for x in response.events:
+      result.append(x)
+    return result
+
+  def get_parent_contexts_by_context(self,
+                                     context_id: int) -> List[proto.Context]:
+    """Gets all parent contexts of a context.
+
+    Args:
+      context_id: The id of the querying context.
+
+    Returns:
+      Parent contexts of the querying context.
+
+    Raises:
+      errors.InternalError: if query execution fails.
+    """
+    request = metadata_store_service_pb2.GetParentContextsByContextRequest()
+    request.context_id = context_id
+    response = metadata_store_service_pb2.GetParentContextsByContextResponse()
+    self._call('GetParentContextsByContext', request, response)
+    result = []
+    for x in response.contexts:
+      result.append(x)
+    return result
+
+  def get_children_contexts_by_context(self,
+                                       context_id: int) -> List[proto.Context]:
+    """Gets all children contexts of a context.
+
+    Args:
+      context_id: The id of the querying context.
+
+    Returns:
+      Children contexts of the querying context.
+
+    Raises:
+      errors.InternalError: if query execution fails.
+    """
+    request = metadata_store_service_pb2.GetChildrenContextsByContextRequest()
+    request.context_id = context_id
+    response = metadata_store_service_pb2.GetChildrenContextsByContextResponse()
+    self._call('GetChildrenContextsByContext', request, response)
+    result = []
+    for x in response.contexts:
       result.append(x)
     return result
 

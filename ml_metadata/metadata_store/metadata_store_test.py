@@ -13,6 +13,7 @@
 # limitations under the License.
 """Tests for ml_metadata.metadata_store.metadata_store."""
 
+import collections
 import os
 import uuid
 
@@ -1632,6 +1633,123 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertLen(got_arifacts, 1)
     self.assertEqual(got_arifacts[0].uri, want_artifact.uri)
     self.assertEmpty(store.get_executions_by_context(want_context.id))
+
+  def test_put_parent_contexts_already_exist_error(self):
+    # Inserts a context type.
+    store = _get_metadata_store()
+    context_type = _create_example_context_type(self._get_test_type_name())
+    context_type_id = store.put_context_type(context_type)
+
+    # Inserts two connected contexts.
+    context_1 = metadata_store_pb2.Context(
+        type_id=context_type_id, name="child_context")
+    context_2 = metadata_store_pb2.Context(
+        type_id=context_type_id, name="parent_context")
+    context_ids = store.put_contexts([context_1, context_2])
+
+    # Inserts a parent context.
+    parent_context = metadata_store_pb2.ParentContext(
+        child_id=context_ids[0], parent_id=context_ids[1])
+    store.put_parent_contexts([parent_context])
+
+    # Recreates the same parent context should returns AlreadyExists error.
+    with self.assertRaises(errors.AlreadyExistsError):
+      store.put_parent_contexts([parent_context])
+
+  def test_put_parent_contexts_invalid_argument_error(self):
+    # Inserts a context type.
+    store = _get_metadata_store()
+    context_type = _create_example_context_type(self._get_test_type_name())
+    context_type_id = store.put_context_type(context_type)
+
+    # Creates two not exist context ids.
+    stored_context = metadata_store_pb2.Context(
+        type_id=context_type_id, name="stored_context")
+    context_ids = store.put_contexts([stored_context])
+    stored_context_id = context_ids[0]
+    not_exist_context_id = stored_context_id + 1
+    not_exist_context_id_2 = stored_context_id + 2
+
+    # Enumerates the case of creating parent context with invalid argument
+    # (context id cannot be found in the database).
+    # Six invalid argument cases:
+    # 1. no parent id, no child id.
+    # 2. no parent id.
+    # 3. no children id.
+    # 4. both parent and children id are not valid.
+    # 5. parent id is not valid.
+    # 6. children id is not valid.
+    invalid_parent_contexts = [
+        metadata_store_pb2.ParentContext(child_id=None, parent_id=None),
+        metadata_store_pb2.ParentContext(
+            child_id=stored_context_id, parent_id=None),
+        metadata_store_pb2.ParentContext(
+            child_id=None, parent_id=stored_context_id),
+        metadata_store_pb2.ParentContext(
+            child_id=not_exist_context_id, parent_id=not_exist_context_id_2),
+        metadata_store_pb2.ParentContext(
+            child_id=stored_context_id, parent_id=not_exist_context_id_2),
+        metadata_store_pb2.ParentContext(
+            child_id=not_exist_context_id, parent_id=stored_context_id)
+    ]
+
+    for invalid_parent_context in invalid_parent_contexts:
+      with self.assertRaises(errors.InvalidArgumentError):
+        store.put_parent_contexts([invalid_parent_context])
+
+  def test_put_parent_contexts_and_get_linked_context_by_context(self):
+    # Inserts a context type.
+    store = _get_metadata_store()
+    context_type = _create_example_context_type(self._get_test_type_name())
+    context_type_id = store.put_context_type(context_type)
+
+    # Creates some contexts to be inserted into the later parent context
+    # relationship.
+    num_contexts = 7
+    stored_contexts = []
+    for i in range(num_contexts):
+      stored_contexts.append(
+          metadata_store_pb2.Context(
+              type_id=context_type_id, name=("stored_context_" + str(i))))
+    stored_context_ids = store.put_contexts(stored_contexts)
+    for context, context_id in zip(stored_contexts, stored_context_ids):
+      context.id = context_id
+
+    # Prepares a list of parent contexts and stores every parent context
+    # relationship for each context.
+    want_parents = collections.defaultdict(list)
+    want_children = collections.defaultdict(list)
+    stored_parent_contexts = []
+
+    def prepares_parent_context(child_idx, parent_idx):
+      stored_parent_contexts.append(
+          metadata_store_pb2.ParentContext(
+              child_id=stored_contexts[child_idx].id,
+              parent_id=stored_contexts[parent_idx].id))
+      want_parents[child_idx].append(stored_contexts[parent_idx])
+      want_children[parent_idx].append(stored_contexts[child_idx])
+
+    prepares_parent_context(child_idx=1, parent_idx=0)
+    prepares_parent_context(child_idx=2, parent_idx=0)
+    prepares_parent_context(child_idx=3, parent_idx=2)
+    prepares_parent_context(child_idx=6, parent_idx=1)
+    prepares_parent_context(child_idx=5, parent_idx=4)
+    prepares_parent_context(child_idx=6, parent_idx=5)
+    store.put_parent_contexts(stored_parent_contexts)
+
+    # Verifies the parent contexts by looking up and stored result.
+    for i in range(num_contexts):
+      got_parents = store.get_parent_contexts_by_context(stored_contexts[i].id)
+      got_children = store.get_children_contexts_by_context(
+          stored_contexts[i].id)
+      self.assertLen(got_parents, len(want_parents[i]))
+      self.assertLen(got_children, len(want_children[i]))
+      for got_parent, want_parent in zip(got_parents, want_parents[i]):
+        self.assertEqual(got_parent.id, want_parent.id)
+        self.assertEqual(got_parent.name, want_parent.name)
+      for got_child, want_child in zip(got_children, want_children[i]):
+        self.assertEqual(got_child.id, want_child.id)
+        self.assertEqual(got_child.name, want_child.name)
 
   def test_downgrade_metadata_store(self):
     # create a metadata store and init to the current library version
