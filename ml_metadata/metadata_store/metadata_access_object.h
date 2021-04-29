@@ -383,11 +383,13 @@ class MetadataAccessObject {
                                          int64* event_id) = 0;
 
   // Queries the events associated with a collection of artifact_ids.
+  // Returns NOT_FOUND error, if no `events` can be found.
   // Returns INVALID_ARGUMENT error, if the `events` is null.
   virtual tensorflow::Status FindEventsByArtifacts(
       const std::vector<int64>& artifact_ids, std::vector<Event>* events) = 0;
 
   // Queries the events associated with a collection of execution_ids.
+  // Returns NOT_FOUND error, if no `events` can be found.
   // Returns INVALID_ARGUMENT error, if the `events` is null.
   virtual tensorflow::Status FindEventsByExecutions(
       const std::vector<int64>& execution_ids, std::vector<Event>* events) = 0;
