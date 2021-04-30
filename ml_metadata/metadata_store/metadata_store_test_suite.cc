@@ -792,9 +792,6 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypeGetExecutionTypesByIDTwo) {
 }
 
 TEST_P(MetadataStoreTestSuite, PutTypeWithVersionsGetType) {
-  if (!metadata_store_container_->HasTypeVersionSupport()) {
-    return;
-  }
   // Setup: a list of type pbtxt used to upsert types in an order.
   // The list of types share the same name with different versions, and the
   // expected output is three different types.
@@ -834,9 +831,6 @@ TEST_P(MetadataStoreTestSuite, PutTypeWithVersionsGetType) {
 }
 
 TEST_P(MetadataStoreTestSuite, EvolveTypeWithVersionsGetType) {
-  if (!metadata_store_container_->HasTypeVersionSupport()) {
-    return;
-  }
   // Setup: a list of type pbtxt used to upsert types in an order.
   // The list of types share the same name and version, and evolved by adding
   // more properties. The expected output is a single type with 3 properties.
@@ -911,9 +905,6 @@ TEST_P(MetadataStoreTestSuite, EvolveTypeWithVersionsGetType) {
 }
 
 TEST_P(MetadataStoreTestSuite, TypeWithNullAndEmptyStringVersionsGetType) {
-  if (!metadata_store_container_->HasTypeVersionSupport()) {
-    return;
-  }
   // Test the behavior of registering types with NULL version and empty string
   // version names. The expected behavior is that two types are registered.
   const std::vector<absl::string_view> type_definitions = {
@@ -955,10 +946,6 @@ TEST_P(MetadataStoreTestSuite, TypeWithNullAndEmptyStringVersionsGetType) {
 }
 
 TEST_P(MetadataStoreTestSuite, PutTypesAndArtifactsGetArtifactsThroughType) {
-  if (!metadata_store_container_->HasTypeVersionSupport()) {
-    return;
-  }
-
   std::vector<ArtifactType> types;
   std::vector<Artifact> nodes(3);
   PrepareTypesAndNodesForListNodeThroughType(metadata_store_, types, nodes);
@@ -1028,10 +1015,6 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndArtifactsGetArtifactsThroughType) {
 }
 
 TEST_P(MetadataStoreTestSuite, PutTypesAndExecutionsGetExecutionsThroughType) {
-  if (!metadata_store_container_->HasTypeVersionSupport()) {
-    return;
-  }
-
   std::vector<ExecutionType> types;
   std::vector<Execution> nodes(3);
   PrepareTypesAndNodesForListNodeThroughType(metadata_store_, types, nodes);
@@ -1104,10 +1087,6 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndExecutionsGetExecutionsThroughType) {
 }
 
 TEST_P(MetadataStoreTestSuite, PutTypesAndContextsGetContextsThroughType) {
-  if (!metadata_store_container_->HasTypeVersionSupport()) {
-    return;
-  }
-
   std::vector<ContextType> types;
   std::vector<Context> nodes(3);
   PrepareTypesAndNodesForListNodeThroughType(metadata_store_, types, nodes);

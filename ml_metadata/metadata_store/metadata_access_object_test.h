@@ -74,9 +74,6 @@ class MetadataAccessObjectContainer {
   // Tests if there is parent type query support.
   virtual bool HasParentTypeSupport() { return false;}
 
-  // Tests if there is type version and description query support.
-  virtual bool HasTypeVersionSupport() { return false; }
-
   // Initializes the previous version of the database for downgrade.
   virtual tensorflow::Status SetupPreviousVersionForDowngrade(
       int64 version) = 0;
@@ -141,8 +138,6 @@ class QueryConfigMetadataAccessObjectContainer
   bool HasFilterQuerySupport() final { return true; }
 
   bool HasParentTypeSupport() final { return true;}
-
-  bool HasTypeVersionSupport() final { return true; }
 
   tensorflow::Status SetupPreviousVersionForDowngrade(int64 version) final;
 

@@ -60,8 +60,6 @@ class RDBMSMetadataStoreContainer : public MetadataStoreContainer {
 
   MetadataStore* GetMetadataStore() override { return metadata_store_.get(); }
 
-  bool HasTypeVersionSupport() override { return true; }
-
  private:
   // MetadataStore that is initialized at RDBMSMetadataStoreContainer
   // construction time.

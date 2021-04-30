@@ -760,9 +760,6 @@ TEST_P(MetadataAccessObjectTest, CreateType) {
 }
 
 TEST_P(MetadataAccessObjectTest, StoreTypeWithVersionAndDescriptions) {
-  if (!metadata_access_object_container_->HasTypeVersionSupport()) {
-    return;
-  }
   TF_ASSERT_OK(Init());
   static char kTypeStr[] = R"(
     name: 'test_type'
@@ -802,9 +799,6 @@ TEST_P(MetadataAccessObjectTest, StoreTypeWithVersionAndDescriptions) {
 }
 
 TEST_P(MetadataAccessObjectTest, StoreTypeWithEmptyVersion) {
-  if (!metadata_access_object_container_->HasTypeVersionSupport()) {
-    return;
-  }
   TF_ASSERT_OK(Init());
   // When the input version = empty string, it is treated as unset.
   static constexpr char kEmptyStringVersionTypeStr[] =
