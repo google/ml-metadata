@@ -26,28 +26,28 @@ namespace ml_metadata {
 // Generates the WHERE clause for ListOperation.
 // On success `sql_query_clause` is appended with the constructed WHERE clause
 // based on |options|.
-// |id_offset| is used along with field offset as Id is the unique field used to
-// break ties for fields that might have duplicate entries. For e.g. there could
-// be two resources with same last_update_time. In such cases to  break the tie
-// in ordering, id offset is used. Also if during the calls, the node is updated
-// and its last_update_time has been changed, running the pagination query
-// again, the updated node will moved to earlier pages.
-// NOTE: The word 'WHERE' is not part of the returned clause the caller is
-// expected to add the word and construct the complete query.
-// Returns INVALID_ARGUMENT error if the |options| specified is invalid.
-// For example, given a ListOperationOptions message:
-// {
-//    max_result_size: 1,
-//    order_by_field: {
-//      field: CREATE_TIME,
-//      is_asc: false
-//    }
-// }
-// Appends "`create_time_since_epoch` < |field_offset| AND `id` < |id_offset|`"
-// at the end of `sql_query_clause`.
+// For the first page of results based on the ordering field this method
+// generates a ordering clause based only on that field, e.g.,
+// `create_time_since_epoch`  <= INT_MAX (for desc) and
+// `create_time_since_epoch` >= 0 (for asc).
+// For following pages method first decodes the next_page_token set in `options`
+// and validates the token.
+// Based on the ordering field the generated clause is as follows:
+//  1. CREATE_TIME
+//   `create_time_since_epoch` <= |options.field_offset| AND
+//       `id` < |options.id_offset|`
+//  2. LAST_UPDATE_TIME
+//   `last_update_time_since_epoch` <= |options.field_offset| AND
+//       `id` NOT IN(options.list_ids)`
+//    list_ids - Is the list of trailing node ids in the previous page that have
+//    the same last_update_time_since_epoch value.
+//  3. ID
+//    `id < |options.field_offset|.
+//
+// Returns INVALID_ARGUMENT error if the `options` or `next_page_token`
+// specified is invalid.
 tensorflow::Status AppendOrderingThresholdClause(
-    const ListOperationOptions& options, int64 id_offset, int64 field_offset,
-    std::string& sql_query_clause);
+    const ListOperationOptions& options, std::string& sql_query_clause);
 
 // Generates the ORDER BY clause for ListOperation.
 // On success `sql_query_clause` is appended with the constructed ORDER BY

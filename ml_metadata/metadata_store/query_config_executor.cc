@@ -602,19 +602,6 @@ tensorflow::Status QueryConfigExecutor::ListNodeIDsUsingOptions(
   if (candidate_ids && candidate_ids->empty()) {
     return tensorflow::Status::OK();
   }
-  int64 id_offset, field_offset;
-  if (!options.next_page_token().empty()) {
-    ListOperationNextPageToken next_page_token;
-    TF_RETURN_IF_ERROR(DecodeListOperationNextPageToken(
-        options.next_page_token(), next_page_token));
-    TF_RETURN_IF_ERROR(ValidateListOperationOptionsAreIdentical(
-        next_page_token.set_options(), options));
-    id_offset = next_page_token.id_offset();
-    field_offset = next_page_token.field_offset();
-  } else {
-    SetListOperationInitialValues(options, field_offset, id_offset);
-  }
-
   std::string sql_query;
   if (std::is_same<Node, Artifact>::value) {
     sql_query = "SELECT `id` FROM `Artifact` WHERE";
@@ -632,8 +619,7 @@ tensorflow::Status QueryConfigExecutor::ListNodeIDsUsingOptions(
                               Bind(*candidate_ids));
   }
 
-  TF_RETURN_IF_ERROR(AppendOrderingThresholdClause(options, id_offset,
-                                                   field_offset, sql_query));
+  TF_RETURN_IF_ERROR(AppendOrderingThresholdClause(options, sql_query));
   TF_RETURN_IF_ERROR(AppendOrderByClause(options, sql_query));
   TF_RETURN_IF_ERROR(AppendLimitClause(options, sql_query));
   return ExecuteQuery(sql_query, record_set);

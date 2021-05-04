@@ -16,6 +16,7 @@ limitations under the License.
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/strings/escaping.h"
 #include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
@@ -37,33 +38,74 @@ ListOperationOptions BasicListOperationOptionsAsc() {
   )pb");
 }
 
+ListOperationNextPageToken BasicListOperationNextPageToken() {
+  return testing::ParseTextProtoOrDie<ListOperationNextPageToken>(R"pb(
+    field_offset: 56894,
+    id_offset: 100
+  )pb");
+}
+
 TEST(ListOperationQueryHelperTest, OrderingWhereClauseDesc) {
-  const ListOperationOptions options = BasicListOperationOptionsDesc();
+  ListOperationOptions options = BasicListOperationOptionsDesc();
+  ListOperationNextPageToken next_page_token =
+      BasicListOperationNextPageToken();
+  *next_page_token.mutable_set_options() = options;
+  options.set_next_page_token(
+      absl::WebSafeBase64Escape(next_page_token.SerializeAsString()));
   std::string where_clause;
-  TF_ASSERT_OK(AppendOrderingThresholdClause(
-      options, /* id_offset= */ 100, /* field_offset= */ 56894, where_clause));
+  TF_ASSERT_OK(AppendOrderingThresholdClause(options, where_clause));
   EXPECT_EQ(where_clause,
             " `create_time_since_epoch` <= 56894 AND `id` < 100 ");
 }
 
 TEST(ListOperationQueryHelperTest, OrderingWhereClauseAsc) {
   ListOperationOptions options = BasicListOperationOptionsAsc();
+  ListOperationNextPageToken next_page_token =
+      BasicListOperationNextPageToken();
+  *next_page_token.mutable_set_options() = options;
+  options.set_next_page_token(
+      absl::WebSafeBase64Escape(next_page_token.SerializeAsString()));
+
   std::string where_clause;
-  TF_ASSERT_OK(AppendOrderingThresholdClause(
-      options, /* id_offset= */ 100, /* field_offset= */ 56894, where_clause));
+  TF_ASSERT_OK(AppendOrderingThresholdClause(options, where_clause));
   EXPECT_EQ(where_clause,
             " `create_time_since_epoch` >= 56894 AND `id` > 100 ");
 }
 
+TEST(ListOperationQueryHelperTest, OrderingOnLastUpdateTimeDesc) {
+  ListOperationOptions options =
+      testing::ParseTextProtoOrDie<ListOperationOptions>(R"pb(
+        max_result_size: 1,
+        order_by_field: { field: LAST_UPDATE_TIME, is_asc: false }
+      )pb");
+
+  ListOperationNextPageToken next_page_token;
+  next_page_token.add_listed_ids(6);
+  next_page_token.add_listed_ids(5);
+  next_page_token.set_field_offset(56894);
+  *next_page_token.mutable_set_options() = options;
+  options.set_next_page_token(
+      absl::WebSafeBase64Escape(next_page_token.SerializeAsString()));
+  std::string where_clause;
+  TF_ASSERT_OK(AppendOrderingThresholdClause(options, where_clause));
+  EXPECT_EQ(where_clause,
+            " `last_update_time_since_epoch` <= 56894 AND `id` NOT IN (6,5) ");
+}
+
 TEST(ListOperationQueryHelperTest, OrderingWhereClauseById) {
-  const ListOperationOptions options =
+  ListOperationOptions options =
       testing::ParseTextProtoOrDie<ListOperationOptions>(R"pb(
         max_result_size: 1,
         order_by_field: { field: ID, is_asc: false }
       )pb");
+
+  ListOperationNextPageToken next_page_token;
+  next_page_token.set_field_offset(100);
+  *next_page_token.mutable_set_options() = options;
+  options.set_next_page_token(
+      absl::WebSafeBase64Escape(next_page_token.SerializeAsString()));
   std::string where_clause;
-  TF_ASSERT_OK(AppendOrderingThresholdClause(
-      options, /* id_offset= */ 100, /* field_offset= */ 100, where_clause));
+  TF_ASSERT_OK(AppendOrderingThresholdClause(options, where_clause));
   EXPECT_EQ(where_clause, " `id` < 100 ");
 }
 

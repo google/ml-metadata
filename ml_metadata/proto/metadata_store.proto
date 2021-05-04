@@ -705,10 +705,9 @@ message ListOperationNextPageToken {
   // Id offset within the resultset to start next page.
   // Id offset is returned as Id is the unique field used to break ties for
   // fields that might have duplicate entries, e.g. there could be two
-  // resources with same last_update_time. In such cases to  break the tie in
-  // ordering, id offset is used. Also if during the calls, the node is updated,
-  // and its last_update_time has been changed, running the pagination query
-  // again, the updated node will moved to earlier pages.
+  // resources with same create_time. In such cases to  break the tie in
+  // ordering, id offset is used.
+  // This field is currently only set whe order_by field is CREATE_TIME.
   optional int64 id_offset = 1;
 
   // Offset value of the order by field. If ID is used this value is same as
@@ -719,5 +718,11 @@ message ListOperationNextPageToken {
   // next_page_token is set by the caller then ListPipelineJobs API will always
   // use options set in the first call.
   optional ListOperationOptions set_options = 3;
+
+  // List of ids that have the same order_by field values. This is used to
+  // ensure List Operation does not return duplicate entries for nodes that have
+  // the same order_by field value.
+  // This field is currently only set whe order_by field is LAST_UPDATE_TIME.
+  repeated int64 listed_ids = 4;
 }
 

@@ -16,6 +16,7 @@ limitations under the License.
 #define THIRD_PARTY_ML_METADATA_METADATA_STORE_LIST_OPERATION_UTIL_H_
 
 #include "absl/strings/escaping.h"
+#include "absl/types/span.h"
 #include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "tensorflow/core/lib/core/errors.h"
@@ -23,6 +24,7 @@ limitations under the License.
 namespace ml_metadata {
 
 // Sets initial field and id offset values based on List operation options.
+// TODO(b/187082552): Remove this method.
 void SetListOperationInitialValues(const ListOperationOptions& options,
                                    int64& field_offset, int64& id_offset);
 
@@ -34,19 +36,35 @@ tensorflow::Status DecodeListOperationNextPageToken(
 // Generates encoded list operation next page token string.
 template <typename Node>
 tensorflow::Status BuildListOperationNextPageToken(
-    const Node& node, const ListOperationOptions& options,
+    const absl::Span<const Node> nodes, const ListOperationOptions& options,
     std::string* next_page_token) {
-  int64 field_offset;
+  const Node& last_node = nodes.back();
+  ListOperationNextPageToken list_operation_next_page_token;
   switch (options.order_by_field().field()) {
-    case ListOperationOptions::OrderByField::CREATE_TIME:
-      field_offset = node.create_time_since_epoch();
+    case ListOperationOptions::OrderByField::CREATE_TIME: {
+      list_operation_next_page_token.set_field_offset(
+          last_node.create_time_since_epoch());
+      list_operation_next_page_token.set_id_offset(last_node.id());
       break;
-    case ListOperationOptions::OrderByField::LAST_UPDATE_TIME:
-      field_offset = node.last_update_time_since_epoch();
+    }
+    case ListOperationOptions::OrderByField::LAST_UPDATE_TIME: {
+      list_operation_next_page_token.add_listed_ids(last_node.id());
+      list_operation_next_page_token.set_field_offset(
+          last_node.last_update_time_since_epoch());
+      for (auto it = nodes.rbegin(); it != nodes.rend(); it--) {
+        if (it->last_update_time_since_epoch() !=
+            last_node.last_update_time_since_epoch()) {
+          break;
+        }
+        list_operation_next_page_token.add_listed_ids(it->id());
+      }
       break;
-    case ListOperationOptions::OrderByField::ID:
-      field_offset = node.id();
+    }
+    case ListOperationOptions::OrderByField::ID: {
+      list_operation_next_page_token.set_field_offset(last_node.id());
+      list_operation_next_page_token.set_id_offset(last_node.id());
       break;
+    }
     default:
       return tensorflow::errors::InvalidArgument(
           absl::StrCat("Unsupported field: ",
@@ -54,12 +72,7 @@ tensorflow::Status BuildListOperationNextPageToken(
                            options.order_by_field().field()),
                        " specified in ListOperationOptions"));
   }
-
-  ListOperationNextPageToken list_operation_next_page_token;
-  list_operation_next_page_token.set_field_offset(field_offset);
-  list_operation_next_page_token.set_id_offset(node.id());
   *list_operation_next_page_token.mutable_set_options() = options;
-
   *next_page_token = absl::WebSafeBase64Escape(
       list_operation_next_page_token.SerializeAsString());
   return tensorflow::Status::OK();
@@ -68,7 +81,8 @@ tensorflow::Status BuildListOperationNextPageToken(
 // Ensures that ListOperationOptions have not changed between
 // calls. |previous_options| represents options used in the previous call and
 // |current_options| represents options used in the current call.
-// Validation only validates order_by_fields in ListOperationOptions.
+// Validation validates order_by_fields and filter_query in
+// ListOperationOptions.
 tensorflow::Status ValidateListOperationOptionsAreIdentical(
     const ListOperationOptions& previous_options,
     const ListOperationOptions& current_options);

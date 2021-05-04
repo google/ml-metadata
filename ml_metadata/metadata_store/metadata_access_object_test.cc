@@ -1761,6 +1761,90 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithIdFieldOptions) {
   EXPECT_EQ(stored_artifacts_count, seen_artifacts_count);
 }
 
+TEST_P(MetadataAccessObjectTest, ListArtifactsOnLastUpdateTime) {
+  if (!metadata_access_object_container_->PerformExtendedTests()) {
+    return;
+  }
+  TF_ASSERT_OK(Init());
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"pb(
+    name: 'test_type'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: DOUBLE }
+    properties { key: 'property_3' value: STRING }
+  )pb");
+  int64 type_id;
+  TF_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
+
+  Artifact sample_artifact = ParseTextProtoOrDie<Artifact>(R"pb(
+    uri: 'testuri://testing/uri'
+    properties {
+      key: 'property_1'
+      value: { int_value: 3 }
+    }
+    properties {
+      key: 'property_2'
+      value: { double_value: 3.0 }
+    }
+    properties {
+      key: 'property_3'
+      value: { string_value: '3' }
+    }
+    custom_properties {
+      key: 'custom_property_1'
+      value: { string_value: '5' }
+    }
+  )pb");
+  sample_artifact.set_type_id(type_id);
+  const int total_stored_artifacts = 6;
+  std::vector<int64> stored_artifact_ids;
+  for (int i = 0; i < total_stored_artifacts; i++) {
+    int64 created_artifact_id;
+    absl::SleepFor(absl::Milliseconds(1));
+    TF_ASSERT_OK(metadata_access_object_->CreateArtifact(sample_artifact,
+                                                         &created_artifact_id));
+    stored_artifact_ids.push_back(created_artifact_id);
+  }
+
+  // Setting the expected list in the order [3, 2, 1, 6, 5, 4]
+  std::list<int64> expected_artifact_ids;
+  for (int i = 3; i < total_stored_artifacts; i++) {
+    expected_artifact_ids.push_front(stored_artifact_ids[i]);
+  }
+
+  sample_artifact.set_state(ml_metadata::Artifact::State::Artifact_State_LIVE);
+  for (int i = 0; i < 3; i++) {
+    sample_artifact.set_id(stored_artifact_ids[i]);
+    absl::SleepFor(absl::Milliseconds(1));
+    TF_ASSERT_OK(metadata_access_object_->UpdateArtifact(sample_artifact));
+    expected_artifact_ids.push_front(stored_artifact_ids[i]);
+  }
+
+  const int page_size = 2;
+  ListOperationOptions list_options =
+      ParseTextProtoOrDie<ListOperationOptions>(R"pb(
+        max_result_size: 2,
+        order_by_field: { field: LAST_UPDATE_TIME is_asc: false }
+      )pb");
+
+  std::string next_page_token;
+  do {
+    std::vector<Artifact> got_artifacts;
+    TF_ASSERT_OK(metadata_access_object_->ListArtifacts(
+        list_options, &got_artifacts, &next_page_token));
+    EXPECT_LE(got_artifacts.size(), page_size);
+    for (const Artifact& artifact : got_artifacts) {
+      sample_artifact.set_id(expected_artifact_ids.front());
+      EXPECT_THAT(artifact, EqualsProto(sample_artifact, /*ignore_fields=*/{
+                                            "state", "create_time_since_epoch",
+                                            "last_update_time_since_epoch"}));
+      expected_artifact_ids.pop_front();
+    }
+    list_options.set_next_page_token(next_page_token);
+  } while (!next_page_token.empty());
+
+  EXPECT_THAT(expected_artifact_ids, IsEmpty());
+}
+
 TEST_P(MetadataAccessObjectTest, ListArtifactsWithChangedOptions) {
   TF_ASSERT_OK(Init());
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(

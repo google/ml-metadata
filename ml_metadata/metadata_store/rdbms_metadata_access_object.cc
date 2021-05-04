@@ -1591,8 +1591,7 @@ tensorflow::Status RDBMSMetadataAccessObject::ListNodes(
   if (nodes->size() > options.max_result_size()) {
     // Removing the extra node retrieved for last page detection.
     nodes->pop_back();
-    Node last_node = nodes->back();
-    TF_RETURN_IF_ERROR(BuildListOperationNextPageToken<Node>(last_node, options,
+    TF_RETURN_IF_ERROR(BuildListOperationNextPageToken<Node>(*nodes, options,
                                                              next_page_token));
   } else {
     *next_page_token = "";
