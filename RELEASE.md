@@ -7,6 +7,10 @@
 
 ## Bug Fixes and Other Changes
 
+*   When `reuse_context_if_already_exist` is used for PutExecution, returns
+    Aborted instead of AlreadyExists to improve the API contract when there are
+    data races to create the same Context for the first time.
+
 ## Breaking Changes
 
 ## Deprecations

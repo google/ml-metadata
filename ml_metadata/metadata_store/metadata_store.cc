@@ -714,8 +714,19 @@ tensorflow::Status MetadataStore::PutExecution(
         }
       }
       if (context_id == -1) {
-        TF_RETURN_IF_ERROR(
-            UpsertContext(context, metadata_access_object_.get(), &context_id));
+        const tensorflow::Status status =
+            UpsertContext(context, metadata_access_object_.get(), &context_id);
+        // When `reuse_context_if_already_exist`, there are concurrent timelines
+        // to create the same new context. If use the option, let client side
+        // to retry the failed transaction safely.
+        if (request.options().reuse_context_if_already_exist() &&
+            tensorflow::errors::IsAlreadyExists(status)) {
+          return tensorflow::errors::Aborted(
+              "Concurrent creation of the same context at the first time. "
+              "Retry the transaction to reuse the context: ",
+              context.DebugString());
+        }
+        TF_RETURN_IF_ERROR(status);
       }
       response->add_context_ids(context_id);
       TF_RETURN_IF_ERROR(InsertAssociationIfNotExist(
