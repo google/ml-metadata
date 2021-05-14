@@ -313,8 +313,8 @@ association.context_id = experiment_id
 store.put_attributions_and_associations([attribution], [association])
 
 # Query the Artifacts and Executions that are linked to the Context.
-experiment_artifacts = store.get_artifacts_by_context(experiment_id))
-experiment_executions store.get_executions_by_context(experiment_id))
+experiment_artifacts = store.get_artifacts_by_context(experiment_id)
+experiment_executions = store.get_executions_by_context(experiment_id)
 ```
 
 ## Use MLMD with a remote gRPC server
