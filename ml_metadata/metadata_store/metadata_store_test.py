@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for ml_metadata.metadata_store.metadata_store."""
+"""Tests for ml_metadata.MetadataStore."""
 
 import collections
 import os
@@ -21,8 +21,8 @@ from absl import flags
 from absl.testing import absltest
 from absl.testing import parameterized
 
+import ml_metadata as mlmd
 from ml_metadata import errors
-from ml_metadata.metadata_store import metadata_store
 from ml_metadata.proto import metadata_store_pb2
 
 FLAGS = flags.FLAGS
@@ -54,11 +54,11 @@ def _get_metadata_store(grpc_max_receive_message_length=None,
     if not FLAGS.grpc_port:
       raise ValueError("grpc_port argument not set.")
     grpc_connection_config.port = FLAGS.grpc_port
-    return metadata_store.MetadataStore(grpc_connection_config)
+    return mlmd.MetadataStore(grpc_connection_config)
 
   connection_config = metadata_store_pb2.ConnectionConfig()
   connection_config.sqlite.SetInParent()
-  return metadata_store.MetadataStore(connection_config)
+  return mlmd.MetadataStore(connection_config)
 
 
 def _create_example_artifact_type(type_name, type_version=None):
@@ -109,7 +109,7 @@ class MetadataStoreTest(parameterized.TestCase):
     connection_config = metadata_store_pb2.ConnectionConfig()
     for _ in range(3):
       with self.assertRaises(RuntimeError):
-        metadata_store.MetadataStore(connection_config)
+        mlmd.MetadataStore(connection_config)
 
   def test_connection_config_with_retry_options(self):
     # both client and grpc modes have none-zero setting by default.
@@ -119,7 +119,7 @@ class MetadataStoreTest(parameterized.TestCase):
     connection_config.sqlite.SetInParent()
     want_num_retries = 100
     connection_config.retry_options.max_num_retries = want_num_retries
-    store = metadata_store.MetadataStore(connection_config)
+    store = mlmd.MetadataStore(connection_config)
     self.assertEqual(store._max_num_retries, want_num_retries)
 
   def test_connection_config_with_grpc_max_receive_message_length(self):
@@ -195,15 +195,13 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertEqual(artifact_type_result.properties["new_property"],
                      metadata_store_pb2.INT)
 
-  @parameterized.parameters((_create_example_artifact_type,
-                             metadata_store.MetadataStore.put_artifact_type,
-                             metadata_store.MetadataStore.get_artifact_type),
-                            (_create_example_execution_type,
-                             metadata_store.MetadataStore.put_execution_type,
-                             metadata_store.MetadataStore.get_execution_type),
-                            (_create_example_context_type,
-                             metadata_store.MetadataStore.put_context_type,
-                             metadata_store.MetadataStore.get_context_type))
+  @parameterized.parameters(
+      (_create_example_artifact_type, mlmd.MetadataStore.put_artifact_type,
+       mlmd.MetadataStore.get_artifact_type),
+      (_create_example_execution_type, mlmd.MetadataStore.put_execution_type,
+       mlmd.MetadataStore.get_execution_type),
+      (_create_example_context_type, mlmd.MetadataStore.put_context_type,
+       mlmd.MetadataStore.get_context_type))
   def test_put_type_get_type_with_version(self, create_type_fn, put_type_fn,
                                           get_type_fn):
     store = _get_metadata_store()
@@ -221,15 +219,13 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertEqual(type_result.properties["bar"], metadata_store_pb2.STRING)
     self.assertEqual(type_result.properties["baz"], metadata_store_pb2.DOUBLE)
 
-  @parameterized.parameters((_create_example_artifact_type,
-                             metadata_store.MetadataStore.put_artifact_type,
-                             metadata_store.MetadataStore.get_artifact_type),
-                            (_create_example_execution_type,
-                             metadata_store.MetadataStore.put_execution_type,
-                             metadata_store.MetadataStore.get_execution_type),
-                            (_create_example_context_type,
-                             metadata_store.MetadataStore.put_context_type,
-                             metadata_store.MetadataStore.get_context_type))
+  @parameterized.parameters(
+      (_create_example_artifact_type, mlmd.MetadataStore.put_artifact_type,
+       mlmd.MetadataStore.get_artifact_type),
+      (_create_example_execution_type, mlmd.MetadataStore.put_execution_type,
+       mlmd.MetadataStore.get_execution_type),
+      (_create_example_context_type, mlmd.MetadataStore.put_context_type,
+       mlmd.MetadataStore.get_context_type))
   def test_put_type_with_update_get_type_with_version(self, create_type_fn,
                                                       put_type_fn, get_type_fn):
     store = _get_metadata_store()
@@ -253,14 +249,14 @@ class MetadataStoreTest(parameterized.TestCase):
 
   @parameterized.parameters(
       (metadata_store_pb2.ArtifactType(), _create_example_artifact_type,
-       metadata_store.MetadataStore.put_artifact_type,
-       metadata_store.MetadataStore.get_artifact_type),
+       mlmd.MetadataStore.put_artifact_type,
+       mlmd.MetadataStore.get_artifact_type),
       (metadata_store_pb2.ExecutionType(), _create_example_execution_type,
-       metadata_store.MetadataStore.put_execution_type,
-       metadata_store.MetadataStore.get_execution_type),
+       mlmd.MetadataStore.put_execution_type,
+       mlmd.MetadataStore.get_execution_type),
       (metadata_store_pb2.ContextType(), _create_example_context_type,
-       metadata_store.MetadataStore.put_context_type,
-       metadata_store.MetadataStore.get_context_type))
+       mlmd.MetadataStore.put_context_type, mlmd.MetadataStore.get_context_type)
+  )
   def test_put_type_with_omitted_fields_get_type(self, stored_type,
                                                  create_type_fn, put_type_fn,
                                                  get_type_fn):
@@ -284,14 +280,14 @@ class MetadataStoreTest(parameterized.TestCase):
 
   @parameterized.parameters(
       (metadata_store_pb2.ArtifactType(), _create_example_artifact_type,
-       metadata_store.MetadataStore.put_artifact_type,
-       metadata_store.MetadataStore.get_artifact_type),
+       mlmd.MetadataStore.put_artifact_type,
+       mlmd.MetadataStore.get_artifact_type),
       (metadata_store_pb2.ExecutionType(), _create_example_execution_type,
-       metadata_store.MetadataStore.put_execution_type,
-       metadata_store.MetadataStore.get_execution_type),
+       mlmd.MetadataStore.put_execution_type,
+       mlmd.MetadataStore.get_execution_type),
       (metadata_store_pb2.ContextType(), _create_example_context_type,
-       metadata_store.MetadataStore.put_context_type,
-       metadata_store.MetadataStore.get_context_type))
+       mlmd.MetadataStore.put_context_type, mlmd.MetadataStore.get_context_type)
+  )
   def test_put_type_with_omitted_fields_and_add_fields(self, stored_type,
                                                        create_type_fn,
                                                        put_type_fn,
@@ -322,14 +318,14 @@ class MetadataStoreTest(parameterized.TestCase):
 
   @parameterized.parameters(
       (metadata_store_pb2.ArtifactType(), _create_example_artifact_type,
-       metadata_store.MetadataStore.put_artifact_type,
-       metadata_store.MetadataStore.get_artifact_type),
+       mlmd.MetadataStore.put_artifact_type,
+       mlmd.MetadataStore.get_artifact_type),
       (metadata_store_pb2.ExecutionType(), _create_example_execution_type,
-       metadata_store.MetadataStore.put_execution_type,
-       metadata_store.MetadataStore.get_execution_type),
+       mlmd.MetadataStore.put_execution_type,
+       mlmd.MetadataStore.get_execution_type),
       (metadata_store_pb2.ContextType(), _create_example_context_type,
-       metadata_store.MetadataStore.put_context_type,
-       metadata_store.MetadataStore.get_context_type))
+       mlmd.MetadataStore.put_context_type, mlmd.MetadataStore.get_context_type)
+  )
   def test_put_type_with_omitted_fields_get_type_with_version(
       self, stored_type, create_type_fn, put_type_fn, get_type_fn):
     store = _get_metadata_store()
@@ -353,14 +349,14 @@ class MetadataStoreTest(parameterized.TestCase):
 
   @parameterized.parameters(
       (metadata_store_pb2.ArtifactType(), _create_example_artifact_type,
-       metadata_store.MetadataStore.put_artifact_type,
-       metadata_store.MetadataStore.get_artifact_type),
+       mlmd.MetadataStore.put_artifact_type,
+       mlmd.MetadataStore.get_artifact_type),
       (metadata_store_pb2.ExecutionType(), _create_example_execution_type,
-       metadata_store.MetadataStore.put_execution_type,
-       metadata_store.MetadataStore.get_execution_type),
+       mlmd.MetadataStore.put_execution_type,
+       mlmd.MetadataStore.get_execution_type),
       (metadata_store_pb2.ContextType(), _create_example_context_type,
-       metadata_store.MetadataStore.put_context_type,
-       metadata_store.MetadataStore.get_context_type))
+       mlmd.MetadataStore.put_context_type, mlmd.MetadataStore.get_context_type)
+  )
   def test_put_type_with_omitted_fields_and_add_fields_with_version(
       self, stored_type, create_type_fn, put_type_fn, get_type_fn):
     store = _get_metadata_store()
@@ -504,8 +500,7 @@ class MetadataStoreTest(parameterized.TestCase):
     artifact = metadata_store_pb2.Artifact(type_id=type_id)
     artifact_ids = store.put_artifacts([artifact, artifact, artifact])
 
-    got_artifacts = store.get_artifacts(
-        list_options=metadata_store.ListOptions(limit=2))
+    got_artifacts = store.get_artifacts(list_options=mlmd.ListOptions(limit=2))
     self.assertLen(got_artifacts, 2)
     self.assertEqual(got_artifacts[0].id, artifact_ids[2])
     self.assertEqual(got_artifacts[1].id, artifact_ids[1])
@@ -519,7 +514,7 @@ class MetadataStoreTest(parameterized.TestCase):
         [metadata_store_pb2.Artifact(type_id=type_id) for i in range(200)])
 
     got_artifacts = store.get_artifacts(
-        list_options=metadata_store.ListOptions(limit=103))
+        list_options=mlmd.ListOptions(limit=103))
     self.assertLen(got_artifacts, 103)
     for i in range(103):
       self.assertEqual(got_artifacts[i].id, artifact_ids[199 - i])
@@ -536,8 +531,7 @@ class MetadataStoreTest(parameterized.TestCase):
     # does not support ascending ordering as it reuses MySQL instance across
     # tests.
     got_artifacts = store.get_artifacts(
-        list_options=metadata_store.ListOptions(
-            limit=103, order_by=metadata_store.OrderByField.ID))
+        list_options=mlmd.ListOptions(limit=103, order_by=mlmd.OrderByField.ID))
 
     self.assertLen(got_artifacts, 103)
     for i in range(103):
@@ -563,17 +557,14 @@ class MetadataStoreTest(parameterized.TestCase):
 
   @parameterized.parameters(
       (metadata_store_pb2.Artifact(), _create_example_artifact_type,
-       metadata_store.MetadataStore.put_artifact_type,
-       metadata_store.MetadataStore.put_artifacts,
-       metadata_store.MetadataStore.get_artifacts_by_type),
+       mlmd.MetadataStore.put_artifact_type, mlmd.MetadataStore.put_artifacts,
+       mlmd.MetadataStore.get_artifacts_by_type),
       (metadata_store_pb2.Execution(), _create_example_execution_type,
-       metadata_store.MetadataStore.put_execution_type,
-       metadata_store.MetadataStore.put_executions,
-       metadata_store.MetadataStore.get_executions_by_type),
+       mlmd.MetadataStore.put_execution_type, mlmd.MetadataStore.put_executions,
+       mlmd.MetadataStore.get_executions_by_type),
       (metadata_store_pb2.Context(), _create_example_context_type,
-       metadata_store.MetadataStore.put_context_type,
-       metadata_store.MetadataStore.put_contexts,
-       metadata_store.MetadataStore.get_contexts_by_type))
+       mlmd.MetadataStore.put_context_type, mlmd.MetadataStore.put_contexts,
+       mlmd.MetadataStore.get_contexts_by_type))
   def test_put_nodes_get_nodes_by_type_with_version(self, test_node,
                                                     create_type_fn, put_type_fn,
                                                     put_nodes_fn,
@@ -637,17 +628,14 @@ class MetadataStoreTest(parameterized.TestCase):
 
   @parameterized.parameters(
       (metadata_store_pb2.Artifact(), _create_example_artifact_type,
-       metadata_store.MetadataStore.put_artifact_type,
-       metadata_store.MetadataStore.put_artifacts,
-       metadata_store.MetadataStore.get_artifact_by_type_and_name),
+       mlmd.MetadataStore.put_artifact_type, mlmd.MetadataStore.put_artifacts,
+       mlmd.MetadataStore.get_artifact_by_type_and_name),
       (metadata_store_pb2.Execution(), _create_example_execution_type,
-       metadata_store.MetadataStore.put_execution_type,
-       metadata_store.MetadataStore.put_executions,
-       metadata_store.MetadataStore.get_execution_by_type_and_name),
+       mlmd.MetadataStore.put_execution_type, mlmd.MetadataStore.put_executions,
+       mlmd.MetadataStore.get_execution_by_type_and_name),
       (metadata_store_pb2.Context(), _create_example_context_type,
-       metadata_store.MetadataStore.put_context_type,
-       metadata_store.MetadataStore.put_contexts,
-       metadata_store.MetadataStore.get_context_by_type_and_name))
+       mlmd.MetadataStore.put_context_type, mlmd.MetadataStore.put_contexts,
+       mlmd.MetadataStore.get_context_by_type_and_name))
   def test_put_nodes_get_nodes_by_type_and_name_with_version(
       self, test_node, create_type_fn, put_type_fn, put_nodes_fn,
       get_nodes_by_type_and_name_fn):
@@ -902,7 +890,7 @@ class MetadataStoreTest(parameterized.TestCase):
     execution_ids = store.put_executions([execution, execution, execution])
 
     got_executions = store.get_executions(
-        list_options=metadata_store.ListOptions(limit=2))
+        list_options=mlmd.ListOptions(limit=2))
     self.assertLen(got_executions, 2)
     self.assertEqual(got_executions[0].id, execution_ids[2])
     self.assertEqual(got_executions[1].id, execution_ids[1])
@@ -916,7 +904,7 @@ class MetadataStoreTest(parameterized.TestCase):
         [metadata_store_pb2.Execution(type_id=type_id) for i in range(200)])
 
     got_executions = store.get_executions(
-        list_options=metadata_store.ListOptions(limit=103))
+        list_options=mlmd.ListOptions(limit=103))
     self.assertLen(got_executions, 103)
     for i in range(103):
       self.assertEqual(got_executions[i].id, execution_ids[199 - i])
@@ -930,8 +918,7 @@ class MetadataStoreTest(parameterized.TestCase):
         [metadata_store_pb2.Execution(type_id=type_id) for i in range(200)])
 
     got_executions = store.get_executions(
-        list_options=metadata_store.ListOptions(
-            limit=103, order_by=metadata_store.OrderByField.ID))
+        list_options=mlmd.ListOptions(limit=103, order_by=mlmd.OrderByField.ID))
 
     self.assertLen(got_executions, 103)
     for i in range(103):
@@ -1211,16 +1198,13 @@ class MetadataStoreTest(parameterized.TestCase):
       association = metadata_store_pb2.Association(
           context_id=context_id, execution_id=execution_id)
       associations.append(association)
-
     store.put_attributions_and_associations([], associations)
 
-    got_executions = store.get_executions_by_context(context_id)
-    reverse_index = len(execution_ids) - 1
-    for got_execution in got_executions:
-      self.assertEqual(got_execution.id, execution_ids[reverse_index])
-      reverse_index -= 1
-
-    self.assertEqual(reverse_index, -1)
+    got_executions_ids = [
+        execution.id
+        for execution in store.get_executions_by_context(context_id)
+    ]
+    self.assertCountEqual(execution_ids, got_executions_ids)
 
   def test_get_artifacts_by_context_with_pagination(self):
     store = _get_metadata_store()
@@ -1251,16 +1235,12 @@ class MetadataStoreTest(parameterized.TestCase):
       attribution = metadata_store_pb2.Attribution(
           context_id=context_id, artifact_id=artifact_id)
       attributions.append(attribution)
-
     store.put_attributions_and_associations(attributions, [])
 
-    got_artifacts = store.get_artifacts_by_context(context_id)
-    reverse_index = len(artifact_ids) - 1
-    for got_artifact in got_artifacts:
-      self.assertEqual(got_artifact.id, artifact_ids[reverse_index])
-      reverse_index -= 1
-
-    self.assertEqual(reverse_index, -1)
+    got_artifact_ids = [
+        artifact.id for artifact in store.get_artifacts_by_context(context_id)
+    ]
+    self.assertCountEqual(artifact_ids, got_artifact_ids)
 
   def test_put_execution_with_reuse_context_if_already_exist(self):
     store = _get_metadata_store()
@@ -1416,8 +1396,7 @@ class MetadataStoreTest(parameterized.TestCase):
             name=self._get_test_type_name(), type_id=type_id)
     ])
 
-    got_contexts = store.get_contexts(
-        list_options=metadata_store.ListOptions(limit=2))
+    got_contexts = store.get_contexts(list_options=mlmd.ListOptions(limit=2))
     self.assertLen(got_contexts, 2)
     self.assertEqual(got_contexts[0].id, context_ids[2])
     self.assertEqual(got_contexts[1].id, context_ids[1])
@@ -1433,8 +1412,7 @@ class MetadataStoreTest(parameterized.TestCase):
         for i in range(200)
     ])
 
-    got_contexts = store.get_contexts(
-        list_options=metadata_store.ListOptions(limit=103))
+    got_contexts = store.get_contexts(list_options=mlmd.ListOptions(limit=103))
     self.assertLen(got_contexts, 103)
     for i in range(103):
       self.assertEqual(got_contexts[i].id, context_ids[199 - i])
@@ -1451,8 +1429,7 @@ class MetadataStoreTest(parameterized.TestCase):
     ])
 
     got_contexts = store.get_contexts(
-        list_options=metadata_store.ListOptions(
-            limit=103, order_by=metadata_store.OrderByField.ID))
+        list_options=mlmd.ListOptions(limit=103, order_by=mlmd.OrderByField.ID))
 
     self.assertLen(got_contexts, 103)
     for i in range(103):
@@ -1759,22 +1736,21 @@ class MetadataStoreTest(parameterized.TestCase):
       os.remove(db_file)
     connection_config = metadata_store_pb2.ConnectionConfig()
     connection_config.sqlite.filename_uri = db_file
-    metadata_store.MetadataStore(connection_config)
+    mlmd.MetadataStore(connection_config)
 
     # wrong downgrade_to_schema_version
     with self.assertRaisesRegex(errors.InvalidArgumentError,
                                 "downgrade_to_schema_version not specified"):
-      metadata_store.downgrade_schema(connection_config, -1)
+      mlmd.downgrade_schema(connection_config, -1)
 
     # invalid argument for the downgrade_to_schema_version
     with self.assertRaisesRegex(errors.InvalidArgumentError,
                                 "MLMD cannot be downgraded to schema_version"):
       downgrade_to_version = 999999
-      metadata_store.downgrade_schema(connection_config, downgrade_to_version)
+      mlmd.downgrade_schema(connection_config, downgrade_to_version)
 
     # downgrade the metadata store to v0.13.2 where schema version is 0
-    metadata_store.downgrade_schema(
-        connection_config, downgrade_to_schema_version=0)
+    mlmd.downgrade_schema(connection_config, downgrade_to_schema_version=0)
     os.remove(db_file)
 
   def test_enable_metadata_store_upgrade_migration(self):
@@ -1785,18 +1761,17 @@ class MetadataStoreTest(parameterized.TestCase):
       os.remove(db_file)
     connection_config = metadata_store_pb2.ConnectionConfig()
     connection_config.sqlite.filename_uri = db_file
-    metadata_store.MetadataStore(connection_config)
-    metadata_store.downgrade_schema(connection_config, 0)
+    mlmd.MetadataStore(connection_config)
+    mlmd.downgrade_schema(connection_config, 0)
 
     upgrade_conn_config = metadata_store_pb2.ConnectionConfig()
     upgrade_conn_config.sqlite.filename_uri = db_file
     with self.assertRaisesRegex(RuntimeError, "chema migration is disabled"):
       # if disabled then the store cannot be used.
-      metadata_store.MetadataStore(upgrade_conn_config)
+      mlmd.MetadataStore(upgrade_conn_config)
 
     # if enable, then the store can be created
-    metadata_store.MetadataStore(
-        upgrade_conn_config, enable_upgrade_migration=True)
+    mlmd.MetadataStore(upgrade_conn_config, enable_upgrade_migration=True)
     os.remove(db_file)
 
   def test_put_invalid_artifact(self):
