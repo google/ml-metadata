@@ -22,6 +22,7 @@ limitations under the License.
 #include <gtest/gtest.h>
 #include "ml_metadata/metadata_store/metadata_access_object.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
+#include "ml_metadata/util/status_utils.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
 
@@ -216,11 +217,11 @@ class MetadataAccessObjectTest
       LOG(INFO) << "Test against the earlier schema version: "
                 << *metadata_access_object_container_->GetSchemaVersion();
     }
-    TF_CHECK_OK(metadata_source_->Begin());
+    TF_CHECK_OK(FromABSLStatus(metadata_source_->Begin()));
   }
 
   void TearDown() override {
-    TF_CHECK_OK(metadata_source_->Commit());
+    TF_CHECK_OK(FromABSLStatus(metadata_source_->Commit()));
     metadata_source_ = nullptr;
     metadata_access_object_ = nullptr;
     metadata_access_object_container_ = nullptr;

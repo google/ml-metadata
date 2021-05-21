@@ -17,11 +17,11 @@ limitations under the License.
 
 #include <string>
 
+#include "absl/status/status.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "mysql.h"
-#include "tensorflow/core/lib/core/status.h"
 
 namespace ml_metadata {
 
@@ -47,41 +47,41 @@ class MySqlMetadataSource : public MetadataSource {
  private:
   // Connects to the MYSQL backend specified in options_.
   // Returns an INTERNAL error upon any errors from the MYSQL backend.
-  tensorflow::Status ConnectImpl() final;
+  absl::Status ConnectImpl() final;
 
   // Closes the existing open connection to the MYSQL backend.
   // Any existing MYSQL_RES in `result_set_` is also cleaned up.
-  tensorflow::Status CloseImpl() final;
+  absl::Status CloseImpl() final;
 
   // Opens a transaction.
-  tensorflow::Status BeginImpl() final;
+  absl::Status BeginImpl() final;
 
   // Executes a SQL statement and returns the rows if any.
   // Returns an INTERNAL error upon any errors from the MYSQL backend.
-  tensorflow::Status ExecuteQueryImpl(const std::string& query,
-                                      RecordSet* results) final;
+  absl::Status ExecuteQueryImpl(const std::string& query,
+                                RecordSet* results) final;
 
   // Commits the currently open transaction.
-  tensorflow::Status CommitImpl() final;
+  absl::Status CommitImpl() final;
 
   // Rollbacks the currently open transaction.
-  tensorflow::Status RollbackImpl() final;
+  absl::Status RollbackImpl() final;
 
   // Returns an error if the default storage engine doesn't support transaction
   // or OK otherwise.
-  tensorflow::Status CheckTransactionSupport();
+  absl::Status CheckTransactionSupport();
 
   // Runs the given query and stores the MYSQL_RES in result_set_.
   // Any existing MYSQL_RES in `result_set_` is cleaned up prior to issuing
   // the given query.
   // Returns an INTERNAL error upon any errors from the MYSQL backend.
-  tensorflow::Status RunQuery(const std::string& query);
+  absl::Status RunQuery(const std::string& query);
 
   // Discards any existing MYSQL_RES in `result_set_`.
   void DiscardResultSet();
 
   // Converts the MYSQL_RES in `result_set_` to `record_set_out`.
-  tensorflow::Status ConvertMySqlRowSetToRecordSet(RecordSet* record_set_out);
+  absl::Status ConvertMySqlRowSetToRecordSet(RecordSet* record_set_out);
 
   // The handler for the connection to the MYSQL backend.
   // Initialized in ConnectImpl().

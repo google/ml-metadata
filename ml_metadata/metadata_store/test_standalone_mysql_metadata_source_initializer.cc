@@ -15,13 +15,12 @@ limitations under the License.
 #include <memory>
 
 #include "gflags/gflags.h"
+#include <glog/logging.h>
 
 #include "absl/memory/memory.h"
 #include "ml_metadata/metadata_store/mysql_metadata_source.h"
 #include "ml_metadata/metadata_store/test_mysql_metadata_source_initializer.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
-#include "tensorflow/core/lib/core/status.h"
-#include "tensorflow/core/lib/core/status_test_util.h"
 
 DEFINE_string(db_name, "", "Name of MySQL database to connect to");
 DEFINE_string(user_name, "", "MYSQL login id");
@@ -60,17 +59,18 @@ class TestStandaloneMySqlMetadataSourceInitializer
         config.set_socket((FLAGS_socket));
         break;
       default:
-        QCHECK(false) << "Invalid connection_type: "
-                      << static_cast<int>(connection_type);
+        CHECK(false) << "Invalid connection_type: "
+                     << static_cast<int>(connection_type);
     }
 
     metadata_source_ = absl::make_unique<MySqlMetadataSource>(config);
-    TF_CHECK_OK(metadata_source_->Connect());
-    TF_CHECK_OK(metadata_source_->Begin());
-    TF_CHECK_OK(metadata_source_->ExecuteQuery(
-        "DROP DATABASE IF EXISTS " + config.database(), nullptr));
-    TF_CHECK_OK(metadata_source_->Commit());
-    TF_CHECK_OK(metadata_source_->Close());
+    CHECK_EQ(absl::OkStatus(), metadata_source_->Connect());
+    CHECK_EQ(absl::OkStatus(), metadata_source_->Begin());
+    CHECK_EQ(absl::OkStatus(),
+             metadata_source_->ExecuteQuery(
+                 "DROP DATABASE IF EXISTS " + config.database(), nullptr));
+    CHECK_EQ(absl::OkStatus(), metadata_source_->Commit());
+    CHECK_EQ(absl::OkStatus(), metadata_source_->Close());
     return metadata_source_.get();
   }
 

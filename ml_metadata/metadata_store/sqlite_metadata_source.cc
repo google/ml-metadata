@@ -16,14 +16,15 @@ limitations under the License.
 
 #include <random>
 
+#include <glog/logging.h>
+#include "absl/status/status.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "ml_metadata/metadata_store/sqlite_metadata_source_util.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "sqlite3.h"
-#include "tensorflow/core/lib/core/errors.h"
-#include "tensorflow/core/lib/core/status.h"
 
 namespace ml_metadata {
 
@@ -106,65 +107,67 @@ SqliteMetadataSource::SqliteMetadataSource(
         SqliteMetadataSourceConfig::READWRITE_OPENCREATE);
 }
 
-SqliteMetadataSource::~SqliteMetadataSource() { TF_CHECK_OK(CloseImpl()); }
+SqliteMetadataSource::~SqliteMetadataSource() {
+  CHECK_EQ(absl::OkStatus(), CloseImpl());
+}
 
-tensorflow::Status SqliteMetadataSource::ConnectImpl() {
+absl::Status SqliteMetadataSource::ConnectImpl() {
   if (sqlite3_open_v2(config_.filename_uri().c_str(), &db_,
                       GetConnectionFlag(config_), nullptr) != SQLITE_OK) {
     std::string error_message = sqlite3_errmsg(db_);
     sqlite3_close(db_);
     db_ = nullptr;
-    return tensorflow::errors::Internal("Cannot connect sqlite3 database: ",
-                                        error_message);
+    return absl::InternalError(
+        absl::StrCat("Cannot connect sqlite3 database: ", error_message));
   }
   // required to handle cases when tables are locked when executing queries
   sqlite3_busy_handler(db_, &WaitThenRetry, nullptr);
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
-tensorflow::Status SqliteMetadataSource::CloseImpl() {
+absl::Status SqliteMetadataSource::CloseImpl() {
   if (db_ != nullptr) {
     int error_code = sqlite3_close(db_);
     if (error_code != SQLITE_OK) {
-      return tensorflow::errors::Internal(
+      return absl::InternalError(
           absl::StrCat("Cannot close sqlite3 database: ", error_code));
     }
     db_ = nullptr;
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
-tensorflow::Status SqliteMetadataSource::RunStatement(
-    const std::string& query, RecordSet* results = nullptr) {
+absl::Status SqliteMetadataSource::RunStatement(const std::string& query,
+                                                RecordSet* results = nullptr) {
   char* error_message;
   if (sqlite3_exec(db_, query.c_str(), &ConvertSqliteResultsToRecordSet,
                    results, &error_message) != SQLITE_OK) {
     std::string error_details = error_message;
     sqlite3_free(error_message);
     if (absl::StrContains(error_details, "database is locked")) {
-      return tensorflow::errors::Aborted(
+      return absl::AbortedError(
           "Concurrent writes aborted after max number of retries.");
     }
-    return tensorflow::errors::Internal(
-        "Error when executing query: ", error_details, " query: ", query);
+    return absl::InternalError(absl::StrCat(
+        "Error when executing query: ", error_details, " query: ", query));
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
-tensorflow::Status SqliteMetadataSource::ExecuteQueryImpl(
-    const std::string& query, RecordSet* results) {
+absl::Status SqliteMetadataSource::ExecuteQueryImpl(const std::string& query,
+                                                    RecordSet* results) {
   return RunStatement(query, results);
 }
 
-tensorflow::Status SqliteMetadataSource::BeginImpl() {
+absl::Status SqliteMetadataSource::BeginImpl() {
   return RunStatement(kBeginTransaction);
 }
 
-tensorflow::Status SqliteMetadataSource::CommitImpl() {
+absl::Status SqliteMetadataSource::CommitImpl() {
   return RunStatement(kCommitTransaction);
 }
 
-tensorflow::Status SqliteMetadataSource::RollbackImpl() {
+absl::Status SqliteMetadataSource::RollbackImpl() {
   return RunStatement(kRollbackTransaction);
 }
 

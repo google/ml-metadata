@@ -17,6 +17,7 @@ limitations under the License.
 #include <memory>
 
 #include "gflags/gflags.h"
+#include <glog/logging.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -46,25 +47,26 @@ class MysqlMetadataSourceContainer : public MetadataSourceContainer {
 
   // InitTestSchema creates a new table t1(c1 INT, c2 VARCHAR(255)).
   void InitTestSchema() override {
-    TF_CHECK_OK(metadata_source_->Connect());
-    TF_CHECK_OK(metadata_source_->Begin());
-    TF_CHECK_OK(metadata_source_->ExecuteQuery(
-        "CREATE TABLE t1 (c1 INT, c2 VARCHAR(255));", nullptr));
-    TF_CHECK_OK(metadata_source_->Commit());
+    CHECK_EQ(absl::OkStatus(), metadata_source_->Connect());
+    CHECK_EQ(absl::OkStatus(), metadata_source_->Begin());
+    CHECK_EQ(absl::OkStatus(),
+             metadata_source_->ExecuteQuery(
+                 "CREATE TABLE t1 (c1 INT, c2 VARCHAR(255));", nullptr));
+    CHECK_EQ(absl::OkStatus(), metadata_source_->Commit());
   }
 
   // InitSchemaAndPopulateRows creates table t1(c1 INT, c2 VARCHAR(255)) and
   // adds 3 rows to this table: (1,'v1'), (2,'v2'), (3, 'v3').
   void InitSchemaAndPopulateRows() override {
     InitTestSchema();
-    TF_CHECK_OK(metadata_source_->Begin());
-    TF_CHECK_OK(metadata_source_->ExecuteQuery(
-        "INSERT INTO t1 VALUES (1, 'v1')", nullptr));
-    TF_CHECK_OK(metadata_source_->ExecuteQuery(
-        "INSERT INTO t1 VALUES (2, 'v2')", nullptr));
-    TF_CHECK_OK(metadata_source_->ExecuteQuery(
-        "INSERT INTO t1 VALUES (3, 'v3')", nullptr));
-    TF_CHECK_OK(metadata_source_->Commit());
+    CHECK_EQ(absl::OkStatus(), metadata_source_->Begin());
+    CHECK_EQ(absl::OkStatus(), metadata_source_->ExecuteQuery(
+                                   "INSERT INTO t1 VALUES (1, 'v1')", nullptr));
+    CHECK_EQ(absl::OkStatus(), metadata_source_->ExecuteQuery(
+                                   "INSERT INTO t1 VALUES (2, 'v2')", nullptr));
+    CHECK_EQ(absl::OkStatus(), metadata_source_->ExecuteQuery(
+                                   "INSERT INTO t1 VALUES (3, 'v3')", nullptr));
+    CHECK_EQ(absl::OkStatus(), metadata_source_->Commit());
   }
 
  private:
@@ -89,11 +91,12 @@ TEST(MySqlMetadataSourceExtendedTest, TestConnectBySocket) {
   auto metadata_source_initializer = GetTestMySqlMetadataSourceInitializer();
   auto metadata_source = metadata_source_initializer->Init(
       TestMySqlMetadataSourceInitializer::ConnectionType::kSocket);
-  TF_ASSERT_OK(metadata_source->Connect());
-  TF_ASSERT_OK(metadata_source->Begin());
-  TF_ASSERT_OK(metadata_source->ExecuteQuery(
-      "CREATE TABLE t1 (c1 INT, c2 VARCHAR(255));", nullptr));
-  TF_ASSERT_OK(metadata_source->Commit());
+  ASSERT_EQ(absl::OkStatus(), metadata_source->Connect());
+  ASSERT_EQ(absl::OkStatus(), metadata_source->Begin());
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_source->ExecuteQuery(
+                "CREATE TABLE t1 (c1 INT, c2 VARCHAR(255));", nullptr));
+  ASSERT_EQ(absl::OkStatus(), metadata_source->Commit());
   metadata_source_initializer->Cleanup();
 }
 
@@ -104,7 +107,7 @@ TEST(MySqlMetadataSourceExtendedTest, TestEscapeString) {
   auto metadata_source_initializer = GetTestMySqlMetadataSourceInitializer();
   auto metadata_source = metadata_source_initializer->Init(
       TestMySqlMetadataSourceInitializer::ConnectionType::kTcp);
-  TF_CHECK_OK(metadata_source->Connect());
+  CHECK_EQ(absl::OkStatus(), metadata_source->Connect());
   EXPECT_EQ(metadata_source->EscapeString("''"), "\\'\\'");
   EXPECT_EQ(metadata_source->EscapeString("'\'"), "\\'\\\'");
   EXPECT_EQ(metadata_source->EscapeString("'\"text\"'"), "\\'\\\"text\\\"\\'");

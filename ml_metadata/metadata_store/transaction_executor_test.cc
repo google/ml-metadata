@@ -19,7 +19,9 @@ limitations under the License.
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
+#include "ml_metadata/util/status_utils.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
 
@@ -30,12 +32,12 @@ using ::testing::Return;
 
 class MockMetadataSource : public MetadataSource {
  public:
-  MOCK_METHOD(tensorflow::Status, BeginImpl, (), (override));
-  MOCK_METHOD(tensorflow::Status, ConnectImpl, (), (override));
-  MOCK_METHOD(tensorflow::Status, CloseImpl, (), (override));
-  MOCK_METHOD(tensorflow::Status, RollbackImpl, (), (override));
-  MOCK_METHOD(tensorflow::Status, CommitImpl, (), ());
-  MOCK_METHOD(tensorflow::Status, ExecuteQueryImpl,
+  MOCK_METHOD(absl::Status, BeginImpl, (), (override));
+  MOCK_METHOD(absl::Status, ConnectImpl, (), (override));
+  MOCK_METHOD(absl::Status, CloseImpl, (), (override));
+  MOCK_METHOD(absl::Status, RollbackImpl, (), (override));
+  MOCK_METHOD(absl::Status, CommitImpl, (), ());
+  MOCK_METHOD(absl::Status, ExecuteQueryImpl,
               (const std::string& query, RecordSet* results), (override));
   MOCK_METHOD(std::string, EscapeString, (absl::string_view value),
               (const, override));
@@ -44,12 +46,12 @@ class MockMetadataSource : public MetadataSource {
 // Fake Errors.
 const tensorflow::Status kTfFuncErrorStatus =
     tensorflow::errors::Internal("Fake txn body error.");
-const tensorflow::Status kTfConnectErrorStatus =
-    tensorflow::errors::Internal("Fake connection error.");
-const tensorflow::Status kTfCommitErrorStatus =
-    tensorflow::errors::Internal("Fake commit error.");
-const tensorflow::Status kTfRollbackErrorStatus =
-    tensorflow::errors::Internal("Fake rollback error.");
+const absl::Status kTfConnectErrorStatus =
+    absl::InternalError("Fake connection error.");
+const absl::Status kTfCommitErrorStatus =
+    absl::InternalError("Fake commit error.");
+const absl::Status kTfRollbackErrorStatus =
+    absl::InternalError("Fake rollback error.");
 const tensorflow::Status kTfBeginErrorStatus =
     tensorflow::errors::Internal("Fake begin error.");
 
@@ -65,13 +67,13 @@ TEST(TransactionExecutorTest, ReturnOkWhenBothTxnBodyAndCommitOk) {
   // These calls should be called once and only once.
   EXPECT_CALL(mock_metadata_source, BeginImpl())
       .Times(1)
-      .WillOnce(Return(tensorflow::Status::OK()));
+      .WillOnce(Return(absl::OkStatus()));
   EXPECT_CALL(mock_metadata_source, ConnectImpl())
       .Times(1)
-      .WillOnce(Return(tensorflow::Status::OK()));
+      .WillOnce(Return(absl::OkStatus()));
   EXPECT_CALL(mock_metadata_source, CommitImpl())
       .Times(1)
-      .WillOnce(Return(tensorflow::Status::OK()));
+      .WillOnce(Return(absl::OkStatus()));
   // These methods should not be called.
   EXPECT_CALL(mock_metadata_source, RollbackImpl())
       .Times(0);
@@ -79,7 +81,7 @@ TEST(TransactionExecutorTest, ReturnOkWhenBothTxnBodyAndCommitOk) {
       .Times(0);
 
   // Initialize the mock_metadata_source.
-  TF_ASSERT_OK(mock_metadata_source.Connect());
+  TF_ASSERT_OK(FromABSLStatus(mock_metadata_source.Connect()));
   RdbmsTransactionExecutor txn_executor(&mock_metadata_source);
 
   TF_EXPECT_OK(txn_executor.Execute(kFuncReturnOk));
@@ -90,13 +92,13 @@ TEST(TransactionExecutorTest, ReturnErrorWhenTxnBodyReturnsError) {
   // These calls should be called once and only once.
   EXPECT_CALL(mock_metadata_source, BeginImpl())
       .Times(1)
-      .WillOnce(Return(tensorflow::Status::OK()));
+      .WillOnce(Return(absl::OkStatus()));
   EXPECT_CALL(mock_metadata_source, ConnectImpl())
       .Times(1)
-      .WillOnce(Return(tensorflow::Status::OK()));
+      .WillOnce(Return(absl::OkStatus()));
   EXPECT_CALL(mock_metadata_source, RollbackImpl())
       .Times(1)
-      .WillOnce(Return(tensorflow::Status::OK()));
+      .WillOnce(Return(absl::OkStatus()));
   // These methods should not be called.
   EXPECT_CALL(mock_metadata_source, CommitImpl())
       .Times(0);
@@ -104,7 +106,7 @@ TEST(TransactionExecutorTest, ReturnErrorWhenTxnBodyReturnsError) {
       .Times(0);
 
   // Initialize the mock_metadata_source.
-  TF_ASSERT_OK(mock_metadata_source.Connect());
+  TF_ASSERT_OK(FromABSLStatus(mock_metadata_source.Connect()));
   RdbmsTransactionExecutor txn_executor(&mock_metadata_source);
 
   EXPECT_EQ(txn_executor.Execute(kFuncReturnInternalError), kTfFuncErrorStatus);
@@ -118,10 +120,10 @@ TEST(TransactionExecutorTest, ReturnErrorWhenTxnBodyReturnsOkButCommitFails) {
       .WillOnce(Return(kTfCommitErrorStatus));
   EXPECT_CALL(mock_metadata_source, BeginImpl())
       .Times(1)
-      .WillOnce(Return(tensorflow::Status::OK()));
+      .WillOnce(Return(absl::OkStatus()));
   EXPECT_CALL(mock_metadata_source, ConnectImpl())
       .Times(1)
-      .WillOnce(Return(tensorflow::Status::OK()));
+      .WillOnce(Return(absl::OkStatus()));
   EXPECT_CALL(mock_metadata_source, CloseImpl())
       .Times(0);
   EXPECT_CALL(mock_metadata_source, RollbackImpl())
@@ -129,11 +131,12 @@ TEST(TransactionExecutorTest, ReturnErrorWhenTxnBodyReturnsOkButCommitFails) {
       .WillOnce(Return(kTfRollbackErrorStatus));
 
   // Initialize the mock_metadata_source.
-  TF_ASSERT_OK(mock_metadata_source.Connect());
+  TF_ASSERT_OK(FromABSLStatus(mock_metadata_source.Connect()));
   RdbmsTransactionExecutor txn_executor(&mock_metadata_source);
 
   // Return commit error even rollback fails.
-  EXPECT_EQ(txn_executor.Execute(kFuncReturnOk), kTfCommitErrorStatus);
+  EXPECT_EQ(txn_executor.Execute(kFuncReturnOk),
+            FromABSLStatus(kTfCommitErrorStatus));
 }
 
 TEST(TransactionExecutorTest, ReturnConnectErrorWhenConnectFails) {

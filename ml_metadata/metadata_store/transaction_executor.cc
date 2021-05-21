@@ -15,6 +15,8 @@ limitations under the License.
 
 #include "ml_metadata/metadata_store/transaction_executor.h"
 
+#include "absl/status/status.h"
+#include "ml_metadata/util/status_utils.h"
 #include "tensorflow/core/lib/core/errors.h"
 
 namespace ml_metadata {
@@ -26,14 +28,16 @@ tensorflow::Status RdbmsTransactionExecutor::Execute(
         "To use ExecuteTransaction, the metadata_source should be created and "
         "connected");
   }
-  TF_RETURN_IF_ERROR(metadata_source_->Begin());
+
+  TF_RETURN_IF_ERROR(FromABSLStatus(metadata_source_->Begin()));
+
   tensorflow::Status transaction_status = txn_body();
   if (transaction_status.ok()) {
-    transaction_status.Update(metadata_source_->Commit());
+    transaction_status.Update(FromABSLStatus(metadata_source_->Commit()));
   }
   // Commit may fail as well, if so, we do rollback to allow the caller retry.
   if (!transaction_status.ok()) {
-    transaction_status.Update(metadata_source_->Rollback());
+    transaction_status.Update(FromABSLStatus(metadata_source_->Rollback()));
   }
   return transaction_status;
 }

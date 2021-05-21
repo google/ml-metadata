@@ -17,22 +17,21 @@ limitations under the License.
 #include <string>
 #include <utility>
 
+#include <glog/logging.h>
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
+#include "ml_metadata/util/return_utils.h"
 #include "mysql.h"
-#include "tensorflow/core/lib/core/errors.h"
-#include "tensorflow/core/lib/core/status.h"
 
 namespace ml_metadata {
 
 namespace {
 
-namespace errors = tensorflow::errors;
-
-using ::tensorflow::Status;
+using absl::Status;
 
 constexpr char kBeginTransaction[] = "START TRANSACTION";
 constexpr char kCommitTransaction[] = "COMMIT";
@@ -74,9 +73,9 @@ Status ThreadInitAccess() {
   // mysql_thread_end() exactly once when the thread dies.
   thread_local ThreadInitializer initializer;
   if (!initializer.initialized()) {
-    return errors::Internal("mysql thread initialization not done");
+    return absl::InternalError("mysql thread initialization not done");
   }
-  return Status::OK();
+  return absl::OkStatus();
 }
 
 // Checks if config is valid.
@@ -90,19 +89,21 @@ Status CheckConfig(const MySQLDatabaseConfig& config) {
   }
 
   if (!config_errors.empty()) {
-    return errors::InvalidArgument(absl::StrJoin(config_errors, ";"));
+    return absl::InvalidArgumentError(absl::StrJoin(config_errors, ";"));
   }
-  return Status::OK();
+  return absl::OkStatus();
 }
 
 }  // namespace
 
 MySqlMetadataSource::MySqlMetadataSource(const MySQLDatabaseConfig& config)
     : MetadataSource(), config_(config) {
-  TF_CHECK_OK(CheckConfig(config));
+  CHECK_EQ(absl::OkStatus(), CheckConfig(config));
 }
 
-MySqlMetadataSource::~MySqlMetadataSource() { TF_CHECK_OK(CloseImpl()); }
+MySqlMetadataSource::~MySqlMetadataSource() {
+  CHECK_EQ(absl::OkStatus(), CloseImpl());
+}
 
 Status MySqlMetadataSource::ConnectImpl() {
   // Initialize the MYSQL object.
@@ -110,13 +111,14 @@ Status MySqlMetadataSource::ConnectImpl() {
   if (!db_) {
     LOG(ERROR) << "MySQL error: " << mysql_errno(db_) << ": "
                << mysql_error(db_);
-    return errors::Internal("mysql_init failed: errno: ",
-                            mysql_errno(db_), ", error: ", mysql_error(db_));
+    return absl::InternalError(
+        absl::StrCat("mysql_init failed: errno: ", mysql_errno(db_),
+                     ", error: ", mysql_error(db_)));
   }
 
   // Explicitly setup the thread-local initializer.
-  TF_RETURN_WITH_CONTEXT_IF_ERROR(ThreadInitAccess(),
-                                  "MySql thread init failed at ConnectImpl");
+  MLMD_RETURN_WITH_CONTEXT_IF_ERROR(ThreadInitAccess(),
+                                    "MySql thread init failed at ConnectImpl");
 
   // Set connection options
   if (config_.has_ssl_options()) {
@@ -142,72 +144,72 @@ Status MySqlMetadataSource::ConnectImpl() {
           /*clientflag=*/0UL);
 
   if (!db_) {
-    return errors::Internal("mysql_real_connect failed: errno: ",
-                            mysql_errno(db_), ", error: ", mysql_error(db_));
+    return absl::InternalError(
+        absl::StrCat("mysql_real_connect failed: errno: ", mysql_errno(db_),
+                     ", error: ", mysql_error(db_)));
   }
 
   // Return an error if the default storage engine doesn't support transactions.
-  TF_RETURN_WITH_CONTEXT_IF_ERROR(
+  MLMD_RETURN_WITH_CONTEXT_IF_ERROR(
       CheckTransactionSupport(),
       "checking transaction support of default storage engine");
 
   // Create the database if not already present and switch to it.
   const std::string create_database_cmd =
       absl::StrCat("CREATE DATABASE IF NOT EXISTS ", config_.database());
-  TF_RETURN_WITH_CONTEXT_IF_ERROR(RunQuery(create_database_cmd),
-                                  "Creating database ", config_.database(),
-                                  " in ConnectImpl");
+  MLMD_RETURN_WITH_CONTEXT_IF_ERROR(RunQuery(create_database_cmd),
+                                    "Creating database ", config_.database(),
+                                    " in ConnectImpl");
   const std::string use_database_cmd = absl::StrCat("USE ", config_.database());
-  TF_RETURN_WITH_CONTEXT_IF_ERROR(RunQuery(use_database_cmd),
-                                  "Changing to database ", config_.database(),
-                                  " in ConnectImpl");
+  MLMD_RETURN_WITH_CONTEXT_IF_ERROR(RunQuery(use_database_cmd),
+                                    "Changing to database ", config_.database(),
+                                    " in ConnectImpl");
 
-  return Status::OK();
+  return absl::OkStatus();
 }
 
 Status MySqlMetadataSource::CloseImpl() {
   if (db_ != nullptr) {
-    TF_RETURN_IF_ERROR(ThreadInitAccess());
+    MLMD_RETURN_IF_ERROR(ThreadInitAccess());
     DiscardResultSet();
     mysql_close(db_);
     db_ = nullptr;
   }
-  return Status::OK();
+  return absl::OkStatus();
 }
 
 Status MySqlMetadataSource::ExecuteQueryImpl(const std::string& query,
                                              RecordSet* results) {
-  TF_RETURN_WITH_CONTEXT_IF_ERROR(
+  MLMD_RETURN_WITH_CONTEXT_IF_ERROR(
       ThreadInitAccess(), "MySql thread init failed at ExecuteQueryImpl");
 
   // Run the query.
-  Status status = RunQuery(query);
-
-  // Return on failure.
-  TF_RETURN_IF_ERROR(status);
+  MLMD_RETURN_IF_ERROR(RunQuery(query));
 
   // If query is successfull, convert the results.
-  TF_RETURN_WITH_CONTEXT_IF_ERROR(ConvertMySqlRowSetToRecordSet(results),
-                                  "ConvertMySqlRowSetToRecordSet for query ",
-                                  query);
-  return Status::OK();
+  MLMD_RETURN_WITH_CONTEXT_IF_ERROR(ConvertMySqlRowSetToRecordSet(results),
+                                    "ConvertMySqlRowSetToRecordSet for query ",
+                                    query);
+  return absl::OkStatus();
 }
 
 Status MySqlMetadataSource::CommitImpl() {
-  TF_RETURN_WITH_CONTEXT_IF_ERROR(ThreadInitAccess(),
-                                  "MySql thread init failed at CommitImpl");
+  MLMD_RETURN_WITH_CONTEXT_IF_ERROR(ThreadInitAccess(),
+                                    "MySql thread init failed at CommitImpl");
   return RunQuery(kCommitTransaction);
 }
 
 Status MySqlMetadataSource::RollbackImpl() {
-  TF_RETURN_WITH_CONTEXT_IF_ERROR(ThreadInitAccess(),
-                                  "MySql thread init failed at RollbackImpl");
+  MLMD_RETURN_WITH_CONTEXT_IF_ERROR(ThreadInitAccess(),
+                                    "MySql thread init failed at RollbackImpl");
+
   return RunQuery(kRollbackTransaction);
 }
 
 Status MySqlMetadataSource::BeginImpl() {
-  TF_RETURN_WITH_CONTEXT_IF_ERROR(ThreadInitAccess(),
-                                  "MySql thread init failed at BeginImpl");
+  MLMD_RETURN_WITH_CONTEXT_IF_ERROR(ThreadInitAccess(),
+                                    "MySql thread init failed at BeginImpl");
+
   return RunQuery(kBeginTransaction);
 }
 
@@ -215,25 +217,25 @@ Status MySqlMetadataSource::CheckTransactionSupport() {
   constexpr char kCheckTransactionSupport[] =
       "SELECT ENGINE, TRANSACTIONS FROM INFORMATION_SCHEMA.ENGINES WHERE "
       "ENGINE=(SELECT @@default_storage_engine)";
-
-  TF_RETURN_IF_ERROR(RunQuery(kCheckTransactionSupport));
+  MLMD_RETURN_IF_ERROR(RunQuery(kCheckTransactionSupport));
 
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(ConvertMySqlRowSetToRecordSet(&record_set));
+  MLMD_RETURN_IF_ERROR(ConvertMySqlRowSetToRecordSet(&record_set));
   if (record_set.records_size() != 1 ||
       record_set.records(0).values_size() != 2) {
-    return errors::Internal(
-        "Expected query ", kCheckTransactionSupport,
-        " to generate exactly single row with 2 columns, but got ",
-        record_set.DebugString());
+    return absl::InternalError(
+        absl::StrCat("Expected query ", kCheckTransactionSupport,
+                     " to generate exactly single row with 2 columns, but got ",
+                     record_set.DebugString()));
   }
   const RecordSet::Record& record = record_set.records(0);
   if (record.values(1) != "YES") {
-    return errors::Internal(
-        "no transaction support for default_storage_engine ", record.values(0));
+    return absl::InternalError(
+        absl::StrCat("no transaction support for default_storage_engine ",
+                     record.values(0)));
   }
 
-  return Status::OK();
+  return absl::OkStatus();
 }
 
 Status MySqlMetadataSource::RunQuery(const std::string& query) {
@@ -246,28 +248,32 @@ Status MySqlMetadataSource::RunQuery(const std::string& query) {
     // client reports server has gone away, we reconnect the server for the
     // client if the query is begin transaction.
     if (error_number == 2006 && query == kBeginTransaction) {
-      TF_RETURN_IF_ERROR(CloseImpl());
-      TF_RETURN_IF_ERROR(ConnectImpl());
+      MLMD_RETURN_IF_ERROR(CloseImpl());
+      MLMD_RETURN_IF_ERROR(ConnectImpl());
+
       return RunQuery(query);
     }
     // 1213: inno db aborts deadlock when running concurrent transactions.
     // returns Aborted for client side to retry.
     if (error_number == 1213 || error_number == 1205) {
-      return errors::Aborted("mysql_query aborted: errno: ", error_number,
-                             ", error: ", mysql_error(db_));
+      return absl::AbortedError(
+          absl::StrCat("mysql_query aborted: errno: ", error_number,
+                       ", error: ", mysql_error(db_)));
     }
-    return errors::Internal("mysql_query failed: errno: ", error_number,
-                            ", error: ", mysql_error(db_));
+    return absl::InternalError(
+        absl::StrCat("mysql_query failed: errno: ", error_number,
+                     ", error: ", mysql_error(db_)));
   }
 
   result_set_ = mysql_store_result(db_);
   if (!result_set_ && mysql_field_count(db_) != 0) {
-    return errors::Internal("mysql_query ", query,
-                            " returned an unexpected NULL result_set: Errno: ",
-                            mysql_errno(db_), ", Error: ", mysql_error(db_));
+    return absl::InternalError(absl::StrCat(
+        "mysql_query ", query,
+        " returned an unexpected NULL result_set: Errno: ", mysql_errno(db_),
+        ", Error: ", mysql_error(db_)));
   }
 
-  return Status::OK();
+  return absl::OkStatus();
 }
 
 void MySqlMetadataSource::DiscardResultSet() {
@@ -289,7 +295,7 @@ Status MySqlMetadataSource::ConvertMySqlRowSetToRecordSet(
   RecordSet record_set;
 
   if (result_set_ == nullptr) {
-    return Status::OK();
+    return absl::OkStatus();
   }
 
   MYSQL_ROW row;
@@ -301,8 +307,8 @@ Status MySqlMetadataSource::ConvertMySqlRowSetToRecordSet(
     for (uint32 col = 0; col < num_cols; ++col) {
       MYSQL_FIELD* field = mysql_fetch_field_direct(result_set_, col);
       if (field == nullptr) {
-        return errors::Internal(
-            "Error in retrieving column description for index ", col);
+        return absl::InternalError(absl::StrCat(
+            "Error in retrieving column description for index ", col));
       }
       const std::string col_name(field->org_name);
       if (record_set.column_names().empty()) {
@@ -325,7 +331,7 @@ Status MySqlMetadataSource::ConvertMySqlRowSetToRecordSet(
   if (record_set_out != nullptr) {
     *record_set_out = std::move(record_set);
   }
-  return Status::OK();
+  return absl::OkStatus();
 }
 
 std::string MySqlMetadataSource::EscapeString(absl::string_view value) const {

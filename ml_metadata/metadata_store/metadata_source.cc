@@ -14,71 +14,67 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/metadata_source.h"
 
-#include "tensorflow/core/lib/core/errors.h"
-#include "tensorflow/core/lib/core/status.h"
+#include "absl/status/status.h"
+#include "ml_metadata/util/return_utils.h"
 
 namespace ml_metadata {
 
-tensorflow::Status MetadataSource::Connect() {
+absl::Status MetadataSource::Connect() {
   if (is_connected_)
-    return tensorflow::errors::FailedPrecondition(
+    return absl::FailedPreconditionError(
         "The connection has been opened. Close() the current connection before "
         "Connect() again.");
-  TF_RETURN_IF_ERROR(ConnectImpl());
+  MLMD_RETURN_IF_ERROR(ConnectImpl());
   is_connected_ = true;
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
-tensorflow::Status MetadataSource::Close() {
+absl::Status MetadataSource::Close() {
   if (!is_connected_)
-    return tensorflow::errors::FailedPrecondition(
+    return absl::FailedPreconditionError(
         "No connection is opened when calling Close().");
-  TF_RETURN_IF_ERROR(CloseImpl());
+  MLMD_RETURN_IF_ERROR(CloseImpl());
   is_connected_ = false;
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
-tensorflow::Status MetadataSource::ExecuteQuery(const std::string& query,
-                                                RecordSet* results) {
+absl::Status MetadataSource::ExecuteQuery(const std::string& query,
+                                          RecordSet* results) {
   if (!is_connected_)
-    return tensorflow::errors::FailedPrecondition(
-        "No opened connection for querying.");
+    return absl::FailedPreconditionError("No opened connection for querying.");
   if (!transaction_open_)
-    return tensorflow::errors::FailedPrecondition("Transaction not open.");
+    return absl::FailedPreconditionError("Transaction not open.");
   return ExecuteQueryImpl(query, results);
 }
 
-tensorflow::Status MetadataSource::Begin() {
+absl::Status MetadataSource::Begin() {
   if (!is_connected_)
-    return tensorflow::errors::FailedPrecondition(
-        "No opened connection for querying.");
+    return absl::FailedPreconditionError("No opened connection for querying.");
   if (transaction_open_)
-    return tensorflow::errors::FailedPrecondition("Transaction already open.");
-  TF_RETURN_IF_ERROR(BeginImpl());
+    return absl::FailedPreconditionError("Transaction already open.");
+  MLMD_RETURN_IF_ERROR(BeginImpl());
   transaction_open_ = true;
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
-tensorflow::Status MetadataSource::Commit() {
+absl::Status MetadataSource::Commit() {
   if (!is_connected_)
-    return tensorflow::errors::FailedPrecondition(
-        "No opened connection for querying.");
+    return absl::FailedPreconditionError("No opened connection for querying.");
   if (!transaction_open_)
-    return tensorflow::errors::FailedPrecondition("Transaction not open.");
-  TF_RETURN_IF_ERROR(CommitImpl());
+    return absl::FailedPreconditionError("Transaction not open.");
+  MLMD_RETURN_IF_ERROR(CommitImpl());
   transaction_open_ = false;
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
-tensorflow::Status MetadataSource::Rollback() {
+absl::Status MetadataSource::Rollback() {
   if (!is_connected_)
-    return tensorflow::errors::FailedPrecondition(
-        "No opened connection for querying.");
+    return absl::FailedPreconditionError("No opened connection for querying.");
   if (!transaction_open_)
-    return tensorflow::errors::FailedPrecondition("Transaction not open.");
-  TF_RETURN_IF_ERROR(RollbackImpl());
+    return absl::FailedPreconditionError("Transaction not open.");
+  MLMD_RETURN_IF_ERROR(RollbackImpl());
   transaction_open_ = false;
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 }  // namespace ml_metadata

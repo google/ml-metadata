@@ -22,7 +22,6 @@ limitations under the License.
 #include <gtest/gtest.h>
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
-#include "tensorflow/core/lib/core/status_test_util.h"
 
 namespace ml_metadata {
 namespace testing {

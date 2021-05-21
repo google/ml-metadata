@@ -16,12 +16,12 @@ limitations under the License.
 
 #include <memory>
 
+#include <glog/logging.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/memory/memory.h"
 #include "ml_metadata/metadata_store/metadata_source_test_suite.h"
 #include "ml_metadata/metadata_store/test_util.h"
-#include "tensorflow/core/platform/env.h"
 
 namespace ml_metadata {
 namespace testing {
@@ -49,25 +49,26 @@ class SqliteMetadataSourceContainer : public MetadataSourceContainer {
 
   // InitTestSchema creates a new table t1(c1 INT, c2 VARCHAR(255)).
   void InitTestSchema() override {
-    TF_CHECK_OK(metadata_source_->Connect());
-    TF_CHECK_OK(metadata_source_->Begin());
-    TF_CHECK_OK(metadata_source_->ExecuteQuery(
-        "CREATE TABLE t1 (c1 INT, c2 VARCHAR(255));", nullptr));
-    TF_CHECK_OK(metadata_source_->Commit());
+    CHECK_EQ(absl::OkStatus(), metadata_source_->Connect());
+    CHECK_EQ(absl::OkStatus(), metadata_source_->Begin());
+    CHECK_EQ(absl::OkStatus(),
+             metadata_source_->ExecuteQuery(
+                 "CREATE TABLE t1 (c1 INT, c2 VARCHAR(255));", nullptr));
+    CHECK_EQ(absl::OkStatus(), metadata_source_->Commit());
   }
 
   // InitSchemaAndPopulateRows creates table t1(c1 INT, c2 VARCHAR(255)) and
   // adds 3 rows to this table: (1,'v1'), (2,'v2'), (3, 'v3').
   void InitSchemaAndPopulateRows() override {
     InitTestSchema();
-    TF_CHECK_OK(metadata_source_->Begin());
-    TF_CHECK_OK(metadata_source_->ExecuteQuery(
-        "INSERT INTO t1 VALUES (1, 'v1')", nullptr));
-    TF_CHECK_OK(metadata_source_->ExecuteQuery(
-        "INSERT INTO t1 VALUES (2, 'v2')", nullptr));
-    TF_CHECK_OK(metadata_source_->ExecuteQuery(
-        "INSERT INTO t1 VALUES (3, 'v3')", nullptr));
-    TF_CHECK_OK(metadata_source_->Commit());
+    CHECK_EQ(absl::OkStatus(), metadata_source_->Begin());
+    CHECK_EQ(absl::OkStatus(), metadata_source_->ExecuteQuery(
+                                   "INSERT INTO t1 VALUES (1, 'v1')", nullptr));
+    CHECK_EQ(absl::OkStatus(), metadata_source_->ExecuteQuery(
+                                   "INSERT INTO t1 VALUES (2, 'v2')", nullptr));
+    CHECK_EQ(absl::OkStatus(), metadata_source_->ExecuteQuery(
+                                   "INSERT INTO t1 VALUES (3, 'v3')", nullptr));
+    CHECK_EQ(absl::OkStatus(), metadata_source_->Commit());
   }
 
  private:
@@ -75,42 +76,6 @@ class SqliteMetadataSourceContainer : public MetadataSourceContainer {
   std::unique_ptr<SqliteMetadataSource> metadata_source_;
 };
 
-// Note that if this method fails, it does not clean up the file it created,
-// causing issues.
-TEST(SqliteMetadataSourceExtendedTest, TestPhysicalFile) {
-  RecordSet expected_results;
-  const std::string filename_uri =
-      absl::StrCat(::testing::TempDir(), "test_physical_file_test.db");
-  SqliteMetadataSourceConfig config;
-  config.set_filename_uri(filename_uri);
-
-  {
-    SqliteMetadataSourceContainer container(config);
-    MetadataSource* metadata_source = container.GetMetadataSource();
-
-    container.InitSchemaAndPopulateRows();
-
-    TF_ASSERT_OK(metadata_source->Begin());
-    TF_ASSERT_OK(
-        metadata_source->ExecuteQuery("SELECT * FROM t1", &expected_results));
-    TF_ASSERT_OK(metadata_source->Commit());
-    TF_ASSERT_OK(metadata_source->Close());
-  }
-
-  RecordSet query_results;
-  // Connects to the same database without initialize the schema and rows
-  SqliteMetadataSourceContainer container(config);
-  MetadataSource* metadata_source = container.GetMetadataSource();
-  TF_ASSERT_OK(metadata_source->Connect());
-  TF_ASSERT_OK(metadata_source->Begin());
-  TF_ASSERT_OK(
-      metadata_source->ExecuteQuery("SELECT * FROM t1", &query_results));
-  TF_ASSERT_OK(metadata_source->Commit());
-  EXPECT_THAT(query_results, EqualsProto(expected_results));
-  if (!filename_uri.empty()) {
-    TF_CHECK_OK(tensorflow::Env::Default()->DeleteFile(filename_uri));
-  }
-}
 
 // Test EscapeString utility method.
 TEST(SqliteMetadataSourceExtendedTest, TestEscapeString) {

@@ -15,10 +15,10 @@ limitations under the License.
 #ifndef ML_METADATA_METADATA_STORE_SQLITE_METADATA_SOURCE_H_
 #define ML_METADATA_METADATA_STORE_SQLITE_METADATA_SOURCE_H_
 
+#include "absl/status/status.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "sqlite3.h"
-#include "tensorflow/core/lib/core/status.h"
 
 namespace ml_metadata {
 
@@ -43,26 +43,26 @@ class SqliteMetadataSource : public MetadataSource {
  private:
   // Creates an in memory db.
   // If error happens, Returns INTERNAL error.
-  tensorflow::Status ConnectImpl() final;
+  absl::Status ConnectImpl() final;
 
   // Closes in memory db. All data stored will be cleaned up.
-  tensorflow::Status CloseImpl() final;
+  absl::Status CloseImpl() final;
 
   // Executes a SQL statement and returns the rows if any.
-  tensorflow::Status ExecuteQueryImpl(const std::string& query,
-                                      RecordSet* results) final;
+  absl::Status ExecuteQueryImpl(const std::string& query,
+                                RecordSet* results) final;
 
   // Commits a transaction.
-  tensorflow::Status CommitImpl() final;
+  absl::Status CommitImpl() final;
 
   // Rollbacks a transaction
-  tensorflow::Status RollbackImpl() final;
+  absl::Status RollbackImpl() final;
 
   // Begins a transaction
-  tensorflow::Status BeginImpl() final;
+  absl::Status BeginImpl() final;
 
   // Util methods to execute query.
-  tensorflow::Status RunStatement(const std::string& query, RecordSet* results);
+  absl::Status RunStatement(const std::string& query, RecordSet* results);
 
   // The sqlite3 handle to a database.
   sqlite3* db_ = nullptr;

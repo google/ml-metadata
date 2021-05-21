@@ -17,11 +17,10 @@ limitations under the License.
 #include <memory>
 
 #include <gmock/gmock.h>
+#include "absl/status/status.h"
 #include "absl/strings/substitute.h"
 #include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/metadata_store/test_util.h"
-#include "tensorflow/core/lib/core/errors.h"
-#include "tensorflow/core/lib/core/status_test_util.h"
 
 namespace ml_metadata {
 namespace testing {
@@ -38,9 +37,9 @@ using ::testing::Not;
 // Expectation: all the retrieved rows in t1 are (1, 'v1').
 TEST_P(MetadataSourceTestSuite, TestInsert) {
   metadata_source_container_->InitTestSchema();
-  TF_ASSERT_OK(metadata_source_->Begin());
-  TF_ASSERT_OK(metadata_source_->ExecuteQuery("INSERT INTO t1 VALUES (1, 'v1')",
-                                              nullptr));
+  ASSERT_EQ(absl::OkStatus(), metadata_source_->Begin());
+  ASSERT_EQ(absl::OkStatus(), metadata_source_->ExecuteQuery(
+                                  "INSERT INTO t1 VALUES (1, 'v1')", nullptr));
   RecordSet expected_results;
   ASSERT_TRUE(google::protobuf::TextFormat::ParseFromString(
       R"(column_names: "c1"
@@ -52,9 +51,9 @@ TEST_P(MetadataSourceTestSuite, TestInsert) {
       &expected_results));
 
   RecordSet query_results;
-  TF_ASSERT_OK(
-      metadata_source_->ExecuteQuery("SELECT * FROM t1", &query_results));
-  TF_ASSERT_OK(metadata_source_->Commit());
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_source_->ExecuteQuery("SELECT * FROM t1", &query_results));
+  ASSERT_EQ(absl::OkStatus(), metadata_source_->Commit());
 
   EXPECT_EQ(1, query_results.records().size());
   EXPECT_THAT(query_results, EqualsProto(expected_results));
@@ -67,20 +66,21 @@ TEST_P(MetadataSourceTestSuite, TestInsert) {
 // Expectation: all the retrieved rows in t1 are (1, '').
 TEST_P(MetadataSourceTestSuite, TestInsertWithEscapedStringValue) {
   metadata_source_container_->InitTestSchema();
-  TF_EXPECT_OK(metadata_source_->Begin());
-  TF_EXPECT_OK(metadata_source_->ExecuteQuery(
-      absl::StrCat("INSERT INTO t1 VALUES (1, '",
-                   metadata_source_->EscapeString("''"), "')"),
-      nullptr));
+  EXPECT_EQ(absl::OkStatus(), metadata_source_->Begin());
+  EXPECT_EQ(absl::OkStatus(),
+            metadata_source_->ExecuteQuery(
+                absl::StrCat("INSERT INTO t1 VALUES (1, '",
+                             metadata_source_->EscapeString("''"), "')"),
+                nullptr));
   RecordSet expected_results = ParseTextProtoOrDie<RecordSet>(
       R"(column_names: "c1"
          column_names: "c2"
          records: { values: "1" values: "''" })");
 
   RecordSet query_results;
-  TF_EXPECT_OK(
-      metadata_source_->ExecuteQuery("SELECT * FROM t1", &query_results));
-  TF_EXPECT_OK(metadata_source_->Commit());
+  EXPECT_EQ(absl::OkStatus(),
+            metadata_source_->ExecuteQuery("SELECT * FROM t1", &query_results));
+  EXPECT_EQ(absl::OkStatus(), metadata_source_->Commit());
   EXPECT_EQ(1, query_results.records().size());
   EXPECT_THAT(query_results, EqualsProto(expected_results));
 }
@@ -93,17 +93,18 @@ TEST_P(MetadataSourceTestSuite, TestInsertWithEscapedStringValue) {
 TEST_P(MetadataSourceTestSuite, TestDelete) {
   metadata_source_container_->InitSchemaAndPopulateRows();
   RecordSet query_results;
-  TF_EXPECT_OK(metadata_source_->Begin());
-  TF_EXPECT_OK(
-      metadata_source_->ExecuteQuery("SELECT * FROM t1", &query_results));
+  EXPECT_EQ(absl::OkStatus(), metadata_source_->Begin());
+  EXPECT_EQ(absl::OkStatus(),
+            metadata_source_->ExecuteQuery("SELECT * FROM t1", &query_results));
   EXPECT_THAT(query_results.records(), Not(IsEmpty()));
 
-  TF_EXPECT_OK(metadata_source_->ExecuteQuery("DELETE FROM t1", nullptr));
+  EXPECT_EQ(absl::OkStatus(),
+            metadata_source_->ExecuteQuery("DELETE FROM t1", nullptr));
 
   query_results.Clear();
-  TF_EXPECT_OK(
-      metadata_source_->ExecuteQuery("SELECT * FROM t1", &query_results));
-  TF_EXPECT_OK(metadata_source_->Commit());
+  EXPECT_EQ(absl::OkStatus(),
+            metadata_source_->ExecuteQuery("SELECT * FROM t1", &query_results));
+  EXPECT_EQ(absl::OkStatus(), metadata_source_->Commit());
   EXPECT_THAT(query_results.records(), IsEmpty());
 }
 
@@ -114,9 +115,10 @@ TEST_P(MetadataSourceTestSuite, TestDelete) {
 // Expectation: c2 was updated to 'v100' in rows where c1 = 1 in query results.
 TEST_P(MetadataSourceTestSuite, TestUpdate) {
   metadata_source_container_->InitSchemaAndPopulateRows();
-  TF_EXPECT_OK(metadata_source_->Begin());
-  TF_EXPECT_OK(metadata_source_->ExecuteQuery(
-      "UPDATE t1 SET c2 = 'v100' WHERE c1 = 1", nullptr));
+  EXPECT_EQ(absl::OkStatus(), metadata_source_->Begin());
+  EXPECT_EQ(absl::OkStatus(),
+            metadata_source_->ExecuteQuery(
+                "UPDATE t1 SET c2 = 'v100' WHERE c1 = 1", nullptr));
 
   RecordSet expected_results = ParseTextProtoOrDie<RecordSet>(
       R"(column_names: "c1"
@@ -124,19 +126,20 @@ TEST_P(MetadataSourceTestSuite, TestUpdate) {
          records: { values: "1" values: "v100" })");
 
   RecordSet query_results;
-  TF_EXPECT_OK(metadata_source_->ExecuteQuery("SELECT * FROM t1 WHERE c1 = 1",
-                                              &query_results));
-  TF_EXPECT_OK(metadata_source_->Commit());
+  EXPECT_EQ(absl::OkStatus(),
+            metadata_source_->ExecuteQuery("SELECT * FROM t1 WHERE c1 = 1",
+                                           &query_results));
+  EXPECT_EQ(absl::OkStatus(), metadata_source_->Commit());
   EXPECT_THAT(query_results, EqualsProto(expected_results));
 }
 
 // Test query execution without open connection to metadata source.
 // Expectation: returns FAILED_PRECONDITION status.
 TEST_P(MetadataSourceTestSuite, TestQueryWithoutConnect) {
-  tensorflow::Status s =
+  absl::Status s =
       metadata_source_->ExecuteQuery("CREATE TABLE foo(bar INT)", nullptr);
-  EXPECT_EQ(s.code(), tensorflow::error::FAILED_PRECONDITION);
-  EXPECT_THAT(s.error_message(), HasSubstr("No opened connection"));
+  EXPECT_TRUE(absl::IsFailedPrecondition(s));
+  EXPECT_THAT(std::string(s.message()), HasSubstr("No opened connection"));
 }
 
 // Test multiple queries, and rollback. Nothing should happen.
@@ -149,39 +152,40 @@ TEST_P(MetadataSourceTestSuite, TestQueryWithoutConnect) {
 TEST_P(MetadataSourceTestSuite, TestMultiQueryTransaction) {
   metadata_source_container_->InitSchemaAndPopulateRows();
   RecordSet expected_results;
-  TF_ASSERT_OK(metadata_source_->Begin());
-  TF_ASSERT_OK(
-      metadata_source_->ExecuteQuery("SELECT * FROM t1", &expected_results));
-  TF_ASSERT_OK(metadata_source_->Commit());
+  ASSERT_EQ(absl::OkStatus(), metadata_source_->Begin());
+  ASSERT_EQ(absl::OkStatus(), metadata_source_->ExecuteQuery(
+                                  "SELECT * FROM t1", &expected_results));
+  ASSERT_EQ(absl::OkStatus(), metadata_source_->Commit());
 
-  TF_ASSERT_OK(metadata_source_->Begin());
-  TF_ASSERT_OK(metadata_source_->ExecuteQuery("DELETE FROM t1", nullptr));
-  TF_ASSERT_OK(metadata_source_->Rollback());
+  ASSERT_EQ(absl::OkStatus(), metadata_source_->Begin());
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_source_->ExecuteQuery("DELETE FROM t1", nullptr));
+  ASSERT_EQ(absl::OkStatus(), metadata_source_->Rollback());
 
   // rollback the Delete query, there should be no change in the database.
   {
     RecordSet query_results;
-    TF_ASSERT_OK(metadata_source_->Begin());
-    TF_ASSERT_OK(
-        metadata_source_->ExecuteQuery("SELECT * FROM t1", &query_results));
-    TF_ASSERT_OK(metadata_source_->Commit());
+    ASSERT_EQ(absl::OkStatus(), metadata_source_->Begin());
+    ASSERT_EQ(absl::OkStatus(), metadata_source_->ExecuteQuery(
+                                    "SELECT * FROM t1", &query_results));
+    ASSERT_EQ(absl::OkStatus(), metadata_source_->Commit());
     EXPECT_THAT(query_results, EqualsProto(expected_results));
   }
 
   // now it is in a new transaction, insert two records, then commit
-  TF_ASSERT_OK(metadata_source_->Begin());
-  TF_ASSERT_OK(metadata_source_->ExecuteQuery("INSERT INTO t1 VALUES (1, 'v1')",
-                                              nullptr));
-  TF_ASSERT_OK(metadata_source_->ExecuteQuery("INSERT INTO t1 VALUES (2, 'v2')",
-                                              nullptr));
-  TF_ASSERT_OK(metadata_source_->Commit());
+  ASSERT_EQ(absl::OkStatus(), metadata_source_->Begin());
+  ASSERT_EQ(absl::OkStatus(), metadata_source_->ExecuteQuery(
+                                  "INSERT INTO t1 VALUES (1, 'v1')", nullptr));
+  ASSERT_EQ(absl::OkStatus(), metadata_source_->ExecuteQuery(
+                                  "INSERT INTO t1 VALUES (2, 'v2')", nullptr));
+  ASSERT_EQ(absl::OkStatus(), metadata_source_->Commit());
 
   {
     RecordSet query_results;
-    TF_ASSERT_OK(metadata_source_->Begin());
-    TF_EXPECT_OK(
-        metadata_source_->ExecuteQuery("SELECT * FROM t1", &query_results));
-    TF_ASSERT_OK(metadata_source_->Commit());
+    ASSERT_EQ(absl::OkStatus(), metadata_source_->Begin());
+    EXPECT_EQ(absl::OkStatus(), metadata_source_->ExecuteQuery(
+                                    "SELECT * FROM t1", &query_results));
+    ASSERT_EQ(absl::OkStatus(), metadata_source_->Commit());
     int expected_num_rows = expected_results.records().size() + 2;
     EXPECT_EQ(expected_num_rows, query_results.records().size());
   }
@@ -194,9 +198,9 @@ TEST_P(MetadataSourceTestSuite, TestMultiQueryTransaction) {
 // Expectation: all the retrieved rows in t1 are (1, kMetadataSourceNull).
 TEST_P(MetadataSourceTestSuite, TestNull) {
   metadata_source_container_->InitTestSchema();
-  TF_EXPECT_OK(metadata_source_->Begin());
-  TF_EXPECT_OK(metadata_source_->ExecuteQuery("INSERT INTO t1 VALUES (1, NULL)",
-                                              nullptr));
+  EXPECT_EQ(absl::OkStatus(), metadata_source_->Begin());
+  EXPECT_EQ(absl::OkStatus(), metadata_source_->ExecuteQuery(
+                                  "INSERT INTO t1 VALUES (1, NULL)", nullptr));
   RecordSet expected_results = ParseTextProtoOrDie<RecordSet>(absl::Substitute(
       R"(column_names: "c1"
            column_names: "c2"
@@ -204,9 +208,9 @@ TEST_P(MetadataSourceTestSuite, TestNull) {
       kMetadataSourceNull));
 
   RecordSet query_results;
-  TF_EXPECT_OK(
-      metadata_source_->ExecuteQuery("SELECT * FROM t1", &query_results));
-  TF_EXPECT_OK(metadata_source_->Commit());
+  EXPECT_EQ(absl::OkStatus(),
+            metadata_source_->ExecuteQuery("SELECT * FROM t1", &query_results));
+  EXPECT_EQ(absl::OkStatus(), metadata_source_->Commit());
   EXPECT_EQ(1, query_results.records().size());
   EXPECT_THAT(query_results, EqualsProto(expected_results));
 }

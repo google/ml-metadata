@@ -29,6 +29,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
+#include "ml_metadata/util/status_utils.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
 
@@ -78,7 +79,8 @@ QueryConfigMetadataAccessObjectContainer::SetupPreviousVersionForUpgrade(
                                .previous_version_setup_queries()) {
     RecordSet dummy_record_set;
     TF_RETURN_WITH_CONTEXT_IF_ERROR(
-        GetMetadataSource()->ExecuteQuery(query.query(), &dummy_record_set),
+        FromABSLStatus(GetMetadataSource()->ExecuteQuery(query.query(),
+                                                         &dummy_record_set)),
         "Cannot execute query in SetupPreviousVersionForUpgrade: ",
         query.query());
   }
@@ -96,7 +98,8 @@ QueryConfigMetadataAccessObjectContainer::SetupPreviousVersionForDowngrade(
                                .previous_version_setup_queries()) {
     RecordSet dummy_record_set;
     TF_RETURN_WITH_CONTEXT_IF_ERROR(
-        GetMetadataSource()->ExecuteQuery(query.query(), &dummy_record_set),
+        FromABSLStatus(GetMetadataSource()->ExecuteQuery(query.query(),
+                                                         &dummy_record_set)),
         "SetupPreviousVersionForDowngrade query:", query.query());
   }
   return tensorflow::Status::OK();
@@ -124,7 +127,8 @@ tensorflow::Status QueryConfigMetadataAccessObjectContainer::Verification(
   for (const auto& query : queries) {
     RecordSet record_set;
     TF_RETURN_WITH_CONTEXT_IF_ERROR(
-        GetMetadataSource()->ExecuteQuery(query.query(), &record_set),
+        FromABSLStatus(
+            GetMetadataSource()->ExecuteQuery(query.query(), &record_set)),
         "query: ", query.query());
     if (record_set.records_size() != 1) {
       return tensorflow::errors::Internal("Verification failed on query ",
@@ -149,30 +153,30 @@ int64 QueryConfigMetadataAccessObjectContainer::MinimumVersion() { return 1; }
 
 tensorflow::Status QueryConfigMetadataAccessObjectContainer::DropTypeTable() {
   RecordSet record_set;
-  return GetMetadataSource()->ExecuteQuery("DROP TABLE IF EXISTS `Type`;",
-                                           &record_set);
+  return FromABSLStatus(GetMetadataSource()->ExecuteQuery(
+      "DROP TABLE IF EXISTS `Type`;", &record_set));
 }
 
 tensorflow::Status
 QueryConfigMetadataAccessObjectContainer::DropArtifactTable() {
   RecordSet record_set;
-  return GetMetadataSource()->ExecuteQuery("DROP TABLE `Artifact`;",
-                                           &record_set);
+  return FromABSLStatus(
+      GetMetadataSource()->ExecuteQuery("DROP TABLE `Artifact`;", &record_set));
 }
 
 tensorflow::Status
 QueryConfigMetadataAccessObjectContainer::DeleteSchemaVersion() {
   RecordSet record_set;
-  return GetMetadataSource()->ExecuteQuery("DELETE FROM `MLMDEnv`;",
-                                           &record_set);
+  return FromABSLStatus(
+      GetMetadataSource()->ExecuteQuery("DELETE FROM `MLMDEnv`;", &record_set));
 }
 
 tensorflow::Status
 QueryConfigMetadataAccessObjectContainer::SetDatabaseVersionIncompatible() {
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(GetMetadataSource()->ExecuteQuery(
+  TF_RETURN_IF_ERROR(FromABSLStatus(GetMetadataSource()->ExecuteQuery(
       "UPDATE `MLMDEnv` SET `schema_version` = `schema_version` + 1;",
-      &record_set));
+      &record_set)));
   return tensorflow::Status::OK();
 }
 
@@ -1430,8 +1434,8 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithDuplicatedNameError) {
       metadata_access_object_->CreateArtifact(artifact, &artifact_id).code(),
       tensorflow::error::ALREADY_EXISTS);
 
-  TF_ASSERT_OK(metadata_source_->Rollback());
-  TF_ASSERT_OK(metadata_source_->Begin());
+  TF_ASSERT_OK(FromABSLStatus(metadata_source_->Rollback()));
+  TF_ASSERT_OK(FromABSLStatus(metadata_source_->Begin()));
 }
 
 TEST_P(MetadataAccessObjectTest, FindArtifactById) {
@@ -2910,8 +2914,8 @@ TEST_P(MetadataAccessObjectTest, CreateExecutionWithDuplicatedNameError) {
       metadata_access_object_->CreateExecution(execution, &execution_id).code(),
       tensorflow::error::ALREADY_EXISTS);
 
-  TF_ASSERT_OK(metadata_source_->Rollback());
-  TF_ASSERT_OK(metadata_source_->Begin());
+  TF_ASSERT_OK(FromABSLStatus(metadata_source_->Rollback()));
+  TF_ASSERT_OK(FromABSLStatus(metadata_source_->Begin()));
 }
 
 TEST_P(MetadataAccessObjectTest, UpdateExecution) {
@@ -3273,8 +3277,8 @@ TEST_P(MetadataAccessObjectTest, CreateContextWithDuplicatedNameError) {
   ASSERT_EQ(metadata_access_object_->CreateContext(context, &context_id).code(),
             tensorflow::error::ALREADY_EXISTS);
 
-  TF_ASSERT_OK(metadata_source_->Rollback());
-  TF_ASSERT_OK(metadata_source_->Begin());
+  TF_ASSERT_OK(FromABSLStatus(metadata_source_->Rollback()));
+  TF_ASSERT_OK(FromABSLStatus(metadata_source_->Begin()));
 }
 
 TEST_P(MetadataAccessObjectTest, UpdateContext) {
@@ -3610,8 +3614,8 @@ TEST_P(MetadataAccessObjectTest, CreateAssociationError2) {
       metadata_access_object_->CreateAssociation(association, &association_id)
           .code(),
       tensorflow::error::ALREADY_EXISTS);
-  TF_ASSERT_OK(metadata_source_->Rollback());
-  TF_ASSERT_OK(metadata_source_->Begin());
+  TF_ASSERT_OK(FromABSLStatus(metadata_source_->Rollback()));
+  TF_ASSERT_OK(FromABSLStatus(metadata_source_->Begin()));
 }
 
 TEST_P(MetadataAccessObjectTest, CreateAndUseAttribution) {

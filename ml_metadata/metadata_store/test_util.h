@@ -20,6 +20,7 @@ limitations under the License.
 #include <tuple>
 #include <vector>
 
+#include <glog/logging.h>
 #include "google/protobuf/text_format.h"
 #include "google/protobuf/util/message_differencer.h"
 #include <gmock/gmock.h>

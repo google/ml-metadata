@@ -16,21 +16,20 @@ limitations under the License.
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
-#include "tensorflow/core/lib/core/errors.h"
-#include "tensorflow/core/lib/core/status_test_util.h"
 
 namespace ml_metadata {
 
 class MockMetadataSource : public MetadataSource {
  public:
-  MOCK_METHOD(tensorflow::Status, ConnectImpl, (), (override));
-  MOCK_METHOD(tensorflow::Status, CloseImpl, (), (override));
-  MOCK_METHOD(tensorflow::Status, BeginImpl, (), (override));
-  MOCK_METHOD(tensorflow::Status, ExecuteQueryImpl,
+  MOCK_METHOD(absl::Status, ConnectImpl, (), (override));
+  MOCK_METHOD(absl::Status, CloseImpl, (), (override));
+  MOCK_METHOD(absl::Status, BeginImpl, (), (override));
+  MOCK_METHOD(absl::Status, ExecuteQueryImpl,
               (const std::string& query, RecordSet* results), (override));
-  MOCK_METHOD(tensorflow::Status, CommitImpl, (), (override));
-  MOCK_METHOD(tensorflow::Status, RollbackImpl, (), (override));
+  MOCK_METHOD(absl::Status, CommitImpl, (), (override));
+  MOCK_METHOD(absl::Status, RollbackImpl, (), (override));
   MOCK_METHOD(std::string, EscapeString, (absl::string_view value),
               (const, override));
 };
@@ -38,18 +37,17 @@ class MockMetadataSource : public MetadataSource {
 TEST(MetadataSourceTest, ConnectAgainWithoutClose) {
   MockMetadataSource mock_metadata_source;
   EXPECT_CALL(mock_metadata_source, ConnectImpl()).Times(1);
-
-  TF_EXPECT_OK(mock_metadata_source.Connect());
-  tensorflow::Status s = mock_metadata_source.Connect();
-  EXPECT_EQ(s.code(), tensorflow::error::FAILED_PRECONDITION);
+  EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Connect());
+  absl::Status s = mock_metadata_source.Connect();
+  EXPECT_TRUE(absl::IsFailedPrecondition(s));
 }
 
 TEST(MetadataSourceTest, CloseWithoutConnect) {
   MockMetadataSource mock_metadata_source;
   EXPECT_CALL(mock_metadata_source, CloseImpl()).Times(0);
 
-  tensorflow::Status s = mock_metadata_source.Close();
-  EXPECT_EQ(s.code(), tensorflow::error::FAILED_PRECONDITION);
+  absl::Status s = mock_metadata_source.Close();
+  EXPECT_TRUE(absl::IsFailedPrecondition(s));
 }
 
 TEST(MetadataSourceTest, ConnectThenCloseThenConnectAgain) {
@@ -61,9 +59,9 @@ TEST(MetadataSourceTest, ConnectThenCloseThenConnectAgain) {
     EXPECT_CALL(mock_metadata_source, ConnectImpl()).Times(1);
   }
 
-  TF_EXPECT_OK(mock_metadata_source.Connect());
-  TF_EXPECT_OK(mock_metadata_source.Close());
-  TF_EXPECT_OK(mock_metadata_source.Connect());
+  EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Connect());
+  EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Close());
+  EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Connect());
 }
 
 TEST(MetadataSourceTest, TestExecuteQueryWithoutConnect) {
@@ -71,8 +69,8 @@ TEST(MetadataSourceTest, TestExecuteQueryWithoutConnect) {
   std::string query = "some query";
   RecordSet result;
   EXPECT_CALL(mock_metadata_source, ExecuteQueryImpl(query, &result)).Times(0);
-  tensorflow::Status s = mock_metadata_source.ExecuteQuery(query, &result);
-  EXPECT_EQ(s.code(), tensorflow::error::FAILED_PRECONDITION);
+  absl::Status s = mock_metadata_source.ExecuteQuery(query, &result);
+  EXPECT_TRUE(absl::IsFailedPrecondition(s));
 }
 
 TEST(MetadataSourceTest, TestExecuteQueryWithoutBegin) {
@@ -80,9 +78,9 @@ TEST(MetadataSourceTest, TestExecuteQueryWithoutBegin) {
   std::string query = "some query";
   RecordSet result;
   EXPECT_CALL(mock_metadata_source, ExecuteQueryImpl(query, &result)).Times(0);
-  TF_EXPECT_OK(mock_metadata_source.Connect());
-  tensorflow::Status s = mock_metadata_source.ExecuteQuery(query, &result);
-  EXPECT_EQ(s.code(), tensorflow::error::FAILED_PRECONDITION);
+  EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Connect());
+  absl::Status s = mock_metadata_source.ExecuteQuery(query, &result);
+  EXPECT_TRUE(absl::IsFailedPrecondition(s));
 }
 
 TEST(MetadataSourceTest, TestBeginAndCommit) {
@@ -92,9 +90,9 @@ TEST(MetadataSourceTest, TestBeginAndCommit) {
     EXPECT_CALL(mock_metadata_source, BeginImpl()).Times(1);
     EXPECT_CALL(mock_metadata_source, CommitImpl()).Times(1);
   }
-  TF_EXPECT_OK(mock_metadata_source.Connect());
-  TF_EXPECT_OK(mock_metadata_source.Begin());
-  TF_EXPECT_OK(mock_metadata_source.Commit());
+  EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Connect());
+  EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Begin());
+  EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Commit());
 }
 TEST(MetadataSourceTest, TestBeginAndCommitTwice) {
   MockMetadataSource mock_metadata_source;
@@ -105,26 +103,26 @@ TEST(MetadataSourceTest, TestBeginAndCommitTwice) {
     EXPECT_CALL(mock_metadata_source, BeginImpl()).Times(1);
     EXPECT_CALL(mock_metadata_source, CommitImpl()).Times(1);
   }
-  TF_EXPECT_OK(mock_metadata_source.Connect());
-  TF_EXPECT_OK(mock_metadata_source.Begin());
-  TF_EXPECT_OK(mock_metadata_source.Commit());
-  TF_EXPECT_OK(mock_metadata_source.Begin());
-  TF_EXPECT_OK(mock_metadata_source.Commit());
+  EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Connect());
+  EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Begin());
+  EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Commit());
+  EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Begin());
+  EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Commit());
 }
 
 TEST(MetadataSourceTest, TestCommitWithoutConnect) {
   MockMetadataSource mock_metadata_source;
   EXPECT_CALL(mock_metadata_source, CommitImpl()).Times(0);
-  tensorflow::Status s = mock_metadata_source.Commit();
-  EXPECT_EQ(s.code(), tensorflow::error::FAILED_PRECONDITION);
+  absl::Status s = mock_metadata_source.Commit();
+  EXPECT_TRUE(absl::IsFailedPrecondition(s));
 }
 
 TEST(MetadataSourceTest, TestCommitWithoutBegin) {
   MockMetadataSource mock_metadata_source;
   EXPECT_CALL(mock_metadata_source, CommitImpl()).Times(0);
-  TF_EXPECT_OK(mock_metadata_source.Connect());
-  tensorflow::Status s = mock_metadata_source.Commit();
-  EXPECT_EQ(s.code(), tensorflow::error::FAILED_PRECONDITION);
+  EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Connect());
+  absl::Status s = mock_metadata_source.Commit();
+  EXPECT_TRUE(absl::IsFailedPrecondition(s));
 }
 
 TEST(MetadataSourceTest, TestBeginAndRollback) {
@@ -134,9 +132,9 @@ TEST(MetadataSourceTest, TestBeginAndRollback) {
     EXPECT_CALL(mock_metadata_source, BeginImpl()).Times(1);
     EXPECT_CALL(mock_metadata_source, RollbackImpl()).Times(1);
   }
-  TF_EXPECT_OK(mock_metadata_source.Connect());
-  TF_EXPECT_OK(mock_metadata_source.Begin());
-  TF_EXPECT_OK(mock_metadata_source.Rollback());
+  EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Connect());
+  EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Begin());
+  EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Rollback());
 }
 
 TEST(MetadataSourceTest, TestBeginAndRollbackTwice) {
@@ -149,33 +147,33 @@ TEST(MetadataSourceTest, TestBeginAndRollbackTwice) {
     EXPECT_CALL(mock_metadata_source, RollbackImpl()).Times(1);
   }
 
-  TF_EXPECT_OK(mock_metadata_source.Connect());
-  TF_EXPECT_OK(mock_metadata_source.Begin());
-  TF_EXPECT_OK(mock_metadata_source.Rollback());
-  TF_EXPECT_OK(mock_metadata_source.Begin());
-  TF_EXPECT_OK(mock_metadata_source.Rollback());
+  EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Connect());
+  EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Begin());
+  EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Rollback());
+  EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Begin());
+  EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Rollback());
 }
 
 TEST(MetadataSourceTest, TestRollbackWithoutBegin) {
   MockMetadataSource mock_metadata_source;
   EXPECT_CALL(mock_metadata_source, RollbackImpl()).Times(0);
-  TF_EXPECT_OK(mock_metadata_source.Connect());
-  tensorflow::Status s = mock_metadata_source.Rollback();
-  EXPECT_EQ(s.code(), tensorflow::error::FAILED_PRECONDITION);
+  EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Connect());
+  absl::Status s = mock_metadata_source.Rollback();
+  EXPECT_TRUE(absl::IsFailedPrecondition(s));
 }
 
 TEST(MetadataSourceTest, TestRollbackWithoutConnect) {
   MockMetadataSource mock_metadata_source;
   EXPECT_CALL(mock_metadata_source, RollbackImpl()).Times(0);
-  tensorflow::Status s = mock_metadata_source.Rollback();
-  EXPECT_EQ(s.code(), tensorflow::error::FAILED_PRECONDITION);
+  absl::Status s = mock_metadata_source.Rollback();
+  EXPECT_TRUE(absl::IsFailedPrecondition(s));
 }
 
 TEST(MetadataSourceTest, TestBeginWithoutConnect) {
   MockMetadataSource mock_metadata_source;
   EXPECT_CALL(mock_metadata_source, BeginImpl()).Times(0);
-  tensorflow::Status s = mock_metadata_source.Begin();
-  EXPECT_EQ(s.code(), tensorflow::error::FAILED_PRECONDITION);
+  absl::Status s = mock_metadata_source.Begin();
+  EXPECT_TRUE(absl::IsFailedPrecondition(s));
 }
 
 }  // namespace ml_metadata

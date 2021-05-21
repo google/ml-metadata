@@ -19,6 +19,7 @@ limitations under the License.
 #include "absl/memory/memory.h"
 #include "ml_metadata/metadata_store/query_config_executor.h"
 #include "ml_metadata/metadata_store/rdbms_metadata_access_object.h"
+#include "ml_metadata/util/status_utils.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status.h"
 
@@ -34,7 +35,7 @@ tensorflow::Status CreateRDBMSMetadataAccessObject(
     MetadataSource* const metadata_source, absl::optional<int64> schema_version,
     std::unique_ptr<MetadataAccessObject>* result) {
   if (!metadata_source->is_connected())
-    TF_RETURN_IF_ERROR(metadata_source->Connect());
+    TF_RETURN_IF_ERROR(FromABSLStatus(metadata_source->Connect()));
   std::unique_ptr<QueryExecutor> executor =
       schema_version && *schema_version != query_config.schema_version()
           ? absl::WrapUnique(new QueryConfigExecutor(

@@ -21,6 +21,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/sqlite_metadata_source.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/util/metadata_source_query_config.h"
+#include "ml_metadata/util/status_utils.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
 
 namespace ml_metadata {
@@ -37,12 +38,12 @@ TEST(MetadataAccessObjectFactory, CreateMetadataAccessObject) {
   TF_ASSERT_OK(CreateMetadataAccessObject(
       util::GetSqliteMetadataSourceQueryConfig(), metadata_source.get(),
       &metadata_access_object));
-  TF_ASSERT_OK(metadata_source->Begin());
+  TF_ASSERT_OK(FromABSLStatus(metadata_source->Begin()));
   TF_ASSERT_OK(metadata_access_object->InitMetadataSource());
 
   int64 schema_version;
   TF_ASSERT_OK(metadata_access_object->GetSchemaVersion(&schema_version));
-  TF_ASSERT_OK(metadata_source->Commit());
+  TF_ASSERT_OK(FromABSLStatus(metadata_source->Commit()));
 
   int64 library_version = metadata_access_object->GetLibraryVersion();
   EXPECT_EQ(schema_version, library_version);

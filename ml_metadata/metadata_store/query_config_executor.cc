@@ -34,6 +34,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/list_operation_util.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
+#include "ml_metadata/util/status_utils.h"
 #include "ml_metadata/util/struct_utils.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status.h"
@@ -391,12 +392,12 @@ string QueryConfigExecutor::Bind(
 
 tensorflow::Status QueryConfigExecutor::ExecuteQuery(const std::string& query) {
   RecordSet record_set;
-  return metadata_source_->ExecuteQuery(query, &record_set);
+  return FromABSLStatus(metadata_source_->ExecuteQuery(query, &record_set));
 }
 
 tensorflow::Status QueryConfigExecutor::ExecuteQuery(const std::string& query,
                                                      RecordSet* record_set) {
-  return metadata_source_->ExecuteQuery(query, record_set);
+  return FromABSLStatus(metadata_source_->ExecuteQuery(query, record_set));
 }
 
 tensorflow::Status QueryConfigExecutor::ExecuteQuery(
@@ -416,8 +417,8 @@ tensorflow::Status QueryConfigExecutor::ExecuteQuery(
   for (int i = 0; i < parameters.size(); i++) {
     replacements.push_back({absl::StrCat("$", i), parameters[i]});
   }
-  return metadata_source_->ExecuteQuery(
-      absl::StrReplaceAll(template_query.query(), replacements), record_set);
+  return FromABSLStatus(metadata_source_->ExecuteQuery(
+      absl::StrReplaceAll(template_query.query(), replacements), record_set));
 }
 
 tensorflow::Status QueryConfigExecutor::IsCompatible(int64 db_version,

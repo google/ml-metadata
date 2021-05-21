@@ -8,7 +8,7 @@ workspace(name = "ml_metadata")
 # 3. Request the new archive to be mirrored on mirror.bazel.build for more
 #    reliable downloads.
 
-load("//ml_metadata:repo.bzl", "tensorflow_http_archive")
+load("//ml_metadata:repo.bzl", "mlmd_http_archive", "clean_dep")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
@@ -46,8 +46,67 @@ http_archive(
     ],
 )
 
-# Requires bazel 0.23.0 or greater.
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+ABSL_COMMIT = "0f3bb466b868b523cf1dc9b2aaaed65c77b28862"  # lts_20200923.2
+http_archive(
+    name = "com_google_absl",
+    urls = ["https://github.com/abseil/abseil-cpp/archive/%s.zip" % ABSL_COMMIT],
+    sha256 = "9929f3662141bbb9c6c28accf68dcab34218c5ee2d83e6365d9cb2594b3f3171",
+    strip_prefix = "abseil-cpp-%s" % ABSL_COMMIT,
+)
+
+# rules_cc defines rules for generating C++ code from Protocol Buffers.
+http_archive(
+    name = "rules_cc",
+    sha256 = "35f2fb4ea0b3e61ad64a369de284e4fbbdcdba71836a5555abb5e194cf119509",
+    strip_prefix = "rules_cc-624b5d59dfb45672d4239422fa1e3de1822ee110",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/624b5d59dfb45672d4239422fa1e3de1822ee110.tar.gz",
+        "https://github.com/bazelbuild/rules_cc/archive/624b5d59dfb45672d4239422fa1e3de1822ee110.tar.gz",
+    ],
+)
+
+mlmd_http_archive(
+    name = "boringssl",
+    sha256 = "1188e29000013ed6517168600fc35a010d58c5d321846d6a6dfee74e4c788b45",
+    strip_prefix = "boringssl-7f634429a04abc48e2eb041c81c5235816c96514",
+    system_build_file = clean_dep("//ml_metadata/third_party/systemlibs:boringssl.BUILD"),
+    urls = [
+        "https://storage.googleapis.com/mirror.tensorflow.org/github.com/google/boringssl/archive/7f634429a04abc48e2eb041c81c5235816c96514.tar.gz",
+        "https://github.com/google/boringssl/archive/7f634429a04abc48e2eb041c81c5235816c96514.tar.gz",
+    ],
+)
+
+mlmd_http_archive(
+    name = "org_sqlite",
+    build_file = clean_dep("//ml_metadata/third_party:sqlite.BUILD"),
+    sha256 = "adf051d4c10781ea5cfabbbc4a2577b6ceca68590d23b58b8260a8e24cc5f081",
+    strip_prefix = "sqlite-amalgamation-3300100",
+    system_build_file = clean_dep("//ml_metadata/third_party/systemlibs:sqlite.BUILD"),
+    urls = [
+        "https://storage.googleapis.com/mirror.tensorflow.org/www.sqlite.org/2019/sqlite-amalgamation-3300100.zip",
+        "https://www.sqlite.org/2019/sqlite-amalgamation-3300100.zip",
+    ],
+)
+
+mlmd_http_archive(
+    name = "com_google_googletest",
+    sha256 = "ff7a82736e158c077e76188232eac77913a15dac0b22508c390ab3f88e6d6d86",
+    strip_prefix = "googletest-b6cd405286ed8635ece71c72f118e659f4ade3fb",
+    urls = [
+        "https://storage.googleapis.com/mirror.tensorflow.org/github.com/google/googletest/archive/b6cd405286ed8635ece71c72f118e659f4ade3fb.zip",
+        "https://github.com/google/googletest/archive/b6cd405286ed8635ece71c72f118e659f4ade3fb.zip",
+    ],
+)
+
+http_archive(
+    name = "com_google_glog",
+    build_file = clean_dep("//ml_metadata/third_party:glog.BUILD"),
+    strip_prefix = "glog-96a2f23dca4cc7180821ca5f32e526314395d26a",
+    urls = [
+      "https://github.com/google/glog/archive/96a2f23dca4cc7180821ca5f32e526314395d26a.zip",
+    ],
+    sha256 = "6281aa4eeecb9e932d7091f99872e7b26fa6aacece49c15ce5b14af2b7ec050f",
+)
 
 http_archive(
     name = "io_bazel_rules_go",
@@ -69,7 +128,7 @@ http_archive(
     sha256 = "86c6d481b3f7aedc1d60c1c211c6f76da282ae197c3b3160f54bd3a8f847896f",
 )
 
-load("@bazel_gazelle//:deps.bzl", "go_repository")
+load("@bazel_gazelle//:deps.bzl", "go_repository", "gazelle_dependencies")
 
 go_repository(
     name = "org_golang_x_sys",
@@ -86,8 +145,6 @@ go_repository(
 go_rules_dependencies()
 
 go_register_toolchains()
-
-load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
 
 gazelle_dependencies()
 
