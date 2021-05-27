@@ -18,8 +18,8 @@ limitations under the License.
 #include <string>
 
 #include "google/protobuf/struct.pb.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
-#include "tensorflow/core/lib/core/status.h"
 
 namespace ml_metadata {
 
@@ -35,8 +35,8 @@ std::string StructToString(const google::protobuf::Struct& struct_value);
 // |serialized_value| in |struct_value|.
 // Returns INVALID_ARGUMENT if the value in |serialized_value| does not look
 // like a valid string serialized using |StructToString| above.
-tensorflow::Status StringToStruct(absl::string_view serialized_value,
-                                  google::protobuf::Struct& struct_value);
+absl::Status StringToStruct(absl::string_view serialized_value,
+                            google::protobuf::Struct& struct_value);
 
 }  // namespace ml_metadata
 

@@ -620,9 +620,10 @@ tensorflow::Status QueryConfigExecutor::ListNodeIDsUsingOptions(
                               Bind(*candidate_ids));
   }
 
-  TF_RETURN_IF_ERROR(AppendOrderingThresholdClause(options, sql_query));
-  TF_RETURN_IF_ERROR(AppendOrderByClause(options, sql_query));
-  TF_RETURN_IF_ERROR(AppendLimitClause(options, sql_query));
+  TF_RETURN_IF_ERROR(
+      FromABSLStatus(AppendOrderingThresholdClause(options, sql_query)));
+  TF_RETURN_IF_ERROR(FromABSLStatus(AppendOrderByClause(options, sql_query)));
+  TF_RETURN_IF_ERROR(FromABSLStatus(AppendLimitClause(options, sql_query)));
   return ExecuteQuery(sql_query, record_set);
 }
 

@@ -75,6 +75,7 @@ cc_library(
         "@com_google_absl//absl/types:optional",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/util:status_utils",
         "//ml_metadata/util:struct_utils",
         "@org_tensorflow//tensorflow/core:lib",
         "@com_google_protobuf//:cc_wkt_protos",
@@ -135,10 +136,11 @@ cc_library(
     deps = [
         ":list_operation_util",
         ":types",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
         "//ml_metadata/proto:metadata_store_proto",
-        "@org_tensorflow//tensorflow/core:lib",
+        "//ml_metadata/util:return_utils",
     ],
 )
 
@@ -148,10 +150,10 @@ cc_library(
     hdrs = ["list_operation_util.h"],
     deps = [
         ":types",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
         "//ml_metadata/proto:metadata_store_proto",
-        "@org_tensorflow//tensorflow/core:lib",
     ],
 )
 
@@ -166,7 +168,7 @@ ml_metadata_cc_test(
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/strings",
         "//ml_metadata/proto:metadata_store_proto",
-        "@org_tensorflow//tensorflow/core:test",
+        "@com_google_glog//:glog",
     ],
 )
 

@@ -14,12 +14,13 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/util/struct_utils.h"
 
+#include <glog/logging.h>
 #include "google/protobuf/struct.pb.h"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "ml_metadata/metadata_store/test_util.h"
-#include "tensorflow/core/lib/core/status_test_util.h"
 
 namespace ml_metadata {
 namespace {
@@ -58,21 +59,20 @@ TEST(StructUtils, SerializeAndDeserializeStructWorks) {
 
   const std::string serialized_value = StructToString(struct_value);
   google::protobuf::Struct got_value;
-  TF_ASSERT_OK(StringToStruct(serialized_value, got_value));
+  ASSERT_EQ(absl::OkStatus(), StringToStruct(serialized_value, got_value));
   EXPECT_THAT(got_value, EqualsProto(struct_value));
 }
 
 TEST(StructUtils, DeserializeInvalidPrefix) {
   google::protobuf::Struct got_value;
-  const tensorflow::Status status = StringToStruct("mlmd-struct--", got_value);
-  EXPECT_EQ(status.code(), tensorflow::error::INVALID_ARGUMENT);
+  const absl::Status status = StringToStruct("mlmd-struct--", got_value);
+  EXPECT_TRUE(absl::IsInvalidArgument(status));
 }
 
 TEST(StructUtils, DeserializeNonBase64) {
   google::protobuf::Struct got_value;
-  const tensorflow::Status status =
-      StringToStruct("mlmd-struct::garbage", got_value);
-  EXPECT_EQ(status.code(), tensorflow::error::INVALID_ARGUMENT);
+  const absl::Status status = StringToStruct("mlmd-struct::garbage", got_value);
+  EXPECT_TRUE(absl::IsInvalidArgument(status));
 }
 
 TEST(StructUtils, DeserializeNonStructSerializedString) {
@@ -83,10 +83,10 @@ TEST(StructUtils, DeserializeNonStructSerializedString) {
           value { number_value: 1234 }
         })pb");
   google::protobuf::Struct got_value;
-  const tensorflow::Status status = StringToStruct(
+  const absl::Status status = StringToStruct(
       absl::StrCat("mlmd-struct::", stored_value.SerializeAsString()),
       got_value);
-  EXPECT_EQ(status.code(), tensorflow::error::INVALID_ARGUMENT);
+  EXPECT_TRUE(absl::IsInvalidArgument(status));
 }
 
 }  // namespace

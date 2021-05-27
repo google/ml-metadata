@@ -14,10 +14,10 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/util/metadata_source_query_config.h"
 
+#include <glog/logging.h>
+#include "google/protobuf/text_format.h"
 #include "absl/strings/str_cat.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
-#include "tensorflow/core/platform/logging.h"
-#include "tensorflow/core/platform/protobuf.h"
 
 namespace ml_metadata {
 namespace util {
@@ -2311,22 +2311,20 @@ R"pb(
 // fields by default are concatenated to it and should be used with caution.
 MetadataSourceQueryConfig GetMySqlMetadataSourceQueryConfig() {
   MetadataSourceQueryConfig config;
-  CHECK(tensorflow::protobuf::TextFormat::ParseFromString(kBaseQueryConfig,
-                                                          &config));
+  CHECK(google::protobuf::TextFormat::ParseFromString(kBaseQueryConfig, &config));
   MetadataSourceQueryConfig mysql_config;
-  CHECK(tensorflow::protobuf::TextFormat::ParseFromString(
-      kMySQLMetadataSourceQueryConfig, &mysql_config));
+  CHECK(google::protobuf::TextFormat::ParseFromString(kMySQLMetadataSourceQueryConfig,
+                                            &mysql_config));
   config.MergeFrom(mysql_config);
   return config;
 }
 
 MetadataSourceQueryConfig GetSqliteMetadataSourceQueryConfig() {
   MetadataSourceQueryConfig config;
-  CHECK(tensorflow::protobuf::TextFormat::ParseFromString(kBaseQueryConfig,
-                                                          &config));
+  CHECK(google::protobuf::TextFormat::ParseFromString(kBaseQueryConfig, &config));
   MetadataSourceQueryConfig sqlite_config;
-  CHECK(tensorflow::protobuf::TextFormat::ParseFromString(
-      kSQLiteMetadataSourceQueryConfig, &sqlite_config));
+  CHECK(google::protobuf::TextFormat::ParseFromString(kSQLiteMetadataSourceQueryConfig,
+                                            &sqlite_config));
   config.MergeFrom(sqlite_config);
   return config;
 }

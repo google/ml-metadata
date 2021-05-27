@@ -14,6 +14,7 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/list_operation_util.h"
 
+#include "absl/status/status.h"
 #include "absl/strings/escaping.h"
 
 namespace ml_metadata {
@@ -27,35 +28,35 @@ void SetListOperationInitialValues(const ListOperationOptions& options,
   id_offset = field_offset;
 }
 
-tensorflow::Status DecodeListOperationNextPageToken(
+absl::Status DecodeListOperationNextPageToken(
     const absl::string_view next_page_token,
     ListOperationNextPageToken& list_operation_next_page_token) {
   std::string token_str;
   if (!absl::WebSafeBase64Unescape(next_page_token, &token_str)) {
-    return tensorflow::errors::InvalidArgument(
+    return absl::InvalidArgumentError(
         "Failed to decode next page token string");
   }
 
   if (!list_operation_next_page_token.ParseFromString(token_str)) {
-    return tensorflow::errors::InvalidArgument(
+    return absl::InvalidArgumentError(
         "Failed to parse decoded next page token into "
         "ListOperationNextPageToken proto message ");
   }
 
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
-tensorflow::Status ValidateListOperationOptionsAreIdentical(
+absl::Status ValidateListOperationOptionsAreIdentical(
     const ListOperationOptions& previous_options,
     const ListOperationOptions& current_options) {
   if (previous_options.order_by_field().is_asc() ==
           current_options.order_by_field().is_asc() &&
       previous_options.order_by_field().field() ==
           current_options.order_by_field().field()) {
-    return tensorflow::Status::OK();
+    return absl::OkStatus();
   }
 
-  return tensorflow::errors::InvalidArgument(absl::StrCat(
+  return absl::InvalidArgumentError(absl::StrCat(
       "ListOperationOptions mismatch between calls Initial Options: ",
       previous_options.DebugString(),
       " Current Options: ", current_options.DebugString()));

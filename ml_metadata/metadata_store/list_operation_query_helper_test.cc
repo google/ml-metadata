@@ -14,12 +14,12 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/list_operation_query_helper.h"
 
+#include <glog/logging.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/strings/escaping.h"
 #include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
-#include "tensorflow/core/lib/core/status_test_util.h"
 
 namespace ml_metadata {
 namespace {
@@ -53,7 +53,8 @@ TEST(ListOperationQueryHelperTest, OrderingWhereClauseDesc) {
   options.set_next_page_token(
       absl::WebSafeBase64Escape(next_page_token.SerializeAsString()));
   std::string where_clause;
-  TF_ASSERT_OK(AppendOrderingThresholdClause(options, where_clause));
+  ASSERT_EQ(absl::OkStatus(),
+            AppendOrderingThresholdClause(options, where_clause));
   EXPECT_EQ(where_clause,
             " `create_time_since_epoch` <= 56894 AND `id` < 100 ");
 }
@@ -67,7 +68,8 @@ TEST(ListOperationQueryHelperTest, OrderingWhereClauseAsc) {
       absl::WebSafeBase64Escape(next_page_token.SerializeAsString()));
 
   std::string where_clause;
-  TF_ASSERT_OK(AppendOrderingThresholdClause(options, where_clause));
+  ASSERT_EQ(absl::OkStatus(),
+            AppendOrderingThresholdClause(options, where_clause));
   EXPECT_EQ(where_clause,
             " `create_time_since_epoch` >= 56894 AND `id` > 100 ");
 }
@@ -87,7 +89,8 @@ TEST(ListOperationQueryHelperTest, OrderingOnLastUpdateTimeDesc) {
   options.set_next_page_token(
       absl::WebSafeBase64Escape(next_page_token.SerializeAsString()));
   std::string where_clause;
-  TF_ASSERT_OK(AppendOrderingThresholdClause(options, where_clause));
+  ASSERT_EQ(absl::OkStatus(),
+            AppendOrderingThresholdClause(options, where_clause));
   EXPECT_EQ(where_clause,
             " `last_update_time_since_epoch` <= 56894 AND `id` NOT IN (6,5) ");
 }
@@ -105,14 +108,15 @@ TEST(ListOperationQueryHelperTest, OrderingWhereClauseById) {
   options.set_next_page_token(
       absl::WebSafeBase64Escape(next_page_token.SerializeAsString()));
   std::string where_clause;
-  TF_ASSERT_OK(AppendOrderingThresholdClause(options, where_clause));
+  ASSERT_EQ(absl::OkStatus(),
+            AppendOrderingThresholdClause(options, where_clause));
   EXPECT_EQ(where_clause, " `id` < 100 ");
 }
 
 TEST(ListOperationQueryHelperTest, OrderByClauseDesc) {
   const ListOperationOptions options = BasicListOperationOptionsDesc();
   std::string order_by_clause;
-  TF_ASSERT_OK(AppendOrderByClause(options, order_by_clause));
+  ASSERT_EQ(absl::OkStatus(), AppendOrderByClause(options, order_by_clause));
   EXPECT_EQ(order_by_clause,
             " ORDER BY `create_time_since_epoch` DESC, `id` DESC ");
 }
@@ -120,7 +124,7 @@ TEST(ListOperationQueryHelperTest, OrderByClauseDesc) {
 TEST(ListOperationQueryHelperTest, OrderByClauseAsc) {
   const ListOperationOptions options = BasicListOperationOptionsAsc();
   std::string order_by_clause;
-  TF_ASSERT_OK(AppendOrderByClause(options, order_by_clause));
+  ASSERT_EQ(absl::OkStatus(), AppendOrderByClause(options, order_by_clause));
   EXPECT_EQ(order_by_clause,
             " ORDER BY `create_time_since_epoch` ASC, `id` ASC ");
 }
@@ -132,14 +136,14 @@ TEST(ListOperationQueryHelperTest, OrderByClauseById) {
         order_by_field: { field: ID, is_asc: false }
       )pb");
   std::string order_by_clause;
-  TF_ASSERT_OK(AppendOrderByClause(options, order_by_clause));
+  ASSERT_EQ(absl::OkStatus(), AppendOrderByClause(options, order_by_clause));
   EXPECT_EQ(order_by_clause, " ORDER BY `id` DESC ");
 }
 
 TEST(ListOperationQueryHelperTest, LimitClause) {
   const ListOperationOptions options = BasicListOperationOptionsDesc();
   std::string limit_clause;
-  TF_ASSERT_OK(AppendLimitClause(options, limit_clause));
+  ASSERT_EQ(absl::OkStatus(), AppendLimitClause(options, limit_clause));
   EXPECT_EQ(limit_clause, " LIMIT 1 ");
 }
 
@@ -147,7 +151,7 @@ TEST(ListOperationQueryHelperTest, LimitOverMaxClause) {
   ListOperationOptions options = BasicListOperationOptionsDesc();
   options.set_max_result_size(200);
   std::string limit_clause;
-  TF_ASSERT_OK(AppendLimitClause(options, limit_clause));
+  ASSERT_EQ(absl::OkStatus(), AppendLimitClause(options, limit_clause));
   EXPECT_EQ(limit_clause, " LIMIT 101 ");
 }
 
@@ -155,8 +159,8 @@ TEST(ListOperationQueryHelperTest, InvalidLimit) {
   ListOperationOptions options = BasicListOperationOptionsDesc();
   options.set_max_result_size(0);
   std::string limit_clause;
-  EXPECT_EQ(AppendLimitClause(options, limit_clause).code(),
-            tensorflow::error::INVALID_ARGUMENT);
+  EXPECT_TRUE(
+      absl::IsInvalidArgument(AppendLimitClause(options, limit_clause)));
 }
 }  // namespace
 }  // namespace ml_metadata

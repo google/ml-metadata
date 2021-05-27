@@ -15,11 +15,11 @@ limitations under the License.
 #ifndef THIRD_PARTY_ML_METADATA_METADATA_STORE_LIST_OPERATION_UTIL_H_
 #define THIRD_PARTY_ML_METADATA_METADATA_STORE_LIST_OPERATION_UTIL_H_
 
+#include "absl/status/status.h"
 #include "absl/strings/escaping.h"
 #include "absl/types/span.h"
 #include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
-#include "tensorflow/core/lib/core/errors.h"
 
 namespace ml_metadata {
 
@@ -29,13 +29,13 @@ void SetListOperationInitialValues(const ListOperationOptions& options,
                                    int64& field_offset, int64& id_offset);
 
 // Decodes ListOperationNextPageToken encoded in `next_page_token`.
-tensorflow::Status DecodeListOperationNextPageToken(
+absl::Status DecodeListOperationNextPageToken(
     const absl::string_view next_page_token,
     ListOperationNextPageToken& list_operation_next_page_token);
 
 // Generates encoded list operation next page token string.
 template <typename Node>
-tensorflow::Status BuildListOperationNextPageToken(
+absl::Status BuildListOperationNextPageToken(
     const absl::Span<const Node> nodes, const ListOperationOptions& options,
     std::string* next_page_token) {
   const Node& last_node = nodes.back();
@@ -66,7 +66,7 @@ tensorflow::Status BuildListOperationNextPageToken(
       break;
     }
     default:
-      return tensorflow::errors::InvalidArgument(
+      return absl::InvalidArgumentError(
           absl::StrCat("Unsupported field: ",
                        ListOperationOptions::OrderByField::Field_Name(
                            options.order_by_field().field()),
@@ -75,7 +75,7 @@ tensorflow::Status BuildListOperationNextPageToken(
   *list_operation_next_page_token.mutable_set_options() = options;
   *next_page_token = absl::WebSafeBase64Escape(
       list_operation_next_page_token.SerializeAsString());
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 // Ensures that ListOperationOptions have not changed between
@@ -83,7 +83,7 @@ tensorflow::Status BuildListOperationNextPageToken(
 // |current_options| represents options used in the current call.
 // Validation validates order_by_fields and filter_query in
 // ListOperationOptions.
-tensorflow::Status ValidateListOperationOptionsAreIdentical(
+absl::Status ValidateListOperationOptionsAreIdentical(
     const ListOperationOptions& previous_options,
     const ListOperationOptions& current_options);
 }  // namespace ml_metadata

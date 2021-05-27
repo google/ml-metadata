@@ -9,9 +9,10 @@ cc_library(
     srcs = ["metadata_source_query_config.cc"],
     hdrs = ["metadata_source_query_config.h"],
     deps = [
+        "@com_google_protobuf//:protobuf",
         "@com_google_absl//absl/strings",
         "//ml_metadata/proto:metadata_source_proto",
-        "@org_tensorflow//tensorflow/core:lib",
+        "@com_google_glog//:glog",
     ],
 )
 
@@ -35,8 +36,9 @@ cc_library(
     srcs = ["struct_utils.cc"],
     hdrs = ["struct_utils.h"],
     deps = [
+        "@com_google_protobuf//:protobuf",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
-        "@org_tensorflow//tensorflow/core:lib",
         "@com_google_protobuf//:cc_wkt_protos",
     ],
 )
@@ -46,10 +48,12 @@ cc_test(
     srcs = ["struct_utils_test.cc"],
     deps = [
         ":struct_utils",
+        "@com_google_protobuf//:protobuf",
         "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "//ml_metadata/metadata_store:test_util",
-        "@org_tensorflow//tensorflow/core:test",
+        "@com_google_glog//:glog",
         "@com_google_protobuf//:cc_wkt_protos",
     ],
 )

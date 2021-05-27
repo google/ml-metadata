@@ -46,6 +46,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/list_operation_util.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
+#include "ml_metadata/util/status_utils.h"
 #include "ml_metadata/util/struct_utils.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status.h"
@@ -90,8 +91,8 @@ tensorflow::Status PopulateNodeProperties(const RecordSet::Record& record,
   } else {
     const std::string& string_value = record.values(5);
     if (IsStructSerializedString(string_value)) {
-      TF_RETURN_IF_ERROR(
-          StringToStruct(string_value, *property_value.mutable_struct_value()));
+      TF_RETURN_IF_ERROR(FromABSLStatus(StringToStruct(
+          string_value, *property_value.mutable_struct_value())));
     } else {
       property_value.set_string_value(string_value);
     }
@@ -1591,8 +1592,8 @@ tensorflow::Status RDBMSMetadataAccessObject::ListNodes(
   if (nodes->size() > options.max_result_size()) {
     // Removing the extra node retrieved for last page detection.
     nodes->pop_back();
-    TF_RETURN_IF_ERROR(BuildListOperationNextPageToken<Node>(*nodes, options,
-                                                             next_page_token));
+    TF_RETURN_IF_ERROR(FromABSLStatus(BuildListOperationNextPageToken<Node>(
+        *nodes, options, next_page_token)));
   } else {
     *next_page_token = "";
   }

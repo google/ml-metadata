@@ -15,13 +15,12 @@ limitations under the License.
 #include "ml_metadata/util/struct_utils.h"
 
 #include "google/protobuf/struct.pb.h"
+#include "absl/status/status.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
-#include "tensorflow/core/lib/core/errors.h"
-#include "tensorflow/core/lib/core/status.h"
 
 namespace ml_metadata {
 namespace {
@@ -41,29 +40,29 @@ std::string StructToString(const google::protobuf::Struct& struct_value) {
                       absl::Base64Escape(struct_value.SerializeAsString()));
 }
 
-tensorflow::Status StringToStruct(absl::string_view serialized_value,
-                                  google::protobuf::Struct& struct_value) {
+absl::Status StringToStruct(absl::string_view serialized_value,
+                            google::protobuf::Struct& struct_value) {
   if (!absl::StartsWith(serialized_value, kSerializedStructPrefix)) {
-    return tensorflow::errors::InvalidArgument(
-        "Not a valid serialized `Struct`: ", serialized_value);
+    return absl::InvalidArgumentError(
+        absl::StrCat("Not a valid serialized `Struct`: ", serialized_value));
   }
   std::string unescaped;
 
   if (!absl::Base64Unescape(
           absl::StripPrefix(serialized_value, kSerializedStructPrefix),
           &unescaped)) {
-    return tensorflow::errors::InvalidArgument(
+    return absl::InvalidArgumentError(absl::StrCat(
         "Unable to parse serialized `google.protobuf.Struct` value: ",
-        unescaped);
+        unescaped));
   }
 
   if (!struct_value.ParseFromString(unescaped)) {
-    return tensorflow::errors::InvalidArgument(
+    return absl::InvalidArgumentError(absl::StrCat(
         "Unable to parse serialized `google.protobuf.Struct` value: ",
-        unescaped);
+        unescaped));
   }
 
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 }  // namespace ml_metadata

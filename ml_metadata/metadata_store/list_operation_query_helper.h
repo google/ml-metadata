@@ -15,9 +15,9 @@ limitations under the License.
 #ifndef THIRD_PARTY_ML_METADATA_METADATA_STORE_LIST_OPERATION_QUERY_HELPER_H_
 #define THIRD_PARTY_ML_METADATA_METADATA_STORE_LIST_OPERATION_QUERY_HELPER_H_
 
+#include "absl/status/status.h"
 #include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
-#include "tensorflow/core/lib/core/errors.h"
 
 namespace ml_metadata {
 
@@ -46,8 +46,8 @@ namespace ml_metadata {
 //
 // Returns INVALID_ARGUMENT error if the `options` or `next_page_token`
 // specified is invalid.
-tensorflow::Status AppendOrderingThresholdClause(
-    const ListOperationOptions& options, std::string& sql_query_clause);
+absl::Status AppendOrderingThresholdClause(const ListOperationOptions& options,
+                                           std::string& sql_query_clause);
 
 // Generates the ORDER BY clause for ListOperation.
 // On success `sql_query_clause` is appended with the constructed ORDER BY
@@ -64,8 +64,8 @@ tensorflow::Status AppendOrderingThresholdClause(
 // }
 // Appends "ORDER BY `create_time_since_epoch` DESC, `id` DESC" at the end of
 // `sql_query_clause`.
-tensorflow::Status AppendOrderByClause(const ListOperationOptions& options,
-                                       std::string& sql_query_clause);
+absl::Status AppendOrderByClause(const ListOperationOptions& options,
+                                 std::string& sql_query_clause);
 
 // Generates the LIMIT clause for ListOperation.
 // On success `sql_query_clause` is appended with the constructed LIMIT clause
@@ -82,8 +82,8 @@ tensorflow::Status AppendOrderByClause(const ListOperationOptions& options,
 //    }
 // }
 // Appends "LIMIT 1" at the end of `sql_query_clause`.
-tensorflow::Status AppendLimitClause(const ListOperationOptions& options,
-                                     std::string& sql_query_clause);
+absl::Status AppendLimitClause(const ListOperationOptions& options,
+                               std::string& sql_query_clause);
 
 // Gets the maximum number of returned resources for List operation.
 inline constexpr int GetDefaultMaxListOperationResultSize() {
