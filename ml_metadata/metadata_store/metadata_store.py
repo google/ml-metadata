@@ -579,9 +579,10 @@ class MetadataStore(object):
     context_ids = [x for x in response.context_ids]
     return response.execution_id, artifact_ids, context_ids
 
-  def get_artifacts_by_type(self,
-                            type_name: Text,
-                            type_version: Text = None) -> List[proto.Artifact]:
+  def get_artifacts_by_type(
+      self,
+      type_name: Text,
+      type_version: Optional[Text] = None) -> List[proto.Artifact]:
     """Gets all the artifacts of a given type.
 
     Args:
@@ -608,7 +609,7 @@ class MetadataStore(object):
       self,
       type_name: Text,
       artifact_name: Text,
-      type_version: Text = None) -> Optional[proto.Artifact]:
+      type_version: Optional[Text] = None) -> Optional[proto.Artifact]:
     """Get the artifact of the given type and name.
 
     The API fails if more than one artifact is found.
@@ -678,9 +679,10 @@ class MetadataStore(object):
       result.append(x)
     return result
 
-  def get_artifact_type(self,
-                        type_name: Text,
-                        type_version: Text = None) -> proto.ArtifactType:
+  def get_artifact_type(
+      self,
+      type_name: Text,
+      type_version: Optional[Text] = None) -> proto.ArtifactType:
     """Gets an artifact type by name and version.
 
     Args:
@@ -722,9 +724,10 @@ class MetadataStore(object):
       result.append(x)
     return result
 
-  def get_execution_type(self,
-                         type_name: Text,
-                         type_version: Text = None) -> proto.ExecutionType:
+  def get_execution_type(
+      self,
+      type_name: Text,
+      type_version: Optional[Text] = None) -> proto.ExecutionType:
     """Gets an execution type by name and version.
 
     Args:
@@ -766,9 +769,10 @@ class MetadataStore(object):
       result.append(x)
     return result
 
-  def get_context_type(self,
-                       type_name: Text,
-                       type_version: Text = None) -> proto.ContextType:
+  def get_context_type(
+      self,
+      type_name: Text,
+      type_version: Optional[Text] = None) -> proto.ContextType:
     """Gets a context type by name and version.
 
     Args:
@@ -813,7 +817,7 @@ class MetadataStore(object):
   def get_executions_by_type(
       self,
       type_name: Text,
-      type_version: Text = None) -> List[proto.Execution]:
+      type_version: Optional[Text] = None) -> List[proto.Execution]:
     """Gets all the executions of a given type.
 
     Args:
@@ -839,7 +843,7 @@ class MetadataStore(object):
       self,
       type_name: Text,
       execution_name: Text,
-      type_version: Text = None) -> Optional[proto.Execution]:
+      type_version: Optional[Text] = None) -> Optional[proto.Execution]:
     """Get the execution of the given type and name.
 
     The API fails if more than one execution is found.
@@ -1082,9 +1086,10 @@ class MetadataStore(object):
       result.append(x)
     return result
 
-  def get_contexts_by_type(self,
-                           type_name: Text,
-                           type_version: Text = None) -> List[proto.Context]:
+  def get_contexts_by_type(
+      self,
+      type_name: Text,
+      type_version: Optional[Text] = None) -> List[proto.Context]:
     """Gets all the contexts of a given type.
 
     Args:
@@ -1111,7 +1116,7 @@ class MetadataStore(object):
       self,
       type_name: Text,
       context_name: Text,
-      type_version: Text = None) -> Optional[proto.Context]:
+      type_version: Optional[Text] = None) -> Optional[proto.Context]:
     """Get the context of the given type and context name.
 
     The API fails if more than one contexts are found.
