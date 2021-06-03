@@ -24,6 +24,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/query_executor.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
+#include "ml_metadata/util/status_utils.h"
 #include "tensorflow/core/lib/core/status.h"
 
 namespace ml_metadata {
@@ -54,7 +55,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // the MetadataSource is dropped.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status InitMetadataSource() final {
-    return executor_->InitMetadataSource();
+    return FromABSLStatus(executor_->InitMetadataSource());
   }
 
   // Initializes the metadata source and creates schema.
@@ -67,7 +68,8 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // Returns detailed INTERNAL error, if create schema query execution fails.
   tensorflow::Status InitMetadataSourceIfNotExists(
       bool enable_upgrade_migration = false) final {
-    return executor_->InitMetadataSourceIfNotExists(enable_upgrade_migration);
+    return FromABSLStatus(
+        executor_->InitMetadataSourceIfNotExists(enable_upgrade_migration));
   }
 
   // Downgrades the schema to `to_schema_version` in the given metadata source.
@@ -77,7 +79,8 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   //   library version.
   // Returns detailed INTERNAL error, if query execution fails.
   tensorflow::Status DowngradeMetadataSource(int64 to_schema_version) final {
-    return executor_->DowngradeMetadataSource(to_schema_version);
+    return FromABSLStatus(
+        executor_->DowngradeMetadataSource(to_schema_version));
   }
 
   tensorflow::Status CreateType(const ArtifactType& type, int64* type_id) final;
@@ -236,7 +239,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
       int64 context_id, std::vector<Context>* contexts) final;
 
   tensorflow::Status GetSchemaVersion(int64* db_version) final {
-    return executor_->GetSchemaVersion(db_version);
+    return FromABSLStatus(executor_->GetSchemaVersion(db_version));
   }
 
   int64 GetLibraryVersion() final { return executor_->GetLibraryVersion(); }

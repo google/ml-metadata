@@ -93,12 +93,15 @@ cc_library(
     deps = [
         ":constants",
         ":metadata_source",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
-        "@org_tensorflow//tensorflow/core:lib",
+        "//ml_metadata/util:return_utils",
+        "@com_google_glog//:glog",
     ],
 )
 
@@ -118,13 +121,14 @@ cc_library(
         "@com_google_protobuf//:protobuf",
         
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
-        "//ml_metadata/util:status_utils",
+        "//ml_metadata/util:return_utils",
         "//ml_metadata/util:struct_utils",
-        "@org_tensorflow//tensorflow/core:lib",
+        "@com_google_glog//:glog",
         "@com_google_protobuf//:cc_wkt_protos",
     ],
 )

@@ -18,6 +18,7 @@ limitations under the License.
 #include <memory>
 #include <vector>
 
+#include "absl/status/status.h"
 #include "absl/time/time.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
@@ -25,7 +26,6 @@ limitations under the License.
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
-#include "tensorflow/core/lib/core/status.h"
 
 namespace ml_metadata {
 
@@ -64,7 +64,7 @@ class QueryExecutor {
   // Initializes the metadata source and creates schema. Any existing data in
   // the MetadataSource is dropped.
   // Returns detailed INTERNAL error, if query execution fails.
-  virtual tensorflow::Status InitMetadataSource() = 0;
+  virtual absl::Status InitMetadataSource() = 0;
 
   // Initializes the metadata source and creates schema if not exist.
   // Returns OK and does nothing, if all required schema exist.
@@ -80,7 +80,7 @@ class QueryExecutor {
   // Returns FAILED_PRECONDITION error, if the given db is empty or at another
   //   schema version.
   // Returns detailed INTERNAL error, if create schema query execution fails.
-  virtual tensorflow::Status InitMetadataSourceIfNotExists(
+  virtual absl::Status InitMetadataSourceIfNotExists(
       bool enable_upgrade_migration = false) = 0;
 
   // Upgrades the database schema version (db_v) to align with the library
@@ -95,7 +95,7 @@ class QueryExecutor {
   // Returns DATA_LOSS error, if the database is not a 0.13.2 release database
   //   and the schema version cannot be resolved.
   // Returns detailed INTERNAL error, if query execution fails.
-  virtual tensorflow::Status UpgradeMetadataSourceIfOutOfDate(
+  virtual absl::Status UpgradeMetadataSourceIfOutOfDate(
       bool enable_migration) = 0;
 
   // Downgrades the schema to `to_schema_version` in the given metadata source.
@@ -104,8 +104,7 @@ class QueryExecutor {
   // Returns FAILED_PRECONDITION, if db schema version is newer than the
   //   library version.
   // Returns detailed INTERNAL error, if query execution fails.
-  virtual tensorflow::Status DowngradeMetadataSource(
-      int64 to_schema_version) = 0;
+  virtual absl::Status DowngradeMetadataSource(int64 to_schema_version) = 0;
 
   // Resolves the schema version stored in the metadata source. The `db_version`
   // is set to 0, if it is a 0.13.2 release pre-existing database.
@@ -115,7 +114,7 @@ class QueryExecutor {
   // more than one value in the database.
   // Returns NOT_FOUND error, if the database is empty.
   // Returns detailed INTERNAL error, if query execution fails.
-  virtual tensorflow::Status GetSchemaVersion(int64* db_version) = 0;
+  virtual absl::Status GetSchemaVersion(int64* db_version) = 0;
 
   // The version of the current query config or source. Increase the version by
   // 1 in any CL that includes physical schema changes and provides a migration
@@ -127,7 +126,7 @@ class QueryExecutor {
   virtual int64 GetLibraryVersion() = 0;
 
   // Each of the following methods roughly corresponds to a query (or two).
-  virtual tensorflow::Status CheckTypeTable() = 0;
+  virtual absl::Status CheckTypeTable() = 0;
 
   // Inserts a type (ArtifactType/ExecutionType/ContextType).
   //
@@ -151,7 +150,7 @@ class QueryExecutor {
   //
   // `type_id` is the output ID of the artifact type.
   // Returns detailed INTERNAL error, if query execution fails.
-  virtual tensorflow::Status InsertArtifactType(
+  virtual absl::Status InsertArtifactType(
       const std::string& name, absl::optional<absl::string_view> version,
       absl::optional<absl::string_view> description, int64* type_id) = 0;
 
@@ -160,7 +159,7 @@ class QueryExecutor {
   // `output_type` is an optional field to describe the output artifact types.
   // `type_id` is the ID of the execution type.
   // Returns detailed INTERNAL error, if query execution fails.
-  virtual tensorflow::Status InsertExecutionType(
+  virtual absl::Status InsertExecutionType(
       const std::string& name, absl::optional<absl::string_view> version,
       absl::optional<absl::string_view> description,
       const ArtifactStructType* input_type,
@@ -169,7 +168,7 @@ class QueryExecutor {
   // Inserts a ContextType into the database.
   // `type_id` is the ID of the context type.
   // Returns detailed INTERNAL error, if query execution fails.
-  virtual tensorflow::Status InsertContextType(
+  virtual absl::Status InsertContextType(
       const std::string& name, absl::optional<absl::string_view> version,
       absl::optional<absl::string_view> description, int64* type_id) = 0;
 
@@ -178,15 +177,15 @@ class QueryExecutor {
   // ContextType, or ExecutionType.
   // TODO(b/171597866) Improve document and describe the returned `record_set`.
   // for the query executor APIs.
-  virtual tensorflow::Status SelectTypeByID(int64 type_id, TypeKind type_kind,
-                                            RecordSet* record_set) = 0;
+  virtual absl::Status SelectTypeByID(int64 type_id, TypeKind type_kind,
+                                      RecordSet* record_set) = 0;
 
   // Queries a type by its type name and an optional version. If version is
   // not given or the version is an empty string, (type_name, version = NULL)
   // is used to retrieve types.
   // Returns a message that can be converted to an ArtifactType,
   // ContextType, or ExecutionType.
-  virtual tensorflow::Status SelectTypeByNameAndVersion(
+  virtual absl::Status SelectTypeByNameAndVersion(
       absl::string_view type_name,
       absl::optional<absl::string_view> type_version, TypeKind type_kind,
       RecordSet* record_set) = 0;
@@ -194,42 +193,42 @@ class QueryExecutor {
   // Queries for all type instances.
   // Returns a message that can be converted to an ArtifactType,
   // ContextType, or ExecutionType.
-  virtual tensorflow::Status SelectAllTypes(TypeKind type_kind,
-                                            RecordSet* record_set) = 0;
+  virtual absl::Status SelectAllTypes(TypeKind type_kind,
+                                      RecordSet* record_set) = 0;
 
   // Checks the existence of the TypeProperty table.
-  virtual tensorflow::Status CheckTypePropertyTable() = 0;
+  virtual absl::Status CheckTypePropertyTable() = 0;
 
   // Inserts a property of a type into the database.
-  virtual tensorflow::Status InsertTypeProperty(
-      int64 type_id, const absl::string_view property_name,
-      PropertyType property_type) = 0;
+  virtual absl::Status InsertTypeProperty(int64 type_id,
+                                          const absl::string_view property_name,
+                                          PropertyType property_type) = 0;
 
   // Queries properties of a type from the database by the type_id
   // Returns a list of properties (name, data_type).
-  virtual tensorflow::Status SelectPropertyByTypeID(int64 type_id,
-                                                    RecordSet* record_set) = 0;
+  virtual absl::Status SelectPropertyByTypeID(int64 type_id,
+                                              RecordSet* record_set) = 0;
 
   // Checks the existence of the ParentType table.
-  virtual tensorflow::Status CheckParentTypeTable() = 0;
+  virtual absl::Status CheckParentTypeTable() = 0;
 
   // Inserts a parent type record.
   // Returns OK if the insertion succeeds.
   // Returns detailed INTERNAL error, if query execution fails.
-  virtual tensorflow::Status InsertParentType(int64 type_id,
-                                              int64 parent_type_id) = 0;
+  virtual absl::Status InsertParentType(int64 type_id,
+                                        int64 parent_type_id) = 0;
 
   // Returns parent types for the type id. Each record has:
   // Column 0: int: type_id (= type_id)
   // Column 1: int: parent_type_id
-  virtual tensorflow::Status SelectParentTypesByTypeID(
-      int64 type_id, RecordSet* record_set) = 0;
+  virtual absl::Status SelectParentTypesByTypeID(int64 type_id,
+                                                 RecordSet* record_set) = 0;
 
   // Checks the existence of the Artifact table.
-  virtual tensorflow::Status CheckArtifactTable() = 0;
+  virtual absl::Status CheckArtifactTable() = 0;
 
   // Inserts an artifact into the database.
-  virtual tensorflow::Status InsertArtifact(
+  virtual absl::Status InsertArtifact(
       int64 type_id, const std::string& artifact_uri,
       const absl::optional<Artifact::State>& state,
       const absl::optional<std::string>& name, absl::Time create_time,
@@ -245,57 +244,57 @@ class QueryExecutor {
   // - string: name
   // - int: create time (since epoch)
   // - int: last update time (since epoch)
-  virtual tensorflow::Status SelectArtifactsByID(absl::Span<const int64> ids,
-                                                 RecordSet* record_set) = 0;
+  virtual absl::Status SelectArtifactsByID(absl::Span<const int64> ids,
+                                           RecordSet* record_set) = 0;
   // Queries an artifact from the Artifact table by its type_id and name.
   // Returns the artifact ID.
-  virtual tensorflow::Status SelectArtifactByTypeIDAndArtifactName(
+  virtual absl::Status SelectArtifactByTypeIDAndArtifactName(
       int64 artifact_type_id, const absl::string_view name,
       RecordSet* record_set) = 0;
 
   // Queries artifacts from the Artifact table by their type_id.
   // Returns a list of artifact IDs.
-  virtual tensorflow::Status SelectArtifactsByTypeID(int64 artifact_type_id,
-                                                     RecordSet* record_set) = 0;
+  virtual absl::Status SelectArtifactsByTypeID(int64 artifact_type_id,
+                                               RecordSet* record_set) = 0;
 
   // Queries an artifact from the database by its uri.
   // Returns a list of artifact IDs.
-  virtual tensorflow::Status SelectArtifactsByURI(const absl::string_view uri,
-                                                  RecordSet* record_set) = 0;
+  virtual absl::Status SelectArtifactsByURI(const absl::string_view uri,
+                                            RecordSet* record_set) = 0;
 
   // Updates an artifact in the database.
-  virtual tensorflow::Status UpdateArtifactDirect(
+  virtual absl::Status UpdateArtifactDirect(
       int64 artifact_id, int64 type_id, const std::string& uri,
       const absl::optional<Artifact::State>& state, absl::Time update_time) = 0;
 
   // Checks the existence of the ArtifactProperty table.
-  virtual tensorflow::Status CheckArtifactPropertyTable() = 0;
+  virtual absl::Status CheckArtifactPropertyTable() = 0;
 
   // Insert a property of an artifact into the database.
-  virtual tensorflow::Status InsertArtifactProperty(
+  virtual absl::Status InsertArtifactProperty(
       int64 artifact_id, absl::string_view artifact_property_name,
       bool is_custom_property, const Value& property_value) = 0;
 
   // Queries properties of an artifact from the database by the
   // artifact id. Upon return, each property is mapped to a row in 'record_set'
   // using the convention spelled out in the class docstring.
-  virtual tensorflow::Status SelectArtifactPropertyByArtifactID(
+  virtual absl::Status SelectArtifactPropertyByArtifactID(
       absl::Span<const int64> artifact_ids, RecordSet* record_set) = 0;
 
   // Updates a property of an artifact in the database.
-  virtual tensorflow::Status UpdateArtifactProperty(
+  virtual absl::Status UpdateArtifactProperty(
       int64 artifact_id, const absl::string_view property_name,
       const Value& property_value) = 0;
 
   // Deletes a property of an artifact.
-  virtual tensorflow::Status DeleteArtifactProperty(
+  virtual absl::Status DeleteArtifactProperty(
       int64 artifact_id, const absl::string_view property_name) = 0;
 
   // Checks the existence of the Execution table.
-  virtual tensorflow::Status CheckExecutionTable() = 0;
+  virtual absl::Status CheckExecutionTable() = 0;
 
   // Inserts an execution into the database.
-  virtual tensorflow::Status InsertExecution(
+  virtual absl::Status InsertExecution(
       int64 type_id, const absl::optional<Execution::State>& last_known_state,
       const absl::optional<std::string>& name, absl::Time create_time,
       absl::Time update_time, int64* execution_id) = 0;
@@ -309,55 +308,56 @@ class QueryExecutor {
   // - name
   // - create_time_since_epoch
   // - last_update_time_since_epoch
-  virtual tensorflow::Status SelectExecutionsByID(
+  virtual absl::Status SelectExecutionsByID(
       absl::Span<const int64> execution_ids, RecordSet* record_set) = 0;
 
   // Queries an execution from the database by its type_id and name.
-  virtual tensorflow::Status SelectExecutionByTypeIDAndExecutionName(
+  virtual absl::Status SelectExecutionByTypeIDAndExecutionName(
       int64 execution_type_id, const absl::string_view name,
       RecordSet* record_set) = 0;
 
   // Queries an execution from the database by its type_id.
-  virtual tensorflow::Status SelectExecutionsByTypeID(
-      int64 execution_type_id, RecordSet* record_set) = 0;
+  virtual absl::Status SelectExecutionsByTypeID(int64 execution_type_id,
+                                                RecordSet* record_set) = 0;
 
   // Updates an execution in the database.
-  virtual tensorflow::Status UpdateExecutionDirect(
+  virtual absl::Status UpdateExecutionDirect(
       int64 execution_id, int64 type_id,
       const absl::optional<Execution::State>& last_known_state,
       absl::Time update_time) = 0;
 
   // Checks the existence of the ExecutionProperty table.
-  virtual tensorflow::Status CheckExecutionPropertyTable() = 0;
+  virtual absl::Status CheckExecutionPropertyTable() = 0;
 
   // Insert a property of an execution from the database.
-  virtual tensorflow::Status InsertExecutionProperty(
-      int64 execution_id, const absl::string_view name, bool is_custom_property,
-      const Value& value) = 0;
+  virtual absl::Status InsertExecutionProperty(int64 execution_id,
+                                               const absl::string_view name,
+                                               bool is_custom_property,
+                                               const Value& value) = 0;
 
   // Queries properties of executions matching the given 'ids'.
   // Upon return, each property is mapped to a row in 'record_set'
   // using the convention spelled out in the class docstring.
-  virtual tensorflow::Status SelectExecutionPropertyByExecutionID(
+  virtual absl::Status SelectExecutionPropertyByExecutionID(
       absl::Span<const int64> execution_ids, RecordSet* record_set) = 0;
 
   // Updates a property of an execution from the database.
-  virtual tensorflow::Status UpdateExecutionProperty(
-      int64 execution_id, const absl::string_view name, const Value& value) = 0;
+  virtual absl::Status UpdateExecutionProperty(int64 execution_id,
+                                               const absl::string_view name,
+                                               const Value& value) = 0;
 
   // Deletes a property of an execution.
-  virtual tensorflow::Status DeleteExecutionProperty(
+  virtual absl::Status DeleteExecutionProperty(
       int64 execution_id, const absl::string_view name) = 0;
 
   // Checks the existence of the Context table.
-  virtual tensorflow::Status CheckContextTable() = 0;
+  virtual absl::Status CheckContextTable() = 0;
 
   // Inserts a context into the database.
-  virtual tensorflow::Status InsertContext(int64 type_id,
-                                           const std::string& name,
-                                           const absl::Time create_time,
-                                           const absl::Time update_time,
-                                           int64* context_id) = 0;
+  virtual absl::Status InsertContext(int64 type_id, const std::string& name,
+                                     const absl::Time create_time,
+                                     const absl::Time update_time,
+                                     int64* context_id) = 0;
 
   // Retrieves contexts from the database by their ids. For each context,
   // returns a row that contains the following columns (order not important):
@@ -366,171 +366,170 @@ class QueryExecutor {
   // - string: name
   // - int: create time (since epoch)
   // - int: last update time (since epoch)
-  virtual tensorflow::Status SelectContextsByID(
-      absl::Span<const int64> context_ids, RecordSet* record_set) = 0;
+  virtual absl::Status SelectContextsByID(absl::Span<const int64> context_ids,
+                                          RecordSet* record_set) = 0;
 
   // Returns ids of contexts matching the given context_type_id.
-  virtual tensorflow::Status SelectContextsByTypeID(int64 context_type_id,
-                                                    RecordSet* record_set) = 0;
+  virtual absl::Status SelectContextsByTypeID(int64 context_type_id,
+                                              RecordSet* record_set) = 0;
 
   // Returns ids of contexts matching the given context_type_id and name.
-  virtual tensorflow::Status SelectContextByTypeIDAndContextName(
+  virtual absl::Status SelectContextByTypeIDAndContextName(
       int64 context_type_id, const absl::string_view name,
       RecordSet* record_set) = 0;
 
   // Updates a context in the Context table.
-  virtual tensorflow::Status UpdateContextDirect(
-      int64 existing_context_id, int64 type_id, const std::string& context_name,
-      const absl::Time update_time) = 0;
+  virtual absl::Status UpdateContextDirect(int64 existing_context_id,
+                                           int64 type_id,
+                                           const std::string& context_name,
+                                           const absl::Time update_time) = 0;
 
   // Checks the existence of the ContextProperty table.
-  virtual tensorflow::Status CheckContextPropertyTable() = 0;
+  virtual absl::Status CheckContextPropertyTable() = 0;
 
   // Insert a property of a context into the database.
-  virtual tensorflow::Status InsertContextProperty(int64 context_id,
-                                                   const absl::string_view name,
-                                                   bool custom_property,
-                                                   const Value& value) = 0;
+  virtual absl::Status InsertContextProperty(int64 context_id,
+                                             const absl::string_view name,
+                                             bool custom_property,
+                                             const Value& value) = 0;
 
   // Queries properties of contexts from the database by the
   // given context ids.
-  virtual tensorflow::Status SelectContextPropertyByContextID(
+  virtual absl::Status SelectContextPropertyByContextID(
       absl::Span<const int64> context_id, RecordSet* record_set) = 0;
 
   // Updates a property of a context in the database.
-  virtual tensorflow::Status UpdateContextProperty(
+  virtual absl::Status UpdateContextProperty(
       int64 context_id, const absl::string_view property_name,
       const Value& property_value) = 0;
 
   // Deletes a property of a context.
-  virtual tensorflow::Status DeleteContextProperty(
+  virtual absl::Status DeleteContextProperty(
       const int64 context_id, const absl::string_view property_name) = 0;
 
   // Checks the existence of the Event table.
-  virtual tensorflow::Status CheckEventTable() = 0;
+  virtual absl::Status CheckEventTable() = 0;
 
   // Inserts an event into the database.
-  virtual tensorflow::Status InsertEvent(int64 artifact_id, int64 execution_id,
-                                         int event_type,
-                                         int64 event_time_milliseconds,
-                                         int64* event_id) = 0;
+  virtual absl::Status InsertEvent(int64 artifact_id, int64 execution_id,
+                                   int event_type,
+                                   int64 event_time_milliseconds,
+                                   int64* event_id) = 0;
 
   // Queries events from the Event table by a collection of artifact ids.
-  virtual tensorflow::Status SelectEventByArtifactIDs(
+  virtual absl::Status SelectEventByArtifactIDs(
       absl::Span<const int64> artifact_ids, RecordSet* event_record_set) = 0;
 
   // Queries events from the Event table by a collection of execution ids.
-  virtual tensorflow::Status SelectEventByExecutionIDs(
+  virtual absl::Status SelectEventByExecutionIDs(
       absl::Span<const int64> execution_ids, RecordSet* event_record_set) = 0;
 
   // Checks the existence of the EventPath table.
-  virtual tensorflow::Status CheckEventPathTable() = 0;
+  virtual absl::Status CheckEventPathTable() = 0;
 
   // Inserts a path step into the EventPath table.
-  virtual tensorflow::Status InsertEventPath(int64 event_id,
-                                             const Event::Path::Step& step) = 0;
+  virtual absl::Status InsertEventPath(int64 event_id,
+                                       const Event::Path::Step& step) = 0;
 
   // Queries paths from the database by a collection of event ids.
-  virtual tensorflow::Status SelectEventPathByEventIDs(
+  virtual absl::Status SelectEventPathByEventIDs(
       absl::Span<const int64> event_ids, RecordSet* record_set) = 0;
 
   // Checks the existence of the Association table.
-  virtual tensorflow::Status CheckAssociationTable() = 0;
+  virtual absl::Status CheckAssociationTable() = 0;
 
   // Inserts an association into the database.
-  virtual tensorflow::Status InsertAssociation(int64 context_id,
-                                               int64 execution_id,
-                                               int64* association_id) = 0;
+  virtual absl::Status InsertAssociation(int64 context_id, int64 execution_id,
+                                         int64* association_id) = 0;
 
   // Returns association triplets for the given context id. Each triplet has:
   // Column 0: int: attribution id
   // Column 1: int: context id
   // Column 2: int: execution id
-  virtual tensorflow::Status SelectAssociationByContextID(
-      int64 context_id, RecordSet* record_set) = 0;
+  virtual absl::Status SelectAssociationByContextID(int64 context_id,
+                                                    RecordSet* record_set) = 0;
 
   // Returns association triplets for the given context id. Each triplet has:
   // Column 0: int: attribution id
   // Column 1: int: context id
   // Column 2: int: execution id
-  virtual tensorflow::Status SelectAssociationByExecutionID(
+  virtual absl::Status SelectAssociationByExecutionID(
       int64 execution_id, RecordSet* record_set) = 0;
 
   // Checks the existence of the Attribution table.
-  virtual tensorflow::Status CheckAttributionTable() = 0;
+  virtual absl::Status CheckAttributionTable() = 0;
 
   // Inserts an attribution into the database.
-  virtual tensorflow::Status InsertAttributionDirect(int64 context_id,
-                                                     int64 artifact_id,
-                                                     int64* attribution_id) = 0;
+  virtual absl::Status InsertAttributionDirect(int64 context_id,
+                                               int64 artifact_id,
+                                               int64* attribution_id) = 0;
 
   // Returns attribution triplets for the given context id. Each triplet has:
   // Column 0: int: attribution id
   // Column 1: int: context id
   // Column 2: int: artifact id
-  virtual tensorflow::Status SelectAttributionByContextID(
-      int64 context_id, RecordSet* record_set) = 0;
+  virtual absl::Status SelectAttributionByContextID(int64 context_id,
+                                                    RecordSet* record_set) = 0;
 
   // Returns attribution triplets for the given artifact id. Each triplet has:
   // Column 0: int: attribution id
   // Column 1: int: context id
   // Column 2: int: artifact id
-  virtual tensorflow::Status SelectAttributionByArtifactID(
-      int64 artifact_id, RecordSet* record_set) = 0;
+  virtual absl::Status SelectAttributionByArtifactID(int64 artifact_id,
+                                                     RecordSet* record_set) = 0;
 
   // Checks the existence of the ParentContext table.
-  virtual tensorflow::Status CheckParentContextTable() = 0;
+  virtual absl::Status CheckParentContextTable() = 0;
 
   // Inserts a parent context.
   // Returns OK if the insertion succeeds.
   // Returns detailed INTERNAL error, if query execution fails.
-  virtual tensorflow::Status InsertParentContext(int64 parent_id,
-                                                 int64 child_id) = 0;
+  virtual absl::Status InsertParentContext(int64 parent_id, int64 child_id) = 0;
 
   // Returns parent contexts for the given context id. Each record has:
   // Column 0: int: context id (= context_id)
   // Column 1: int: parent context id
-  virtual tensorflow::Status SelectParentContextsByContextID(
+  virtual absl::Status SelectParentContextsByContextID(
       int64 context_id, RecordSet* record_set) = 0;
 
   // Returns child contexts for the given context id. Each record has:
   // Column 0: int: context id
   // Column 1: int: parent context id (= context_id)
-  virtual tensorflow::Status SelectChildContextsByContextID(
+  virtual absl::Status SelectChildContextsByContextID(
       int64 context_id, RecordSet* record_set) = 0;
 
   // Checks the MLMDEnv table and query the schema version.
   // At MLMD release v0.13.2, by default it is v0.
-  virtual tensorflow::Status CheckMLMDEnvTable() = 0;
+  virtual absl::Status CheckMLMDEnvTable() = 0;
 
   // Insert schema_version.
-  virtual tensorflow::Status InsertSchemaVersion(int64 schema_version) = 0;
+  virtual absl::Status InsertSchemaVersion(int64 schema_version) = 0;
 
   // Update schema_version
-  virtual tensorflow::Status UpdateSchemaVersion(int64 schema_version) = 0;
+  virtual absl::Status UpdateSchemaVersion(int64 schema_version) = 0;
 
   // Check the database is a valid database produced by 0.13.2 MLMD release.
   // The schema version and migration are introduced after that release.
-  virtual tensorflow::Status CheckTablesIn_V0_13_2() = 0;
+  virtual absl::Status CheckTablesIn_V0_13_2() = 0;
 
   // Note: these are not reflected in the original queries.
   // Select all artifact IDs.
   // Returns a list of IDs.
-  virtual tensorflow::Status SelectAllArtifactIDs(RecordSet* set) = 0;
+  virtual absl::Status SelectAllArtifactIDs(RecordSet* set) = 0;
 
   // Select all execution IDs.
   // Returns a list of IDs.
-  virtual tensorflow::Status SelectAllExecutionIDs(RecordSet* set) = 0;
+  virtual absl::Status SelectAllExecutionIDs(RecordSet* set) = 0;
 
   // Select all context IDs.
   // Returns a list of IDs.
-  virtual tensorflow::Status SelectAllContextIDs(RecordSet* set) = 0;
+  virtual absl::Status SelectAllContextIDs(RecordSet* set) = 0;
 
   // List Artifact IDs using `options`. If `candidate_ids` is provided, then
   // returned result is only built using ids in the `candidate_ids`, when
   // nullopt, all stored artifacts are considered as candidates. On success
   // `record_set` is updated with artifact IDs based on `options`
-  virtual tensorflow::Status ListArtifactIDsUsingOptions(
+  virtual absl::Status ListArtifactIDsUsingOptions(
       const ListOperationOptions& options,
       absl::optional<absl::Span<const int64>> candidate_ids,
       RecordSet* record_set) = 0;
@@ -539,7 +538,7 @@ class QueryExecutor {
   // returned result is only built using ids in the `candidate_ids`, when
   // nullopt, all stored executions are considered as candidates. On success
   // `record_set` is updated with execution IDs based on `options`.
-  virtual tensorflow::Status ListExecutionIDsUsingOptions(
+  virtual absl::Status ListExecutionIDsUsingOptions(
       const ListOperationOptions& options,
       absl::optional<absl::Span<const int64>> candidate_ids,
       RecordSet* record_set) = 0;
@@ -548,7 +547,7 @@ class QueryExecutor {
   // returned result is only built using ids in the `candidate_ids`, when
   // nullopt, all stored contexts are considered as candidates. On success
   // `record_set` is updated with context IDs based on `options`.
-  virtual tensorflow::Status ListContextIDsUsingOptions(
+  virtual absl::Status ListContextIDsUsingOptions(
       const ListOperationOptions& options,
       absl::optional<absl::Span<const int64>> candidate_ids,
       RecordSet* record_set) = 0;
@@ -558,7 +557,7 @@ class QueryExecutor {
   // Uses the method to document the min schema version of an API explicitly.
   // Returns FailedPrecondition, if the |query_schema_version_| is less than the
   //   mininum schema version that the API is expected to work with.
-  tensorflow::Status VerifyCurrentQueryVersionIsAtLeast(
+  absl::Status VerifyCurrentQueryVersionIsAtLeast(
       int64 min_schema_version) const;
 
   // If |query_schema_version_| is given, then the query executor is expected to
@@ -566,7 +565,7 @@ class QueryExecutor {
   // query_schema_version_). Returns FailedPrecondition, if the db is empty or
   // the db is initialized
   //   with a schema_version != query_schema_version_.
-  tensorflow::Status CheckSchemaVersionAlignsWithQueryVersion();
+  absl::Status CheckSchemaVersionAlignsWithQueryVersion();
 
   // Uses the method to document the query branches for earlier schema for
   // ease of cleanup after the temporary branches after the migration.

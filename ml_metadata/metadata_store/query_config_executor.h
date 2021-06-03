@@ -18,12 +18,13 @@ limitations under the License.
 #include <memory>
 #include <vector>
 
+#include <glog/logging.h>
+#include "absl/status/status.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/metadata_store/query_executor.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
-#include "tensorflow/core/lib/core/errors.h"
-#include "tensorflow/core/lib/core/status.h"
+#include "ml_metadata/util/return_utils.h"
 
 namespace ml_metadata {
 
@@ -59,80 +60,81 @@ class QueryConfigExecutor : public QueryExecutor {
 
   virtual ~QueryConfigExecutor() = default;
 
-  tensorflow::Status InitMetadataSource() final;
+  absl::Status InitMetadataSource() final;
 
-  tensorflow::Status InitMetadataSourceIfNotExists(
+  absl::Status InitMetadataSourceIfNotExists(
       const bool enable_upgrade_migration) final;
 
-  tensorflow::Status GetSchemaVersion(int64* db_version) final;
+  absl::Status GetSchemaVersion(int64* db_version) final;
 
-  tensorflow::Status CheckTypeTable() final {
+  absl::Status CheckTypeTable() final {
     return ExecuteQuery(query_config_.check_type_table());
   }
 
-  tensorflow::Status InsertArtifactType(
-      const std::string& name, absl::optional<absl::string_view> version,
-      absl::optional<absl::string_view> description, int64* type_id) final;
+  absl::Status InsertArtifactType(const std::string& name,
+                                  absl::optional<absl::string_view> version,
+                                  absl::optional<absl::string_view> description,
+                                  int64* type_id) final;
 
-  tensorflow::Status InsertExecutionType(
+  absl::Status InsertExecutionType(
       const std::string& name, absl::optional<absl::string_view> version,
       absl::optional<absl::string_view> description,
       const ArtifactStructType* input_type,
       const ArtifactStructType* output_type, int64* type_id) final;
 
-  tensorflow::Status InsertContextType(
-      const std::string& name, absl::optional<absl::string_view> version,
-      absl::optional<absl::string_view> description, int64* type_id) final;
+  absl::Status InsertContextType(const std::string& name,
+                                 absl::optional<absl::string_view> version,
+                                 absl::optional<absl::string_view> description,
+                                 int64* type_id) final;
 
-  tensorflow::Status SelectTypeByID(int64 type_id, TypeKind type_kind,
-                                    RecordSet* record_set) final;
+  absl::Status SelectTypeByID(int64 type_id, TypeKind type_kind,
+                              RecordSet* record_set) final;
 
-  tensorflow::Status SelectTypeByNameAndVersion(
+  absl::Status SelectTypeByNameAndVersion(
       absl::string_view type_name,
       absl::optional<absl::string_view> type_version, TypeKind type_kind,
       RecordSet* record_set) final;
 
-  tensorflow::Status SelectAllTypes(TypeKind type_kind,
-                                    RecordSet* record_set) final;
+  absl::Status SelectAllTypes(TypeKind type_kind, RecordSet* record_set) final;
 
-  tensorflow::Status CheckTypePropertyTable() final {
+  absl::Status CheckTypePropertyTable() final {
     return ExecuteQuery(query_config_.check_type_property_table());
   }
 
-  tensorflow::Status InsertTypeProperty(int64 type_id,
-                                        const absl::string_view property_name,
-                                        PropertyType property_type) final {
+  absl::Status InsertTypeProperty(int64 type_id,
+                                  const absl::string_view property_name,
+                                  PropertyType property_type) final {
     return ExecuteQuery(
         query_config_.insert_type_property(),
         {Bind(type_id), Bind(property_name), Bind(property_type)});
   }
 
-  tensorflow::Status SelectPropertyByTypeID(int64 type_id,
-                                            RecordSet* record_set) final {
+  absl::Status SelectPropertyByTypeID(int64 type_id,
+                                      RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_property_by_type_id(),
                         {Bind(type_id)}, record_set);
   }
 
-  tensorflow::Status CheckParentTypeTable() final;
+  absl::Status CheckParentTypeTable() final;
 
-  tensorflow::Status InsertParentType(int64 type_id,
-                                      int64 parent_type_id) final;
+  absl::Status InsertParentType(int64 type_id, int64 parent_type_id) final;
 
-  tensorflow::Status SelectParentTypesByTypeID(int64 type_id,
-                                               RecordSet* record_set) final;
+  absl::Status SelectParentTypesByTypeID(int64 type_id,
+                                         RecordSet* record_set) final;
 
   // Queries the last inserted id.
-  tensorflow::Status SelectLastInsertID(int64* id);
+  absl::Status SelectLastInsertID(int64* id);
 
-  tensorflow::Status CheckArtifactTable() final {
+  absl::Status CheckArtifactTable() final {
     return ExecuteQuery(query_config_.check_artifact_table());
   }
 
-  tensorflow::Status InsertArtifact(
-      int64 type_id, const std::string& artifact_uri,
-      const absl::optional<Artifact::State>& state,
-      const absl::optional<std::string>& name, const absl::Time create_time,
-      const absl::Time update_time, int64* artifact_id) final {
+  absl::Status InsertArtifact(int64 type_id, const std::string& artifact_uri,
+                              const absl::optional<Artifact::State>& state,
+                              const absl::optional<std::string>& name,
+                              const absl::Time create_time,
+                              const absl::Time update_time,
+                              int64* artifact_id) final {
     return ExecuteQuerySelectLastInsertID(
         query_config_.insert_artifact(),
         {Bind(type_id), Bind(artifact_uri), Bind(state), Bind(name),
@@ -141,32 +143,32 @@ class QueryConfigExecutor : public QueryExecutor {
         artifact_id);
   }
 
-  tensorflow::Status SelectArtifactsByID(
-      const absl::Span<const int64> artifact_ids, RecordSet* record_set) final {
+  absl::Status SelectArtifactsByID(const absl::Span<const int64> artifact_ids,
+                                   RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_artifact_by_id(),
                         {Bind(artifact_ids)}, record_set);
   }
 
-  tensorflow::Status SelectArtifactByTypeIDAndArtifactName(
+  absl::Status SelectArtifactByTypeIDAndArtifactName(
       int64 artifact_type_id, const absl::string_view name,
       RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_artifact_by_type_id_and_name(),
                         {Bind(artifact_type_id), Bind(name)}, record_set);
   }
 
-  tensorflow::Status SelectArtifactsByTypeID(int64 artifact_type_id,
-                                             RecordSet* record_set) final {
+  absl::Status SelectArtifactsByTypeID(int64 artifact_type_id,
+                                       RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_artifacts_by_type_id(),
                         {Bind(artifact_type_id)}, record_set);
   }
 
-  tensorflow::Status SelectArtifactsByURI(const absl::string_view uri,
-                                          RecordSet* record_set) final {
+  absl::Status SelectArtifactsByURI(const absl::string_view uri,
+                                    RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_artifacts_by_uri(), {Bind(uri)},
                         record_set);
   }
 
-  tensorflow::Status UpdateArtifactDirect(
+  absl::Status UpdateArtifactDirect(
       int64 artifact_id, int64 type_id, const std::string& uri,
       const absl::optional<Artifact::State>& state,
       const absl::Time update_time) final {
@@ -175,45 +177,46 @@ class QueryConfigExecutor : public QueryExecutor {
                          Bind(state), Bind(absl::ToUnixMillis(update_time))});
   }
 
-  tensorflow::Status CheckArtifactPropertyTable() final {
+  absl::Status CheckArtifactPropertyTable() final {
     return ExecuteQuery(query_config_.check_artifact_property_table());
   }
 
-  tensorflow::Status InsertArtifactProperty(
-      int64 artifact_id, absl::string_view artifact_property_name,
-      bool is_custom_property, const Value& property_value) final {
+  absl::Status InsertArtifactProperty(int64 artifact_id,
+                                      absl::string_view artifact_property_name,
+                                      bool is_custom_property,
+                                      const Value& property_value) final {
     return ExecuteQuery(query_config_.insert_artifact_property(),
                         {BindDataType(property_value), Bind(artifact_id),
                          Bind(artifact_property_name), Bind(is_custom_property),
                          BindValue(property_value)});
   }
 
-  tensorflow::Status SelectArtifactPropertyByArtifactID(
+  absl::Status SelectArtifactPropertyByArtifactID(
       const absl::Span<const int64> artifact_ids, RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_artifact_property_by_artifact_id(),
                         {Bind(artifact_ids)}, record_set);
   }
 
-  tensorflow::Status UpdateArtifactProperty(
-      int64 artifact_id, const absl::string_view property_name,
-      const Value& property_value) final {
+  absl::Status UpdateArtifactProperty(int64 artifact_id,
+                                      const absl::string_view property_name,
+                                      const Value& property_value) final {
     return ExecuteQuery(
         query_config_.update_artifact_property(),
         {BindDataType(property_value), BindValue(property_value),
          Bind(artifact_id), Bind(property_name)});
   }
 
-  tensorflow::Status DeleteArtifactProperty(
+  absl::Status DeleteArtifactProperty(
       int64 artifact_id, const absl::string_view property_name) final {
     return ExecuteQuery(query_config_.delete_artifact_property(),
                         {Bind(artifact_id), Bind(property_name)});
   }
 
-  tensorflow::Status CheckExecutionTable() final {
+  absl::Status CheckExecutionTable() final {
     return ExecuteQuery(query_config_.check_execution_table());
   }
 
-  tensorflow::Status InsertExecution(
+  absl::Status InsertExecution(
       int64 type_id, const absl::optional<Execution::State>& last_known_state,
       const absl::optional<std::string>& name, const absl::Time create_time,
       const absl::Time update_time, int64* execution_id) final {
@@ -225,26 +228,26 @@ class QueryConfigExecutor : public QueryExecutor {
         execution_id);
   }
 
-  tensorflow::Status SelectExecutionsByID(const absl::Span<const int64> ids,
-                                          RecordSet* record_set) final {
+  absl::Status SelectExecutionsByID(const absl::Span<const int64> ids,
+                                    RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_execution_by_id(), {Bind(ids)},
                         record_set);
   }
 
-  tensorflow::Status SelectExecutionByTypeIDAndExecutionName(
+  absl::Status SelectExecutionByTypeIDAndExecutionName(
       int64 execution_type_id, const absl::string_view name,
       RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_execution_by_type_id_and_name(),
                         {Bind(execution_type_id), Bind(name)}, record_set);
   }
 
-  tensorflow::Status SelectExecutionsByTypeID(int64 execution_type_id,
-                                              RecordSet* record_set) final {
+  absl::Status SelectExecutionsByTypeID(int64 execution_type_id,
+                                        RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_executions_by_type_id(),
                         {Bind(execution_type_id)}, record_set);
   }
 
-  tensorflow::Status UpdateExecutionDirect(
+  absl::Status UpdateExecutionDirect(
       int64 execution_id, int64 type_id,
       const absl::optional<Execution::State>& last_known_state,
       const absl::Time update_time) final {
@@ -254,48 +257,48 @@ class QueryConfigExecutor : public QueryExecutor {
          Bind(absl::ToUnixMillis(update_time))});
   }
 
-  tensorflow::Status CheckExecutionPropertyTable() final {
+  absl::Status CheckExecutionPropertyTable() final {
     return ExecuteQuery(query_config_.check_execution_property_table());
   }
 
-  tensorflow::Status InsertExecutionProperty(int64 execution_id,
-                                             const absl::string_view name,
-                                             bool is_custom_property,
-                                             const Value& value) final {
+  absl::Status InsertExecutionProperty(int64 execution_id,
+                                       const absl::string_view name,
+                                       bool is_custom_property,
+                                       const Value& value) final {
     return ExecuteQuery(query_config_.insert_execution_property(),
                         {BindDataType(value), Bind(execution_id), Bind(name),
                          Bind(is_custom_property), BindValue(value)});
   }
 
-  tensorflow::Status SelectExecutionPropertyByExecutionID(
+  absl::Status SelectExecutionPropertyByExecutionID(
       const absl::Span<const int64> ids, RecordSet* record_set) final {
     return ExecuteQuery(
         query_config_.select_execution_property_by_execution_id(), {Bind(ids)},
         record_set);
   }
 
-  tensorflow::Status UpdateExecutionProperty(int64 execution_id,
-                                             const absl::string_view name,
-                                             const Value& value) final {
+  absl::Status UpdateExecutionProperty(int64 execution_id,
+                                       const absl::string_view name,
+                                       const Value& value) final {
     return ExecuteQuery(query_config_.update_execution_property(),
                         {BindDataType(value), BindValue(value),
                          Bind(execution_id), Bind(name)});
   }
 
-  tensorflow::Status DeleteExecutionProperty(
-      int64 execution_id, const absl::string_view name) final {
+  absl::Status DeleteExecutionProperty(int64 execution_id,
+                                       const absl::string_view name) final {
     return ExecuteQuery(query_config_.delete_execution_property(),
                         {Bind(execution_id), Bind(name)});
   }
 
-  tensorflow::Status CheckContextTable() final {
+  absl::Status CheckContextTable() final {
     return ExecuteQuery(query_config_.check_context_table());
   }
 
-  tensorflow::Status InsertContext(int64 type_id, const std::string& name,
-                                   const absl::Time create_time,
-                                   const absl::Time update_time,
-                                   int64* context_id) final {
+  absl::Status InsertContext(int64 type_id, const std::string& name,
+                             const absl::Time create_time,
+                             const absl::Time update_time,
+                             int64* context_id) final {
     return ExecuteQuerySelectLastInsertID(
         query_config_.insert_context(),
         {Bind(type_id), Bind(name), Bind(absl::ToUnixMillis(create_time)),
@@ -303,76 +306,75 @@ class QueryConfigExecutor : public QueryExecutor {
         context_id);
   }
 
-  tensorflow::Status SelectContextsByID(
-      const absl::Span<const int64> context_ids, RecordSet* record_set) final {
+  absl::Status SelectContextsByID(const absl::Span<const int64> context_ids,
+                                  RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_context_by_id(),
                         {Bind(context_ids)}, record_set);
   }
 
-  tensorflow::Status SelectContextsByTypeID(int64 context_type_id,
-                                            RecordSet* record_set) final {
+  absl::Status SelectContextsByTypeID(int64 context_type_id,
+                                      RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_contexts_by_type_id(),
                         {Bind(context_type_id)}, record_set);
   }
 
-  tensorflow::Status SelectContextByTypeIDAndContextName(
+  absl::Status SelectContextByTypeIDAndContextName(
       int64 context_type_id, const absl::string_view name,
       RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_context_by_type_id_and_name(),
                         {Bind(context_type_id), Bind(name)}, record_set);
   }
 
-  tensorflow::Status UpdateContextDirect(int64 existing_context_id,
-                                         int64 type_id,
-                                         const std::string& context_name,
-                                         const absl::Time update_time) final {
+  absl::Status UpdateContextDirect(int64 existing_context_id, int64 type_id,
+                                   const std::string& context_name,
+                                   const absl::Time update_time) final {
     return ExecuteQuery(
         query_config_.update_context(),
         {Bind(existing_context_id), Bind(type_id), Bind(context_name),
          Bind(absl::ToUnixMillis(update_time))});
   }
 
-  tensorflow::Status CheckContextPropertyTable() final {
+  absl::Status CheckContextPropertyTable() final {
     return ExecuteQuery(query_config_.check_context_property_table());
   }
 
-  tensorflow::Status InsertContextProperty(int64 context_id,
-                                           const absl::string_view name,
-                                           bool custom_property,
-                                           const Value& value) final {
+  absl::Status InsertContextProperty(int64 context_id,
+                                     const absl::string_view name,
+                                     bool custom_property,
+                                     const Value& value) final {
     return ExecuteQuery(query_config_.insert_context_property(),
                         {BindDataType(value), Bind(context_id), Bind(name),
                          Bind(custom_property), BindValue(value)});
   }
 
-  tensorflow::Status SelectContextPropertyByContextID(
+  absl::Status SelectContextPropertyByContextID(
       const absl::Span<const int64> context_ids, RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_context_property_by_context_id(),
                         {Bind(context_ids)}, record_set);
   }
 
-  tensorflow::Status UpdateContextProperty(
-      int64 context_id, const absl::string_view property_name,
-      const Value& property_value) final {
+  absl::Status UpdateContextProperty(int64 context_id,
+                                     const absl::string_view property_name,
+                                     const Value& property_value) final {
     return ExecuteQuery(
         query_config_.update_context_property(),
         {BindDataType(property_value), BindValue(property_value),
          Bind(context_id), Bind(property_name)});
   }
 
-  tensorflow::Status DeleteContextProperty(
+  absl::Status DeleteContextProperty(
       const int64 context_id, const absl::string_view property_name) final {
     return ExecuteQuery(query_config_.delete_context_property(),
                         {Bind(context_id), Bind(property_name)});
   }
 
-  tensorflow::Status CheckEventTable() final {
+  absl::Status CheckEventTable() final {
     return ExecuteQuery(query_config_.check_event_table());
   }
 
-  tensorflow::Status InsertEvent(int64 artifact_id, int64 execution_id,
-                                 int event_type, int64 event_time_milliseconds,
-                                 int64* event_id) final {
+  absl::Status InsertEvent(int64 artifact_id, int64 execution_id,
+                           int event_type, int64 event_time_milliseconds,
+                           int64* event_id) final {
     return ExecuteQuerySelectLastInsertID(
         query_config_.insert_event(),
         {Bind(artifact_id), Bind(execution_id), Bind(event_type),
@@ -380,117 +382,116 @@ class QueryConfigExecutor : public QueryExecutor {
         event_id);
   }
 
-  tensorflow::Status SelectEventByArtifactIDs(
+  absl::Status SelectEventByArtifactIDs(
       const absl::Span<const int64> artifact_ids,
       RecordSet* event_record_set) final {
     return ExecuteQuery(query_config_.select_event_by_artifact_ids(),
                         {Bind(artifact_ids)}, event_record_set);
   }
 
-  tensorflow::Status SelectEventByExecutionIDs(
+  absl::Status SelectEventByExecutionIDs(
       const absl::Span<const int64> execution_ids,
       RecordSet* event_record_set) final {
     return ExecuteQuery(query_config_.select_event_by_execution_ids(),
                         {Bind(execution_ids)}, event_record_set);
   }
 
-  tensorflow::Status CheckEventPathTable() final {
+  absl::Status CheckEventPathTable() final {
     return ExecuteQuery(query_config_.check_event_path_table());
   }
 
-  tensorflow::Status InsertEventPath(int64 event_id,
-                                     const Event::Path::Step& step) final;
+  absl::Status InsertEventPath(int64 event_id,
+                               const Event::Path::Step& step) final;
 
-  tensorflow::Status SelectEventPathByEventIDs(
+  absl::Status SelectEventPathByEventIDs(
       const absl::Span<const int64> event_ids, RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_event_path_by_event_ids(),
                         {Bind(event_ids)}, record_set);
   }
 
-  tensorflow::Status CheckAssociationTable() final {
+  absl::Status CheckAssociationTable() final {
     return ExecuteQuery(query_config_.check_association_table());
   }
 
-  tensorflow::Status InsertAssociation(int64 context_id, int64 execution_id,
-                                       int64* association_id) final {
+  absl::Status InsertAssociation(int64 context_id, int64 execution_id,
+                                 int64* association_id) final {
     return ExecuteQuerySelectLastInsertID(
         query_config_.insert_association(),
         {Bind(context_id), Bind(execution_id)}, association_id);
   }
 
-  tensorflow::Status SelectAssociationByContextID(int64 context_id,
-                                                  RecordSet* record_set) final {
+  absl::Status SelectAssociationByContextID(int64 context_id,
+                                            RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_association_by_context_id(),
                         {Bind(context_id)}, record_set);
   }
 
-  tensorflow::Status SelectAssociationByExecutionID(
-      int64 execution_id, RecordSet* record_set) final {
+  absl::Status SelectAssociationByExecutionID(int64 execution_id,
+                                              RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_association_by_execution_id(),
                         {Bind(execution_id)}, record_set);
   }
 
-  tensorflow::Status CheckAttributionTable() final {
+  absl::Status CheckAttributionTable() final {
     return ExecuteQuery(query_config_.check_attribution_table());
   }
 
-  tensorflow::Status InsertAttributionDirect(int64 context_id,
-                                             int64 artifact_id,
-                                             int64* attribution_id) final {
+  absl::Status InsertAttributionDirect(int64 context_id, int64 artifact_id,
+                                       int64* attribution_id) final {
     return ExecuteQuerySelectLastInsertID(query_config_.insert_attribution(),
                                           {Bind(context_id), Bind(artifact_id)},
                                           attribution_id);
   }
 
-  tensorflow::Status SelectAttributionByContextID(int64 context_id,
-                                                  RecordSet* record_set) final {
+  absl::Status SelectAttributionByContextID(int64 context_id,
+                                            RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_attribution_by_context_id(),
                         {Bind(context_id)}, record_set);
   }
 
-  tensorflow::Status SelectAttributionByArtifactID(
-      int64 artifact_id, RecordSet* record_set) final {
+  absl::Status SelectAttributionByArtifactID(int64 artifact_id,
+                                             RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_attribution_by_artifact_id(),
                         {Bind(artifact_id)}, record_set);
   }
 
-  tensorflow::Status CheckParentContextTable() final;
+  absl::Status CheckParentContextTable() final;
 
-  tensorflow::Status InsertParentContext(int64 parent_id, int64 child_id) final;
+  absl::Status InsertParentContext(int64 parent_id, int64 child_id) final;
 
-  tensorflow::Status SelectParentContextsByContextID(
-      int64 context_id, RecordSet* record_set) final;
+  absl::Status SelectParentContextsByContextID(int64 context_id,
+                                               RecordSet* record_set) final;
 
-  tensorflow::Status SelectChildContextsByContextID(
-      int64 context_id, RecordSet* record_set) final;
+  absl::Status SelectChildContextsByContextID(int64 context_id,
+                                              RecordSet* record_set) final;
 
-  tensorflow::Status CheckMLMDEnvTable() final {
+  absl::Status CheckMLMDEnvTable() final {
     return ExecuteQuery(query_config_.check_mlmd_env_table());
   }
 
   // Insert the schema version.
-  tensorflow::Status InsertSchemaVersion(int64 schema_version) final {
+  absl::Status InsertSchemaVersion(int64 schema_version) final {
     return ExecuteQuery(query_config_.insert_schema_version(),
                         {Bind(schema_version)});
   }
 
   // Update the schema version.
-  tensorflow::Status UpdateSchemaVersion(int64 schema_version) final {
+  absl::Status UpdateSchemaVersion(int64 schema_version) final {
     return ExecuteQuery(query_config_.update_schema_version(),
                         {Bind(schema_version)});
   }
 
-  tensorflow::Status CheckTablesIn_V0_13_2() final;
+  absl::Status CheckTablesIn_V0_13_2() final;
 
-  tensorflow::Status SelectAllArtifactIDs(RecordSet* set) final {
+  absl::Status SelectAllArtifactIDs(RecordSet* set) final {
     return ExecuteQuery("select `id` from `Artifact`;", set);
   }
 
-  tensorflow::Status SelectAllExecutionIDs(RecordSet* set) final {
+  absl::Status SelectAllExecutionIDs(RecordSet* set) final {
     return ExecuteQuery("select `id` from `Execution`;", set);
   }
 
-  tensorflow::Status SelectAllContextIDs(RecordSet* set) final {
+  absl::Status SelectAllContextIDs(RecordSet* set) final {
     return ExecuteQuery("select `id` from `Context`;", set);
   }
 
@@ -499,20 +500,19 @@ class QueryConfigExecutor : public QueryExecutor {
     return query_config_.schema_version();
   }
 
-  tensorflow::Status DowngradeMetadataSource(
-      const int64 to_schema_version) final;
+  absl::Status DowngradeMetadataSource(const int64 to_schema_version) final;
 
-  tensorflow::Status ListArtifactIDsUsingOptions(
+  absl::Status ListArtifactIDsUsingOptions(
       const ListOperationOptions& options,
       absl::optional<absl::Span<const int64>> candidate_ids,
       RecordSet* record_set) final;
 
-  tensorflow::Status ListExecutionIDsUsingOptions(
+  absl::Status ListExecutionIDsUsingOptions(
       const ListOperationOptions& options,
       absl::optional<absl::Span<const int64>> candidate_ids,
       RecordSet* record_set) final;
 
-  tensorflow::Status ListContextIDsUsingOptions(
+  absl::Status ListContextIDsUsingOptions(
       const ListOperationOptions& options,
       absl::optional<absl::Span<const int64>> candidate_ids,
       RecordSet* record_set) final;
@@ -579,7 +579,7 @@ class QueryConfigExecutor : public QueryExecutor {
   // Returns FAILED_PRECONDITION error, if Connection() is not opened.
   // Returns detailed INTERNAL error, if query execution fails.
   // Returns FAILED_PRECONDITION error, if a transaction has not begun.
-  tensorflow::Status ExecuteQuery(
+  absl::Status ExecuteQuery(
       const MetadataSourceQueryConfig::TemplateQuery& template_query,
       absl::Span<const std::string> parameters, RecordSet* record_set);
 
@@ -589,7 +589,7 @@ class QueryConfigExecutor : public QueryExecutor {
   // Returns FAILED_PRECONDITION error, if Connection() is not opened.
   // Returns detailed INTERNAL error, if query execution fails.
   // Returns FAILED_PRECONDITION error, if a transaction has not begun.
-  tensorflow::Status ExecuteQuery(
+  absl::Status ExecuteQuery(
       const MetadataSourceQueryConfig::TemplateQuery& template_query,
       const absl::Span<const std::string> parameters) {
     RecordSet record_set;
@@ -600,7 +600,7 @@ class QueryConfigExecutor : public QueryExecutor {
   // Returns FAILED_PRECONDITION error, if Connection() is not opened.
   // Returns detailed INTERNAL error, if query execution fails.
   // Returns FAILED_PRECONDITION error, if a transaction has not begun.
-  tensorflow::Status ExecuteQuery(
+  absl::Status ExecuteQuery(
       const MetadataSourceQueryConfig::TemplateQuery& query) {
     return ExecuteQuery(query, {});
   }
@@ -610,10 +610,10 @@ class QueryConfigExecutor : public QueryExecutor {
   // Returns detailed INTERNAL error, if query execution fails.
   // Returns FAILED_PRECONDITION error, if a transaction has not begun.
   // Returns INTERNAL error, if it cannot find the last insert ID.
-  tensorflow::Status ExecuteQuerySelectLastInsertID(
+  absl::Status ExecuteQuerySelectLastInsertID(
       const MetadataSourceQueryConfig::TemplateQuery& query,
       const absl::Span<const std::string> arguments, int64* last_insert_id) {
-    TF_RETURN_IF_ERROR(ExecuteQuery(query, arguments));
+    MLMD_RETURN_IF_ERROR(ExecuteQuery(query, arguments));
     return SelectLastInsertID(last_insert_id);
   }
 
@@ -622,23 +622,22 @@ class QueryConfigExecutor : public QueryExecutor {
   // Returns FAILED_PRECONDITION error, if Connection() is not opened.
   // Returns detailed INTERNAL error, if query execution fails.
   // Returns FAILED_PRECONDITION error, if a transaction has not begun.
-  tensorflow::Status ExecuteQuery(const std::string& query,
-                                  RecordSet* record_set);
+  absl::Status ExecuteQuery(const std::string& query, RecordSet* record_set);
 
   // Execute a query without arguments and ignore the result.
   // Returns FAILED_PRECONDITION error, if Connection() is not opened.
   // Returns detailed INTERNAL error, if query execution fails.
   // Returns FAILED_PRECONDITION error, if a transaction has not begun.
   // Returns INTERNAL error, if it cannot find the last insert ID.
-  tensorflow::Status ExecuteQuery(const std::string& query);
+  absl::Status ExecuteQuery(const std::string& query);
 
   // Tests if the database version is compatible with the library version.
   // The database version and library version must be from the current
   // database.
   //
   // Returns OK.
-  tensorflow::Status IsCompatible(int64 db_version, int64 lib_version,
-                                  bool* is_compatible);
+  absl::Status IsCompatible(int64 db_version, int64 lib_version,
+                            bool* is_compatible);
 
   // Upgrades the database schema version (db_v) to align with the library
   // schema version (lib_v). It retrieves db_v from the metadata source and
@@ -654,7 +653,7 @@ class QueryConfigExecutor : public QueryExecutor {
   //   and the schema version cannot be resolved.
   // Returns detailed INTERNAL error, if query execution fails.
   // TODO(martinz): consider promoting to MetadataAccessObject.
-  tensorflow::Status UpgradeMetadataSourceIfOutOfDate(bool enable_migration);
+  absl::Status UpgradeMetadataSourceIfOutOfDate(bool enable_migration);
 
   // List Node IDs using `options` and `candidate_ids`. Template parameter
   // `Node` specifies the table to use for listing. If `candidate_ids` is not
@@ -662,7 +661,7 @@ class QueryConfigExecutor : public QueryExecutor {
   // `candidate_ids`.
   // On success `record_set` is updated with Node IDs.
   template <typename Node>
-  tensorflow::Status ListNodeIDsUsingOptions(
+  absl::Status ListNodeIDsUsingOptions(
       const ListOperationOptions& options,
       absl::optional<absl::Span<const int64>> candidate_ids,
       RecordSet* record_set);

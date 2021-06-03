@@ -14,8 +14,10 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/query_executor.h"
 
-#include "tensorflow/core/lib/core/errors.h"
-#include "tensorflow/core/lib/core/status.h"
+#include <glog/logging.h>
+#include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
+#include "ml_metadata/util/return_utils.h"
 
 namespace ml_metadata {
 
@@ -35,39 +37,40 @@ QueryExecutor::QueryExecutor(absl::optional<int64> query_schema_version)
   }
 }
 
-tensorflow::Status QueryExecutor::VerifyCurrentQueryVersionIsAtLeast(
+absl::Status QueryExecutor::VerifyCurrentQueryVersionIsAtLeast(
     int64 min_schema_version) const {
   return query_schema_version_ && *query_schema_version_ < min_schema_version
-             ? tensorflow::errors::FailedPrecondition(
+             ? absl::FailedPreconditionError(absl::StrCat(
                    "The query executor method requires query_schema_version "
-                   ">= ", min_schema_version,
-                   "; current query version: ", *query_schema_version_)
-             : tensorflow::Status::OK();
+                   ">= ",
+                   min_schema_version,
+                   "; current query version: ", *query_schema_version_))
+             : absl::OkStatus();
 }
 
-tensorflow::Status QueryExecutor::CheckSchemaVersionAlignsWithQueryVersion() {
+absl::Status QueryExecutor::CheckSchemaVersionAlignsWithQueryVersion() {
   if (!query_schema_version_) {
-    return tensorflow::errors::InvalidArgument(
+    return absl::InvalidArgumentError(
         "When query_schema_version_ is set, the method checks the given db has "
         "already initialized with the schema version.");
   }
   int64 db_version = -1;
-  const tensorflow::Status existing_schema_version_status =
+  const absl::Status existing_schema_version_status =
       GetSchemaVersion(&db_version);
-  if (tensorflow::errors::IsNotFound(existing_schema_version_status)) {
-    return tensorflow::errors::FailedPrecondition(
+  if (absl::IsNotFound(existing_schema_version_status)) {
+    return absl::FailedPreconditionError(
         "When using the query executor with query_version other than head, "
         "the db should already exists. For empty db, init it using head "
         "version with the default constructor");
   }
-  TF_RETURN_IF_ERROR(existing_schema_version_status);
+  MLMD_RETURN_IF_ERROR(existing_schema_version_status);
   if (db_version != *query_schema_version_) {
-    return tensorflow::errors::FailedPrecondition(
+    return absl::FailedPreconditionError(absl::StrCat(
         "The query executor is configured with a query_version: ",
         *query_schema_version_,
-        ", however the underlying db is at schema_version: ", db_version);
+        ", however the underlying db is at schema_version: ", db_version));
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 bool QueryExecutor::IsQuerySchemaVersionEquals(int64 schema_version) const {
