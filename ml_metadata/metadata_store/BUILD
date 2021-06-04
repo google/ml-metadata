@@ -75,6 +75,7 @@ cc_library(
         "@com_google_absl//absl/types:optional",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/simple_types:simple_types_constants",
         "//ml_metadata/util:status_utils",
         "//ml_metadata/util:struct_utils",
         "@org_tensorflow//tensorflow/core:lib",
@@ -267,6 +268,7 @@ cc_library(
         ":metadata_access_object_factory",
         ":metadata_source",
         ":metadata_store_service_interface",
+        ":simple_types_util",
         ":transaction_executor",
         "@com_google_protobuf//:protobuf",
         "@com_google_absl//absl/algorithm:container",
@@ -275,6 +277,8 @@ cc_library(
         "@com_google_absl//absl/types:optional",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/proto:metadata_store_service_proto",
+        "//ml_metadata/simple_types:simple_types_constants",
+        "//ml_metadata/simple_types/proto:simple_types_proto",
         "@org_tensorflow//tensorflow/core:lib",
     ],
 )
@@ -419,6 +423,18 @@ cc_library(
         "@com_google_protobuf//:protobuf",
         "@com_google_googletest//:gtest",
         "@com_google_glog//:glog",
+    ],
+)
+
+cc_library(
+    name = "simple_types_util",
+    srcs = ["simple_types_util.cc"],
+    hdrs = ["simple_types_util.h"],
+    deps = [
+        "//ml_metadata/simple_types:simple_types_constants",
+        "//ml_metadata/simple_types/proto:simple_types_proto",
+        "@org_tensorflow//tensorflow/core:framework_lite",
+        "@org_tensorflow//tensorflow/core:lib",
     ],
 )
 

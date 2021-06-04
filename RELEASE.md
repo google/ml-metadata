@@ -23,7 +23,10 @@
 
 ## Breaking Changes
 
-*   N/A
+*   Predefines a list of types (MLMD SimpleTypes) when connecting a MLMD
+    instance. If the types already exist, it is a no-op, otherwise, it creates
+    the types. This change may break tests which assume the number of types
+    exist in a MLMD instance.
 
 ## Deprecations
 

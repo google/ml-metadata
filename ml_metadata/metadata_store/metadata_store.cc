@@ -14,6 +14,7 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/metadata_store.h"
 
+#include <algorithm>
 #include <iterator>
 
 #include "google/protobuf/descriptor.h"
@@ -23,9 +24,13 @@ limitations under the License.
 #include "absl/memory/memory.h"
 #include "absl/types/optional.h"
 #include "ml_metadata/metadata_store/metadata_access_object_factory.h"
+#include "ml_metadata/metadata_store/simple_types_util.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
+#include "ml_metadata/simple_types/proto/simple_types.pb.h"
+#include "ml_metadata/simple_types/simple_types_constants.h"
 #include "tensorflow/core/lib/core/errors.h"
+#include "tensorflow/core/lib/core/status.h"
 
 namespace ml_metadata {
 namespace {
@@ -141,6 +146,50 @@ tensorflow::Status UpsertType(const T& type, bool can_add_fields,
         check_status.error_message());
   }
   return metadata_access_object->UpdateType(output_type);
+}
+
+// Inserts or updates all the types in the argument list. 'can_add_fields' and
+// 'can_omit_fields' are both enabled. Type ids are inserted into the
+// PutTypesResponse 'response'.
+tensorflow::Status UpsertTypes(
+    const google::protobuf::RepeatedPtrField<ArtifactType>& artifact_types,
+    const google::protobuf::RepeatedPtrField<ExecutionType>& execution_types,
+    const google::protobuf::RepeatedPtrField<ContextType>& context_types,
+    const bool can_add_fields, const bool can_omit_fields,
+    MetadataAccessObject* metadata_access_object, PutTypesResponse* response) {
+  for (const ArtifactType& artifact_type : artifact_types) {
+    int64 artifact_type_id;
+    TF_RETURN_IF_ERROR(UpsertType(artifact_type, can_add_fields,
+                                  can_omit_fields, metadata_access_object,
+                                  &artifact_type_id));
+    response->add_artifact_type_ids(artifact_type_id);
+  }
+  for (const ExecutionType& execution_type : execution_types) {
+    int64 execution_type_id;
+    TF_RETURN_IF_ERROR(UpsertType(execution_type, can_add_fields,
+                                  can_omit_fields, metadata_access_object,
+                                  &execution_type_id));
+    response->add_execution_type_ids(execution_type_id);
+  }
+  for (const ContextType& context_type : context_types) {
+    int64 context_type_id;
+    TF_RETURN_IF_ERROR(UpsertType(context_type, can_add_fields, can_omit_fields,
+                                  metadata_access_object, &context_type_id));
+    response->add_context_type_ids(context_type_id);
+  }
+  return tensorflow::Status::OK();
+}
+
+// Loads SimpleTypes proto from string and updates or inserts it into database.
+tensorflow::Status UpsertSimpleTypes(
+    MetadataAccessObject* metadata_access_object) {
+  SimpleTypes simple_types;
+  PutTypesResponse response;
+  TF_RETURN_IF_ERROR(LoadSimpleTypes(simple_types));
+  return UpsertTypes(
+      simple_types.artifact_types(), simple_types.execution_types(),
+      simple_types.context_types(), /*can_add_fields=*/true,
+      /*can_omit_fields=*/true, metadata_access_object, &response);
 }
 
 // Updates or inserts an artifact. If the artifact.id is given, it updates the
@@ -289,18 +338,27 @@ absl::optional<std::string> GetRequestTypeVersion(const T& type_request) {
 }  // namespace
 
 tensorflow::Status MetadataStore::InitMetadataStore() {
+  TF_RETURN_IF_ERROR(
+      transaction_executor_->Execute([this]() -> tensorflow::Status {
+        return metadata_access_object_->InitMetadataSource();
+      }));
   return transaction_executor_->Execute([this]() -> tensorflow::Status {
-    return metadata_access_object_->InitMetadataSource();
+    return UpsertSimpleTypes(metadata_access_object_.get());
   });
 }
 
+// TODO(b/187357155): duplicated results when inserting simple types
+// concurrently
 tensorflow::Status MetadataStore::InitMetadataStoreIfNotExists(
     const bool enable_upgrade_migration) {
-  return transaction_executor_->Execute(
+  TF_RETURN_IF_ERROR(transaction_executor_->Execute(
       [this, &enable_upgrade_migration]() -> tensorflow::Status {
         return metadata_access_object_->InitMetadataSourceIfNotExists(
             enable_upgrade_migration);
-      });
+      }));
+  return transaction_executor_->Execute([this]() -> tensorflow::Status {
+    return UpsertSimpleTypes(metadata_access_object_.get());
+  });
 }
 
 tensorflow::Status MetadataStore::PutTypes(const PutTypesRequest& request,
@@ -308,32 +366,14 @@ tensorflow::Status MetadataStore::PutTypes(const PutTypesRequest& request,
   if (!request.all_fields_match()) {
     return tensorflow::errors::Unimplemented("Must match all fields.");
   }
-  return transaction_executor_->Execute([this, &request,
-                                         &response]() -> tensorflow::Status {
-    response->Clear();
-    for (const ArtifactType& artifact_type : request.artifact_types()) {
-      int64 artifact_type_id;
-      TF_RETURN_IF_ERROR(UpsertType(
-          artifact_type, request.can_add_fields(), request.can_omit_fields(),
-          metadata_access_object_.get(), &artifact_type_id));
-      response->add_artifact_type_ids(artifact_type_id);
-    }
-    for (const ExecutionType& execution_type : request.execution_types()) {
-      int64 execution_type_id;
-      TF_RETURN_IF_ERROR(UpsertType(
-          execution_type, request.can_add_fields(), request.can_omit_fields(),
-          metadata_access_object_.get(), &execution_type_id));
-      response->add_execution_type_ids(execution_type_id);
-    }
-    for (const ContextType& context_type : request.context_types()) {
-      int64 context_type_id;
-      TF_RETURN_IF_ERROR(UpsertType(
-          context_type, request.can_add_fields(), request.can_omit_fields(),
-          metadata_access_object_.get(), &context_type_id));
-      response->add_context_type_ids(context_type_id);
-    }
-    return tensorflow::Status::OK();
-  });
+  return transaction_executor_->Execute(
+      [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
+        return UpsertTypes(request.artifact_types(), request.execution_types(),
+                           request.context_types(), request.can_add_fields(),
+                           request.can_omit_fields(),
+                           metadata_access_object_.get(), response);
+      });
 }
 
 tensorflow::Status MetadataStore::PutArtifactType(
@@ -341,17 +381,16 @@ tensorflow::Status MetadataStore::PutArtifactType(
   if (!request.all_fields_match()) {
     return tensorflow::errors::Unimplemented("Must match all fields.");
   }
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
-        response->Clear();
-        int64 type_id;
-        TF_RETURN_IF_ERROR(UpsertType(request.artifact_type(),
-                                      request.can_add_fields(),
-                                      request.can_omit_fields(),
-                                      metadata_access_object_.get(), &type_id));
-        response->set_type_id(type_id);
-        return tensorflow::Status::OK();
-      });
+  return transaction_executor_->Execute([this, &request,
+                                         &response]() -> tensorflow::Status {
+    response->Clear();
+    int64 type_id;
+    TF_RETURN_IF_ERROR(UpsertType(
+        request.artifact_type(), request.can_add_fields(),
+        request.can_omit_fields(), metadata_access_object_.get(), &type_id));
+    response->set_type_id(type_id);
+    return tensorflow::Status::OK();
+  });
 }
 
 tensorflow::Status MetadataStore::PutExecutionType(
@@ -360,17 +399,16 @@ tensorflow::Status MetadataStore::PutExecutionType(
   if (!request.all_fields_match()) {
     return tensorflow::errors::Unimplemented("Must match all fields.");
   }
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
-        response->Clear();
-        int64 type_id;
-        TF_RETURN_IF_ERROR(UpsertType(request.execution_type(),
-                                      request.can_add_fields(),
-                                      request.can_omit_fields(),
-                                      metadata_access_object_.get(), &type_id));
-        response->set_type_id(type_id);
-        return tensorflow::Status::OK();
-      });
+  return transaction_executor_->Execute([this, &request,
+                                         &response]() -> tensorflow::Status {
+    response->Clear();
+    int64 type_id;
+    TF_RETURN_IF_ERROR(UpsertType(
+        request.execution_type(), request.can_add_fields(),
+        request.can_omit_fields(), metadata_access_object_.get(), &type_id));
+    response->set_type_id(type_id);
+    return tensorflow::Status::OK();
+  });
 }
 
 tensorflow::Status MetadataStore::PutContextType(
@@ -378,28 +416,27 @@ tensorflow::Status MetadataStore::PutContextType(
   if (!request.all_fields_match()) {
     return tensorflow::errors::Unimplemented("Must match all fields.");
   }
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
-        response->Clear();
-        int64 type_id;
-        TF_RETURN_IF_ERROR(UpsertType(request.context_type(),
-                                      request.can_add_fields(),
-                                      request.can_omit_fields(),
-                                      metadata_access_object_.get(), &type_id));
-        response->set_type_id(type_id);
-        return tensorflow::Status::OK();
-      });
+  return transaction_executor_->Execute([this, &request,
+                                         &response]() -> tensorflow::Status {
+    response->Clear();
+    int64 type_id;
+    TF_RETURN_IF_ERROR(UpsertType(
+        request.context_type(), request.can_add_fields(),
+        request.can_omit_fields(), metadata_access_object_.get(), &type_id));
+    response->set_type_id(type_id);
+    return tensorflow::Status::OK();
+  });
 }
 
 tensorflow::Status MetadataStore::GetArtifactType(
     const GetArtifactTypeRequest& request, GetArtifactTypeResponse* response) {
-  return transaction_executor_->Execute([this, &request,
-                                         &response]() -> tensorflow::Status {
-    response->Clear();
-    return metadata_access_object_->FindTypeByNameAndVersion(
-        request.type_name(), GetRequestTypeVersion(request),
-        response->mutable_artifact_type());
-  });
+  return transaction_executor_->Execute(
+      [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
+        return metadata_access_object_->FindTypeByNameAndVersion(
+            request.type_name(), GetRequestTypeVersion(request),
+            response->mutable_artifact_type());
+      });
 }
 
 tensorflow::Status MetadataStore::GetExecutionType(
@@ -508,21 +545,21 @@ tensorflow::Status MetadataStore::GetArtifactsByID(
 tensorflow::Status MetadataStore::GetExecutionsByID(
     const GetExecutionsByIDRequest& request,
     GetExecutionsByIDResponse* response) {
-  return transaction_executor_->Execute([this, &request,
-                                         &response]() -> tensorflow::Status {
-    response->Clear();
-    std::vector<Execution> executions;
-    const std::vector<int64> ids(request.execution_ids().begin(),
-                                 request.execution_ids().end());
-    const tensorflow::Status status =
-        metadata_access_object_->FindExecutionsById(ids, &executions);
-    if (!status.ok() && !tensorflow::errors::IsNotFound(status)) {
-      return status;
-    }
-    absl::c_copy(executions, google::protobuf::RepeatedPtrFieldBackInserter(
-                                 response->mutable_executions()));
-    return tensorflow::Status::OK();
-  });
+  return transaction_executor_->Execute(
+      [this, &request, &response]() -> tensorflow::Status {
+        response->Clear();
+        std::vector<Execution> executions;
+        const std::vector<int64> ids(request.execution_ids().begin(),
+                                     request.execution_ids().end());
+        const tensorflow::Status status =
+            metadata_access_object_->FindExecutionsById(ids, &executions);
+        if (!status.ok() && !tensorflow::errors::IsNotFound(status)) {
+          return status;
+        }
+        absl::c_copy(executions, google::protobuf::RepeatedPtrFieldBackInserter(
+                                     response->mutable_executions()));
+        return tensorflow::Status::OK();
+      });
 }
 
 tensorflow::Status MetadataStore::GetContextsByID(
@@ -750,7 +787,7 @@ tensorflow::Status MetadataStore::GetEventsByExecutionIDs(
         const tensorflow::Status status =
             metadata_access_object_->FindEventsByExecutions(
                 std::vector<int64>(request.execution_ids().begin(),
-                              request.execution_ids().end()),
+                                   request.execution_ids().end()),
                 &events);
         if (tensorflow::errors::IsNotFound(status)) {
           return tensorflow::Status::OK();
@@ -774,7 +811,7 @@ tensorflow::Status MetadataStore::GetEventsByArtifactIDs(
         const tensorflow::Status status =
             metadata_access_object_->FindEventsByArtifacts(
                 std::vector<int64>(request.artifact_ids().begin(),
-                              request.artifact_ids().end()),
+                                   request.artifact_ids().end()),
                 &events);
         if (tensorflow::errors::IsNotFound(status)) {
           return tensorflow::Status::OK();
@@ -901,7 +938,14 @@ tensorflow::Status MetadataStore::GetArtifactTypes(
           return status;
         }
         for (const ArtifactType& artifact_type : artifact_types) {
-          *response->mutable_artifact_types()->Add() = artifact_type;
+          // Simple types will not be returned by Get*Types APIs because they
+          // are invisible to users.
+          const bool is_simple_type =
+              std::find(kSimpleTypeNames.begin(), kSimpleTypeNames.end(),
+                        artifact_type.name()) != kSimpleTypeNames.end();
+          if (!is_simple_type) {
+            *response->mutable_artifact_types()->Add() = artifact_type;
+          }
         }
         return tensorflow::Status::OK();
       });
@@ -922,7 +966,14 @@ tensorflow::Status MetadataStore::GetExecutionTypes(
           return status;
         }
         for (const ExecutionType& execution_type : execution_types) {
-          *response->mutable_execution_types()->Add() = execution_type;
+          // Simple types will not be returned by Get*Types APIs because they
+          // are invisible to users.
+          const bool is_simple_type =
+              std::find(kSimpleTypeNames.begin(), kSimpleTypeNames.end(),
+                        execution_type.name()) != kSimpleTypeNames.end();
+          if (!is_simple_type) {
+            *response->mutable_execution_types()->Add() = execution_type;
+          }
         }
         return tensorflow::Status::OK();
       });
@@ -1151,30 +1202,29 @@ tensorflow::Status MetadataStore::GetContextsByType(
 tensorflow::Status MetadataStore::GetContextByTypeAndName(
     const GetContextByTypeAndNameRequest& request,
     GetContextByTypeAndNameResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
-        response->Clear();
-        ContextType context_type;
-        tensorflow::Status status =
-            metadata_access_object_->FindTypeByNameAndVersion(
-                request.type_name(), GetRequestTypeVersion(request),
-                &context_type);
-        if (tensorflow::errors::IsNotFound(status)) {
-          return tensorflow::Status::OK();
-        } else if (!status.ok()) {
-          return status;
-        }
-        Context context;
-        status = metadata_access_object_->FindContextByTypeIdAndContextName(
-            context_type.id(), request.context_name(), &context);
-        if (tensorflow::errors::IsNotFound(status)) {
-          return tensorflow::Status::OK();
-        } else if (!status.ok()) {
-          return status;
-        }
-        *response->mutable_context() = context;
-        return tensorflow::Status::OK();
-      });
+  return transaction_executor_->Execute([this, &request,
+                                         &response]() -> tensorflow::Status {
+    response->Clear();
+    ContextType context_type;
+    tensorflow::Status status =
+        metadata_access_object_->FindTypeByNameAndVersion(
+            request.type_name(), GetRequestTypeVersion(request), &context_type);
+    if (tensorflow::errors::IsNotFound(status)) {
+      return tensorflow::Status::OK();
+    } else if (!status.ok()) {
+      return status;
+    }
+    Context context;
+    status = metadata_access_object_->FindContextByTypeIdAndContextName(
+        context_type.id(), request.context_name(), &context);
+    if (tensorflow::errors::IsNotFound(status)) {
+      return tensorflow::Status::OK();
+    } else if (!status.ok()) {
+      return status;
+    }
+    *response->mutable_context() = context;
+    return tensorflow::Status::OK();
+  });
 }
 
 tensorflow::Status MetadataStore::PutAttributionsAndAssociations(

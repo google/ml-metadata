@@ -46,6 +46,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/list_operation_util.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
+#include "ml_metadata/simple_types/simple_types_constants.h"
 #include "ml_metadata/util/status_utils.h"
 #include "ml_metadata/util/struct_utils.h"
 #include "tensorflow/core/lib/core/errors.h"
@@ -627,7 +628,7 @@ tensorflow::Status RDBMSMetadataAccessObject::CreateTypeImpl(const Type& type,
   if (type_name.empty())
     return tensorflow::errors::InvalidArgument("No type name is specified.");
   if (type_properties.empty())
-    LOG(WARNING) << "No property is defined for the Type";
+    LOG(INFO) << "No property is defined for the Type";
 
   // insert a type and get its given id
   TF_RETURN_IF_ERROR(InsertTypeID(type, type_id));
