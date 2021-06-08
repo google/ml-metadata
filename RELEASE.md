@@ -2,6 +2,10 @@
 
 ## Major Features and Improvements
 
+*   Introduced `skip_db_creation` for MySQL backend. It is useful when db
+    creation is handled by an admin process, while the lib users should not
+    issue db creation clauses.
+
 ## Bug Fixes and Other Changes
 
 ## Breaking Changes

@@ -154,12 +154,15 @@ Status MySqlMetadataSource::ConnectImpl() {
       CheckTransactionSupport(),
       "checking transaction support of default storage engine");
 
-  // Create the database if not already present and switch to it.
-  const std::string create_database_cmd =
-      absl::StrCat("CREATE DATABASE IF NOT EXISTS ", config_.database());
-  MLMD_RETURN_WITH_CONTEXT_IF_ERROR(RunQuery(create_database_cmd),
-                                    "Creating database ", config_.database(),
-                                    " in ConnectImpl");
+  // Create the database if not already present and skip_db_creation is false.
+  if (!config_.skip_db_creation()) {
+    const std::string create_database_cmd =
+        absl::StrCat("CREATE DATABASE IF NOT EXISTS ", config_.database());
+    MLMD_RETURN_WITH_CONTEXT_IF_ERROR(RunQuery(create_database_cmd),
+                                      "Creating database ", config_.database(),
+                                      " in ConnectImpl");
+  }
+  // Switch to the database.
   const std::string use_database_cmd = absl::StrCat("USE ", config_.database());
   MLMD_RETURN_WITH_CONTEXT_IF_ERROR(RunQuery(use_database_cmd),
                                     "Changing to database ", config_.database(),
