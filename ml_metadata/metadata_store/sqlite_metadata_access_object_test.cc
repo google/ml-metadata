@@ -16,16 +16,17 @@ limitations under the License.
 
 #include <memory>
 
+#include <glog/logging.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "ml_metadata/metadata_store/metadata_access_object_factory.h"
 #include "ml_metadata/metadata_store/metadata_access_object_test.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/metadata_store/sqlite_metadata_source.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/util/metadata_source_query_config.h"
-#include "tensorflow/core/lib/core/status_test_util.h"
 
 namespace ml_metadata {
 namespace testing {
@@ -45,9 +46,11 @@ class SqliteMetadataAccessObjectContainer
             earlier_schema_version) {
     SqliteMetadataSourceConfig config;
     metadata_source_ = absl::make_unique<SqliteMetadataSource>(config);
-    TF_CHECK_OK(CreateMetadataAccessObject(
-        util::GetSqliteMetadataSourceQueryConfig(), metadata_source_.get(),
-        earlier_schema_version, &metadata_access_object_));
+    CHECK_EQ(
+        absl::OkStatus(),
+        CreateMetadataAccessObject(
+            util::GetSqliteMetadataSourceQueryConfig(), metadata_source_.get(),
+            earlier_schema_version, &metadata_access_object_));
   }
 
   ~SqliteMetadataAccessObjectContainer() override = default;

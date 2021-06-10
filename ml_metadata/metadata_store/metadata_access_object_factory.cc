@@ -17,11 +17,10 @@ limitations under the License.
 #include <memory>
 
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "ml_metadata/metadata_store/query_config_executor.h"
 #include "ml_metadata/metadata_store/rdbms_metadata_access_object.h"
-#include "ml_metadata/util/status_utils.h"
-#include "tensorflow/core/lib/core/errors.h"
-#include "tensorflow/core/lib/core/status.h"
+#include "ml_metadata/util/return_utils.h"
 
 namespace ml_metadata {
 
@@ -30,12 +29,12 @@ namespace {
 // MetadataSource and returns the created MAO pointer.
 // The query config has template queries and other config information.
 // The MetadataSource is used to execute specific queries.
-tensorflow::Status CreateRDBMSMetadataAccessObject(
+absl::Status CreateRDBMSMetadataAccessObject(
     const MetadataSourceQueryConfig& query_config,
     MetadataSource* const metadata_source, absl::optional<int64> schema_version,
     std::unique_ptr<MetadataAccessObject>* result) {
   if (!metadata_source->is_connected())
-    TF_RETURN_IF_ERROR(FromABSLStatus(metadata_source->Connect()));
+    MLMD_RETURN_IF_ERROR(metadata_source->Connect());
   std::unique_ptr<QueryExecutor> executor =
       schema_version && *schema_version != query_config.schema_version()
           ? absl::WrapUnique(new QueryConfigExecutor(
@@ -44,13 +43,13 @@ tensorflow::Status CreateRDBMSMetadataAccessObject(
                 new QueryConfigExecutor(query_config, metadata_source));
   *result =
       absl::WrapUnique(new RDBMSMetadataAccessObject(std::move(executor)));
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 
 }  // namespace
 
-tensorflow::Status CreateMetadataAccessObject(
+absl::Status CreateMetadataAccessObject(
     const MetadataSourceQueryConfig& query_config,
     MetadataSource* const metadata_source,
     std::unique_ptr<MetadataAccessObject>* result) {
@@ -59,13 +58,13 @@ tensorflow::Status CreateMetadataAccessObject(
                                     result);
 }
 
-tensorflow::Status CreateMetadataAccessObject(
+absl::Status CreateMetadataAccessObject(
     const MetadataSourceQueryConfig& query_config,
     MetadataSource* const metadata_source, absl::optional<int64> schema_version,
     std::unique_ptr<MetadataAccessObject>* result) {
   switch (query_config.metadata_source_type()) {
     case UNKNOWN_METADATA_SOURCE:
-      return tensorflow::errors::InvalidArgument(
+      return absl::InvalidArgumentError(
           "Metadata source type is not specified.");
     case MYSQL_METADATA_SOURCE:
       return CreateRDBMSMetadataAccessObject(query_config, metadata_source,
@@ -74,7 +73,7 @@ tensorflow::Status CreateMetadataAccessObject(
       return CreateRDBMSMetadataAccessObject(query_config, metadata_source,
                                              schema_version, result);
     default:
-      return tensorflow::errors::Unimplemented("Unknown Metadata source type.");
+      return absl::UnimplementedError("Unknown Metadata source type.");
   }
 }
 

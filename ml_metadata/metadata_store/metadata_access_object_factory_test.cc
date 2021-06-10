@@ -14,6 +14,7 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/metadata_access_object_factory.h"
 
+#include <glog/logging.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/memory/memory.h"
@@ -21,8 +22,6 @@ limitations under the License.
 #include "ml_metadata/metadata_store/sqlite_metadata_source.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/util/metadata_source_query_config.h"
-#include "ml_metadata/util/status_utils.h"
-#include "tensorflow/core/lib/core/status_test_util.h"
 
 namespace ml_metadata {
 namespace {
@@ -35,15 +34,17 @@ TEST(MetadataAccessObjectFactory, CreateMetadataAccessObject) {
   std::unique_ptr<MetadataSource> metadata_source =
       absl::make_unique<SqliteMetadataSource>(config);
   std::unique_ptr<MetadataAccessObject> metadata_access_object;
-  TF_ASSERT_OK(CreateMetadataAccessObject(
-      util::GetSqliteMetadataSourceQueryConfig(), metadata_source.get(),
-      &metadata_access_object));
-  TF_ASSERT_OK(FromABSLStatus(metadata_source->Begin()));
-  TF_ASSERT_OK(metadata_access_object->InitMetadataSource());
+  ASSERT_EQ(absl::OkStatus(),
+            CreateMetadataAccessObject(
+                util::GetSqliteMetadataSourceQueryConfig(),
+                metadata_source.get(), &metadata_access_object));
+  ASSERT_EQ(absl::OkStatus(), metadata_source->Begin());
+  ASSERT_EQ(absl::OkStatus(), metadata_access_object->InitMetadataSource());
 
   int64 schema_version;
-  TF_ASSERT_OK(metadata_access_object->GetSchemaVersion(&schema_version));
-  TF_ASSERT_OK(FromABSLStatus(metadata_source->Commit()));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object->GetSchemaVersion(&schema_version));
+  ASSERT_EQ(absl::OkStatus(), metadata_source->Commit());
 
   int64 library_version = metadata_access_object->GetLibraryVersion();
   EXPECT_EQ(schema_version, library_version);

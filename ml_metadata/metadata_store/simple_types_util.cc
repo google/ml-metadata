@@ -14,21 +14,20 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/simple_types_util.h"
 
+#include "google/protobuf/text_format.h"
+#include "absl/status/status.h"
 #include "ml_metadata/simple_types/proto/simple_types.pb.h"
 #include "ml_metadata/simple_types/simple_types_constants.h"
-#include "tensorflow/core/lib/core/errors.h"
-#include "tensorflow/core/lib/core/status.h"
-#include "tensorflow/core/platform/protobuf.h"
 
 namespace ml_metadata {
 
-tensorflow::Status LoadSimpleTypes(SimpleTypes& simple_types) {
-  if (!tensorflow::protobuf::TextFormat::ParseFromString(
-          std::string(kSimpleTypes), &simple_types)) {
-    return tensorflow::errors::InvalidArgument(
+absl::Status LoadSimpleTypes(SimpleTypes& simple_types) {
+  if (!google::protobuf::TextFormat::ParseFromString(std::string(kSimpleTypes),
+                                           &simple_types)) {
+    return absl::InvalidArgumentError(
         "Failed to parse simple types from string");
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 }  // namespace ml_metadata

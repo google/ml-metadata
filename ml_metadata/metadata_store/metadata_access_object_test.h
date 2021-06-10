@@ -18,13 +18,13 @@ limitations under the License.
 #include <memory>
 #include <utility>
 
+#include <glog/logging.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "ml_metadata/metadata_store/metadata_access_object.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
-#include "ml_metadata/util/status_utils.h"
-#include "tensorflow/core/lib/core/errors.h"
-#include "tensorflow/core/lib/core/status_test_util.h"
+#include "ml_metadata/util/return_utils.h"
 
 namespace ml_metadata {
 
@@ -50,17 +50,17 @@ class MetadataAccessObjectContainer {
   // Init a test db environment. By default the testsuite is run against the
   // head schema. If GetSchemaVersion() is overridden, it prepares a
   // db at tht particular schema version.
-  virtual tensorflow::Status Init() {
-    TF_RETURN_IF_ERROR(GetMetadataAccessObject()->InitMetadataSource());
+  virtual absl::Status Init() {
+    MLMD_RETURN_IF_ERROR(GetMetadataAccessObject()->InitMetadataSource());
     // If the test suite indicates the library at head should be tested against
     // an existing db with a previous schema version, we downgrade the
     // initialized schema to setup the test environment.
     const absl::optional<int64> earlier_schema_version = GetSchemaVersion();
     if (earlier_schema_version) {
-      TF_RETURN_IF_ERROR(GetMetadataAccessObject()->DowngradeMetadataSource(
+      MLMD_RETURN_IF_ERROR(GetMetadataAccessObject()->DowngradeMetadataSource(
           *earlier_schema_version));
     }
-    return tensorflow::Status::OK();
+    return absl::OkStatus();
   }
 
   // Tests if there is upgrade verification.
@@ -76,31 +76,30 @@ class MetadataAccessObjectContainer {
   virtual bool HasParentTypeSupport() { return false;}
 
   // Initializes the previous version of the database for downgrade.
-  virtual tensorflow::Status SetupPreviousVersionForDowngrade(
-      int64 version) = 0;
+  virtual absl::Status SetupPreviousVersionForDowngrade(int64 version) = 0;
 
   // Verifies that a database has been downgraded to version.
-  virtual tensorflow::Status DowngradeVerification(int64 version) = 0;
+  virtual absl::Status DowngradeVerification(int64 version) = 0;
 
   // Initializes the previous version of the database for upgrade.
-  virtual tensorflow::Status SetupPreviousVersionForUpgrade(int64 version) = 0;
+  virtual absl::Status SetupPreviousVersionForUpgrade(int64 version) = 0;
 
   // Verifies that a database has been upgraded to version.
-  virtual tensorflow::Status UpgradeVerification(int64 version) = 0;
+  virtual absl::Status UpgradeVerification(int64 version) = 0;
 
   // Drops the type table (or some other table) to test the behavior of
   // InitMetadataSourceIfNotExists when a database is partially created.
-  virtual tensorflow::Status DropTypeTable() = 0;
+  virtual absl::Status DropTypeTable() = 0;
 
   // Drops the artiface table (or some other table) to test the behavior of
   // InitMetadataSourceIfNotExists when a database is partially created.
-  virtual tensorflow::Status DropArtifactTable() = 0;
+  virtual absl::Status DropArtifactTable() = 0;
 
   // Deletes the schema version from MLMDVersion: this corrupts the database.
-  virtual tensorflow::Status DeleteSchemaVersion() = 0;
+  virtual absl::Status DeleteSchemaVersion() = 0;
 
   // Sets the schema version to an incompatible version in the future,
-  virtual tensorflow::Status SetDatabaseVersionIncompatible() = 0;
+  virtual absl::Status SetDatabaseVersionIncompatible() = 0;
 
   // Returns the minimum version to test for upgrades and downgrades.
   virtual int64 MinimumVersion() = 0;
@@ -140,21 +139,21 @@ class QueryConfigMetadataAccessObjectContainer
 
   bool HasParentTypeSupport() final { return true;}
 
-  tensorflow::Status SetupPreviousVersionForDowngrade(int64 version) final;
+  absl::Status SetupPreviousVersionForDowngrade(int64 version) final;
 
-  tensorflow::Status DowngradeVerification(int64 version) final;
+  absl::Status DowngradeVerification(int64 version) final;
 
-  tensorflow::Status SetupPreviousVersionForUpgrade(int64 version) final;
+  absl::Status SetupPreviousVersionForUpgrade(int64 version) final;
 
-  tensorflow::Status UpgradeVerification(int64 version) final;
+  absl::Status UpgradeVerification(int64 version) final;
 
-  tensorflow::Status DropTypeTable() final;
+  absl::Status DropTypeTable() final;
 
-  tensorflow::Status DropArtifactTable() final;
+  absl::Status DropArtifactTable() final;
 
-  tensorflow::Status DeleteSchemaVersion() final;
+  absl::Status DeleteSchemaVersion() final;
 
-  tensorflow::Status SetDatabaseVersionIncompatible() final;
+  absl::Status SetDatabaseVersionIncompatible() final;
 
   bool PerformExtendedTests() final { return true; }
 
@@ -162,12 +161,12 @@ class QueryConfigMetadataAccessObjectContainer
 
  private:
   // Get a migration scheme, or return NOT_FOUND.
-  tensorflow::Status GetMigrationScheme(
+  absl::Status GetMigrationScheme(
       int64 version,
       MetadataSourceQueryConfig::MigrationScheme* migration_scheme);
 
   // Verify that a sequence of queries return true.
-  tensorflow::Status Verification(
+  absl::Status Verification(
       const google::protobuf::RepeatedPtrField<MetadataSourceQueryConfig::TemplateQuery>&
           queries);
 
@@ -217,19 +216,17 @@ class MetadataAccessObjectTest
       LOG(INFO) << "Test against the earlier schema version: "
                 << *metadata_access_object_container_->GetSchemaVersion();
     }
-    TF_CHECK_OK(FromABSLStatus(metadata_source_->Begin()));
+    CHECK_EQ(absl::OkStatus(), metadata_source_->Begin());
   }
 
   void TearDown() override {
-    TF_CHECK_OK(FromABSLStatus(metadata_source_->Commit()));
+    CHECK_EQ(absl::OkStatus(), metadata_source_->Commit());
     metadata_source_ = nullptr;
     metadata_access_object_ = nullptr;
     metadata_access_object_container_ = nullptr;
   }
 
-  tensorflow::Status Init() {
-    return metadata_access_object_container_->Init();
-  }
+  absl::Status Init() { return metadata_access_object_container_->Init(); }
 
   // Uses to skip the tests that are not relevant to any earlier schema version.
   bool EarlierSchemaEnabled() {
@@ -254,7 +251,8 @@ class MetadataAccessObjectTest
     NodeType type;
     type.set_name(type_name);
     int64 type_id;
-    TF_CHECK_OK(metadata_access_object_->CreateType(type, &type_id));
+    CHECK_EQ(absl::OkStatus(),
+             metadata_access_object_->CreateType(type, &type_id));
     return type_id;
   }
 

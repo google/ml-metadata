@@ -37,11 +37,11 @@ cc_library(
     ],
     deps = [
         ":metadata_source",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
-        "@org_tensorflow//tensorflow/core:lib",
     ],
 )
 
@@ -70,15 +70,16 @@ cc_library(
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/simple_types:simple_types_constants",
-        "//ml_metadata/util:status_utils",
+        "//ml_metadata/util:return_utils",
         "//ml_metadata/util:struct_utils",
-        "@org_tensorflow//tensorflow/core:lib",
+        "@com_google_glog//:glog",
         "@com_google_protobuf//:cc_wkt_protos",
     ],
 )
@@ -192,12 +193,12 @@ cc_library(
         ":query_config_executor",
         ":rdbms_metadata_access_object",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
-        "//ml_metadata/util:status_utils",
-        "@org_tensorflow//tensorflow/core:lib",
+        "//ml_metadata/util:return_utils",
     ],
 )
 
@@ -232,8 +233,7 @@ cc_library(
     deps = [
         ":metadata_source",
         "@com_google_absl//absl/status",
-        "//ml_metadata/util:status_utils",
-        "@org_tensorflow//tensorflow/core:lib",
+        "//ml_metadata/util:return_utils",
     ],
 )
 
@@ -245,9 +245,7 @@ ml_metadata_cc_test(
         ":transaction_executor",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/status",
-        "//ml_metadata/util:status_utils",
-        "@org_tensorflow//tensorflow/core:lib",
-        "@org_tensorflow//tensorflow/core:test",
+        "@com_google_glog//:glog",
     ],
 )
 
@@ -274,11 +272,15 @@ cc_library(
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/proto:metadata_store_service_proto",
         "//ml_metadata/simple_types:simple_types_constants",
         "//ml_metadata/simple_types/proto:simple_types_proto",
+        "//ml_metadata/util:return_utils",
+        "//ml_metadata/util:status_utils",
         "@org_tensorflow//tensorflow/core:lib",
     ],
 )
@@ -431,10 +433,10 @@ cc_library(
     srcs = ["simple_types_util.cc"],
     hdrs = ["simple_types_util.h"],
     deps = [
+        "@com_google_protobuf//:protobuf",
+        "@com_google_absl//absl/status",
         "//ml_metadata/simple_types:simple_types_constants",
         "//ml_metadata/simple_types/proto:simple_types_proto",
-        "@org_tensorflow//tensorflow/core:framework_lite",
-        "@org_tensorflow//tensorflow/core:lib",
     ],
 )
 
@@ -512,16 +514,16 @@ cc_library(
         "@com_google_protobuf//:protobuf",
         "@com_google_googletest//:gtest",
         "@com_google_absl//absl/container:node_hash_map",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
-        "//ml_metadata/util:status_utils",
-        "@org_tensorflow//tensorflow/core:lib",
-        "@org_tensorflow//tensorflow/core:test",
+        "//ml_metadata/util:return_utils",
         "@com_github_gflags_gflags//:gflags_nothreads",
+        "@com_google_glog//:glog",
     ],
 )
 
@@ -618,9 +620,10 @@ ml_metadata_cc_test(
         ":sqlite_metadata_source",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/util:metadata_source_query_config",
-        "@org_tensorflow//tensorflow/core:test",
+        "@com_google_glog//:glog",
     ],
 )
 
@@ -636,9 +639,10 @@ cc_library(
         ":test_mysql_metadata_source_initializer",
         "@com_google_googletest//:gtest",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/util:metadata_source_query_config",
-        "@org_tensorflow//tensorflow/core:test",
+        "@com_google_glog//:glog",
     ],
 )
 
@@ -676,7 +680,6 @@ cc_test(
         "@com_google_absl//absl/memory",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/util:metadata_source_query_config",
-        "//ml_metadata/util:status_utils",
-        "@org_tensorflow//tensorflow/core:test",
+        "@com_google_glog//:glog",
     ],
 )

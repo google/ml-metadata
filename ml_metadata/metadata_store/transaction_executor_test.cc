@@ -17,13 +17,11 @@ limitations under the License.
 
 #include <functional>
 
+#include <glog/logging.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
-#include "ml_metadata/util/status_utils.h"
-#include "tensorflow/core/lib/core/errors.h"
-#include "tensorflow/core/lib/core/status_test_util.h"
 
 namespace ml_metadata {
 namespace {
@@ -44,23 +42,24 @@ class MockMetadataSource : public MetadataSource {
 };
 
 // Fake Errors.
-const tensorflow::Status kTfFuncErrorStatus =
-    tensorflow::errors::Internal("Fake txn body error.");
+const absl::Status kTfFuncErrorStatus =
+    absl::InternalError("Fake txn body error.");
 const absl::Status kTfConnectErrorStatus =
     absl::InternalError("Fake connection error.");
 const absl::Status kTfCommitErrorStatus =
     absl::InternalError("Fake commit error.");
 const absl::Status kTfRollbackErrorStatus =
     absl::InternalError("Fake rollback error.");
-const tensorflow::Status kTfBeginErrorStatus =
-    tensorflow::errors::Internal("Fake begin error.");
+const absl::Status kTfBeginErrorStatus =
+    absl::InternalError("Fake begin error.");
 
 // Fake transaction body that always return OK status.
-const std::function<tensorflow::Status()> kFuncReturnOk =
-    []() -> tensorflow::Status { return tensorflow::Status::OK(); };
+const std::function<absl::Status()> kFuncReturnOk = []() -> absl::Status {
+  return absl::OkStatus();
+};
 // Fake transaction body that always return Internal error status.
-const std::function<tensorflow::Status()> kFuncReturnInternalError =
-    []() -> tensorflow::Status { return kTfFuncErrorStatus; };
+const std::function<absl::Status()> kFuncReturnInternalError =
+    []() -> absl::Status { return kTfFuncErrorStatus; };
 
 TEST(TransactionExecutorTest, ReturnOkWhenBothTxnBodyAndCommitOk) {
   MockMetadataSource mock_metadata_source;
@@ -81,10 +80,10 @@ TEST(TransactionExecutorTest, ReturnOkWhenBothTxnBodyAndCommitOk) {
       .Times(0);
 
   // Initialize the mock_metadata_source.
-  TF_ASSERT_OK(FromABSLStatus(mock_metadata_source.Connect()));
+  ASSERT_EQ(absl::OkStatus(), mock_metadata_source.Connect());
   RdbmsTransactionExecutor txn_executor(&mock_metadata_source);
 
-  TF_EXPECT_OK(txn_executor.Execute(kFuncReturnOk));
+  EXPECT_EQ(absl::OkStatus(), txn_executor.Execute(kFuncReturnOk));
 }
 
 TEST(TransactionExecutorTest, ReturnErrorWhenTxnBodyReturnsError) {
@@ -106,7 +105,7 @@ TEST(TransactionExecutorTest, ReturnErrorWhenTxnBodyReturnsError) {
       .Times(0);
 
   // Initialize the mock_metadata_source.
-  TF_ASSERT_OK(FromABSLStatus(mock_metadata_source.Connect()));
+  ASSERT_EQ(absl::OkStatus(), mock_metadata_source.Connect());
   RdbmsTransactionExecutor txn_executor(&mock_metadata_source);
 
   EXPECT_EQ(txn_executor.Execute(kFuncReturnInternalError), kTfFuncErrorStatus);
@@ -131,12 +130,11 @@ TEST(TransactionExecutorTest, ReturnErrorWhenTxnBodyReturnsOkButCommitFails) {
       .WillOnce(Return(kTfRollbackErrorStatus));
 
   // Initialize the mock_metadata_source.
-  TF_ASSERT_OK(FromABSLStatus(mock_metadata_source.Connect()));
+  ASSERT_EQ(absl::OkStatus(), mock_metadata_source.Connect());
   RdbmsTransactionExecutor txn_executor(&mock_metadata_source);
 
   // Return commit error even rollback fails.
-  EXPECT_EQ(txn_executor.Execute(kFuncReturnOk),
-            FromABSLStatus(kTfCommitErrorStatus));
+  EXPECT_EQ(txn_executor.Execute(kFuncReturnOk), kTfCommitErrorStatus);
 }
 
 TEST(TransactionExecutorTest, ReturnConnectErrorWhenConnectFails) {
@@ -160,7 +158,7 @@ TEST(TransactionExecutorTest, ReturnConnectErrorWhenConnectFails) {
   // Execute of txn_body will fail when the connection fails.
   EXPECT_FALSE(txn_executor.Execute(kFuncReturnOk).ok());
   EXPECT_EQ(txn_executor.Execute(kFuncReturnOk),
-            tensorflow::errors::FailedPrecondition(
+            absl::FailedPreconditionError(
                 "To use ExecuteTransaction, the metadata_source should be"
                 " created and connected"));
 }

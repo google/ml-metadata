@@ -16,8 +16,8 @@ limitations under the License.
 #ifndef THIRD_PARTY_ML_METADATA_METADATA_STORE_TRANSACTION_EXECUTOR_H_
 #define THIRD_PARTY_ML_METADATA_METADATA_STORE_TRANSACTION_EXECUTOR_H_
 
+#include "absl/status/status.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
-#include "tensorflow/core/lib/core/status.h"
 
 namespace ml_metadata {
 
@@ -27,7 +27,7 @@ namespace ml_metadata {
 //    TransactionExecutor* txn_executor;
 //    ...
 //    txn_executor->Execute(
-//     [&metadata_access_object]() -> tensorflow::Status {
+//     [&metadata_access_object]() -> absl::Status {
 //        return metadata_access_object->InitMetadataSource();
 //     });
 class TransactionExecutor {
@@ -35,8 +35,8 @@ class TransactionExecutor {
   virtual ~TransactionExecutor() = default;
 
   // Runs txn_body and return the transaction status.
-  virtual tensorflow::Status Execute(
-      const std::function<tensorflow::Status()>& txn_body) const = 0;
+  virtual absl::Status Execute(
+      const std::function<absl::Status()>& txn_body) const = 0;
 };
 
 // An implementation of TransactionExecutor.
@@ -55,8 +55,8 @@ class RdbmsTransactionExecutor : public TransactionExecutor {
   // Returns FAILED_PRECONDITION if metadata_source is null or not connected.
   // Returns detailed internal errors of transaction, i.e.
   //   Begin, Rollback and Commit.
-  tensorflow::Status Execute(
-      const std::function<tensorflow::Status()>& txn_body) const override;
+  absl::Status Execute(
+      const std::function<absl::Status()>& txn_body) const override;
 
  private:
   // The MetadataSource which has the connection to a database.

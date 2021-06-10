@@ -22,6 +22,8 @@ limitations under the License.
 #include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/types/optional.h"
 #include "ml_metadata/metadata_store/metadata_access_object_factory.h"
 #include "ml_metadata/metadata_store/simple_types_util.h"
@@ -29,6 +31,8 @@ limitations under the License.
 #include "ml_metadata/proto/metadata_store_service.pb.h"
 #include "ml_metadata/simple_types/proto/simple_types.pb.h"
 #include "ml_metadata/simple_types/simple_types_constants.h"
+#include "ml_metadata/util/return_utils.h"
+#include "ml_metadata/util/status_utils.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/lib/core/status.h"
 
@@ -117,19 +121,18 @@ tensorflow::Status CheckFieldsConsistent(const T& stored_type,
 // Returns INVALID_ARGUMENT error, if any property type in `type` is unknown.
 // Returns detailed INTERNAL error, if query execution fails.
 template <typename T>
-tensorflow::Status UpsertType(const T& type, bool can_add_fields,
-                              bool can_omit_fields,
-                              MetadataAccessObject* metadata_access_object,
-                              int64* type_id) {
+absl::Status UpsertType(const T& type, bool can_add_fields,
+                        bool can_omit_fields,
+                        MetadataAccessObject* metadata_access_object,
+                        int64* type_id) {
   T stored_type;
-  const tensorflow::Status status =
-      metadata_access_object->FindTypeByNameAndVersion(
-          type.name(), type.version(), &stored_type);
-  if (!status.ok() && !tensorflow::errors::IsNotFound(status)) {
+  const absl::Status status = metadata_access_object->FindTypeByNameAndVersion(
+      type.name(), type.version(), &stored_type);
+  if (!status.ok() && !absl::IsNotFound(status)) {
     return status;
   }
   // if not found, then it creates a type. `can_add_fields` is ignored.
-  if (tensorflow::errors::IsNotFound(status)) {
+  if (absl::IsNotFound(status)) {
     return metadata_access_object->CreateType(type, type_id);
   }
   // otherwise it updates the type.
@@ -141,9 +144,9 @@ tensorflow::Status UpsertType(const T& type, bool can_add_fields,
   const tensorflow::Status check_status = CheckFieldsConsistent(
       stored_type, type, can_add_fields, can_omit_fields, output_type);
   if (!check_status.ok()) {
-    return tensorflow::errors::AlreadyExists(
-        "Type already exists with different properties: ",
-        check_status.error_message());
+    return absl::AlreadyExistsError(
+        absl::StrCat("Type already exists with different properties: ",
+                     check_status.error_message()));
   }
   return metadata_access_object->UpdateType(output_type);
 }
@@ -151,7 +154,7 @@ tensorflow::Status UpsertType(const T& type, bool can_add_fields,
 // Inserts or updates all the types in the argument list. 'can_add_fields' and
 // 'can_omit_fields' are both enabled. Type ids are inserted into the
 // PutTypesResponse 'response'.
-tensorflow::Status UpsertTypes(
+absl::Status UpsertTypes(
     const google::protobuf::RepeatedPtrField<ArtifactType>& artifact_types,
     const google::protobuf::RepeatedPtrField<ExecutionType>& execution_types,
     const google::protobuf::RepeatedPtrField<ContextType>& context_types,
@@ -159,33 +162,33 @@ tensorflow::Status UpsertTypes(
     MetadataAccessObject* metadata_access_object, PutTypesResponse* response) {
   for (const ArtifactType& artifact_type : artifact_types) {
     int64 artifact_type_id;
-    TF_RETURN_IF_ERROR(UpsertType(artifact_type, can_add_fields,
-                                  can_omit_fields, metadata_access_object,
-                                  &artifact_type_id));
+    MLMD_RETURN_IF_ERROR(UpsertType(artifact_type, can_add_fields,
+                                    can_omit_fields, metadata_access_object,
+                                    &artifact_type_id));
     response->add_artifact_type_ids(artifact_type_id);
   }
   for (const ExecutionType& execution_type : execution_types) {
     int64 execution_type_id;
-    TF_RETURN_IF_ERROR(UpsertType(execution_type, can_add_fields,
-                                  can_omit_fields, metadata_access_object,
-                                  &execution_type_id));
+    MLMD_RETURN_IF_ERROR(UpsertType(execution_type, can_add_fields,
+                                    can_omit_fields, metadata_access_object,
+                                    &execution_type_id));
     response->add_execution_type_ids(execution_type_id);
   }
   for (const ContextType& context_type : context_types) {
     int64 context_type_id;
-    TF_RETURN_IF_ERROR(UpsertType(context_type, can_add_fields, can_omit_fields,
-                                  metadata_access_object, &context_type_id));
+    MLMD_RETURN_IF_ERROR(UpsertType(context_type, can_add_fields,
+                                    can_omit_fields, metadata_access_object,
+                                    &context_type_id));
     response->add_context_type_ids(context_type_id);
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 // Loads SimpleTypes proto from string and updates or inserts it into database.
-tensorflow::Status UpsertSimpleTypes(
-    MetadataAccessObject* metadata_access_object) {
+absl::Status UpsertSimpleTypes(MetadataAccessObject* metadata_access_object) {
   SimpleTypes simple_types;
   PutTypesResponse response;
-  TF_RETURN_IF_ERROR(LoadSimpleTypes(simple_types));
+  MLMD_RETURN_IF_ERROR(LoadSimpleTypes(simple_types));
   return UpsertTypes(
       simple_types.artifact_types(), simple_types.execution_types(),
       simple_types.context_types(), /*can_add_fields=*/true,
@@ -194,94 +197,94 @@ tensorflow::Status UpsertSimpleTypes(
 
 // Updates or inserts an artifact. If the artifact.id is given, it updates the
 // stored artifact, otherwise, it creates a new artifact.
-tensorflow::Status UpsertArtifact(const Artifact& artifact,
-                                  MetadataAccessObject* metadata_access_object,
-                                  int64* artifact_id) {
+absl::Status UpsertArtifact(const Artifact& artifact,
+                            MetadataAccessObject* metadata_access_object,
+                            int64* artifact_id) {
   CHECK(artifact_id) << "artifact_id should not be null";
   if (artifact.has_id()) {
-    TF_RETURN_IF_ERROR(metadata_access_object->UpdateArtifact(artifact));
+    MLMD_RETURN_IF_ERROR(metadata_access_object->UpdateArtifact(artifact));
     *artifact_id = artifact.id();
   } else {
-    TF_RETURN_IF_ERROR(
+    MLMD_RETURN_IF_ERROR(
         metadata_access_object->CreateArtifact(artifact, artifact_id));
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 // Updates or inserts an execution. If the execution.id is given, it updates the
 // stored execution, otherwise, it creates a new execution.
-tensorflow::Status UpsertExecution(const Execution& execution,
-                                   MetadataAccessObject* metadata_access_object,
-                                   int64* execution_id) {
+absl::Status UpsertExecution(const Execution& execution,
+                             MetadataAccessObject* metadata_access_object,
+                             int64* execution_id) {
   CHECK(execution_id) << "execution_id should not be null";
   if (execution.has_id()) {
-    TF_RETURN_IF_ERROR(metadata_access_object->UpdateExecution(execution));
+    MLMD_RETURN_IF_ERROR(metadata_access_object->UpdateExecution(execution));
     *execution_id = execution.id();
   } else {
-    TF_RETURN_IF_ERROR(
+    MLMD_RETURN_IF_ERROR(
         metadata_access_object->CreateExecution(execution, execution_id));
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 // Updates or inserts a context. If the context.id is given, it updates the
 // stored context, otherwise, it creates a new context.
-tensorflow::Status UpsertContext(const Context& context,
-                                 MetadataAccessObject* metadata_access_object,
-                                 int64* context_id) {
+absl::Status UpsertContext(const Context& context,
+                           MetadataAccessObject* metadata_access_object,
+                           int64* context_id) {
   CHECK(context_id) << "context_id should not be null";
   if (context.has_id()) {
-    TF_RETURN_IF_ERROR(metadata_access_object->UpdateContext(context));
+    MLMD_RETURN_IF_ERROR(metadata_access_object->UpdateContext(context));
     *context_id = context.id();
   } else {
-    TF_RETURN_IF_ERROR(
+    MLMD_RETURN_IF_ERROR(
         metadata_access_object->CreateContext(context, context_id));
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 // Inserts an association. If the association already exists it returns OK.
-tensorflow::Status InsertAssociationIfNotExist(
+absl::Status InsertAssociationIfNotExist(
     int64 context_id, int64 execution_id,
     MetadataAccessObject* metadata_access_object) {
   Association association;
   association.set_execution_id(execution_id);
   association.set_context_id(context_id);
   int64 dummy_assocation_id;
-  tensorflow::Status status = metadata_access_object->CreateAssociation(
+  absl::Status status = metadata_access_object->CreateAssociation(
       association, &dummy_assocation_id);
-  if (!status.ok() && !tensorflow::errors::IsAlreadyExists(status)) {
+  if (!status.ok() && !absl::IsAlreadyExists(status)) {
     return status;
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 // Inserts an attribution. If the attribution already exists it returns OK.
-tensorflow::Status InsertAttributionIfNotExist(
+absl::Status InsertAttributionIfNotExist(
     int64 context_id, int64 artifact_id,
     MetadataAccessObject* metadata_access_object) {
   Attribution attribution;
   attribution.set_artifact_id(artifact_id);
   attribution.set_context_id(context_id);
   int64 dummy_attribution_id;
-  tensorflow::Status status = metadata_access_object->CreateAttribution(
+  absl::Status status = metadata_access_object->CreateAttribution(
       attribution, &dummy_attribution_id);
-  if (!status.ok() && !tensorflow::errors::IsAlreadyExists(status)) {
+  if (!status.ok() && !absl::IsAlreadyExists(status)) {
     return status;
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 // Updates or inserts a pair of {Artifact, Event}. If artifact is not given,
 // the event.artifact_id must exist, and it inserts the event, and returns the
 // artifact_id. Otherwise if artifact is given, event.artifact_id is optional,
 // if set, then artifact.id and event.artifact_id must align.
-tensorflow::Status UpsertArtifactAndEvent(
+absl::Status UpsertArtifactAndEvent(
     const PutExecutionRequest::ArtifactAndEvent& artifact_and_event,
     MetadataAccessObject* metadata_access_object, int64* artifact_id) {
   CHECK(artifact_id) << "The output artifact_id pointer should not be null";
   if (!artifact_and_event.has_artifact() && !artifact_and_event.has_event()) {
-    return tensorflow::Status::OK();
+    return absl::OkStatus();
   }
   // validate event and artifact's id aligns.
   // if artifact is not given, the event.artifact_id must exist
@@ -291,7 +294,7 @@ tensorflow::Status UpsertArtifactAndEvent(
           ? absl::make_optional<int64>(artifact_and_event.event().artifact_id())
           : absl::nullopt;
   if (!artifact_and_event.has_artifact() && !maybe_event_artifact_id) {
-    return tensorflow::errors::InvalidArgument(absl::StrCat(
+    return absl::InvalidArgumentError(absl::StrCat(
         "If no artifact is present, given event must have an artifact_id: ",
         artifact_and_event.DebugString()));
   }
@@ -304,18 +307,18 @@ tensorflow::Status UpsertArtifactAndEvent(
           : absl::nullopt;
   if (artifact_and_event.has_artifact() && maybe_event_artifact_id &&
       maybe_artifact_id != maybe_event_artifact_id) {
-    return tensorflow::errors::InvalidArgument(absl::StrCat(
+    return absl::InvalidArgumentError(absl::StrCat(
         "Given event.artifact_id is not aligned with the artifact: ",
         artifact_and_event.DebugString()));
   }
   // upsert artifact if present.
   if (artifact_and_event.has_artifact()) {
-    TF_RETURN_IF_ERROR(UpsertArtifact(artifact_and_event.artifact(),
-                                      metadata_access_object, artifact_id));
+    MLMD_RETURN_IF_ERROR(UpsertArtifact(artifact_and_event.artifact(),
+                                        metadata_access_object, artifact_id));
   }
   // insert event if any.
   if (!artifact_and_event.has_event()) {
-    return tensorflow::Status::OK();
+    return absl::OkStatus();
   }
   Event event = artifact_and_event.event();
   if (artifact_and_event.has_artifact()) {
@@ -339,26 +342,28 @@ absl::optional<std::string> GetRequestTypeVersion(const T& type_request) {
 
 tensorflow::Status MetadataStore::InitMetadataStore() {
   TF_RETURN_IF_ERROR(
-      transaction_executor_->Execute([this]() -> tensorflow::Status {
+      FromABSLStatus(transaction_executor_->Execute([this]() -> absl::Status {
         return metadata_access_object_->InitMetadataSource();
+      })));
+  return FromABSLStatus(
+      transaction_executor_->Execute([this]() -> absl::Status {
+        return UpsertSimpleTypes(metadata_access_object_.get());
       }));
-  return transaction_executor_->Execute([this]() -> tensorflow::Status {
-    return UpsertSimpleTypes(metadata_access_object_.get());
-  });
 }
 
 // TODO(b/187357155): duplicated results when inserting simple types
 // concurrently
 tensorflow::Status MetadataStore::InitMetadataStoreIfNotExists(
     const bool enable_upgrade_migration) {
-  TF_RETURN_IF_ERROR(transaction_executor_->Execute(
-      [this, &enable_upgrade_migration]() -> tensorflow::Status {
+  TF_RETURN_IF_ERROR(FromABSLStatus(transaction_executor_->Execute(
+      [this, &enable_upgrade_migration]() -> absl::Status {
         return metadata_access_object_->InitMetadataSourceIfNotExists(
             enable_upgrade_migration);
+      })));
+  return FromABSLStatus(
+      transaction_executor_->Execute([this]() -> absl::Status {
+        return UpsertSimpleTypes(metadata_access_object_.get());
       }));
-  return transaction_executor_->Execute([this]() -> tensorflow::Status {
-    return UpsertSimpleTypes(metadata_access_object_.get());
-  });
 }
 
 tensorflow::Status MetadataStore::PutTypes(const PutTypesRequest& request,
@@ -366,14 +371,14 @@ tensorflow::Status MetadataStore::PutTypes(const PutTypesRequest& request,
   if (!request.all_fields_match()) {
     return tensorflow::errors::Unimplemented("Must match all fields.");
   }
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         return UpsertTypes(request.artifact_types(), request.execution_types(),
                            request.context_types(), request.can_add_fields(),
                            request.can_omit_fields(),
                            metadata_access_object_.get(), response);
-      });
+      }));
 }
 
 tensorflow::Status MetadataStore::PutArtifactType(
@@ -381,16 +386,17 @@ tensorflow::Status MetadataStore::PutArtifactType(
   if (!request.all_fields_match()) {
     return tensorflow::errors::Unimplemented("Must match all fields.");
   }
-  return transaction_executor_->Execute([this, &request,
-                                         &response]() -> tensorflow::Status {
-    response->Clear();
-    int64 type_id;
-    TF_RETURN_IF_ERROR(UpsertType(
-        request.artifact_type(), request.can_add_fields(),
-        request.can_omit_fields(), metadata_access_object_.get(), &type_id));
-    response->set_type_id(type_id);
-    return tensorflow::Status::OK();
-  });
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
+        response->Clear();
+        int64 type_id;
+        MLMD_RETURN_IF_ERROR(
+            UpsertType(request.artifact_type(), request.can_add_fields(),
+                       request.can_omit_fields(), metadata_access_object_.get(),
+                       &type_id));
+        response->set_type_id(type_id);
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::PutExecutionType(
@@ -399,16 +405,17 @@ tensorflow::Status MetadataStore::PutExecutionType(
   if (!request.all_fields_match()) {
     return tensorflow::errors::Unimplemented("Must match all fields.");
   }
-  return transaction_executor_->Execute([this, &request,
-                                         &response]() -> tensorflow::Status {
-    response->Clear();
-    int64 type_id;
-    TF_RETURN_IF_ERROR(UpsertType(
-        request.execution_type(), request.can_add_fields(),
-        request.can_omit_fields(), metadata_access_object_.get(), &type_id));
-    response->set_type_id(type_id);
-    return tensorflow::Status::OK();
-  });
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
+        response->Clear();
+        int64 type_id;
+        MLMD_RETURN_IF_ERROR(
+            UpsertType(request.execution_type(), request.can_add_fields(),
+                       request.can_omit_fields(), metadata_access_object_.get(),
+                       &type_id));
+        response->set_type_id(type_id);
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::PutContextType(
@@ -416,175 +423,177 @@ tensorflow::Status MetadataStore::PutContextType(
   if (!request.all_fields_match()) {
     return tensorflow::errors::Unimplemented("Must match all fields.");
   }
-  return transaction_executor_->Execute([this, &request,
-                                         &response]() -> tensorflow::Status {
-    response->Clear();
-    int64 type_id;
-    TF_RETURN_IF_ERROR(UpsertType(
-        request.context_type(), request.can_add_fields(),
-        request.can_omit_fields(), metadata_access_object_.get(), &type_id));
-    response->set_type_id(type_id);
-    return tensorflow::Status::OK();
-  });
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
+        response->Clear();
+        int64 type_id;
+        MLMD_RETURN_IF_ERROR(
+            UpsertType(request.context_type(), request.can_add_fields(),
+                       request.can_omit_fields(), metadata_access_object_.get(),
+                       &type_id));
+        response->set_type_id(type_id);
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetArtifactType(
     const GetArtifactTypeRequest& request, GetArtifactTypeResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         return metadata_access_object_->FindTypeByNameAndVersion(
             request.type_name(), GetRequestTypeVersion(request),
             response->mutable_artifact_type());
-      });
+      }));
 }
 
 tensorflow::Status MetadataStore::GetExecutionType(
     const GetExecutionTypeRequest& request,
     GetExecutionTypeResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         return metadata_access_object_->FindTypeByNameAndVersion(
             request.type_name(), GetRequestTypeVersion(request),
             response->mutable_execution_type());
-      });
+      }));
 }
 
 tensorflow::Status MetadataStore::GetContextType(
     const GetContextTypeRequest& request, GetContextTypeResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         return metadata_access_object_->FindTypeByNameAndVersion(
             request.type_name(), GetRequestTypeVersion(request),
             response->mutable_context_type());
-      });
+      }));
 }
 
 tensorflow::Status MetadataStore::GetArtifactTypesByID(
     const GetArtifactTypesByIDRequest& request,
     GetArtifactTypesByIDResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         for (const int64 type_id : request.type_ids()) {
           ArtifactType artifact_type;
-          const tensorflow::Status status =
+          const absl::Status status =
               metadata_access_object_->FindTypeById(type_id, &artifact_type);
           if (status.ok()) {
             *response->mutable_artifact_types()->Add() = artifact_type;
-          } else if (!tensorflow::errors::IsNotFound(status)) {
+          } else if (!absl::IsNotFound(status)) {
             return status;
           }
         }
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetExecutionTypesByID(
     const GetExecutionTypesByIDRequest& request,
     GetExecutionTypesByIDResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         for (const int64 type_id : request.type_ids()) {
           ExecutionType execution_type;
-          const tensorflow::Status status =
+          const absl::Status status =
               metadata_access_object_->FindTypeById(type_id, &execution_type);
           if (status.ok()) {
             *response->mutable_execution_types()->Add() = execution_type;
-          } else if (!tensorflow::errors::IsNotFound(status)) {
+          } else if (!absl::IsNotFound(status)) {
             return status;
           }
         }
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetContextTypesByID(
     const GetContextTypesByIDRequest& request,
     GetContextTypesByIDResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         for (const int64 type_id : request.type_ids()) {
           ContextType context_type;
-          const tensorflow::Status status =
+          const absl::Status status =
               metadata_access_object_->FindTypeById(type_id, &context_type);
           if (status.ok()) {
             *response->mutable_context_types()->Add() = context_type;
-          } else if (!tensorflow::errors::IsNotFound(status)) {
+          } else if (!absl::IsNotFound(status)) {
             return status;
           }
         }
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetArtifactsByID(
     const GetArtifactsByIDRequest& request,
     GetArtifactsByIDResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Artifact> artifacts;
         const std::vector<int64> ids(request.artifact_ids().begin(),
                                      request.artifact_ids().end());
-        const tensorflow::Status status =
+        const absl::Status status =
             metadata_access_object_->FindArtifactsById(ids, &artifacts);
-        if (!status.ok() && !tensorflow::errors::IsNotFound(status)) {
+        if (!status.ok() && !absl::IsNotFound(status)) {
           return status;
         }
         absl::c_copy(artifacts, google::protobuf::RepeatedPtrFieldBackInserter(
                                     response->mutable_artifacts()));
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetExecutionsByID(
     const GetExecutionsByIDRequest& request,
     GetExecutionsByIDResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Execution> executions;
         const std::vector<int64> ids(request.execution_ids().begin(),
                                      request.execution_ids().end());
-        const tensorflow::Status status =
+        const absl::Status status =
             metadata_access_object_->FindExecutionsById(ids, &executions);
-        if (!status.ok() && !tensorflow::errors::IsNotFound(status)) {
+        if (!status.ok() && !absl::IsNotFound(status)) {
           return status;
         }
         absl::c_copy(executions, google::protobuf::RepeatedPtrFieldBackInserter(
                                      response->mutable_executions()));
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetContextsByID(
     const GetContextsByIDRequest& request, GetContextsByIDResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Context> contexts;
         const std::vector<int64> ids(request.context_ids().begin(),
                                      request.context_ids().end());
-        const tensorflow::Status status =
+        const absl::Status status =
             metadata_access_object_->FindContextsById(ids, &contexts);
-        if (!status.ok() && !tensorflow::errors::IsNotFound(status)) {
+        if (!status.ok() && !absl::IsNotFound(status)) {
           return status;
         }
         absl::c_copy(contexts, google::protobuf::RepeatedFieldBackInserter(
                                    response->mutable_contexts()));
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::PutArtifacts(
     const PutArtifactsRequest& request, PutArtifactsResponse* response) {
-  return transaction_executor_->Execute([this, &request,
-                                         &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute([this, &request,
+                                                        &response]()
+                                                           -> absl::Status {
     response->Clear();
     for (const Artifact& artifact : request.artifacts()) {
       int64 artifact_id = -1;
@@ -592,7 +601,7 @@ tensorflow::Status MetadataStore::PutArtifacts(
       if (artifact.has_id() &&
           request.options().abort_if_latest_updated_time_changed()) {
         Artifact existing_artifact;
-        tensorflow::Status status;
+        absl::Status status;
         {
           std::vector<Artifact> artifacts;
           status = metadata_access_object_->FindArtifactsById({artifact.id()},
@@ -601,60 +610,60 @@ tensorflow::Status MetadataStore::PutArtifacts(
             existing_artifact = artifacts.at(0);
           }
         }
-        if (!tensorflow::errors::IsNotFound(status)) {
-          TF_RETURN_IF_ERROR(status);
+        if (!absl::IsNotFound(status)) {
+          MLMD_RETURN_IF_ERROR(status);
           if (artifact.last_update_time_since_epoch() !=
               existing_artifact.last_update_time_since_epoch()) {
-            return tensorflow::errors::FailedPrecondition(
+            return absl::FailedPreconditionError(absl::StrCat(
                 "`abort_if_latest_updated_time_changed` is set, and the stored "
                 "artifact with id = ",
                 artifact.id(),
                 " has a different last_update_time_since_epoch: ",
                 existing_artifact.last_update_time_since_epoch(),
                 " from the one in the given artifact: ",
-                artifact.last_update_time_since_epoch());
+                artifact.last_update_time_since_epoch()));
           }
           // If set the option and all check succeeds, we make sure the
           // timestamp after the update increases.
           absl::SleepFor(absl::Milliseconds(1));
         }
       }
-      TF_RETURN_IF_ERROR(UpsertArtifact(artifact, metadata_access_object_.get(),
-                                        &artifact_id));
+      MLMD_RETURN_IF_ERROR(UpsertArtifact(
+          artifact, metadata_access_object_.get(), &artifact_id));
       response->add_artifact_ids(artifact_id);
     }
-    return tensorflow::Status::OK();
-  });
+    return absl::OkStatus();
+  }));
 }
 
 tensorflow::Status MetadataStore::PutExecutions(
     const PutExecutionsRequest& request, PutExecutionsResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         for (const Execution& execution : request.executions()) {
           int64 execution_id = -1;
-          TF_RETURN_IF_ERROR(UpsertExecution(
+          MLMD_RETURN_IF_ERROR(UpsertExecution(
               execution, metadata_access_object_.get(), &execution_id));
           response->add_execution_ids(execution_id);
         }
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::PutContexts(const PutContextsRequest& request,
                                               PutContextsResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         for (const Context& context : request.contexts()) {
           int64 context_id = -1;
-          TF_RETURN_IF_ERROR(UpsertContext(
+          MLMD_RETURN_IF_ERROR(UpsertContext(
               context, metadata_access_object_.get(), &context_id));
           response->add_context_ids(context_id);
         }
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::Create(
@@ -664,15 +673,15 @@ tensorflow::Status MetadataStore::Create(
     unique_ptr<TransactionExecutor> transaction_executor,
     unique_ptr<MetadataStore>* result) {
   unique_ptr<MetadataAccessObject> metadata_access_object;
-  TF_RETURN_IF_ERROR(CreateMetadataAccessObject(
-      query_config, metadata_source.get(), &metadata_access_object));
+  TF_RETURN_IF_ERROR(FromABSLStatus(CreateMetadataAccessObject(
+      query_config, metadata_source.get(), &metadata_access_object)));
   // if downgrade migration is specified
   if (migration_options.downgrade_to_schema_version() >= 0) {
-    TF_RETURN_IF_ERROR(transaction_executor->Execute(
-        [&migration_options, &metadata_access_object]() -> tensorflow::Status {
+    TF_RETURN_IF_ERROR(FromABSLStatus(transaction_executor->Execute(
+        [&migration_options, &metadata_access_object]() -> absl::Status {
           return metadata_access_object->DowngradeMetadataSource(
               migration_options.downgrade_to_schema_version());
-        }));
+        })));
     return tensorflow::errors::Cancelled(
         "Downgrade migration was performed. Connection to the downgraded "
         "database is Cancelled. Now the database is at schema version ",
@@ -688,32 +697,33 @@ tensorflow::Status MetadataStore::Create(
 
 tensorflow::Status MetadataStore::PutEvents(const PutEventsRequest& request,
                                             PutEventsResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         for (const Event& event : request.events()) {
           int64 dummy_event_id = -1;
-          TF_RETURN_IF_ERROR(
+          MLMD_RETURN_IF_ERROR(
               metadata_access_object_->CreateEvent(event, &dummy_event_id));
         }
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::PutExecution(
     const PutExecutionRequest& request, PutExecutionResponse* response) {
-  return transaction_executor_->Execute([this, &request,
-                                         &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute([this, &request,
+                                                        &response]()
+                                                           -> absl::Status {
     response->Clear();
     if (!request.has_execution()) {
-      return tensorflow::errors::InvalidArgument("No execution is found: ",
-                                                 request.DebugString());
+      return absl::InvalidArgumentError(
+          absl::StrCat("No execution is found: ", request.DebugString()));
     }
     // 1. Upsert Execution
     const Execution& execution = request.execution();
     int64 execution_id = -1;
-    TF_RETURN_IF_ERROR(UpsertExecution(execution, metadata_access_object_.get(),
-                                       &execution_id));
+    MLMD_RETURN_IF_ERROR(UpsertExecution(
+        execution, metadata_access_object_.get(), &execution_id));
     response->set_execution_id(execution_id);
     // 2. Upsert Artifacts and insert events
     for (PutExecutionRequest::ArtifactAndEvent artifact_and_event :
@@ -723,15 +733,15 @@ tensorflow::Status MetadataStore::PutExecution(
         Event* event = artifact_and_event.mutable_event();
         if (event->has_execution_id() &&
             (!execution.has_id() || execution.id() != event->execution_id())) {
-          return tensorflow::errors::InvalidArgument(
+          return absl::InvalidArgumentError(absl::StrCat(
               "Request's event.execution_id does not match with the given "
               "execution: ",
-              request.DebugString());
+              request.DebugString()));
         }
         event->set_execution_id(execution_id);
       }
       int64 artifact_id = -1;
-      TF_RETURN_IF_ERROR(UpsertArtifactAndEvent(
+      MLMD_RETURN_IF_ERROR(UpsertArtifactAndEvent(
           artifact_and_event, metadata_access_object_.get(), &artifact_id));
       response->add_artifact_ids(artifact_id);
     }
@@ -742,96 +752,96 @@ tensorflow::Status MetadataStore::PutExecution(
       if (request.options().reuse_context_if_already_exist() &&
           !context.has_id()) {
         Context existing_context;
-        const tensorflow::Status status =
+        const absl::Status status =
             metadata_access_object_->FindContextByTypeIdAndContextName(
                 context.type_id(), context.name(), &existing_context);
-        if (!tensorflow::errors::IsNotFound(status)) {
-          TF_RETURN_IF_ERROR(status);
+        if (!absl::IsNotFound(status)) {
+          MLMD_RETURN_IF_ERROR(status);
           context_id = existing_context.id();
         }
       }
       if (context_id == -1) {
-        const tensorflow::Status status =
+        const absl::Status status =
             UpsertContext(context, metadata_access_object_.get(), &context_id);
         // When `reuse_context_if_already_exist`, there are concurrent timelines
         // to create the same new context. If use the option, let client side
         // to retry the failed transaction safely.
         if (request.options().reuse_context_if_already_exist() &&
-            tensorflow::errors::IsAlreadyExists(status)) {
-          return tensorflow::errors::Aborted(
+            absl::IsAlreadyExists(status)) {
+          return absl::AbortedError(absl::StrCat(
               "Concurrent creation of the same context at the first time. "
               "Retry the transaction to reuse the context: ",
-              context.DebugString());
+              context.DebugString()));
         }
-        TF_RETURN_IF_ERROR(status);
+        MLMD_RETURN_IF_ERROR(status);
       }
       response->add_context_ids(context_id);
-      TF_RETURN_IF_ERROR(InsertAssociationIfNotExist(
+      MLMD_RETURN_IF_ERROR(InsertAssociationIfNotExist(
           context_id, response->execution_id(), metadata_access_object_.get()));
       for (const int64 artifact_id : response->artifact_ids()) {
-        TF_RETURN_IF_ERROR(InsertAttributionIfNotExist(
+        MLMD_RETURN_IF_ERROR(InsertAttributionIfNotExist(
             context_id, artifact_id, metadata_access_object_.get()));
       }
     }
-    return tensorflow::Status::OK();
-  });
+    return absl::OkStatus();
+  }));
 }
 
 tensorflow::Status MetadataStore::GetEventsByExecutionIDs(
     const GetEventsByExecutionIDsRequest& request,
     GetEventsByExecutionIDsResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Event> events;
-        const tensorflow::Status status =
+        const absl::Status status =
             metadata_access_object_->FindEventsByExecutions(
                 std::vector<int64>(request.execution_ids().begin(),
                                    request.execution_ids().end()),
                 &events);
-        if (tensorflow::errors::IsNotFound(status)) {
-          return tensorflow::Status::OK();
+        if (absl::IsNotFound(status)) {
+          return absl::OkStatus();
         } else if (!status.ok()) {
           return status;
         }
         for (const Event& event : events) {
           *response->mutable_events()->Add() = event;
         }
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetEventsByArtifactIDs(
     const GetEventsByArtifactIDsRequest& request,
     GetEventsByArtifactIDsResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Event> events;
-        const tensorflow::Status status =
+        const absl::Status status =
             metadata_access_object_->FindEventsByArtifacts(
                 std::vector<int64>(request.artifact_ids().begin(),
                                    request.artifact_ids().end()),
                 &events);
-        if (tensorflow::errors::IsNotFound(status)) {
-          return tensorflow::Status::OK();
+        if (absl::IsNotFound(status)) {
+          return absl::OkStatus();
         } else if (!status.ok()) {
           return status;
         }
         for (const Event& event : events) {
           *response->mutable_events()->Add() = event;
         }
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetExecutions(
     const GetExecutionsRequest& request, GetExecutionsResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Execution> executions;
-        tensorflow::Status status;
+        absl::Status status;
         std::string next_page_token;
         if (request.has_options()) {
           status = metadata_access_object_->ListExecutions(
@@ -840,8 +850,8 @@ tensorflow::Status MetadataStore::GetExecutions(
           status = metadata_access_object_->FindExecutions(&executions);
         }
 
-        if (tensorflow::errors::IsNotFound(status)) {
-          return tensorflow::Status::OK();
+        if (absl::IsNotFound(status)) {
+          return absl::OkStatus();
         } else if (!status.ok()) {
           return status;
         }
@@ -853,17 +863,17 @@ tensorflow::Status MetadataStore::GetExecutions(
         if (!next_page_token.empty()) {
           response->set_next_page_token(next_page_token);
         }
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetArtifacts(
     const GetArtifactsRequest& request, GetArtifactsResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Artifact> artifacts;
-        tensorflow::Status status;
+        absl::Status status;
         std::string next_page_token;
         if (request.has_options()) {
           status = metadata_access_object_->ListArtifacts(
@@ -872,8 +882,8 @@ tensorflow::Status MetadataStore::GetArtifacts(
           status = metadata_access_object_->FindArtifacts(&artifacts);
         }
 
-        if (tensorflow::errors::IsNotFound(status)) {
-          return tensorflow::Status::OK();
+        if (absl::IsNotFound(status)) {
+          return absl::OkStatus();
         } else if (!status.ok()) {
           return status;
         }
@@ -886,17 +896,17 @@ tensorflow::Status MetadataStore::GetArtifacts(
           response->set_next_page_token(next_page_token);
         }
 
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetContexts(const GetContextsRequest& request,
                                               GetContextsResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Context> contexts;
-        tensorflow::Status status;
+        absl::Status status;
         std::string next_page_token;
         if (request.has_options()) {
           status = metadata_access_object_->ListContexts(
@@ -905,8 +915,8 @@ tensorflow::Status MetadataStore::GetContexts(const GetContextsRequest& request,
           status = metadata_access_object_->FindContexts(&contexts);
         }
 
-        if (tensorflow::errors::IsNotFound(status)) {
-          return tensorflow::Status::OK();
+        if (absl::IsNotFound(status)) {
+          return absl::OkStatus();
         } else if (!status.ok()) {
           return status;
         }
@@ -919,21 +929,21 @@ tensorflow::Status MetadataStore::GetContexts(const GetContextsRequest& request,
           response->set_next_page_token(next_page_token);
         }
 
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetArtifactTypes(
     const GetArtifactTypesRequest& request,
     GetArtifactTypesResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &response]() -> tensorflow::Status {
+  return FromABSLStatus(
+      transaction_executor_->Execute([this, &response]() -> absl::Status {
         response->Clear();
         std::vector<ArtifactType> artifact_types;
-        const tensorflow::Status status =
+        const absl::Status status =
             metadata_access_object_->FindTypes(&artifact_types);
-        if (tensorflow::errors::IsNotFound(status)) {
-          return tensorflow::Status::OK();
+        if (absl::IsNotFound(status)) {
+          return absl::OkStatus();
         } else if (!status.ok()) {
           return status;
         }
@@ -947,21 +957,21 @@ tensorflow::Status MetadataStore::GetArtifactTypes(
             *response->mutable_artifact_types()->Add() = artifact_type;
           }
         }
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetExecutionTypes(
     const GetExecutionTypesRequest& request,
     GetExecutionTypesResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &response]() -> tensorflow::Status {
+  return FromABSLStatus(
+      transaction_executor_->Execute([this, &response]() -> absl::Status {
         response->Clear();
         std::vector<ExecutionType> execution_types;
-        const tensorflow::Status status =
+        const absl::Status status =
             metadata_access_object_->FindTypes(&execution_types);
-        if (tensorflow::errors::IsNotFound(status)) {
-          return tensorflow::Status::OK();
+        if (absl::IsNotFound(status)) {
+          return absl::OkStatus();
         } else if (!status.ok()) {
           return status;
         }
@@ -975,28 +985,28 @@ tensorflow::Status MetadataStore::GetExecutionTypes(
             *response->mutable_execution_types()->Add() = execution_type;
           }
         }
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetContextTypes(
     const GetContextTypesRequest& request, GetContextTypesResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &response]() -> tensorflow::Status {
+  return FromABSLStatus(
+      transaction_executor_->Execute([this, &response]() -> absl::Status {
         response->Clear();
         std::vector<ContextType> context_types;
-        const tensorflow::Status status =
+        const absl::Status status =
             metadata_access_object_->FindTypes(&context_types);
-        if (tensorflow::errors::IsNotFound(status)) {
-          return tensorflow::Status::OK();
+        if (absl::IsNotFound(status)) {
+          return absl::OkStatus();
         } else if (!status.ok()) {
           return status;
         }
         for (const ContextType& context_type : context_types) {
           *response->mutable_context_types()->Add() = context_type;
         }
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetArtifactsByURI(
@@ -1014,16 +1024,16 @@ tensorflow::Status MetadataStore::GetArtifactsByURI(
           request.DebugString());
     }
   }
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         absl::flat_hash_set<std::string> uris(request.uris().begin(),
                                               request.uris().end());
         for (const std::string& uri : uris) {
           std::vector<Artifact> artifacts;
-          const tensorflow::Status status =
+          const absl::Status status =
               metadata_access_object_->FindArtifactsByURI(uri, &artifacts);
-          if (!status.ok() && !tensorflow::errors::IsNotFound(status)) {
+          if (!status.ok() && !absl::IsNotFound(status)) {
             // If any none NotFound error returned, we do early stopping as
             // the query execution has internal db errors.
             return status;
@@ -1032,144 +1042,140 @@ tensorflow::Status MetadataStore::GetArtifactsByURI(
             *response->mutable_artifacts()->Add() = artifact;
           }
         }
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetArtifactsByType(
     const GetArtifactsByTypeRequest& request,
     GetArtifactsByTypeResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         ArtifactType artifact_type;
-        tensorflow::Status status =
-            metadata_access_object_->FindTypeByNameAndVersion(
-                request.type_name(), GetRequestTypeVersion(request),
-                &artifact_type);
-        if (tensorflow::errors::IsNotFound(status)) {
-          return tensorflow::Status::OK();
+        absl::Status status = metadata_access_object_->FindTypeByNameAndVersion(
+            request.type_name(), GetRequestTypeVersion(request),
+            &artifact_type);
+        if (absl::IsNotFound(status)) {
+          return absl::OkStatus();
         } else if (!status.ok()) {
           return status;
         }
         std::vector<Artifact> artifacts;
         status = metadata_access_object_->FindArtifactsByTypeId(
             artifact_type.id(), &artifacts);
-        if (tensorflow::errors::IsNotFound(status)) {
-          return tensorflow::Status::OK();
+        if (absl::IsNotFound(status)) {
+          return absl::OkStatus();
         } else if (!status.ok()) {
           return status;
         }
         for (const Artifact& artifact : artifacts) {
           *response->mutable_artifacts()->Add() = artifact;
         }
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetArtifactByTypeAndName(
     const GetArtifactByTypeAndNameRequest& request,
     GetArtifactByTypeAndNameResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         ArtifactType artifact_type;
-        tensorflow::Status status =
-            metadata_access_object_->FindTypeByNameAndVersion(
-                request.type_name(), GetRequestTypeVersion(request),
-                &artifact_type);
-        if (tensorflow::errors::IsNotFound(status)) {
-          return tensorflow::Status::OK();
+        absl::Status status = metadata_access_object_->FindTypeByNameAndVersion(
+            request.type_name(), GetRequestTypeVersion(request),
+            &artifact_type);
+        if (absl::IsNotFound(status)) {
+          return absl::OkStatus();
         } else if (!status.ok()) {
           return status;
         }
         Artifact artifact;
         status = metadata_access_object_->FindArtifactByTypeIdAndArtifactName(
             artifact_type.id(), request.artifact_name(), &artifact);
-        if (tensorflow::errors::IsNotFound(status)) {
-          return tensorflow::Status::OK();
+        if (absl::IsNotFound(status)) {
+          return absl::OkStatus();
         } else if (!status.ok()) {
           return status;
         }
         *response->mutable_artifact() = artifact;
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetExecutionsByType(
     const GetExecutionsByTypeRequest& request,
     GetExecutionsByTypeResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         ExecutionType execution_type;
-        tensorflow::Status status =
-            metadata_access_object_->FindTypeByNameAndVersion(
-                request.type_name(), GetRequestTypeVersion(request),
-                &execution_type);
-        if (tensorflow::errors::IsNotFound(status)) {
-          return tensorflow::Status::OK();
+        absl::Status status = metadata_access_object_->FindTypeByNameAndVersion(
+            request.type_name(), GetRequestTypeVersion(request),
+            &execution_type);
+        if (absl::IsNotFound(status)) {
+          return absl::OkStatus();
         } else if (!status.ok()) {
           return status;
         }
         std::vector<Execution> executions;
         status = metadata_access_object_->FindExecutionsByTypeId(
             execution_type.id(), &executions);
-        if (tensorflow::errors::IsNotFound(status)) {
-          return tensorflow::Status::OK();
+        if (absl::IsNotFound(status)) {
+          return absl::OkStatus();
         } else if (!status.ok()) {
           return status;
         }
         for (const Execution& execution : executions) {
           *response->mutable_executions()->Add() = execution;
         }
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetExecutionByTypeAndName(
     const GetExecutionByTypeAndNameRequest& request,
     GetExecutionByTypeAndNameResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         ExecutionType execution_type;
-        tensorflow::Status status =
-            metadata_access_object_->FindTypeByNameAndVersion(
-                request.type_name(), GetRequestTypeVersion(request),
-                &execution_type);
-        if (tensorflow::errors::IsNotFound(status)) {
-          return tensorflow::Status::OK();
+        absl::Status status = metadata_access_object_->FindTypeByNameAndVersion(
+            request.type_name(), GetRequestTypeVersion(request),
+            &execution_type);
+        if (absl::IsNotFound(status)) {
+          return absl::OkStatus();
         } else if (!status.ok()) {
           return status;
         }
         Execution execution;
         status = metadata_access_object_->FindExecutionByTypeIdAndExecutionName(
             execution_type.id(), request.execution_name(), &execution);
-        if (tensorflow::errors::IsNotFound(status)) {
-          return tensorflow::Status::OK();
+        if (absl::IsNotFound(status)) {
+          return absl::OkStatus();
         } else if (!status.ok()) {
           return status;
         }
         *response->mutable_execution() = execution;
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetContextsByType(
     const GetContextsByTypeRequest& request,
     GetContextsByTypeResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         ContextType context_type;
         {
-          tensorflow::Status status =
+          absl::Status status =
               metadata_access_object_->FindTypeByNameAndVersion(
                   request.type_name(), GetRequestTypeVersion(request),
                   &context_type);
-          if (tensorflow::errors::IsNotFound(status)) {
-            return tensorflow::Status::OK();
+          if (absl::IsNotFound(status)) {
+            return absl::OkStatus();
           } else if (!status.ok()) {
             return status;
           }
@@ -1177,14 +1183,14 @@ tensorflow::Status MetadataStore::GetContextsByType(
         std::vector<Context> contexts;
         std::string next_page_token;
         {
-          tensorflow::Status status;
+          absl::Status status;
           status = metadata_access_object_->FindContextsByTypeId(
               context_type.id(),
               (request.has_options() ? absl::make_optional(request.options())
                                      : absl::nullopt),
               &contexts, &next_page_token);
-          if (tensorflow::errors::IsNotFound(status)) {
-            return tensorflow::Status::OK();
+          if (absl::IsNotFound(status)) {
+            return absl::OkStatus();
           } else if (!status.ok()) {
             return status;
           }
@@ -1195,116 +1201,115 @@ tensorflow::Status MetadataStore::GetContextsByType(
         if (request.has_options()) {
           response->set_next_page_token(next_page_token);
         }
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetContextByTypeAndName(
     const GetContextByTypeAndNameRequest& request,
     GetContextByTypeAndNameResponse* response) {
-  return transaction_executor_->Execute([this, &request,
-                                         &response]() -> tensorflow::Status {
-    response->Clear();
-    ContextType context_type;
-    tensorflow::Status status =
-        metadata_access_object_->FindTypeByNameAndVersion(
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
+        response->Clear();
+        ContextType context_type;
+        absl::Status status = metadata_access_object_->FindTypeByNameAndVersion(
             request.type_name(), GetRequestTypeVersion(request), &context_type);
-    if (tensorflow::errors::IsNotFound(status)) {
-      return tensorflow::Status::OK();
-    } else if (!status.ok()) {
-      return status;
-    }
-    Context context;
-    status = metadata_access_object_->FindContextByTypeIdAndContextName(
-        context_type.id(), request.context_name(), &context);
-    if (tensorflow::errors::IsNotFound(status)) {
-      return tensorflow::Status::OK();
-    } else if (!status.ok()) {
-      return status;
-    }
-    *response->mutable_context() = context;
-    return tensorflow::Status::OK();
-  });
+        if (absl::IsNotFound(status)) {
+          return absl::OkStatus();
+        } else if (!status.ok()) {
+          return status;
+        }
+        Context context;
+        status = metadata_access_object_->FindContextByTypeIdAndContextName(
+            context_type.id(), request.context_name(), &context);
+        if (absl::IsNotFound(status)) {
+          return absl::OkStatus();
+        } else if (!status.ok()) {
+          return status;
+        }
+        *response->mutable_context() = context;
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::PutAttributionsAndAssociations(
     const PutAttributionsAndAssociationsRequest& request,
     PutAttributionsAndAssociationsResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         for (const Attribution& attribution : request.attributions()) {
-          TF_RETURN_IF_ERROR(InsertAttributionIfNotExist(
+          MLMD_RETURN_IF_ERROR(InsertAttributionIfNotExist(
               attribution.context_id(), attribution.artifact_id(),
               metadata_access_object_.get()));
         }
         for (const Association& association : request.associations()) {
-          TF_RETURN_IF_ERROR(InsertAssociationIfNotExist(
+          MLMD_RETURN_IF_ERROR(InsertAssociationIfNotExist(
               association.context_id(), association.execution_id(),
               metadata_access_object_.get()));
         }
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::PutParentContexts(
     const PutParentContextsRequest& request,
     PutParentContextsResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         for (const ParentContext& parent_context : request.parent_contexts()) {
-          TF_RETURN_IF_ERROR(
+          MLMD_RETURN_IF_ERROR(
               metadata_access_object_->CreateParentContext(parent_context));
         }
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetContextsByArtifact(
     const GetContextsByArtifactRequest& request,
     GetContextsByArtifactResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Context> contexts;
-        TF_RETURN_IF_ERROR(metadata_access_object_->FindContextsByArtifact(
+        MLMD_RETURN_IF_ERROR(metadata_access_object_->FindContextsByArtifact(
             request.artifact_id(), &contexts));
         for (const Context& context : contexts) {
           *response->mutable_contexts()->Add() = context;
         }
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetContextsByExecution(
     const GetContextsByExecutionRequest& request,
     GetContextsByExecutionResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Context> contexts;
-        TF_RETURN_IF_ERROR(metadata_access_object_->FindContextsByExecution(
+        MLMD_RETURN_IF_ERROR(metadata_access_object_->FindContextsByExecution(
             request.execution_id(), &contexts));
         for (const Context& context : contexts) {
           *response->mutable_contexts()->Add() = context;
         }
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetArtifactsByContext(
     const GetArtifactsByContextRequest& request,
     GetArtifactsByContextResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Artifact> artifacts;
         std::string next_page_token;
         auto list_options = request.has_options()
                                 ? absl::make_optional(request.options())
                                 : absl::nullopt;
-        TF_RETURN_IF_ERROR(metadata_access_object_->FindArtifactsByContext(
+        MLMD_RETURN_IF_ERROR(metadata_access_object_->FindArtifactsByContext(
             request.context_id(), list_options, &artifacts, &next_page_token));
 
         for (const Artifact& artifact : artifacts) {
@@ -1315,15 +1320,15 @@ tensorflow::Status MetadataStore::GetArtifactsByContext(
           response->set_next_page_token(next_page_token);
         }
 
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetExecutionsByContext(
     const GetExecutionsByContextRequest& request,
     GetExecutionsByContextResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Execution> executions;
         std::string next_page_token;
@@ -1331,7 +1336,7 @@ tensorflow::Status MetadataStore::GetExecutionsByContext(
                                 ? absl::make_optional(request.options())
                                 : absl::nullopt;
 
-        TF_RETURN_IF_ERROR(metadata_access_object_->FindExecutionsByContext(
+        MLMD_RETURN_IF_ERROR(metadata_access_object_->FindExecutionsByContext(
             request.context_id(), list_options, &executions, &next_page_token));
 
         for (const Execution& execution : executions) {
@@ -1342,46 +1347,46 @@ tensorflow::Status MetadataStore::GetExecutionsByContext(
           response->set_next_page_token(next_page_token);
         }
 
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetParentContextsByContext(
     const GetParentContextsByContextRequest& request,
     GetParentContextsByContextResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Context> parent_contexts;
-        const tensorflow::Status status =
+        const absl::Status status =
             metadata_access_object_->FindParentContextsByContextId(
                 request.context_id(), &parent_contexts);
-        if (!status.ok() && !tensorflow::errors::IsNotFound(status)) {
+        if (!status.ok() && !absl::IsNotFound(status)) {
           return status;
         }
         absl::c_copy(parent_contexts, google::protobuf::RepeatedPtrFieldBackInserter(
                                           response->mutable_contexts()));
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 tensorflow::Status MetadataStore::GetChildrenContextsByContext(
     const GetChildrenContextsByContextRequest& request,
     GetChildrenContextsByContextResponse* response) {
-  return transaction_executor_->Execute(
-      [this, &request, &response]() -> tensorflow::Status {
+  return FromABSLStatus(transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Context> child_contexts;
-        const tensorflow::Status status =
+        const absl::Status status =
             metadata_access_object_->FindChildContextsByContextId(
                 request.context_id(), &child_contexts);
-        if (!status.ok() && !tensorflow::errors::IsNotFound(status)) {
+        if (!status.ok() && !absl::IsNotFound(status)) {
           return status;
         }
         absl::c_copy(child_contexts, google::protobuf::RepeatedPtrFieldBackInserter(
                                          response->mutable_contexts()));
-        return tensorflow::Status::OK();
-      });
+        return absl::OkStatus();
+      }));
 }
 
 

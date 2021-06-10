@@ -15,13 +15,13 @@ limitations under the License.
 #ifndef THIRD_PARTY_ML_METADATA_METADATA_STORE_SIMPLE_TYPES_UTIL_H_
 #define THIRD_PARTY_ML_METADATA_METADATA_STORE_SIMPLE_TYPES_UTIL_H_
 
+#include "absl/status/status.h"
 #include "ml_metadata/simple_types/proto/simple_types.pb.h"
-#include "tensorflow/core/lib/core/status.h"
 
 namespace ml_metadata {
 
 // A util to create a SimpleTypes proto from a constant string at runtime.
-tensorflow::Status LoadSimpleTypes(SimpleTypes& simple_types);
+absl::Status LoadSimpleTypes(SimpleTypes& simple_types);
 
 }  // namespace ml_metadata
 

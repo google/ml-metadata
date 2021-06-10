@@ -17,10 +17,10 @@ limitations under the License.
 
 #include <memory>
 
+#include "absl/status/status.h"
 #include "ml_metadata/metadata_store/metadata_access_object.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
-#include "tensorflow/core/lib/core/status.h"
 
 namespace ml_metadata {
 
@@ -30,7 +30,7 @@ namespace ml_metadata {
 // MetadataAccessObject connects and execute queries with the MetadataSource.
 // Returns INVALID_ARGUMENT error, if query_config is not valid.
 // Returns detailed INTERNAL error, if the MetadataSource cannot be connected.
-tensorflow::Status CreateMetadataAccessObject(
+absl::Status CreateMetadataAccessObject(
     const MetadataSourceQueryConfig& query_config,
     MetadataSource* const metadata_source,
     std::unique_ptr<MetadataAccessObject>* result);
@@ -39,10 +39,9 @@ tensorflow::Status CreateMetadataAccessObject(
 // with a set of existing backends with different schema versions, an
 // `schema_version` can be set to allow the MetadataAccessObject
 // works with an existing db having that particular schema version.
-tensorflow::Status CreateMetadataAccessObject(
+absl::Status CreateMetadataAccessObject(
     const MetadataSourceQueryConfig& query_config,
-    MetadataSource* const metadata_source,
-    absl::optional<int64> schema_version,
+    MetadataSource* const metadata_source, absl::optional<int64> schema_version,
     std::unique_ptr<MetadataAccessObject>* result);
 
 }  // namespace ml_metadata

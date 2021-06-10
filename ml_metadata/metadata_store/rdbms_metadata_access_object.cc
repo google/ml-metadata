@@ -20,6 +20,7 @@ limitations under the License.
 #include <string>
 #include <vector>
 
+#include <glog/logging.h>
 #include "google/protobuf/struct.pb.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/util/json_util.h"
@@ -27,6 +28,7 @@ limitations under the License.
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
@@ -47,10 +49,8 @@ limitations under the License.
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/simple_types/simple_types_constants.h"
-#include "ml_metadata/util/status_utils.h"
+#include "ml_metadata/util/return_utils.h"
 #include "ml_metadata/util/struct_utils.h"
-#include "tensorflow/core/lib/core/errors.h"
-#include "tensorflow/core/lib/core/status.h"
 
 namespace ml_metadata {
 namespace {
@@ -72,8 +72,8 @@ TypeKind ResolveTypeKind(const ContextType* const type) {
 // QueryExecutor::Get{X}PropertyBy{X}Id() where X in {Artifact, Execution,
 // Context}.
 template <typename Node>
-tensorflow::Status PopulateNodeProperties(const RecordSet::Record& record,
-                                          Node& node) {
+absl::Status PopulateNodeProperties(const RecordSet::Record& record,
+                                    Node& node) {
   // Populate the property of the node.
   const std::string& property_name = record.values(1);
   bool is_custom_property;
@@ -92,14 +92,14 @@ tensorflow::Status PopulateNodeProperties(const RecordSet::Record& record,
   } else {
     const std::string& string_value = record.values(5);
     if (IsStructSerializedString(string_value)) {
-      TF_RETURN_IF_ERROR(FromABSLStatus(StringToStruct(
-          string_value, *property_value.mutable_struct_value())));
+      MLMD_RETURN_IF_ERROR(
+          StringToStruct(string_value, *property_value.mutable_struct_value()));
     } else {
       property_value.set_string_value(string_value);
     }
   }
 
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 // Converts a record set that contains an id column at position per record to a
@@ -154,11 +154,11 @@ std::vector<int64> ParentContextsToContextIds(const RecordSet& record_set,
 // leave the field unset.
 // The field should be a scalar field. The field type must be one of {string,
 // int64, bool, enum, message}.
-tensorflow::Status ParseValueToField(
-    const google::protobuf::FieldDescriptor* field_descriptor,
-    const absl::string_view value, google::protobuf::Message* message) {
+absl::Status ParseValueToField(const google::protobuf::FieldDescriptor* field_descriptor,
+                               const absl::string_view value,
+                               google::protobuf::Message* message) {
   if (value == kMetadataSourceNull) {
-    return tensorflow::Status::OK();
+    return absl::OkStatus();
   }
   const google::protobuf::Reflection* reflection = message->GetReflection();
   switch (field_descriptor->cpp_type()) {
@@ -205,27 +205,27 @@ tensorflow::Status ParseValueToField(
         if (!::google::protobuf::util::JsonStringToMessage(
                  std::string(value.begin(), value.size()), sub_message)
                  .ok()) {
-          return tensorflow::errors::Internal(
+          return absl::InternalError(
               ::absl::StrCat("Failed to parse proto: ", value));
         }
       }
       break;
     }
     default: {
-      return tensorflow::errors::Internal(absl::StrCat(
-          "Unsupported field type: ", field_descriptor->cpp_type()));
+      return absl::InternalError(absl::StrCat("Unsupported field type: ",
+                                              field_descriptor->cpp_type()));
     }
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 // Converts a RecordSet in the query result to a MessageType. In the record at
 // the `record_index`, its value of each column is assigned to a message field
 // with the same field name as the column name.
 template <typename MessageType>
-tensorflow::Status ParseRecordSetToMessage(const RecordSet& record_set,
-                                           MessageType* message,
-                                           int record_index = 0) {
+absl::Status ParseRecordSetToMessage(const RecordSet& record_set,
+                                     MessageType* message,
+                                     int record_index = 0) {
   CHECK_LT(record_index, record_set.records_size());
   const google::protobuf::Descriptor* descriptor = message->descriptor();
   for (int i = 0; i < record_set.column_names_size(); i++) {
@@ -234,37 +234,37 @@ tensorflow::Status ParseRecordSetToMessage(const RecordSet& record_set,
         descriptor->FindFieldByName(column_name);
     if (field_descriptor != nullptr) {
       const std::string& value = record_set.records(record_index).values(i);
-      TF_RETURN_IF_ERROR(ParseValueToField(field_descriptor, value, message));
+      MLMD_RETURN_IF_ERROR(ParseValueToField(field_descriptor, value, message));
     }
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 // Converts a RecordSet in the query result to a MessageType array.
 template <typename MessageType>
-tensorflow::Status ParseRecordSetToMessageArray(
-    const RecordSet& record_set, std::vector<MessageType>* messages) {
+absl::Status ParseRecordSetToMessageArray(const RecordSet& record_set,
+                                          std::vector<MessageType>* messages) {
   for (int i = 0; i < record_set.records_size(); i++) {
     messages->push_back(MessageType());
-    TF_RETURN_IF_ERROR(
+    MLMD_RETURN_IF_ERROR(
         ParseRecordSetToMessage(record_set, &messages->back(), i));
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 // Converts a RecordSet containing key-value pairs to a proto Map.
 // The field_name is the map field in the MessageType. The method fills the
 // message's map field with field_name using the rows in the given record_set.
 template <typename MessageType>
-tensorflow::Status ParseRecordSetToMapField(const RecordSet& record_set,
-                                            const std::string& field_name,
-                                            MessageType* message) {
+absl::Status ParseRecordSetToMapField(const RecordSet& record_set,
+                                      const std::string& field_name,
+                                      MessageType* message) {
   const google::protobuf::Descriptor* descriptor = message->descriptor();
   const google::protobuf::Reflection* reflection = message->GetReflection();
   const google::protobuf::FieldDescriptor* map_field_descriptor =
       descriptor->FindFieldByName(field_name);
   if (map_field_descriptor == nullptr || !map_field_descriptor->is_map()) {
-    return tensorflow::errors::Internal(
+    return absl::InternalError(
         absl::StrCat("Cannot find map field with field name: ", field_name));
   }
 
@@ -278,13 +278,13 @@ tensorflow::Status ParseRecordSetToMapField(const RecordSet& record_set,
         reflection->AddMessage(message, map_field_descriptor);
     const std::string& key = record.values(0);
     const std::string& value = record.values(1);
-    TF_RETURN_IF_ERROR(
+    MLMD_RETURN_IF_ERROR(
         ParseValueToField(key_descriptor, key, map_field_message));
-    TF_RETURN_IF_ERROR(
+    MLMD_RETURN_IF_ERROR(
         ParseValueToField(value_descriptor, value, map_field_message));
   }
 
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 // Validates properties in a `Node` with the properties defined in a `Type`.
@@ -293,8 +293,7 @@ tensorflow::Status ParseRecordSetToMapField(const RecordSet& record_set,
 // Returns INVALID_ARGUMENT error, if there is unknown or mismatched property
 // w.r.t. its definition.
 template <typename Node, typename Type>
-tensorflow::Status ValidatePropertiesWithType(const Node& node,
-                                              const Type& type) {
+absl::Status ValidatePropertiesWithType(const Node& node, const Type& type) {
   const google::protobuf::Map<std::string, PropertyType>& type_properties =
       type.properties();
   for (const auto& p : node.properties()) {
@@ -302,7 +301,7 @@ tensorflow::Status ValidatePropertiesWithType(const Node& node,
     const Value& property_value = p.second;
     // Note that this is a google::protobuf::Map, not a std::map.
     if (type_properties.find(property_name) == type_properties.end())
-      return tensorflow::errors::InvalidArgument(
+      return absl::InvalidArgumentError(
           absl::StrCat("Found unknown property: ", property_name));
     bool is_type_match = false;
     switch (type_properties.at(property_name)) {
@@ -323,24 +322,24 @@ tensorflow::Status ValidatePropertiesWithType(const Node& node,
         break;
       }
       default: {
-        return tensorflow::errors::Internal(absl::StrCat(
+        return absl::InternalError(absl::StrCat(
             "Unknown registered property type: ", type.DebugString()));
       }
     }
     if (!is_type_match)
-      return tensorflow::errors::InvalidArgument(
+      return absl::InvalidArgumentError(
           absl::StrCat("Found unmatched property type: ", property_name));
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 // Casts lower level db error messages for violating primary key constraint or
 // unique constraint. Returns true when the status error message indicates such
 // unique constraint is violated.
-bool IsUniqueConstraintViolated(const tensorflow::Status status) {
-  return tensorflow::errors::IsInternal(status) &&
-         (absl::StrContains(status.error_message(), "Duplicate") ||
-          absl::StrContains(status.error_message(), "UNIQUE"));
+bool IsUniqueConstraintViolated(const absl::Status status) {
+  return absl::IsInternal(status) &&
+         (absl::StrContains(std::string(status.message()), "Duplicate") ||
+          absl::StrContains(std::string(status.message()), "UNIQUE"));
 }
 
 // A util to handle `version` in ArtifactType/ExecutionType/ContextType protos.
@@ -354,118 +353,112 @@ absl::optional<std::string> GetTypeVersion(const T& type_message) {
 }  // namespace
 
 // Creates an Artifact (without properties).
-tensorflow::Status RDBMSMetadataAccessObject::CreateBasicNode(
+absl::Status RDBMSMetadataAccessObject::CreateBasicNode(
     const Artifact& artifact, int64* node_id) {
   const absl::Time now = absl::Now();
-  return FromABSLStatus(executor_->InsertArtifact(
+  return executor_->InsertArtifact(
       artifact.type_id(), artifact.uri(),
       artifact.has_state() ? absl::make_optional(artifact.state())
                            : absl::nullopt,
       artifact.has_name() ? absl::make_optional(artifact.name())
                           : absl::nullopt,
-      now, now, node_id));
+      now, now, node_id);
 }
 
 // Creates an Execution (without properties).
-tensorflow::Status RDBMSMetadataAccessObject::CreateBasicNode(
+absl::Status RDBMSMetadataAccessObject::CreateBasicNode(
     const Execution& execution, int64* node_id) {
   const absl::Time now = absl::Now();
-  return FromABSLStatus(executor_->InsertExecution(
+  return executor_->InsertExecution(
       execution.type_id(),
       execution.has_last_known_state()
           ? absl::make_optional(execution.last_known_state())
           : absl::nullopt,
       execution.has_name() ? absl::make_optional(execution.name())
                            : absl::nullopt,
-      now, now, node_id));
+      now, now, node_id);
 }
 
 // Creates a Context (without properties).
-tensorflow::Status RDBMSMetadataAccessObject::CreateBasicNode(
-    const Context& context, int64* node_id) {
+absl::Status RDBMSMetadataAccessObject::CreateBasicNode(const Context& context,
+                                                        int64* node_id) {
   const absl::Time now = absl::Now();
   if (!context.has_name() || context.name().empty()) {
-    return tensorflow::errors::InvalidArgument(
-        "Context name should not be empty");
+    return absl::InvalidArgumentError("Context name should not be empty");
   }
-  return FromABSLStatus(executor_->InsertContext(
-      context.type_id(), context.name(), now, now, node_id));
+  return executor_->InsertContext(context.type_id(), context.name(), now, now,
+                                  node_id);
 }
 
 template <>
-tensorflow::Status RDBMSMetadataAccessObject::RetrieveNodesById(
+absl::Status RDBMSMetadataAccessObject::RetrieveNodesById(
     const absl::Span<const int64> ids, RecordSet* header, RecordSet* properties,
     Context* tag) {
-  TF_RETURN_IF_ERROR(
-      FromABSLStatus(executor_->SelectContextsByID(ids, header)));
+  MLMD_RETURN_IF_ERROR(executor_->SelectContextsByID(ids, header));
   if (!header->records().empty()) {
-    TF_RETURN_IF_ERROR(FromABSLStatus(
-        executor_->SelectContextPropertyByContextID(ids, properties)));
+    MLMD_RETURN_IF_ERROR(
+        executor_->SelectContextPropertyByContextID(ids, properties));
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 template <>
-tensorflow::Status RDBMSMetadataAccessObject::RetrieveNodesById(
+absl::Status RDBMSMetadataAccessObject::RetrieveNodesById(
     const absl::Span<const int64> ids, RecordSet* header, RecordSet* properties,
     Artifact* tag) {
-  TF_RETURN_IF_ERROR(
-      FromABSLStatus(executor_->SelectArtifactsByID(ids, header)));
+  MLMD_RETURN_IF_ERROR(executor_->SelectArtifactsByID(ids, header));
   if (!header->records().empty()) {
-    TF_RETURN_IF_ERROR(FromABSLStatus(
-        executor_->SelectArtifactPropertyByArtifactID(ids, properties)));
+    MLMD_RETURN_IF_ERROR(
+        executor_->SelectArtifactPropertyByArtifactID(ids, properties));
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 template <>
-tensorflow::Status RDBMSMetadataAccessObject::RetrieveNodesById(
+absl::Status RDBMSMetadataAccessObject::RetrieveNodesById(
     const absl::Span<const int64> ids, RecordSet* header, RecordSet* properties,
     Execution* tag) {
-  TF_RETURN_IF_ERROR(
-      FromABSLStatus(executor_->SelectExecutionsByID(ids, header)));
+  MLMD_RETURN_IF_ERROR(executor_->SelectExecutionsByID(ids, header));
   if (!header->records().empty()) {
-    TF_RETURN_IF_ERROR(FromABSLStatus(
-        executor_->SelectExecutionPropertyByExecutionID(ids, properties)));
+    MLMD_RETURN_IF_ERROR(
+        executor_->SelectExecutionPropertyByExecutionID(ids, properties));
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 // Update an Artifact's type_id, URI and last_update_time.
-tensorflow::Status RDBMSMetadataAccessObject::RunNodeUpdate(
+absl::Status RDBMSMetadataAccessObject::RunNodeUpdate(
     const Artifact& artifact) {
-  return FromABSLStatus(executor_->UpdateArtifactDirect(
+  return executor_->UpdateArtifactDirect(
       artifact.id(), artifact.type_id(), artifact.uri(),
       artifact.has_state() ? absl::make_optional(artifact.state())
                            : absl::nullopt,
-      absl::Now()));
+      absl::Now());
 }
 
 // Update an Execution's type_id and last_update_time.
-tensorflow::Status RDBMSMetadataAccessObject::RunNodeUpdate(
+absl::Status RDBMSMetadataAccessObject::RunNodeUpdate(
     const Execution& execution) {
-  return FromABSLStatus(executor_->UpdateExecutionDirect(
+  return executor_->UpdateExecutionDirect(
       execution.id(), execution.type_id(),
       execution.has_last_known_state()
           ? absl::make_optional(execution.last_known_state())
           : absl::nullopt,
-      absl::Now()));
+      absl::Now());
 }
 
 // Update a Context's type id and name.
-tensorflow::Status RDBMSMetadataAccessObject::RunNodeUpdate(
-    const Context& context) {
+absl::Status RDBMSMetadataAccessObject::RunNodeUpdate(const Context& context) {
   if (!context.has_name() || context.name().empty()) {
-    return tensorflow::errors::InvalidArgument(
-        "Context name should not be empty");
+    return absl::InvalidArgumentError("Context name should not be empty");
   }
-  return FromABSLStatus(executor_->UpdateContextDirect(
-      context.id(), context.type_id(), context.name(), absl::Now()));
+  return executor_->UpdateContextDirect(context.id(), context.type_id(),
+                                        context.name(), absl::Now());
 }
 
 // Runs a property insertion query for a NodeType.
 template <typename NodeType>
-tensorflow::Status RDBMSMetadataAccessObject::InsertProperty(
+absl::Status RDBMSMetadataAccessObject::InsertProperty(
     const int64 node_id, const absl::string_view name,
     const bool is_custom_property, const Value& value) {
   NodeType node;
@@ -473,59 +466,56 @@ tensorflow::Status RDBMSMetadataAccessObject::InsertProperty(
   MetadataSourceQueryConfig::TemplateQuery insert_property;
   switch (type_kind) {
     case TypeKind::ARTIFACT_TYPE:
-      return FromABSLStatus(executor_->InsertArtifactProperty(
-          node_id, name, is_custom_property, value));
+      return executor_->InsertArtifactProperty(node_id, name,
+                                               is_custom_property, value);
     case TypeKind::EXECUTION_TYPE:
-      return FromABSLStatus(executor_->InsertExecutionProperty(
-          node_id, name, is_custom_property, value));
+      return executor_->InsertExecutionProperty(node_id, name,
+                                                is_custom_property, value);
 
     case TypeKind::CONTEXT_TYPE:
-      return FromABSLStatus(executor_->InsertContextProperty(
-          node_id, name, is_custom_property, value));
+      return executor_->InsertContextProperty(node_id, name, is_custom_property,
+                                              value);
     default:
-      return tensorflow::errors::Internal(
+      return absl::InternalError(
           absl::StrCat("Unsupported TypeKind: ", type_kind));
   }
 }
 
 // Generates a property update query for a NodeType.
 template <typename NodeType>
-tensorflow::Status RDBMSMetadataAccessObject::UpdateProperty(
+absl::Status RDBMSMetadataAccessObject::UpdateProperty(
     const int64 node_id, const absl::string_view name, const Value& value) {
   NodeType node;
   const TypeKind type_kind = ResolveTypeKind(&node);
   MetadataSourceQueryConfig::TemplateQuery update_property;
   switch (type_kind) {
     case TypeKind::ARTIFACT_TYPE:
-      return FromABSLStatus(
-          executor_->UpdateArtifactProperty(node_id, name, value));
+      return executor_->UpdateArtifactProperty(node_id, name, value);
     case TypeKind::EXECUTION_TYPE:
-      return FromABSLStatus(
-          executor_->UpdateExecutionProperty(node_id, name, value));
+      return executor_->UpdateExecutionProperty(node_id, name, value);
     case TypeKind::CONTEXT_TYPE:
-      return FromABSLStatus(
-          executor_->UpdateContextProperty(node_id, name, value));
+      return executor_->UpdateContextProperty(node_id, name, value);
     default:
-      return tensorflow::errors::Internal(
+      return absl::InternalError(
           absl::StrCat("Unsupported TypeKind: ", type_kind));
   }
 }
 
 // Generates a property deletion query for a NodeType.
 template <typename NodeType>
-tensorflow::Status RDBMSMetadataAccessObject::DeleteProperty(
+absl::Status RDBMSMetadataAccessObject::DeleteProperty(
     const int64 node_id, const absl::string_view name) {
   NodeType type;
   const TypeKind type_kind = ResolveTypeKind(&type);
   switch (type_kind) {
     case TypeKind::ARTIFACT_TYPE:
-      return FromABSLStatus(executor_->DeleteArtifactProperty(node_id, name));
+      return executor_->DeleteArtifactProperty(node_id, name);
     case TypeKind::EXECUTION_TYPE:
-      return FromABSLStatus(executor_->DeleteExecutionProperty(node_id, name));
+      return executor_->DeleteExecutionProperty(node_id, name);
     case TypeKind::CONTEXT_TYPE:
-      return FromABSLStatus(executor_->DeleteContextProperty(node_id, name));
+      return executor_->DeleteContextProperty(node_id, name);
     default:
-      return tensorflow::errors::Internal("Unsupported TypeKind.");
+      return absl::InternalError("Unsupported TypeKind.");
   }
 }
 
@@ -541,7 +531,7 @@ tensorflow::Status RDBMSMetadataAccessObject::DeleteProperty(
 // Returns `output_num_changed_properties` which equals to the number of
 // properties are changed (deleted, updated or inserted).
 template <typename NodeType>
-tensorflow::Status RDBMSMetadataAccessObject::ModifyProperties(
+absl::Status RDBMSMetadataAccessObject::ModifyProperties(
     const google::protobuf::Map<std::string, Value>& curr_properties,
     const google::protobuf::Map<std::string, Value>& prev_properties, const int64 node_id,
     const bool is_custom_property, int& output_num_changed_properties) {
@@ -555,7 +545,7 @@ tensorflow::Status RDBMSMetadataAccessObject::ModifyProperties(
         curr_properties.at(name).value_case() == value.value_case())
       continue;
 
-    TF_RETURN_IF_ERROR(DeleteProperty<NodeType>(node_id, name));
+    MLMD_RETURN_IF_ERROR(DeleteProperty<NodeType>(node_id, name));
     output_num_changed_properties++;
   }
 
@@ -568,48 +558,48 @@ tensorflow::Status RDBMSMetadataAccessObject::ModifyProperties(
       if (!google::protobuf::util::MessageDifferencer::Equals(prev_value_it->second,
                                                     value)) {
         // generates update clauses for properties in the intersection P & C
-        TF_RETURN_IF_ERROR(UpdateProperty<NodeType>(node_id, name, value));
+        MLMD_RETURN_IF_ERROR(UpdateProperty<NodeType>(node_id, name, value));
         output_num_changed_properties++;
       }
     } else {
       // generate insert clauses for properties in C \ P
-      TF_RETURN_IF_ERROR(
+      MLMD_RETURN_IF_ERROR(
           InsertProperty<NodeType>(node_id, name, is_custom_property, value));
       output_num_changed_properties++;
     }
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 // Creates a query to insert an artifact type.
-tensorflow::Status RDBMSMetadataAccessObject::InsertTypeID(
-    const ArtifactType& type, int64* type_id) {
-  return FromABSLStatus(executor_->InsertArtifactType(
+absl::Status RDBMSMetadataAccessObject::InsertTypeID(const ArtifactType& type,
+                                                     int64* type_id) {
+  return executor_->InsertArtifactType(
       type.name(), GetTypeVersion(type),
       type.has_description() ? absl::make_optional(type.description())
                              : absl::nullopt,
-      type_id));
+      type_id);
 }
 
 // Creates a query to insert an execution type.
-tensorflow::Status RDBMSMetadataAccessObject::InsertTypeID(
-    const ExecutionType& type, int64* type_id) {
-  return FromABSLStatus(executor_->InsertExecutionType(
+absl::Status RDBMSMetadataAccessObject::InsertTypeID(const ExecutionType& type,
+                                                     int64* type_id) {
+  return executor_->InsertExecutionType(
       type.name(), GetTypeVersion(type),
       type.has_description() ? absl::make_optional(type.description())
                              : absl::nullopt,
       type.has_input_type() ? &type.input_type() : nullptr,
-      type.has_output_type() ? &type.output_type() : nullptr, type_id));
+      type.has_output_type() ? &type.output_type() : nullptr, type_id);
 }
 
 // Creates a query to insert a context type.
-tensorflow::Status RDBMSMetadataAccessObject::InsertTypeID(
-    const ContextType& type, int64* type_id) {
-  return FromABSLStatus(executor_->InsertContextType(
+absl::Status RDBMSMetadataAccessObject::InsertTypeID(const ContextType& type,
+                                                     int64* type_id) {
+  return executor_->InsertContextType(
       type.name(), GetTypeVersion(type),
       type.has_description() ? absl::make_optional(type.description())
                              : absl::nullopt,
-      type_id));
+      type_id);
 }
 
 // Creates a `Type` where acceptable ones are in {ArtifactType, ExecutionType,
@@ -618,20 +608,20 @@ tensorflow::Status RDBMSMetadataAccessObject::InsertTypeID(
 // Returns INVALID_ARGUMENT error, if any property type is unknown.
 // Returns detailed INTERNAL error, if query execution fails.
 template <typename Type>
-tensorflow::Status RDBMSMetadataAccessObject::CreateTypeImpl(const Type& type,
-                                                             int64* type_id) {
+absl::Status RDBMSMetadataAccessObject::CreateTypeImpl(const Type& type,
+                                                       int64* type_id) {
   const std::string& type_name = type.name();
   const google::protobuf::Map<std::string, PropertyType>& type_properties =
       type.properties();
 
   // validate the given type
   if (type_name.empty())
-    return tensorflow::errors::InvalidArgument("No type name is specified.");
+    return absl::InvalidArgumentError("No type name is specified.");
   if (type_properties.empty())
     LOG(INFO) << "No property is defined for the Type";
 
   // insert a type and get its given id
-  TF_RETURN_IF_ERROR(InsertTypeID(type, type_id));
+  MLMD_RETURN_IF_ERROR(InsertTypeID(type, type_id));
 
   // insert type properties and commit
   for (const auto& property : type_properties) {
@@ -639,89 +629,90 @@ tensorflow::Status RDBMSMetadataAccessObject::CreateTypeImpl(const Type& type,
     const PropertyType property_type = property.second;
     if (property_type == PropertyType::UNKNOWN) {
       LOG(ERROR) << "Property " << property_name << "'s value type is UNKNOWN.";
-      return tensorflow::errors::InvalidArgument(
+      return absl::InvalidArgumentError(
           absl::StrCat("Property ", property_name, " is UNKNOWN."));
     }
-    TF_RETURN_IF_ERROR(FromABSLStatus(
-        executor_->InsertTypeProperty(*type_id, property_name, property_type)));
+    MLMD_RETURN_IF_ERROR(
+        executor_->InsertTypeProperty(*type_id, property_name, property_type));
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 // Generates a query to find all type instances.
-tensorflow::Status RDBMSMetadataAccessObject::GenerateFindAllTypeInstancesQuery(
+absl::Status RDBMSMetadataAccessObject::GenerateFindAllTypeInstancesQuery(
     const TypeKind type_kind, RecordSet* record_set) {
-  return FromABSLStatus(executor_->SelectAllTypes(type_kind, record_set));
+  return executor_->SelectAllTypes(type_kind, record_set);
 }
 
 // FindType takes a result of a query for types, and populates additional
 // information such as properties, and returns it in `types`.
 template <typename MessageType>
-tensorflow::Status RDBMSMetadataAccessObject::FindTypesFromRecordSet(
+absl::Status RDBMSMetadataAccessObject::FindTypesFromRecordSet(
     const RecordSet& type_record_set, std::vector<MessageType>* types) {
   // Query type with the given condition
   const int num_records = type_record_set.records_size();
   types->resize(num_records);
   for (int i = 0; i < num_records; ++i) {
-    TF_RETURN_IF_ERROR(
+    MLMD_RETURN_IF_ERROR(
         ParseRecordSetToMessage(type_record_set, &types->at(i), i));
 
     RecordSet property_record_set;
-    TF_RETURN_IF_ERROR(FromABSLStatus(executor_->SelectPropertyByTypeID(
-        types->at(i).id(), &property_record_set)));
+    MLMD_RETURN_IF_ERROR(executor_->SelectPropertyByTypeID(
+        types->at(i).id(), &property_record_set));
 
-    TF_RETURN_IF_ERROR(ParseRecordSetToMapField(property_record_set,
-                                                "properties", &types->at(i)));
+    MLMD_RETURN_IF_ERROR(ParseRecordSetToMapField(property_record_set,
+                                                  "properties", &types->at(i)));
   }
 
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 template <typename MessageType>
-tensorflow::Status RDBMSMetadataAccessObject::FindTypeImpl(int64 type_id,
-                                                           MessageType* type) {
+absl::Status RDBMSMetadataAccessObject::FindTypeImpl(int64 type_id,
+                                                     MessageType* type) {
   const TypeKind type_kind = ResolveTypeKind(type);
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(FromABSLStatus(
-      executor_->SelectTypeByID(type_id, type_kind, &record_set)));
+  MLMD_RETURN_IF_ERROR(
+      executor_->SelectTypeByID(type_id, type_kind, &record_set));
   std::vector<MessageType> types;
-  TF_RETURN_IF_ERROR(FindTypesFromRecordSet(record_set, &types));
+  MLMD_RETURN_IF_ERROR(FindTypesFromRecordSet(record_set, &types));
   if (types.empty()) {
-    return tensorflow::errors::NotFound("No type found for query, type_id: ",
-                                        type_id);
+    return absl::NotFoundError(
+        absl::StrCat("No type found for query, type_id: ", type_id));
   }
   *type = std::move(types[0]);
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 template <typename MessageType>
-tensorflow::Status RDBMSMetadataAccessObject::FindTypeImpl(
+absl::Status RDBMSMetadataAccessObject::FindTypeImpl(
     absl::string_view name, absl::optional<absl::string_view> version,
     MessageType* type) {
   const TypeKind type_kind = ResolveTypeKind(type);
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(FromABSLStatus(executor_->SelectTypeByNameAndVersion(
-      name, version, type_kind, &record_set)));
+  MLMD_RETURN_IF_ERROR(executor_->SelectTypeByNameAndVersion(
+      name, version, type_kind, &record_set));
   std::vector<MessageType> types;
-  TF_RETURN_IF_ERROR(FindTypesFromRecordSet(record_set, &types));
+  MLMD_RETURN_IF_ERROR(FindTypesFromRecordSet(record_set, &types));
   if (types.empty()) {
-    return tensorflow::errors::NotFound("No type found for query, name: `",
-                                        name, "`, version: `",
-                                        version ? *version : "nullopt", "`");
+    return absl::NotFoundError(
+        absl::StrCat("No type found for query, name: `", name, "`, version: `",
+                     version ? *version : "nullopt", "`"));
   }
   *type = std::move(types[0]);
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 // Finds all type instances of the type `MessageType`.
 // Returns detailed INTERNAL error, if query execution fails.
 template <typename MessageType>
-tensorflow::Status RDBMSMetadataAccessObject::FindAllTypeInstancesImpl(
+absl::Status RDBMSMetadataAccessObject::FindAllTypeInstancesImpl(
     std::vector<MessageType>* types) {
   MessageType type;
   const TypeKind type_kind = ResolveTypeKind(&type);
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(GenerateFindAllTypeInstancesQuery(type_kind, &record_set));
+  MLMD_RETURN_IF_ERROR(
+      GenerateFindAllTypeInstancesQuery(type_kind, &record_set));
 
   return FindTypesFromRecordSet(record_set, types);
 }
@@ -734,18 +725,18 @@ tensorflow::Status RDBMSMetadataAccessObject::FindAllTypeInstancesImpl(
 // Returns ALREADY_EXISTS error, if any property type is different.
 // Returns detailed INTERNAL error, if query execution fails.
 template <typename Type>
-tensorflow::Status RDBMSMetadataAccessObject::UpdateTypeImpl(const Type& type) {
+absl::Status RDBMSMetadataAccessObject::UpdateTypeImpl(const Type& type) {
   if (!type.has_name()) {
-    return tensorflow::errors::InvalidArgument("No type name is specified.");
+    return absl::InvalidArgumentError("No type name is specified.");
   }
   // find the current stored type and validate the id.
   Type stored_type;
-  TF_RETURN_IF_ERROR(FindTypeByNameAndVersion(type.name(), GetTypeVersion(type),
-                                              &stored_type));
+  MLMD_RETURN_IF_ERROR(FindTypeByNameAndVersion(
+      type.name(), GetTypeVersion(type), &stored_type));
   if (type.has_id() && type.id() != stored_type.id()) {
-    return tensorflow::errors::InvalidArgument(
-        "Given type id is different from the existing type: ",
-        stored_type.DebugString());
+    return absl::InvalidArgumentError(
+        absl::StrCat("Given type id is different from the existing type: ",
+                     stored_type.DebugString()));
   }
   // updates the list of type properties
   const google::protobuf::Map<std::string, PropertyType>& stored_properties =
@@ -754,27 +745,27 @@ tensorflow::Status RDBMSMetadataAccessObject::UpdateTypeImpl(const Type& type) {
     const std::string& property_name = p.first;
     const PropertyType property_type = p.second;
     if (property_type == PropertyType::UNKNOWN) {
-      return tensorflow::errors::InvalidArgument(
-          "Property:", property_name, " type should not be UNKNOWN.");
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Property:", property_name, " type should not be UNKNOWN."));
     }
     if (stored_properties.find(property_name) != stored_properties.end()) {
       // for stored properties, type should not be changed.
       if (stored_properties.at(property_name) != property_type) {
-        return tensorflow::errors::AlreadyExists(
-            "Property:", property_name,
-            " type is different from the existing type: ",
-            stored_type.DebugString());
+        return absl::AlreadyExistsError(
+            absl::StrCat("Property:", property_name,
+                         " type is different from the existing type: ",
+                         stored_type.DebugString()));
       }
       continue;
     }
-    TF_RETURN_IF_ERROR(FromABSLStatus(executor_->InsertTypeProperty(
-        stored_type.id(), property_name, property_type)));
+    MLMD_RETURN_IF_ERROR(executor_->InsertTypeProperty(
+        stored_type.id(), property_name, property_type));
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 template <typename Type>
-tensorflow::Status RDBMSMetadataAccessObject::CreateParentTypeImpl(
+absl::Status RDBMSMetadataAccessObject::CreateParentTypeImpl(
     const int64 type_id, const int64 parent_type_id) {
   // Check whether there is a cyclic dependency if we insert the tuple:
   // (type_id, parent_type_id). We do a DFS traversal from `parent_type_id` as
@@ -785,7 +776,7 @@ tensorflow::Status RDBMSMetadataAccessObject::CreateParentTypeImpl(
   while (!ancestor_ids.empty()) {
     const int64 ancestor_id = ancestor_ids.back();
     if (ancestor_id == type_id) {
-      return tensorflow::errors::InvalidArgument(
+      return absl::InvalidArgumentError(
           "There is a cycle detected of the given parent type.");
     }
     ancestor_ids.pop_back();
@@ -794,37 +785,37 @@ tensorflow::Status RDBMSMetadataAccessObject::CreateParentTypeImpl(
     }
     visited_ancestors_ids.insert(ancestor_id);
     RecordSet record_set;
-    TF_RETURN_IF_ERROR(FromABSLStatus(
-        executor_->SelectParentTypesByTypeID(ancestor_id, &record_set)));
+    MLMD_RETURN_IF_ERROR(
+        executor_->SelectParentTypesByTypeID(ancestor_id, &record_set));
     for (const int64 parent_id : ParentTypesToParentTypeIds(record_set)) {
       ancestor_ids.push_back(parent_id);
     }
   }
-  const tensorflow::Status status =
-      FromABSLStatus(executor_->InsertParentType(type_id, parent_type_id));
+  const absl::Status status =
+      executor_->InsertParentType(type_id, parent_type_id);
   if (IsUniqueConstraintViolated(status)) {
-    return tensorflow::errors::AlreadyExists("The ParentType already exists.");
+    return absl::AlreadyExistsError("The ParentType already exists.");
   }
   return status;
 }
 
 template <typename Type>
-tensorflow::Status RDBMSMetadataAccessObject::FindParentTypesByTypeIdImpl(
+absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeIdImpl(
     int64 type_id, std::vector<Type>& output_parent_types) {
   // check the there's a Type instance with the given type_id
   Type type;
-  TF_RETURN_IF_ERROR(FindTypeImpl(type_id, &type));
+  MLMD_RETURN_IF_ERROR(FindTypeImpl(type_id, &type));
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(FromABSLStatus(
-      executor_->SelectParentTypesByTypeID(type_id, &record_set)));
+  MLMD_RETURN_IF_ERROR(
+      executor_->SelectParentTypesByTypeID(type_id, &record_set));
   const std::vector<int64> ids = ParentTypesToParentTypeIds(record_set);
   const int output_size = output_parent_types.size();
   output_parent_types.resize(output_size + ids.size());
   // TODO(b/169075639) Use a single query to retrieve a list of types.
   for (int i = output_size; i < output_size + ids.size(); i++) {
-    TF_RETURN_IF_ERROR(FindTypeImpl(ids[i], &output_parent_types.at(i)));
+    MLMD_RETURN_IF_ERROR(FindTypeImpl(ids[i], &output_parent_types.at(i)));
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 // Creates an `Node`, which is one of {`Artifact`, `Execution`, `Context`},
@@ -834,61 +825,61 @@ tensorflow::Status RDBMSMetadataAccessObject::FindParentTypesByTypeIdImpl(
 // Returns INVALID_ARGUMENT error, if the node does not align with its type.
 // Returns detailed INTERNAL error, if query execution fails.
 template <typename Node, typename NodeType>
-tensorflow::Status RDBMSMetadataAccessObject::CreateNodeImpl(const Node& node,
-                                                             int64* node_id) {
+absl::Status RDBMSMetadataAccessObject::CreateNodeImpl(const Node& node,
+                                                       int64* node_id) {
   // clear node id
   *node_id = 0;
   // validate type
   if (!node.has_type_id())
-    return tensorflow::errors::InvalidArgument("Type id is missing.");
+    return absl::InvalidArgumentError("Type id is missing.");
   const int64 type_id = node.type_id();
   NodeType node_type;
-  TF_RETURN_WITH_CONTEXT_IF_ERROR(FindTypeImpl(type_id, &node_type),
-                                  "Cannot find type for ",
-                                  node.ShortDebugString());
+  MLMD_RETURN_WITH_CONTEXT_IF_ERROR(FindTypeImpl(type_id, &node_type),
+                                    "Cannot find type for ",
+                                    node.ShortDebugString());
 
   // validate properties
-  TF_RETURN_WITH_CONTEXT_IF_ERROR(ValidatePropertiesWithType(node, node_type),
-                                  "Cannot validate properties of ",
-                                  node.ShortDebugString());
+  MLMD_RETURN_WITH_CONTEXT_IF_ERROR(ValidatePropertiesWithType(node, node_type),
+                                    "Cannot validate properties of ",
+                                    node.ShortDebugString());
 
   // insert a node and get the assigned id
-  TF_RETURN_WITH_CONTEXT_IF_ERROR(CreateBasicNode(node, node_id),
-                                  "Cannot create node for ",
-                                  node.ShortDebugString());
+  MLMD_RETURN_WITH_CONTEXT_IF_ERROR(CreateBasicNode(node, node_id),
+                                    "Cannot create node for ",
+                                    node.ShortDebugString());
 
   // insert properties
   const google::protobuf::Map<std::string, Value> prev_properties;
   int num_changed_properties = 0;
-  TF_RETURN_IF_ERROR(ModifyProperties<NodeType>(
+  MLMD_RETURN_IF_ERROR(ModifyProperties<NodeType>(
       node.properties(), prev_properties, *node_id,
       /*is_custom_property=*/false, num_changed_properties));
   int num_changed_custom_properties = 0;
-  TF_RETURN_IF_ERROR(ModifyProperties<NodeType>(
+  MLMD_RETURN_IF_ERROR(ModifyProperties<NodeType>(
       node.custom_properties(), prev_properties, *node_id,
       /*is_custom_property=*/true, num_changed_custom_properties));
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 template <typename Node>
-tensorflow::Status RDBMSMetadataAccessObject::FindNodesImpl(
+absl::Status RDBMSMetadataAccessObject::FindNodesImpl(
     const absl::Span<const int64> node_ids, const bool skipped_ids_ok,
     std::vector<Node>& nodes) {
   if (node_ids.empty()) {
-    return tensorflow::errors::InvalidArgument("ids cannot be empty");
+    return absl::InvalidArgumentError("ids cannot be empty");
   }
 
   if (!nodes.empty()) {
-    return tensorflow::errors::InvalidArgument("nodes parameter is not empty");
+    return absl::InvalidArgumentError("nodes parameter is not empty");
   }
 
   RecordSet node_record_set;
   RecordSet properties_record_set;
 
-  TF_RETURN_IF_ERROR(RetrieveNodesById<Node>(node_ids, &node_record_set,
-                                             &properties_record_set));
+  MLMD_RETURN_IF_ERROR(RetrieveNodesById<Node>(node_ids, &node_record_set,
+                                               &properties_record_set));
 
-  TF_RETURN_IF_ERROR(ParseRecordSetToMessageArray(node_record_set, &nodes));
+  MLMD_RETURN_IF_ERROR(ParseRecordSetToMessageArray(node_record_set, &nodes));
 
   // if there are properties associated with the nodes, parse the returned
   // values.
@@ -909,7 +900,7 @@ tensorflow::Status RDBMSMetadataAccessObject::FindNodesImpl(
       CHECK(iter != node_by_id.end());
       Node& node = *iter->second;
 
-      TF_RETURN_IF_ERROR(PopulateNodeProperties(record, node));
+      MLMD_RETURN_IF_ERROR(PopulateNodeProperties(record, node));
     }
   }
 
@@ -923,22 +914,23 @@ tensorflow::Status RDBMSMetadataAccessObject::FindNodesImpl(
         "}. Found results for {", absl::StrJoin(found_ids, ","), "}");
 
     if (!skipped_ids_ok) {
-      return tensorflow::errors::Internal(message);
+      return absl::InternalError(message);
     } else {
-      return tensorflow::errors::NotFound(message);
+      return absl::NotFoundError(message);
     }
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 template <typename Node>
-tensorflow::Status RDBMSMetadataAccessObject::FindNodeImpl(const int64 node_id,
-                                                           Node* node) {
+absl::Status RDBMSMetadataAccessObject::FindNodeImpl(const int64 node_id,
+                                                     Node* node) {
   std::vector<Node> nodes;
-  TF_RETURN_IF_ERROR(FindNodesImpl({node_id}, /*skipped_ids_ok=*/true, nodes));
+  MLMD_RETURN_IF_ERROR(
+      FindNodesImpl({node_id}, /*skipped_ids_ok=*/true, nodes));
   *node = nodes.at(0);
 
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 // Updates a `Node` which is one of {`Artifact`, `Execution`, `Context`}.
@@ -946,36 +938,35 @@ tensorflow::Status RDBMSMetadataAccessObject::FindNodeImpl(const int64 node_id,
 // Returns INVALID_ARGUMENT error, if the node does not match with its type
 // Returns detailed INTERNAL error, if query execution fails.
 template <typename Node, typename NodeType>
-tensorflow::Status RDBMSMetadataAccessObject::UpdateNodeImpl(const Node& node) {
+absl::Status RDBMSMetadataAccessObject::UpdateNodeImpl(const Node& node) {
   // validate node
-  if (!node.has_id())
-    return tensorflow::errors::InvalidArgument("No id is given.");
+  if (!node.has_id()) return absl::InvalidArgumentError("No id is given.");
 
   Node stored_node;
-  tensorflow::Status status = FindNodeImpl(node.id(), &stored_node);
-  if (tensorflow::errors::IsNotFound(status)) {
-    return tensorflow::errors::InvalidArgument(
+  absl::Status status = FindNodeImpl(node.id(), &stored_node);
+  if (absl::IsNotFound(status)) {
+    return absl::InvalidArgumentError(
         absl::StrCat("Cannot find the given id ", node.id()));
   }
   if (!status.ok()) return status;
   if (node.has_type_id() && node.type_id() != stored_node.type_id()) {
-    return tensorflow::errors::InvalidArgument(absl::StrCat(
+    return absl::InvalidArgumentError(absl::StrCat(
         "Given type_id ", node.type_id(),
         " is different from the one known before: ", stored_node.type_id()));
   }
   const int64 type_id = stored_node.type_id();
 
   NodeType stored_type;
-  TF_RETURN_IF_ERROR(FindTypeImpl(type_id, &stored_type));
-  TF_RETURN_IF_ERROR(ValidatePropertiesWithType(node, stored_type));
+  MLMD_RETURN_IF_ERROR(FindTypeImpl(type_id, &stored_type));
+  MLMD_RETURN_IF_ERROR(ValidatePropertiesWithType(node, stored_type));
 
   // Update, insert, delete properties if changed.
   int num_changed_properties = 0;
-  TF_RETURN_IF_ERROR(ModifyProperties<NodeType>(
+  MLMD_RETURN_IF_ERROR(ModifyProperties<NodeType>(
       node.properties(), stored_node.properties(), node.id(),
       /*is_custom_property=*/false, num_changed_properties));
   int num_changed_custom_properties = 0;
-  TF_RETURN_IF_ERROR(ModifyProperties<NodeType>(
+  MLMD_RETURN_IF_ERROR(ModifyProperties<NodeType>(
       node.custom_properties(), stored_node.custom_properties(), node.id(),
       /*is_custom_property=*/true, num_changed_custom_properties));
   // Update node if attributes are different or properties are updated, so that
@@ -991,22 +982,22 @@ tensorflow::Status RDBMSMetadataAccessObject::UpdateNodeImpl(const Node& node) {
       Node::descriptor()->FindFieldByName("last_update_time_since_epoch"));
   if (!diff.Compare(node, stored_node) ||
       num_changed_properties + num_changed_custom_properties > 0) {
-    TF_RETURN_IF_ERROR(RunNodeUpdate(node));
+    MLMD_RETURN_IF_ERROR(RunNodeUpdate(node));
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 // Takes a record set that has one record per event, parses them into Event
 // objects, gets the paths for the events from the database using collected
 // event ids, and assign paths to each corresponding event.
 // Returns INVALID_ARGUMENT error, if the `events` is null.
-tensorflow::Status RDBMSMetadataAccessObject::FindEventsFromRecordSet(
+absl::Status RDBMSMetadataAccessObject::FindEventsFromRecordSet(
     const RecordSet& event_record_set, std::vector<Event>* events) {
   if (events == nullptr)
-    return tensorflow::errors::InvalidArgument("Given events is NULL.");
+    return absl::InvalidArgumentError("Given events is NULL.");
 
   events->reserve(event_record_set.records_size());
-  TF_RETURN_IF_ERROR(ParseRecordSetToMessageArray(event_record_set, events));
+  MLMD_RETURN_IF_ERROR(ParseRecordSetToMessageArray(event_record_set, events));
 
   absl::flat_hash_map<int64, Event*> event_id_to_event_map;
   std::vector<int64> event_ids;
@@ -1021,8 +1012,8 @@ tensorflow::Status RDBMSMetadataAccessObject::FindEventsFromRecordSet(
   }
 
   RecordSet path_record_set;
-  TF_RETURN_IF_ERROR(FromABSLStatus(
-      executor_->SelectEventPathByEventIDs(event_ids, &path_record_set)));
+  MLMD_RETURN_IF_ERROR(
+      executor_->SelectEventPathByEventIDs(event_ids, &path_record_set));
   for (const RecordSet::Record& record : path_record_set.records()) {
     int64 event_id;
     CHECK(absl::SimpleAtoi(record.values(0), &event_id));
@@ -1039,228 +1030,227 @@ tensorflow::Status RDBMSMetadataAccessObject::FindEventsFromRecordSet(
       event->mutable_path()->add_steps()->set_key(record.values(3));
     }
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::CreateType(
-    const ArtifactType& type, int64* type_id) {
+absl::Status RDBMSMetadataAccessObject::CreateType(const ArtifactType& type,
+                                                   int64* type_id) {
   return CreateTypeImpl(type, type_id);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::CreateType(
-    const ExecutionType& type, int64* type_id) {
+absl::Status RDBMSMetadataAccessObject::CreateType(const ExecutionType& type,
+                                                   int64* type_id) {
   return CreateTypeImpl(type, type_id);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::CreateType(
-    const ContextType& type, int64* type_id) {
+absl::Status RDBMSMetadataAccessObject::CreateType(const ContextType& type,
+                                                   int64* type_id) {
   return CreateTypeImpl(type, type_id);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindTypeById(
+absl::Status RDBMSMetadataAccessObject::FindTypeById(
     const int64 type_id, ArtifactType* artifact_type) {
   return FindTypeImpl(type_id, artifact_type);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindTypeById(
+absl::Status RDBMSMetadataAccessObject::FindTypeById(
     const int64 type_id, ExecutionType* execution_type) {
   return FindTypeImpl(type_id, execution_type);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindTypes(
+absl::Status RDBMSMetadataAccessObject::FindTypes(
     std::vector<ArtifactType>* artifact_types) {
   return FindAllTypeInstancesImpl(artifact_types);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindTypeById(
+absl::Status RDBMSMetadataAccessObject::FindTypeById(
     const int64 type_id, ContextType* context_type) {
   return FindTypeImpl(type_id, context_type);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindTypes(
+absl::Status RDBMSMetadataAccessObject::FindTypes(
     std::vector<ExecutionType>* execution_types) {
   return FindAllTypeInstancesImpl(execution_types);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindTypes(
+absl::Status RDBMSMetadataAccessObject::FindTypes(
     std::vector<ContextType>* context_types) {
   return FindAllTypeInstancesImpl(context_types);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindTypeByNameAndVersion(
+absl::Status RDBMSMetadataAccessObject::FindTypeByNameAndVersion(
     absl::string_view name, absl::optional<absl::string_view> version,
     ArtifactType* artifact_type) {
   return FindTypeImpl(name, version, artifact_type);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindTypeByNameAndVersion(
+absl::Status RDBMSMetadataAccessObject::FindTypeByNameAndVersion(
     absl::string_view name, absl::optional<absl::string_view> version,
     ExecutionType* execution_type) {
   return FindTypeImpl(name, version, execution_type);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindTypeByNameAndVersion(
+absl::Status RDBMSMetadataAccessObject::FindTypeByNameAndVersion(
     absl::string_view name, absl::optional<absl::string_view> version,
     ContextType* context_type) {
   return FindTypeImpl(name, version, context_type);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::UpdateType(
-    const ArtifactType& type) {
+absl::Status RDBMSMetadataAccessObject::UpdateType(const ArtifactType& type) {
   return UpdateTypeImpl(type);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::UpdateType(
-    const ExecutionType& type) {
+absl::Status RDBMSMetadataAccessObject::UpdateType(const ExecutionType& type) {
   return UpdateTypeImpl(type);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::UpdateType(
-    const ContextType& type) {
+absl::Status RDBMSMetadataAccessObject::UpdateType(const ContextType& type) {
   return UpdateTypeImpl(type);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::CreateParentTypeInheritanceLink(
+absl::Status RDBMSMetadataAccessObject::CreateParentTypeInheritanceLink(
     const ArtifactType& type, const ArtifactType& parent_type) {
   if (!type.has_id() || !parent_type.has_id()) {
-    return tensorflow::errors::InvalidArgument(
-        "Missing id in the given types: ", type.DebugString(),
-        parent_type.DebugString());
+    return absl::InvalidArgumentError(
+        absl::StrCat("Missing id in the given types: ", type.DebugString(),
+                     parent_type.DebugString()));
   }
   return CreateParentTypeImpl<ArtifactType>(type.id(), parent_type.id());
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::CreateParentTypeInheritanceLink(
+absl::Status RDBMSMetadataAccessObject::CreateParentTypeInheritanceLink(
     const ExecutionType& type, const ExecutionType& parent_type) {
   if (!type.has_id() || !parent_type.has_id()) {
-    return tensorflow::errors::InvalidArgument(
-        "Missing id in the given types: ", type.DebugString(),
-        parent_type.DebugString());
+    return absl::InvalidArgumentError(
+        absl::StrCat("Missing id in the given types: ", type.DebugString(),
+                     parent_type.DebugString()));
   }
   return CreateParentTypeImpl<ExecutionType>(type.id(), parent_type.id());
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::CreateParentTypeInheritanceLink(
+absl::Status RDBMSMetadataAccessObject::CreateParentTypeInheritanceLink(
     const ContextType& type, const ContextType& parent_type) {
   if (!type.has_id() || !parent_type.has_id()) {
-    return tensorflow::errors::InvalidArgument(
-        "Missing id in the given types: ", type.DebugString(),
-        parent_type.DebugString());
+    return absl::InvalidArgumentError(
+        absl::StrCat("Missing id in the given types: ", type.DebugString(),
+                     parent_type.DebugString()));
   }
   return CreateParentTypeImpl<ContextType>(type.id(), parent_type.id());
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindParentTypesByTypeId(
+absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeId(
     int64 type_id, std::vector<ArtifactType>& output_parent_types) {
   return FindParentTypesByTypeIdImpl(type_id, output_parent_types);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindParentTypesByTypeId(
+absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeId(
     int64 type_id, std::vector<ExecutionType>& output_parent_types) {
   return FindParentTypesByTypeIdImpl(type_id, output_parent_types);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindParentTypesByTypeId(
+absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeId(
     int64 type_id, std::vector<ContextType>& output_parent_types) {
   return FindParentTypesByTypeIdImpl(type_id, output_parent_types);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::CreateArtifact(
-    const Artifact& artifact, int64* artifact_id) {
-  const tensorflow::Status& status =
+absl::Status RDBMSMetadataAccessObject::CreateArtifact(const Artifact& artifact,
+                                                       int64* artifact_id) {
+  const absl::Status& status =
       CreateNodeImpl<Artifact, ArtifactType>(artifact, artifact_id);
   if (IsUniqueConstraintViolated(status)) {
-    return tensorflow::errors::AlreadyExists(
-        "Given node already exists: ", artifact.DebugString(), status);
+    return absl::AlreadyExistsError(
+        absl::StrCat("Given node already exists: ", artifact.DebugString(),
+                     status.ToString()));
   }
   return status;
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::CreateExecution(
+absl::Status RDBMSMetadataAccessObject::CreateExecution(
     const Execution& execution, int64* execution_id) {
-  const tensorflow::Status& status =
+  const absl::Status& status =
       CreateNodeImpl<Execution, ExecutionType>(execution, execution_id);
   if (IsUniqueConstraintViolated(status)) {
-    return tensorflow::errors::AlreadyExists(
-        "Given node already exists: ", execution.DebugString(), status);
+    return absl::AlreadyExistsError(
+        absl::StrCat("Given node already exists: ", execution.DebugString(),
+                     status.ToString()));
   }
   return status;
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::CreateContext(
-    const Context& context, int64* context_id) {
-  const tensorflow::Status& status =
+absl::Status RDBMSMetadataAccessObject::CreateContext(const Context& context,
+                                                      int64* context_id) {
+  const absl::Status& status =
       CreateNodeImpl<Context, ContextType>(context, context_id);
   if (IsUniqueConstraintViolated(status)) {
-    return tensorflow::errors::AlreadyExists(
-        "Given node already exists: ", context.DebugString(), status);
+    return absl::AlreadyExistsError(
+        absl::StrCat("Given node already exists: ", context.DebugString(),
+                     status.ToString()));
   }
   return status;
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindArtifactsById(
+absl::Status RDBMSMetadataAccessObject::FindArtifactsById(
     const absl::Span<const int64> artifact_ids,
     std::vector<Artifact>* artifacts) {
   if (artifact_ids.empty()) {
-    return tensorflow::Status::OK();
+    return absl::OkStatus();
   }
   return FindNodesImpl(artifact_ids, /*skipped_ids_ok=*/true, *artifacts);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindExecutionsById(
+absl::Status RDBMSMetadataAccessObject::FindExecutionsById(
     const absl::Span<const int64> execution_ids,
     std::vector<Execution>* executions) {
   if (execution_ids.empty()) {
-    return tensorflow::Status::OK();
+    return absl::OkStatus();
   }
 
   return FindNodesImpl(execution_ids, /*skipped_ids_ok=*/true, *executions);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindContextsById(
+absl::Status RDBMSMetadataAccessObject::FindContextsById(
     const absl::Span<const int64> context_ids, std::vector<Context>* contexts) {
   if (context_ids.empty()) {
-    return tensorflow::Status::OK();
+    return absl::OkStatus();
   }
   return FindNodesImpl(context_ids, /*skipped_ids_ok=*/true, *contexts);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::UpdateArtifact(
+absl::Status RDBMSMetadataAccessObject::UpdateArtifact(
     const Artifact& artifact) {
   return UpdateNodeImpl<Artifact, ArtifactType>(artifact);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::UpdateExecution(
+absl::Status RDBMSMetadataAccessObject::UpdateExecution(
     const Execution& execution) {
   return UpdateNodeImpl<Execution, ExecutionType>(execution);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::UpdateContext(
-    const Context& context) {
+absl::Status RDBMSMetadataAccessObject::UpdateContext(const Context& context) {
   return UpdateNodeImpl<Context, ContextType>(context);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::CreateEvent(const Event& event,
-                                                          int64* event_id) {
+absl::Status RDBMSMetadataAccessObject::CreateEvent(const Event& event,
+                                                    int64* event_id) {
   // validate the given event
   if (!event.has_artifact_id())
-    return tensorflow::errors::InvalidArgument("No artifact id is specified.");
+    return absl::InvalidArgumentError("No artifact id is specified.");
   if (!event.has_execution_id())
-    return tensorflow::errors::InvalidArgument("No execution id is specified.");
+    return absl::InvalidArgumentError("No execution id is specified.");
   if (!event.has_type() || event.type() == Event::UNKNOWN)
-    return tensorflow::errors::InvalidArgument("No event type is specified.");
+    return absl::InvalidArgumentError("No event type is specified.");
   RecordSet artifacts;
-  TF_RETURN_IF_ERROR(FromABSLStatus(
-      executor_->SelectArtifactsByID({event.artifact_id()}, &artifacts)));
+  MLMD_RETURN_IF_ERROR(
+      executor_->SelectArtifactsByID({event.artifact_id()}, &artifacts));
   RecordSet executions;
-  TF_RETURN_IF_ERROR(FromABSLStatus(
-      executor_->SelectExecutionsByID({event.execution_id()}, &executions)));
+  MLMD_RETURN_IF_ERROR(
+      executor_->SelectExecutionsByID({event.execution_id()}, &executions));
   RecordSet record_set;
   if (artifacts.records_size() == 0)
-    return tensorflow::errors::InvalidArgument(
+    return absl::InvalidArgumentError(
         absl::StrCat("No artifact with the given id ", event.artifact_id()));
   if (executions.records_size() == 0)
-    return tensorflow::errors::InvalidArgument(
+    return absl::InvalidArgumentError(
         absl::StrCat("No execution with the given id ", event.execution_id()));
 
   // insert an event and get its given id
@@ -1268,114 +1258,111 @@ tensorflow::Status RDBMSMetadataAccessObject::CreateEvent(const Event& event,
                          ? event.milliseconds_since_epoch()
                          : absl::ToUnixMillis(absl::Now());
 
-  TF_RETURN_IF_ERROR(FromABSLStatus(
+  MLMD_RETURN_IF_ERROR(
       executor_->InsertEvent(event.artifact_id(), event.execution_id(),
-                             event.type(), event_time, event_id)));
+                             event.type(), event_time, event_id));
   // insert event paths
   for (const Event::Path::Step& step : event.path().steps()) {
     // step value oneof
-    TF_RETURN_IF_ERROR(
-        FromABSLStatus(executor_->InsertEventPath(*event_id, step)));
+    MLMD_RETURN_IF_ERROR(executor_->InsertEventPath(*event_id, step));
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindEventsByArtifacts(
+absl::Status RDBMSMetadataAccessObject::FindEventsByArtifacts(
     const std::vector<int64>& artifact_ids, std::vector<Event>* events) {
   if (events == nullptr) {
-    return tensorflow::errors::InvalidArgument("Given events is NULL.");
+    return absl::InvalidArgumentError("Given events is NULL.");
   }
 
   RecordSet event_record_set;
   if (!artifact_ids.empty()) {
-    TF_RETURN_IF_ERROR(FromABSLStatus(
-        executor_->SelectEventByArtifactIDs(artifact_ids, &event_record_set)));
+    MLMD_RETURN_IF_ERROR(
+        executor_->SelectEventByArtifactIDs(artifact_ids, &event_record_set));
   }
 
   if (event_record_set.records_size() == 0) {
-    return tensorflow::errors::NotFound(
-        "Cannot find events by given artifact ids.");
+    return absl::NotFoundError("Cannot find events by given artifact ids.");
   }
   return FindEventsFromRecordSet(event_record_set, events);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindEventsByExecutions(
+absl::Status RDBMSMetadataAccessObject::FindEventsByExecutions(
     const std::vector<int64>& execution_ids, std::vector<Event>* events) {
   if (events == nullptr) {
-    return tensorflow::errors::InvalidArgument("Given events is NULL.");
+    return absl::InvalidArgumentError("Given events is NULL.");
   }
 
   RecordSet event_record_set;
   if (!execution_ids.empty()) {
-    TF_RETURN_IF_ERROR(FromABSLStatus(executor_->SelectEventByExecutionIDs(
-        execution_ids, &event_record_set)));
+    MLMD_RETURN_IF_ERROR(
+        executor_->SelectEventByExecutionIDs(execution_ids, &event_record_set));
   }
 
   if (event_record_set.records_size() == 0) {
-    return tensorflow::errors::NotFound(
-        "Cannot find events by given execution ids.");
+    return absl::NotFoundError("Cannot find events by given execution ids.");
   }
   return FindEventsFromRecordSet(event_record_set, events);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::CreateAssociation(
+absl::Status RDBMSMetadataAccessObject::CreateAssociation(
     const Association& association, int64* association_id) {
   if (!association.has_context_id())
-    return tensorflow::errors::InvalidArgument("No context id is specified.");
+    return absl::InvalidArgumentError("No context id is specified.");
   RecordSet context_id_header;
-  TF_RETURN_IF_ERROR(FromABSLStatus(executor_->SelectContextsByID(
-      {association.context_id()}, &context_id_header)));
+  MLMD_RETURN_IF_ERROR(executor_->SelectContextsByID({association.context_id()},
+                                                     &context_id_header));
   if (context_id_header.records_size() == 0)
-    return tensorflow::errors::InvalidArgument("Context id not found.");
+    return absl::InvalidArgumentError("Context id not found.");
 
   if (!association.has_execution_id())
-    return tensorflow::errors::InvalidArgument("No execution id is specified");
+    return absl::InvalidArgumentError("No execution id is specified");
   RecordSet execution_id_header;
-  TF_RETURN_IF_ERROR(FromABSLStatus(executor_->SelectExecutionsByID(
-      {association.execution_id()}, &execution_id_header)));
+  MLMD_RETURN_IF_ERROR(executor_->SelectExecutionsByID(
+      {association.execution_id()}, &execution_id_header));
   if (execution_id_header.records_size() == 0)
-    return tensorflow::errors::InvalidArgument("Execution id not found.");
+    return absl::InvalidArgumentError("Execution id not found.");
 
-  tensorflow::Status status = FromABSLStatus(executor_->InsertAssociation(
-      association.context_id(), association.execution_id(), association_id));
+  absl::Status status = executor_->InsertAssociation(
+      association.context_id(), association.execution_id(), association_id);
 
   if (IsUniqueConstraintViolated(status)) {
-    return tensorflow::errors::AlreadyExists(
+    return absl::AlreadyExistsError(absl::StrCat(
         "Given association already exists: ", association.DebugString(),
-        status);
+        status.ToString()));
   }
   return status;
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindContextsByExecution(
+absl::Status RDBMSMetadataAccessObject::FindContextsByExecution(
     int64 execution_id, std::vector<Context>* contexts) {
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(FromABSLStatus(
-      executor_->SelectAssociationByExecutionID(execution_id, &record_set)));
+  MLMD_RETURN_IF_ERROR(
+      executor_->SelectAssociationByExecutionID(execution_id, &record_set));
   const std::vector<int64> context_ids = AssociationsToContextIds(record_set);
   if (context_ids.empty()) {
-    return tensorflow::errors::NotFound(
+    return absl::NotFoundError(
         absl::StrCat("No contexts found for execution_id: ", execution_id));
   }
   return FindNodesImpl(context_ids, /*skipped_ids_ok=*/false, *contexts);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindExecutionsByContext(
+absl::Status RDBMSMetadataAccessObject::FindExecutionsByContext(
     int64 context_id, std::vector<Execution>* executions) {
   std::string unused_next_page_toke;
   return FindExecutionsByContext(context_id, absl::nullopt, executions,
                                  &unused_next_page_toke);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindExecutionsByContext(
+absl::Status RDBMSMetadataAccessObject::FindExecutionsByContext(
     int64 context_id, absl::optional<ListOperationOptions> list_options,
     std::vector<Execution>* executions, std::string* next_page_token) {
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(FromABSLStatus(
-      executor_->SelectAssociationByContextID(context_id, &record_set)));
+  MLMD_RETURN_IF_ERROR(
+      executor_->SelectAssociationByContextID(context_id, &record_set));
   const std::vector<int64> ids = AssociationsToExecutionIds(record_set);
   if (ids.empty()) {
-    return tensorflow::Status::OK();
+    return absl::OkStatus();
   }
   if (list_options.has_value()) {
     return ListNodes<Execution>(list_options.value(), ids, executions,
@@ -1384,64 +1371,64 @@ tensorflow::Status RDBMSMetadataAccessObject::FindExecutionsByContext(
   return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *executions);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::CreateAttribution(
+absl::Status RDBMSMetadataAccessObject::CreateAttribution(
     const Attribution& attribution, int64* attribution_id) {
   if (!attribution.has_context_id())
-    return tensorflow::errors::InvalidArgument("No context id is specified.");
+    return absl::InvalidArgumentError("No context id is specified.");
   RecordSet context_id_header;
-  TF_RETURN_IF_ERROR(FromABSLStatus(executor_->SelectContextsByID(
-      {attribution.context_id()}, &context_id_header)));
+  MLMD_RETURN_IF_ERROR(executor_->SelectContextsByID({attribution.context_id()},
+                                                     &context_id_header));
   if (context_id_header.records_size() == 0)
-    return tensorflow::errors::InvalidArgument("Context id not found.");
+    return absl::InvalidArgumentError("Context id not found.");
 
   if (!attribution.has_artifact_id())
-    return tensorflow::errors::InvalidArgument("No artifact id is specified");
+    return absl::InvalidArgumentError("No artifact id is specified");
   RecordSet artifact_id_header;
-  TF_RETURN_IF_ERROR(FromABSLStatus(executor_->SelectArtifactsByID(
-      {attribution.artifact_id()}, &artifact_id_header)));
+  MLMD_RETURN_IF_ERROR(executor_->SelectArtifactsByID(
+      {attribution.artifact_id()}, &artifact_id_header));
   if (artifact_id_header.records_size() == 0)
-    return tensorflow::errors::InvalidArgument("Artifact id not found.");
+    return absl::InvalidArgumentError("Artifact id not found.");
 
-  tensorflow::Status status = FromABSLStatus(executor_->InsertAttributionDirect(
-      attribution.context_id(), attribution.artifact_id(), attribution_id));
+  absl::Status status = executor_->InsertAttributionDirect(
+      attribution.context_id(), attribution.artifact_id(), attribution_id);
 
   if (IsUniqueConstraintViolated(status)) {
-    return tensorflow::errors::AlreadyExists(
+    return absl::AlreadyExistsError(absl::StrCat(
         "Given attribution already exists: ", attribution.DebugString(),
-        status);
+        status.ToString()));
   }
   return status;
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindContextsByArtifact(
+absl::Status RDBMSMetadataAccessObject::FindContextsByArtifact(
     int64 artifact_id, std::vector<Context>* contexts) {
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(FromABSLStatus(
-      executor_->SelectAttributionByArtifactID(artifact_id, &record_set)));
+  MLMD_RETURN_IF_ERROR(
+      executor_->SelectAttributionByArtifactID(artifact_id, &record_set));
   const std::vector<int64> context_ids = AttributionsToContextIds(record_set);
   if (context_ids.empty()) {
-    return tensorflow::errors::NotFound(
+    return absl::NotFoundError(
         absl::StrCat("No contexts found for artifact_id: ", artifact_id));
   }
   return FindNodesImpl(context_ids, /*skipped_ids_ok=*/false, *contexts);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindArtifactsByContext(
+absl::Status RDBMSMetadataAccessObject::FindArtifactsByContext(
     int64 context_id, std::vector<Artifact>* artifacts) {
   std::string unused_next_page_token;
   return FindArtifactsByContext(context_id, absl::nullopt, artifacts,
                                 &unused_next_page_token);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindArtifactsByContext(
+absl::Status RDBMSMetadataAccessObject::FindArtifactsByContext(
     int64 context_id, absl::optional<ListOperationOptions> list_options,
     std::vector<Artifact>* artifacts, std::string* next_page_token) {
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(FromABSLStatus(
-      executor_->SelectAttributionByContextID(context_id, &record_set)));
+  MLMD_RETURN_IF_ERROR(
+      executor_->SelectAttributionByContextID(context_id, &record_set));
   const std::vector<int64> ids = AttributionsToArtifactIds(record_set);
   if (ids.empty()) {
-    return tensorflow::Status::OK();
+    return absl::OkStatus();
   }
   if (list_options.has_value()) {
     return ListNodes<Artifact>(list_options.value(), ids, artifacts,
@@ -1450,126 +1437,124 @@ tensorflow::Status RDBMSMetadataAccessObject::FindArtifactsByContext(
   return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *artifacts);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::CreateParentContext(
+absl::Status RDBMSMetadataAccessObject::CreateParentContext(
     const ParentContext& parent_context) {
   if (!parent_context.has_parent_id() || !parent_context.has_child_id()) {
-    return tensorflow::errors::InvalidArgument(
-        "Missing parent / child id in the parent_context: ",
-        parent_context.DebugString());
+    return absl::InvalidArgumentError(
+        absl::StrCat("Missing parent / child id in the parent_context: ",
+                     parent_context.DebugString()));
   }
   RecordSet contexts_id_header;
-  TF_RETURN_IF_ERROR(FromABSLStatus(executor_->SelectContextsByID(
+  MLMD_RETURN_IF_ERROR(executor_->SelectContextsByID(
       {parent_context.parent_id(), parent_context.child_id()},
-      &contexts_id_header)));
+      &contexts_id_header));
   if (contexts_id_header.records_size() < 2) {
-    return tensorflow::errors::InvalidArgument(
+    return absl::InvalidArgumentError(absl::StrCat(
         "Given parent / child id in the parent_context cannot be found: ",
-        parent_context.DebugString());
+        parent_context.DebugString()));
   }
-  const tensorflow::Status status =
-      FromABSLStatus(executor_->InsertParentContext(parent_context.parent_id(),
-                                                    parent_context.child_id()));
+  const absl::Status status = executor_->InsertParentContext(
+      parent_context.parent_id(), parent_context.child_id());
   if (IsUniqueConstraintViolated(status)) {
-    return tensorflow::errors::AlreadyExists(
+    return absl::AlreadyExistsError(absl::StrCat(
         "Given parent_context already exists: ", parent_context.DebugString(),
-        status);
+        status.ToString()));
   }
   return status;
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindLinkedContextsImpl(
+absl::Status RDBMSMetadataAccessObject::FindLinkedContextsImpl(
     int64 context_id, ParentContextTraverseDirection direction,
     std::vector<Context>& output_contexts) {
   RecordSet record_set;
   if (direction == ParentContextTraverseDirection::kParent) {
-    TF_RETURN_IF_ERROR(FromABSLStatus(
-        executor_->SelectParentContextsByContextID(context_id, &record_set)));
+    MLMD_RETURN_IF_ERROR(
+        executor_->SelectParentContextsByContextID(context_id, &record_set));
   } else if (direction == ParentContextTraverseDirection::kChild) {
-    TF_RETURN_IF_ERROR(FromABSLStatus(
-        executor_->SelectChildContextsByContextID(context_id, &record_set)));
+    MLMD_RETURN_IF_ERROR(
+        executor_->SelectChildContextsByContextID(context_id, &record_set));
   } else {
-    return tensorflow::errors::Internal("Unexpected ParentContext direction");
+    return absl::InternalError("Unexpected ParentContext direction");
   }
   const bool is_parent = direction == ParentContextTraverseDirection::kParent;
   const std::vector<int64> ids =
       ParentContextsToContextIds(record_set, is_parent);
   output_contexts.clear();
   if (ids.empty()) {
-    return tensorflow::Status::OK();
+    return absl::OkStatus();
   }
   return FindNodesImpl(ids, /*skipped_ids_ok=*/false, output_contexts);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindParentContextsByContextId(
+absl::Status RDBMSMetadataAccessObject::FindParentContextsByContextId(
     int64 context_id, std::vector<Context>* contexts) {
   if (contexts == nullptr) {
-    return tensorflow::errors::InvalidArgument("Given contexts is NULL.");
+    return absl::InvalidArgumentError("Given contexts is NULL.");
   }
   return FindLinkedContextsImpl(
       context_id, ParentContextTraverseDirection::kParent, *contexts);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindChildContextsByContextId(
+absl::Status RDBMSMetadataAccessObject::FindChildContextsByContextId(
     int64 context_id, std::vector<Context>* contexts) {
   if (contexts == nullptr) {
-    return tensorflow::errors::InvalidArgument("Given contexts is NULL.");
+    return absl::InvalidArgumentError("Given contexts is NULL.");
   }
   return FindLinkedContextsImpl(
       context_id, ParentContextTraverseDirection::kChild, *contexts);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindArtifacts(
+absl::Status RDBMSMetadataAccessObject::FindArtifacts(
     std::vector<Artifact>* artifacts) {
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(
-      FromABSLStatus(executor_->SelectAllArtifactIDs(&record_set)));
+  MLMD_RETURN_IF_ERROR(executor_->SelectAllArtifactIDs(&record_set));
   std::vector<int64> ids = ConvertToIds(record_set);
   if (ids.empty()) {
-    return tensorflow::Status::OK();
+    return absl::OkStatus();
   }
   return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *artifacts);
 }
 
 template <>
-tensorflow::Status RDBMSMetadataAccessObject::ListNodeIds(
+absl::Status RDBMSMetadataAccessObject::ListNodeIds(
     const ListOperationOptions& options,
     absl::optional<absl::Span<const int64>> candidate_ids,
     RecordSet* record_set, Artifact* tag) {
-  return FromABSLStatus(executor_->ListArtifactIDsUsingOptions(
-      options, candidate_ids, record_set));
+  return executor_->ListArtifactIDsUsingOptions(options, candidate_ids,
+                                                record_set);
 }
 
 template <>
-tensorflow::Status RDBMSMetadataAccessObject::ListNodeIds(
+absl::Status RDBMSMetadataAccessObject::ListNodeIds(
     const ListOperationOptions& options,
     absl::optional<absl::Span<const int64>> candidate_ids,
     RecordSet* record_set, Execution* tag) {
-  return FromABSLStatus(executor_->ListExecutionIDsUsingOptions(
-      options, candidate_ids, record_set));
+  return executor_->ListExecutionIDsUsingOptions(options, candidate_ids,
+                                                 record_set);
 }
 
 template <>
-tensorflow::Status RDBMSMetadataAccessObject::ListNodeIds(
+absl::Status RDBMSMetadataAccessObject::ListNodeIds(
     const ListOperationOptions& options,
     absl::optional<absl::Span<const int64>> candidate_ids,
     RecordSet* record_set, Context* tag) {
-  return FromABSLStatus(executor_->ListContextIDsUsingOptions(
-      options, candidate_ids, record_set));
+  return executor_->ListContextIDsUsingOptions(options, candidate_ids,
+                                               record_set);
 }
 
 template <typename Node>
-tensorflow::Status RDBMSMetadataAccessObject::ListNodes(
+absl::Status RDBMSMetadataAccessObject::ListNodes(
     const ListOperationOptions& options,
     absl::optional<absl::Span<const int64>> candidate_ids,
     std::vector<Node>* nodes, std::string* next_page_token) {
   if (options.max_result_size() <= 0) {
-    return tensorflow::errors::InvalidArgument(
+    return absl::InvalidArgumentError(
         absl::StrCat("max_result_size field value is required to be greater "
                      "than 0 and less than or equal to 100. Set value:",
                      options.max_result_size()));
   }
   if (!nodes->empty()) {
-    return tensorflow::errors::InvalidArgument("nodes argument is not empty");
+    return absl::InvalidArgumentError("nodes argument is not empty");
   }
 
   // Retrieving page of size 1 greater that max_result_size to detect if this
@@ -1578,11 +1563,11 @@ tensorflow::Status RDBMSMetadataAccessObject::ListNodes(
   updated_options.set_max_result_size(options.max_result_size() + 1);
   // Retrieve ids based on the list options
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(
+  MLMD_RETURN_IF_ERROR(
       ListNodeIds<Node>(updated_options, candidate_ids, &record_set));
   const std::vector<int64> ids = ConvertToIds(record_set);
   if (ids.empty()) {
-    return tensorflow::Status::OK();
+    return absl::OkStatus();
   }
 
   // Map node ids to positions
@@ -1592,7 +1577,7 @@ tensorflow::Status RDBMSMetadataAccessObject::ListNodes(
   }
 
   // Retrieve nodes
-  TF_RETURN_IF_ERROR(FindNodesImpl(ids, /*skipped_ids_ok=*/false, *nodes));
+  MLMD_RETURN_IF_ERROR(FindNodesImpl(ids, /*skipped_ids_ok=*/false, *nodes));
 
   // Sort nodes in the right order
   absl::c_sort(*nodes, [&](const Node& a, const Node& b) {
@@ -1602,139 +1587,133 @@ tensorflow::Status RDBMSMetadataAccessObject::ListNodes(
   if (nodes->size() > options.max_result_size()) {
     // Removing the extra node retrieved for last page detection.
     nodes->pop_back();
-    TF_RETURN_IF_ERROR(FromABSLStatus(BuildListOperationNextPageToken<Node>(
-        *nodes, options, next_page_token)));
+    MLMD_RETURN_IF_ERROR(BuildListOperationNextPageToken<Node>(
+        *nodes, options, next_page_token));
   } else {
     *next_page_token = "";
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::ListArtifacts(
+absl::Status RDBMSMetadataAccessObject::ListArtifacts(
     const ListOperationOptions& options, std::vector<Artifact>* artifacts,
     std::string* next_page_token) {
   return ListNodes<Artifact>(options, absl::nullopt, artifacts,
                              next_page_token);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::ListExecutions(
+absl::Status RDBMSMetadataAccessObject::ListExecutions(
     const ListOperationOptions& options, std::vector<Execution>* executions,
     std::string* next_page_token) {
   return ListNodes<Execution>(options, absl::nullopt, executions,
                               next_page_token);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::ListContexts(
+absl::Status RDBMSMetadataAccessObject::ListContexts(
     const ListOperationOptions& options, std::vector<Context>* contexts,
     std::string* next_page_token) {
   return ListNodes<Context>(options, absl::nullopt, contexts, next_page_token);
 }
 
-tensorflow::Status
-RDBMSMetadataAccessObject::FindArtifactByTypeIdAndArtifactName(
+absl::Status RDBMSMetadataAccessObject::FindArtifactByTypeIdAndArtifactName(
     const int64 type_id, const absl::string_view name, Artifact* artifact) {
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(
-      FromABSLStatus(executor_->SelectArtifactByTypeIDAndArtifactName(
-          type_id, name, &record_set)));
+  MLMD_RETURN_IF_ERROR(executor_->SelectArtifactByTypeIDAndArtifactName(
+      type_id, name, &record_set));
   const std::vector<int64> ids = ConvertToIds(record_set);
   if (ids.empty()) {
-    return tensorflow::errors::NotFound(absl::StrCat(
+    return absl::NotFoundError(absl::StrCat(
         "No artifacts found for type_id:", type_id, ", name:", name));
   }
   std::vector<Artifact> artifacts;
-  TF_RETURN_IF_ERROR(FindNodesImpl(ids, /*skipped_ids_ok=*/false, artifacts));
+  MLMD_RETURN_IF_ERROR(FindNodesImpl(ids, /*skipped_ids_ok=*/false, artifacts));
   // By design, a <type_id, name> pair uniquely identifies an artifact.
   // Fails if multiple artifacts are found.
   CHECK_EQ(artifacts.size(), 1)
       << absl::StrCat("Found more than one artifact with type_id: ", type_id,
                       " and artifact name: ", name);
   *artifact = artifacts[0];
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindArtifactsByTypeId(
+absl::Status RDBMSMetadataAccessObject::FindArtifactsByTypeId(
     const int64 type_id, std::vector<Artifact>* artifacts) {
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(
-      FromABSLStatus(executor_->SelectArtifactsByTypeID(type_id, &record_set)));
+  MLMD_RETURN_IF_ERROR(
+      executor_->SelectArtifactsByTypeID(type_id, &record_set));
   const std::vector<int64> ids = ConvertToIds(record_set);
   if (ids.empty()) {
-    return tensorflow::errors::NotFound(
+    return absl::NotFoundError(
         absl::StrCat("No artifacts found for type_id:", type_id));
   }
   return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *artifacts);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindExecutions(
+absl::Status RDBMSMetadataAccessObject::FindExecutions(
     std::vector<Execution>* executions) {
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(
-      FromABSLStatus(executor_->SelectAllExecutionIDs(&record_set)));
+  MLMD_RETURN_IF_ERROR(executor_->SelectAllExecutionIDs(&record_set));
   const std::vector<int64> ids = ConvertToIds(record_set);
   if (ids.empty()) {
-    return tensorflow::Status::OK();
+    return absl::OkStatus();
   }
   return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *executions);
 }
 
-tensorflow::Status
-RDBMSMetadataAccessObject::FindExecutionByTypeIdAndExecutionName(
+absl::Status RDBMSMetadataAccessObject::FindExecutionByTypeIdAndExecutionName(
     const int64 type_id, const absl::string_view name, Execution* execution) {
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(
-      FromABSLStatus(executor_->SelectExecutionByTypeIDAndExecutionName(
-          type_id, name, &record_set)));
+  MLMD_RETURN_IF_ERROR(executor_->SelectExecutionByTypeIDAndExecutionName(
+      type_id, name, &record_set));
   const std::vector<int64> ids = ConvertToIds(record_set);
   if (ids.empty()) {
-    return tensorflow::errors::NotFound(absl::StrCat(
+    return absl::NotFoundError(absl::StrCat(
         "No executions found for type_id:", type_id, ", name:", name));
   }
   std::vector<Execution> executions;
-  TF_RETURN_IF_ERROR(FindNodesImpl(ids, /*skipped_ids_ok=*/false, executions));
+  MLMD_RETURN_IF_ERROR(
+      FindNodesImpl(ids, /*skipped_ids_ok=*/false, executions));
   // By design, a <type_id, name> pair uniquely identifies an execution.
   // Fails if multiple executions are found.
   CHECK_EQ(executions.size(), 1)
       << absl::StrCat("Found more than one execution with type_id: ", type_id,
                       " and execution name: ", name);
   *execution = executions[0];
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindExecutionsByTypeId(
+absl::Status RDBMSMetadataAccessObject::FindExecutionsByTypeId(
     const int64 type_id, std::vector<Execution>* executions) {
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(FromABSLStatus(
-      executor_->SelectExecutionsByTypeID(type_id, &record_set)));
+  MLMD_RETURN_IF_ERROR(
+      executor_->SelectExecutionsByTypeID(type_id, &record_set));
   const std::vector<int64> ids = ConvertToIds(record_set);
   if (ids.empty()) {
-    return tensorflow::errors::NotFound(
+    return absl::NotFoundError(
         absl::StrCat("No executions found for type_id:", type_id));
   }
   return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *executions);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindContexts(
+absl::Status RDBMSMetadataAccessObject::FindContexts(
     std::vector<Context>* contexts) {
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(
-      FromABSLStatus(executor_->SelectAllContextIDs(&record_set)));
+  MLMD_RETURN_IF_ERROR(executor_->SelectAllContextIDs(&record_set));
   const std::vector<int64> ids = ConvertToIds(record_set);
   if (ids.empty()) {
-    return tensorflow::Status::OK();
+    return absl::OkStatus();
   }
   return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *contexts);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindContextsByTypeId(
+absl::Status RDBMSMetadataAccessObject::FindContextsByTypeId(
     const int64 type_id, absl::optional<ListOperationOptions> list_options,
     std::vector<Context>* contexts, std::string* next_page_token) {
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(
-      FromABSLStatus(executor_->SelectContextsByTypeID(type_id, &record_set)));
+  MLMD_RETURN_IF_ERROR(executor_->SelectContextsByTypeID(type_id, &record_set));
   const std::vector<int64> ids = ConvertToIds(record_set);
   if (ids.empty()) {
-    return tensorflow::errors::NotFound(
+    return absl::NotFoundError(
         absl::StrCat("No contexts found with type_id: ", type_id));
   }
 
@@ -1746,39 +1725,37 @@ tensorflow::Status RDBMSMetadataAccessObject::FindContextsByTypeId(
   }
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindArtifactsByURI(
+absl::Status RDBMSMetadataAccessObject::FindArtifactsByURI(
     const absl::string_view uri, std::vector<Artifact>* artifacts) {
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(
-      FromABSLStatus(executor_->SelectArtifactsByURI(uri, &record_set)));
+  MLMD_RETURN_IF_ERROR(executor_->SelectArtifactsByURI(uri, &record_set));
   const std::vector<int64> ids = ConvertToIds(record_set);
   if (ids.empty()) {
-    return tensorflow::errors::NotFound(
+    return absl::NotFoundError(
         absl::StrCat("No artifacts found for uri:", uri));
   }
   return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *artifacts);
 }
 
-tensorflow::Status RDBMSMetadataAccessObject::FindContextByTypeIdAndContextName(
+absl::Status RDBMSMetadataAccessObject::FindContextByTypeIdAndContextName(
     int64 type_id, absl::string_view name, Context* context) {
   RecordSet record_set;
-  TF_RETURN_IF_ERROR(
-      FromABSLStatus(executor_->SelectContextByTypeIDAndContextName(
-          type_id, name, &record_set)));
+  MLMD_RETURN_IF_ERROR(executor_->SelectContextByTypeIDAndContextName(
+      type_id, name, &record_set));
   const std::vector<int64> ids = ConvertToIds(record_set);
   if (ids.empty()) {
-    return tensorflow::errors::NotFound(absl::StrCat(
+    return absl::NotFoundError(absl::StrCat(
         "No contexts found with type_id: ", type_id, ", name: ", name));
   }
   std::vector<Context> contexts;
-  TF_RETURN_IF_ERROR(FindNodesImpl(ids, /*skipped_ids_ok=*/false, contexts));
+  MLMD_RETURN_IF_ERROR(FindNodesImpl(ids, /*skipped_ids_ok=*/false, contexts));
   // By design, a <type_id, name> pair uniquely identifies a context.
   // Fails if multiple contexts are found.
   CHECK_EQ(contexts.size(), 1)
       << absl::StrCat("Found more than one contexts with type_id: ", type_id,
                       " and context name: ", name);
   *context = contexts[0];
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 

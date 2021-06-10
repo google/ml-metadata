@@ -16,28 +16,27 @@ limitations under the License.
 #include "ml_metadata/metadata_store/transaction_executor.h"
 
 #include "absl/status/status.h"
-#include "ml_metadata/util/status_utils.h"
-#include "tensorflow/core/lib/core/errors.h"
+#include "ml_metadata/util/return_utils.h"
 
 namespace ml_metadata {
 
-tensorflow::Status RdbmsTransactionExecutor::Execute(
-    const std::function<tensorflow::Status()>& txn_body) const {
+absl::Status RdbmsTransactionExecutor::Execute(
+    const std::function<absl::Status()>& txn_body) const {
   if (metadata_source_ == nullptr || !metadata_source_->is_connected()) {
-    return tensorflow::errors::FailedPrecondition(
+    return absl::FailedPreconditionError(
         "To use ExecuteTransaction, the metadata_source should be created and "
         "connected");
   }
 
-  TF_RETURN_IF_ERROR(FromABSLStatus(metadata_source_->Begin()));
+  MLMD_RETURN_IF_ERROR(metadata_source_->Begin());
 
-  tensorflow::Status transaction_status = txn_body();
+  absl::Status transaction_status = txn_body();
   if (transaction_status.ok()) {
-    transaction_status.Update(FromABSLStatus(metadata_source_->Commit()));
+    transaction_status.Update(metadata_source_->Commit());
   }
   // Commit may fail as well, if so, we do rollback to allow the caller retry.
   if (!transaction_status.ok()) {
-    transaction_status.Update(FromABSLStatus(metadata_source_->Rollback()));
+    transaction_status.Update(metadata_source_->Rollback());
   }
   return transaction_status;
 }
