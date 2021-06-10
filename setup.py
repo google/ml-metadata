@@ -151,7 +151,7 @@ setup(
         'absl-py>=0.9,<0.13',
         'attrs>=20.3,<21',
         'grpcio>=1.8.6,<2',
-        'protobuf>=3.7,<4',
+        'protobuf>=3.13,<4',
         'six>=1.10,<2',
     ],
     python_requires='>=3.6,<4',
