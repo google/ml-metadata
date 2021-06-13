@@ -25,7 +25,7 @@ namespace {
 // A set of common template queries used by the MetadataAccessObject for SQLite
 // based MetadataSource.
 constexpr char kBaseQueryConfig[] = R"pb(
-  schema_version: 4
+  schema_version: 6
   drop_type_table { query: " DROP TABLE IF EXISTS `Type`; " }
   create_type_table {
     query: " CREATE TABLE IF NOT EXISTS `Type` ( "
