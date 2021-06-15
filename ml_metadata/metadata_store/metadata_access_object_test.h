@@ -72,9 +72,6 @@ class MetadataAccessObjectContainer {
   // Tests if there is filter query support.
   virtual bool HasFilterQuerySupport() { return false; }
 
-  // Tests if there is parent type query support.
-  virtual bool HasParentTypeSupport() { return false;}
-
   // Initializes the previous version of the database for downgrade.
   virtual absl::Status SetupPreviousVersionForDowngrade(int64 version) = 0;
 
@@ -136,8 +133,6 @@ class QueryConfigMetadataAccessObjectContainer
   bool HasDowngradeVerification(int64 version) final;
 
   bool HasFilterQuerySupport() final { return true; }
-
-  bool HasParentTypeSupport() final { return true;}
 
   absl::Status SetupPreviousVersionForDowngrade(int64 version) final;
 

@@ -455,9 +455,6 @@ TEST_P(MetadataAccessObjectTest,
 }
 
 TEST_P(MetadataAccessObjectTest, CreateParentTypeInheritanceLink) {
-  if (!metadata_access_object_container_->HasParentTypeSupport()) {
-    return;
-  }
   ASSERT_EQ(absl::OkStatus(), Init());
 
   {
@@ -511,9 +508,6 @@ TEST_P(MetadataAccessObjectTest, CreateParentTypeInheritanceLink) {
 
 TEST_P(MetadataAccessObjectTest,
        CreateParentTypeInheritanceLinkInvalidTypeIdError) {
-  if (!metadata_access_object_container_->HasParentTypeSupport()) {
-    return;
-  }
   ASSERT_EQ(absl::OkStatus(), Init());
   const ArtifactType stored_type1 = CreateTypeFromTextProto<ArtifactType>(
       "name: 't1'", *metadata_access_object_);
@@ -542,9 +536,6 @@ TEST_P(MetadataAccessObjectTest,
 }
 
 TEST_P(MetadataAccessObjectTest, CreateParentTypeInheritanceLinkWithCycle) {
-  if (!metadata_access_object_container_->HasParentTypeSupport()) {
-    return;
-  }
   ASSERT_EQ(absl::OkStatus(), Init());
   const ArtifactType type1 = CreateTypeFromTextProto<ArtifactType>(
       "name: 't1'", *metadata_access_object_);
@@ -604,9 +595,6 @@ TEST_P(MetadataAccessObjectTest, CreateParentTypeInheritanceLinkWithCycle) {
 }
 
 TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeId) {
-  if (!metadata_access_object_container_->HasParentTypeSupport()) {
-    return;
-  }
   ASSERT_EQ(absl::OkStatus(), Init());
   // Setup: init the store with the following types and inheritance links
   // ArtifactType:  type1 -> type2
@@ -729,9 +717,6 @@ TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeId) {
 }
 
 TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeIdError) {
-  if (!metadata_access_object_container_->HasParentTypeSupport()) {
-    return;
-  }
   ASSERT_EQ(absl::OkStatus(), Init());
   const int64 stored_artifact_type_id = InsertType<ArtifactType>("t1");
   const int64 stored_execution_type_id = InsertType<ExecutionType>("t1");
