@@ -29,4 +29,14 @@ tensorflow::Status FromABSLStatus(const absl::Status& s) {
                             s.message());
 }
 
+absl::Status ToABSLStatus(const tensorflow::Status& s) {
+  if (s.ok()) {
+    return absl::OkStatus();
+  }
+  // The string types may differ between std::string and ::string, so do an
+  // explicit conversion.
+  return absl::Status(static_cast<absl::StatusCode>(s.code()),
+                      s.error_message());
+}
+
 }  // namespace ml_metadata

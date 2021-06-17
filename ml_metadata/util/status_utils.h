@@ -23,6 +23,9 @@ namespace ml_metadata {
 // Transforms an absl status to its tensorflow status form and returns it.
 tensorflow::Status FromABSLStatus(const absl::Status& s);
 
+// Transforms an tensorflow status to its absl status form and returns it.
+absl::Status ToABSLStatus(const tensorflow::Status& s);
+
 }  // namespace ml_metadata
 
 #endif  // THIRD_PARTY_ML_METADATA_UTIL_STATUS_UTILS_H_

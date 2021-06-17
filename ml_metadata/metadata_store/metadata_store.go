@@ -37,8 +37,8 @@ type Store struct {
 
 // NewStore creates Store instance given a connection config.
 func NewStore(config *mdpb.ConnectionConfig) (*Store, error) {
-	status := wrap.NewStatus()
-	defer wrap.DeleteStatus(status)
+	status := wrap.CreateABSLStatus()
+	defer wrap.DestroyABSLStatus(status)
 
 	b, err := proto.Marshal(config)
 	if err != nil {
@@ -46,8 +46,8 @@ func NewStore(config *mdpb.ConnectionConfig) (*Store, error) {
 		return nil, err
 	}
 	s := wrap.CreateMetadataStore(string(b), status)
-	if !status.Ok() {
-		return nil, errors.New(status.Error_message())
+	if !wrap.IsOk(status) {
+		return nil, errors.New(wrap.ErrorMessage(status))
 	}
 	return &Store{s}, nil
 }
@@ -613,22 +613,22 @@ func (store *Store) GetContextByTypeAndName(typeName string, contextName string)
 	return resp.GetContext(), err
 }
 
-type metadataStoreMethod func(wrap.Ml_metadata_MetadataStore, string, wrap.Status) string
+type metadataStoreMethod func(wrap.Ml_metadata_MetadataStore, string, wrap.Absl_Status) string
 
 // callMetadataStoreWrapMethod calls a `metadataStoreMethod` in cc library.
 // It returns an error if the cc library method returns non-ok status, or `req`,
 // `resp` proto message cannot be serialized/parsed correctly.
 func (store *Store) callMetadataStoreWrapMethod(fn metadataStoreMethod, req proto.Message, resp proto.Message) error {
-	status := wrap.NewStatus()
-	defer wrap.DeleteStatus(status)
+	status := wrap.CreateABSLStatus()
+	defer wrap.DestroyABSLStatus(status)
 
 	b, err := proto.Marshal(req)
 	if err != nil {
 		return err
 	}
 	wrt := fn(store.ptr, string(b), status)
-	if !status.Ok() {
-		return errors.New(status.Error_message())
+	if !wrap.IsOk(status) {
+		return errors.New(wrap.ErrorMessage(status))
 	}
 	err = proto.Unmarshal(([]byte)(wrt), resp)
 	if err != nil {
