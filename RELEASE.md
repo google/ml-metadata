@@ -5,6 +5,9 @@
 *   Introduced `skip_db_creation` for MySQL backend. It is useful when db
     creation is handled by an admin process, while the lib users should not
     issue db creation clauses.
+*   Adds utils in shared C++ lib to delete Contexts, Artifacts, Executions, and
+    their corresponding edges (e.g., Associations, Attributions,
+    ParentContexts).
 
 ## Bug Fixes and Other Changes
 

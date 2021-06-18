@@ -518,6 +518,37 @@ class QueryConfigExecutor : public QueryExecutor {
       RecordSet* record_set) final;
 
 
+  absl::Status DeleteArtifactsById(absl::Span<const int64> artifact_ids) final;
+
+  absl::Status DeleteContextsById(absl::Span<const int64> context_ids) final;
+
+  absl::Status DeleteExecutionsById(
+      absl::Span<const int64> execution_ids) final;
+
+  absl::Status DeleteEventsByArtifactsId(
+      const absl::Span<const int64> artifact_ids) final;
+
+  absl::Status DeleteEventsByExecutionsId(
+      const absl::Span<const int64> execution_ids) final;
+
+  absl::Status DeleteAssociationsByContextsId(
+      const absl::Span<const int64> context_ids) final;
+
+  absl::Status DeleteAssociationsByExecutionsId(
+      const absl::Span<const int64> execution_ids) final;
+
+  absl::Status DeleteAttributionsByContextsId(
+      const absl::Span<const int64> context_ids) final;
+
+  absl::Status DeleteAttributionsByArtifactsId(
+      const absl::Span<const int64> artifact_ids) final;
+
+  absl::Status DeleteParentContextsByParentIds(
+      const absl::Span<const int64> parent_context_ids) final;
+
+  absl::Status DeleteParentContextsByChildIds(
+      const absl::Span<const int64> child_context_ids) final;
+
  private:
   // Utility method to bind an nullable value.
   template <typename T>

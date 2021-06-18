@@ -231,6 +231,14 @@ R"pb(
            " WHERE `artifact_id` = $0 and `name` = $1;"
     parameter_num: 2
   }
+  delete_artifacts_by_id {
+    query: "DELETE FROM `Artifact` WHERE `id` IN ($0); "
+    parameter_num: 1
+  }
+  delete_artifacts_properties_by_artifacts_id {
+    query: "DELETE FROM `ArtifactProperty` WHERE `artifact_id` IN ($0); "
+    parameter_num: 1
+  }
 )pb",
 R"pb(
   drop_execution_table { query: " DROP TABLE IF EXISTS `Execution`; " }
@@ -321,6 +329,14 @@ R"pb(
     query: " DELETE FROM `ExecutionProperty` "
            " WHERE `execution_id` = $0 and `name` = $1;"
     parameter_num: 2
+  }
+  delete_executions_by_id {
+    query: "DELETE FROM `Execution` WHERE `id` IN ($0); "
+    parameter_num: 1
+  }
+  delete_executions_properties_by_executions_id {
+    query: "DELETE FROM `ExecutionProperty` WHERE `execution_id` IN ($0); "
+    parameter_num: 1
   }
 )pb",
 R"pb(
@@ -438,6 +454,22 @@ R"pb(
            " WHERE `parent_context_id` = $0; "
     parameter_num: 1
   }
+  delete_contexts_by_id {
+    query: "DELETE FROM `Context` WHERE `id` IN ($0); "
+    parameter_num: 1
+  }
+  delete_contexts_properties_by_contexts_id {
+    query: "DELETE FROM `ContextProperty` WHERE `context_id` IN ($0); "
+    parameter_num: 1
+  }
+  delete_parent_contexts_by_parent_ids {
+    query: "DELETE FROM `ParentContext` WHERE `parent_context_id` IN ($0); "
+    parameter_num: 1
+  }
+  delete_parent_contexts_by_child_ids {
+    query: "DELETE FROM `ParentContext` WHERE `context_id` IN ($0); "
+    parameter_num: 1
+  }
 )pb",
 R"pb(
   drop_event_table { query: " DROP TABLE IF EXISTS `Event`; " }
@@ -500,6 +532,18 @@ R"pb(
            " from `EventPath` "
            " WHERE `event_id` IN ($0); "
     parameter_num: 1
+  }
+  delete_events_by_artifacts_id {
+    query: "DELETE FROM `Event` WHERE `artifact_id` IN ($0); "
+    parameter_num: 1
+  }
+  delete_events_by_executions_id {
+    query: "DELETE FROM `Event` WHERE `execution_id` IN ($0); "
+    parameter_num: 1
+  }
+  delete_event_paths {
+    query: "DELETE FROM `EventPath` WHERE `event_id` NOT IN "
+           " (SELECT `id` FROM `Event`); "
   }
 )pb",
 R"pb(
@@ -584,6 +628,22 @@ R"pb(
     query: " SELECT `Type`.`is_artifact_type` from "
            " `Artifact`, `Event`, `Execution`, `Type`, `ArtifactProperty`, "
            " `EventPath`, `ExecutionProperty`, `TypeProperty` LIMIT 1; "
+  }
+  delete_associations_by_contexts_id {
+    query: "DELETE FROM `Association` WHERE `context_id` IN ($0); "
+    parameter_num: 1
+  }
+  delete_associations_by_executions_id {
+    query: "DELETE FROM `Association` WHERE `execution_id` IN ($0); "
+    parameter_num: 1
+  }
+  delete_attributions_by_contexts_id {
+    query: "DELETE FROM `Attribution` WHERE `context_id` IN ($0); "
+    parameter_num: 1
+  }
+  delete_attributions_by_artifacts_id {
+    query: "DELETE FROM `Attribution` WHERE `artifact_id` IN ($0); "
+    parameter_num: 1
   }
 )pb");
 

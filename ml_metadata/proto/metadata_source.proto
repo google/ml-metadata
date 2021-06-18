@@ -47,7 +47,7 @@ enum MetadataSourceType {
 
 // A config includes a set of SQL queries and the type of metadata source.
 // It is used by MetadataAccessObject to init backend and issue queries.
-// Next ID: 112
+// Next ID: 127
 message MetadataSourceQueryConfig {
   // the type of the metadata source
   MetadataSourceType metadata_source_type = 1;
@@ -586,4 +586,64 @@ message MetadataSourceQueryConfig {
   // When a migration procedure wants to upgrade to sv_i, it looks for the
   // MigrationScheme with sv_i as map key.
   map<int64, MigrationScheme> migration_schemes = 62;
+
+  // Deletes contexts by id.
+  // $0 are the context ids.
+  TemplateQuery delete_contexts_by_id = 112;
+
+  // Deletes contexts properties by contexts ids.
+  // $0 are the context ids.
+  TemplateQuery delete_contexts_properties_by_contexts_id = 113;
+
+  // Delete parent contexts by parent context ids.
+  // $0 are the parent context ids.
+  TemplateQuery delete_parent_contexts_by_parent_ids = 114;
+
+  // Delete parent contexts by child context ids.
+  // $0 are the child context ids.
+  TemplateQuery delete_parent_contexts_by_child_ids = 115;
+
+  // Deletes artifacts by id.
+  // $0 are the artifact ids.
+  TemplateQuery delete_artifacts_by_id = 116;
+
+  // Deletes artifacts properties by artifacts ids.
+  // $0 are the artifact ids.
+  TemplateQuery delete_artifacts_properties_by_artifacts_id = 117;
+
+  // Deletes executions by id.
+  // $0 are the execution ids.
+  TemplateQuery delete_executions_by_id = 118;
+
+  // Deletes executions properties by executions ids.
+  // $0 are the execution ids.
+  TemplateQuery delete_executions_properties_by_executions_id = 119;
+
+  // Delete events by artifact ids.
+  // $0 are the artifact ids.
+  TemplateQuery delete_events_by_artifacts_id = 120;
+
+  // Delete events by execution ids.
+  // $0 are the execution ids.
+  TemplateQuery delete_events_by_executions_id = 121;
+
+  // Delete associations by context ids.
+  // $0 are the context ids.
+  TemplateQuery delete_associations_by_contexts_id = 122;
+
+  // Delete associations by execution ids.
+  // $0 are the context ids.
+  TemplateQuery delete_associations_by_executions_id = 123;
+
+  // Delete attributions by context ids.
+  // $0 are the context ids.
+  TemplateQuery delete_attributions_by_contexts_id = 124;
+
+  // Delete attributions by artifact ids.
+  // $0 are the artifact ids.
+  TemplateQuery delete_attributions_by_artifacts_id = 125;
+
+  // Delete event paths. This query cleans up event paths where
+  // the events do not exist.
+  TemplateQuery delete_event_paths = 126;
 }

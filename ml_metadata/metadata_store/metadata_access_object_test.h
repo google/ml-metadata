@@ -66,6 +66,9 @@ class MetadataAccessObjectContainer {
   // Tests if there is upgrade verification.
   virtual bool HasUpgradeVerification(int64 version) = 0;
 
+  // Tests if there is deletion support.
+  virtual bool HasDeletionSupport() { return false; }
+
   // Tests if there is upgrade verification.
   virtual bool HasDowngradeVerification(int64 version) = 0;
 
@@ -131,6 +134,8 @@ class QueryConfigMetadataAccessObjectContainer
   bool HasUpgradeVerification(int64 version) final;
 
   bool HasDowngradeVerification(int64 version) final;
+
+  bool HasDeletionSupport() final { return true; }
 
   bool HasFilterQuerySupport() final { return true; }
 

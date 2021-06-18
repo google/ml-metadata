@@ -645,4 +645,98 @@ absl::Status QueryConfigExecutor::ListContextIDsUsingOptions(
 }
 
 
+absl::Status QueryConfigExecutor::DeleteExecutionsById(
+    const absl::Span<const int64> execution_ids) {
+  MLMD_RETURN_IF_ERROR(ExecuteQuery(query_config_.delete_executions_by_id(),
+                                    {Bind(execution_ids)}));
+  MLMD_RETURN_IF_ERROR(ExecuteQuery(
+      query_config_.delete_executions_properties_by_executions_id(),
+      {Bind(execution_ids)}));
+  return absl::OkStatus();
+}
+
+absl::Status QueryConfigExecutor::DeleteArtifactsById(
+    const absl::Span<const int64> artifact_ids) {
+  MLMD_RETURN_IF_ERROR(ExecuteQuery(query_config_.delete_artifacts_by_id(),
+                                    {Bind(artifact_ids)}));
+  MLMD_RETURN_IF_ERROR(
+      ExecuteQuery(query_config_.delete_artifacts_properties_by_artifacts_id(),
+                   {Bind(artifact_ids)}));
+  return absl::OkStatus();
+}
+
+absl::Status QueryConfigExecutor::DeleteContextsById(
+    const absl::Span<const int64> context_ids) {
+  MLMD_RETURN_IF_ERROR(
+      ExecuteQuery(query_config_.delete_contexts_by_id(), {Bind(context_ids)}));
+  MLMD_RETURN_IF_ERROR(
+      ExecuteQuery(query_config_.delete_contexts_properties_by_contexts_id(),
+                   {Bind(context_ids)}));
+  return absl::OkStatus();
+}
+
+absl::Status QueryConfigExecutor::DeleteEventsByArtifactsId(
+    const absl::Span<const int64> artifact_ids) {
+  MLMD_RETURN_IF_ERROR(ExecuteQuery(
+      query_config_.delete_events_by_artifacts_id(), {Bind(artifact_ids)}));
+  MLMD_RETURN_IF_ERROR(ExecuteQuery(query_config_.delete_event_paths()));
+  return absl::OkStatus();
+}
+
+absl::Status QueryConfigExecutor::DeleteEventsByExecutionsId(
+    const absl::Span<const int64> execution_ids) {
+  MLMD_RETURN_IF_ERROR(ExecuteQuery(
+      query_config_.delete_events_by_executions_id(), {Bind(execution_ids)}));
+  MLMD_RETURN_IF_ERROR(ExecuteQuery(query_config_.delete_event_paths()));
+  return absl::OkStatus();
+}
+
+absl::Status QueryConfigExecutor::DeleteAttributionsByContextsId(
+    const absl::Span<const int64> context_ids) {
+  MLMD_RETURN_IF_ERROR(ExecuteQuery(
+      query_config_.delete_attributions_by_contexts_id(), {Bind(context_ids)}));
+  return absl::OkStatus();
+}
+
+absl::Status QueryConfigExecutor::DeleteAttributionsByArtifactsId(
+    const absl::Span<const int64> artifact_ids) {
+  MLMD_RETURN_IF_ERROR(
+      ExecuteQuery(query_config_.delete_attributions_by_artifacts_id(),
+                   {Bind(artifact_ids)}));
+  return absl::OkStatus();
+}
+
+absl::Status QueryConfigExecutor::DeleteAssociationsByContextsId(
+    const absl::Span<const int64> context_ids) {
+  MLMD_RETURN_IF_ERROR(
+      ExecuteQuery(query_config_.delete_associations_by_contexts_id(),
+                   {Bind(context_ids)}));
+  return absl::OkStatus();
+}
+
+absl::Status QueryConfigExecutor::DeleteAssociationsByExecutionsId(
+    const absl::Span<const int64> execution_ids) {
+  MLMD_RETURN_IF_ERROR(
+      ExecuteQuery(query_config_.delete_associations_by_executions_id(),
+                   {Bind(execution_ids)}));
+  return absl::OkStatus();
+}
+
+absl::Status QueryConfigExecutor::DeleteParentContextsByParentIds(
+    const absl::Span<const int64> parent_context_ids) {
+  MLMD_RETURN_IF_ERROR(
+      ExecuteQuery(query_config_.delete_parent_contexts_by_parent_ids(),
+                   {Bind(parent_context_ids)}));
+  return absl::OkStatus();
+}
+
+absl::Status QueryConfigExecutor::DeleteParentContextsByChildIds(
+    const absl::Span<const int64> child_context_ids) {
+  MLMD_RETURN_IF_ERROR(
+      ExecuteQuery(query_config_.delete_parent_contexts_by_child_ids(),
+                   {Bind(child_context_ids)}));
+  return absl::OkStatus();
+}
+
+
 }  // namespace ml_metadata

@@ -1759,4 +1759,92 @@ absl::Status RDBMSMetadataAccessObject::FindContextByTypeIdAndContextName(
 }
 
 
+absl::Status RDBMSMetadataAccessObject::DeleteArtifactsById(
+    absl::Span<const int64> artifact_ids) {
+  if (artifact_ids.empty()) {
+    return absl::OkStatus();
+  }
+  return executor_->DeleteArtifactsById(artifact_ids);
+}
+
+absl::Status RDBMSMetadataAccessObject::DeleteExecutionsById(
+    absl::Span<const int64> execution_ids) {
+  if (execution_ids.empty()) {
+    return absl::OkStatus();
+  }
+  return executor_->DeleteExecutionsById(execution_ids);
+}
+
+absl::Status RDBMSMetadataAccessObject::DeleteContextsById(
+    absl::Span<const int64> context_ids) {
+  if (context_ids.empty()) {
+    return absl::OkStatus();
+  }
+  return executor_->DeleteContextsById(context_ids);
+}
+
+absl::Status RDBMSMetadataAccessObject::DeleteEventsByArtifactsId(
+    absl::Span<const int64> artifact_ids) {
+  if (artifact_ids.empty()) {
+    return absl::OkStatus();
+  }
+  return executor_->DeleteEventsByArtifactsId(artifact_ids);
+}
+
+absl::Status RDBMSMetadataAccessObject::DeleteEventsByExecutionsId(
+    absl::Span<const int64> execution_ids) {
+  if (execution_ids.empty()) {
+    return absl::OkStatus();
+  }
+  return executor_->DeleteEventsByExecutionsId(execution_ids);
+}
+
+absl::Status RDBMSMetadataAccessObject::DeleteAssociationsByContextsId(
+    absl::Span<const int64> context_ids) {
+  if (context_ids.empty()) {
+    return absl::OkStatus();
+  }
+  return executor_->DeleteAssociationsByContextsId(context_ids);
+}
+
+absl::Status RDBMSMetadataAccessObject::DeleteAssociationsByExecutionsId(
+    absl::Span<const int64> execution_ids) {
+  if (execution_ids.empty()) {
+    return absl::OkStatus();
+  }
+  return executor_->DeleteAssociationsByExecutionsId(execution_ids);
+}
+
+absl::Status RDBMSMetadataAccessObject::DeleteAttributionsByContextsId(
+    absl::Span<const int64> context_ids) {
+  if (context_ids.empty()) {
+    return absl::OkStatus();
+  }
+  return executor_->DeleteAttributionsByContextsId(context_ids);
+}
+
+absl::Status RDBMSMetadataAccessObject::DeleteAttributionsByArtifactsId(
+    absl::Span<const int64> artifact_ids) {
+  if (artifact_ids.empty()) {
+    return absl::OkStatus();
+  }
+  return executor_->DeleteAttributionsByArtifactsId(artifact_ids);
+}
+
+absl::Status RDBMSMetadataAccessObject::DeleteParentContextsByParentIds(
+    absl::Span<const int64> parent_context_ids) {
+  if (parent_context_ids.empty()) {
+    return absl::OkStatus();
+  }
+  return executor_->DeleteParentContextsByParentIds(parent_context_ids);
+}
+
+absl::Status RDBMSMetadataAccessObject::DeleteParentContextsByChildIds(
+    absl::Span<const int64> child_context_ids) {
+  if (child_context_ids.empty()) {
+    return absl::OkStatus();
+  }
+  return executor_->DeleteParentContextsByChildIds(child_context_ids);
+}
+
 }  // namespace ml_metadata

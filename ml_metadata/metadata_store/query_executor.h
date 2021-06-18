@@ -553,6 +553,61 @@ class QueryExecutor {
       RecordSet* record_set) = 0;
 
 
+  // Deletes a list of artifacts by id.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteArtifactsById(
+      absl::Span<const int64> artifact_ids) = 0;
+
+  // Deletes a list of contexts by id.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteContextsById(
+      absl::Span<const int64> context_ids) = 0;
+
+  // Deletes a list of executions by id.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteExecutionsById(
+      absl::Span<const int64> execution_ids) = 0;
+
+  // Deletes the events corresponding to the |artifact_ids|.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteEventsByArtifactsId(
+      const absl::Span<const int64> artifact_ids) = 0;
+
+  // Deletes the events corresponding to the |execution_ids|.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteEventsByExecutionsId(
+      const absl::Span<const int64> execution_ids) = 0;
+
+  // Deletes the associations corresponding to the |context_ids|.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteAssociationsByContextsId(
+      const absl::Span<const int64> context_ids) = 0;
+
+  // Deletes the associations corresponding to the |execution_ids|.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteAssociationsByExecutionsId(
+      const absl::Span<const int64> execution_ids) = 0;
+
+  // Deletes the attributions corresponding to the |context_ids|.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteAttributionsByContextsId(
+      const absl::Span<const int64> context_ids) = 0;
+
+  // Deletes the attributions corresponding to the |artifact_ids|.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteAttributionsByArtifactsId(
+      const absl::Span<const int64> artifact_ids) = 0;
+
+  // Deletes the parent contexts corresponding to the |parent_context_ids|.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteParentContextsByParentIds(
+      const absl::Span<const int64> parent_context_ids) = 0;
+
+  // Deletes the parent contexts corresponding to the |child_context_ids|.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteParentContextsByChildIds(
+      const absl::Span<const int64> child_context_ids) = 0;
+
  protected:
   // Uses the method to document the min schema version of an API explicitly.
   // Returns FailedPrecondition, if the |query_schema_version_| is less than the

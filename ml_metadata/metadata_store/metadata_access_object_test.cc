@@ -1669,6 +1669,478 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsInvalidPageSize) {
 }
 
 
+TEST_P(MetadataAccessObjectTest, DeleteArtifactsById) {
+  if (!metadata_access_object_container_->HasDeletionSupport()) {
+    return;
+  }
+  ASSERT_EQ(absl::OkStatus(), Init());
+
+  const ArtifactType type = CreateTypeFromTextProto<ArtifactType>(
+      "name: 'test_type'", *metadata_access_object_);
+  Artifact artifact;
+  CreateNodeFromTextProto("name: 'delete_artifacts_by_id_test'", type.id(),
+                          *metadata_access_object_, artifact);
+
+  // Test: empty ids
+  {
+    std::vector<Artifact> result;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteArtifactsById({}));
+    ASSERT_EQ(absl::OkStatus(), metadata_access_object_->FindArtifactsById(
+                                    {artifact.id()}, &result));
+    EXPECT_THAT(result.size(), 1);
+  }
+  // Test: actual deletion
+  {
+    std::vector<Artifact> result;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteArtifactsById({artifact.id()}));
+    absl::Status status =
+        metadata_access_object_->FindArtifactsById({artifact.id()}, &result);
+    EXPECT_TRUE(absl::IsNotFound(status)) << status;
+    EXPECT_THAT(result, IsEmpty());
+  }
+}
+
+TEST_P(MetadataAccessObjectTest, DeleteExecutionsById) {
+  if (!metadata_access_object_container_->HasDeletionSupport()) {
+    return;
+  }
+  ASSERT_EQ(absl::OkStatus(), Init());
+
+  const ExecutionType type = CreateTypeFromTextProto<ExecutionType>(
+      "name: 'test_type'", *metadata_access_object_);
+  Execution execution;
+  CreateNodeFromTextProto("name: 'delete_executions_by_id_test'", type.id(),
+                          *metadata_access_object_, execution);
+
+  // Test: empty ids
+  {
+    std::vector<Execution> result;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteExecutionsById({}));
+    ASSERT_EQ(absl::OkStatus(), metadata_access_object_->FindExecutionsById(
+                                    {execution.id()}, &result));
+    EXPECT_THAT(result.size(), 1);
+  }
+  // Test: actual deletion
+  {
+    std::vector<Execution> result;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteExecutionsById({execution.id()}));
+    absl::Status status =
+        metadata_access_object_->FindExecutionsById({execution.id()}, &result);
+    EXPECT_TRUE(absl::IsNotFound(status)) << status;
+    EXPECT_THAT(result, IsEmpty());
+  }
+}
+
+TEST_P(MetadataAccessObjectTest, DeleteContextsById) {
+  if (!metadata_access_object_container_->HasDeletionSupport()) {
+    return;
+  }
+  ASSERT_EQ(absl::OkStatus(), Init());
+
+  const ContextType type = CreateTypeFromTextProto<ContextType>(
+      "name: 'test_type'", *metadata_access_object_);
+  Context context;
+  CreateNodeFromTextProto("name: 'delete_contexts_by_id_test'", type.id(),
+                          *metadata_access_object_, context);
+
+  // Test: empty ids
+  {
+    std::vector<Context> result;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteContextsById({}));
+    ASSERT_EQ(absl::OkStatus(), metadata_access_object_->FindContextsById(
+                                    {context.id()}, &result));
+    EXPECT_THAT(result.size(), 1);
+  }
+  // Test: actual deletion
+  {
+    std::vector<Context> result;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteContextsById({context.id()}));
+    absl::Status status =
+        metadata_access_object_->FindContextsById({context.id()}, &result);
+    EXPECT_TRUE(absl::IsNotFound(status)) << status;
+    EXPECT_THAT(result, IsEmpty());
+  }
+}
+
+TEST_P(MetadataAccessObjectTest, DeleteEventsByArtifactsId) {
+  if (!metadata_access_object_container_->HasDeletionSupport()) {
+    return;
+  }
+  ASSERT_EQ(absl::OkStatus(), Init());
+
+  int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
+  int64 execution_type_id = InsertType<ExecutionType>("test_execution_type");
+  Artifact input_artifact;
+  CreateNodeFromTextProto("name: 'input_artifact'", artifact_type_id,
+                          *metadata_access_object_, input_artifact);
+  Artifact output_artifact;
+  CreateNodeFromTextProto("name: 'output_artifact'", artifact_type_id,
+                          *metadata_access_object_, output_artifact);
+  Execution execution;
+  CreateNodeFromTextProto("name: 'execution'", execution_type_id,
+                          *metadata_access_object_, execution);
+  Event event1;
+  CreateEventFromTextProto("type: INPUT", input_artifact, execution,
+                           *metadata_access_object_, event1);
+  Event event2;
+  CreateEventFromTextProto("type: OUTPUT", output_artifact, execution,
+                           *metadata_access_object_, event2);
+
+  // Test: empty ids
+  {
+    std::vector<Event> result;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteEventsByArtifactsId({}));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->FindEventsByArtifacts(
+                  {input_artifact.id(), output_artifact.id()}, &result));
+    EXPECT_THAT(result.size(), 2);
+  }
+  // Test: delete one event
+  {
+    std::vector<Event> result;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteEventsByArtifactsId(
+                  {input_artifact.id()}));
+    absl::Status status = metadata_access_object_->FindEventsByArtifacts(
+        {input_artifact.id()}, &result);
+    EXPECT_TRUE(absl::IsNotFound(status)) << status;
+    EXPECT_THAT(result, IsEmpty());
+    status = metadata_access_object_->FindEventsByArtifacts(
+        {output_artifact.id()}, &result);
+    EXPECT_THAT(result.size(), 1);
+  }
+}
+
+TEST_P(MetadataAccessObjectTest, DeleteEventsByExecutionsId) {
+  if (!metadata_access_object_container_->HasDeletionSupport()) {
+    return;
+  }
+  ASSERT_EQ(absl::OkStatus(), Init());
+
+  int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
+  int64 execution_type_id = InsertType<ExecutionType>("test_execution_type");
+  Artifact input_artifact;
+  CreateNodeFromTextProto("name: 'input_artifact'", artifact_type_id,
+                          *metadata_access_object_, input_artifact);
+  Artifact output_artifact;
+  CreateNodeFromTextProto("name: 'output_artifact'", artifact_type_id,
+                          *metadata_access_object_, output_artifact);
+  Execution execution;
+  CreateNodeFromTextProto("name: 'execution'", execution_type_id,
+                          *metadata_access_object_, execution);
+  Event event1;
+  CreateEventFromTextProto("type: INPUT", input_artifact, execution,
+                           *metadata_access_object_, event1);
+  Event event2;
+  CreateEventFromTextProto("type: OUTPUT", output_artifact, execution,
+                           *metadata_access_object_, event2);
+
+  // Test: empty ids
+  {
+    std::vector<Event> result;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteEventsByExecutionsId({}));
+    ASSERT_EQ(absl::OkStatus(), metadata_access_object_->FindEventsByExecutions(
+                                    {execution.id()}, &result));
+    EXPECT_THAT(result.size(), 2);
+  }
+  // Test: delete both events
+  {
+    std::vector<Event> result;
+    EXPECT_EQ(
+        absl::OkStatus(),
+        metadata_access_object_->DeleteEventsByExecutionsId({execution.id()}));
+    absl::Status status = metadata_access_object_->FindEventsByExecutions(
+        {execution.id()}, &result);
+    EXPECT_TRUE(absl::IsNotFound(status)) << status;
+    EXPECT_THAT(result, IsEmpty());
+    status = metadata_access_object_->FindEventsByArtifacts(
+        {input_artifact.id(), output_artifact.id()}, &result);
+    EXPECT_TRUE(absl::IsNotFound(status)) << status;
+    EXPECT_THAT(result, IsEmpty());
+  }
+}
+
+TEST_P(MetadataAccessObjectTest, DeleteAssociationsByContextsId) {
+  if (!metadata_access_object_container_->HasDeletionSupport()) {
+    return;
+  }
+  ASSERT_EQ(absl::OkStatus(), Init());
+
+  int64 execution_type_id = InsertType<ExecutionType>("execution_type");
+  int64 context_type_id = InsertType<ContextType>("context_type");
+  Execution execution;
+  CreateNodeFromTextProto("name: 'execution'", execution_type_id,
+                          *metadata_access_object_, execution);
+  Context context;
+  CreateNodeFromTextProto("name: 'context'", context_type_id,
+                          *metadata_access_object_, context);
+
+  Association association;
+  association.set_execution_id(execution.id());
+  association.set_context_id(context.id());
+
+  int64 association_id;
+  EXPECT_EQ(absl::OkStatus(), metadata_access_object_->CreateAssociation(
+                                  association, &association_id));
+
+  // Test: empty ids
+  {
+    std::vector<Execution> result;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteAssociationsByContextsId({}));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->FindExecutionsByContext(context.id(),
+                                                               &result));
+    EXPECT_THAT(result.size(), 1);
+  }
+  // Test: delete association
+  {
+    std::vector<Execution> result;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteAssociationsByContextsId(
+                  {context.id()}));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->FindExecutionsByContext(context.id(),
+                                                               &result));
+    EXPECT_THAT(result, IsEmpty());
+  }
+}
+
+TEST_P(MetadataAccessObjectTest, DeleteAssociationsByExecutionsId) {
+  if (!metadata_access_object_container_->HasDeletionSupport()) {
+    return;
+  }
+  ASSERT_EQ(absl::OkStatus(), Init());
+
+  int64 execution_type_id = InsertType<ExecutionType>("execution_type");
+  int64 context_type_id = InsertType<ContextType>("context_type");
+  Execution execution;
+  CreateNodeFromTextProto("name: 'execution'", execution_type_id,
+                          *metadata_access_object_, execution);
+  Context context;
+  CreateNodeFromTextProto("name: 'context'", context_type_id,
+                          *metadata_access_object_, context);
+
+  Association association;
+  association.set_execution_id(execution.id());
+  association.set_context_id(context.id());
+
+  int64 association_id;
+  EXPECT_EQ(absl::OkStatus(), metadata_access_object_->CreateAssociation(
+                                  association, &association_id));
+
+  // Test: empty ids
+  {
+    std::vector<Context> result;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteAssociationsByExecutionsId({}));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->FindContextsByExecution(execution.id(),
+                                                               &result));
+    EXPECT_THAT(result.size(), 1);
+  }
+  // Test: delete association
+  {
+    std::vector<Context> result;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteAssociationsByExecutionsId(
+                  {execution.id()}));
+    // Semantics for empty here is different than in FindExecutionsByContext.
+    // Here if there is none, a notFound error is returned.
+    absl::Status status = metadata_access_object_->FindContextsByExecution(
+        execution.id(), &result);
+    EXPECT_TRUE(absl::IsNotFound(status)) << status;
+    EXPECT_THAT(result, IsEmpty());
+  }
+}
+
+TEST_P(MetadataAccessObjectTest, DeleteAttributionsByContextsId) {
+  if (!metadata_access_object_container_->HasDeletionSupport()) {
+    return;
+  }
+  ASSERT_EQ(absl::OkStatus(), Init());
+
+  int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
+  int64 context_type_id = InsertType<ContextType>("test_context_type");
+  Artifact artifact;
+  CreateNodeFromTextProto("name: 'artifact'", artifact_type_id,
+                          *metadata_access_object_, artifact);
+  Context context;
+  CreateNodeFromTextProto("name: 'context'", context_type_id,
+                          *metadata_access_object_, context);
+
+  Attribution attribution;
+  attribution.set_artifact_id(artifact.id());
+  attribution.set_context_id(context.id());
+
+  int64 attribution_id;
+  EXPECT_EQ(absl::OkStatus(), metadata_access_object_->CreateAttribution(
+                                  attribution, &attribution_id));
+
+  // Test: empty ids
+  {
+    std::vector<Artifact> result;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteAttributionsByContextsId({}));
+    ASSERT_EQ(absl::OkStatus(), metadata_access_object_->FindArtifactsByContext(
+                                    context.id(), &result));
+    EXPECT_THAT(result.size(), 1);
+  }
+  // Test: delete attribution
+  {
+    std::vector<Artifact> result;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteAttributionsByContextsId(
+                  {context.id()}));
+    ASSERT_EQ(absl::OkStatus(), metadata_access_object_->FindArtifactsByContext(
+                                    context.id(), &result));
+    EXPECT_THAT(result, IsEmpty());
+  }
+}
+
+TEST_P(MetadataAccessObjectTest, DeleteAttributionsByArtifactsId) {
+  if (!metadata_access_object_container_->HasDeletionSupport()) {
+    return;
+  }
+  ASSERT_EQ(absl::OkStatus(), Init());
+
+  int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
+  int64 context_type_id = InsertType<ContextType>("test_context_type");
+  Artifact artifact;
+  CreateNodeFromTextProto("name: 'artifact'", artifact_type_id,
+                          *metadata_access_object_, artifact);
+  Context context;
+  CreateNodeFromTextProto("name: 'context'", context_type_id,
+                          *metadata_access_object_, context);
+
+  Attribution attribution;
+  attribution.set_artifact_id(artifact.id());
+  attribution.set_context_id(context.id());
+
+  int64 attribution_id;
+  EXPECT_EQ(absl::OkStatus(), metadata_access_object_->CreateAttribution(
+                                  attribution, &attribution_id));
+
+  // Test: empty ids
+  {
+    std::vector<Context> result;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteAttributionsByArtifactsId({}));
+    ASSERT_EQ(absl::OkStatus(), metadata_access_object_->FindContextsByArtifact(
+                                    artifact.id(), &result));
+    EXPECT_THAT(result.size(), 1);
+  }
+  // Test: delete attribution
+  {
+    std::vector<Context> result;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteAttributionsByArtifactsId(
+                  {artifact.id()}));
+    // Semantics for empty here is different than in FindArtifactsByContext.
+    // Here if there is none, a notFound error is returned.
+    absl::Status status =
+        metadata_access_object_->FindContextsByArtifact(artifact.id(), &result);
+    EXPECT_TRUE(absl::IsNotFound(status)) << status;
+    EXPECT_THAT(result, IsEmpty());
+  }
+}
+
+TEST_P(MetadataAccessObjectTest, DeleteParentContextsByParentIds) {
+  if (!metadata_access_object_container_->HasDeletionSupport()) {
+    return;
+  }
+  ASSERT_EQ(absl::OkStatus(), Init());
+
+  int64 context_type_id = InsertType<ContextType>("test_context_type");
+
+  Context context1;
+  CreateNodeFromTextProto("name: 'parent_context'", context_type_id,
+                          *metadata_access_object_, context1);
+  Context context2;
+  CreateNodeFromTextProto("name: 'child_context'", context_type_id,
+                          *metadata_access_object_, context2);
+
+  ParentContext parent_context;
+  parent_context.set_parent_id(context1.id());
+  parent_context.set_child_id(context2.id());
+  EXPECT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateParentContext(parent_context));
+
+  // Test: empty ids
+  {
+    std::vector<Context> result;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteParentContextsByParentIds({}));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->FindParentContextsByContextId(
+                  context2.id(), &result));
+    EXPECT_THAT(result.size(), 1);
+  }
+  // Test: delete parent context
+  {
+    std::vector<Context> result;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteParentContextsByParentIds(
+                  {context1.id()}));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->FindParentContextsByContextId(
+                  context2.id(), &result));
+    EXPECT_THAT(result, IsEmpty());
+  }
+}
+
+TEST_P(MetadataAccessObjectTest, DeleteParentContextsByChildIds) {
+  if (!metadata_access_object_container_->HasDeletionSupport()) {
+    return;
+  }
+  ASSERT_EQ(absl::OkStatus(), Init());
+
+  int64 context_type_id = InsertType<ContextType>("test_context_type");
+
+  Context context1;
+  CreateNodeFromTextProto("name: 'parent_context'", context_type_id,
+                          *metadata_access_object_, context1);
+  Context context2;
+  CreateNodeFromTextProto("name: 'child_context'", context_type_id,
+                          *metadata_access_object_, context2);
+
+  ParentContext parent_context;
+  parent_context.set_parent_id(context1.id());
+  parent_context.set_child_id(context2.id());
+  EXPECT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateParentContext(parent_context));
+
+  // Test: empty ids
+  {
+    std::vector<Context> result;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteParentContextsByChildIds({}));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->FindParentContextsByContextId(
+                  context2.id(), &result));
+    EXPECT_THAT(result.size(), 1);
+  }
+  // Test: delete parent context
+  {
+    std::vector<Context> result;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteParentContextsByChildIds(
+                  {context2.id()}));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->FindParentContextsByContextId(
+                  context2.id(), &result));
+    EXPECT_THAT(result, IsEmpty());
+  }
+}
+
 TEST_P(MetadataAccessObjectTest, ListArtifactsWithNonIdFieldOptions) {
   ASSERT_EQ(absl::OkStatus(), Init());
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(

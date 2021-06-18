@@ -471,6 +471,59 @@ class MetadataAccessObject {
   // database if needed.
   virtual int64 GetLibraryVersion() = 0;
 
+
+  // Deletes a list of artifacts by id.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteArtifactsById(
+      absl::Span<const int64> artifact_ids) = 0;
+
+  // Deletes a list of executions by id.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteExecutionsById(
+      absl::Span<const int64> execution_ids) = 0;
+
+  // Deletes a list of contexts by id.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteContextsById(
+      absl::Span<const int64> context_ids) = 0;
+
+  // Deletes the events corresponding to the |artifact_ids|.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteEventsByArtifactsId(
+      absl::Span<const int64> artifact_ids) = 0;
+
+  // Deletes the events corresponding to the |execution_ids|.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteEventsByExecutionsId(
+      absl::Span<const int64> execution_ids) = 0;
+
+  // Deletes the associations corresponding to the |context_ids|.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteAssociationsByContextsId(
+      absl::Span<const int64> context_ids) = 0;
+
+  // Deletes the associations corresponding to the |execution_ids|.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteAssociationsByExecutionsId(
+      absl::Span<const int64> execution_ids) = 0;
+
+  // Deletes the attributions corresponding to the |context_ids|.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteAttributionsByContextsId(
+      absl::Span<const int64> context_ids) = 0;
+
+  // Deletes the attributions corresponding to the |artifact_ids|.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteAttributionsByArtifactsId(
+      absl::Span<const int64> artifact_ids) = 0;
+
+  // Deletes the parent contexts corresponding to the |parent_context_ids|.
+  virtual absl::Status DeleteParentContextsByParentIds(
+      absl::Span<const int64> parent_context_ids) = 0;
+
+  // Deletes the parent contexts corresponding to the |child_context_ids|.
+  virtual absl::Status DeleteParentContextsByChildIds(
+      absl::Span<const int64> child_context_ids) = 0;
 };
 
 }  // namespace ml_metadata
