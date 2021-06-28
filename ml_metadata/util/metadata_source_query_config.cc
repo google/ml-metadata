@@ -1525,6 +1525,20 @@ const std::string kMySQLMetadataSourceQueryConfig = absl::StrCat(  // NOLINT
 R"pb(
   metadata_source_type: MYSQL_METADATA_SOURCE
   select_last_insert_id { query: " SELECT last_insert_id(); " }
+  select_type_by_name {
+    query: " SELECT `id`, `name`, `version`, `description`, "
+           "        `input_type`, `output_type` FROM `Type` "
+           " WHERE name = $0 AND version IS NULL AND type_kind = $1 "
+           " LOCK IN SHARE MODE; "
+    parameter_num: 2
+  }
+  select_type_by_name_and_version {
+    query: " SELECT `id`, `name`, `version`, `description`, "
+           "        `input_type`, `output_type` FROM `Type` "
+           " WHERE name = $0 AND version = $1 AND type_kind = $2 "
+           " LOCK IN SHARE MODE; "
+    parameter_num: 3
+  }
   create_type_table {
     query: " CREATE TABLE IF NOT EXISTS `Type` ( "
            "   `id` INT PRIMARY KEY AUTO_INCREMENT, "
