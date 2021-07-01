@@ -32,6 +32,7 @@ namespace ml_metadata {
 namespace testing {
 namespace {
 
+
 class MysqlMetadataSourceContainer : public MetadataSourceContainer {
  public:
   MysqlMetadataSourceContainer() : MetadataSourceContainer() {
@@ -99,6 +100,7 @@ TEST(MySqlMetadataSourceExtendedTest, TestConnectBySocket) {
   ASSERT_EQ(absl::OkStatus(), metadata_source->Commit());
   metadata_source_initializer->Cleanup();
 }
+
 
 // Test EscapeString utility method.
 // Same here, we adopt a fixtureless test here because it is using TCP

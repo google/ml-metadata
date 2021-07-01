@@ -106,6 +106,7 @@ MySqlMetadataSource::~MySqlMetadataSource() {
 }
 
 Status MySqlMetadataSource::ConnectImpl() {
+
   // Initialize the MYSQL object.
   db_ = mysql_init(nullptr);
   if (!db_) {
@@ -154,6 +155,7 @@ Status MySqlMetadataSource::ConnectImpl() {
       CheckTransactionSupport(),
       "checking transaction support of default storage engine");
 
+
   // Create the database if not already present and skip_db_creation is false.
   if (!config_.skip_db_creation()) {
     const std::string create_database_cmd =
@@ -162,6 +164,7 @@ Status MySqlMetadataSource::ConnectImpl() {
                                       "Creating database ", config_.database(),
                                       " in ConnectImpl");
   }
+
   // Switch to the database.
   const std::string use_database_cmd = absl::StrCat("USE ", config_.database());
   MLMD_RETURN_WITH_CONTEXT_IF_ERROR(RunQuery(use_database_cmd),
