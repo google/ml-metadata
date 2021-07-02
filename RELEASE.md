@@ -12,6 +12,7 @@
 ## Bug Fixes and Other Changes
 
 *   Depends on `protobuf>=3.13,<4`.
+*   Fixes a bug of increasing size of `next_page_token` over pagination calls.
 
 ## Breaking Changes
 

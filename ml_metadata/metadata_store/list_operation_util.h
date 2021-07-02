@@ -73,6 +73,10 @@ absl::Status BuildListOperationNextPageToken(
                        " specified in ListOperationOptions"));
   }
   *list_operation_next_page_token.mutable_set_options() = options;
+  // Clear previous `next_page_token` as it is changing for each request and it
+  // is a set-only field. If not clean this field, the `next_page_token` in
+  // the follow-up request encodes itself and the size grows exponentially.
+  list_operation_next_page_token.mutable_set_options()->clear_next_page_token();
   *next_page_token = absl::WebSafeBase64Escape(
       list_operation_next_page_token.SerializeAsString());
   return absl::OkStatus();
