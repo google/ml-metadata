@@ -412,14 +412,6 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   template <typename Type>
   absl::Status UpdateTypeImpl(const Type& type);
 
-  // Creates a parent type, returns OK if succeeds.
-  // Returns INVALID_ARGUMENT error, if no type matches the type_id.
-  // Returns INVALID_ARGUMENT error, if no type matches the parent_type_id.
-  // Returns INVALID_ARGUMENT error, if adding the parent_type introduces cycle.
-  // Returns ALREADY_EXISTS error, if the same ParentType record already exists.
-  template <typename Type>
-  absl::Status CreateParentTypeImpl(int64 type_id, int64 parent_type_id);
-
   // Queries the parent types of a type_id.
   template <typename Type>
   absl::Status FindParentTypesByTypeIdImpl(

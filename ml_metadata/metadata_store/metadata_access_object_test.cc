@@ -4583,6 +4583,78 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindParentContext) {
   }
 }
 
+TEST_P(MetadataAccessObjectTest, CreateParentContextInheritanceLinkWithCycle) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+  ContextType context_type;
+  context_type.set_name("context_type_name");
+  int64 type_id;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateType(context_type, &type_id));
+  // Creates some contexts for parent context relationship.
+  const int num_contexts = 5;
+  std::vector<Context> contexts(num_contexts);
+  for (int i = 0; i < num_contexts; i++) {
+    contexts[i].set_name(absl::StrCat("context", i));
+    contexts[i].set_type_id(type_id);
+    int64 ctx_id;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->CreateContext(contexts[i], &ctx_id));
+    contexts[i].set_id(ctx_id);
+  }
+
+  auto set_and_return_parent_context = [](int parent_id, int child_id) {
+    ParentContext parent_context;
+    parent_context.set_parent_id(parent_id);
+    parent_context.set_child_id(child_id);
+    return parent_context;
+  };
+
+  auto verify_insert_parent_context_is_invalid = [this](const Context& parent,
+                                                        const Context& child) {
+    ParentContext parent_context;
+    parent_context.set_parent_id(parent.id());
+    parent_context.set_child_id(child.id());
+    const absl::Status status =
+        metadata_access_object_->CreateParentContext(parent_context);
+    EXPECT_TRUE(absl::IsInvalidArgument(status));
+  };
+
+  // Cannot add self as parent context.
+  verify_insert_parent_context_is_invalid(
+      /*parent=*/contexts[0], /*child=*/contexts[0]);
+
+  // context0 -> context1
+  ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateParentContext(
+                                  set_and_return_parent_context(
+                                      /*parent_id=*/contexts[0].id(),
+                                      /*child_id=*/contexts[1].id())));
+
+  // Cannot have bi-direction parent context.
+  verify_insert_parent_context_is_invalid(
+      /*parent=*/contexts[1], /*child=*/contexts[0]);
+
+  // context0 -> context1 -> context2
+  //         \-> context3 -> context4
+  ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateParentContext(
+                                  set_and_return_parent_context(
+                                      /*parent_id=*/contexts[1].id(),
+                                      /*child_id=*/contexts[2].id())));
+  ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateParentContext(
+                                  set_and_return_parent_context(
+                                      /*parent_id=*/contexts[0].id(),
+                                      /*child_id=*/contexts[3].id())));
+  ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateParentContext(
+                                  set_and_return_parent_context(
+                                      /*parent_id=*/contexts[3].id(),
+                                      /*child_id=*/contexts[4].id())));
+
+  // Cannot have cyclic parent context.
+  verify_insert_parent_context_is_invalid(
+      /*parent=*/contexts[2], /*child=*/contexts[0]);
+  verify_insert_parent_context_is_invalid(
+      /*parent=*/contexts[4], /*child=*/contexts[0]);
+}
+
 TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
   // Skip upgrade/downgrade migration tests for earlier schema version.
   if (EarlierSchemaEnabled()) { return; }

@@ -13,7 +13,8 @@
 
 *   Depends on `protobuf>=3.13,<4`.
 *   Fixes a bug of increasing size of `next_page_token` over pagination calls.
-
+*   Returns InvalidArgumentError for PutParentContexts when creating a cyclic
+    parent context.
 ## Breaking Changes
 
 ## Deprecations

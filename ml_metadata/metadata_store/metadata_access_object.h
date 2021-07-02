@@ -438,9 +438,9 @@ class MetadataAccessObject {
   // Creates a parent context, returns OK if succeeds.
   // Returns INVALID_ARGUMENT error, if no context matches the child_id.
   // Returns INVALID_ARGUMENT error, if no context matches the parent_id.
+  // Returns INVALID_ARGUMENT error, if child context and parent context
+  // introduces cycle.
   // Returns ALREADY_EXISTS error, if the same parent context already exists.
-  // TODO(b/155207795) Consider ParentContext transitive closure check when
-  // inserting a new record.
   virtual absl::Status CreateParentContext(
       const ParentContext& parent_context) = 0;
 

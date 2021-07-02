@@ -350,6 +350,67 @@ absl::optional<std::string> GetTypeVersion(const T& type_message) {
              : absl::nullopt;
 }
 
+// Template function for adding ancestors for ArtifactType, ExecutionType and
+// ContextType cases in CheckCyClicDependency().
+template <typename T>
+absl::Status AddAncestors(int64 ancestor_id, std::vector<int64>& ancestor_ids,
+                          std::unique_ptr<QueryExecutor>& executor) {
+  // Checks whether type T is one of the expected node type.
+  // If not, returns Internal Error.
+  if (!(std::is_same<T, ArtifactType>::value ||
+        std::is_same<T, ExecutionType>::value ||
+        std::is_same<T, ContextType>::value)) {
+    return absl::InternalError("Unexpected node type!");
+  }
+  RecordSet record_set;
+  MLMD_RETURN_IF_ERROR(
+      executor->SelectParentTypesByTypeID(ancestor_id, &record_set));
+  for (const int64 parent_id : ParentTypesToParentTypeIds(record_set)) {
+    ancestor_ids.push_back(parent_id);
+  }
+  return absl::OkStatus();
+}
+
+// Template function for adding ancestors for ParentContext case in
+// CheckCyClicDependency().
+template <>
+absl::Status AddAncestors<ParentContext>(
+    int64 ancestor_id, std::vector<int64>& ancestor_ids,
+    std::unique_ptr<QueryExecutor>& executor) {
+  RecordSet record_set;
+  MLMD_RETURN_IF_ERROR(
+      executor->SelectParentContextsByContextID(ancestor_id, &record_set));
+  for (const int64 parent_id :
+       ParentContextsToContextIds(record_set, /*is_parent=*/true)) {
+    ancestor_ids.push_back(parent_id);
+  }
+  return absl::OkStatus();
+}
+
+// Check whether there is a cyclic dependency. We do a DFS traversal from
+// root node's id(`parent_id`) and it introduces a cycle if any ancestors' id
+// is `child_id`. It assumes that existing inheritance are acyclic.
+template <typename T>
+absl::Status CheckCyClicDependency(int64 child_id, int64 parent_id,
+                                   std::unique_ptr<QueryExecutor>& executor) {
+  std::vector<int64> ancestor_ids = {parent_id};
+  absl::flat_hash_set<int64> visited_ancestors_ids;
+  while (!ancestor_ids.empty()) {
+    const int64 ancestor_id = ancestor_ids.back();
+    if (ancestor_id == child_id) {
+      return absl::InvalidArgumentError(
+          "There is a cycle detected of the given relationship.");
+    }
+    ancestor_ids.pop_back();
+    if (visited_ancestors_ids.contains(ancestor_id)) {
+      continue;
+    }
+    visited_ancestors_ids.insert(ancestor_id);
+    MLMD_RETURN_IF_ERROR(AddAncestors<T>(ancestor_id, ancestor_ids, executor));
+  }
+  return absl::OkStatus();
+}
+
 }  // namespace
 
 // Creates an Artifact (without properties).
@@ -770,41 +831,6 @@ absl::Status RDBMSMetadataAccessObject::UpdateTypeImpl(const Type& type) {
 }
 
 template <typename Type>
-absl::Status RDBMSMetadataAccessObject::CreateParentTypeImpl(
-    const int64 type_id, const int64 parent_type_id) {
-  // Check whether there is a cyclic dependency if we insert the tuple:
-  // (type_id, parent_type_id). We do a DFS traversal from `parent_type_id` as
-  // the root node and it introduces a cycle if any ancestors is `type_id`. It
-  // assumes that existing parent types inheritance are acyclic.
-  std::vector<int64> ancestor_ids = {parent_type_id};
-  absl::flat_hash_set<int64> visited_ancestors_ids;
-  while (!ancestor_ids.empty()) {
-    const int64 ancestor_id = ancestor_ids.back();
-    if (ancestor_id == type_id) {
-      return absl::InvalidArgumentError(
-          "There is a cycle detected of the given parent type.");
-    }
-    ancestor_ids.pop_back();
-    if (visited_ancestors_ids.contains(ancestor_id)) {
-      continue;
-    }
-    visited_ancestors_ids.insert(ancestor_id);
-    RecordSet record_set;
-    MLMD_RETURN_IF_ERROR(
-        executor_->SelectParentTypesByTypeID(ancestor_id, &record_set));
-    for (const int64 parent_id : ParentTypesToParentTypeIds(record_set)) {
-      ancestor_ids.push_back(parent_id);
-    }
-  }
-  const absl::Status status =
-      executor_->InsertParentType(type_id, parent_type_id);
-  if (IsUniqueConstraintViolated(status)) {
-    return absl::AlreadyExistsError("The ParentType already exists.");
-  }
-  return status;
-}
-
-template <typename Type>
 absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeIdImpl(
     int64 type_id, std::vector<Type>& output_parent_types) {
   // check the there's a Type instance with the given type_id
@@ -1120,7 +1146,14 @@ absl::Status RDBMSMetadataAccessObject::CreateParentTypeInheritanceLink(
         absl::StrCat("Missing id in the given types: ", type.DebugString(),
                      parent_type.DebugString()));
   }
-  return CreateParentTypeImpl<ArtifactType>(type.id(), parent_type.id());
+  MLMD_RETURN_IF_ERROR(CheckCyClicDependency<ArtifactType>(
+      /*child_id=*/type.id(), /*parent_id=*/parent_type.id(), executor_));
+  const absl::Status status =
+      executor_->InsertParentType(type.id(), parent_type.id());
+  if (IsUniqueConstraintViolated(status)) {
+    return absl::AlreadyExistsError("The ParentType already exists.");
+  }
+  return status;
 }
 
 absl::Status RDBMSMetadataAccessObject::CreateParentTypeInheritanceLink(
@@ -1130,7 +1163,14 @@ absl::Status RDBMSMetadataAccessObject::CreateParentTypeInheritanceLink(
         absl::StrCat("Missing id in the given types: ", type.DebugString(),
                      parent_type.DebugString()));
   }
-  return CreateParentTypeImpl<ExecutionType>(type.id(), parent_type.id());
+  MLMD_RETURN_IF_ERROR(CheckCyClicDependency<ExecutionType>(
+      /*child_id=*/type.id(), /*parent_id=*/parent_type.id(), executor_));
+  const absl::Status status =
+      executor_->InsertParentType(type.id(), parent_type.id());
+  if (IsUniqueConstraintViolated(status)) {
+    return absl::AlreadyExistsError("The ParentType already exists.");
+  }
+  return status;
 }
 
 absl::Status RDBMSMetadataAccessObject::CreateParentTypeInheritanceLink(
@@ -1140,7 +1180,15 @@ absl::Status RDBMSMetadataAccessObject::CreateParentTypeInheritanceLink(
         absl::StrCat("Missing id in the given types: ", type.DebugString(),
                      parent_type.DebugString()));
   }
-  return CreateParentTypeImpl<ContextType>(type.id(), parent_type.id());
+  MLMD_RETURN_IF_ERROR(CheckCyClicDependency<ContextType>(
+
+      /*child_id=*/type.id(), /*parent_id=*/parent_type.id(), executor_));
+  const absl::Status status =
+      executor_->InsertParentType(type.id(), parent_type.id());
+  if (IsUniqueConstraintViolated(status)) {
+    return absl::AlreadyExistsError("The ParentType already exists.");
+  }
+  return status;
 }
 
 absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeId(
@@ -1458,6 +1506,9 @@ absl::Status RDBMSMetadataAccessObject::CreateParentContext(
         "Given parent / child id in the parent_context cannot be found: ",
         parent_context.DebugString()));
   }
+  MLMD_RETURN_IF_ERROR(CheckCyClicDependency<ParentContext>(
+      /*child_id=*/parent_context.child_id(),
+      /*parent_id=*/parent_context.parent_id(), executor_));
   const absl::Status status = executor_->InsertParentContext(
       parent_context.parent_id(), parent_context.child_id());
   if (IsUniqueConstraintViolated(status)) {
