@@ -1,3 +1,6 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+
 # Copyright 2020 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -57,6 +60,7 @@ ml_metadata_proto_library_py(
 ml_metadata_proto_library_go(
     name = "metadata_store_go_proto",
     srcs = ["metadata_store.proto"],
+    sub_proto_deps = ["@com_google_protobuf//:struct_proto"],
     importpath = "ml_metadata/proto/metadata_store_go_proto",
     deps = [":metadata_store_proto"],
 )
@@ -75,4 +79,27 @@ ml_metadata_proto_library(
     name = "metadata_source_proto",
     srcs = ["metadata_source.proto"],
     cc_api_version = 2,
+)
+
+proto_library(
+    name = "ml_metadata_proto",
+    srcs = [
+        "metadata_source.proto",
+        "metadata_store.proto",
+        "metadata_store_service.proto",
+    ],
+    deps = ["@com_google_protobuf//:struct_proto"],
+)
+
+go_proto_library(
+    name = "ml_metadata_go_proto",
+    compilers = ["@io_bazel_rules_go//proto:go_grpc"],
+    importpath = "github.com/google/ml-metadata/ml_metadata/proto",
+    proto = ":ml_metadata_proto",
+)
+
+go_library(
+    name = "go_default_library",
+    embed = [":ml_metadata_go_proto"],
+    importpath = "github.com/google/ml-metadata/ml_metadata/proto",
 )

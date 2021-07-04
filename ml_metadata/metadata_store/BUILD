@@ -683,3 +683,40 @@ cc_test(
         "@com_google_glog//:glog",
     ],
 )
+
+ml_metadata_go_wrap_cc(
+    name = "metadata_store_go_wrap",
+    importpath = "ml_metadata/metadata_store/metadata_store_go_wrap",
+    libname = "metadata_store_cgo_wrap",
+    swigfile = "metadata_store_go",
+    deps = [
+        ":metadata_store_factory",
+        "@org_tensorflow//tensorflow/core:lib",
+    ],
+)
+
+ml_metadata_go_library(
+    name = "metadata_store_go",
+    srcs = ["metadata_store.go"],
+    cdeps = ["metadata_store_cgo_wrap"],
+    cgo = True,
+    importpath = "ml_metadata/metadata_store/mlmetadata",
+    deps = [
+        ":metadata_store_go_wrap",
+        "//ml_metadata/proto:metadata_store_go_proto",
+        "//ml_metadata/proto:metadata_store_service_go_proto",
+        "@com_github_golang_protobuf//proto:go_default_library",
+    ],
+)
+
+ml_metadata_go_test(
+    name = "metadata_store_go_test",
+    size = "small",
+    srcs = ["metadata_store_test.go"],
+    library = ":metadata_store_go",
+    deps = [
+        "//ml_metadata/proto:metadata_store_go_proto",
+        "@com_github_golang_protobuf//proto:go_default_library",
+        "@com_github_google_go_cmp//cmp:go_default_library",
+    ],
+)
