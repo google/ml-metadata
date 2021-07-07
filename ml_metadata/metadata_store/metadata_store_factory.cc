@@ -15,6 +15,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/metadata_store_factory.h"
 
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/metadata_store/transaction_executor.h"
 #ifndef _WIN32
@@ -22,44 +23,43 @@ limitations under the License.
 #endif
 #include "ml_metadata/metadata_store/sqlite_metadata_source.h"
 #include "ml_metadata/util/metadata_source_query_config.h"
-#include "tensorflow/core/lib/core/errors.h"
+#include "ml_metadata/util/return_utils.h"
 
 namespace ml_metadata {
 
 namespace {
 
 #ifndef _WIN32
-tensorflow::Status CreateMySQLMetadataStore(
-    const MySQLDatabaseConfig& config,
-    const MigrationOptions& migration_options,
-    std::unique_ptr<MetadataStore>* result) {
+absl::Status CreateMySQLMetadataStore(const MySQLDatabaseConfig& config,
+                                      const MigrationOptions& migration_options,
+                                      std::unique_ptr<MetadataStore>* result) {
   auto metadata_source = absl::make_unique<MySqlMetadataSource>(config);
   auto transaction_executor =
       absl::make_unique<RdbmsTransactionExecutor>(metadata_source.get());
-  TF_RETURN_IF_ERROR(MetadataStore::Create(
+  MLMD_RETURN_IF_ERROR(MetadataStore::Create(
       util::GetMySqlMetadataSourceQueryConfig(), migration_options,
       std::move(metadata_source), std::move(transaction_executor), result));
   return (*result)->InitMetadataStoreIfNotExists(
       migration_options.enable_upgrade_migration());
 }
 #else
-tensorflow::Status CreateMySQLMetadataStore(
+absl::Status CreateMySQLMetadataStore(
     const MySQLDatabaseConfig& config,
     const MigrationOptions& migration_options,
     std::unique_ptr<MetadataStore>* result) {
-  return tensorflow::errors::Unimplemented(
+  return absl::UnimplementedError(
              "MySQL is not supported in Windows yet");
 }
 #endif
 
-tensorflow::Status CreateSqliteMetadataStore(
+absl::Status CreateSqliteMetadataStore(
     const SqliteMetadataSourceConfig& config,
     const MigrationOptions& migration_options,
     std::unique_ptr<MetadataStore>* result) {
   auto metadata_source = absl::make_unique<SqliteMetadataSource>(config);
   auto transaction_executor =
       absl::make_unique<RdbmsTransactionExecutor>(metadata_source.get());
-  TF_RETURN_IF_ERROR(MetadataStore::Create(
+  MLMD_RETURN_IF_ERROR(MetadataStore::Create(
       util::GetSqliteMetadataSourceQueryConfig(), migration_options,
       std::move(metadata_source), std::move(transaction_executor), result));
   return (*result)->InitMetadataStoreIfNotExists(
@@ -69,14 +69,14 @@ tensorflow::Status CreateSqliteMetadataStore(
 
 }  // namespace
 
-tensorflow::Status CreateMetadataStore(const ConnectionConfig& config,
-                                       const MigrationOptions& options,
-                                       std::unique_ptr<MetadataStore>* result) {
+absl::Status CreateMetadataStore(const ConnectionConfig& config,
+                                 const MigrationOptions& options,
+                                 std::unique_ptr<MetadataStore>* result) {
   switch (config.config_case()) {
     case ConnectionConfig::CONFIG_NOT_SET:
       // TODO(b/123345695): make this longer when that bug is resolved.
       // Must specify a metadata store type.
-      return tensorflow::errors::InvalidArgument("Unset");
+      return absl::InvalidArgumentError("Unset");
     case ConnectionConfig::kFakeDatabase:
       // Creates an in-memory SQLite database for testing.
       return CreateSqliteMetadataStore(SqliteMetadataSourceConfig(), options,
@@ -86,12 +86,12 @@ tensorflow::Status CreateMetadataStore(const ConnectionConfig& config,
     case ConnectionConfig::kSqlite:
       return CreateSqliteMetadataStore(config.sqlite(), options, result);
     default:
-      return tensorflow::errors::Unimplemented("Unknown database type.");
+      return absl::UnimplementedError("Unknown database type.");
   }
 }
 
-tensorflow::Status CreateMetadataStore(const ConnectionConfig& config,
-                                       std::unique_ptr<MetadataStore>* result) {
+absl::Status CreateMetadataStore(const ConnectionConfig& config,
+                                 std::unique_ptr<MetadataStore>* result) {
   return CreateMetadataStore(config, {}, result);
 }
 

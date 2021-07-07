@@ -17,16 +17,6 @@ cc_library(
 )
 
 cc_library(
-    name = "status_utils",
-    srcs = ["status_utils.cc"],
-    hdrs = ["status_utils.h"],
-    deps = [
-        "@com_google_absl//absl/status",
-        "@org_tensorflow//tensorflow/core:lib",
-    ],
-)
-
-cc_library(
     name = "return_utils",
     hdrs = ["return_utils.h"],
 )

@@ -16,6 +16,7 @@ limitations under the License.
 
 #include <memory>
 
+#include <glog/logging.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -24,8 +25,6 @@ limitations under the License.
 #include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
-#include "tensorflow/core/lib/core/status_test_util.h"
-
 
 namespace ml_metadata {
 namespace {
@@ -37,7 +36,8 @@ using testing::ParseTextProtoOrDie;
 void TestPutAndGetArtifactType(const ConnectionConfig& connection_config) {
   std::unique_ptr<MetadataStore> store;
   const MigrationOptions opts;
-  TF_ASSERT_OK(CreateMetadataStore(connection_config, opts, &store));
+  ASSERT_EQ(absl::OkStatus(),
+            CreateMetadataStore(connection_config, opts, &store));
 
   PutArtifactTypeRequest put_request =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
@@ -49,7 +49,8 @@ void TestPutAndGetArtifactType(const ConnectionConfig& connection_config) {
             }
           )");
   PutArtifactTypeResponse put_response;
-  TF_ASSERT_OK(store->PutArtifactType(put_request, &put_response));
+  ASSERT_EQ(absl::OkStatus(),
+            store->PutArtifactType(put_request, &put_response));
   ASSERT_TRUE(put_response.has_type_id());
   GetArtifactTypeRequest get_request =
       ParseTextProtoOrDie<GetArtifactTypeRequest>(
@@ -57,7 +58,8 @@ void TestPutAndGetArtifactType(const ConnectionConfig& connection_config) {
             type_name: 'test_type2'
           )");
   GetArtifactTypeResponse get_response;
-  TF_ASSERT_OK(store->GetArtifactType(get_request, &get_response));
+  ASSERT_EQ(absl::OkStatus(),
+            store->GetArtifactType(get_request, &get_response));
   EXPECT_THAT(get_response.artifact_type(),
               testing::EqualsProto(put_request.artifact_type(),
                                    /*ignore_fields=*/{"id"}))

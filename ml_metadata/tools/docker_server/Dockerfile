@@ -15,7 +15,7 @@
 
 # Note that this Bazel version should be the same as the one specified in the
 # WORKSPACE file.
-FROM l.gcr.io/google/bazel:0.24.1 as builder
+FROM l.gcr.io/google/bazel:3.5.0 as builder
 
 RUN apt-get update -y --option Acquire::Retries=3 && \
   apt-get install --no-install-recommends -y -q --option Acquire::Retries=3 \

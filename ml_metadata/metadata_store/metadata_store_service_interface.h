@@ -15,9 +15,8 @@ limitations under the License.
 #ifndef ML_METADATA_METADATA_STORE_METADATA_STORE_SERVICE_INTERFACE_H_
 #define ML_METADATA_METADATA_STORE_METADATA_STORE_SERVICE_INTERFACE_H_
 
+#include "absl/status/status.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
-#include "tensorflow/core/lib/core/errors.h"
-#include "tensorflow/core/lib/core/status.h"
 
 namespace ml_metadata {
 
@@ -28,10 +27,10 @@ class MetadataStoreServiceInterface {
  public:
   virtual ~MetadataStoreServiceInterface() {}
 
-#define METADATA_STORE_SERVICE_INTERFACE_DECLARE(method)            \
-  virtual tensorflow::Status method(const method##Request& request, \
-                                    method##Response* response) {   \
-    return tensorflow::errors::Unimplemented(#method);              \
+#define METADATA_STORE_SERVICE_INTERFACE_DECLARE(method)      \
+  virtual absl::Status method(const method##Request& request, \
+                              method##Response* response) {   \
+    return absl::UnimplementedError(#method);                 \
   }
 
   METADATA_STORE_SERVICE_INTERFACE_DECLARE(PutArtifacts)

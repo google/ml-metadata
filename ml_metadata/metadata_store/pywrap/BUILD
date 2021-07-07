@@ -30,10 +30,10 @@ ml_metadata_pybind_extension(
     ],
     module_name = "metadata_store_extension",
     deps = [
+        "@com_google_absl//absl/status",
         "//ml_metadata/metadata_store:metadata_store_factory",
         "//ml_metadata/proto:metadata_store_proto",
         "@pybind11",
-        "@org_tensorflow//tensorflow/core:lib",
     ],
 )
 

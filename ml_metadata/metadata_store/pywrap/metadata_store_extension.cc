@@ -15,10 +15,10 @@ limitations under the License.
 
 #include <memory>
 
+#include "absl/status/status.h"
 #include "ml_metadata/metadata_store/metadata_store_factory.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "include/pybind11/pybind11.h"
-#include "tensorflow/core/lib/core/errors.h"
 
 namespace {
 namespace py = pybind11;
@@ -37,10 +37,10 @@ std::unique_ptr<ml_metadata::MetadataStore> CreateMetadataStore(
     throw std::runtime_error("Could not parse proto.");
   }
   std::unique_ptr<ml_metadata::MetadataStore> metadata_store;
-  tensorflow::Status creation_status = ml_metadata::CreateMetadataStore(
+  absl::Status creation_status = ml_metadata::CreateMetadataStore(
       proto_connection_config, proto_migration_options, &metadata_store);
   if (!creation_status.ok()) {
-    throw std::runtime_error(creation_status.error_message());
+    throw std::runtime_error(std::string(creation_status.message()));
   }
   return metadata_store;
 }
@@ -49,10 +49,9 @@ std::unique_ptr<ml_metadata::MetadataStore> CreateMetadataStore(
 // The tuple is consist of serialized method response, and a strong typed
 // error with error_message and canonical error code.
 py::tuple ConvertAccessMetadataStoreResultToPyTuple(
-    const std::string& serialized_proto_message,
-    const tensorflow::Status& status) {
+    const std::string& serialized_proto_message, const absl::Status& status) {
   return py::make_tuple(py::bytes(serialized_proto_message),
-                        py::bytes(status.error_message()),
+                        py::bytes(std::string(status.message())),
                         py::int_((int)status.code()));
 }
 
@@ -62,16 +61,16 @@ py::tuple ConvertAccessMetadataStoreResultToPyTuple(
 template <typename InputProto, typename OutputProto>
 py::tuple AccessMetadataStore(
     ml_metadata::MetadataStore* metadata_store, const std::string& request,
-    tensorflow::Status (ml_metadata::MetadataStore::*method)(const InputProto&,
-                                                             OutputProto*)) {
+    absl::Status (ml_metadata::MetadataStore::*method)(const InputProto&,
+                                                       OutputProto*)) {
   InputProto proto_request;
   if (!proto_request.ParseFromString(request)) {
     return ConvertAccessMetadataStoreResultToPyTuple(
         /*serialized_proto_message=*/"",
-        tensorflow::errors::InvalidArgument("Could not parse proto"));
+        absl::InvalidArgumentError("Could not parse proto"));
   }
   OutputProto proto_response;
-  tensorflow::Status call_status =
+  absl::Status call_status =
       ((*metadata_store).*method)(proto_request, &proto_response);
   std::string response;
   proto_response.SerializeToString(&response);

@@ -12,40 +12,6 @@ load("//ml_metadata:repo.bzl", "mlmd_http_archive", "clean_dep")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-# v1.15.2
-# updated: 2020/09/10
-_TENSORFLOW_GIT_COMMIT = "5d80e1e8e6ee999be7db39461e0e79c90403a2e4"
-
-http_archive(
-    name = "org_tensorflow",
-    sha256 = "7e3c893995c221276e17ddbd3a1ff177593d00fc57805da56dcc30fdc4299632",
-    strip_prefix = "tensorflow-%s" % _TENSORFLOW_GIT_COMMIT,
-    urls = [
-        "https://github.com/tensorflow/tensorflow/archive/%s.tar.gz" % _TENSORFLOW_GIT_COMMIT,
-    ],
-)
-
-# Needed by tf_py_wrap_cc rule from Tensorflow.
-# When upgrading tensorflow version, also check tensorflow/WORKSPACE for the
-# version of this -- keep in sync.
-http_archive(
-    name = "bazel_skylib",
-    sha256 = "2ef429f5d7ce7111263289644d233707dba35e39696377ebab8b0bc701f7818e",
-    urls = ["https://github.com/bazelbuild/bazel-skylib/releases/download/0.8.0/bazel-skylib.0.8.0.tar.gz"],
-)
-
-# TensorFlow depends on "io_bazel_rules_closure" so we need this here.
-# Needs to be kept in sync with the same target in TensorFlow's WORKSPACE file.
-http_archive(
-    name = "io_bazel_rules_closure",
-    sha256 = "5b00383d08dd71f28503736db0500b6fb4dda47489ff5fc6bed42557c07c6ba9",
-    strip_prefix = "rules_closure-308b05b2419edb5c8ee0471b67a40403df940149",
-    urls = [
-        "https://storage.googleapis.com/mirror.tensorflow.org/github.com/bazelbuild/rules_closure/archive/308b05b2419edb5c8ee0471b67a40403df940149.tar.gz",
-        "https://github.com/bazelbuild/rules_closure/archive/308b05b2419edb5c8ee0471b67a40403df940149.tar.gz",  # 2019-06-13
-    ],
-)
-
 ABSL_COMMIT = "0f3bb466b868b523cf1dc9b2aaaed65c77b28862"  # lts_20200923.2
 http_archive(
     name = "com_google_absl",
@@ -109,6 +75,88 @@ http_archive(
 )
 
 http_archive(
+    name = "bazel_skylib",
+    sha256 = "97e70364e9249702246c0e9444bccdc4b847bed1eb03c5a3ece4f83dfe6abc44",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.0.2/bazel-skylib-1.0.2.tar.gz",
+        "https://github.com/bazelbuild/bazel-skylib/releases/download/1.0.2/bazel-skylib-1.0.2.tar.gz",
+    ],
+)
+
+PROTOBUF_COMMIT = "fde7cf7358ec7cd69e8db9be4f1fa6a5c431386a" # 3.13.0
+http_archive(
+    name = "com_google_protobuf",
+    sha256 = "e589e39ef46fb2b3b476b3ca355bd324e5984cbdfac19f0e1625f0042e99c276",
+    strip_prefix = "protobuf-%s" % PROTOBUF_COMMIT,
+    urls = [
+        "https://storage.googleapis.com/grpc-bazel-mirror/github.com/google/protobuf/archive/%s.tar.gz" % PROTOBUF_COMMIT,
+        "https://github.com/google/protobuf/archive/%s.tar.gz" % PROTOBUF_COMMIT,
+    ],
+)
+
+load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
+
+protobuf_deps()
+
+# Needed by Protobuf.
+http_archive(
+    name = "zlib",
+    build_file = "@com_google_protobuf//:third_party/zlib.BUILD",
+    sha256 = "c3e5e9fdd5004dcb542feda5ee4f0ff0744628baf8ed2dd5d66f8ca1197cb1a1",
+    strip_prefix = "zlib-1.2.11",
+    urls = ["https://zlib.net/zlib-1.2.11.tar.gz"],
+)
+
+# pybind11
+http_archive(
+    name = "pybind11",
+    build_file = "@pybind11_bazel//:pybind11.BUILD",
+    strip_prefix = "pybind11-2.4.3",
+    urls = ["https://github.com/pybind/pybind11/archive/v2.4.3.tar.gz"],
+)
+
+# Bazel rules for pybind11
+http_archive(
+    name = "pybind11_bazel",
+    strip_prefix = "pybind11_bazel-d5587e65fb8cbfc0015391a7616dc9c66f64a494",
+    url = "https://github.com/pybind/pybind11_bazel/archive/d5587e65fb8cbfc0015391a7616dc9c66f64a494.zip",
+    sha256 = "bf8e1f3ebde5ee37ad30c451377b03fbbe42b9d8f24c244aa8af2ccbaeca7e6c",
+)
+load("@pybind11_bazel//:python_configure.bzl", "python_configure")
+python_configure(name = "local_config_python")
+
+
+# gRPC. Official release 1.33.2. Name is required by Google APIs.
+http_archive(
+    name = "com_github_grpc_grpc",
+    sha256 = "2060769f2d4b0d3535ba594b2ab614d7f68a492f786ab94b4318788d45e3278a",
+    strip_prefix = "grpc-1.33.2",
+    urls = ["https://github.com/grpc/grpc/archive/v1.33.2.tar.gz"],
+)
+load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
+grpc_deps()
+
+# Needed by Protobuf.
+bind(
+    name = "grpc_python_plugin",
+    actual = "@com_github_grpc_grpc//src/compiler:grpc_python_plugin",
+)
+
+# Needed by Protobuf.
+bind(
+    name = "grpc_lib",
+    actual = "@com_github_grpc_grpc//:grpc++",
+)
+
+# Needed by gRPC.
+http_archive(
+    name = "build_bazel_rules_swift",
+    sha256 = "d0833bc6dad817a367936a5f902a0c11318160b5e80a20ece35fb85a5675c886",
+    strip_prefix = "rules_swift-3eeeb53cebda55b349d64c9fc144e18c5f7c0eb8",
+    urls = ["https://github.com/bazelbuild/rules_swift/archive/3eeeb53cebda55b349d64c9fc144e18c5f7c0eb8.tar.gz"],
+)
+
+http_archive(
     name = "io_bazel_rules_go",
     urls = [
         "https://storage.googleapis.com/bazel-mirror/github.com/bazelbuild/rules_go/releases/download/v0.20.3/rules_go-v0.20.3.tar.gz",
@@ -162,6 +210,6 @@ load("//ml_metadata:workspace.bzl", "ml_metadata_workspace")
 ml_metadata_workspace()
 
 # Specify the minimum required bazel version.
-load("@org_tensorflow//tensorflow:version_check.bzl", "check_bazel_version_at_least")
+load("//ml_metadata:version_check.bzl", "check_bazel_version_at_least")
 
-check_bazel_version_at_least("0.24.1")
+check_bazel_version_at_least("3.5.0")

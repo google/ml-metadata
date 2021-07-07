@@ -253,8 +253,8 @@ cc_library(
     name = "metadata_store_service_interface",
     hdrs = ["metadata_store_service_interface.h"],
     deps = [
+        "@com_google_absl//absl/status",
         "//ml_metadata/proto:metadata_store_service_proto",
-        "@org_tensorflow//tensorflow/core:lib",
     ],
 )
 
@@ -280,8 +280,7 @@ cc_library(
         "//ml_metadata/simple_types:simple_types_constants",
         "//ml_metadata/simple_types/proto:simple_types_proto",
         "//ml_metadata/util:return_utils",
-        "//ml_metadata/util:status_utils",
-        "@org_tensorflow//tensorflow/core:lib",
+        "@com_google_glog//:glog",
     ],
 )
 
@@ -296,10 +295,10 @@ cc_library(
         ":test_util",
         "@com_google_googletest//:gtest",
         "@com_google_absl//absl/algorithm:container",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
-        "@org_tensorflow//tensorflow/core:lib",
-        "@org_tensorflow//tensorflow/core:test",
+        "@com_google_glog//:glog",
     ],
 )
 
@@ -314,10 +313,11 @@ ml_metadata_cc_test(
         "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/util:metadata_source_query_config",
-        "@org_tensorflow//tensorflow/core:lib",
-        "@org_tensorflow//tensorflow/core:test",
+        "//ml_metadata/util:return_utils",
+        "@com_google_glog//:glog",
     ],
 )
 
@@ -340,7 +340,6 @@ cc_library(
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/proto:metadata_store_service_proto",
-        "@org_tensorflow//tensorflow/core:lib",
     ],
 )
 
@@ -354,9 +353,10 @@ cc_library(
         ":sqlite_metadata_source",
         ":transaction_executor",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/util:metadata_source_query_config",
-        "@org_tensorflow//tensorflow/core:lib",
+        "//ml_metadata/util:return_utils",
     ],
 )
 
@@ -371,7 +371,7 @@ ml_metadata_cc_test(
         "@com_google_googletest//:gtest_main",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
-        "@org_tensorflow//tensorflow/core:test",
+        "@com_google_glog//:glog",
     ],
 )
 
@@ -480,10 +480,11 @@ cc_library(
     deps = [
         ":metadata_store",
         ":metadata_store_factory",
+        "@com_google_absl//absl/status",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/proto:metadata_store_service_proto",
-        "@org_tensorflow//tensorflow/core:lib",
-        "@grpc//:grpc++",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_google_glog//:glog",
     ],
 )
 
@@ -494,11 +495,13 @@ cc_binary(
         ":metadata_store",
         ":metadata_store_factory",
         ":metadata_store_service_impl",
+        "@com_google_protobuf//:protobuf",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "//ml_metadata/proto:metadata_store_proto",
-        "@org_tensorflow//tensorflow/core:lib",
         "@com_github_gflags_gflags//:gflags_nothreads",
-        "@grpc//:grpc++",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_google_glog//:glog",
     ],
 )
 

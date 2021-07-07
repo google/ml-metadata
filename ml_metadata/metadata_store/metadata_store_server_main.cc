@@ -16,24 +16,27 @@ limitations under the License.
 // gRPC server binary, which supports methods to interact with ml.metadata store
 // defined in third_party/ml_metadata/proto/metadata_store_service.proto.
 
+#include <fstream>
+#include <iostream>
+#include <string>
 #include <vector>
 
 #include "gflags/gflags.h"
+#include <glog/logging.h>
 #include "grpcpp/security/server_credentials.h"
 #include "grpcpp/server.h"
 #include "grpcpp/server_builder.h"
+#include "google/protobuf/io/zero_copy_stream_impl.h"
+#include "google/protobuf/text_format.h"
 
+#include "absl/status/status.h"
+#include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_split.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/metadata_store/metadata_store_factory.h"
 #include "ml_metadata/metadata_store/metadata_store_service_impl.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
-#include "tensorflow/core/lib/core/errors.h"
-#include "tensorflow/core/lib/core/status.h"
-#include "tensorflow/core/lib/strings/numbers.h"
-#include "tensorflow/core/lib/strings/str_util.h"
-#include "tensorflow/core/platform/env.h"
-#include "tensorflow/core/platform/protobuf.h"
 
 namespace {
 
@@ -61,15 +64,15 @@ std::shared_ptr<::grpc::ServerCredentials> BuildSslServerCredentials(
 void AddGrpcChannelArgs(const string& channel_arguments_str,
                         ::grpc::ServerBuilder* builder) {
   const std::vector<string> channel_arguments =
-      tensorflow::str_util::Split(channel_arguments_str, ",");
+      absl::StrSplit(channel_arguments_str, ',', absl::SkipEmpty());
   for (const string& channel_argument : channel_arguments) {
     const std::vector<string> key_val =
-        tensorflow::str_util::Split(channel_argument, "=");
+        absl::StrSplit(channel_argument, '=', absl::SkipEmpty());
     // gRPC accept arguments of two types, int and string. We will attempt to
     // parse each arg as int and pass it on as such if successful. Otherwise we
     // will pass it as a string. gRPC will log arguments that were not accepted.
-    tensorflow::int32 value;
-    if (tensorflow::strings::safe_strto32(key_val[1], &value)) {
+    int64 value;
+    if (absl::SimpleAtoi(key_val[1], &value)) {
       builder->AddChannelArgument(key_val[0], value);
     } else {
       builder->AddChannelArgument(key_val[0], key_val[1]);
@@ -86,8 +89,15 @@ bool ParseMetadataStoreServerConfigOrDie(
     return false;
   }
 
-  TF_CHECK_OK(tensorflow::ReadTextProto(tensorflow::Env::Default(), filename,
-                                        server_config));
+  std::ifstream input_file_stream(std::string(filename).c_str());
+  if (!input_file_stream) {
+    return false;
+  }
+
+  google::protobuf::io::IstreamInputStream file_stream(&input_file_stream);
+  if (!google::protobuf::TextFormat::Parse(&file_stream, server_config)) {
+    return false;
+  }
   return true;
 }
 
@@ -211,11 +221,11 @@ int main(int argc, char** argv) {
 
   // Creates a metadata_store in the main thread and init schema if necessary.
   std::unique_ptr<ml_metadata::MetadataStore> metadata_store;
-  tensorflow::Status status = ml_metadata::CreateMetadataStore(
+  absl::Status status = ml_metadata::CreateMetadataStore(
       connection_config, server_config.migration_options(), &metadata_store);
   for (int i = 0; i < (FLAGS_metadata_store_connection_retries);
        i++) {
-    if (status.ok() || !tensorflow::errors::IsAborted(status)) {
+    if (status.ok() || !absl::IsAborted(status)) {
       break;
     }
     LOG(WARNING) << "Connection Aborted with error: " << status;
@@ -223,7 +233,7 @@ int main(int argc, char** argv) {
     status = ml_metadata::CreateMetadataStore(
         connection_config, server_config.migration_options(), &metadata_store);
   }
-  TF_CHECK_OK(status)
+  CHECK_EQ(absl::OkStatus(), status)
       << "MetadataStore cannot be created with the given connection config.";
   // At this point, schema initialization and migration are done.
   metadata_store.reset();

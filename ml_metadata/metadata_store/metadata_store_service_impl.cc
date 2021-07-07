@@ -14,19 +14,20 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/metadata_store_service_impl.h"
 
+#include <glog/logging.h>
 #include "grpcpp/support/status_code_enum.h"
+#include "absl/status/status.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/metadata_store/metadata_store_factory.h"
-#include "tensorflow/core/lib/core/errors.h"
 
 namespace ml_metadata {
 namespace {
 
-// Converts from tensorflow Status to GRPC Status.
-::grpc::Status ToGRPCStatus(const ::tensorflow::Status& status) {
-  // Note: the tensorflow and grpc status codes align with each other.
+// Converts from absl Status to GRPC Status.
+::grpc::Status ToGRPCStatus(const ::absl::Status& status) {
+  // Note: the absl and grpc status codes align with each other.
   return ::grpc::Status(static_cast<::grpc::StatusCode>(status.code()),
-                        status.error_message());
+                        std::string(status.message()));
 }
 
 // Creates a store on demand. The store created does not handle migration.

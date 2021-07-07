@@ -15,30 +15,8 @@
 """ML METADATA Data Validation external dependencies that can be loaded in WORKSPACE files.
 """
 
-load("@org_tensorflow//tensorflow:workspace.bzl", "tf_workspace")
 load("//ml_metadata:mysql_configure.bzl", "mysql_configure")
 
 def ml_metadata_workspace():
     """All ML Metadata external dependencies."""
-    tf_workspace(
-        path_prefix = "",
-        tf_repo_name = "org_tensorflow",
-    )
-
-    # for grpc
-    native.bind(
-        name = "libssl",
-        actual = "@boringssl//:ssl",
-    )
-
-    native.bind(
-        name = "zlib",
-        actual = "@zlib_archive//:zlib",
-    )
-
-    native.bind(
-        name = "cares",
-        actual = "@grpc//third_party/nanopb:nanopb",
-    )
-
     mysql_configure()

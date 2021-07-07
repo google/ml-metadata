@@ -17,6 +17,7 @@ limitations under the License.
 #include <algorithm>
 #include <iterator>
 
+#include <glog/logging.h>
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/repeated_field.h"
 #include "absl/algorithm/container.h"
@@ -32,9 +33,6 @@ limitations under the License.
 #include "ml_metadata/simple_types/proto/simple_types.pb.h"
 #include "ml_metadata/simple_types/simple_types_constants.h"
 #include "ml_metadata/util/return_utils.h"
-#include "ml_metadata/util/status_utils.h"
-#include "tensorflow/core/lib/core/errors.h"
-#include "tensorflow/core/lib/core/status.h"
 
 namespace ml_metadata {
 namespace {
@@ -49,15 +47,14 @@ using std::unique_ptr;
 // union of the properties in stored_type and other_type.
 // Returns FAILED_PRECONDITION, if the types are inconsistent.
 template <typename T>
-tensorflow::Status CheckFieldsConsistent(const T& stored_type,
-                                         const T& other_type,
-                                         bool can_add_fields,
-                                         bool can_omit_fields, T& output_type) {
+absl::Status CheckFieldsConsistent(const T& stored_type, const T& other_type,
+                                   bool can_add_fields, bool can_omit_fields,
+                                   T& output_type) {
   if (stored_type.name() != other_type.name()) {
-    return tensorflow::errors::FailedPrecondition(
+    return absl::FailedPreconditionError(absl::StrCat(
         "Conflicting type name found in stored and given types: "
         "stored type: ",
-        stored_type.DebugString(), "; given type: ", other_type.DebugString());
+        stored_type.DebugString(), "; given type: ", other_type.DebugString()));
   }
   // Make sure every property in stored_type matches with the one in other_type
   // unless can_omit_fields is set to true.
@@ -69,30 +66,30 @@ tensorflow::Status CheckFieldsConsistent(const T& stored_type,
     if (other_iter == other_type.properties().end()) {
       omitted_fields_count++;
     } else if (other_iter->second != value) {
-      return tensorflow::errors::FailedPrecondition(
+      return absl::FailedPreconditionError(absl::StrCat(
           "Conflicting property value type found in stored and given types: "
           "stored_type: ",
           stored_type.DebugString(),
-          "; other_type: ", other_type.DebugString());
+          "; other_type: ", other_type.DebugString()));
     }
     if (omitted_fields_count > 0 && !can_omit_fields) {
-      return tensorflow::errors::FailedPrecondition(
+      return absl::FailedPreconditionError(absl::StrCat(
           "can_omit_fields is false while stored type has more properties: "
           "stored type: ",
           stored_type.DebugString(),
-          "; given type: ", other_type.DebugString());
+          "; given type: ", other_type.DebugString()));
     }
   }
   if (stored_type.properties_size() - omitted_fields_count ==
       other_type.properties_size()) {
     output_type = stored_type;
-    return tensorflow::Status::OK();
+    return absl::OkStatus();
   }
   if (!can_add_fields) {
-    return tensorflow::errors::FailedPrecondition(
+    return absl::FailedPreconditionError(absl::StrCat(
         "can_add_fields is false while the given type has more properties: "
         "stored_type: ",
-        stored_type.DebugString(), "; other_type: ", other_type.DebugString());
+        stored_type.DebugString(), "; other_type: ", other_type.DebugString()));
   }
   // add new properties to output_types if can_add_fields is true.
   output_type = stored_type;
@@ -104,7 +101,7 @@ tensorflow::Status CheckFieldsConsistent(const T& stored_type,
       (*output_type.mutable_properties())[property_name] = value;
     }
   }
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
 // If there is no type having the same name and version, then inserts a new
@@ -141,12 +138,12 @@ absl::Status UpsertType(const T& type, bool can_add_fields,
   // if `can_add_fields` is set, then new properties can be added
   // if `can_omit_fields` is set, then existing properties can be missing.
   T output_type;
-  const tensorflow::Status check_status = CheckFieldsConsistent(
+  const absl::Status check_status = CheckFieldsConsistent(
       stored_type, type, can_add_fields, can_omit_fields, output_type);
   if (!check_status.ok()) {
     return absl::AlreadyExistsError(
         absl::StrCat("Type already exists with different properties: ",
-                     check_status.error_message()));
+                     std::string(check_status.message())));
   }
   return metadata_access_object->UpdateType(output_type);
 }
@@ -340,53 +337,50 @@ absl::optional<std::string> GetRequestTypeVersion(const T& type_request) {
 
 }  // namespace
 
-tensorflow::Status MetadataStore::InitMetadataStore() {
-  TF_RETURN_IF_ERROR(
-      FromABSLStatus(transaction_executor_->Execute([this]() -> absl::Status {
-        return metadata_access_object_->InitMetadataSource();
-      })));
-  return FromABSLStatus(
-      transaction_executor_->Execute([this]() -> absl::Status {
-        return UpsertSimpleTypes(metadata_access_object_.get());
-      }));
+absl::Status MetadataStore::InitMetadataStore() {
+  MLMD_RETURN_IF_ERROR(transaction_executor_->Execute([this]() -> absl::Status {
+    return metadata_access_object_->InitMetadataSource();
+  }));
+  return transaction_executor_->Execute([this]() -> absl::Status {
+    return UpsertSimpleTypes(metadata_access_object_.get());
+  });
 }
 
 // TODO(b/187357155): duplicated results when inserting simple types
 // concurrently
-tensorflow::Status MetadataStore::InitMetadataStoreIfNotExists(
+absl::Status MetadataStore::InitMetadataStoreIfNotExists(
     const bool enable_upgrade_migration) {
-  TF_RETURN_IF_ERROR(FromABSLStatus(transaction_executor_->Execute(
+  MLMD_RETURN_IF_ERROR(transaction_executor_->Execute(
       [this, &enable_upgrade_migration]() -> absl::Status {
         return metadata_access_object_->InitMetadataSourceIfNotExists(
             enable_upgrade_migration);
-      })));
-  return FromABSLStatus(
-      transaction_executor_->Execute([this]() -> absl::Status {
-        return UpsertSimpleTypes(metadata_access_object_.get());
       }));
+  return transaction_executor_->Execute([this]() -> absl::Status {
+    return UpsertSimpleTypes(metadata_access_object_.get());
+  });
 }
 
-tensorflow::Status MetadataStore::PutTypes(const PutTypesRequest& request,
-                                           PutTypesResponse* response) {
+absl::Status MetadataStore::PutTypes(const PutTypesRequest& request,
+                                     PutTypesResponse* response) {
   if (!request.all_fields_match()) {
-    return tensorflow::errors::Unimplemented("Must match all fields.");
+    return absl::UnimplementedError("Must match all fields.");
   }
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         return UpsertTypes(request.artifact_types(), request.execution_types(),
                            request.context_types(), request.can_add_fields(),
                            request.can_omit_fields(),
                            metadata_access_object_.get(), response);
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::PutArtifactType(
+absl::Status MetadataStore::PutArtifactType(
     const PutArtifactTypeRequest& request, PutArtifactTypeResponse* response) {
   if (!request.all_fields_match()) {
-    return tensorflow::errors::Unimplemented("Must match all fields.");
+    return absl::UnimplementedError("Must match all fields.");
   }
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         int64 type_id;
@@ -396,16 +390,16 @@ tensorflow::Status MetadataStore::PutArtifactType(
                        &type_id));
         response->set_type_id(type_id);
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::PutExecutionType(
+absl::Status MetadataStore::PutExecutionType(
     const PutExecutionTypeRequest& request,
     PutExecutionTypeResponse* response) {
   if (!request.all_fields_match()) {
-    return tensorflow::errors::Unimplemented("Must match all fields.");
+    return absl::UnimplementedError("Must match all fields.");
   }
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         int64 type_id;
@@ -415,15 +409,15 @@ tensorflow::Status MetadataStore::PutExecutionType(
                        &type_id));
         response->set_type_id(type_id);
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::PutContextType(
-    const PutContextTypeRequest& request, PutContextTypeResponse* response) {
+absl::Status MetadataStore::PutContextType(const PutContextTypeRequest& request,
+                                           PutContextTypeResponse* response) {
   if (!request.all_fields_match()) {
-    return tensorflow::errors::Unimplemented("Must match all fields.");
+    return absl::UnimplementedError("Must match all fields.");
   }
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         int64 type_id;
@@ -433,47 +427,47 @@ tensorflow::Status MetadataStore::PutContextType(
                        &type_id));
         response->set_type_id(type_id);
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetArtifactType(
+absl::Status MetadataStore::GetArtifactType(
     const GetArtifactTypeRequest& request, GetArtifactTypeResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         return metadata_access_object_->FindTypeByNameAndVersion(
             request.type_name(), GetRequestTypeVersion(request),
             response->mutable_artifact_type());
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetExecutionType(
+absl::Status MetadataStore::GetExecutionType(
     const GetExecutionTypeRequest& request,
     GetExecutionTypeResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         return metadata_access_object_->FindTypeByNameAndVersion(
             request.type_name(), GetRequestTypeVersion(request),
             response->mutable_execution_type());
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetContextType(
-    const GetContextTypeRequest& request, GetContextTypeResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+absl::Status MetadataStore::GetContextType(const GetContextTypeRequest& request,
+                                           GetContextTypeResponse* response) {
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         return metadata_access_object_->FindTypeByNameAndVersion(
             request.type_name(), GetRequestTypeVersion(request),
             response->mutable_context_type());
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetArtifactTypesByID(
+absl::Status MetadataStore::GetArtifactTypesByID(
     const GetArtifactTypesByIDRequest& request,
     GetArtifactTypesByIDResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         for (const int64 type_id : request.type_ids()) {
@@ -487,13 +481,13 @@ tensorflow::Status MetadataStore::GetArtifactTypesByID(
           }
         }
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetExecutionTypesByID(
+absl::Status MetadataStore::GetExecutionTypesByID(
     const GetExecutionTypesByIDRequest& request,
     GetExecutionTypesByIDResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         for (const int64 type_id : request.type_ids()) {
@@ -507,13 +501,13 @@ tensorflow::Status MetadataStore::GetExecutionTypesByID(
           }
         }
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetContextTypesByID(
+absl::Status MetadataStore::GetContextTypesByID(
     const GetContextTypesByIDRequest& request,
     GetContextTypesByIDResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         for (const int64 type_id : request.type_ids()) {
@@ -527,13 +521,13 @@ tensorflow::Status MetadataStore::GetContextTypesByID(
           }
         }
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetArtifactsByID(
+absl::Status MetadataStore::GetArtifactsByID(
     const GetArtifactsByIDRequest& request,
     GetArtifactsByIDResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Artifact> artifacts;
@@ -547,13 +541,13 @@ tensorflow::Status MetadataStore::GetArtifactsByID(
         absl::c_copy(artifacts, google::protobuf::RepeatedPtrFieldBackInserter(
                                     response->mutable_artifacts()));
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetExecutionsByID(
+absl::Status MetadataStore::GetExecutionsByID(
     const GetExecutionsByIDRequest& request,
     GetExecutionsByIDResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Execution> executions;
@@ -567,12 +561,12 @@ tensorflow::Status MetadataStore::GetExecutionsByID(
         absl::c_copy(executions, google::protobuf::RepeatedPtrFieldBackInserter(
                                      response->mutable_executions()));
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetContextsByID(
+absl::Status MetadataStore::GetContextsByID(
     const GetContextsByIDRequest& request, GetContextsByIDResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Context> contexts;
@@ -586,14 +580,13 @@ tensorflow::Status MetadataStore::GetContextsByID(
         absl::c_copy(contexts, google::protobuf::RepeatedFieldBackInserter(
                                    response->mutable_contexts()));
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::PutArtifacts(
-    const PutArtifactsRequest& request, PutArtifactsResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute([this, &request,
-                                                        &response]()
-                                                           -> absl::Status {
+absl::Status MetadataStore::PutArtifacts(const PutArtifactsRequest& request,
+                                         PutArtifactsResponse* response) {
+  return transaction_executor_->Execute([this, &request,
+                                         &response]() -> absl::Status {
     response->Clear();
     for (const Artifact& artifact : request.artifacts()) {
       int64 artifact_id = -1;
@@ -633,12 +626,12 @@ tensorflow::Status MetadataStore::PutArtifacts(
       response->add_artifact_ids(artifact_id);
     }
     return absl::OkStatus();
-  }));
+  });
 }
 
-tensorflow::Status MetadataStore::PutExecutions(
-    const PutExecutionsRequest& request, PutExecutionsResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+absl::Status MetadataStore::PutExecutions(const PutExecutionsRequest& request,
+                                          PutExecutionsResponse* response) {
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         for (const Execution& execution : request.executions()) {
@@ -648,12 +641,12 @@ tensorflow::Status MetadataStore::PutExecutions(
           response->add_execution_ids(execution_id);
         }
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::PutContexts(const PutContextsRequest& request,
-                                              PutContextsResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+absl::Status MetadataStore::PutContexts(const PutContextsRequest& request,
+                                        PutContextsResponse* response) {
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         for (const Context& context : request.contexts()) {
@@ -663,41 +656,41 @@ tensorflow::Status MetadataStore::PutContexts(const PutContextsRequest& request,
           response->add_context_ids(context_id);
         }
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::Create(
+absl::Status MetadataStore::Create(
     const MetadataSourceQueryConfig& query_config,
     const MigrationOptions& migration_options,
     unique_ptr<MetadataSource> metadata_source,
     unique_ptr<TransactionExecutor> transaction_executor,
     unique_ptr<MetadataStore>* result) {
   unique_ptr<MetadataAccessObject> metadata_access_object;
-  TF_RETURN_IF_ERROR(FromABSLStatus(CreateMetadataAccessObject(
-      query_config, metadata_source.get(), &metadata_access_object)));
+  MLMD_RETURN_IF_ERROR(CreateMetadataAccessObject(
+      query_config, metadata_source.get(), &metadata_access_object));
   // if downgrade migration is specified
   if (migration_options.downgrade_to_schema_version() >= 0) {
-    TF_RETURN_IF_ERROR(FromABSLStatus(transaction_executor->Execute(
+    MLMD_RETURN_IF_ERROR(transaction_executor->Execute(
         [&migration_options, &metadata_access_object]() -> absl::Status {
           return metadata_access_object->DowngradeMetadataSource(
               migration_options.downgrade_to_schema_version());
-        })));
-    return tensorflow::errors::Cancelled(
+        }));
+    return absl::CancelledError(absl::StrCat(
         "Downgrade migration was performed. Connection to the downgraded "
         "database is Cancelled. Now the database is at schema version ",
         migration_options.downgrade_to_schema_version(),
         ". Please refer to the migration guide and use lower version of the "
-        "library to connect to the metadata store.");
+        "library to connect to the metadata store."));
   }
   *result = absl::WrapUnique(new MetadataStore(
       std::move(metadata_source), std::move(metadata_access_object),
       std::move(transaction_executor)));
-  return tensorflow::Status::OK();
+  return absl::OkStatus();
 }
 
-tensorflow::Status MetadataStore::PutEvents(const PutEventsRequest& request,
-                                            PutEventsResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+absl::Status MetadataStore::PutEvents(const PutEventsRequest& request,
+                                      PutEventsResponse* response) {
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         for (const Event& event : request.events()) {
@@ -706,14 +699,13 @@ tensorflow::Status MetadataStore::PutEvents(const PutEventsRequest& request,
               metadata_access_object_->CreateEvent(event, &dummy_event_id));
         }
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::PutExecution(
-    const PutExecutionRequest& request, PutExecutionResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute([this, &request,
-                                                        &response]()
-                                                           -> absl::Status {
+absl::Status MetadataStore::PutExecution(const PutExecutionRequest& request,
+                                         PutExecutionResponse* response) {
+  return transaction_executor_->Execute([this, &request,
+                                         &response]() -> absl::Status {
     response->Clear();
     if (!request.has_execution()) {
       return absl::InvalidArgumentError(
@@ -784,13 +776,13 @@ tensorflow::Status MetadataStore::PutExecution(
       }
     }
     return absl::OkStatus();
-  }));
+  });
 }
 
-tensorflow::Status MetadataStore::GetEventsByExecutionIDs(
+absl::Status MetadataStore::GetEventsByExecutionIDs(
     const GetEventsByExecutionIDsRequest& request,
     GetEventsByExecutionIDsResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Event> events;
@@ -808,13 +800,13 @@ tensorflow::Status MetadataStore::GetEventsByExecutionIDs(
           *response->mutable_events()->Add() = event;
         }
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetEventsByArtifactIDs(
+absl::Status MetadataStore::GetEventsByArtifactIDs(
     const GetEventsByArtifactIDsRequest& request,
     GetEventsByArtifactIDsResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Event> events;
@@ -832,12 +824,12 @@ tensorflow::Status MetadataStore::GetEventsByArtifactIDs(
           *response->mutable_events()->Add() = event;
         }
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetExecutions(
-    const GetExecutionsRequest& request, GetExecutionsResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+absl::Status MetadataStore::GetExecutions(const GetExecutionsRequest& request,
+                                          GetExecutionsResponse* response) {
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Execution> executions;
@@ -864,12 +856,12 @@ tensorflow::Status MetadataStore::GetExecutions(
           response->set_next_page_token(next_page_token);
         }
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetArtifacts(
-    const GetArtifactsRequest& request, GetArtifactsResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+absl::Status MetadataStore::GetArtifacts(const GetArtifactsRequest& request,
+                                         GetArtifactsResponse* response) {
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Artifact> artifacts;
@@ -897,12 +889,12 @@ tensorflow::Status MetadataStore::GetArtifacts(
         }
 
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetContexts(const GetContextsRequest& request,
-                                              GetContextsResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+absl::Status MetadataStore::GetContexts(const GetContextsRequest& request,
+                                        GetContextsResponse* response) {
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Context> contexts;
@@ -930,14 +922,14 @@ tensorflow::Status MetadataStore::GetContexts(const GetContextsRequest& request,
         }
 
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetArtifactTypes(
+absl::Status MetadataStore::GetArtifactTypes(
     const GetArtifactTypesRequest& request,
     GetArtifactTypesResponse* response) {
-  return FromABSLStatus(
-      transaction_executor_->Execute([this, &response]() -> absl::Status {
+  return transaction_executor_->Execute(
+      [this, &response]() -> absl::Status {
         response->Clear();
         std::vector<ArtifactType> artifact_types;
         const absl::Status status =
@@ -958,14 +950,14 @@ tensorflow::Status MetadataStore::GetArtifactTypes(
           }
         }
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetExecutionTypes(
+absl::Status MetadataStore::GetExecutionTypes(
     const GetExecutionTypesRequest& request,
     GetExecutionTypesResponse* response) {
-  return FromABSLStatus(
-      transaction_executor_->Execute([this, &response]() -> absl::Status {
+  return transaction_executor_->Execute(
+      [this, &response]() -> absl::Status {
         response->Clear();
         std::vector<ExecutionType> execution_types;
         const absl::Status status =
@@ -986,30 +978,29 @@ tensorflow::Status MetadataStore::GetExecutionTypes(
           }
         }
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetContextTypes(
+absl::Status MetadataStore::GetContextTypes(
     const GetContextTypesRequest& request, GetContextTypesResponse* response) {
-  return FromABSLStatus(
-      transaction_executor_->Execute([this, &response]() -> absl::Status {
-        response->Clear();
-        std::vector<ContextType> context_types;
-        const absl::Status status =
-            metadata_access_object_->FindTypes(&context_types);
-        if (absl::IsNotFound(status)) {
-          return absl::OkStatus();
-        } else if (!status.ok()) {
-          return status;
-        }
-        for (const ContextType& context_type : context_types) {
-          *response->mutable_context_types()->Add() = context_type;
-        }
-        return absl::OkStatus();
-      }));
+  return transaction_executor_->Execute([this, &response]() -> absl::Status {
+    response->Clear();
+    std::vector<ContextType> context_types;
+    const absl::Status status =
+        metadata_access_object_->FindTypes(&context_types);
+    if (absl::IsNotFound(status)) {
+      return absl::OkStatus();
+    } else if (!status.ok()) {
+      return status;
+    }
+    for (const ContextType& context_type : context_types) {
+      *response->mutable_context_types()->Add() = context_type;
+    }
+    return absl::OkStatus();
+  });
 }
 
-tensorflow::Status MetadataStore::GetArtifactsByURI(
+absl::Status MetadataStore::GetArtifactsByURI(
     const GetArtifactsByURIRequest& request,
     GetArtifactsByURIResponse* response) {
   // Validate if there's already deprecated optional string uri = 1 field.
@@ -1018,13 +1009,13 @@ tensorflow::Status MetadataStore::GetArtifactsByURI(
   for (int i = 0; i < unknown_field_set.field_count(); i++) {
     const google::protobuf::UnknownField& unknown_field = unknown_field_set.field(i);
     if (unknown_field.number() == 1) {
-      return tensorflow::errors::InvalidArgument(
+      return absl::InvalidArgumentError(absl::StrCat(
           "The request contains deprecated field `uri`. Please upgrade the "
           "client library version above 0.21.0. GetArtifactsByURIRequest: ",
-          request.DebugString());
+          request.DebugString()));
     }
   }
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         absl::flat_hash_set<std::string> uris(request.uris().begin(),
@@ -1043,13 +1034,13 @@ tensorflow::Status MetadataStore::GetArtifactsByURI(
           }
         }
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetArtifactsByType(
+absl::Status MetadataStore::GetArtifactsByType(
     const GetArtifactsByTypeRequest& request,
     GetArtifactsByTypeResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         ArtifactType artifact_type;
@@ -1073,13 +1064,13 @@ tensorflow::Status MetadataStore::GetArtifactsByType(
           *response->mutable_artifacts()->Add() = artifact;
         }
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetArtifactByTypeAndName(
+absl::Status MetadataStore::GetArtifactByTypeAndName(
     const GetArtifactByTypeAndNameRequest& request,
     GetArtifactByTypeAndNameResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         ArtifactType artifact_type;
@@ -1101,13 +1092,13 @@ tensorflow::Status MetadataStore::GetArtifactByTypeAndName(
         }
         *response->mutable_artifact() = artifact;
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetExecutionsByType(
+absl::Status MetadataStore::GetExecutionsByType(
     const GetExecutionsByTypeRequest& request,
     GetExecutionsByTypeResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         ExecutionType execution_type;
@@ -1131,13 +1122,13 @@ tensorflow::Status MetadataStore::GetExecutionsByType(
           *response->mutable_executions()->Add() = execution;
         }
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetExecutionByTypeAndName(
+absl::Status MetadataStore::GetExecutionByTypeAndName(
     const GetExecutionByTypeAndNameRequest& request,
     GetExecutionByTypeAndNameResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         ExecutionType execution_type;
@@ -1159,13 +1150,13 @@ tensorflow::Status MetadataStore::GetExecutionByTypeAndName(
         }
         *response->mutable_execution() = execution;
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetContextsByType(
+absl::Status MetadataStore::GetContextsByType(
     const GetContextsByTypeRequest& request,
     GetContextsByTypeResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         ContextType context_type;
@@ -1202,13 +1193,13 @@ tensorflow::Status MetadataStore::GetContextsByType(
           response->set_next_page_token(next_page_token);
         }
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetContextByTypeAndName(
+absl::Status MetadataStore::GetContextByTypeAndName(
     const GetContextByTypeAndNameRequest& request,
     GetContextByTypeAndNameResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         ContextType context_type;
@@ -1229,13 +1220,13 @@ tensorflow::Status MetadataStore::GetContextByTypeAndName(
         }
         *response->mutable_context() = context;
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::PutAttributionsAndAssociations(
+absl::Status MetadataStore::PutAttributionsAndAssociations(
     const PutAttributionsAndAssociationsRequest& request,
     PutAttributionsAndAssociationsResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         for (const Attribution& attribution : request.attributions()) {
@@ -1249,13 +1240,13 @@ tensorflow::Status MetadataStore::PutAttributionsAndAssociations(
               metadata_access_object_.get()));
         }
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::PutParentContexts(
+absl::Status MetadataStore::PutParentContexts(
     const PutParentContextsRequest& request,
     PutParentContextsResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         for (const ParentContext& parent_context : request.parent_contexts()) {
@@ -1263,13 +1254,13 @@ tensorflow::Status MetadataStore::PutParentContexts(
               metadata_access_object_->CreateParentContext(parent_context));
         }
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetContextsByArtifact(
+absl::Status MetadataStore::GetContextsByArtifact(
     const GetContextsByArtifactRequest& request,
     GetContextsByArtifactResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Context> contexts;
@@ -1279,13 +1270,13 @@ tensorflow::Status MetadataStore::GetContextsByArtifact(
           *response->mutable_contexts()->Add() = context;
         }
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetContextsByExecution(
+absl::Status MetadataStore::GetContextsByExecution(
     const GetContextsByExecutionRequest& request,
     GetContextsByExecutionResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Context> contexts;
@@ -1295,13 +1286,13 @@ tensorflow::Status MetadataStore::GetContextsByExecution(
           *response->mutable_contexts()->Add() = context;
         }
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetArtifactsByContext(
+absl::Status MetadataStore::GetArtifactsByContext(
     const GetArtifactsByContextRequest& request,
     GetArtifactsByContextResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Artifact> artifacts;
@@ -1321,13 +1312,13 @@ tensorflow::Status MetadataStore::GetArtifactsByContext(
         }
 
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetExecutionsByContext(
+absl::Status MetadataStore::GetExecutionsByContext(
     const GetExecutionsByContextRequest& request,
     GetExecutionsByContextResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Execution> executions;
@@ -1348,13 +1339,13 @@ tensorflow::Status MetadataStore::GetExecutionsByContext(
         }
 
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetParentContextsByContext(
+absl::Status MetadataStore::GetParentContextsByContext(
     const GetParentContextsByContextRequest& request,
     GetParentContextsByContextResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Context> parent_contexts;
@@ -1367,13 +1358,13 @@ tensorflow::Status MetadataStore::GetParentContextsByContext(
         absl::c_copy(parent_contexts, google::protobuf::RepeatedPtrFieldBackInserter(
                                           response->mutable_contexts()));
         return absl::OkStatus();
-      }));
+      });
 }
 
-tensorflow::Status MetadataStore::GetChildrenContextsByContext(
+absl::Status MetadataStore::GetChildrenContextsByContext(
     const GetChildrenContextsByContextRequest& request,
     GetChildrenContextsByContextResponse* response) {
-  return FromABSLStatus(transaction_executor_->Execute(
+  return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Context> child_contexts;
@@ -1386,7 +1377,7 @@ tensorflow::Status MetadataStore::GetChildrenContextsByContext(
         absl::c_copy(child_contexts, google::protobuf::RepeatedPtrFieldBackInserter(
                                          response->mutable_contexts()));
         return absl::OkStatus();
-      }));
+      });
 }
 
 

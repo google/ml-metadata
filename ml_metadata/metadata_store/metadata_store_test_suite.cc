@@ -17,16 +17,16 @@ limitations under the License.
 #include <memory>
 #include <unordered_map>
 
+#include <glog/logging.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/algorithm/container.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/metadata_store/test_util.h"
-#include "tensorflow/core/lib/core/errors.h"
-#include "tensorflow/core/lib/core/status_test_util.h"
 
 namespace ml_metadata {
 namespace testing {
@@ -50,8 +50,8 @@ void InsertTypeAndSetTypeID(MetadataStore* metadata_store,
   PutArtifactTypeRequest put_type_request;
   *put_type_request.mutable_artifact_type() = curr_type;
   PutArtifactTypeResponse put_type_response;
-  TF_ASSERT_OK(
-      metadata_store->PutArtifactType(put_type_request, &put_type_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store->PutArtifactType(
+                                  put_type_request, &put_type_response));
   ASSERT_TRUE(put_type_response.has_type_id());
   curr_type.set_id(put_type_response.type_id());
 }
@@ -62,8 +62,8 @@ void InsertTypeAndSetTypeID(MetadataStore* metadata_store,
   PutExecutionTypeRequest put_type_request;
   *put_type_request.mutable_execution_type() = curr_type;
   PutExecutionTypeResponse put_type_response;
-  TF_ASSERT_OK(
-      metadata_store->PutExecutionType(put_type_request, &put_type_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store->PutExecutionType(
+                                  put_type_request, &put_type_response));
   ASSERT_TRUE(put_type_response.has_type_id());
   curr_type.set_id(put_type_response.type_id());
 }
@@ -74,8 +74,8 @@ void InsertTypeAndSetTypeID(MetadataStore* metadata_store,
   PutContextTypeRequest put_type_request;
   *put_type_request.mutable_context_type() = curr_type;
   PutContextTypeResponse put_type_response;
-  TF_ASSERT_OK(
-      metadata_store->PutContextType(put_type_request, &put_type_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store->PutContextType(
+                                  put_type_request, &put_type_response));
   ASSERT_TRUE(put_type_response.has_type_id());
   curr_type.set_id(put_type_response.type_id());
 }
@@ -91,8 +91,8 @@ void InsertNodeAndSetNodeID(MetadataStore* metadata_store,
   absl::c_copy(nodes, google::protobuf::RepeatedFieldBackInserter(
                           put_nodes_request.mutable_artifacts()));
   PutArtifactsResponse put_nodes_response;
-  TF_ASSERT_OK(
-      metadata_store->PutArtifacts(put_nodes_request, &put_nodes_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store->PutArtifacts(
+                                  put_nodes_request, &put_nodes_response));
   for (size_t i = 0; i < put_nodes_response.artifact_ids_size(); ++i) {
     nodes[i].set_id(put_nodes_response.artifact_ids(i));
   }
@@ -105,8 +105,8 @@ void InsertNodeAndSetNodeID(MetadataStore* metadata_store,
   absl::c_copy(nodes, google::protobuf::RepeatedFieldBackInserter(
                           put_nodes_request.mutable_executions()));
   PutExecutionsResponse put_nodes_response;
-  TF_ASSERT_OK(
-      metadata_store->PutExecutions(put_nodes_request, &put_nodes_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store->PutExecutions(
+                                  put_nodes_request, &put_nodes_response));
   for (size_t i = 0; i < put_nodes_response.execution_ids_size(); ++i) {
     nodes[i].set_id(put_nodes_response.execution_ids(i));
   }
@@ -119,8 +119,8 @@ void InsertNodeAndSetNodeID(MetadataStore* metadata_store,
   absl::c_copy(nodes, google::protobuf::RepeatedFieldBackInserter(
                           put_nodes_request.mutable_contexts()));
   PutContextsResponse put_nodes_response;
-  TF_ASSERT_OK(
-      metadata_store->PutContexts(put_nodes_request, &put_nodes_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store->PutContexts(put_nodes_request,
+                                                          &put_nodes_response));
   for (size_t i = 0; i < put_nodes_response.context_ids_size(); ++i) {
     nodes[i].set_id(put_nodes_response.context_ids(i));
   }
@@ -174,7 +174,7 @@ void PrepareTypesAndNodesForListNodeThroughType(MetadataStore* metadata_store,
 }
 
 TEST_P(MetadataStoreTestSuite, InitMetadataStoreIfNotExists) {
-  TF_ASSERT_OK(metadata_store_->InitMetadataStoreIfNotExists());
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->InitMetadataStoreIfNotExists());
   // This is just to check that the metadata store was initialized.
   const PutArtifactTypeRequest put_request =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
@@ -186,16 +186,18 @@ TEST_P(MetadataStoreTestSuite, InitMetadataStoreIfNotExists) {
             }
           )");
   PutArtifactTypeResponse put_response;
-  TF_ASSERT_OK(metadata_store_->PutArtifactType(put_request, &put_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifactType(put_request, &put_response));
   ASSERT_TRUE(put_response.has_type_id());
-  TF_ASSERT_OK(metadata_store_->InitMetadataStoreIfNotExists());
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->InitMetadataStoreIfNotExists());
   const GetArtifactTypeRequest get_request =
       ParseTextProtoOrDie<GetArtifactTypeRequest>(
           R"(
             type_name: 'test_type2'
           )");
   GetArtifactTypeResponse get_response;
-  TF_ASSERT_OK(metadata_store_->GetArtifactType(get_request, &get_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetArtifactType(get_request, &get_response));
   EXPECT_EQ(put_response.type_id(), get_response.artifact_type().id())
       << "Type ID should be the same as the type created.";
   EXPECT_EQ("test_type2", get_response.artifact_type().name())
@@ -213,7 +215,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeGetArtifactType) {
             }
           )");
   PutArtifactTypeResponse put_response;
-  TF_ASSERT_OK(metadata_store_->PutArtifactType(put_request, &put_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifactType(put_request, &put_response));
   ASSERT_TRUE(put_response.has_type_id());
   const GetArtifactTypeRequest get_request =
       ParseTextProtoOrDie<GetArtifactTypeRequest>(
@@ -221,7 +224,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeGetArtifactType) {
             type_name: 'test_type2'
           )");
   GetArtifactTypeResponse get_response;
-  TF_ASSERT_OK(metadata_store_->GetArtifactType(get_request, &get_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetArtifactType(get_request, &get_response));
   EXPECT_EQ(put_response.type_id(), get_response.artifact_type().id())
       << "Type ID should be the same as the type created.";
   EXPECT_EQ("test_type2", get_response.artifact_type().name())
@@ -241,7 +245,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypesGetArtifactTypes) {
             }
           )");
   PutArtifactTypeResponse put_response;
-  TF_ASSERT_OK(metadata_store_->PutArtifactType(put_request_1, &put_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifactType(put_request_1, &put_response));
   ASSERT_TRUE(put_response.has_type_id());
   ArtifactType type_1 = ParseTextProtoOrDie<ArtifactType>(
       R"(
@@ -259,7 +264,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypesGetArtifactTypes) {
               properties { key: 'property_2' value: INT }
             }
           )");
-  TF_ASSERT_OK(metadata_store_->PutArtifactType(put_request_2, &put_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifactType(put_request_2, &put_response));
   ASSERT_TRUE(put_response.has_type_id());
   ArtifactType type_2 = ParseTextProtoOrDie<ArtifactType>(
       R"(
@@ -270,7 +276,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypesGetArtifactTypes) {
 
   GetArtifactTypesRequest get_request;
   GetArtifactTypesResponse got_response;
-  TF_ASSERT_OK(metadata_store_->GetArtifactTypes(get_request, &got_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetArtifactTypes(get_request, &got_response));
   GetArtifactTypesResponse want_response;
   *want_response.add_artifact_types() = type_1;
   *want_response.add_artifact_types() = type_2;
@@ -282,7 +289,8 @@ TEST_P(MetadataStoreTestSuite, GetArtifactTypesWhenNoneExist) {
   GetArtifactTypesResponse got_response;
 
   // Expect OK status and empty response.
-  TF_ASSERT_OK(metadata_store_->GetArtifactTypes(get_request, &got_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetArtifactTypes(get_request, &got_response));
   const GetArtifactTypesResponse want_response;
   EXPECT_THAT(got_response, EqualsProto(want_response));
 }
@@ -299,7 +307,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeTwiceChangedAddedProperty) {
             }
           )");
   PutArtifactTypeResponse response_1;
-  TF_ASSERT_OK(metadata_store_->PutArtifactType(request_1, &response_1));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifactType(request_1, &response_1));
 
   const PutArtifactTypeRequest request_2 =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
@@ -327,7 +336,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeTwiceChangedRemovedProperty) {
             }
           )");
   PutArtifactTypeResponse response_1;
-  TF_ASSERT_OK(metadata_store_->PutArtifactType(request_1, &response_1));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifactType(request_1, &response_1));
 
   const PutArtifactTypeRequest request_2 =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
@@ -353,7 +363,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeTwiceChangedPropertyType) {
             }
           )");
   PutArtifactTypeResponse response_1;
-  TF_ASSERT_OK(metadata_store_->PutArtifactType(request_1, &response_1));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifactType(request_1, &response_1));
 
   const PutArtifactTypeRequest request_2 =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
@@ -379,7 +390,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeMultipleTimesWithUpdate) {
             }
           )");
   PutArtifactTypeResponse response_1;
-  TF_ASSERT_OK(metadata_store_->PutArtifactType(request_1, &response_1));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifactType(request_1, &response_1));
 
   PutArtifactTypeRequest request_2 =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
@@ -393,7 +405,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeMultipleTimesWithUpdate) {
             }
           )");
   PutArtifactTypeResponse response_2;
-  TF_EXPECT_OK(metadata_store_->PutArtifactType(request_2, &response_2));
+  EXPECT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifactType(request_2, &response_2));
   EXPECT_EQ(response_2.type_id(), response_1.type_id());
 }
 
@@ -408,7 +421,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeWithUpdateErrors) {
             }
           )");
   PutArtifactTypeResponse response_1;
-  TF_ASSERT_OK(metadata_store_->PutArtifactType(request_1, &response_1));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifactType(request_1, &response_1));
   const int64 type_id = response_1.type_id();
 
   {
@@ -424,8 +438,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeWithUpdateErrors) {
               }
             )");
     PutArtifactTypeResponse response;
-    EXPECT_EQ(metadata_store_->PutArtifactType(wrong_request, &response).code(),
-              tensorflow::error::ALREADY_EXISTS);
+    EXPECT_TRUE(absl::IsAlreadyExists(
+        metadata_store_->PutArtifactType(wrong_request, &response)));
   }
 
   {
@@ -442,8 +456,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeWithUpdateErrors) {
             )");
     wrong_request.mutable_artifact_type()->set_id(type_id);
     PutArtifactTypeResponse response;
-    EXPECT_EQ(metadata_store_->PutArtifactType(wrong_request, &response).code(),
-              tensorflow::error::ALREADY_EXISTS);
+    EXPECT_TRUE(absl::IsAlreadyExists(
+        metadata_store_->PutArtifactType(wrong_request, &response)));
   }
 
   {
@@ -457,8 +471,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeWithUpdateErrors) {
             )");
     wrong_request.mutable_artifact_type()->set_id(type_id);
     PutArtifactTypeResponse response;
-    EXPECT_EQ(metadata_store_->PutArtifactType(wrong_request, &response).code(),
-              tensorflow::error::INVALID_ARGUMENT);
+    EXPECT_TRUE(absl::IsInvalidArgument(
+        metadata_store_->PutArtifactType(wrong_request, &response)));
   }
 
   {
@@ -475,8 +489,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeWithUpdateErrors) {
             )");
     wrong_request.mutable_artifact_type()->set_id(type_id);
     PutArtifactTypeResponse response;
-    EXPECT_EQ(metadata_store_->PutArtifactType(wrong_request, &response).code(),
-              tensorflow::error::ALREADY_EXISTS);
+    EXPECT_TRUE(absl::IsAlreadyExists(
+        metadata_store_->PutArtifactType(wrong_request, &response)));
   }
 }
 
@@ -491,7 +505,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeSame) {
             }
           )");
   PutArtifactTypeResponse response_1;
-  TF_ASSERT_OK(metadata_store_->PutArtifactType(request_1, &response_1));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifactType(request_1, &response_1));
 
   const PutArtifactTypeRequest request_2 =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
@@ -503,7 +518,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeSame) {
             }
           )");
   PutArtifactTypeResponse response_2;
-  TF_ASSERT_OK(metadata_store_->PutArtifactType(request_2, &response_2));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifactType(request_2, &response_2));
   EXPECT_EQ(response_1.type_id(), response_2.type_id());
 }
 
@@ -518,7 +534,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeCanOmitFields) {
             }
           )");
   PutArtifactTypeResponse response_1;
-  TF_ASSERT_OK(metadata_store_->PutArtifactType(request_1, &response_1));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifactType(request_1, &response_1));
   ArtifactType stored_type = request_1.artifact_type();
   stored_type.set_id(response_1.type_id());
 
@@ -526,7 +543,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeCanOmitFields) {
   auto verify_stored_type_equals = [this](const ArtifactType& want_type) {
     GetArtifactTypesRequest get_request;
     GetArtifactTypesResponse got_response;
-    TF_ASSERT_OK(metadata_store_->GetArtifactTypes(get_request, &got_response));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->GetArtifactTypes(get_request, &got_response));
     EXPECT_THAT(got_response.artifact_types(), SizeIs(1));
     EXPECT_THAT(got_response.artifact_types(0), EqualsProto(want_type));
   };
@@ -542,8 +560,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeCanOmitFields) {
               }
             )");
     PutArtifactTypeResponse response;
-    EXPECT_EQ(metadata_store_->PutArtifactType(wrong_request, &response).code(),
-              tensorflow::error::ALREADY_EXISTS);
+    EXPECT_TRUE(absl::IsAlreadyExists(
+        metadata_store_->PutArtifactType(wrong_request, &response)));
     verify_stored_type_equals(stored_type);
   }
 
@@ -559,7 +577,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeCanOmitFields) {
               }
             )");
     PutArtifactTypeResponse response;
-    TF_EXPECT_OK(metadata_store_->PutArtifactType(correct_request, &response));
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_store_->PutArtifactType(correct_request, &response));
     EXPECT_EQ(response_1.type_id(), response.type_id());
     verify_stored_type_equals(stored_type);
   }
@@ -577,8 +596,9 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeCanOmitFields) {
               }
             )");
     PutArtifactTypeResponse response;
-    EXPECT_EQ(metadata_store_->PutArtifactType(wrong_request, &response).code(),
-              tensorflow::error::ALREADY_EXISTS);
+    EXPECT_TRUE(absl::IsAlreadyExists(
+        metadata_store_->PutArtifactType(wrong_request, &response)));
+
     verify_stored_type_equals(stored_type);
   }
 
@@ -596,7 +616,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeCanOmitFields) {
               }
             )");
     PutArtifactTypeResponse response;
-    TF_EXPECT_OK(metadata_store_->PutArtifactType(correct_request, &response));
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_store_->PutArtifactType(correct_request, &response));
     EXPECT_EQ(response_1.type_id(), response.type_id());
 
     ArtifactType want_type = stored_type;
@@ -628,13 +649,14 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeGetArtifactTypesByID) {
             }
           )");
   PutArtifactTypeResponse put_response;
-  TF_ASSERT_OK(metadata_store_->PutArtifactType(put_request, &put_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifactType(put_request, &put_response));
   ASSERT_TRUE(put_response.has_type_id());
   GetArtifactTypesByIDRequest get_request;
   GetArtifactTypesByIDResponse get_response;
   get_request.add_type_ids(put_response.type_id());
-  TF_ASSERT_OK(
-      metadata_store_->GetArtifactTypesByID(get_request, &get_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetArtifactTypesByID(get_request, &get_response));
   ASSERT_THAT(get_response.artifact_types(), SizeIs(1));
   const ArtifactType& result = get_response.artifact_types(0);
   EXPECT_EQ(put_response.type_id(), result.id())
@@ -651,8 +673,8 @@ TEST_P(MetadataStoreTestSuite, GetArtifactTypesByIDMissing) {
   GetArtifactTypesByIDResponse get_response;
   // There are no artifact types: this one is just made up.
   get_request.add_type_ids(12);
-  TF_ASSERT_OK(
-      metadata_store_->GetArtifactTypesByID(get_request, &get_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetArtifactTypesByID(get_request, &get_response));
   ASSERT_THAT(get_response.artifact_types(), SizeIs(0));
 }
 
@@ -668,8 +690,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeGetArtifactTypesByIDTwo) {
             }
           )");
   PutArtifactTypeResponse put_response_1;
-  TF_ASSERT_OK(
-      metadata_store_->PutArtifactType(put_request_1, &put_response_1));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifactType(put_request_1, &put_response_1));
   ASSERT_TRUE(put_response_1.has_type_id());
   const PutArtifactTypeRequest put_request_2 =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
@@ -681,15 +703,15 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeGetArtifactTypesByIDTwo) {
             }
           )");
   PutArtifactTypeResponse put_response_2;
-  TF_ASSERT_OK(
-      metadata_store_->PutArtifactType(put_request_2, &put_response_2));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifactType(put_request_2, &put_response_2));
 
   GetArtifactTypesByIDRequest get_request;
   GetArtifactTypesByIDResponse get_response;
   get_request.add_type_ids(put_response_1.type_id());
   get_request.add_type_ids(put_response_2.type_id());
-  TF_ASSERT_OK(
-      metadata_store_->GetArtifactTypesByID(get_request, &get_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetArtifactTypesByID(get_request, &get_response));
   ASSERT_THAT(get_response.artifact_types(), SizeIs(2));
   const ArtifactType& result_1 = get_response.artifact_types(0);
   const ArtifactType& result_2 = get_response.artifact_types(1);
@@ -715,13 +737,14 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypeGetExecutionTypesByID) {
             }
           )");
   PutExecutionTypeResponse put_response;
-  TF_ASSERT_OK(metadata_store_->PutExecutionType(put_request, &put_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutionType(put_request, &put_response));
   ASSERT_TRUE(put_response.has_type_id());
   GetExecutionTypesByIDRequest get_request;
   GetExecutionTypesByIDResponse get_response;
   get_request.add_type_ids(put_response.type_id());
-  TF_ASSERT_OK(
-      metadata_store_->GetExecutionTypesByID(get_request, &get_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetExecutionTypesByID(get_request, &get_response));
   ASSERT_THAT(get_response.execution_types(), SizeIs(1));
   const ExecutionType& result = get_response.execution_types(0);
   EXPECT_EQ(put_response.type_id(), result.id())
@@ -738,8 +761,8 @@ TEST_P(MetadataStoreTestSuite, GetExecutionTypesByIDMissing) {
   GetExecutionTypesByIDResponse get_response;
   // There are no execution types: this one is just made up.
   get_request.add_type_ids(12);
-  TF_ASSERT_OK(
-      metadata_store_->GetExecutionTypesByID(get_request, &get_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetExecutionTypesByID(get_request, &get_response));
   ASSERT_THAT(get_response.execution_types(), SizeIs(0));
 }
 
@@ -755,8 +778,8 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypeGetExecutionTypesByIDTwo) {
             }
           )");
   PutExecutionTypeResponse put_response_1;
-  TF_ASSERT_OK(
-      metadata_store_->PutExecutionType(put_request_1, &put_response_1));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutionType(put_request_1, &put_response_1));
   ASSERT_TRUE(put_response_1.has_type_id());
   const PutExecutionTypeRequest put_request_2 =
       ParseTextProtoOrDie<PutExecutionTypeRequest>(
@@ -768,15 +791,15 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypeGetExecutionTypesByIDTwo) {
             }
           )");
   PutExecutionTypeResponse put_response_2;
-  TF_ASSERT_OK(
-      metadata_store_->PutExecutionType(put_request_2, &put_response_2));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutionType(put_request_2, &put_response_2));
 
   GetExecutionTypesByIDRequest get_request;
   GetExecutionTypesByIDResponse get_response;
   get_request.add_type_ids(put_response_1.type_id());
   get_request.add_type_ids(put_response_2.type_id());
-  TF_ASSERT_OK(
-      metadata_store_->GetExecutionTypesByID(get_request, &get_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetExecutionTypesByID(get_request, &get_response));
   ASSERT_THAT(get_response.execution_types(), SizeIs(2));
   const ExecutionType& result_1 = get_response.execution_types(0);
   const ExecutionType& result_2 = get_response.execution_types(1);
@@ -811,7 +834,8 @@ TEST_P(MetadataStoreTestSuite, PutTypeWithVersionsGetType) {
     *put_request.mutable_artifact_type() =
         ParseTextProtoOrDie<ArtifactType>(std::string(type_definition));
     PutArtifactTypeResponse put_response;
-    TF_ASSERT_OK(metadata_store_->PutArtifactType(put_request, &put_response));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->PutArtifactType(put_request, &put_response));
     ASSERT_TRUE(put_response.has_type_id());
     want_types.push_back(put_request.artifact_type());
     want_types.back().set_id(put_response.type_id());
@@ -824,7 +848,8 @@ TEST_P(MetadataStoreTestSuite, PutTypeWithVersionsGetType) {
       get_request.set_type_version(want_type.version());
     }
     GetArtifactTypeResponse get_response;
-    TF_ASSERT_OK(metadata_store_->GetArtifactType(get_request, &get_response));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->GetArtifactType(get_request, &get_response));
     got_types.push_back(get_response.artifact_type());
   }
   EXPECT_THAT(got_types, Pointwise(EqualsProto<ArtifactType>(), want_types));
@@ -852,12 +877,14 @@ TEST_P(MetadataStoreTestSuite, EvolveTypeWithVersionsGetType) {
     *put_request.mutable_execution_type() =
         ParseTextProtoOrDie<ExecutionType>(std::string(type_definitions[0]));
     PutExecutionTypeResponse put_response;
-    TF_ASSERT_OK(metadata_store_->PutExecutionType(put_request, &put_response));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->PutExecutionType(put_request, &put_response));
     ASSERT_TRUE(put_response.has_type_id());
     ExecutionType want_type = put_request.execution_type();
     want_type.set_id(put_response.type_id());
     GetExecutionTypesResponse get_response;
-    TF_ASSERT_OK(metadata_store_->GetExecutionTypes({}, &get_response));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->GetExecutionTypes({}, &get_response));
     EXPECT_THAT(get_response.execution_types(),
                 Pointwise(EqualsProto<ExecutionType>(), {want_type}));
   }
@@ -868,15 +895,17 @@ TEST_P(MetadataStoreTestSuite, EvolveTypeWithVersionsGetType) {
         ParseTextProtoOrDie<ExecutionType>(std::string(type_definitions[1]));
     PutExecutionTypeResponse put_response;
     // Update the type with the same name and version fails.
-    EXPECT_TRUE(tensorflow::errors::IsAlreadyExists(
+    EXPECT_TRUE(absl::IsAlreadyExists(
         metadata_store_->PutExecutionType(put_request, &put_response)));
     // The type evolution succeeds for types with versions
     put_request.set_can_add_fields(true);
-    TF_ASSERT_OK(metadata_store_->PutExecutionType(put_request, &put_response));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->PutExecutionType(put_request, &put_response));
     ExecutionType want_type = put_request.execution_type();
     want_type.set_id(put_response.type_id());
     GetExecutionTypesResponse get_response;
-    TF_ASSERT_OK(metadata_store_->GetExecutionTypes({}, &get_response));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->GetExecutionTypes({}, &get_response));
     EXPECT_THAT(get_response.execution_types(),
                 Pointwise(EqualsProto<ExecutionType>(), {want_type}));
   }
@@ -888,13 +917,15 @@ TEST_P(MetadataStoreTestSuite, EvolveTypeWithVersionsGetType) {
     // Update the type with the same name and version fails.
     put_request.set_can_add_fields(true);
     PutExecutionTypeResponse put_response;
-    EXPECT_TRUE(tensorflow::errors::IsAlreadyExists(
+    EXPECT_TRUE(absl::IsAlreadyExists(
         metadata_store_->PutExecutionType(put_request, &put_response)));
     // The type evolution succeeds for types with versions
     put_request.set_can_omit_fields(true);
-    TF_ASSERT_OK(metadata_store_->PutExecutionType(put_request, &put_response));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->PutExecutionType(put_request, &put_response));
     GetExecutionTypesResponse get_response;
-    TF_ASSERT_OK(metadata_store_->GetExecutionTypes({}, &get_response));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->GetExecutionTypes({}, &get_response));
     ExecutionType want_type = put_request.execution_type();
     want_type.set_id(put_response.type_id());
     (*want_type.mutable_properties())["property_1"] = STRING;
@@ -927,17 +958,18 @@ TEST_P(MetadataStoreTestSuite, TypeWithNullAndEmptyStringVersionsGetType) {
         ParseTextProtoOrDie<ContextType>(std::string(type_definitions[i]));
     want_types.push_back(put_request.context_type());
     PutContextTypeResponse put_response;
-    const tensorflow::Status status =
+    const absl::Status status =
         metadata_store_->PutContextType(put_request, &put_response);
     if (status.ok()) {
       ASSERT_TRUE(put_response.has_type_id());
       want_types.back().set_id(put_response.type_id());
     } else {
-      EXPECT_TRUE(tensorflow::errors::IsAlreadyExists(status));
+      EXPECT_TRUE(absl::IsAlreadyExists(status));
     }
   }
   GetContextTypesResponse get_response;
-  TF_ASSERT_OK(metadata_store_->GetContextTypes({}, &get_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetContextTypes({}, &get_response));
   EXPECT_THAT(get_response.context_types(), SizeIs(2));
   EXPECT_THAT(get_response.context_types(0), EqualsProto(want_types[0]));
   EXPECT_FALSE(get_response.context_types(1).has_version());
@@ -959,8 +991,9 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndArtifactsGetArtifactsThroughType) {
           get_nodes_request.set_type_version(*version);
         }
         GetArtifactsByTypeResponse get_nodes_response;
-        TF_ASSERT_OK(metadata_store_->GetArtifactsByType(get_nodes_request,
-                                                         &get_nodes_response));
+        ASSERT_EQ(absl::OkStatus(),
+                  metadata_store_->GetArtifactsByType(get_nodes_request,
+                                                      &get_nodes_response));
         EXPECT_THAT(get_nodes_response.artifacts(),
                     UnorderedPointwise(EqualsProto<Artifact>(/*ignore_fields=*/{
                                            "uri", "create_time_since_epoch",
@@ -978,8 +1011,8 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndArtifactsGetArtifactsThroughType) {
         }
         get_node_request.set_artifact_name(artifact_name);
         GetArtifactByTypeAndNameResponse get_node_response;
-        TF_ASSERT_OK(metadata_store_->GetArtifactByTypeAndName(
-            get_node_request, &get_node_response));
+        ASSERT_EQ(absl::OkStatus(), metadata_store_->GetArtifactByTypeAndName(
+                                        get_node_request, &get_node_response));
         EXPECT_THAT(get_node_response.artifact(),
                     EqualsProto<Artifact>(want_artifact, /*ignore_fields=*/{
                                               "uri", "create_time_since_epoch",
@@ -1028,8 +1061,9 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndExecutionsGetExecutionsThroughType) {
           get_nodes_request.set_type_version(*version);
         }
         GetExecutionsByTypeResponse get_nodes_response;
-        TF_ASSERT_OK(metadata_store_->GetExecutionsByType(get_nodes_request,
-                                                          &get_nodes_response));
+        ASSERT_EQ(absl::OkStatus(),
+                  metadata_store_->GetExecutionsByType(get_nodes_request,
+                                                       &get_nodes_response));
         EXPECT_THAT(
             get_nodes_response.executions(),
             UnorderedPointwise(
@@ -1048,8 +1082,8 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndExecutionsGetExecutionsThroughType) {
         }
         get_node_request.set_execution_name(execution_name);
         GetExecutionByTypeAndNameResponse get_node_response;
-        TF_ASSERT_OK(metadata_store_->GetExecutionByTypeAndName(
-            get_node_request, &get_node_response));
+        ASSERT_EQ(absl::OkStatus(), metadata_store_->GetExecutionByTypeAndName(
+                                        get_node_request, &get_node_response));
         EXPECT_THAT(
             get_node_response.execution(),
             EqualsProto<Execution>(want_execution, /*ignore_fields=*/{
@@ -1100,8 +1134,9 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndContextsGetContextsThroughType) {
           get_nodes_request.set_type_version(*version);
         }
         GetContextsByTypeResponse get_nodes_response;
-        TF_ASSERT_OK(metadata_store_->GetContextsByType(get_nodes_request,
-                                                        &get_nodes_response));
+        ASSERT_EQ(absl::OkStatus(),
+                  metadata_store_->GetContextsByType(get_nodes_request,
+                                                     &get_nodes_response));
         EXPECT_THAT(get_nodes_response.contexts(),
                     UnorderedPointwise(EqualsProto<Context>(/*ignore_fields=*/{
                                            "create_time_since_epoch",
@@ -1119,8 +1154,8 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndContextsGetContextsThroughType) {
         }
         get_node_request.set_context_name(context_name);
         GetContextByTypeAndNameResponse get_node_response;
-        TF_ASSERT_OK(metadata_store_->GetContextByTypeAndName(
-            get_node_request, &get_node_response));
+        ASSERT_EQ(absl::OkStatus(), metadata_store_->GetContextByTypeAndName(
+                                        get_node_request, &get_node_response));
         EXPECT_THAT(get_node_response.context(),
                     EqualsProto<Context>(want_context, /*ignore_fields=*/{
                                              "create_time_since_epoch",
@@ -1169,8 +1204,9 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {
               }
             )");
     PutArtifactTypeResponse put_artifact_type_response;
-    TF_ASSERT_OK(metadata_store_->PutArtifactType(put_artifact_type_request,
-                                                  &put_artifact_type_response));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->PutArtifactType(put_artifact_type_request,
+                                               &put_artifact_type_response));
     ASSERT_TRUE(put_artifact_type_response.has_type_id());
 
     type_id = put_artifact_type_response.type_id();
@@ -1195,8 +1231,9 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {
     *put_artifacts_request.mutable_artifacts()->Add() = artifact1;
     *put_artifacts_request.mutable_artifacts()->Add() = artifact2;
     PutArtifactsResponse put_artifacts_response;
-    TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request,
-                                               &put_artifacts_response));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->PutArtifacts(put_artifacts_request,
+                                            &put_artifacts_response));
     ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(2));
     artifact1.set_id(put_artifacts_response.artifact_ids(0));
     artifact2.set_id(put_artifacts_response.artifact_ids(1));
@@ -1207,8 +1244,9 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {
     GetArtifactsByIDRequest get_artifacts_by_id_request;
     get_artifacts_by_id_request.add_artifact_ids(artifact1.id());
     GetArtifactsByIDResponse get_artifacts_by_id_response;
-    TF_ASSERT_OK(metadata_store_->GetArtifactsByID(
-        get_artifacts_by_id_request, &get_artifacts_by_id_response));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->GetArtifactsByID(get_artifacts_by_id_request,
+                                                &get_artifacts_by_id_response));
     ASSERT_THAT(get_artifacts_by_id_response.artifacts(),
                 ElementsAre(EqualsProto(
                     artifact1,
@@ -1221,8 +1259,9 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {
     GetArtifactsByIDRequest get_artifacts_by_id_request;
     get_artifacts_by_id_request.add_artifact_ids(unknown_id);
     GetArtifactsByIDResponse get_artifacts_by_id_response;
-    TF_ASSERT_OK(metadata_store_->GetArtifactsByID(
-        get_artifacts_by_id_request, &get_artifacts_by_id_response));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->GetArtifactsByID(get_artifacts_by_id_request,
+                                                &get_artifacts_by_id_response));
     ASSERT_THAT(get_artifacts_by_id_response.artifacts(), IsEmpty());
   }
   // Test: retrieve by multiple ids
@@ -1232,8 +1271,9 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {
     get_artifacts_by_id_request.add_artifact_ids(artifact1.id());
     get_artifacts_by_id_request.add_artifact_ids(artifact2.id());
     GetArtifactsByIDResponse get_artifacts_by_id_response;
-    TF_ASSERT_OK(metadata_store_->GetArtifactsByID(
-        get_artifacts_by_id_request, &get_artifacts_by_id_response));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->GetArtifactsByID(get_artifacts_by_id_request,
+                                                &get_artifacts_by_id_response));
     ASSERT_THAT(
         get_artifacts_by_id_response.artifacts(),
         UnorderedElementsAre(
@@ -1258,8 +1298,9 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsUpdateGetArtifactsByID) {
             }
           )");
   PutArtifactTypeResponse put_artifact_type_response;
-  TF_ASSERT_OK(metadata_store_->PutArtifactType(put_artifact_type_request,
-                                                &put_artifact_type_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifactType(put_artifact_type_request,
+                                             &put_artifact_type_response));
   ASSERT_TRUE(put_artifact_type_response.has_type_id());
 
   const int64 type_id = put_artifact_type_response.type_id();
@@ -1276,8 +1317,9 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsUpdateGetArtifactsByID) {
       )");
   put_artifacts_request.mutable_artifacts(0)->set_type_id(type_id);
   PutArtifactsResponse put_artifacts_response;
-  TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request,
-                                             &put_artifacts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifacts(put_artifacts_request,
+                                          &put_artifacts_response));
   ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(1));
   const int64 artifact_id = put_artifacts_response.artifact_ids(0);
 
@@ -1296,14 +1338,16 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsUpdateGetArtifactsByID) {
   put_artifacts_request_2.mutable_artifacts(0)->set_type_id(type_id);
   put_artifacts_request_2.mutable_artifacts(0)->set_id(artifact_id);
   PutArtifactsResponse put_artifacts_response_2;
-  TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request_2,
-                                             &put_artifacts_response_2));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifacts(put_artifacts_request_2,
+                                          &put_artifacts_response_2));
 
   GetArtifactsByIDRequest get_artifacts_by_id_request;
   get_artifacts_by_id_request.add_artifact_ids(artifact_id);
   GetArtifactsByIDResponse get_artifacts_by_id_response;
-  TF_ASSERT_OK(metadata_store_->GetArtifactsByID(
-      get_artifacts_by_id_request, &get_artifacts_by_id_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetArtifactsByID(get_artifacts_by_id_request,
+                                              &get_artifacts_by_id_response));
   ASSERT_THAT(get_artifacts_by_id_response.artifacts(), SizeIs(1));
   EXPECT_THAT(get_artifacts_by_id_response.artifacts(0),
               EqualsProto(put_artifacts_request_2.artifacts(0),
@@ -1322,8 +1366,9 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithListOptions) {
             }
           )");
   PutArtifactTypeResponse put_artifact_type_response;
-  TF_ASSERT_OK(metadata_store_->PutArtifactType(put_artifact_type_request,
-                                                &put_artifact_type_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifactType(put_artifact_type_request,
+                                             &put_artifact_type_response));
   ASSERT_TRUE(put_artifact_type_response.has_type_id());
 
   const int64 type_id = put_artifact_type_response.type_id();
@@ -1344,8 +1389,9 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithListOptions) {
   *put_artifacts_request.add_artifacts() = artifact;
   PutArtifactsResponse put_artifacts_response;
 
-  TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request,
-                                             &put_artifacts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifacts(put_artifacts_request,
+                                          &put_artifacts_response));
   ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(2));
   const int64 first_artifact_id = put_artifacts_response.artifact_ids(0);
   const int64 second_artifact_id = put_artifacts_response.artifact_ids(1);
@@ -1360,8 +1406,9 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithListOptions) {
   *get_artifacts_request.mutable_options() = list_options;
 
   GetArtifactsResponse get_artifacts_response;
-  TF_ASSERT_OK(metadata_store_->GetArtifacts(get_artifacts_request,
-                                             &get_artifacts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetArtifacts(get_artifacts_request,
+                                          &get_artifacts_response));
   EXPECT_THAT(get_artifacts_response.artifacts(), SizeIs(1));
   EXPECT_THAT(get_artifacts_response.next_page_token(), Not(IsEmpty()));
   EXPECT_EQ(get_artifacts_response.artifacts(0).id(), second_artifact_id);
@@ -1373,8 +1420,9 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithListOptions) {
 
   list_options.set_next_page_token(get_artifacts_response.next_page_token());
   *get_artifacts_request.mutable_options() = list_options;
-  TF_ASSERT_OK(metadata_store_->GetArtifacts(get_artifacts_request,
-                                             &get_artifacts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetArtifacts(get_artifacts_request,
+                                          &get_artifacts_response));
   EXPECT_THAT(get_artifacts_response.artifacts(), SizeIs(1));
   EXPECT_THAT(get_artifacts_response.next_page_token(), IsEmpty());
   EXPECT_EQ(get_artifacts_response.artifacts(0).id(), first_artifact_id);
@@ -1388,18 +1436,20 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsWhenLatestUpdatedTimeChanged) {
   PutArtifactTypeRequest put_type_request;
   put_type_request.mutable_artifact_type()->set_name("test_type");
   PutArtifactTypeResponse put_type_response;
-  TF_ASSERT_OK(
-      metadata_store_->PutArtifactType(put_type_request, &put_type_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->PutArtifactType(
+                                  put_type_request, &put_type_response));
   const int64 type_id = put_type_response.type_id();
   PutArtifactsRequest put_artifacts_request;
   put_artifacts_request.add_artifacts()->set_type_id(type_id);
   PutArtifactsResponse put_artifacts_response;
-  TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request,
-                                             &put_artifacts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifacts(put_artifacts_request,
+                                          &put_artifacts_response));
 
   // Reads the stored artifact, and prepares update.
   GetArtifactsResponse get_artifacts_response;
-  TF_ASSERT_OK(metadata_store_->GetArtifacts({}, &get_artifacts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetArtifacts({}, &get_artifacts_response));
   ASSERT_THAT(get_artifacts_response.artifacts(), SizeIs(1));
   const Artifact& stored_artifact = get_artifacts_response.artifacts(0);
 
@@ -1412,14 +1462,15 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsWhenLatestUpdatedTimeChanged) {
   update_artifact_request.mutable_options()
       ->set_abort_if_latest_updated_time_changed(true);
   PutArtifactsResponse update_artifact_response;
-  TF_EXPECT_OK(metadata_store_->PutArtifacts(update_artifact_request,
-                                             &update_artifact_response));
+  EXPECT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifacts(update_artifact_request,
+                                          &update_artifact_response));
 
   // If update it again with the old `latest_updated_time`, the call fails
   // with FailedPrecondition error.
-  tensorflow::Status status = metadata_store_->PutArtifacts(
+  absl::Status status = metadata_store_->PutArtifacts(
       update_artifact_request, &update_artifact_response);
-  EXPECT_EQ(status.code(), tensorflow::error::FAILED_PRECONDITION);
+  EXPECT_TRUE(absl::IsFailedPrecondition(status));
   EXPECT_THAT(update_artifact_response.artifact_ids(), SizeIs(0));
 }
 
@@ -1435,8 +1486,9 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsUpdateGetExecutionsByID) {
             }
           )");
   PutExecutionTypeResponse put_execution_type_response;
-  TF_ASSERT_OK(metadata_store_->PutExecutionType(put_execution_type_request,
-                                                 &put_execution_type_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutionType(put_execution_type_request,
+                                              &put_execution_type_response));
   ASSERT_TRUE(put_execution_type_response.has_type_id());
 
   const int64 type_id = put_execution_type_response.type_id();
@@ -1453,8 +1505,9 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsUpdateGetExecutionsByID) {
       )");
   put_executions_request.mutable_executions(0)->set_type_id(type_id);
   PutExecutionsResponse put_executions_response;
-  TF_ASSERT_OK(metadata_store_->PutExecutions(put_executions_request,
-                                              &put_executions_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutions(put_executions_request,
+                                           &put_executions_response));
   ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(1));
   const int64 execution_id = put_executions_response.execution_ids(0);
 
@@ -1472,14 +1525,16 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsUpdateGetExecutionsByID) {
   put_executions_request_2.mutable_executions(0)->set_type_id(type_id);
   put_executions_request_2.mutable_executions(0)->set_id(execution_id);
   PutExecutionsResponse put_executions_response_2;
-  TF_ASSERT_OK(metadata_store_->PutExecutions(put_executions_request_2,
-                                              &put_executions_response_2));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutions(put_executions_request_2,
+                                           &put_executions_response_2));
 
   GetExecutionsByIDRequest get_executions_by_id_request;
   get_executions_by_id_request.add_execution_ids(execution_id);
   GetExecutionsByIDResponse get_executions_by_id_response;
-  TF_ASSERT_OK(metadata_store_->GetExecutionsByID(
-      get_executions_by_id_request, &get_executions_by_id_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetExecutionsByID(get_executions_by_id_request,
+                                               &get_executions_by_id_response));
 
   EXPECT_THAT(get_executions_by_id_response.executions(0),
               EqualsProto(put_executions_request_2.executions(0),
@@ -1498,7 +1553,8 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypeGetExecutionType) {
             }
           )");
   PutExecutionTypeResponse put_response;
-  TF_ASSERT_OK(metadata_store_->PutExecutionType(put_request, &put_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutionType(put_request, &put_response));
   ASSERT_TRUE(put_response.has_type_id());
   const GetExecutionTypeRequest get_request =
       ParseTextProtoOrDie<GetExecutionTypeRequest>(
@@ -1506,7 +1562,8 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypeGetExecutionType) {
             type_name: 'test_type2'
           )");
   GetExecutionTypeResponse get_response;
-  TF_ASSERT_OK(metadata_store_->GetExecutionType(get_request, &get_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetExecutionType(get_request, &get_response));
   ExecutionType expected = put_request.execution_type();
   expected.set_id(put_response.type_id());
   EXPECT_THAT(get_response.execution_type(), EqualsProto(expected));
@@ -1523,7 +1580,8 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypesGetExecutionTypes) {
             }
           )");
   PutExecutionTypeResponse put_response;
-  TF_ASSERT_OK(metadata_store_->PutExecutionType(put_request_1, &put_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutionType(put_request_1, &put_response));
   ASSERT_TRUE(put_response.has_type_id());
   ExecutionType type_1 = ParseTextProtoOrDie<ExecutionType>(
       R"(
@@ -1541,7 +1599,8 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypesGetExecutionTypes) {
               properties { key: 'property_2' value: INT }
             }
           )");
-  TF_ASSERT_OK(metadata_store_->PutExecutionType(put_request_2, &put_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutionType(put_request_2, &put_response));
   ASSERT_TRUE(put_response.has_type_id());
   ExecutionType type_2 = ParseTextProtoOrDie<ExecutionType>(
       R"(
@@ -1552,7 +1611,8 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypesGetExecutionTypes) {
 
   GetExecutionTypesRequest get_request;
   GetExecutionTypesResponse got_response;
-  TF_ASSERT_OK(metadata_store_->GetExecutionTypes(get_request, &got_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetExecutionTypes(get_request, &got_response));
   GetExecutionTypesResponse want_response;
   *want_response.add_execution_types() = type_1;
   *want_response.add_execution_types() = type_2;
@@ -1564,7 +1624,8 @@ TEST_P(MetadataStoreTestSuite, GetExecutionTypesWhenNoneExist) {
   GetExecutionTypesResponse got_response;
 
   // Expect OK status and empty response.
-  TF_ASSERT_OK(metadata_store_->GetExecutionTypes(get_request, &got_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetExecutionTypes(get_request, &got_response));
   const GetExecutionTypesResponse want_response;
   EXPECT_THAT(got_response, EqualsProto(want_response));
 }
@@ -1580,7 +1641,8 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypeTwiceChangedPropertyType) {
             }
           )");
   PutExecutionTypeResponse response_1;
-  TF_ASSERT_OK(metadata_store_->PutExecutionType(request_1, &response_1));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutionType(request_1, &response_1));
 
   const PutExecutionTypeRequest request_2 =
       ParseTextProtoOrDie<PutExecutionTypeRequest>(
@@ -1592,10 +1654,9 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypeTwiceChangedPropertyType) {
             }
           )");
   PutExecutionTypeResponse response_2;
-  tensorflow::Status status =
+  absl::Status status =
       metadata_store_->PutExecutionType(request_2, &response_2);
-  EXPECT_EQ(tensorflow::error::ALREADY_EXISTS, status.code())
-      << status.ToString();
+  EXPECT_TRUE(absl::IsAlreadyExists(status)) << status.ToString();
 }
 
 TEST_P(MetadataStoreTestSuite, PutExecutionTypeMultipleTimesWithUpdate) {
@@ -1609,7 +1670,8 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypeMultipleTimesWithUpdate) {
             }
           )");
   PutExecutionTypeResponse response_1;
-  TF_ASSERT_OK(metadata_store_->PutExecutionType(request_1, &response_1));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutionType(request_1, &response_1));
 
   PutExecutionTypeRequest request_2 =
       ParseTextProtoOrDie<PutExecutionTypeRequest>(
@@ -1624,7 +1686,8 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypeMultipleTimesWithUpdate) {
           )");
   request_2.mutable_execution_type()->set_id(response_1.type_id());
   PutExecutionTypeResponse response_2;
-  TF_EXPECT_OK(metadata_store_->PutExecutionType(request_2, &response_2));
+  EXPECT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutionType(request_2, &response_2));
   EXPECT_EQ(response_2.type_id(), response_1.type_id());
 }
 
@@ -1639,11 +1702,13 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypeSame) {
             }
           )");
   PutExecutionTypeResponse response_1;
-  TF_ASSERT_OK(metadata_store_->PutExecutionType(request_1, &response_1));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutionType(request_1, &response_1));
 
   const PutExecutionTypeRequest request_2 = request_1;
   PutExecutionTypeResponse response_2;
-  TF_ASSERT_OK(metadata_store_->PutExecutionType(request_2, &response_2));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutionType(request_2, &response_2));
   EXPECT_EQ(response_1.type_id(), response_2.type_id());
 }
 
@@ -1655,9 +1720,8 @@ TEST_P(MetadataStoreTestSuite, GetExecutionTypeMissing) {
             type_name: 'test_type2'
           )");
   GetExecutionTypeResponse get_response;
-  EXPECT_EQ(
-      tensorflow::error::NOT_FOUND,
-      metadata_store_->GetExecutionType(get_request, &get_response).code());
+  EXPECT_TRUE(absl::IsNotFound(
+      metadata_store_->GetExecutionType(get_request, &get_response)));
 }
 
 TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionByID) {
@@ -1671,8 +1735,9 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionByID) {
             }
           )");
   PutExecutionTypeResponse put_execution_type_response;
-  TF_ASSERT_OK(metadata_store_->PutExecutionType(put_execution_type_request,
-                                                 &put_execution_type_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutionType(put_execution_type_request,
+                                              &put_execution_type_response));
   ASSERT_TRUE(put_execution_type_response.has_type_id());
 
   const int64 type_id = put_execution_type_response.type_id();
@@ -1702,8 +1767,9 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionByID) {
     put_executions_request.mutable_executions(1)->set_type_id(type_id);
     PutExecutionsResponse put_executions_response;
 
-    TF_ASSERT_OK(metadata_store_->PutExecutions(put_executions_request,
-                                                &put_executions_response));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->PutExecutions(put_executions_request,
+                                             &put_executions_response));
     ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(2));
     execution1 = put_executions_request.executions(0);
     execution1.set_id(put_executions_response.execution_ids(0));
@@ -1715,8 +1781,9 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionByID) {
     GetExecutionsByIDRequest get_executions_by_id_request;
     get_executions_by_id_request.add_execution_ids(execution1.id());
     GetExecutionsByIDResponse get_executions_by_id_response;
-    TF_ASSERT_OK(metadata_store_->GetExecutionsByID(
-        get_executions_by_id_request, &get_executions_by_id_response));
+    ASSERT_EQ(absl::OkStatus(), metadata_store_->GetExecutionsByID(
+                                    get_executions_by_id_request,
+                                    &get_executions_by_id_response));
     EXPECT_THAT(get_executions_by_id_response.executions(),
                 ElementsAre(EqualsProto(
                     execution1,
@@ -1729,8 +1796,9 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionByID) {
     GetExecutionsByIDRequest get_executions_by_id_request;
     get_executions_by_id_request.add_execution_ids(unknown_id);
     GetExecutionsByIDResponse get_executions_by_id_response;
-    TF_ASSERT_OK(metadata_store_->GetExecutionsByID(
-        get_executions_by_id_request, &get_executions_by_id_response));
+    ASSERT_EQ(absl::OkStatus(), metadata_store_->GetExecutionsByID(
+                                    get_executions_by_id_request,
+                                    &get_executions_by_id_response));
     EXPECT_THAT(get_executions_by_id_response.executions(), IsEmpty());
   }
   // Test: Get by a several ids
@@ -1740,8 +1808,9 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionByID) {
     get_executions_by_id_request.add_execution_ids(execution2.id());
     get_executions_by_id_request.add_execution_ids(unknown_id);
     GetExecutionsByIDResponse get_executions_by_id_response;
-    TF_ASSERT_OK(metadata_store_->GetExecutionsByID(
-        get_executions_by_id_request, &get_executions_by_id_response));
+    ASSERT_EQ(absl::OkStatus(), metadata_store_->GetExecutionsByID(
+                                    get_executions_by_id_request,
+                                    &get_executions_by_id_response));
     EXPECT_THAT(
         get_executions_by_id_response.executions(),
         UnorderedElementsAre(
@@ -1762,8 +1831,9 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithEmptyExecution) {
             execution_type: { name: 'test_type2' }
           )");
   PutExecutionTypeResponse put_execution_type_response;
-  TF_ASSERT_OK(metadata_store_->PutExecutionType(put_execution_type_request,
-                                                 &put_execution_type_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutionType(put_execution_type_request,
+                                              &put_execution_type_response));
   ASSERT_TRUE(put_execution_type_response.has_type_id());
 
   const int64 type_id = put_execution_type_response.type_id();
@@ -1775,14 +1845,16 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithEmptyExecution) {
   put_executions_request.mutable_executions(0)->set_type_id(type_id);
   PutExecutionsResponse put_executions_response;
 
-  TF_ASSERT_OK(metadata_store_->PutExecutions(put_executions_request,
-                                              &put_executions_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutions(put_executions_request,
+                                           &put_executions_response));
   ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(1));
   const int64 execution_id = put_executions_response.execution_ids(0);
   const GetExecutionsRequest get_executions_request;
   GetExecutionsResponse get_executions_response;
-  TF_ASSERT_OK(metadata_store_->GetExecutions(get_executions_request,
-                                              &get_executions_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetExecutions(get_executions_request,
+                                           &get_executions_response));
   ASSERT_THAT(get_executions_response.executions(), SizeIs(1));
   EXPECT_THAT(get_executions_response.executions(0),
               EqualsProto(put_executions_request.executions(0),
@@ -1792,17 +1864,18 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithEmptyExecution) {
   GetExecutionsByTypeRequest get_executions_by_type_request;
   GetExecutionsByTypeResponse get_executions_by_type_response;
   get_executions_by_type_request.set_type_name("test_type2");
-  TF_ASSERT_OK(metadata_store_->GetExecutionsByType(
-      get_executions_by_type_request, &get_executions_by_type_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetExecutionsByType(
+                                  get_executions_by_type_request,
+                                  &get_executions_by_type_response));
   ASSERT_THAT(get_executions_by_type_response.executions(), SizeIs(1));
   EXPECT_EQ(get_executions_by_type_response.executions(0).id(), execution_id);
 
   GetExecutionsByTypeRequest get_executions_by_not_exist_type_request;
   GetExecutionsByTypeResponse get_executions_by_not_exist_type_response;
   get_executions_by_not_exist_type_request.set_type_name("not_exist_type");
-  TF_ASSERT_OK(metadata_store_->GetExecutionsByType(
-      get_executions_by_not_exist_type_request,
-      &get_executions_by_not_exist_type_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetExecutionsByType(
+                                  get_executions_by_not_exist_type_request,
+                                  &get_executions_by_not_exist_type_response));
   EXPECT_THAT(get_executions_by_not_exist_type_response.executions(),
               SizeIs(0));
 }
@@ -1818,8 +1891,9 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithListOptions) {
             }
           )");
   PutExecutionTypeResponse put_execution_type_response;
-  TF_ASSERT_OK(metadata_store_->PutExecutionType(put_execution_type_request,
-                                                 &put_execution_type_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutionType(put_execution_type_request,
+                                              &put_execution_type_response));
   ASSERT_TRUE(put_execution_type_response.has_type_id());
 
   const int64 type_id = put_execution_type_response.type_id();
@@ -1840,8 +1914,9 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithListOptions) {
   *put_executions_request.add_executions() = execution;
   PutExecutionsResponse put_executions_response;
 
-  TF_ASSERT_OK(metadata_store_->PutExecutions(put_executions_request,
-                                              &put_executions_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutions(put_executions_request,
+                                           &put_executions_response));
   ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(2));
   const int64 execution_id_0 = put_executions_response.execution_ids(0);
   const int64 execution_id_1 = put_executions_response.execution_ids(1);
@@ -1856,8 +1931,9 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithListOptions) {
   *get_executions_request.mutable_options() = list_options;
 
   GetExecutionsResponse get_executions_response;
-  TF_ASSERT_OK(metadata_store_->GetExecutions(get_executions_request,
-                                              &get_executions_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetExecutions(get_executions_request,
+                                           &get_executions_response));
   EXPECT_THAT(get_executions_response.executions(), SizeIs(1));
   EXPECT_THAT(get_executions_response.next_page_token(), Not(IsEmpty()));
   EXPECT_EQ(get_executions_response.executions(0).id(), execution_id_1);
@@ -1869,8 +1945,9 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithListOptions) {
 
   list_options.set_next_page_token(get_executions_response.next_page_token());
   *get_executions_request.mutable_options() = list_options;
-  TF_ASSERT_OK(metadata_store_->GetExecutions(get_executions_request,
-                                              &get_executions_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetExecutions(get_executions_request,
+                                           &get_executions_response));
   EXPECT_THAT(get_executions_response.executions(), SizeIs(1));
   EXPECT_THAT(get_executions_response.next_page_token(), IsEmpty());
   EXPECT_EQ(get_executions_response.executions(0).id(), execution_id_0);
@@ -1885,17 +1962,17 @@ TEST_P(MetadataStoreTestSuite,
   GetArtifactsByTypeRequest get_artifacts_by_not_exist_type_request;
   GetArtifactsByTypeResponse get_artifacts_by_not_exist_type_response;
   get_artifacts_by_not_exist_type_request.set_type_name("artifact_type");
-  TF_ASSERT_OK(metadata_store_->GetArtifactsByType(
-      get_artifacts_by_not_exist_type_request,
-      &get_artifacts_by_not_exist_type_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetArtifactsByType(
+                                  get_artifacts_by_not_exist_type_request,
+                                  &get_artifacts_by_not_exist_type_response));
   EXPECT_THAT(get_artifacts_by_not_exist_type_response.artifacts(), SizeIs(0));
 
   GetExecutionsByTypeRequest get_executions_by_not_exist_type_request;
   GetExecutionsByTypeResponse get_executions_by_not_exist_type_response;
   get_executions_by_not_exist_type_request.set_type_name("execution_type");
-  TF_ASSERT_OK(metadata_store_->GetExecutionsByType(
-      get_executions_by_not_exist_type_request,
-      &get_executions_by_not_exist_type_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetExecutionsByType(
+                                  get_executions_by_not_exist_type_request,
+                                  &get_executions_by_not_exist_type_response));
   EXPECT_THAT(get_executions_by_not_exist_type_response.executions(),
               SizeIs(0));
 }
@@ -1908,14 +1985,15 @@ TEST_P(MetadataStoreTestSuite, GetArtifactAndExecutionByTypesWithEmptyType) {
             artifact_type: { name: 'empty_artifact_type' }
           )");
   PutArtifactTypeResponse put_artifact_type_response;
-  TF_ASSERT_OK(metadata_store_->PutArtifactType(put_artifact_type_request,
-                                                &put_artifact_type_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifactType(put_artifact_type_request,
+                                             &put_artifact_type_response));
   GetArtifactsByTypeRequest get_artifacts_by_empty_type_request;
   GetArtifactsByTypeResponse get_artifacts_by_empty_type_response;
   get_artifacts_by_empty_type_request.set_type_name("empty_artifact_type");
-  TF_ASSERT_OK(metadata_store_->GetArtifactsByType(
-      get_artifacts_by_empty_type_request,
-      &get_artifacts_by_empty_type_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetArtifactsByType(
+                                  get_artifacts_by_empty_type_request,
+                                  &get_artifacts_by_empty_type_response));
   EXPECT_THAT(get_artifacts_by_empty_type_response.artifacts(), SizeIs(0));
 
   const PutExecutionTypeRequest put_execution_type_request =
@@ -1925,14 +2003,15 @@ TEST_P(MetadataStoreTestSuite, GetArtifactAndExecutionByTypesWithEmptyType) {
             execution_type: { name: 'empty_execution_type' }
           )");
   PutExecutionTypeResponse put_execution_type_response;
-  TF_ASSERT_OK(metadata_store_->PutExecutionType(put_execution_type_request,
-                                                 &put_execution_type_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutionType(put_execution_type_request,
+                                              &put_execution_type_response));
   GetExecutionsByTypeRequest get_executions_by_empty_type_request;
   GetExecutionsByTypeResponse get_executions_by_empty_type_response;
   get_executions_by_empty_type_request.set_type_name("empty_execution_type");
-  TF_ASSERT_OK(metadata_store_->GetExecutionsByType(
-      get_executions_by_empty_type_request,
-      &get_executions_by_empty_type_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetExecutionsByType(
+                                  get_executions_by_empty_type_request,
+                                  &get_executions_by_empty_type_response));
   EXPECT_THAT(get_executions_by_empty_type_response.executions(), SizeIs(0));
 }
 
@@ -1942,15 +2021,16 @@ TEST_P(MetadataStoreTestSuite, GetArtifactByURI) {
           R"(all_fields_match: true
              artifact_type: { name: 'artifact_type' })");
   PutArtifactTypeResponse put_artifact_type_response;
-  TF_ASSERT_OK(metadata_store_->PutArtifactType(put_artifact_type_request,
-                                                &put_artifact_type_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifactType(put_artifact_type_request,
+                                             &put_artifact_type_response));
   const int64 type_id = put_artifact_type_response.type_id();
 
   const GetArtifactsByURIRequest get_artifacts_by_uri_empty_db_request;
   GetArtifactsByURIResponse get_artifacts_by_uri_empty_db_response;
-  TF_ASSERT_OK(metadata_store_->GetArtifactsByURI(
-      get_artifacts_by_uri_empty_db_request,
-      &get_artifacts_by_uri_empty_db_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetArtifactsByURI(
+                                  get_artifacts_by_uri_empty_db_request,
+                                  &get_artifacts_by_uri_empty_db_response));
   EXPECT_THAT(get_artifacts_by_uri_empty_db_response.artifacts(), SizeIs(0));
 
   PutArtifactsRequest put_artifacts_request =
@@ -1966,16 +2046,18 @@ TEST_P(MetadataStoreTestSuite, GetArtifactByURI) {
     put_artifacts_request.mutable_artifacts(i)->set_type_id(type_id);
   }
   PutArtifactsResponse put_artifacts_response;
-  TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request,
-                                             &put_artifacts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifacts(put_artifacts_request,
+                                          &put_artifacts_response));
   ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(6));
 
   {
     GetArtifactsByURIRequest get_artifacts_by_uri_request;
     GetArtifactsByURIResponse get_artifacts_by_uri_response;
     get_artifacts_by_uri_request.add_uris("testuri://with_one_artifact");
-    TF_ASSERT_OK(metadata_store_->GetArtifactsByURI(
-        get_artifacts_by_uri_request, &get_artifacts_by_uri_response));
+    ASSERT_EQ(absl::OkStatus(), metadata_store_->GetArtifactsByURI(
+                                    get_artifacts_by_uri_request,
+                                    &get_artifacts_by_uri_response));
     EXPECT_THAT(get_artifacts_by_uri_response.artifacts(), SizeIs(1));
   }
 
@@ -1983,8 +2065,9 @@ TEST_P(MetadataStoreTestSuite, GetArtifactByURI) {
     GetArtifactsByURIRequest get_artifacts_by_uri_request;
     GetArtifactsByURIResponse get_artifacts_by_uri_response;
     get_artifacts_by_uri_request.add_uris("testuri://with_multiple_artifacts");
-    TF_ASSERT_OK(metadata_store_->GetArtifactsByURI(
-        get_artifacts_by_uri_request, &get_artifacts_by_uri_response));
+    ASSERT_EQ(absl::OkStatus(), metadata_store_->GetArtifactsByURI(
+                                    get_artifacts_by_uri_request,
+                                    &get_artifacts_by_uri_response));
     EXPECT_THAT(get_artifacts_by_uri_response.artifacts(), SizeIs(2));
   }
 
@@ -1993,8 +2076,9 @@ TEST_P(MetadataStoreTestSuite, GetArtifactByURI) {
     GetArtifactsByURIRequest get_artifacts_by_uri_request;
     get_artifacts_by_uri_request.add_uris("");
     GetArtifactsByURIResponse get_artifacts_by_uri_response;
-    TF_ASSERT_OK(metadata_store_->GetArtifactsByURI(
-        get_artifacts_by_uri_request, &get_artifacts_by_uri_response));
+    ASSERT_EQ(absl::OkStatus(), metadata_store_->GetArtifactsByURI(
+                                    get_artifacts_by_uri_request,
+                                    &get_artifacts_by_uri_response));
     EXPECT_THAT(get_artifacts_by_uri_response.artifacts(), SizeIs(3));
   }
 
@@ -2003,8 +2087,9 @@ TEST_P(MetadataStoreTestSuite, GetArtifactByURI) {
     GetArtifactsByURIRequest get_artifacts_by_uri_request;
     GetArtifactsByURIResponse get_artifacts_by_uri_response;
     get_artifacts_by_uri_request.add_uris("unknown_uri");
-    TF_ASSERT_OK(metadata_store_->GetArtifactsByURI(
-        get_artifacts_by_uri_request, &get_artifacts_by_uri_response));
+    ASSERT_EQ(absl::OkStatus(), metadata_store_->GetArtifactsByURI(
+                                    get_artifacts_by_uri_request,
+                                    &get_artifacts_by_uri_response));
     EXPECT_THAT(get_artifacts_by_uri_response.artifacts(), SizeIs(0));
   }
 
@@ -2019,8 +2104,9 @@ TEST_P(MetadataStoreTestSuite, GetArtifactByURI) {
     get_artifacts_by_uri_request.add_uris("testuri://with_multiple_artifacts");
     get_artifacts_by_uri_request.add_uris("");
 
-    TF_ASSERT_OK(metadata_store_->GetArtifactsByURI(
-        get_artifacts_by_uri_request, &get_artifacts_by_uri_response));
+    ASSERT_EQ(absl::OkStatus(), metadata_store_->GetArtifactsByURI(
+                                    get_artifacts_by_uri_request,
+                                    &get_artifacts_by_uri_response));
     EXPECT_THAT(get_artifacts_by_uri_response.artifacts(), SizeIs(6));
   }
 
@@ -2032,10 +2118,9 @@ TEST_P(MetadataStoreTestSuite, GetArtifactByURI) {
     fs->AddLengthDelimited(1)->assign(uri);
 
     GetArtifactsByURIResponse response;
-    tensorflow::Status s =
-        metadata_store_->GetArtifactsByURI(request, &response);
-    EXPECT_EQ(s.code(), tensorflow::error::INVALID_ARGUMENT);
-    EXPECT_TRUE(absl::StrContains(s.error_message(),
+    absl::Status s = metadata_store_->GetArtifactsByURI(request, &response);
+    EXPECT_TRUE(absl::IsInvalidArgument(s));
+    EXPECT_TRUE(absl::StrContains(std::string(s.message()),
                                   "The request contains deprecated field"));
   }
 }
@@ -2048,8 +2133,9 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithEmptyArtifact) {
             artifact_type: { name: 'test_type2' }
           )");
   PutArtifactTypeResponse put_artifact_type_response;
-  TF_ASSERT_OK(metadata_store_->PutArtifactType(put_artifact_type_request,
-                                                &put_artifact_type_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifactType(put_artifact_type_request,
+                                             &put_artifact_type_response));
   ASSERT_TRUE(put_artifact_type_response.has_type_id());
 
   const int64 type_id = put_artifact_type_response.type_id();
@@ -2061,31 +2147,34 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithEmptyArtifact) {
   put_artifacts_request.mutable_artifacts(0)->set_type_id(type_id);
   PutArtifactsResponse put_artifacts_response;
 
-  TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request,
-                                             &put_artifacts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifacts(put_artifacts_request,
+                                          &put_artifacts_response));
   ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(1));
   const int64 artifact_id = put_artifacts_response.artifact_ids(0);
   GetArtifactsRequest get_artifacts_request;
   GetArtifactsResponse get_artifacts_response;
-  TF_ASSERT_OK(metadata_store_->GetArtifacts(get_artifacts_request,
-                                             &get_artifacts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetArtifacts(get_artifacts_request,
+                                          &get_artifacts_response));
   ASSERT_THAT(get_artifacts_response.artifacts(), SizeIs(1));
   EXPECT_EQ(get_artifacts_response.artifacts(0).id(), artifact_id);
 
   GetArtifactsByTypeRequest get_artifacts_by_type_request;
   GetArtifactsByTypeResponse get_artifacts_by_type_response;
   get_artifacts_by_type_request.set_type_name("test_type2");
-  TF_ASSERT_OK(metadata_store_->GetArtifactsByType(
-      get_artifacts_by_type_request, &get_artifacts_by_type_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetArtifactsByType(
+                                  get_artifacts_by_type_request,
+                                  &get_artifacts_by_type_response));
   ASSERT_THAT(get_artifacts_by_type_response.artifacts(), SizeIs(1));
   EXPECT_EQ(get_artifacts_by_type_response.artifacts(0).id(), artifact_id);
 
   GetArtifactsByTypeRequest get_artifacts_by_not_exist_type_request;
   GetArtifactsByTypeResponse get_artifacts_by_not_exist_type_response;
   get_artifacts_by_not_exist_type_request.set_type_name("not_exist_type");
-  TF_ASSERT_OK(metadata_store_->GetArtifactsByType(
-      get_artifacts_by_not_exist_type_request,
-      &get_artifacts_by_not_exist_type_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetArtifactsByType(
+                                  get_artifacts_by_not_exist_type_request,
+                                  &get_artifacts_by_not_exist_type_response));
   EXPECT_THAT(get_artifacts_by_not_exist_type_response.artifacts(), SizeIs(0));
 }
 
@@ -2101,7 +2190,8 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypeTwiceChangedRemovedProperty) {
             }
           )");
   PutExecutionTypeResponse response_1;
-  TF_ASSERT_OK(metadata_store_->PutExecutionType(request_1, &response_1));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutionType(request_1, &response_1));
 
   const PutExecutionTypeRequest request_2 =
       ParseTextProtoOrDie<PutExecutionTypeRequest>(
@@ -2113,8 +2203,8 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypeTwiceChangedRemovedProperty) {
             }
           )");
   PutExecutionTypeResponse response_2;
-  EXPECT_EQ(tensorflow::error::ALREADY_EXISTS,
-            metadata_store_->PutExecutionType(request_2, &response_2).code());
+  EXPECT_TRUE(absl::IsAlreadyExists(
+      metadata_store_->PutExecutionType(request_2, &response_2)));
 }
 
 TEST_P(MetadataStoreTestSuite, PutEventGetEvents) {
@@ -2125,8 +2215,9 @@ TEST_P(MetadataStoreTestSuite, PutEventGetEvents) {
             execution_type: { name: 'test_type' }
           )");
   PutExecutionTypeResponse put_execution_type_response;
-  TF_ASSERT_OK(metadata_store_->PutExecutionType(put_execution_type_request,
-                                                 &put_execution_type_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutionType(put_execution_type_request,
+                                              &put_execution_type_response));
   ASSERT_TRUE(put_execution_type_response.has_type_id());
 
   PutExecutionsRequest put_executions_request =
@@ -2136,8 +2227,9 @@ TEST_P(MetadataStoreTestSuite, PutEventGetEvents) {
   put_executions_request.mutable_executions(0)->set_type_id(
       put_execution_type_response.type_id());
   PutExecutionsResponse put_executions_response;
-  TF_ASSERT_OK(metadata_store_->PutExecutions(put_executions_request,
-                                              &put_executions_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutions(put_executions_request,
+                                           &put_executions_response));
   ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(1));
 
   const PutArtifactTypeRequest put_artifact_type_request =
@@ -2147,8 +2239,9 @@ TEST_P(MetadataStoreTestSuite, PutEventGetEvents) {
             artifact_type: { name: 'test_type' }
           )");
   PutArtifactTypeResponse put_artifact_type_response;
-  TF_ASSERT_OK(metadata_store_->PutArtifactType(put_artifact_type_request,
-                                                &put_artifact_type_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifactType(put_artifact_type_request,
+                                             &put_artifact_type_response));
   ASSERT_TRUE(put_artifact_type_response.has_type_id());
   PutArtifactsRequest put_artifacts_request =
       ParseTextProtoOrDie<PutArtifactsRequest>(R"(
@@ -2157,8 +2250,9 @@ TEST_P(MetadataStoreTestSuite, PutEventGetEvents) {
   put_artifacts_request.mutable_artifacts(0)->set_type_id(
       put_artifact_type_response.type_id());
   PutArtifactsResponse put_artifacts_response;
-  TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request,
-                                             &put_artifacts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifacts(put_artifacts_request,
+                                          &put_artifacts_response));
   ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(1));
 
   PutEventsRequest put_events_request = ParseTextProtoOrDie<PutEventsRequest>(
@@ -2171,16 +2265,16 @@ TEST_P(MetadataStoreTestSuite, PutEventGetEvents) {
       put_executions_response.execution_ids(0));
   put_events_request.mutable_events(0)->set_type(Event::DECLARED_OUTPUT);
   PutEventsResponse put_events_response;
-  TF_ASSERT_OK(
-      metadata_store_->PutEvents(put_events_request, &put_events_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->PutEvents(put_events_request,
+                                                         &put_events_response));
 
   GetEventsByArtifactIDsRequest get_events_by_artifact_ids_request;
   get_events_by_artifact_ids_request.add_artifact_ids(
       put_artifacts_response.artifact_ids(0));
   GetEventsByArtifactIDsResponse get_events_by_artifact_ids_response;
-  TF_ASSERT_OK(metadata_store_->GetEventsByArtifactIDs(
-      get_events_by_artifact_ids_request,
-      &get_events_by_artifact_ids_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetEventsByArtifactIDs(
+                                  get_events_by_artifact_ids_request,
+                                  &get_events_by_artifact_ids_response));
   ASSERT_THAT(get_events_by_artifact_ids_response.events(), SizeIs(1));
   ASSERT_EQ(get_events_by_artifact_ids_response.events(0).execution_id(),
             put_executions_response.execution_ids(0));
@@ -2189,9 +2283,9 @@ TEST_P(MetadataStoreTestSuite, PutEventGetEvents) {
   get_events_by_execution_ids_request.add_execution_ids(
       put_executions_response.execution_ids(0));
   GetEventsByExecutionIDsResponse get_events_by_execution_ids_response;
-  TF_ASSERT_OK(metadata_store_->GetEventsByExecutionIDs(
-      get_events_by_execution_ids_request,
-      &get_events_by_execution_ids_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetEventsByExecutionIDs(
+                                  get_events_by_execution_ids_request,
+                                  &get_events_by_execution_ids_response));
   ASSERT_THAT(get_events_by_execution_ids_response.events(), SizeIs(1));
   EXPECT_EQ(get_events_by_artifact_ids_response.events(0).artifact_id(),
             put_artifacts_response.artifact_ids(0));
@@ -2222,7 +2316,8 @@ TEST_P(MetadataStoreTestSuite, PutTypesGetTypes) {
         }
       )");
   PutTypesResponse put_response;
-  TF_ASSERT_OK(metadata_store_->PutTypes(put_request, &put_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutTypes(put_request, &put_response));
   ASSERT_THAT(put_response.artifact_type_ids(), SizeIs(2));
   // Two identical artifact types are inserted. The returned ids are the same.
   EXPECT_EQ(put_response.artifact_type_ids(0),
@@ -2237,24 +2332,27 @@ TEST_P(MetadataStoreTestSuite, PutTypesGetTypes) {
   const GetArtifactTypeRequest get_artifact_type_request =
       ParseTextProtoOrDie<GetArtifactTypeRequest>("type_name: 'test_type1'");
   GetArtifactTypeResponse get_artifact_type_response;
-  TF_ASSERT_OK(metadata_store_->GetArtifactType(get_artifact_type_request,
-                                                &get_artifact_type_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetArtifactType(get_artifact_type_request,
+                                             &get_artifact_type_response));
   EXPECT_EQ(put_response.artifact_type_ids(0),
             get_artifact_type_response.artifact_type().id());
 
   GetExecutionTypeRequest get_execution_type_request =
       ParseTextProtoOrDie<GetExecutionTypeRequest>("type_name: 'test_type2'");
   GetExecutionTypeResponse get_execution_type_response;
-  TF_ASSERT_OK(metadata_store_->GetExecutionType(get_execution_type_request,
-                                                 &get_execution_type_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetExecutionType(get_execution_type_request,
+                                              &get_execution_type_response));
   EXPECT_EQ(put_response.execution_type_ids(1),
             get_execution_type_response.execution_type().id());
 
   const GetContextTypeRequest get_context_type_request =
       ParseTextProtoOrDie<GetContextTypeRequest>("type_name: 'test_type1'");
   GetContextTypeResponse get_context_type_response;
-  TF_ASSERT_OK(metadata_store_->GetContextType(get_context_type_request,
-                                               &get_context_type_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetContextType(get_context_type_request,
+                                            &get_context_type_response));
   EXPECT_EQ(put_response.context_type_ids(0),
             get_context_type_response.context_type().id());
 }
@@ -2269,7 +2367,8 @@ TEST_P(MetadataStoreTestSuite, PutTypesUpdateTypes) {
         }
       )");
   PutTypesResponse put_response;
-  TF_ASSERT_OK(metadata_store_->PutTypes(put_request, &put_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutTypes(put_request, &put_response));
   ASSERT_THAT(put_response.artifact_type_ids(), SizeIs(1));
 
   const PutTypesRequest update_request = ParseTextProtoOrDie<PutTypesRequest>(
@@ -2282,7 +2381,8 @@ TEST_P(MetadataStoreTestSuite, PutTypesUpdateTypes) {
         can_add_fields: true
       )");
   PutTypesResponse update_response;
-  TF_ASSERT_OK(metadata_store_->PutTypes(update_request, &update_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutTypes(update_request, &update_response));
   ASSERT_THAT(update_response.artifact_type_ids(), SizeIs(1));
   EXPECT_EQ(update_response.artifact_type_ids(0),
             put_response.artifact_type_ids(0));
@@ -2290,8 +2390,9 @@ TEST_P(MetadataStoreTestSuite, PutTypesUpdateTypes) {
   const GetArtifactTypeRequest get_artifact_type_request =
       ParseTextProtoOrDie<GetArtifactTypeRequest>("type_name: 'test_type1'");
   GetArtifactTypeResponse get_artifact_type_response;
-  TF_ASSERT_OK(metadata_store_->GetArtifactType(get_artifact_type_request,
-                                                &get_artifact_type_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetArtifactType(get_artifact_type_request,
+                                             &get_artifact_type_response));
   ArtifactType want_artifact_type = update_request.artifact_types(0);
   want_artifact_type.set_id(update_response.artifact_type_ids(0));
   EXPECT_THAT(get_artifact_type_response.artifact_type(),
@@ -2306,8 +2407,8 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecution) {
       properties { key: 'running_status' value: STRING }
     })");
   PutTypesResponse put_types_response;
-  TF_ASSERT_OK(
-      metadata_store_->PutTypes(put_types_request, &put_types_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutTypes(put_types_request, &put_types_response));
   int64 artifact_type_id = put_types_response.artifact_type_ids(0);
   int64 execution_type_id = put_types_response.execution_type_ids(0);
 
@@ -2320,8 +2421,9 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecution) {
   PutExecutionRequest put_execution_request_1;
   *put_execution_request_1.mutable_execution() = execution;
   PutExecutionResponse put_execution_response_1;
-  TF_ASSERT_OK(metadata_store_->PutExecution(put_execution_request_1,
-                                             &put_execution_response_1));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecution(put_execution_request_1,
+                                          &put_execution_response_1));
   execution.set_id(put_execution_response_1.execution_id());
   EXPECT_THAT(put_execution_response_1.artifact_ids(), SizeIs(0));
 
@@ -2337,8 +2439,9 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecution) {
   *put_execution_request_2.add_artifact_event_pairs()->mutable_artifact() =
       artifact_1;
   PutExecutionResponse put_execution_response_2;
-  TF_ASSERT_OK(metadata_store_->PutExecution(put_execution_request_2,
-                                             &put_execution_response_2));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecution(put_execution_request_2,
+                                          &put_execution_response_2));
   // The persistent id of the execution should be the same.
   EXPECT_EQ(put_execution_response_2.execution_id(), execution.id());
   EXPECT_THAT(put_execution_response_2.artifact_ids(), SizeIs(1));
@@ -2370,8 +2473,9 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecution) {
   *put_execution_request_3.mutable_artifact_event_pairs(1)->mutable_event() =
       event_2;
   PutExecutionResponse put_execution_response_3;
-  TF_ASSERT_OK(metadata_store_->PutExecution(put_execution_request_3,
-                                             &put_execution_response_3));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecution(put_execution_request_3,
+                                          &put_execution_response_3));
   EXPECT_EQ(put_execution_response_3.execution_id(), execution.id());
   EXPECT_THAT(put_execution_response_3.artifact_ids(), SizeIs(2));
   EXPECT_EQ(put_execution_response_3.artifact_ids(0), artifact_1.id());
@@ -2380,8 +2484,9 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecution) {
   // In the end, there should be 2 artifacts, 1 execution and 2 events.
   GetArtifactsRequest get_artifacts_request;
   GetArtifactsResponse get_artifacts_response;
-  TF_ASSERT_OK(metadata_store_->GetArtifacts(get_artifacts_request,
-                                             &get_artifacts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetArtifacts(get_artifacts_request,
+                                          &get_artifacts_response));
   ASSERT_THAT(get_artifacts_response.artifacts(), SizeIs(2));
   EXPECT_THAT(get_artifacts_response.artifacts(0),
               EqualsProto(artifact_1,
@@ -2394,8 +2499,9 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecution) {
 
   GetExecutionsRequest get_executions_request;
   GetExecutionsResponse get_executions_response;
-  TF_ASSERT_OK(metadata_store_->GetExecutions(get_executions_request,
-                                              &get_executions_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetExecutions(get_executions_request,
+                                           &get_executions_response));
   ASSERT_THAT(get_executions_response.executions(), SizeIs(1));
   EXPECT_THAT(get_executions_response.executions(0),
               EqualsProto(execution,
@@ -2404,8 +2510,8 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecution) {
   GetEventsByExecutionIDsRequest get_events_request;
   get_events_request.add_execution_ids(execution.id());
   GetEventsByExecutionIDsResponse get_events_response;
-  TF_ASSERT_OK(metadata_store_->GetEventsByExecutionIDs(get_events_request,
-                                                        &get_events_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetEventsByExecutionIDs(
+                                  get_events_request, &get_events_response));
   ASSERT_THAT(get_events_response.events(), SizeIs(2));
   EXPECT_EQ(get_events_response.events(0).artifact_id(), artifact_1.id());
   EXPECT_EQ(get_events_response.events(1).artifact_id(), artifact_2.id());
@@ -2422,8 +2528,8 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContext) {
     context_types: { name: 'context_type' }
     execution_types: { name: 'execution_type' })");
   PutTypesResponse put_types_response;
-  TF_ASSERT_OK(
-      metadata_store_->PutTypes(put_types_request, &put_types_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutTypes(put_types_request, &put_types_response));
   Context context1;
   context1.set_type_id(put_types_response.context_type_ids(0));
   context1.set_name("context1");
@@ -2442,8 +2548,9 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContext) {
 
   // calls PutExecution and test end states.
   PutExecutionResponse put_execution_response;
-  TF_ASSERT_OK(metadata_store_->PutExecution(put_execution_request,
-                                             &put_execution_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecution(put_execution_request,
+                                          &put_execution_response));
   // check the nodes of the end state graph
   ASSERT_GE(put_execution_response.execution_id(), 0);
   ASSERT_THAT(put_execution_response.artifact_ids(), SizeIs(1));
@@ -2451,7 +2558,8 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContext) {
   context1.set_id(put_execution_response.context_ids(0));
   context2.set_id(put_execution_response.context_ids(1));
   GetContextsResponse get_contexts_response;
-  TF_ASSERT_OK(metadata_store_->GetContexts({}, &get_contexts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetContexts({}, &get_contexts_response));
   EXPECT_THAT(
       get_contexts_response.contexts(),
       ElementsAre(
@@ -2467,8 +2575,9 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContext) {
     GetArtifactsByContextRequest get_artifacts_by_context_request;
     get_artifacts_by_context_request.set_context_id(context_id);
     GetArtifactsByContextResponse get_artifacts_by_context_response;
-    TF_ASSERT_OK(metadata_store_->GetArtifactsByContext(
-        get_artifacts_by_context_request, &get_artifacts_by_context_response));
+    ASSERT_EQ(absl::OkStatus(), metadata_store_->GetArtifactsByContext(
+                                    get_artifacts_by_context_request,
+                                    &get_artifacts_by_context_response));
     ASSERT_THAT(get_artifacts_by_context_response.artifacts(), SizeIs(1));
     EXPECT_EQ(get_artifacts_by_context_response.artifacts(0).id(),
               put_execution_response.artifact_ids(0));
@@ -2476,9 +2585,9 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContext) {
     GetExecutionsByContextRequest get_executions_by_context_request;
     get_executions_by_context_request.set_context_id(context_id);
     GetExecutionsByContextResponse get_executions_by_context_response;
-    TF_ASSERT_OK(metadata_store_->GetExecutionsByContext(
-        get_executions_by_context_request,
-        &get_executions_by_context_response));
+    ASSERT_EQ(absl::OkStatus(), metadata_store_->GetExecutionsByContext(
+                                    get_executions_by_context_request,
+                                    &get_executions_by_context_response));
     ASSERT_THAT(get_executions_by_context_response.executions(), SizeIs(1));
     EXPECT_EQ(get_executions_by_context_response.executions(0).id(),
               put_execution_response.execution_id());
@@ -2491,8 +2600,8 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionsWithContextUsingListOptions) {
     context_types: { name: 'context_type' }
     execution_types: { name: 'execution_type' })");
   PutTypesResponse put_types_response;
-  TF_ASSERT_OK(
-      metadata_store_->PutTypes(put_types_request, &put_types_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutTypes(put_types_request, &put_types_response));
   Context context1;
   context1.set_type_id(put_types_response.context_type_ids(0));
   context1.set_name("context1");
@@ -2501,8 +2610,9 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionsWithContextUsingListOptions) {
   *put_contexts_request.add_contexts() = context1;
   PutContextsResponse put_contexts_response;
 
-  TF_ASSERT_OK(metadata_store_->PutContexts(put_contexts_request,
-                                            &put_contexts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutContexts(put_contexts_request,
+                                         &put_contexts_response));
 
   ASSERT_EQ(put_contexts_response.context_ids().size(), 1);
   int64 context_id = put_contexts_response.context_ids(0);
@@ -2512,14 +2622,16 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionsWithContextUsingListOptions) {
       put_types_response.execution_type_ids(0));
   // calls PutExecution and test end states.
   PutExecutionResponse put_execution_response;
-  TF_ASSERT_OK(metadata_store_->PutExecution(put_execution_request,
-                                             &put_execution_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecution(put_execution_request,
+                                          &put_execution_response));
   // check the nodes of the end state graph
   ASSERT_GE(put_execution_response.execution_id(), 0);
   int64 execution_id_1 = put_execution_response.execution_id();
 
-  TF_ASSERT_OK(metadata_store_->PutExecution(put_execution_request,
-                                             &put_execution_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecution(put_execution_request,
+                                          &put_execution_response));
   // check the nodes of the end state graph
   ASSERT_GE(put_execution_response.execution_id(), 1);
   int64 execution_id_2 = put_execution_response.execution_id();
@@ -2537,9 +2649,9 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionsWithContextUsingListOptions) {
   *put_attributions_associations_request.add_associations() = association2;
   PutAttributionsAndAssociationsResponse put_attributions_associations_response;
 
-  TF_ASSERT_OK(metadata_store_->PutAttributionsAndAssociations(
-      put_attributions_associations_request,
-      &put_attributions_associations_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->PutAttributionsAndAssociations(
+                                  put_attributions_associations_request,
+                                  &put_attributions_associations_response));
 
   ListOperationOptions list_options =
       ParseTextProtoOrDie<ListOperationOptions>(R"(
@@ -2552,8 +2664,9 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionsWithContextUsingListOptions) {
   *get_executions_by_context_request.mutable_options() = list_options;
 
   GetExecutionsByContextResponse get_executions_by_context_response;
-  TF_ASSERT_OK(metadata_store_->GetExecutionsByContext(
-      get_executions_by_context_request, &get_executions_by_context_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetExecutionsByContext(
+                                  get_executions_by_context_request,
+                                  &get_executions_by_context_response));
 
   EXPECT_THAT(get_executions_by_context_response.executions(), SizeIs(1));
   ASSERT_EQ(get_executions_by_context_response.executions(0).id(),
@@ -2563,8 +2676,9 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionsWithContextUsingListOptions) {
   list_options.set_next_page_token(
       get_executions_by_context_response.next_page_token());
   *get_executions_by_context_request.mutable_options() = list_options;
-  TF_ASSERT_OK(metadata_store_->GetExecutionsByContext(
-      get_executions_by_context_request, &get_executions_by_context_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetExecutionsByContext(
+                                  get_executions_by_context_request,
+                                  &get_executions_by_context_response));
 
   EXPECT_THAT(get_executions_by_context_response.executions(), SizeIs(1));
   ASSERT_EQ(get_executions_by_context_response.executions(0).id(),
@@ -2578,8 +2692,8 @@ TEST_P(MetadataStoreTestSuite, PutAndGetArtifactsWithContextUsingListOptions) {
     context_types: { name: 'context_type' }
     artifact_types: { name: 'artifact_type' })");
   PutTypesResponse put_types_response;
-  TF_ASSERT_OK(
-      metadata_store_->PutTypes(put_types_request, &put_types_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutTypes(put_types_request, &put_types_response));
   Context context1;
   context1.set_type_id(put_types_response.context_type_ids(0));
   context1.set_name("context1");
@@ -2588,8 +2702,9 @@ TEST_P(MetadataStoreTestSuite, PutAndGetArtifactsWithContextUsingListOptions) {
   *put_contexts_request.add_contexts() = context1;
   PutContextsResponse put_contexts_response;
 
-  TF_ASSERT_OK(metadata_store_->PutContexts(put_contexts_request,
-                                            &put_contexts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutContexts(put_contexts_request,
+                                         &put_contexts_response));
 
   ASSERT_EQ(put_contexts_response.context_ids().size(), 1);
   int64 context_id = put_contexts_response.context_ids(0);
@@ -2603,8 +2718,9 @@ TEST_P(MetadataStoreTestSuite, PutAndGetArtifactsWithContextUsingListOptions) {
   *put_artifacts_request_1.add_artifacts() = artifact2;
 
   PutArtifactsResponse put_artifacts_response;
-  TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request_1,
-                                             &put_artifacts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifacts(put_artifacts_request_1,
+                                          &put_artifacts_response));
   ASSERT_EQ(put_artifacts_response.artifact_ids().size(), 2);
   int64 artifact_id_1 = put_artifacts_response.artifact_ids(0);
   int64 artifact_id_2 = put_artifacts_response.artifact_ids(1);
@@ -2622,9 +2738,9 @@ TEST_P(MetadataStoreTestSuite, PutAndGetArtifactsWithContextUsingListOptions) {
   *put_attributions_associations_request.add_attributions() = attribution2;
   PutAttributionsAndAssociationsResponse put_attributions_associations_response;
 
-  TF_ASSERT_OK(metadata_store_->PutAttributionsAndAssociations(
-      put_attributions_associations_request,
-      &put_attributions_associations_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->PutAttributionsAndAssociations(
+                                  put_attributions_associations_request,
+                                  &put_attributions_associations_response));
 
   ListOperationOptions list_options =
       ParseTextProtoOrDie<ListOperationOptions>(R"(
@@ -2637,8 +2753,9 @@ TEST_P(MetadataStoreTestSuite, PutAndGetArtifactsWithContextUsingListOptions) {
   *get_artifacts_by_context_request.mutable_options() = list_options;
 
   GetArtifactsByContextResponse get_artifacts_by_context_response;
-  TF_ASSERT_OK(metadata_store_->GetArtifactsByContext(
-      get_artifacts_by_context_request, &get_artifacts_by_context_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetArtifactsByContext(
+                                  get_artifacts_by_context_request,
+                                  &get_artifacts_by_context_response));
 
   EXPECT_THAT(get_artifacts_by_context_response.artifacts(), SizeIs(1));
   ASSERT_EQ(get_artifacts_by_context_response.artifacts(0).id(), artifact_id_2);
@@ -2647,8 +2764,9 @@ TEST_P(MetadataStoreTestSuite, PutAndGetArtifactsWithContextUsingListOptions) {
   list_options.set_next_page_token(
       get_artifacts_by_context_response.next_page_token());
   *get_artifacts_by_context_request.mutable_options() = list_options;
-  TF_ASSERT_OK(metadata_store_->GetArtifactsByContext(
-      get_artifacts_by_context_request, &get_artifacts_by_context_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetArtifactsByContext(
+                                  get_artifacts_by_context_request,
+                                  &get_artifacts_by_context_response));
 
   EXPECT_THAT(get_artifacts_by_context_response.artifacts(), SizeIs(1));
   ASSERT_EQ(get_artifacts_by_context_response.artifacts(0).id(), artifact_id_1);
@@ -2664,8 +2782,8 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContextReuseOption) {
     context_types: { name: 'context_type' }
     execution_types: { name: 'execution_type' })");
   PutTypesResponse put_types_response;
-  TF_ASSERT_OK(
-      metadata_store_->PutTypes(put_types_request, &put_types_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutTypes(put_types_request, &put_types_response));
   Context context;
   context.set_type_id(put_types_response.context_type_ids(0));
   context.set_name("context");
@@ -2676,18 +2794,21 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContextReuseOption) {
 
   // The first call PutExecution succeeds.
   PutExecutionResponse response;
-  TF_ASSERT_OK(metadata_store_->PutExecution(request, &response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecution(request, &response));
   // A call with the same request fails, as the context already exists.
-  const tensorflow::Status duplicate_update_status =
+  const absl::Status duplicate_update_status =
       metadata_store_->PutExecution(request, &response);
-  EXPECT_EQ(duplicate_update_status.code(), tensorflow::error::ALREADY_EXISTS);
+  EXPECT_TRUE(absl::IsAlreadyExists(duplicate_update_status));
   // If set `reuse_context_if_already_exist`, it succeeds.
   request.mutable_options()->set_reuse_context_if_already_exist(true);
-  TF_ASSERT_OK(metadata_store_->PutExecution(request, &response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecution(request, &response));
 
   // Check the stored nodes, there should be 1 context and 2 executions.
   GetContextsResponse get_contexts_response;
-  TF_ASSERT_OK(metadata_store_->GetContexts({}, &get_contexts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetContexts({}, &get_contexts_response));
   ASSERT_THAT(get_contexts_response.contexts(), SizeIs(1));
   const Context& stored_context = get_contexts_response.contexts(0);
   EXPECT_THAT(stored_context, EqualsProto(context, /*ignore_fields=*/{
@@ -2696,8 +2817,9 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContextReuseOption) {
   GetExecutionsByContextRequest get_executions_by_context_request;
   get_executions_by_context_request.set_context_id(stored_context.id());
   GetExecutionsByContextResponse get_executions_by_context_response;
-  TF_ASSERT_OK(metadata_store_->GetExecutionsByContext(
-      get_executions_by_context_request, &get_executions_by_context_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetExecutionsByContext(
+                                  get_executions_by_context_request,
+                                  &get_executions_by_context_response));
   ASSERT_THAT(get_executions_by_context_response.executions(), SizeIs(2));
   EXPECT_THAT(
       get_executions_by_context_response.executions(),
@@ -2721,13 +2843,15 @@ TEST_P(MetadataStoreTestSuite, PutContextTypeGetContextType) {
             }
           )");
   PutContextTypeResponse put_response;
-  TF_ASSERT_OK(metadata_store_->PutContextType(put_request, &put_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutContextType(put_request, &put_response));
   ASSERT_TRUE(put_response.has_type_id());
 
   GetContextTypeRequest get_request =
       ParseTextProtoOrDie<GetContextTypeRequest>("type_name: 'test_type'");
   GetContextTypeResponse get_response;
-  TF_ASSERT_OK(metadata_store_->GetContextType(get_request, &get_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetContextType(get_request, &get_response));
   EXPECT_EQ(put_response.type_id(), get_response.context_type().id())
       << "Type ID should be the same as the type created.";
   EXPECT_EQ("test_type", get_response.context_type().name())
@@ -2745,7 +2869,8 @@ TEST_P(MetadataStoreTestSuite, PutContextTypesGetContextTypes) {
             }
           )");
   PutContextTypeResponse put_response;
-  TF_ASSERT_OK(metadata_store_->PutContextType(put_request_1, &put_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutContextType(put_request_1, &put_response));
   ASSERT_TRUE(put_response.has_type_id());
   ContextType type_1 = ParseTextProtoOrDie<ContextType>(
       R"(
@@ -2763,7 +2888,8 @@ TEST_P(MetadataStoreTestSuite, PutContextTypesGetContextTypes) {
               properties { key: 'property_2' value: INT }
             }
           )");
-  TF_ASSERT_OK(metadata_store_->PutContextType(put_request_2, &put_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutContextType(put_request_2, &put_response));
   ASSERT_TRUE(put_response.has_type_id());
   ContextType type_2 = ParseTextProtoOrDie<ContextType>(
       R"(
@@ -2774,7 +2900,8 @@ TEST_P(MetadataStoreTestSuite, PutContextTypesGetContextTypes) {
 
   GetContextTypesRequest get_request;
   GetContextTypesResponse got_response;
-  TF_ASSERT_OK(metadata_store_->GetContextTypes(get_request, &got_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetContextTypes(get_request, &got_response));
   GetContextTypesResponse want_response;
   *want_response.add_context_types() = type_1;
   *want_response.add_context_types() = type_2;
@@ -2786,7 +2913,8 @@ TEST_P(MetadataStoreTestSuite, GetContextTypesWhenNoneExist) {
   GetContextTypesResponse got_response;
 
   // Expect OK status and empty response.
-  TF_ASSERT_OK(metadata_store_->GetContextTypes(get_request, &got_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetContextTypes(get_request, &got_response));
   const GetContextTypesResponse want_response;
   EXPECT_THAT(got_response, EqualsProto(want_response));
 }
@@ -2802,7 +2930,8 @@ TEST_P(MetadataStoreTestSuite, PutContextTypeGetContextTypesByID) {
             }
           )");
   PutContextTypeResponse put_response;
-  TF_ASSERT_OK(metadata_store_->PutContextType(put_request, &put_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutContextType(put_request, &put_response));
   ASSERT_TRUE(put_response.has_type_id());
 
   // Get types by exist and non-exist ids.
@@ -2810,8 +2939,8 @@ TEST_P(MetadataStoreTestSuite, PutContextTypeGetContextTypesByID) {
   get_request.add_type_ids(put_response.type_id());
   get_request.add_type_ids(put_response.type_id() + 100);
   GetContextTypesByIDResponse get_response;
-  TF_ASSERT_OK(
-      metadata_store_->GetContextTypesByID(get_request, &get_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetContextTypesByID(get_request, &get_response));
   ASSERT_THAT(get_response.context_types(), SizeIs(1));
   const ContextType& result = get_response.context_types(0);
   EXPECT_EQ(put_response.type_id(), result.id())
@@ -2833,8 +2962,9 @@ TEST_P(MetadataStoreTestSuite, PutContextsGetContextsWithListOptions) {
             }
           )");
   PutContextTypeResponse put_context_type_response;
-  TF_ASSERT_OK(metadata_store_->PutContextType(put_context_type_request,
-                                               &put_context_type_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutContextType(put_context_type_request,
+                                            &put_context_type_response));
   ASSERT_TRUE(put_context_type_response.has_type_id());
 
   const int64 type_id = put_context_type_response.type_id();
@@ -2856,8 +2986,9 @@ TEST_P(MetadataStoreTestSuite, PutContextsGetContextsWithListOptions) {
   *put_contexts_request.add_contexts() = context;
   PutContextsResponse put_contexts_response;
 
-  TF_ASSERT_OK(metadata_store_->PutContexts(put_contexts_request,
-                                            &put_contexts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutContexts(put_contexts_request,
+                                         &put_contexts_response));
   ASSERT_THAT(put_contexts_response.context_ids(), SizeIs(2));
   const int64 context_id_0 = put_contexts_response.context_ids(0);
   const int64 context_id_1 = put_contexts_response.context_ids(1);
@@ -2872,8 +3003,9 @@ TEST_P(MetadataStoreTestSuite, PutContextsGetContextsWithListOptions) {
   *get_contexts_request.mutable_options() = list_options;
 
   GetContextsResponse get_contexts_response;
-  TF_ASSERT_OK(metadata_store_->GetContexts(get_contexts_request,
-                                            &get_contexts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetContexts(get_contexts_request,
+                                         &get_contexts_response));
   EXPECT_THAT(get_contexts_response.contexts(), SizeIs(1));
   EXPECT_THAT(get_contexts_response.next_page_token(), Not(IsEmpty()));
   EXPECT_EQ(get_contexts_response.contexts(0).id(), context_id_1);
@@ -2885,8 +3017,9 @@ TEST_P(MetadataStoreTestSuite, PutContextsGetContextsWithListOptions) {
 
   list_options.set_next_page_token(get_contexts_response.next_page_token());
   *get_contexts_request.mutable_options() = list_options;
-  TF_ASSERT_OK(metadata_store_->GetContexts(get_contexts_request,
-                                            &get_contexts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetContexts(get_contexts_request,
+                                         &get_contexts_response));
   EXPECT_THAT(get_contexts_response.contexts(), SizeIs(1));
   EXPECT_THAT(get_contexts_response.next_page_token(), IsEmpty());
   EXPECT_EQ(get_contexts_response.contexts(0).id(), context_id_0);
@@ -2908,15 +3041,16 @@ TEST_P(MetadataStoreTestSuite, PutContextTypeUpsert) {
             }
           )");
   PutContextTypeResponse put_response;
-  TF_ASSERT_OK(metadata_store_->PutContextType(put_request, &put_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutContextType(put_request, &put_response));
   ASSERT_TRUE(put_response.has_type_id());
 
   // Put the same request again, the upsert returns the same id
   {
     const PutContextTypeRequest same_put_request = put_request;
     PutContextTypeResponse same_put_response;
-    TF_ASSERT_OK(
-        metadata_store_->PutContextType(same_put_request, &same_put_response));
+    ASSERT_EQ(absl::OkStatus(), metadata_store_->PutContextType(
+                                    same_put_request, &same_put_response));
     ASSERT_TRUE(same_put_response.has_type_id());
     EXPECT_EQ(same_put_response.type_id(), put_response.type_id());
   }
@@ -2936,8 +3070,8 @@ TEST_P(MetadataStoreTestSuite, PutContextTypeUpsert) {
               }
             )");
     PutContextTypeResponse response;
-    TF_ASSERT_OK(
-        metadata_store_->PutContextType(add_property_put_request, &response));
+    ASSERT_EQ(absl::OkStatus(), metadata_store_->PutContextType(
+                                    add_property_put_request, &response));
     ASSERT_TRUE(response.has_type_id());
     EXPECT_EQ(response.type_id(), put_response.type_id());
   }
@@ -3013,8 +3147,9 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
         }
       )");
   PutContextTypeResponse put_context_type_response;
-  TF_ASSERT_OK(metadata_store_->PutContextType(put_context_type_request,
-                                               &put_context_type_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutContextType(put_context_type_request,
+                                            &put_context_type_response));
   ASSERT_TRUE(put_context_type_response.has_type_id());
   const int64 type_id = put_context_type_response.type_id();
 
@@ -3024,8 +3159,9 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
   put_context_type_request2.set_all_fields_match(true);
   *put_context_type_request2.mutable_context_type() = type2;
   PutContextTypeResponse put_context_type_response2;
-  TF_ASSERT_OK(metadata_store_->PutContextType(put_context_type_request2,
-                                               &put_context_type_response2));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutContextType(put_context_type_request2,
+                                            &put_context_type_response2));
   ASSERT_TRUE(put_context_type_response2.has_type_id());
   const int64 type2_id = put_context_type_response2.type_id();
 
@@ -3049,8 +3185,9 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
   put_contexts_request.mutable_contexts(0)->set_type_id(type_id);
   put_contexts_request.mutable_contexts(1)->set_type_id(type_id);
   PutContextsResponse put_contexts_response;
-  TF_ASSERT_OK(metadata_store_->PutContexts(put_contexts_request,
-                                            &put_contexts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutContexts(put_contexts_request,
+                                         &put_contexts_response));
   ASSERT_THAT(put_contexts_response.context_ids(), SizeIs(2));
   const int64 id1 = put_contexts_response.context_ids(0);
   const int64 id2 = put_contexts_response.context_ids(1);
@@ -3072,8 +3209,9 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
   *put_contexts_request2.add_contexts() = want_context2;
   *put_contexts_request2.add_contexts() = want_context3;
   PutContextsResponse put_contexts_response2;
-  TF_ASSERT_OK(metadata_store_->PutContexts(put_contexts_request2,
-                                            &put_contexts_response2));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutContexts(put_contexts_request2,
+                                         &put_contexts_response2));
   ASSERT_THAT(put_contexts_response2.context_ids(), SizeIs(3));
   want_context3.set_id(put_contexts_response2.context_ids(2));
 
@@ -3082,8 +3220,9 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
     GetContextsByIDRequest get_contexts_by_id_request;
     get_contexts_by_id_request.add_context_ids(id1);
     GetContextsByIDResponse get_contexts_by_id_response;
-    TF_ASSERT_OK(metadata_store_->GetContextsByID(
-        get_contexts_by_id_request, &get_contexts_by_id_response));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->GetContextsByID(get_contexts_by_id_request,
+                                               &get_contexts_by_id_response));
     EXPECT_THAT(get_contexts_by_id_response.contexts(),
                 ElementsAre(EqualsProto(
                     want_context1,
@@ -3099,8 +3238,9 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
     get_contexts_by_id_request.add_context_ids(id2);
     get_contexts_by_id_request.add_context_ids(unknown_id);
     GetContextsByIDResponse get_contexts_by_id_response;
-    TF_ASSERT_OK(metadata_store_->GetContextsByID(
-        get_contexts_by_id_request, &get_contexts_by_id_response));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->GetContextsByID(get_contexts_by_id_request,
+                                               &get_contexts_by_id_response));
     EXPECT_THAT(
         get_contexts_by_id_response.contexts(),
         UnorderedElementsAre(
@@ -3116,8 +3256,9 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
     GetContextsByIDRequest get_contexts_by_id_request;
     get_contexts_by_id_request.add_context_ids(unknown_id);
     GetContextsByIDResponse get_contexts_by_id_response;
-    TF_ASSERT_OK(metadata_store_->GetContextsByID(
-        get_contexts_by_id_request, &get_contexts_by_id_response));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->GetContextsByID(get_contexts_by_id_request,
+                                               &get_contexts_by_id_response));
     EXPECT_THAT(get_contexts_by_id_response.contexts(), IsEmpty());
   }
   // Test: GetContextsByType
@@ -3125,8 +3266,9 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
     GetContextsByTypeRequest get_contexts_by_type_request;
     get_contexts_by_type_request.set_type_name("type2_name");
     GetContextsByTypeResponse get_contexts_by_type_response;
-    TF_ASSERT_OK(metadata_store_->GetContextsByType(
-        get_contexts_by_type_request, &get_contexts_by_type_response));
+    ASSERT_EQ(absl::OkStatus(), metadata_store_->GetContextsByType(
+                                    get_contexts_by_type_request,
+                                    &get_contexts_by_type_response));
     ASSERT_THAT(get_contexts_by_type_response.contexts(), SizeIs(1));
     EXPECT_THAT(
         get_contexts_by_type_response.contexts(0),
@@ -3140,7 +3282,8 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
     request.set_type_name("test_type");
     request.mutable_options()->set_max_result_size(1);
     GetContextsByTypeResponse response;
-    TF_ASSERT_OK(metadata_store_->GetContextsByType(request, &response));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->GetContextsByType(request, &response));
     EXPECT_THAT(response.contexts(),
                 ElementsAre(EqualsProto(
                     want_context1,
@@ -3149,7 +3292,8 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
     ASSERT_THAT(response.next_page_token(), Not(IsEmpty()));
     request.mutable_options()->set_next_page_token(response.next_page_token());
     response.Clear();
-    TF_ASSERT_OK(metadata_store_->GetContextsByType(request, &response));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->GetContextsByType(request, &response));
     EXPECT_THAT(response.contexts(),
                 ElementsAre(EqualsProto(
                     want_context2,
@@ -3161,8 +3305,9 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
   {
     GetContextsRequest get_contexts_request;
     GetContextsResponse get_contexts_response;
-    TF_ASSERT_OK(metadata_store_->GetContexts(get_contexts_request,
-                                              &get_contexts_response));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->GetContexts(get_contexts_request,
+                                           &get_contexts_response));
     ASSERT_THAT(get_contexts_response.contexts(), SizeIs(3));
     EXPECT_THAT(
         get_contexts_response.contexts(0),
@@ -3191,8 +3336,8 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
           properties { key: 'property' value: STRING }
         })");
   PutTypesResponse put_types_response;
-  TF_ASSERT_OK(
-      metadata_store_->PutTypes(put_types_request, &put_types_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutTypes(put_types_request, &put_types_response));
   int64 artifact_type_id = put_types_response.artifact_type_ids(0);
   int64 execution_type_id = put_types_response.execution_type_ids(0);
 
@@ -3202,8 +3347,9 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
         context_type: { name: 'context_type' }
       )");
   PutContextTypeResponse put_context_type_response;
-  TF_ASSERT_OK(metadata_store_->PutContextType(put_context_type_request,
-                                               &put_context_type_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutContextType(put_context_type_request,
+                                            &put_context_type_response));
   int64 context_type_id = put_context_type_response.type_id();
 
   Execution want_execution;
@@ -3212,8 +3358,9 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   PutExecutionsRequest put_executions_request;
   *put_executions_request.add_executions() = want_execution;
   PutExecutionsResponse put_executions_response;
-  TF_ASSERT_OK(metadata_store_->PutExecutions(put_executions_request,
-                                              &put_executions_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutions(put_executions_request,
+                                           &put_executions_response));
   ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(1));
   want_execution.set_id(put_executions_response.execution_ids(0));
 
@@ -3224,8 +3371,9 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   PutArtifactsRequest put_artifacts_request;
   *put_artifacts_request.add_artifacts() = want_artifact;
   PutArtifactsResponse put_artifacts_response;
-  TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request,
-                                             &put_artifacts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifacts(put_artifacts_request,
+                                          &put_artifacts_response));
   ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(1));
   want_artifact.set_id(put_artifacts_response.artifact_ids(0));
 
@@ -3235,8 +3383,9 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   PutContextsRequest put_contexts_request;
   *put_contexts_request.add_contexts() = want_context;
   PutContextsResponse put_contexts_response;
-  TF_ASSERT_OK(metadata_store_->PutContexts(put_contexts_request,
-                                            &put_contexts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutContexts(put_contexts_request,
+                                         &put_contexts_response));
   ASSERT_THAT(put_contexts_response.context_ids(), SizeIs(1));
   want_context.set_id(put_contexts_response.context_ids(0));
 
@@ -3246,14 +3395,15 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   attribution->set_artifact_id(want_artifact.id());
   attribution->set_context_id(want_context.id());
   PutAttributionsAndAssociationsResponse response;
-  TF_EXPECT_OK(
-      metadata_store_->PutAttributionsAndAssociations(request, &response));
+  EXPECT_EQ(absl::OkStatus(), metadata_store_->PutAttributionsAndAssociations(
+                                  request, &response));
 
   GetContextsByArtifactRequest get_contexts_by_artifact_request;
   get_contexts_by_artifact_request.set_artifact_id(want_artifact.id());
   GetContextsByArtifactResponse get_contexts_by_artifact_response;
-  TF_EXPECT_OK(metadata_store_->GetContextsByArtifact(
-      get_contexts_by_artifact_request, &get_contexts_by_artifact_response));
+  EXPECT_EQ(absl::OkStatus(), metadata_store_->GetContextsByArtifact(
+                                  get_contexts_by_artifact_request,
+                                  &get_contexts_by_artifact_response));
   ASSERT_THAT(get_contexts_by_artifact_response.contexts(), SizeIs(1));
   EXPECT_THAT(get_contexts_by_artifact_response.contexts(0),
               EqualsProto(want_context,
@@ -3263,8 +3413,9 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   GetArtifactsByContextRequest get_artifacts_by_context_request;
   get_artifacts_by_context_request.set_context_id(want_context.id());
   GetArtifactsByContextResponse get_artifacts_by_context_response;
-  TF_EXPECT_OK(metadata_store_->GetArtifactsByContext(
-      get_artifacts_by_context_request, &get_artifacts_by_context_response));
+  EXPECT_EQ(absl::OkStatus(), metadata_store_->GetArtifactsByContext(
+                                  get_artifacts_by_context_request,
+                                  &get_artifacts_by_context_response));
   ASSERT_THAT(get_artifacts_by_context_response.artifacts(), SizeIs(1));
   EXPECT_THAT(get_artifacts_by_context_response.artifacts(0),
               EqualsProto(want_artifact,
@@ -3275,14 +3426,15 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   Association* association = request.add_associations();
   association->set_execution_id(want_execution.id());
   association->set_context_id(want_context.id());
-  TF_ASSERT_OK(
-      metadata_store_->PutAttributionsAndAssociations(request, &response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->PutAttributionsAndAssociations(
+                                  request, &response));
 
   GetContextsByExecutionRequest get_contexts_by_execution_request;
   get_contexts_by_execution_request.set_execution_id(want_execution.id());
   GetContextsByExecutionResponse get_contexts_by_execution_response;
-  TF_ASSERT_OK(metadata_store_->GetContextsByExecution(
-      get_contexts_by_execution_request, &get_contexts_by_execution_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetContextsByExecution(
+                                  get_contexts_by_execution_request,
+                                  &get_contexts_by_execution_response));
   ASSERT_THAT(get_contexts_by_execution_response.contexts(), SizeIs(1));
   EXPECT_THAT(get_contexts_by_execution_response.contexts(0),
               EqualsProto(want_context,
@@ -3292,8 +3444,9 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   GetExecutionsByContextRequest get_executions_by_context_request;
   get_executions_by_context_request.set_context_id(want_context.id());
   GetExecutionsByContextResponse get_executions_by_context_response;
-  TF_ASSERT_OK(metadata_store_->GetExecutionsByContext(
-      get_executions_by_context_request, &get_executions_by_context_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetExecutionsByContext(
+                                  get_executions_by_context_request,
+                                  &get_executions_by_context_response));
   ASSERT_THAT(get_executions_by_context_response.executions(), SizeIs(1));
   EXPECT_THAT(get_executions_by_context_response.executions(0),
               EqualsProto(want_execution,
@@ -3307,8 +3460,9 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   PutArtifactsRequest put_artifacts_request_2;
   *put_artifacts_request_2.add_artifacts() = want_artifact_2;
   PutArtifactsResponse put_artifacts_response_2;
-  TF_ASSERT_OK(metadata_store_->PutArtifacts(put_artifacts_request_2,
-                                             &put_artifacts_response_2));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifacts(put_artifacts_request_2,
+                                          &put_artifacts_response_2));
   ASSERT_THAT(put_artifacts_response_2.artifact_ids(), SizeIs(1));
   want_artifact_2.set_id(put_artifacts_response_2.artifact_ids(0));
 
@@ -3318,13 +3472,14 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   Attribution* attribution_2 = request.add_attributions();
   attribution_2->set_artifact_id(want_artifact_2.id());
   attribution_2->set_context_id(want_context.id());
-  TF_EXPECT_OK(
-      metadata_store_->PutAttributionsAndAssociations(request, &response));
+  EXPECT_EQ(absl::OkStatus(), metadata_store_->PutAttributionsAndAssociations(
+                                  request, &response));
 
   // The new Artifact can also be retrieved.
   GetArtifactsByContextResponse get_artifacts_by_context_response_2;
-  TF_EXPECT_OK(metadata_store_->GetArtifactsByContext(
-      get_artifacts_by_context_request, &get_artifacts_by_context_response_2));
+  EXPECT_EQ(absl::OkStatus(), metadata_store_->GetArtifactsByContext(
+                                  get_artifacts_by_context_request,
+                                  &get_artifacts_by_context_response_2));
   ASSERT_THAT(get_artifacts_by_context_response_2.artifacts(), SizeIs(2));
   EXPECT_THAT(
       get_artifacts_by_context_response_2.artifacts(),
@@ -3344,8 +3499,8 @@ TEST_P(MetadataStoreTestSuite, PutParentContextsAlreadyExistsError) {
   PutContextTypeRequest put_type_request;
   *put_type_request.mutable_context_type() = context_type;
   PutContextTypeResponse put_type_response;
-  TF_ASSERT_OK(
-      metadata_store_->PutContextType(put_type_request, &put_type_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->PutContextType(
+                                  put_type_request, &put_type_response));
   context_type.set_id(put_type_response.type_id());
 
   // Inserts two connected contexts.
@@ -3358,8 +3513,9 @@ TEST_P(MetadataStoreTestSuite, PutParentContextsAlreadyExistsError) {
   *put_contexts_request.add_contexts() = context_1;
   *put_contexts_request.add_contexts() = context_2;
   PutContextsResponse put_contexts_response;
-  TF_ASSERT_OK(metadata_store_->PutContexts(put_contexts_request,
-                                            &put_contexts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutContexts(put_contexts_request,
+                                         &put_contexts_response));
   context_1.set_id(put_contexts_response.context_ids(0));
   context_2.set_id(put_contexts_response.context_ids(1));
 
@@ -3370,13 +3526,14 @@ TEST_P(MetadataStoreTestSuite, PutParentContextsAlreadyExistsError) {
   PutParentContextsRequest put_parent_contexts_request;
   *put_parent_contexts_request.add_parent_contexts() = parent_context;
   PutParentContextsResponse put_parent_contexts_response;
-  TF_EXPECT_OK(metadata_store_->PutParentContexts(
-      put_parent_contexts_request, &put_parent_contexts_response));
+  EXPECT_EQ(absl::OkStatus(),
+            metadata_store_->PutParentContexts(put_parent_contexts_request,
+                                               &put_parent_contexts_response));
 
   // Recreates the same parent context should returns AlreadyExists error.
-  const tensorflow::Status status = metadata_store_->PutParentContexts(
+  const absl::Status status = metadata_store_->PutParentContexts(
       put_parent_contexts_request, &put_parent_contexts_response);
-  EXPECT_EQ(status.code(), tensorflow::error::ALREADY_EXISTS);
+  EXPECT_TRUE(absl::IsAlreadyExists(status));
 }
 
 TEST_P(MetadataStoreTestSuite, PutParentContextsInvalidArgumentError) {
@@ -3386,8 +3543,8 @@ TEST_P(MetadataStoreTestSuite, PutParentContextsInvalidArgumentError) {
   PutContextTypeRequest put_type_request;
   *put_type_request.mutable_context_type() = context_type;
   PutContextTypeResponse put_type_response;
-  TF_ASSERT_OK(
-      metadata_store_->PutContextType(put_type_request, &put_type_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->PutContextType(
+                                  put_type_request, &put_type_response));
   context_type.set_id(put_type_response.type_id());
 
   // Creates two not exist context ids.
@@ -3397,8 +3554,9 @@ TEST_P(MetadataStoreTestSuite, PutParentContextsInvalidArgumentError) {
   PutContextsRequest put_contexts_request;
   *put_contexts_request.add_contexts() = stored_context;
   PutContextsResponse put_contexts_response;
-  TF_ASSERT_OK(metadata_store_->PutContexts(put_contexts_request,
-                                            &put_contexts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutContexts(put_contexts_request,
+                                         &put_contexts_response));
   int stored_context_id = put_contexts_response.context_ids(0);
   int64 not_exist_context_id = stored_context_id + 1;
   int64 not_exist_context_id_2 = stored_context_id + 2;
@@ -3418,9 +3576,9 @@ TEST_P(MetadataStoreTestSuite, PutParentContextsInvalidArgumentError) {
     PutParentContextsRequest put_parent_contexts_request;
     *put_parent_contexts_request.add_parent_contexts() = parent_context;
     PutParentContextsResponse put_parent_contexts_response;
-    const tensorflow::Status status = metadata_store_->PutParentContexts(
+    const absl::Status status = metadata_store_->PutParentContexts(
         put_parent_contexts_request, &put_parent_contexts_response);
-    EXPECT_EQ(status.code(), tensorflow::error::INVALID_ARGUMENT) << case_name;
+    EXPECT_TRUE(absl::IsInvalidArgument(status)) << case_name;
   };
 
   verify_is_invalid_argument(/*case_name=*/"no parent id, no child id",
@@ -3451,8 +3609,8 @@ TEST_P(MetadataStoreTestSuite, PutParentContextsAndGetLinkedContextByContext) {
   PutContextTypeRequest put_type_request;
   *put_type_request.mutable_context_type() = context_type;
   PutContextTypeResponse put_type_response;
-  TF_ASSERT_OK(
-      metadata_store_->PutContextType(put_type_request, &put_type_response));
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->PutContextType(
+                                  put_type_request, &put_type_response));
   context_type.set_id(put_type_response.type_id());
 
   // Creates some contexts to be inserted into the later parent context
@@ -3466,8 +3624,9 @@ TEST_P(MetadataStoreTestSuite, PutParentContextsAndGetLinkedContextByContext) {
     *put_contexts_request.add_contexts() = contexts[i];
   }
   PutContextsResponse put_contexts_response;
-  TF_ASSERT_OK(metadata_store_->PutContexts(put_contexts_request,
-                                            &put_contexts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutContexts(put_contexts_request,
+                                         &put_contexts_response));
   for (int i = 0; i < num_contexts; i++) {
     contexts[i].set_id(put_contexts_response.context_ids(i));
   }
@@ -3497,21 +3656,24 @@ TEST_P(MetadataStoreTestSuite, PutParentContextsAndGetLinkedContextByContext) {
   put_parent_context(/*parent_idx=*/5, /*child_idx=*/6);
 
   PutParentContextsResponse put_parent_contexts_response;
-  TF_ASSERT_OK(metadata_store_->PutParentContexts(
-      put_parent_contexts_request, &put_parent_contexts_response));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutParentContexts(put_parent_contexts_request,
+                                               &put_parent_contexts_response));
 
   // Verifies the parent contexts by looking up and stored result.
   for (int i = 0; i < num_contexts; i++) {
     GetParentContextsByContextRequest get_parents_request;
     get_parents_request.set_context_id(contexts[i].id());
     GetParentContextsByContextResponse get_parents_response;
-    TF_ASSERT_OK(metadata_store_->GetParentContextsByContext(
-        get_parents_request, &get_parents_response));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->GetParentContextsByContext(
+                  get_parents_request, &get_parents_response));
     GetChildrenContextsByContextRequest get_children_request;
     get_children_request.set_context_id(contexts[i].id());
     GetChildrenContextsByContextResponse get_children_response;
-    TF_ASSERT_OK(metadata_store_->GetChildrenContextsByContext(
-        get_children_request, &get_children_response));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->GetChildrenContextsByContext(
+                  get_children_request, &get_children_response));
     EXPECT_THAT(get_parents_response.contexts(),
                 SizeIs(want_parents[i].size()));
     EXPECT_THAT(get_children_response.contexts(),

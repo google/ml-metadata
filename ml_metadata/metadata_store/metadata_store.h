@@ -17,13 +17,13 @@ limitations under the License.
 
 #include <memory>
 
+#include "absl/status/status.h"
 #include "ml_metadata/metadata_store/metadata_access_object.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/metadata_store/metadata_store_service_interface.h"
 #include "ml_metadata/metadata_store/transaction_executor.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
-#include "tensorflow/core/lib/core/status.h"
 
 namespace ml_metadata {
 
@@ -40,7 +40,7 @@ class MetadataStore : public MetadataStoreServiceInterface {
   // Returns INVALID_ARGUMENT error, if migration options are invalid.
   // Returns CANCELLED error, if downgrade migration is performed.
   // Returns detailed INTERNAL error, if the MetadataSource cannot be connected.
-  static tensorflow::Status Create(
+  static absl::Status Create(
       const MetadataSourceQueryConfig& query_config,
       const MigrationOptions& migration_options,
       std::unique_ptr<MetadataSource> metadata_source,
@@ -50,7 +50,7 @@ class MetadataStore : public MetadataStoreServiceInterface {
   // Initializes the metadata source and creates schema. Any existing data in
   // the metadata is dropped.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status InitMetadataStore();
+  absl::Status InitMetadataStore();
 
   // Initializes the metadata source and creates schema if it does not exist.
   // Returns OK and does nothing, if all required schema exist.
@@ -59,7 +59,7 @@ class MetadataStore : public MetadataStoreServiceInterface {
   // Returns FAILED_PRECONDITION error, if library and db have incompatible
   //   schema versions, and upgrade migrations are not enabled.
   // Returns detailed INTERNAL error, if create schema query execution fails.
-  tensorflow::Status InitMetadataStoreIfNotExists(
+  absl::Status InitMetadataStoreIfNotExists(
       bool enable_upgrade_migration = false);
 
   // Inserts or updates a ArtifactType/ExecutionType/ContextType.
@@ -109,30 +109,26 @@ class MetadataStore : public MetadataStoreServiceInterface {
   // Returns INVALID_ARGUMENT error, if the given type has no name, or any
   //     property value type is unknown.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status PutArtifactType(
-      const PutArtifactTypeRequest& request,
-      PutArtifactTypeResponse* response) override;
+  absl::Status PutArtifactType(const PutArtifactTypeRequest& request,
+                               PutArtifactTypeResponse* response) override;
 
-  tensorflow::Status PutExecutionType(
-      const PutExecutionTypeRequest& request,
-      PutExecutionTypeResponse* response) override;
+  absl::Status PutExecutionType(const PutExecutionTypeRequest& request,
+                                PutExecutionTypeResponse* response) override;
 
-  tensorflow::Status PutContextType(const PutContextTypeRequest& request,
-                                    PutContextTypeResponse* response) override;
+  absl::Status PutContextType(const PutContextTypeRequest& request,
+                              PutContextTypeResponse* response) override;
 
   // Gets an ArtifactType/ExecutionType/ContextType by name.
   // If no type exists, returns a NOT_FOUND error.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetArtifactType(
-      const GetArtifactTypeRequest& request,
-      GetArtifactTypeResponse* response) override;
+  absl::Status GetArtifactType(const GetArtifactTypeRequest& request,
+                               GetArtifactTypeResponse* response) override;
 
-  tensorflow::Status GetExecutionType(
-      const GetExecutionTypeRequest& request,
-      GetExecutionTypeResponse* response) override;
+  absl::Status GetExecutionType(const GetExecutionTypeRequest& request,
+                                GetExecutionTypeResponse* response) override;
 
-  tensorflow::Status GetContextType(const GetContextTypeRequest& request,
-                                    GetContextTypeResponse* response) override;
+  absl::Status GetContextType(const GetContextTypeRequest& request,
+                              GetContextTypeResponse* response) override;
 
   // Bulk inserts a list of types atomically. The types could be ArtifactType,
   // ExecutionType, or ContextType.
@@ -143,36 +139,33 @@ class MetadataStore : public MetadataStoreServiceInterface {
   //     property value type is unknown.
   // Returns detailed INTERNAL error, if query execution fails.
   // TODO(huimiao) Surface the API in python/Go/gRPC.
-  tensorflow::Status PutTypes(const PutTypesRequest& request,
-                              PutTypesResponse* response) override;
+  absl::Status PutTypes(const PutTypesRequest& request,
+                        PutTypesResponse* response) override;
 
   // Gets all ArtifactTypes/ExecutionTypes/ContextTypes.
   // If no types found, it returns OK and empty response.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetArtifactTypes(
-      const GetArtifactTypesRequest& request,
-      GetArtifactTypesResponse* response) override;
+  absl::Status GetArtifactTypes(const GetArtifactTypesRequest& request,
+                                GetArtifactTypesResponse* response) override;
 
-  tensorflow::Status GetExecutionTypes(
-      const GetExecutionTypesRequest& request,
-      GetExecutionTypesResponse* response) override;
+  absl::Status GetExecutionTypes(const GetExecutionTypesRequest& request,
+                                 GetExecutionTypesResponse* response) override;
 
-  tensorflow::Status GetContextTypes(
-      const GetContextTypesRequest& request,
-      GetContextTypesResponse* response) override;
+  absl::Status GetContextTypes(const GetContextTypesRequest& request,
+                               GetContextTypesResponse* response) override;
 
   // Gets a list of ArtifactTypes/ExecutionTypes/ContextTypes by ids.
   // If no types with an ID exists, the type is skipped.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetArtifactTypesByID(
+  absl::Status GetArtifactTypesByID(
       const GetArtifactTypesByIDRequest& request,
       GetArtifactTypesByIDResponse* response) override;
 
-  tensorflow::Status GetExecutionTypesByID(
+  absl::Status GetExecutionTypesByID(
       const GetExecutionTypesByIDRequest& request,
       GetExecutionTypesByIDResponse* response) override;
 
-  tensorflow::Status GetContextTypesByID(
+  absl::Status GetContextTypesByID(
       const GetContextTypesByIDRequest& request,
       GetContextTypesByIDResponse* response) override;
 
@@ -191,8 +184,8 @@ class MetadataStore : public MetadataStoreServiceInterface {
   // different latest_updated_time.
   // Returns ALREADY_EXISTS error, if the name exists in the artifact_type.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status PutArtifacts(const PutArtifactsRequest& request,
-                                  PutArtifactsResponse* response) override;
+  absl::Status PutArtifacts(const PutArtifactsRequest& request,
+                            PutArtifactsResponse* response) override;
 
   // Inserts and updates executions in the request into the database.
   // If execution_id is specified, an existing execution is updated.
@@ -206,8 +199,8 @@ class MetadataStore : public MetadataStoreServiceInterface {
   // align with the ExecutionType on file.
   // Returns ALREADY_EXISTS error, if the name exists in the artifact_type.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status PutExecutions(const PutExecutionsRequest& request,
-                                   PutExecutionsResponse* response) override;
+  absl::Status PutExecutions(const PutExecutionsRequest& request,
+                             PutExecutionsResponse* response) override;
 
   // Inserts and updates contexts in the request into the database. Context
   // must have none empty name, and it should be unique of a ContextType.
@@ -223,8 +216,8 @@ class MetadataStore : public MetadataStoreServiceInterface {
   // align with the ContextType on file.
   // Returns ALREADY_EXISTS error, if the name exists in the context_type.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status PutContexts(const PutContextsRequest& request,
-                                 PutContextsResponse* response) override;
+  absl::Status PutContexts(const PutContextsRequest& request,
+                           PutContextsResponse* response) override;
 
   // Inserts events into the database.
   //
@@ -237,8 +230,8 @@ class MetadataStore : public MetadataStoreServiceInterface {
   // Returns INVALID_ARGUMENT error, if no execution matches the execution_id.
   // Returns INVALID_ARGUMENT error, if the type field is UNKNOWN.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status PutEvents(const PutEventsRequest& request,
-                               PutEventsResponse* response) override;
+  absl::Status PutEvents(const PutEventsRequest& request,
+                         PutEventsResponse* response) override;
 
   // Inserts or updates an Execution and its input and output artifacts and
   // events atomically. The request includes the state changes of the Artifacts
@@ -256,18 +249,18 @@ class MetadataStore : public MetadataStoreServiceInterface {
   // Returns INVALID_ARGUMENT error, if property names and types do not align.
   // Returns INVALID_ARGUMENT error, if the event.type field is UNKNOWN.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status PutExecution(const PutExecutionRequest& request,
-                                  PutExecutionResponse* response) override;
+  absl::Status PutExecution(const PutExecutionRequest& request,
+                            PutExecutionResponse* response) override;
 
   // Gets all events with matching execution ids.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetEventsByExecutionIDs(
+  absl::Status GetEventsByExecutionIDs(
       const GetEventsByExecutionIDsRequest& request,
       GetEventsByExecutionIDsResponse* response) override;
 
   // Gets all events with matching artifact ids.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetEventsByArtifactIDs(
+  absl::Status GetEventsByArtifactIDs(
       const GetEventsByArtifactIDsRequest& request,
       GetEventsByArtifactIDsResponse* response) override;
 
@@ -275,62 +268,59 @@ class MetadataStore : public MetadataStoreServiceInterface {
   // If no artifact with an ID exists, the artifact is skipped.
   // Sets the error field if any other internal errors are returned.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetArtifactsByID(
-      const GetArtifactsByIDRequest& request,
-      GetArtifactsByIDResponse* response) override;
+  absl::Status GetArtifactsByID(const GetArtifactsByIDRequest& request,
+                                GetArtifactsByIDResponse* response) override;
 
   // Retrieve artifacts using list options.
   // If option is not set in the request, then all Artifacts are returned.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetArtifacts(const GetArtifactsRequest& request,
-                                  GetArtifactsResponse* response) override;
+  absl::Status GetArtifacts(const GetArtifactsRequest& request,
+                            GetArtifactsResponse* response) override;
 
   // Gets all the artifacts of a given type. If no artifacts found, it returns
   // OK and empty response.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetArtifactsByType(
+  absl::Status GetArtifactsByType(
       const GetArtifactsByTypeRequest& request,
       GetArtifactsByTypeResponse* response) override;
 
   // Gets the artifact of a given type and name. If no artifact found, it
   // returns OK and empty response.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetArtifactByTypeAndName(
+  absl::Status GetArtifactByTypeAndName(
       const GetArtifactByTypeAndNameRequest& request,
       GetArtifactByTypeAndNameResponse* response) override;
 
   // Gets all the artifacts matching the given URIs. If no artifacts found, it
   // returns OK and empty response.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetArtifactsByURI(
-      const GetArtifactsByURIRequest& request,
-      GetArtifactsByURIResponse* response) override;
+  absl::Status GetArtifactsByURI(const GetArtifactsByURIRequest& request,
+                                 GetArtifactsByURIResponse* response) override;
 
   // Gets a list of executions by ID.
   // If no execution with an ID exists, the execution is skipped.
   // Sets the error field if any other internal errors are returned.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetExecutionsByID(
-      const GetExecutionsByIDRequest& request,
-      GetExecutionsByIDResponse* response) override;
+  absl::Status GetExecutionsByID(const GetExecutionsByIDRequest& request,
+                                 GetExecutionsByIDResponse* response) override;
 
   // Retrieve Executions using list options.
   // If option is not set in the request, then all Executions are returned.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetExecutions(const GetExecutionsRequest& request,
-                                   GetExecutionsResponse* response) override;
+  absl::Status GetExecutions(const GetExecutionsRequest& request,
+                             GetExecutionsResponse* response) override;
 
   // Gets all the executions of a given type. If no executions found, it returns
   // OK and empty response.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetExecutionsByType(
+  absl::Status GetExecutionsByType(
       const GetExecutionsByTypeRequest& request,
       GetExecutionsByTypeResponse* response) override;
 
   // Gets the execution of a given type and name. If no execution found, it
   // returns OK and empty response.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetExecutionByTypeAndName(
+  absl::Status GetExecutionByTypeAndName(
       const GetExecutionByTypeAndNameRequest& request,
       GetExecutionByTypeAndNameResponse* response) override;
 
@@ -338,27 +328,25 @@ class MetadataStore : public MetadataStoreServiceInterface {
   // If no context with an ID exists, the context is skipped.
   // Sets the error field if any other internal errors are returned.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetContextsByID(
-      const GetContextsByIDRequest& request,
-      GetContextsByIDResponse* response) override;
+  absl::Status GetContextsByID(const GetContextsByIDRequest& request,
+                               GetContextsByIDResponse* response) override;
 
   // Retrieve Contexts using list options.
   // If option is not set in the request, then all Contexts are returned.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetContexts(const GetContextsRequest& request,
-                                 GetContextsResponse* response) override;
+  absl::Status GetContexts(const GetContextsRequest& request,
+                           GetContextsResponse* response) override;
 
   // Gets all the contexts of a given type. If no contexts found, it returns
   // OK and empty response.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetContextsByType(
-      const GetContextsByTypeRequest& request,
-      GetContextsByTypeResponse* response) override;
+  absl::Status GetContextsByType(const GetContextsByTypeRequest& request,
+                                 GetContextsByTypeResponse* response) override;
 
   // Gets the context of a given type and name. If no context found, it returns
   // OK and empty response. If more than one contexts matchs the type and name,
   // the query execution fails.
-  tensorflow::Status GetContextByTypeAndName(
+  absl::Status GetContextByTypeAndName(
       const GetContextByTypeAndNameRequest& request,
       GetContextByTypeAndNameResponse* response) override;
 
@@ -369,7 +357,7 @@ class MetadataStore : public MetadataStoreServiceInterface {
   //
   // Returns INVALID_ARGUMENT error, if no artifact, execution or context
   //   matches the given id.
-  tensorflow::Status PutAttributionsAndAssociations(
+  absl::Status PutAttributionsAndAssociations(
       const PutAttributionsAndAssociationsRequest& request,
       PutAttributionsAndAssociationsResponse* response) override;
 
@@ -378,45 +366,44 @@ class MetadataStore : public MetadataStoreServiceInterface {
   // Returns INVALID_ARGUMENT error, if no context matches the child_id.
   // Returns INVALID_ARGUMENT error, if no context matches the parent_id.
   // Returns ALREADY_EXISTS error, if the same parent context already exists.
-  tensorflow::Status PutParentContexts(
-      const PutParentContextsRequest& request,
-      PutParentContextsResponse* response) override;
+  absl::Status PutParentContexts(const PutParentContextsRequest& request,
+                                 PutParentContextsResponse* response) override;
 
   // Gets all context that an artifact is attributed to.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetContextsByArtifact(
+  absl::Status GetContextsByArtifact(
       const GetContextsByArtifactRequest& request,
       GetContextsByArtifactResponse* response) override;
 
   // Gets all context that an execution is associated with.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetContextsByExecution(
+  absl::Status GetContextsByExecution(
       const GetContextsByExecutionRequest& request,
       GetContextsByExecutionResponse* response) override;
 
   // Gets all direct artifacts using list options that a context attributes to.
   // If option is not set in the request, then all artifacts are returned.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetArtifactsByContext(
+  absl::Status GetArtifactsByContext(
       const GetArtifactsByContextRequest& request,
       GetArtifactsByContextResponse* response) override;
 
   // Gets direct executions using list options that a context associates with.
   // If option is not set in the request, then all executions are returned.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetExecutionsByContext(
+  absl::Status GetExecutionsByContext(
       const GetExecutionsByContextRequest& request,
       GetExecutionsByContextResponse* response) override;
 
   // Gets all parent contexts of a context.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetParentContextsByContext(
+  absl::Status GetParentContextsByContext(
       const GetParentContextsByContextRequest& request,
       GetParentContextsByContextResponse* response) override;
 
   // Gets all children contexts of a context.
   // Returns detailed INTERNAL error, if query execution fails.
-  tensorflow::Status GetChildrenContextsByContext(
+  absl::Status GetChildrenContextsByContext(
       const GetChildrenContextsByContextRequest& request,
       GetChildrenContextsByContextResponse* response) override;
 

@@ -8,6 +8,8 @@
 *   Adds utils in shared C++ lib to delete Contexts, Artifacts, Executions, and
     their corresponding edges (e.g., Associations, Attributions,
     ParentContexts).
+*   Removes TensorFlow dependency in MLMD OSS C++ and TensorFlow bazel WORKSPACE
+    dependency in MLMD OSS bazel WORKSPACE.
 
 ## Bug Fixes and Other Changes
 

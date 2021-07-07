@@ -16,16 +16,17 @@ limitations under the License.
 
 #include <memory>
 
+#include <glog/logging.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "ml_metadata/metadata_store/metadata_store_test_suite.h"
 #include "ml_metadata/metadata_store/sqlite_metadata_source.h"
 #include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/util/metadata_source_query_config.h"
-#include "tensorflow/core/lib/core/status_test_util.h"
-#include "tensorflow/core/platform/env.h"
+#include "ml_metadata/util/return_utils.h"
 
 namespace ml_metadata {
 namespace testing {
@@ -42,11 +43,12 @@ std::unique_ptr<MetadataStore> CreateMetadataStore() {
       absl::make_unique<RdbmsTransactionExecutor>(metadata_source.get());
 
   std::unique_ptr<MetadataStore> metadata_store;
-  TF_CHECK_OK(MetadataStore::Create(util::GetSqliteMetadataSourceQueryConfig(),
-                                    {}, std::move(metadata_source),
-                                    std::move(transaction_executor),
-                                    &metadata_store));
-  TF_CHECK_OK(metadata_store->InitMetadataStore());
+  CHECK_EQ(
+      absl::OkStatus(),
+      MetadataStore::Create(util::GetSqliteMetadataSourceQueryConfig(), {},
+                            std::move(metadata_source),
+                            std::move(transaction_executor), &metadata_store));
+  CHECK_EQ(absl::OkStatus(), metadata_store->InitMetadataStore());
   return metadata_store;
 }
 
@@ -66,62 +68,6 @@ class RDBMSMetadataStoreContainer : public MetadataStoreContainer {
   std::unique_ptr<MetadataStore> metadata_store_;
 };
 
-TEST(MetadataStoreExtendedTest, SpecifyDowngradeMigrationWhenCreate) {
-  // create the metadata store first, and init the schema to
-  // the library version
-  const MetadataSourceQueryConfig& query_config =
-      util::GetSqliteMetadataSourceQueryConfig();
-  std::string filename_uri =
-      absl::StrCat(::testing::TempDir(), "test_shared.db");
-  SqliteMetadataSourceConfig connection_config;
-  connection_config.set_filename_uri(filename_uri);
-
-  {
-    std::unique_ptr<MetadataStore> metadata_store;
-    auto metadata_source =
-        absl::make_unique<SqliteMetadataSource>(connection_config);
-    auto transaction_executor =
-        absl::make_unique<RdbmsTransactionExecutor>(metadata_source.get());
-    TF_EXPECT_OK(MetadataStore::Create(
-        query_config, {}, std::move(metadata_source),
-        std::move(transaction_executor), &metadata_store));
-    TF_ASSERT_OK(metadata_store->InitMetadataStore());
-  }
-
-  // Create another metadata store, and test when migration_options are given
-  {
-    std::unique_ptr<MetadataStore> other_metadata_store;
-    auto metadata_source =
-        absl::make_unique<SqliteMetadataSource>(connection_config);
-    auto transaction_executor =
-        absl::make_unique<RdbmsTransactionExecutor>(metadata_source.get());
-    MigrationOptions options;
-    options.set_downgrade_to_schema_version(query_config.schema_version() + 1);
-    tensorflow::Status s = MetadataStore::Create(
-        query_config, options, std::move(metadata_source),
-        std::move(transaction_executor), &other_metadata_store);
-    EXPECT_EQ(s.code(), tensorflow::error::INVALID_ARGUMENT);
-    EXPECT_EQ(other_metadata_store, nullptr);
-  }
-
-  {
-    std::unique_ptr<MetadataStore> other_metadata_store;
-    auto metadata_source =
-        absl::make_unique<SqliteMetadataSource>(connection_config);
-    auto transaction_executor =
-        absl::make_unique<RdbmsTransactionExecutor>(metadata_source.get());
-    MigrationOptions options;
-    options.set_downgrade_to_schema_version(0);
-    tensorflow::Status s = MetadataStore::Create(
-        query_config, options, std::move(metadata_source),
-        std::move(transaction_executor), &other_metadata_store);
-    EXPECT_EQ(s.code(), tensorflow::error::CANCELLED);
-    EXPECT_TRUE(absl::StrContains(s.error_message(),
-                                  "Downgrade migration was performed."));
-    EXPECT_EQ(other_metadata_store, nullptr);
-  }
-  TF_EXPECT_OK(tensorflow::Env::Default()->DeleteFile(filename_uri));
-}
 
 
 }  // namespace

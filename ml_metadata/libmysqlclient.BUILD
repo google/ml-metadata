@@ -29,7 +29,7 @@ genrule(
         "cmake .. -DCMAKE_BUILD_TYPE=Release",
         "cd ..",
         "cp -R ./build/* $$INSTALL_DIR",
-	"rm -rf $$TMP_DIR",
+        "rm -rf $$TMP_DIR",
     ]),
 )
 
@@ -105,9 +105,9 @@ cc_library(
         ":darwin": ["-liconv"],
         "//conditions:default": [],
     }),
+    visibility = ["//visibility:public"],
     deps = [
         "@boringssl//:ssl",
-        "@zlib_archive//:zlib",
+        "@zlib",
     ],
-    visibility = ["//visibility:public"],
 )
