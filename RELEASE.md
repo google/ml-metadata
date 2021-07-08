@@ -10,6 +10,13 @@
     ParentContexts).
 *   Removes TensorFlow dependency in MLMD OSS C++ and TensorFlow bazel WORKSPACE
     dependency in MLMD OSS bazel WORKSPACE.
+*   Upgrades MLMD schema version to 7.
+    -   Add `byte_value` column for `ArtifactProperty`, `ExecutionProperty`,
+        `ContextProperty` for better storing binary property values.
+    -   For MySQL backend, modify `string_value` to use `MEDIUMTEXT` instead of
+        `TEXT` to persist property value upto 16MB.
+    -   Add index `EventPath`.`idx_eventpath_event_id` for Event retrieval
+        queries.
 
 ## Bug Fixes and Other Changes
 
@@ -17,6 +24,7 @@
 *   Fixes a bug of increasing size of `next_page_token` over pagination calls.
 *   Returns InvalidArgumentError for PutParentContexts when creating a cyclic
     parent context.
+
 ## Breaking Changes
 
 ## Deprecations

@@ -28,7 +28,7 @@ namespace {
 // no-lint to support vc (C2026) 16380 max length for char[].
 const std::string kBaseQueryConfig = absl::StrCat(  // NOLINT
 R"pb(
-  schema_version: 6
+  schema_version: 7
   drop_type_table { query: " DROP TABLE IF EXISTS `Type`; " }
   create_type_table {
     query: " CREATE TABLE IF NOT EXISTS `Type` ( "
@@ -199,11 +199,12 @@ R"pb(
            "   `int_value` INT, "
            "   `double_value` DOUBLE, "
            "   `string_value` TEXT, "
+           "   `byte_value` BLOB, "
            " PRIMARY KEY (`artifact_id`, `name`, `is_custom_property`)); "
   }
   check_artifact_property_table {
     query: " SELECT `artifact_id`, `name`, `is_custom_property`, "
-           "        `int_value`, `double_value`, `string_value` "
+           "        `int_value`, `double_value`, `string_value`, `byte_value` "
            " FROM `ArtifactProperty` LIMIT 1; "
   }
   insert_artifact_property {
@@ -298,11 +299,12 @@ R"pb(
            "   `int_value` INT, "
            "   `double_value` DOUBLE, "
            "   `string_value` TEXT, "
+           "   `byte_value` BLOB, "
            " PRIMARY KEY (`execution_id`, `name`, `is_custom_property`)); "
   }
   check_execution_property_table {
     query: " SELECT `execution_id`, `name`, `is_custom_property`, "
-           "        `int_value`, `double_value`, `string_value` "
+           "        `int_value`, `double_value`, `string_value`, `byte_value` "
            " FROM `ExecutionProperty` LIMIT 1; "
   }
   insert_execution_property {
@@ -395,11 +397,12 @@ R"pb(
            "   `int_value` INT, "
            "   `double_value` DOUBLE, "
            "   `string_value` TEXT, "
+           "   `byte_value` BLOB, "
            " PRIMARY KEY (`context_id`, `name`, `is_custom_property`)); "
   }
   check_context_property_table {
     query: " SELECT `context_id`, `name`, `is_custom_property`, "
-           "        `int_value`, `double_value`, `string_value` "
+           "        `int_value`, `double_value`, `string_value`, `byte_value` "
            " FROM `ContextProperty` LIMIT 1; "
   }
   insert_context_property {
@@ -701,6 +704,10 @@ R"pb(
     query: " CREATE INDEX IF NOT EXISTS "
            "   `idx_context_last_update_time_since_epoch` "
            " ON `Context`(`last_update_time_since_epoch`); "
+  }
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS `idx_eventpath_event_id` "
+           " ON `EventPath`(`event_id`); "
   }
 )pb",
 R"pb(
@@ -1515,6 +1522,180 @@ R"pb(
                  "       `name` = 'idx_context_last_update_time_since_epoch';"
         }
       }
+      # downgrade queries from version 7
+      downgrade_queries {
+        query: " CREATE TABLE IF NOT EXISTS `ArtifactPropertyTemp` ( "
+               "   `artifact_id` INT NOT NULL, "
+               "   `name` VARCHAR(255) NOT NULL, "
+               "   `is_custom_property` TINYINT(1) NOT NULL, "
+               "   `int_value` INT, "
+               "   `double_value` DOUBLE, "
+               "   `string_value` TEXT, "
+               " PRIMARY KEY (`artifact_id`, `name`, `is_custom_property`)); "
+      }
+      downgrade_queries {
+        query: " INSERT INTO `ArtifactPropertyTemp`  "
+               " SELECT `artifact_id`, `name`,  `is_custom_property`, "
+               "        `int_value`, `double_value`, `string_value` "
+               " FROM `ArtifactProperty`; "
+      }
+      downgrade_queries { query: " DROP TABLE `ArtifactProperty`; " }
+      downgrade_queries {
+        query: " ALTER TABLE `ArtifactPropertyTemp` "
+              "  RENAME TO `ArtifactProperty`; "
+      }
+      downgrade_queries {
+        query: " CREATE TABLE IF NOT EXISTS `ExecutionPropertyTemp` ( "
+               "   `execution_id` INT NOT NULL, "
+               "   `name` VARCHAR(255) NOT NULL, "
+               "   `is_custom_property` TINYINT(1) NOT NULL, "
+               "   `int_value` INT, "
+               "   `double_value` DOUBLE, "
+               "   `string_value` TEXT, "
+               " PRIMARY KEY (`execution_id`, `name`, `is_custom_property`)); "
+      }
+      downgrade_queries {
+        query: " INSERT INTO `ExecutionPropertyTemp` "
+               " SELECT `execution_id`, `name`,  `is_custom_property`, "
+               "     `int_value`, `double_value`, `string_value` "
+               " FROM `ExecutionProperty`; "
+      }
+      downgrade_queries { query: " DROP TABLE `ExecutionProperty`; " }
+      downgrade_queries {
+        query: " ALTER TABLE `ExecutionPropertyTemp` "
+              "  RENAME TO `ExecutionProperty`; "
+      }
+      downgrade_queries {
+        query: " CREATE TABLE IF NOT EXISTS `ContextPropertyTemp` ( "
+               "   `context_id` INT NOT NULL, "
+               "   `name` VARCHAR(255) NOT NULL, "
+               "   `is_custom_property` TINYINT(1) NOT NULL, "
+               "   `int_value` INT, "
+               "   `double_value` DOUBLE, "
+               "   `string_value` TEXT, "
+               " PRIMARY KEY (`context_id`, `name`, `is_custom_property`)); "
+      }
+      downgrade_queries {
+        query: " INSERT INTO `ContextPropertyTemp` "
+               " SELECT `context_id`, `name`,  `is_custom_property`, "
+               "        `int_value`, `double_value`, `string_value` "
+               " FROM `ContextProperty`; "
+      }
+      downgrade_queries { query: " DROP TABLE `ContextProperty`; " }
+      downgrade_queries {
+        query: " ALTER TABLE `ContextPropertyTemp` "
+              "  RENAME TO `ContextProperty`; "
+      }
+      downgrade_queries { query: " DROP INDEX `idx_eventpath_event_id`; " }
+      # verify if the downgrading keeps the existing columns
+      downgrade_verification {
+        previous_version_setup_queries {
+          query: "DELETE FROM `ArtifactProperty`;"
+        }
+        previous_version_setup_queries {
+          query: "DELETE FROM `ExecutionProperty`;"
+        }
+        previous_version_setup_queries {
+          query: "DELETE FROM `ContextProperty`;"
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `ArtifactProperty` (`artifact_id`, "
+                 "     `is_custom_property`, `name`, `string_value`) "
+                 " VALUES (1, 0, 'p1', 'abc'); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `ExecutionProperty` (`execution_id`, "
+                 "     `is_custom_property`, `name`, `int_value`) "
+                 " VALUES (1, 1, 'p1', 1); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `ContextProperty` (`context_id`, "
+                 "     `is_custom_property`, `name`, `double_value`) "
+                 " VALUES (1, 0, 'p1', 1.0); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM "
+                 "        PRAGMA_TABLE_INFO('ArtifactProperty') "
+                 " WHERE `name` = 'byte_value'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM "
+                 "        PRAGMA_TABLE_INFO('ExecutionProperty') "
+                 " WHERE `name` = 'byte_value'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM "
+                 "        PRAGMA_TABLE_INFO('ContextProperty') "
+                 " WHERE `name` = 'byte_value'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'EventPath' "
+                 "       AND `name` LIKE 'idx_eventpath_%'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `ArtifactProperty` "
+                 " WHERE `artifact_id` = 1 AND `is_custom_property` = 0 AND "
+                 "       `name` = 'p1' AND `string_value` = 'abc'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `ExecutionProperty` "
+                 " WHERE `execution_id` = 1 AND `is_custom_property` = 1 AND "
+                 "        `name` = 'p1' AND `int_value` = 1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `ContextProperty` "
+                 " WHERE `context_id` = 1  AND `is_custom_property` = 0 AND "
+                 "        `name` = 'p1' AND `double_value` = 1.0; "
+        }
+      }
+    }
+  }
+)pb",
+R"pb(
+  # In v7, we added byte_value for property tables for better storing binary
+  # property values. In addition, we added index for `EventPath` to improve
+  # Event reads.
+  migration_schemes {
+    key: 7
+    value: {
+      upgrade_queries {
+        query: " ALTER TABLE `ArtifactProperty` "
+               " ADD COLUMN `byte_value` BLOB; "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `ExecutionProperty` "
+               " ADD COLUMN `byte_value` BLOB; "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `ContextProperty` "
+               " ADD COLUMN `byte_value` BLOB; "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_eventpath_event_id` "
+               " ON `EventPath`(`event_id`); "
+      }
+      # check the expected table columns are created properly.
+      upgrade_verification {
+        # check existing rows in previous Type table are migrated properly.
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `ArtifactProperty` WHERE "
+                 " `byte_value` IS NOT NULL; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `ExecutionProperty` WHERE "
+                 " `byte_value` IS NOT NULL; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `ContextProperty` WHERE "
+                 " `byte_value` IS NOT NULL; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'EventPath' AND "
+                 "       `name` = 'idx_eventpath_event_id';"
+        }
+      }
     }
   }
 )pb");
@@ -1562,6 +1743,17 @@ R"pb(
            "   CONSTRAINT UniqueArtifactTypeName UNIQUE(`type_id`, `name`) "
            " ); "
   }
+  create_artifact_property_table {
+    query: " CREATE TABLE IF NOT EXISTS `ArtifactProperty` ( "
+           "   `artifact_id` INT NOT NULL, "
+           "   `name` VARCHAR(255) NOT NULL, "
+           "   `is_custom_property` TINYINT(1) NOT NULL, "
+           "   `int_value` INT, "
+           "   `double_value` DOUBLE, "
+           "   `string_value` MEDIUMTEXT, "
+           "   `byte_value` MEDIUMBLOB, "
+           " PRIMARY KEY (`artifact_id`, `name`, `is_custom_property`)); "
+  }
   create_execution_table {
     query: " CREATE TABLE IF NOT EXISTS `Execution` ( "
            "   `id` INTEGER PRIMARY KEY AUTO_INCREMENT, "
@@ -1573,6 +1765,17 @@ R"pb(
            "   CONSTRAINT UniqueExecutionTypeName UNIQUE(`type_id`, `name`) "
            " ); "
   }
+  create_execution_property_table {
+    query: " CREATE TABLE IF NOT EXISTS `ExecutionProperty` ( "
+           "   `execution_id` INT NOT NULL, "
+           "   `name` VARCHAR(255) NOT NULL, "
+           "   `is_custom_property` TINYINT(1) NOT NULL, "
+           "   `int_value` INT, "
+           "   `double_value` DOUBLE, "
+           "   `string_value` MEDIUMTEXT, "
+           "   `byte_value` MEDIUMBLOB, "
+           " PRIMARY KEY (`execution_id`, `name`, `is_custom_property`)); "
+  }
   create_context_table {
     query: " CREATE TABLE IF NOT EXISTS `Context` ( "
            "   `id` INTEGER PRIMARY KEY AUTO_INCREMENT, "
@@ -1582,6 +1785,17 @@ R"pb(
            "   `last_update_time_since_epoch` BIGINT NOT NULL DEFAULT 0, "
            "   UNIQUE(`type_id`, `name`) "
            " ); "
+  }
+  create_context_property_table {
+    query: " CREATE TABLE IF NOT EXISTS `ContextProperty` ( "
+           "   `context_id` INT NOT NULL, "
+           "   `name` VARCHAR(255) NOT NULL, "
+           "   `is_custom_property` TINYINT(1) NOT NULL, "
+           "   `int_value` INT, "
+           "   `double_value` DOUBLE, "
+           "   `string_value` MEDIUMTEXT, "
+           "   `byte_value` MEDIUMBLOB, "
+           " PRIMARY KEY (`context_id`, `name`, `is_custom_property`)); "
   }
   create_event_table {
     query: " CREATE TABLE IF NOT EXISTS `Event` ( "
@@ -1646,6 +1860,10 @@ R"pb(
           "             (`create_time_since_epoch`), "
           "  ADD INDEX `idx_context_last_update_time_since_epoch` "
           "             (`last_update_time_since_epoch`); "
+  }
+  secondary_indices {
+    query: " ALTER TABLE `EventPath` "
+          "  ADD INDEX `idx_eventpath_event_id`(`event_id`); "
   }
   # downgrade to 0.13.2 (i.e., v0), and drops the MLMDEnv table.
   migration_schemes {
@@ -2371,6 +2589,186 @@ R"pb(
                  " WHERE `table_schema` = (SELECT DATABASE()) and "
                  "       `table_name` = 'Context' AND `index_name` = "
                  "       'idx_context_last_update_time_since_epoch'; "
+        }
+      }
+      # downgrade queries from version 7
+      # Note v7 for MySQL used mediumtext for string_value, when downgrade
+      # the long text will be truncated to 65536 chars.
+      downgrade_queries {
+        query: " ALTER TABLE `ArtifactProperty` DROP COLUMN `byte_value`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `ExecutionProperty` DROP COLUMN `byte_value`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `ContextProperty` DROP COLUMN `byte_value`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `EventPath` DROP INDEX `idx_eventpath_event_id`; "
+      }
+      downgrade_queries {
+        query: " UPDATE `ArtifactProperty` "
+               " SET `string_value` = SUBSTRING(`string_value`, 1, 65535); "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `ArtifactProperty` "
+               " MODIFY COLUMN `string_value` TEXT; "
+      }
+      downgrade_queries {
+        query: " UPDATE `ExecutionProperty` "
+               " SET `string_value` = SUBSTRING(`string_value`, 1, 65535); "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `ExecutionProperty` "
+               " MODIFY COLUMN `string_value` TEXT; "
+      }
+      downgrade_queries {
+        query: " UPDATE `ContextProperty` "
+               " SET `string_value` = SUBSTRING(`string_value`, 1, 65535); "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `ContextProperty` "
+               " MODIFY COLUMN `string_value` TEXT; "
+      }
+      # verify if the downgrading keeps the existing columns
+      downgrade_verification {
+        previous_version_setup_queries {
+          query: "DELETE FROM `ArtifactProperty`;"
+        }
+        previous_version_setup_queries {
+          query: "DELETE FROM `ExecutionProperty`;"
+        }
+        previous_version_setup_queries {
+          query: "DELETE FROM `ContextProperty`;"
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `ArtifactProperty` "
+                 " (`artifact_id`, `name`, `string_value`) "
+                 " VALUES (1, 'p1', CONCAT('_prefix_', REPEAT('a', 160000))), "
+                 "        (1, 'p2', 'abc'); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `ExecutionProperty` "
+                 " (`execution_id`, `name`, `string_value`) "
+                 " VALUES (1, 'p1', CONCAT('_prefix_', REPEAT('e', 160000))), "
+                 "        (1, 'p2', 'abc'); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `ContextProperty` "
+                 " (`context_id`, `name`, `string_value`) "
+                 " VALUES (1, 'p1', CONCAT('_prefix_', REPEAT('c', 160000))), "
+                 "        (1, 'p2', 'abc'); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) AND "
+                 "       `table_name` = 'EventPath' AND "
+                 "       `index_name` = 'idx_eventpath_event_id'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 3 FROM `information_schema`.`columns` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) AND "
+                 "       `table_name` IN ('ArtifactProperty', "
+                 "           'ExecutionProperty', 'ContextProperty') AND "
+                 "       `column_name` = 'string_value' AND "
+                 "       `data_type` = 'text'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `information_schema`.`columns` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) AND "
+                 "       `table_name` IN ('ArtifactProperty', "
+                 "           'ExecutionProperty', 'ContextProperty') AND "
+                 "       `column_name` = 'byte_value'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `ArtifactProperty` "
+                 " WHERE `artifact_id` = 1 AND `name` = 'p1' AND "
+                 "   `string_value` = CONCAT('_prefix_', REPEAT('a', 65527)); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `ArtifactProperty` "
+                 " WHERE `artifact_id` = 1 AND `name` = 'p2' AND "
+                 "       `string_value` = 'abc'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `ExecutionProperty` "
+                 " WHERE `execution_id` = 1 AND `name` = 'p1' AND "
+                 "   `string_value` = CONCAT('_prefix_', REPEAT('e', 65527)); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `ExecutionProperty` "
+                 " WHERE `execution_id` = 1 AND `name` = 'p2' AND "
+                 "       `string_value` = 'abc'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `ContextProperty` "
+                 " WHERE `context_id` = 1 AND `name` = 'p1' AND "
+                 "   `string_value` = CONCAT('_prefix_', REPEAT('c', 65527)); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `ContextProperty` "
+                 " WHERE `context_id` = 1 AND `name` = 'p2' AND "
+                 "       `string_value` = 'abc'; "
+        }
+      }
+    }
+  }
+)pb",
+R"pb(
+  # In v7, we added byte_value for property tables for better storing binary
+  # property values. For MySQL, we extends string_value column to be MEDIUMTEXT
+  # in order to persist string value with size upto 16MB. In addition, we added
+  # index for `EventPath` to improve Event reads.
+  migration_schemes {
+    key: 7
+    value: {
+      upgrade_queries {
+        query: " ALTER TABLE `ArtifactProperty` "
+               " MODIFY COLUMN `string_value` MEDIUMTEXT, "
+               " ADD COLUMN `byte_value` MEDIUMBLOB; "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `ExecutionProperty` "
+               " MODIFY COLUMN `string_value` MEDIUMTEXT, "
+               " ADD COLUMN `byte_value` MEDIUMBLOB; "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `ContextProperty` "
+               " MODIFY COLUMN `string_value` MEDIUMTEXT, "
+               " ADD COLUMN `byte_value` MEDIUMBLOB; "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `EventPath` "
+               " ADD INDEX `idx_eventpath_event_id` (`event_id`); "
+      }
+      # check the expected table columns are created properly.
+      upgrade_verification {
+        # check existing rows in previous Type table are migrated properly.
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `ArtifactProperty` WHERE "
+                 " `byte_value` IS NOT NULL; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `ExecutionProperty` WHERE "
+                 " `byte_value` IS NOT NULL; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `ContextProperty` WHERE "
+                 " `byte_value` IS NOT NULL; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) AND "
+                 "       `table_name` = 'EventPath' AND "
+                 "       `index_name` = 'idx_eventpath_event_id'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 3 FROM `information_schema`.`columns` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) AND "
+                 "       `table_name` IN ('ArtifactProperty', "
+                 "           'ExecutionProperty', 'ContextProperty') AND "
+                 "       `column_name` = 'string_value' AND "
+                 "       `data_type` = 'mediumtext'; "
         }
       }
     }
