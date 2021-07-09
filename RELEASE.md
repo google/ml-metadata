@@ -2,6 +2,16 @@
 
 ## Major Features and Improvements
 
+## Bug Fixes and Other Changes
+
+## Breaking Changes
+
+## Deprecations
+
+# Version 1.1.0
+
+## Major Features and Improvements
+
 *   Introduced `skip_db_creation` for MySQL backend. It is useful when db
     creation is handled by an admin process, while the lib users should not
     issue db creation clauses.
@@ -27,7 +37,11 @@
 
 ## Breaking Changes
 
+*   N/A
+
 ## Deprecations
+
+*   N/A
 
 # Version 1.0.0
 
