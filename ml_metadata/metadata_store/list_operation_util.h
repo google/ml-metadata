@@ -51,12 +51,12 @@ absl::Status BuildListOperationNextPageToken(
       list_operation_next_page_token.add_listed_ids(last_node.id());
       list_operation_next_page_token.set_field_offset(
           last_node.last_update_time_since_epoch());
-      for (auto it = nodes.rbegin(); it != nodes.rend(); it--) {
-        if (it->last_update_time_since_epoch() !=
+      for (int i = nodes.size() - 2; i >= 0; i--) {
+        if (nodes[i].last_update_time_since_epoch() !=
             last_node.last_update_time_since_epoch()) {
           break;
         }
-        list_operation_next_page_token.add_listed_ids(it->id());
+        list_operation_next_page_token.add_listed_ids(nodes[i].id());
       }
       break;
     }
