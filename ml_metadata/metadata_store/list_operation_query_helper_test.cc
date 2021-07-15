@@ -45,6 +45,25 @@ ListOperationNextPageToken BasicListOperationNextPageToken() {
   )pb");
 }
 
+void VerifyAppendOrderingThreshold(
+    const ListOperationOptions& options,
+    absl::optional<absl::string_view> table_alias,
+    absl::string_view expected_clause) {
+  std::string where_clause;
+  ASSERT_EQ(absl::OkStatus(),
+            AppendOrderingThresholdClause(options, table_alias, where_clause));
+  EXPECT_EQ(where_clause, expected_clause);
+}
+
+void VerifyAppendOrderBy(const ListOperationOptions& options,
+                         absl::optional<absl::string_view> table_alias,
+                         absl::string_view expected_clause) {
+  std::string order_by_clause;
+  ASSERT_EQ(absl::OkStatus(),
+            AppendOrderByClause(options, table_alias, order_by_clause));
+  EXPECT_EQ(order_by_clause, expected_clause);
+}
+
 TEST(ListOperationQueryHelperTest, OrderingWhereClauseDesc) {
   ListOperationOptions options = BasicListOperationOptionsDesc();
   ListOperationNextPageToken next_page_token =
@@ -52,11 +71,14 @@ TEST(ListOperationQueryHelperTest, OrderingWhereClauseDesc) {
   *next_page_token.mutable_set_options() = options;
   options.set_next_page_token(
       absl::WebSafeBase64Escape(next_page_token.SerializeAsString()));
-  std::string where_clause;
-  ASSERT_EQ(absl::OkStatus(),
-            AppendOrderingThresholdClause(options, where_clause));
-  EXPECT_EQ(where_clause,
-            " `create_time_since_epoch` <= 56894 AND `id` < 100 ");
+
+  VerifyAppendOrderingThreshold(
+      options, /*table_alias=*/absl::nullopt, /*expected_clause=*/
+      " `create_time_since_epoch` <= 56894 AND `id` < 100 ");
+
+  VerifyAppendOrderingThreshold(
+      options, /*table_alias=*/"table_0", /*expected_clause=*/
+      " table_0.`create_time_since_epoch` <= 56894 AND table_0.`id` < 100 ");
 }
 
 TEST(ListOperationQueryHelperTest, OrderingWhereClauseAsc) {
@@ -67,11 +89,13 @@ TEST(ListOperationQueryHelperTest, OrderingWhereClauseAsc) {
   options.set_next_page_token(
       absl::WebSafeBase64Escape(next_page_token.SerializeAsString()));
 
-  std::string where_clause;
-  ASSERT_EQ(absl::OkStatus(),
-            AppendOrderingThresholdClause(options, where_clause));
-  EXPECT_EQ(where_clause,
-            " `create_time_since_epoch` >= 56894 AND `id` > 100 ");
+  VerifyAppendOrderingThreshold(
+      options, /*table_alias=*/absl::nullopt, /*expected_clause=*/
+      " `create_time_since_epoch` >= 56894 AND `id` > 100 ");
+
+  VerifyAppendOrderingThreshold(
+      options, /*table_alias=*/"table_0", /*expected_clause=*/
+      " table_0.`create_time_since_epoch` >= 56894 AND table_0.`id` > 100 ");
 }
 
 TEST(ListOperationQueryHelperTest, OrderingOnLastUpdateTimeDesc) {
@@ -88,11 +112,15 @@ TEST(ListOperationQueryHelperTest, OrderingOnLastUpdateTimeDesc) {
   *next_page_token.mutable_set_options() = options;
   options.set_next_page_token(
       absl::WebSafeBase64Escape(next_page_token.SerializeAsString()));
-  std::string where_clause;
-  ASSERT_EQ(absl::OkStatus(),
-            AppendOrderingThresholdClause(options, where_clause));
-  EXPECT_EQ(where_clause,
-            " `last_update_time_since_epoch` <= 56894 AND `id` NOT IN (6,5) ");
+
+  VerifyAppendOrderingThreshold(
+      options, /*table_alias=*/absl::nullopt, /*expected_clause=*/
+      " `last_update_time_since_epoch` <= 56894 AND `id` NOT IN (6,5) ");
+
+  VerifyAppendOrderingThreshold(options,
+                                /*table_alias=*/"table_0", /*expected_clause=*/
+                                " table_0.`last_update_time_since_epoch` <= "
+                                "56894 AND table_0.`id` NOT IN (6,5) ");
 }
 
 TEST(ListOperationQueryHelperTest, OrderingWhereClauseById) {
@@ -107,26 +135,40 @@ TEST(ListOperationQueryHelperTest, OrderingWhereClauseById) {
   *next_page_token.mutable_set_options() = options;
   options.set_next_page_token(
       absl::WebSafeBase64Escape(next_page_token.SerializeAsString()));
-  std::string where_clause;
-  ASSERT_EQ(absl::OkStatus(),
-            AppendOrderingThresholdClause(options, where_clause));
-  EXPECT_EQ(where_clause, " `id` < 100 ");
+
+  VerifyAppendOrderingThreshold(
+      options, /*table_alias=*/absl::nullopt, /*expected_clause=*/
+      " `id` < 100 ");
+
+  VerifyAppendOrderingThreshold(options,
+                                /*table_alias=*/"table_0", /*expected_clause=*/
+                                " table_0.`id` < 100 ");
 }
 
 TEST(ListOperationQueryHelperTest, OrderByClauseDesc) {
   const ListOperationOptions options = BasicListOperationOptionsDesc();
-  std::string order_by_clause;
-  ASSERT_EQ(absl::OkStatus(), AppendOrderByClause(options, order_by_clause));
-  EXPECT_EQ(order_by_clause,
-            " ORDER BY `create_time_since_epoch` DESC, `id` DESC ");
+
+  VerifyAppendOrderBy(options, /*table_alias=*/absl::nullopt,
+                      /*expected_clause=*/
+                      " ORDER BY `create_time_since_epoch` DESC, `id` DESC ");
+
+  VerifyAppendOrderBy(
+      options, /*table_alias=*/"table_0",
+      /*expected_clause=*/
+      " ORDER BY table_0.`create_time_since_epoch` DESC, table_0.`id` DESC ");
 }
 
 TEST(ListOperationQueryHelperTest, OrderByClauseAsc) {
   const ListOperationOptions options = BasicListOperationOptionsAsc();
-  std::string order_by_clause;
-  ASSERT_EQ(absl::OkStatus(), AppendOrderByClause(options, order_by_clause));
-  EXPECT_EQ(order_by_clause,
-            " ORDER BY `create_time_since_epoch` ASC, `id` ASC ");
+
+  VerifyAppendOrderBy(options, /*table_alias=*/absl::nullopt,
+                      /*expected_clause=*/
+                      " ORDER BY `create_time_since_epoch` ASC, `id` ASC ");
+
+  VerifyAppendOrderBy(
+      options, /*table_alias=*/"table_0",
+      /*expected_clause=*/
+      " ORDER BY table_0.`create_time_since_epoch` ASC, table_0.`id` ASC ");
 }
 
 TEST(ListOperationQueryHelperTest, OrderByClauseById) {
@@ -135,9 +177,12 @@ TEST(ListOperationQueryHelperTest, OrderByClauseById) {
         max_result_size: 1,
         order_by_field: { field: ID, is_asc: false }
       )pb");
-  std::string order_by_clause;
-  ASSERT_EQ(absl::OkStatus(), AppendOrderByClause(options, order_by_clause));
-  EXPECT_EQ(order_by_clause, " ORDER BY `id` DESC ");
+
+  VerifyAppendOrderBy(options, /*table_alias=*/absl::nullopt,
+                      /*expected_clause=*/" ORDER BY `id` DESC ");
+
+  VerifyAppendOrderBy(options, /*table_alias=*/"table_0",
+                      /*expected_clause=*/" ORDER BY table_0.`id` DESC ");
 }
 
 TEST(ListOperationQueryHelperTest, LimitClause) {
@@ -162,5 +207,6 @@ TEST(ListOperationQueryHelperTest, InvalidLimit) {
   EXPECT_TRUE(
       absl::IsInvalidArgument(AppendLimitClause(options, limit_clause)));
 }
+
 }  // namespace
 }  // namespace ml_metadata

@@ -601,6 +601,7 @@ absl::Status QueryConfigExecutor::ListNodeIDsUsingOptions(
     return absl::OkStatus();
   }
   std::string sql_query;
+  absl::optional<absl::string_view> node_table_alias;
   if (std::is_same<Node, Artifact>::value) {
     sql_query = "SELECT `id` FROM `Artifact` WHERE";
   } else if (std::is_same<Node, Execution>::value) {
@@ -616,9 +617,10 @@ absl::Status QueryConfigExecutor::ListNodeIDsUsingOptions(
     absl::SubstituteAndAppend(&sql_query, " `id` IN ($0) AND ",
                               Bind(*candidate_ids));
   }
-
-  MLMD_RETURN_IF_ERROR(AppendOrderingThresholdClause(options, sql_query));
-  MLMD_RETURN_IF_ERROR(AppendOrderByClause(options, sql_query));
+  MLMD_RETURN_IF_ERROR(
+      AppendOrderingThresholdClause(options, node_table_alias, sql_query));
+  MLMD_RETURN_IF_ERROR(
+      AppendOrderByClause(options, node_table_alias, sql_query));
   MLMD_RETURN_IF_ERROR(AppendLimitClause(options, sql_query));
   return ExecuteQuery(sql_query, record_set);
 }

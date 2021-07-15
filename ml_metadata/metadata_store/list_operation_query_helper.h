@@ -16,6 +16,7 @@ limitations under the License.
 #define THIRD_PARTY_ML_METADATA_METADATA_STORE_LIST_OPERATION_QUERY_HELPER_H_
 
 #include "absl/status/status.h"
+#include "absl/types/optional.h"
 #include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 
@@ -24,8 +25,9 @@ namespace ml_metadata {
 // Utility methods to generate SQL queries for List Operations.
 
 // Generates the WHERE clause for ListOperation.
-// On success `sql_query_clause` is appended with the constructed WHERE clause
-// based on |options|.
+// On success `sql_query_clause` is appended with the constructed parameterized
+// WHERE clause based on |options| and qualifying column names with
+// |table_alias|.
 // For the first page of results based on the ordering field this method
 // generates a ordering clause based only on that field, e.g.,
 // `create_time_since_epoch`  <= INT_MAX (for desc) and
@@ -46,12 +48,14 @@ namespace ml_metadata {
 //
 // Returns INVALID_ARGUMENT error if the `options` or `next_page_token`
 // specified is invalid.
-absl::Status AppendOrderingThresholdClause(const ListOperationOptions& options,
-                                           std::string& sql_query_clause);
+absl::Status AppendOrderingThresholdClause(
+    const ListOperationOptions& options,
+    absl::optional<absl::string_view> table_alias,
+    std::string& sql_query_clause);
 
 // Generates the ORDER BY clause for ListOperation.
 // On success `sql_query_clause` is appended with the constructed ORDER BY
-// clause based on |options|.
+// clause based on |options| and qualifying column names with |table_alias|.
 // Returns INVALID_ARGUMENT error if the |options|
 // specified is invalid.
 // For example, given a ListOperationOptions message:
@@ -65,6 +69,7 @@ absl::Status AppendOrderingThresholdClause(const ListOperationOptions& options,
 // Appends "ORDER BY `create_time_since_epoch` DESC, `id` DESC" at the end of
 // `sql_query_clause`.
 absl::Status AppendOrderByClause(const ListOperationOptions& options,
+                                 absl::optional<absl::string_view> table_alias,
                                  std::string& sql_query_clause);
 
 // Generates the LIMIT clause for ListOperation.
