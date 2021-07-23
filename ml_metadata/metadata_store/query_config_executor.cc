@@ -184,7 +184,8 @@ absl::Status QueryConfigExecutor::UpgradeMetadataSourceIfOutOfDate(
         ". Schema migration is disabled. Please upgrade the database then use"
         " the library version; or switch to a older library version to use the"
         " current database. For more details, please refer to ml-metadata"
-        " https://github.com/google/ml-metadata/blob/master/g3doc/get_started.md#upgrade-the-database-schema"));
+        " g3doc/third_party/ml_metadata/g3doc/"
+        "get_started.md#upgrade-the-database-schema"));
   }
 
   // migrate db_version to lib version
