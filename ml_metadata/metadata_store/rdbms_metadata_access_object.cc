@@ -1191,6 +1191,11 @@ absl::Status RDBMSMetadataAccessObject::CreateParentTypeInheritanceLink(
   return status;
 }
 
+absl::Status RDBMSMetadataAccessObject::DeleteParentTypeInheritanceLink(
+    int64 type_id, int64 parent_type_id) {
+  return executor_->DeleteParentType(type_id, parent_type_id);
+}
+
 absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeId(
     int64 type_id, std::vector<ArtifactType>& output_parent_types) {
   return FindParentTypesByTypeIdImpl(type_id, output_parent_types);

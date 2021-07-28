@@ -218,6 +218,11 @@ class QueryExecutor {
   virtual absl::Status InsertParentType(int64 type_id,
                                         int64 parent_type_id) = 0;
 
+  // Deletes a parent type record.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteParentType(int64 type_id,
+                                        int64 parent_type_id) = 0;
+
   // Returns parent types for the type id. Each record has:
   // Column 0: int: type_id (= type_id)
   // Column 1: int: parent_type_id

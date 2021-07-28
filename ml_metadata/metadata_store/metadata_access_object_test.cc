@@ -15,6 +15,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/metadata_access_object_test.h"
 
 #include <memory>
+#include <vector>
 
 #include "gflags/gflags.h"
 #include <glog/logging.h>
@@ -2050,6 +2051,115 @@ TEST_P(MetadataAccessObjectTest, DeleteAttributionsByArtifactsId) {
         metadata_access_object_->FindContextsByArtifact(artifact.id(), &result);
     EXPECT_TRUE(absl::IsNotFound(status)) << status;
     EXPECT_THAT(result, IsEmpty());
+  }
+}
+
+TEST_P(MetadataAccessObjectTest, DeleteParentType) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+
+  {
+    // Test: create and delete artifact parent type inheritance link
+    const ArtifactType type1 = CreateTypeFromTextProto<ArtifactType>(
+        "name: 't1'", *metadata_access_object_);
+    const ArtifactType type2 = CreateTypeFromTextProto<ArtifactType>(
+        "name: 't2'", *metadata_access_object_);
+    const ArtifactType type3 = CreateTypeFromTextProto<ArtifactType>(
+        "name: 't3'", *metadata_access_object_);
+
+    // create parent type links ok.
+    ASSERT_EQ(
+        absl::OkStatus(),
+        metadata_access_object_->CreateParentTypeInheritanceLink(type1, type2));
+    ASSERT_EQ(
+        absl::OkStatus(),
+        metadata_access_object_->CreateParentTypeInheritanceLink(type1, type3));
+
+    std::vector<ArtifactType> output_artifact_types;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->FindParentTypesByTypeId(
+                  type1.id(), output_artifact_types));
+    EXPECT_THAT(output_artifact_types.size(), 2);
+
+    // delete parent link (type1, type2)
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteParentTypeInheritanceLink(
+                  type1.id(), type2.id()));
+
+    output_artifact_types.clear();
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->FindParentTypesByTypeId(
+                  type1.id(), output_artifact_types));
+    EXPECT_THAT(output_artifact_types.size(), 1);
+
+    // delete parent link (type1, type3)
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteParentTypeInheritanceLink(
+                  type1.id(), type3.id()));
+
+    output_artifact_types.clear();
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->FindParentTypesByTypeId(
+                  type1.id(), output_artifact_types));
+    EXPECT_TRUE(output_artifact_types.empty());
+  }
+
+  {
+    // Test: create and delete execution parent type inheritance link
+    const ExecutionType type1 = CreateTypeFromTextProto<ExecutionType>(
+        "name: 't1'", *metadata_access_object_);
+    const ExecutionType type2 = CreateTypeFromTextProto<ExecutionType>(
+        "name: 't2'", *metadata_access_object_);
+    // create parent type link ok.
+    ASSERT_EQ(
+        absl::OkStatus(),
+        metadata_access_object_->CreateParentTypeInheritanceLink(type1, type2));
+
+    // delete parent link (type1, type2)
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteParentTypeInheritanceLink(
+                  type1.id(), type2.id()));
+
+    std::vector<ExecutionType> output_execution_types;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->FindParentTypesByTypeId(
+                  type1.id(), output_execution_types));
+    EXPECT_TRUE(output_execution_types.empty());
+  }
+
+  {
+    // Test: create and delete context parent type inheritance link
+    const ContextType type1 = CreateTypeFromTextProto<ContextType>(
+        "name: 't1'", *metadata_access_object_);
+    const ContextType type2 = CreateTypeFromTextProto<ContextType>(
+        "name: 't2'", *metadata_access_object_);
+    // create parent type link ok.
+    ASSERT_EQ(
+        absl::OkStatus(),
+        metadata_access_object_->CreateParentTypeInheritanceLink(type1, type2));
+
+    // delete parent link (type1, type2)
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteParentTypeInheritanceLink(
+                  type1.id(), type2.id()));
+
+    std::vector<ContextType> output_context_types;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->FindParentTypesByTypeId(
+                  type1.id(), output_context_types));
+    EXPECT_TRUE(output_context_types.empty());
+  }
+
+  {
+    // Test: delete non-existing context parent type inheritance link
+    const ContextType type1 = CreateTypeFromTextProto<ContextType>(
+        "name: 't1'", *metadata_access_object_);
+    const ContextType type2 = CreateTypeFromTextProto<ContextType>(
+        "name: 't2'", *metadata_access_object_);
+
+    // delete non-existing parent link (type1, type2) returns ok
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteParentTypeInheritanceLink(
+                  type1.id(), type2.id()));
   }
 }
 

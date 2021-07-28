@@ -289,6 +289,11 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status DeleteParentContextsByChildIds(
       absl::Span<const int64> child_context_ids) final;
 
+  // Deletes the parent type link |type_id, parent_type_id|.
+  // Returns detailed INTERNAL error, if query execution fails.
+  absl::Status DeleteParentTypeInheritanceLink(
+      int64 type_id, int64 parent_type_id) final;
+
  private:
   ///////// These methods are implementations details //////////////////////////
 

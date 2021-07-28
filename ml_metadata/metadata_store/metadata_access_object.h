@@ -155,6 +155,11 @@ class MetadataAccessObject {
   virtual absl::Status CreateParentTypeInheritanceLink(
       const ContextType& type, const ContextType& parent_type) = 0;
 
+  // Deletes a parent type, returns OK if successful.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteParentTypeInheritanceLink(
+      int64 type_id, int64 parent_type_id) = 0;
+
   // Queries the parent types of a type_id.
   // Returns NOT_FOUND error, if the given type_id is missing.
   virtual absl::Status FindParentTypesByTypeId(

@@ -105,6 +105,11 @@ R"pb(
            " VALUES($0, $1);"
     parameter_num: 2
   }
+  delete_parent_type {
+    query: " DELETE FROM `ParentType` "
+           " WHERE `type_id` = $0 AND `parent_type_id` = $1;"
+    parameter_num: 2
+  }
   select_parent_type_by_type_id {
     query: " SELECT `type_id`, `parent_type_id` "
            " FROM `ParentType` WHERE `type_id` = $0; "

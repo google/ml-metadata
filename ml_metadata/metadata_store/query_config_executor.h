@@ -119,6 +119,9 @@ class QueryConfigExecutor : public QueryExecutor {
 
   absl::Status InsertParentType(int64 type_id, int64 parent_type_id) final;
 
+  absl::Status DeleteParentType(int64 type_id,
+                                int64 parent_type_id) final;
+
   absl::Status SelectParentTypesByTypeID(int64 type_id,
                                          RecordSet* record_set) final;
 

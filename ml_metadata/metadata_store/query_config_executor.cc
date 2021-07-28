@@ -72,6 +72,12 @@ absl::Status QueryConfigExecutor::InsertParentType(int64 type_id,
                       {Bind(type_id), Bind(parent_type_id)});
 }
 
+absl::Status QueryConfigExecutor::DeleteParentType(int64 type_id,
+                                                   int64 parent_type_id) {
+  return ExecuteQuery(query_config_.delete_parent_type(),
+                      {Bind(type_id), Bind(parent_type_id)});
+}
+
 absl::Status QueryConfigExecutor::SelectParentTypesByTypeID(
     int64 type_id, RecordSet* record_set) {
   return ExecuteQuery(query_config_.select_parent_type_by_type_id(),
