@@ -77,6 +77,10 @@ class MySqlMetadataSource : public MetadataSource {
   // Returns an INTERNAL error upon any errors from the MYSQL backend.
   absl::Status RunQuery(const std::string& query);
 
+  // Checks whether incoming query is a `USE <database>` query. And if so,
+  // update database_name_ field.
+  void SetDatabaseNameIfChangedDb(const std::string& query);
+
   // Discards any existing MYSQL_RES in `result_set_`.
   void DiscardResultSet();
 
@@ -92,6 +96,12 @@ class MySqlMetadataSource : public MetadataSource {
 
   // Config to connect to the MYSQL backend.
   const MySQLDatabaseConfig config_;
+
+  // database_name_ stores the lasted database that the MetadataSoure has been
+  // connected to through USE query. database_name_ may contains `;` at the end
+  // which is not included in mysql db, and the state is used for concatenating
+  // `USE` to form a valid query.
+  std::string database_name_;
 };
 
 }  // namespace ml_metadata

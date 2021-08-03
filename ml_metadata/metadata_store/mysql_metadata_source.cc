@@ -19,8 +19,11 @@ limitations under the License.
 
 #include <glog/logging.h>
 #include "absl/status/status.h"
+#include "absl/strings/ascii.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/str_split.h"
 #include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
@@ -166,9 +169,12 @@ Status MySqlMetadataSource::ConnectImpl() {
   }
 
   // Switch to the database.
-  const std::string use_database_cmd = absl::StrCat("USE ", config_.database());
+  if (database_name_.empty()) {
+    database_name_ = config_.database();
+  }
+  const std::string use_database_cmd = absl::StrCat("USE ", database_name_);
   MLMD_RETURN_WITH_CONTEXT_IF_ERROR(RunQuery(use_database_cmd),
-                                    "Changing to database ", config_.database(),
+                                    "Changing to database ", database_name_,
                                     " in ConnectImpl");
 
   return absl::OkStatus();
@@ -270,6 +276,9 @@ Status MySqlMetadataSource::RunQuery(const std::string& query) {
         absl::StrCat("mysql_query failed: errno: ", error_number,
                      ", error: ", mysql_error(db_)));
   }
+  // Updated database_name_ if the incoming query was "USE <database>" query and
+  // run successfully.
+  SetDatabaseNameIfChangedDb(query);
 
   result_set_ = mysql_store_result(db_);
   if (!result_set_ && mysql_field_count(db_) != 0) {
@@ -280,6 +289,15 @@ Status MySqlMetadataSource::RunQuery(const std::string& query) {
   }
 
   return absl::OkStatus();
+}
+
+void MySqlMetadataSource::SetDatabaseNameIfChangedDb(const std::string& query) {
+  std::vector<absl::string_view> tokens =
+      absl::StrSplit(query, absl::ByChar(' '), absl::SkipEmpty());
+  if (tokens.size() == 2 &&
+      absl::EqualsIgnoreCase(absl::StripAsciiWhitespace(tokens[0]), "USE")) {
+    database_name_ = std::string(tokens[1]);
+  }
 }
 
 void MySqlMetadataSource::DiscardResultSet() {

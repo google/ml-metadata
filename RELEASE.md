@@ -1,5 +1,9 @@
 # Current Version (not yet released; still in development)
 
+*   Introduced `database_name_` field for MySQL MetadataSource implementation to
+    enable MySQLMetadataSource to switch to different databases within the same
+    SQL server after connection or during reconnection.
+
 ## Major Features and Improvements
 
 ## Bug Fixes and Other Changes
