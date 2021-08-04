@@ -77,15 +77,9 @@ class MySqlMetadataAccessObjectContainer
 
 INSTANTIATE_TEST_SUITE_P(
     MySqlMetadataAccessObjectTest, MetadataAccessObjectTest,
-    ::testing::Values(
-        []() {
-          return absl::make_unique<MySqlMetadataAccessObjectContainer>();
-        },
-        // TODO(b/178237348) Support v6 temporarily until v7 is rollout.
-        []() {
-          return absl::make_unique<MySqlMetadataAccessObjectContainer>(
-              /*earlier_schema_version=*/6);
-        }));
+    ::testing::Values([]() {
+      return absl::make_unique<MySqlMetadataAccessObjectContainer>();
+    }));
 
 }  // namespace testing
 }  // namespace ml_metadata
