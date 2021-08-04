@@ -278,7 +278,7 @@ Status MySqlMetadataSource::RunQuery(const std::string& query) {
   }
   // Updated database_name_ if the incoming query was "USE <database>" query and
   // run successfully.
-  SetDatabaseNameIfChangedDb(query);
+  MaybeUpdateDatabaseNameFromQuery(query);
 
   result_set_ = mysql_store_result(db_);
   if (!result_set_ && mysql_field_count(db_) != 0) {
@@ -291,7 +291,8 @@ Status MySqlMetadataSource::RunQuery(const std::string& query) {
   return absl::OkStatus();
 }
 
-void MySqlMetadataSource::SetDatabaseNameIfChangedDb(const std::string& query) {
+void MySqlMetadataSource::MaybeUpdateDatabaseNameFromQuery(
+    const std::string& query) {
   std::vector<absl::string_view> tokens =
       absl::StrSplit(query, absl::ByChar(' '), absl::SkipEmpty());
   if (tokens.size() == 2 &&

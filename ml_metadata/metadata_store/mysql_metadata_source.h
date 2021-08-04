@@ -79,7 +79,7 @@ class MySqlMetadataSource : public MetadataSource {
 
   // Checks whether incoming query is a `USE <database>` query. And if so,
   // update database_name_ field.
-  void SetDatabaseNameIfChangedDb(const std::string& query);
+  void MaybeUpdateDatabaseNameFromQuery(const std::string& query);
 
   // Discards any existing MYSQL_RES in `result_set_`.
   void DiscardResultSet();
