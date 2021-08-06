@@ -12,25 +12,47 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# TODO(b/195701120) Introduces l.gcr.io/google/bazel:3.7.2 when it is available
+# and makes sure that it uses ubuntu 18.04 as base image. Currently the lastest
+# version only supports bazel 3.5.0.
+FROM ubuntu:18.04 as builder
 
-# Note that this Bazel version should be the same as the one specified in the
-# WORKSPACE file.
-FROM l.gcr.io/google/bazel:3.5.0 as builder
-
-RUN apt-get update -y --option Acquire::Retries=3 && \
+RUN export DEBIAN_FRONTEND=noninteractive && \
+  apt-get update -y --option Acquire::Retries=3 && \
   apt-get install --no-install-recommends -y -q --option Acquire::Retries=3 \
+  build-essential \
   clang \
   cmake \
   make \
   musl-dev \
-  openssl
+  openssl \
+  curl \
+  ca-certificates \
+  unzip \
+  software-properties-common \
+  git \
+  python-dev \
+  python3-distutils
+
+# Set up Bazel 3.7.2
+ENV BAZEL_VERSION 3.7.2
+WORKDIR /
+RUN mkdir /bazel && \
+    cd /bazel && \
+    curl -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36" -fSsL -O https://github.com/bazelbuild/bazel/releases/download/$BAZEL_VERSION/bazel-$BAZEL_VERSION-installer-linux-x86_64.sh && \
+    curl -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36" -fSsL -o /bazel/LICENSE.txt https://raw.githubusercontent.com/bazelbuild/bazel/master/LICENSE && \
+    chmod +x bazel-*.sh && \
+    ./bazel-$BAZEL_VERSION-installer-linux-x86_64.sh && \
+    cd / && \
+    rm -f /bazel/bazel-$BAZEL_VERSION-installer-linux-x86_64.sh
 
 ADD . /mlmd-src
 WORKDIR /mlmd-src
 
+# "-std=c++17" is needed in order to build with ZetaSQL.
 RUN bazel build -c opt --action_env=PATH \
   --define=grpc_no_ares=true \
-  //ml_metadata/metadata_store:metadata_store_server
+  //ml_metadata/metadata_store:metadata_store_server --cxxopt="-std=c++17"
 
 # copying libmysqlclient source onto THIRD_PARTY folder.
 RUN mkdir -p /mlmd-src/third_party
@@ -43,6 +65,12 @@ COPY --from=builder /mlmd-src/third_party /mlmd-src/third_party
 
 ENV GRPC_PORT "8080"
 ENV METADATA_STORE_SERVER_CONFIG_FILE ""
+
+# Introduces tzdata package here to avoid LoadTimeZone check failed error in the metadata store server.
+RUN export DEBIAN_FRONTEND=noninteractive && \
+  apt-get update -y --option Acquire::Retries=3 && \
+  apt-get install --no-install-recommends -y -q --option Acquire::Retries=3 \
+  tzdata
 
 ENTRYPOINT \
   "/bin/metadata_store_server" \

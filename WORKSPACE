@@ -12,12 +12,15 @@ load("//ml_metadata:repo.bzl", "mlmd_http_archive", "clean_dep")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-ABSL_COMMIT = "0f3bb466b868b523cf1dc9b2aaaed65c77b28862"  # lts_20200923.2
+# lts_20210324.2
 http_archive(
     name = "com_google_absl",
-    urls = ["https://github.com/abseil/abseil-cpp/archive/%s.zip" % ABSL_COMMIT],
-    sha256 = "9929f3662141bbb9c6c28accf68dcab34218c5ee2d83e6365d9cb2594b3f3171",
-    strip_prefix = "abseil-cpp-%s" % ABSL_COMMIT,
+    sha256 = "1764491a199eb9325b177126547f03d244f86b4ff28f16f206c7b3e7e4f777ec",
+    strip_prefix = "abseil-cpp-278e0a071885a22dcd2fd1b5576cc44757299343",
+    urls = [
+        "https://mirror.bazel.build/github.com/abseil/abseil-cpp/archive/278e0a071885a22dcd2fd1b5576cc44757299343.tar.gz",
+        "https://github.com/abseil/abseil-cpp/archive/278e0a071885a22dcd2fd1b5576cc44757299343.tar.gz"
+    ],
 )
 
 # rules_cc defines rules for generating C++ code from Protocol Buffers.
@@ -83,6 +86,18 @@ http_archive(
     ],
 )
 
+# Needed by abseil-py by zetasql.
+http_archive(
+    name = "six_archive",
+    urls = [
+        "http://mirror.bazel.build/pypi.python.org/packages/source/s/six/six-1.10.0.tar.gz",
+        "https://pypi.python.org/packages/source/s/six/six-1.10.0.tar.gz",
+    ],
+    sha256 = "105f8d68616f8248e24bf0e9372ef04d3cc10104f1980f54d57b2ce73a5ad56a",
+    strip_prefix = "six-1.10.0",
+    build_file = "//ml_metadata/third_party:six.BUILD"
+)
+
 PROTOBUF_COMMIT = "fde7cf7358ec7cd69e8db9be4f1fa6a5c431386a" # 3.13.0
 http_archive(
     name = "com_google_protobuf",
@@ -125,12 +140,21 @@ http_archive(
 load("@pybind11_bazel//:python_configure.bzl", "python_configure")
 python_configure(name = "local_config_python")
 
+http_archive(
+    name = "com_googlesource_code_re2",
+    urls = [
+        "https://github.com/google/re2/archive/d1394506654e0a19a92f3d8921e26f7c3f4de969.tar.gz",
+    ],
+    sha256 = "ac855fb93dfa6878f88bc1c399b9a2743fdfcb3dc24b94ea9a568a1c990b1212",
+    strip_prefix = "re2-d1394506654e0a19a92f3d8921e26f7c3f4de969",
+)
 
 # gRPC. Official release 1.33.2. Name is required by Google APIs.
 http_archive(
     name = "com_github_grpc_grpc",
     sha256 = "2060769f2d4b0d3535ba594b2ab614d7f68a492f786ab94b4318788d45e3278a",
     strip_prefix = "grpc-1.33.2",
+    patches = ["//ml_metadata/third_party:grpc.patch"],
     urls = ["https://github.com/grpc/grpc/archive/v1.33.2.tar.gz"],
 )
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
@@ -204,6 +228,28 @@ git_repository(
     remote = "https://github.com/gflags/gflags.git",
 )
 
+# BEGIN IFNDEF_WIN
+ZETASQL_COMMIT = "5ccb05880e72ab9ff75dd6b05d7b0acce53f1ea2" # 04/22/2021
+http_archive(
+    name = "com_google_zetasql",
+    urls = ["https://github.com/google/zetasql/archive/%s.zip" % ZETASQL_COMMIT],
+    strip_prefix = "zetasql-%s" % ZETASQL_COMMIT,
+    # patches = ["//ml_metadata/third_party:zetasql.patch"],
+    sha256 = '4ca4e45f457926484822701ec15ca4d0172b01d7ce43c0b34c6f3ab98c95b241'
+)
+
+load("@com_google_zetasql//bazel:zetasql_deps_step_1.bzl", "zetasql_deps_step_1")
+zetasql_deps_step_1()
+load("@com_google_zetasql//bazel:zetasql_deps_step_2.bzl", "zetasql_deps_step_2")
+zetasql_deps_step_2(
+    analyzer_deps = True,
+    evaluator_deps = True,
+    tools_deps = False,
+    java_deps = False,
+    testing_deps = False)
+# END IFNDEF_WIN
+
+
 # Please add all new ML Metadata dependencies in workspace.bzl.
 load("//ml_metadata:workspace.bzl", "ml_metadata_workspace")
 
@@ -212,4 +258,4 @@ ml_metadata_workspace()
 # Specify the minimum required bazel version.
 load("//ml_metadata:version_check.bzl", "check_bazel_version_at_least")
 
-check_bazel_version_at_least("3.5.0")
+check_bazel_version_at_least("3.7.2")

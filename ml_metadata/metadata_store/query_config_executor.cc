@@ -35,6 +35,10 @@ limitations under the License.
 #include "ml_metadata/metadata_store/list_operation_util.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
+#ifndef _WIN32
+#include "ml_metadata/query/filter_query_ast_resolver.h"
+#include "ml_metadata/query/filter_query_builder.h"
+#endif
 #include "ml_metadata/util/return_utils.h"
 #include "ml_metadata/util/struct_utils.h"
 
@@ -619,6 +623,32 @@ absl::Status QueryConfigExecutor::ListNodeIDsUsingOptions(
     return absl::InvalidArgumentError(
         "Invalid Node passed to ListNodeIDsUsingOptions");
   }
+  // TODO(b/195700145) MLMD Filtering is not supported in Windows platform since
+  // ZetaSQL currently does not compile on Windows.
+#ifndef _WIN32
+  if (options.has_filter_query() && !options.filter_query().empty()) {
+    node_table_alias = ml_metadata::FilterQueryBuilder<Node>::kBaseTableAlias;
+    ml_metadata::FilterQueryAstResolver<Node> ast_resolver(
+        options.filter_query());
+    const absl::Status ast_gen_status = ast_resolver.Resolve();
+    if (!ast_gen_status.ok()) {
+      return absl::InvalidArgumentError(
+          absl::StrCat("Invalid `filter_query`: ", ast_gen_status.message()));
+    }
+    // Generate SQL
+    ml_metadata::FilterQueryBuilder<Node> query_builder;
+    const absl::Status sql_gen_status =
+        ast_resolver.GetAst()->Accept(&query_builder);
+    if (!sql_gen_status.ok()) {
+      return absl::InternalError(
+          absl::StrCat("Failed to construct valid SQL from `filter_query`: ",
+                       sql_gen_status.message()));
+    }
+    sql_query = absl::Substitute(
+        "SELECT distinct $0.`id` FROM $1 WHERE $2 AND ", *node_table_alias,
+        query_builder.GetFromClause(), query_builder.GetWhereClause());
+  }
+#endif
 
   if (candidate_ids) {
     absl::SubstituteAndAppend(&sql_query, " `id` IN ($0) AND ",

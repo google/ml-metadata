@@ -1,0 +1,26 @@
+# Copyright 2021 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This macro is needed in order for mlmd to build with ZetaSQL which can only
+# be compiled upon c++17 or higher.
+build --cxxopt="-std=c++17"
+
+# Due to the invalid escape sequence in rules_foreign_cc and the bazel 4.0.0 updates
+# (https://github.com/bazelbuild/bazel/commit/73402fa4aa5b9de46c9a4042b75e6fb332ad4a7f).
+build --incompatible_restrict_string_escapes=false
+
+# icu@: In create_linking_context: in call to create_linking_context(),
+# parameter 'user_link_flags' is deprecated and will be removed soon.
+# It may be temporarily re-enabled by setting --incompatible_require_linker_input_cc_api=false
+build --incompatible_require_linker_input_cc_api=false

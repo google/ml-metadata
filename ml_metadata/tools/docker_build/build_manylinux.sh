@@ -53,7 +53,6 @@ function setup_environment() {
 }
 
 function build_wheel() {
-  rm -f .bazelrc
   rm -rf dist
   "${PYTHON_BIN_PATH}" setup.py bdist_wheel
 }

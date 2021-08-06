@@ -694,6 +694,9 @@ class QueryConfigExecutor : public QueryExecutor {
   // empty then result set is constructed using only ids specified in
   // `candidate_ids`.
   // On success `record_set` is updated with Node IDs.
+  // The `filter_query` field is supported for Artifacts.
+  // Returns INVALID_ARGUMENT errors if the query specified is invalid.
+  // Returns detailed INTERNAL error, if query execution fails.
   template <typename Node>
   absl::Status ListNodeIDsUsingOptions(
       const ListOperationOptions& options,

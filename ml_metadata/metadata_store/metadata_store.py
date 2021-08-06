@@ -58,11 +58,17 @@ class ListOptions(object):
     is_asc: Specifies `order_by` is ascending or descending. If `order_by` is
       not given, the field is ignored. If `order_by` is set, then by default
       descending order is used.
+    filter_query: An optional boolean expression in SQL syntax to specify
+      conditions on nodes' attributes and 1-hop neighborhood. See
+      go/mlmd-filter-syntax for the query capabilities and syntax.
+      Note in Windows, this is only supported when using grpc config via an mlmd
+      server instance.
   """
 
   limit: Optional[int] = None
   order_by: Optional[OrderByField] = None
   is_asc: bool = False
+  filter_query: Optional[str] = None
 
 
 class MetadataStore(object):
@@ -900,8 +906,8 @@ class MetadataStore(object):
     """Gets executions.
 
     Args:
-      list_options: A set of options to limit the size and adjust order of the
-        returned executions.
+      list_options: A set of options to specify the conditions, limit the
+        size and adjust order of the returned executions.
 
     Returns:
       A list of executions.
@@ -925,6 +931,8 @@ class MetadataStore(object):
         return_size = list_options.limit
       if list_options.order_by:
         request.options.order_by_field.field = list_options.order_by.value
+      if list_options.filter_query:
+        request.options.filter_query = list_options.filter_query
 
     result = []
     while True:
@@ -956,8 +964,8 @@ class MetadataStore(object):
     """Gets artifacts.
 
     Args:
-      list_options: A set of options to limit the size and adjust order of the
-        returned artifacts.
+      list_options: A set of options to specify the conditions, limit the
+        size and adjust order of the returned artifacts.
 
     Returns:
       A list of artifacts.
@@ -982,6 +990,8 @@ class MetadataStore(object):
         return_size = list_options.limit
       if list_options.order_by:
         request.options.order_by_field.field = list_options.order_by.value
+      if list_options.filter_query:
+        request.options.filter_query = list_options.filter_query
 
     result = []
     while True:
@@ -1013,8 +1023,8 @@ class MetadataStore(object):
     """Gets contexts.
 
     Args:
-      list_options: A set of options to limit the size and adjust order of the
-        returned contexts.
+      list_options: A set of options to specify the conditions, limit the
+        size and adjust order of the returned contexts.
 
     Returns:
       A list of contexts.
@@ -1038,6 +1048,8 @@ class MetadataStore(object):
         return_size = list_options.limit
       if list_options.order_by:
         request.options.order_by_field.field = list_options.order_by.value
+      if list_options.filter_query:
+        request.options.filter_query = list_options.filter_query
 
     result = []
     while True:

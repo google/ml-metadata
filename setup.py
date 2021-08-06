@@ -91,7 +91,8 @@ class _BazelBuildCommand(setuptools.Command):
           'installation instruction.')
     self._additional_build_options = []
     if platform.system() == 'Darwin':
-      self._additional_build_options = ['--macos_minimum_os=10.9']
+      # Minimum macOS version 10.14 is needed to be compatible with c++17.
+      self._additional_build_options = ['--macos_minimum_os=10.14']
 
   def run(self):
     subprocess.check_call(

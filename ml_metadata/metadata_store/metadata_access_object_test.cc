@@ -1669,6 +1669,807 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsInvalidPageSize) {
       list_options, &unused_artifacts, &unused_next_page_token)));
 }
 
+// A util to test ListArtifact/Execution/Context with filter query.
+template <class Node>
+void ListNode(MetadataAccessObject& metadata_access_object,
+              const ListOperationOptions& options, std::vector<Node>& nodes,
+              std::string& next_page_token);
+template <>
+void ListNode(MetadataAccessObject& metadata_access_object,
+              const ListOperationOptions& options, std::vector<Artifact>& nodes,
+              std::string& next_page_token) {
+  ASSERT_EQ(absl::OkStatus(), metadata_access_object.ListArtifacts(
+                                  options, &nodes, &next_page_token));
+}
+
+template <>
+void ListNode(MetadataAccessObject& metadata_access_object,
+              const ListOperationOptions& options,
+              std::vector<Execution>& nodes, std::string& next_page_token) {
+  ASSERT_EQ(absl::OkStatus(), metadata_access_object.ListExecutions(
+                                  options, &nodes, &next_page_token));
+}
+
+template <>
+void ListNode(MetadataAccessObject& metadata_access_object,
+              const ListOperationOptions& options, std::vector<Context>& nodes,
+              std::string& next_page_token) {
+  ASSERT_EQ(absl::OkStatus(), metadata_access_object.ListContexts(
+                                  options, &nodes, &next_page_token));
+}
+
+// Apply the list options to list the `Node`, and compare with the `want_nodes`
+// point-wise in order.
+template <class Node>
+void VerifyListOptions(const std::string& list_option_text_proto,
+                       MetadataAccessObject& metadata_access_object,
+                       const std::vector<Node>& want_nodes) {
+  ListOperationOptions list_options =
+      ParseTextProtoOrDie<ListOperationOptions>(list_option_text_proto);
+  LOG(INFO) << "Testing with list options: " << list_options.DebugString();
+  std::string next_page_token;
+  std::vector<Node> got_nodes;
+  ListNode(metadata_access_object, list_options, got_nodes, next_page_token);
+  EXPECT_THAT(got_nodes, Pointwise(EqualsProto<Node>(), want_nodes));
+}
+
+TEST_P(MetadataAccessObjectTest, ListArtifactsFilterAttributeQuery) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+  const ArtifactType type = CreateTypeFromTextProto<ArtifactType>(
+      "name: 't1'", *metadata_access_object_);
+  std::vector<Artifact> want_artifacts(3);
+  for (int i = 0; i < 3; i++) {
+    absl::SleepFor(absl::Milliseconds(1));
+    CreateNodeFromTextProto(absl::Substitute(R"(
+      uri: 'uri_$0',
+      name: 'artifact_$0')", i),
+      type.id(), *metadata_access_object_, want_artifacts[i]);
+  }
+
+  VerifyListOptions<Artifact>(
+      absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: " NOT(id = $0) "
+    )", want_artifacts[1].id()),
+      *metadata_access_object_,
+      /*want_nodes=*/{want_artifacts[2], want_artifacts[0]});
+
+  VerifyListOptions<Artifact>(
+      absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "uri = 'uri_1' and type_id = $0 and \n"
+        " create_time_since_epoch = $1"
+    )", type.id(), want_artifacts[1].create_time_since_epoch()),
+      *metadata_access_object_,
+      /*want_nodes=*/{want_artifacts[1]});
+
+  VerifyListOptions<Artifact>(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "uri LIKE 'uri_%' OR state = LIVE"
+    )", *metadata_access_object_,
+      /*want_nodes=*/{want_artifacts[2], want_artifacts[1], want_artifacts[0]});
+
+  VerifyListOptions<Artifact>(
+      absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "uri LIKE 'uri_%' and type_id = $0 AND state IS NULL"
+    )", type.id()),
+      *metadata_access_object_,
+      /*want_nodes=*/{want_artifacts[2], want_artifacts[1], want_artifacts[0]});
+
+  VerifyListOptions<Artifact>(
+      absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "uri LIKE 'uri_%' and type = '$0'"
+    )", type.name()), *metadata_access_object_,
+      /*want_nodes=*/{want_artifacts[2], want_artifacts[1], want_artifacts[0]});
+
+  const int64 old_update_time =
+      want_artifacts[2].last_update_time_since_epoch();
+  Artifact old_artifact = want_artifacts[2];
+
+  old_artifact.set_state(Artifact::LIVE);
+  Artifact updated_artifact;
+  UpdateAndReturnNode<Artifact>(old_artifact, *metadata_access_object_,
+                                updated_artifact);
+
+  VerifyListOptions<Artifact>(absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "uri LIKE 'uri_%' and type = '$0' \n"
+        " AND last_update_time_since_epoch > $1"
+    )", type.name(), old_update_time), *metadata_access_object_,
+      /*want_nodes=*/{updated_artifact});
+
+  VerifyListOptions<Artifact>(absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "uri LIKE 'uri_%' and type = '$0' \n"
+        " AND state = LIVE"
+    )", type.name()), *metadata_access_object_,
+      /*want_nodes=*/{updated_artifact});
+
+  VerifyListOptions<Artifact>(
+      absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "uri LIKE 'uri_%' and type = '$0' and state != LIVE"
+    )", type.name()), *metadata_access_object_,
+      /*want_nodes=*/{want_artifacts[1], want_artifacts[0]});
+
+  VerifyListOptions<Artifact>(absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "uri LIKE 'uri_%' and type = '$0' and name = 'artifact_0'"
+    )", type.name()), *metadata_access_object_,
+      /*want_nodes=*/{want_artifacts[0]});
+}
+
+TEST_P(MetadataAccessObjectTest, ListExecutionsFilterAttributeQuery) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+  const ExecutionType type = CreateTypeFromTextProto<ExecutionType>(
+      "name: 't1'", *metadata_access_object_);
+  std::vector<Execution> want_executions(3);
+  for (int i = 0; i < 3; i++) {
+    absl::SleepFor(absl::Milliseconds(1));
+    CreateNodeFromTextProto(absl::Substitute(R"(
+      name: 'execution_$0')", i),
+    type.id(), *metadata_access_object_, want_executions[i]);
+  }
+
+  VerifyListOptions<Execution>(absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "id = $0"
+    )", want_executions[2].id()), *metadata_access_object_,
+      /*want_nodes=*/{want_executions[2]});
+
+  VerifyListOptions<Execution>(absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "id != $0 OR last_known_state = COMPLETE"
+    )", want_executions[2].id()), *metadata_access_object_,
+      /*want_nodes=*/{want_executions[1], want_executions[0]});
+
+  VerifyListOptions<Execution>(
+      absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "type_id = $0 AND last_known_state != COMPLETE"
+    )", type.id()),
+      *metadata_access_object_,
+      /*want_nodes=*/
+      {want_executions[2], want_executions[1], want_executions[0]});
+
+  VerifyListOptions<Execution>(
+      absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "type_id = $0 AND create_time_since_epoch = $1"
+    )", type.id(), want_executions[2].create_time_since_epoch()),
+      *metadata_access_object_,
+      /*want_nodes=*/
+      {want_executions[2]});
+
+  VerifyListOptions<Execution>(
+      absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "type = '$0' AND type_id = $1"
+    )", type.name(), type.id()), *metadata_access_object_,
+      /*want_nodes=*/
+      {want_executions[2], want_executions[1], want_executions[0]});
+
+  const int64 old_update_time =
+      want_executions[2].last_update_time_since_epoch();
+  Execution old_execution = want_executions[2];
+
+  old_execution.set_last_known_state(Execution::COMPLETE);
+  Execution updated_execution;
+  UpdateAndReturnNode<Execution>(old_execution, *metadata_access_object_,
+                                 updated_execution);
+
+  VerifyListOptions<Execution>(
+      absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "type = '$0' AND type_id = $1 AND \n"
+        " last_update_time_since_epoch > $2"
+    )", type.name(), type.id(), old_update_time), *metadata_access_object_,
+      /*want_nodes=*/{updated_execution});
+
+  VerifyListOptions<Execution>(absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "type = '$0' AND type_id = $1 AND \n"
+        " last_known_state = COMPLETE"
+    )", type.name(), type.id()), *metadata_access_object_,
+      /*want_nodes=*/{updated_execution});
+
+  VerifyListOptions<Execution>(absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "type = '$0' AND type_id = $1 AND \n"
+        " last_known_state != COMPLETE"
+    )", type.name(), type.id()), *metadata_access_object_,
+      /*want_nodes=*/{want_executions[1], want_executions[0]});
+
+  VerifyListOptions<Execution>(absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "type = '$0' AND type_id = $1 AND \n"
+        " name = 'execution_0'"
+    )", type.name(), type.id()), *metadata_access_object_,
+      /*want_nodes=*/{want_executions[0]});
+}
+
+TEST_P(MetadataAccessObjectTest, ListContextsFilterAttributeQuery) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+  const ContextType type =
+      CreateTypeFromTextProto<ContextType>(R"(
+      name: 't1'
+      properties { key: 'p1' value: INT })",
+                                           *metadata_access_object_);
+  std::vector<Context> want_contexts(3);
+  for (int i = 0; i < 3; i++) {
+    absl::SleepFor(absl::Milliseconds(1));
+    CreateNodeFromTextProto(absl::Substitute("name: 'c$0'", i), type.id(),
+                            *metadata_access_object_, want_contexts[i]);
+  }
+
+  VerifyListOptions<Context>(
+      absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "id = $0 "
+    )", want_contexts[0].id()), *metadata_access_object_,
+      /*want_nodes=*/{want_contexts[0]});
+
+  VerifyListOptions<Context>(
+      absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "type_id = $0 AND name IS NOT NULL"
+    )", type.id()), *metadata_access_object_,
+      /*want_nodes=*/{want_contexts[2], want_contexts[1], want_contexts[0]});
+
+  // The queries below require the `IN` operator support.
+  VerifyListOptions<Context>(
+      absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "id IN ($0, $1) "
+    )",
+                       want_contexts[0].id(), want_contexts[2].id()),
+      *metadata_access_object_,
+      /*want_nodes=*/{want_contexts[2], want_contexts[0]});
+
+  VerifyListOptions<Context>(
+      absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "type = '$0' AND type_id = $1"
+    )", type.name(), type.id()), *metadata_access_object_,
+      /*want_nodes=*/
+      {want_contexts[2], want_contexts[1], want_contexts[0]});
+
+  VerifyListOptions<Context>(
+      absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "type = '$0' AND type_id != $1"
+    )", type.name(), type.id()), *metadata_access_object_,
+      /*want_nodes=*/{});
+
+  Context old_context = want_contexts[2];
+  const int64 old_update_time = want_contexts[2].last_update_time_since_epoch();
+  (*old_context.mutable_properties())["p1"].set_int_value(1);
+  Context updated_context;
+  UpdateAndReturnNode<Context>(old_context, *metadata_access_object_,
+                               updated_context);
+  VerifyListOptions<Context>(
+      absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "type = '$0' AND type_id = $1 \n"
+      " AND last_update_time_since_epoch > $2"
+    )", type.name(), type.id(), old_update_time), *metadata_access_object_,
+      /*want_nodes=*/{updated_context});
+
+  VerifyListOptions<Context>(absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "type = '$0' AND type_id = $1 \n"
+      " AND name = 'c0'"
+    )", type.name(), type.id()), *metadata_access_object_,
+      /*want_nodes=*/{want_contexts[0]});
+}
+
+TEST_P(MetadataAccessObjectTest, ListNodesFilterContextNeighborQuery) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+  const ArtifactType artifact_type = CreateTypeFromTextProto<ArtifactType>(
+      "name: 'artifact_type'", *metadata_access_object_);
+  const ExecutionType execution_type = CreateTypeFromTextProto<ExecutionType>(
+      "name: 'execution_type'", *metadata_access_object_);
+  const ContextType context_type = CreateTypeFromTextProto<ContextType>(
+      "name: 'context_type'", *metadata_access_object_);
+
+  // Test setup: creates 3 artifacts, 3 executions and 3 contexts, and attached:
+  // [artifact_1, execution_2] to context_0,
+  // [artifact_0, execution_0] to [context_0, context_1, context_2]
+  std::vector<Artifact> want_artifacts(3);
+  std::vector<Execution> want_executions(3);
+  std::vector<Context> contexts(3);
+  for (int i = 0; i < 3; i++) {
+    CreateNodeFromTextProto(absl::Substitute("uri: 'uri_$0'", i),
+                            artifact_type.id(), *metadata_access_object_,
+                            want_artifacts[i]);
+    CreateNodeFromTextProto("", execution_type.id(), *metadata_access_object_,
+                            want_executions[i]);
+    CreateNodeFromTextProto(absl::Substitute("name: 'c$0'", i),
+                            context_type.id(), *metadata_access_object_,
+                            contexts[i]);
+    absl::SleepFor(absl::Milliseconds(1));
+  }
+  Attribution attribution;
+  attribution.set_artifact_id(want_artifacts[1].id());
+  attribution.set_context_id(contexts[0].id());
+  int64 attid;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateAttribution(attribution, &attid));
+  Association association;
+  association.set_execution_id(want_executions[2].id());
+  association.set_context_id(contexts[0].id());
+  int64 assid;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateAssociation(association, &assid));
+  for (int i = 0; i < 3; i++) {
+    Attribution attribution;
+    attribution.set_artifact_id(want_artifacts[0].id());
+    attribution.set_context_id(contexts[i].id());
+    int64 attid;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->CreateAttribution(attribution, &attid));
+    Association association;
+    association.set_execution_id(want_executions[0].id());
+    association.set_context_id(contexts[i].id());
+    int64 assid;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->CreateAssociation(association, &assid));
+  }
+
+  VerifyListOptions<Artifact>(
+      absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: true }
+      filter_query: "uri IS NOT NULL AND type = '$0' AND \n"
+                    "contexts_c.name = '$1' AND contexts_c.type = '$2' \n"
+    )",
+                       artifact_type.name(), contexts[0].name(),
+                       context_type.name()),
+      *metadata_access_object_,
+      /*want_nodes=*/{want_artifacts[0], want_artifacts[1]});
+
+  VerifyListOptions<Artifact>(
+      absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "contexts_c.name LIKE '%' AND contexts_c.type = '$0' \n"
+    )", context_type.name()), *metadata_access_object_,
+      /*want_nodes=*/{want_artifacts[1], want_artifacts[0]});
+
+
+  VerifyListOptions<Artifact>(
+      absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "contexts_c.create_time_since_epoch = $0 AND \n"
+                    "contexts_c.last_update_time_since_epoch = $1")",
+                       contexts[1].create_time_since_epoch(),
+                       contexts[1].last_update_time_since_epoch()),
+      *metadata_access_object_,
+      /*want_nodes=*/{want_artifacts[0]});
+
+  VerifyListOptions<Execution>(
+      absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "type = '$0' AND contexts_c.id = $1 AND \n"
+                    "contexts_c.name = '$2' AND contexts_c.type = '$3' \n"
+    )",
+                       execution_type.name(), contexts[0].id(),
+                       contexts[0].name(), context_type.name()),
+      *metadata_access_object_,
+      /*want_nodes=*/{want_executions[2], want_executions[0]});
+
+  VerifyListOptions<Execution>(
+      absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "contexts_c.create_time_since_epoch < $0 AND \n"
+                    "contexts_c.last_update_time_since_epoch < $1")",
+                       contexts[1].create_time_since_epoch(),
+                       contexts[1].last_update_time_since_epoch()),
+      *metadata_access_object_,
+      /*want_nodes=*/{want_executions[2], want_executions[0]});
+}
+
+TEST_P(MetadataAccessObjectTest, ListContextNodesWithParentChildQuery) {
+  // TODO(b/184175823) Enable when spanner support is added.
+  if (!metadata_access_object_container_->HasFilterQuerySupport()) {
+    return;
+  }
+
+  ASSERT_EQ(absl::OkStatus(), Init());
+  const ContextType parent_context_type_1 =
+      CreateTypeFromTextProto<ContextType>("name: 'parent_context_type_1'",
+                                           *metadata_access_object_);
+  const ContextType parent_context_type_2 =
+      CreateTypeFromTextProto<ContextType>("name: 'parent_context_type_2'",
+                                           *metadata_access_object_);
+
+  const ContextType child_context_type = CreateTypeFromTextProto<ContextType>(
+      "name: 'child_context_type'", *metadata_access_object_);
+
+  // Test Setup: Creates 3 context nodes with same parent and 2 of the 3
+  // context nodes with same different parent.
+  Context parent_context_1;
+  CreateNodeFromTextProto("name: 'p1'", parent_context_type_1.id(),
+                          *metadata_access_object_, parent_context_1);
+
+  Context parent_context_2;
+  CreateNodeFromTextProto("name: 'p2'", parent_context_type_2.id(),
+                          *metadata_access_object_, parent_context_2);
+
+  std::vector<Context> child_contexts;
+  for (int i = 0; i < 3; i++) {
+    Context child_context;
+    CreateNodeFromTextProto(absl::Substitute("name: 'c$0'", i + 1),
+                            child_context_type.id(), *metadata_access_object_,
+                            child_context);
+    child_contexts.push_back(child_context);
+
+    ParentContext parent_context;
+    parent_context.set_parent_id(parent_context_1.id());
+    parent_context.set_child_id(child_context.id());
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->CreateParentContext(parent_context));
+  }
+
+  for (int i = 0; i < 2; i++) {
+    ParentContext parent_context;
+    parent_context.set_parent_id(parent_context_2.id());
+    parent_context.set_child_id(child_contexts[i].id());
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->CreateParentContext(parent_context));
+  }
+
+  // Query on ParentContext.type
+  VerifyListOptions<Context>(
+      absl::Substitute(
+          R"(max_result_size: 10,
+          order_by_field: { field: CREATE_TIME is_asc: false }
+          filter_query: "parent_contexts_c.type = '$0'")",
+          "parent_context_type_1"),
+      *metadata_access_object_,
+      /*want_nodes=*/{child_contexts[2], child_contexts[1], child_contexts[0]});
+
+  // Query on ParentContext.type
+  VerifyListOptions<Context>(
+      absl::Substitute(
+          R"(max_result_size: 10,
+          order_by_field: { field: CREATE_TIME is_asc: false }
+          filter_query: "parent_contexts_c.type = '$0'")",
+          "parent_context_type_2"),
+      *metadata_access_object_,
+      /*want_nodes=*/{child_contexts[1], child_contexts[0]});
+
+  // Query on ParentContext.name
+  VerifyListOptions<Context>(
+      R"(max_result_size: 10,
+          order_by_field: { field: CREATE_TIME is_asc: false }
+          filter_query: "parent_contexts_c.name = 'p1'")",
+      *metadata_access_object_,
+      /*want_nodes=*/{child_contexts[2], child_contexts[1], child_contexts[0]});
+
+  // Query on ParentContext.name
+  VerifyListOptions<Context>(
+      R"(max_result_size: 10,
+          order_by_field: { field: CREATE_TIME is_asc: false }
+          filter_query: "parent_contexts_c.name = 'p2'")",
+      *metadata_access_object_,
+      /*want_nodes=*/{child_contexts[1], child_contexts[0]});
+
+  // Query on ChildContext.type
+  VerifyListOptions<Context>(
+      absl::Substitute(
+          R"(max_result_size: 10,
+          order_by_field: { field: CREATE_TIME is_asc: false }
+          filter_query: "child_contexts_c.type = '$0'")",
+          "child_context_type"),
+      *metadata_access_object_,
+      /*want_nodes=*/{parent_context_2, parent_context_1});
+
+  // Query on ChildContext.name
+  VerifyListOptions<Context>(
+      absl::Substitute(
+          R"(max_result_size: 10,
+          order_by_field: { field: CREATE_TIME is_asc: false }
+          filter_query: "child_contexts_c.name = '$0'")",
+          child_contexts[0].name()),
+      *metadata_access_object_,
+      /*want_nodes=*/{parent_context_2, parent_context_1});
+
+  // Query on ChildContext.name
+  VerifyListOptions<Context>(absl::Substitute(
+                                 R"(max_result_size: 10,
+          order_by_field: { field: CREATE_TIME is_asc: false }
+          filter_query: "child_contexts_c.name = '$0'")",
+                                 child_contexts[2].name()),
+                             *metadata_access_object_,
+                             /*want_nodes=*/{parent_context_1});
+}
+
+TEST_P(MetadataAccessObjectTest,
+       ListContextNodesWithParentChildAndPropertiesQuery) {
+  // TODO(b/184175823) Enable when spanner support is added.
+  if (!metadata_access_object_container_->HasFilterQuerySupport()) {
+    return;
+  }
+
+  ASSERT_EQ(absl::OkStatus(), Init());
+  const ContextType parent_context_type_1 =
+      CreateTypeFromTextProto<ContextType>("name: 'parent_context_type_1'",
+                                           *metadata_access_object_);
+
+  const ContextType child_context_type = CreateTypeFromTextProto<ContextType>(
+      "name: 'child_context_type'", *metadata_access_object_);
+
+  Context parent_context_1;
+  CreateNodeFromTextProto("name: 'p1'", parent_context_type_1.id(),
+                          *metadata_access_object_, parent_context_1);
+
+  Context child_context_1;
+  CreateNodeFromTextProto(absl::StrFormat(R"(
+          type_id: %d
+          name: 'c1'
+          custom_properties {
+            key: 'custom_property_1' value: { string_value: 'foo' }
+        })",
+                                          child_context_type.id()),
+                          child_context_type.id(), *metadata_access_object_,
+                          child_context_1);
+
+  Context child_context_2;
+  CreateNodeFromTextProto(absl::StrFormat(R"(
+          type_id: %d
+          name: 'c2'
+          custom_properties {
+            key: 'custom_property_1' value: { string_value: 'foo' }
+        })",
+                                          child_context_type.id()),
+                          child_context_type.id(), *metadata_access_object_,
+                          child_context_2);
+
+  Context child_context_3;
+  CreateNodeFromTextProto(absl::StrFormat(R"(
+          type_id: %d
+          name: 'c3'
+          custom_properties {
+            key: 'custom_property_1' value: { string_value: 'bar' }
+        })",
+                                          child_context_type.id()),
+                          child_context_type.id(), *metadata_access_object_,
+                          child_context_3);
+
+  ParentContext parent_child_context_1;
+  parent_child_context_1.set_parent_id(parent_context_1.id());
+  parent_child_context_1.set_child_id(child_context_1.id());
+  EXPECT_EQ(absl::OkStatus(), metadata_access_object_->CreateParentContext(
+                                  parent_child_context_1));
+  ParentContext parent_child_context_2;
+  parent_child_context_2.set_parent_id(parent_context_1.id());
+  parent_child_context_2.set_child_id(child_context_3.id());
+  EXPECT_EQ(absl::OkStatus(), metadata_access_object_->CreateParentContext(
+                                  parent_child_context_2));
+
+  // Query on ParentContext and custom property.
+  VerifyListOptions<Context>(R"(max_result_size: 10,
+          order_by_field: { field: CREATE_TIME is_asc: false }
+          filter_query: "parent_contexts_c.type = 'parent_context_type_1' \n"
+             " AND custom_properties.custom_property_1.string_value = 'foo'")",
+                             *metadata_access_object_,
+                             /*want_nodes=*/{child_context_1});
+}
+
+template <class NodeType, class Node>
+void TestFilteringWithListOptionsImpl(
+    MetadataAccessObject& metadata_access_object) {
+  const NodeType type = CreateTypeFromTextProto<NodeType>(R"(
+    name: 'test_type'
+    properties { key: 'p1' value: INT }
+    properties { key: 'p2' value: DOUBLE }
+    properties { key: 'p3' value: STRING }
+  )", metadata_access_object);
+
+  // Setup: 5 nodes of `test_type`
+  // node_$i has a custom property custom_property_$i which is not NULL.
+  // node_$i also has p1 = $i, p2 = $i.0, p3 = '$i'
+  std::vector<Node> want_nodes(5);
+  for (int i = 0; i < want_nodes.size(); i++) {
+    CreateNodeFromTextProto(
+        absl::StrFormat(R"(
+          type_id: %d
+          name: 'test_%d'
+          properties { key: 'p1' value: { int_value: %d } }
+          properties { key: 'p2' value: { double_value: %f } }
+          properties { key: 'p3' value: { string_value: '%s' }
+        }
+        custom_properties {
+          key: 'custom_property_%d' value: { string_value: 'foo' }
+        }
+        custom_properties {
+          key: 'custom_property %d' value: { double_value: 1.0 }
+        }
+        custom_properties {
+          key: 'custom_property:%d' value: { int_value: 1 }
+        })", type.id(), i, i, 1.0 * i, absl::StrCat("0", i), i, i, i),
+        type.id(), metadata_access_object, want_nodes[i]);
+  }
+
+  static constexpr char kListOption[] = R"(
+            max_result_size: 10,
+            order_by_field: { field: CREATE_TIME is_asc: false }
+            filter_query: "$0")";
+
+  // test property and custom property queries
+  // verify all documented columns can be used.
+  VerifyListOptions<Node>(
+      absl::Substitute(kListOption, "properties.p1.int_value = 0"),
+      metadata_access_object, /*want_nodes=*/{want_nodes[0]});
+
+  VerifyListOptions<Node>(
+      absl::Substitute(kListOption,
+                       "(properties.p1.int_value + 2) * 1 = 2"),
+      metadata_access_object, /*want_nodes=*/{want_nodes[0]});
+
+  VerifyListOptions<Node>(
+      absl::Substitute(kListOption, "properties.p2.double_value > 2.0"),
+      metadata_access_object,
+      /*want_nodes=*/{want_nodes[4], want_nodes[3]});
+
+  VerifyListOptions<Node>(
+      absl::Substitute(kListOption,
+                       "properties.p2.double_value > 2.0 / 1.0 - (-0.5)"),
+      metadata_access_object,
+      /*want_nodes=*/{want_nodes[4], want_nodes[3]});
+
+  VerifyListOptions<Node>(
+      absl::Substitute(kListOption, "properties.p3.string_value LIKE '0%'"),
+      metadata_access_object,
+      /*want_nodes=*/
+      {want_nodes[4], want_nodes[3], want_nodes[2], want_nodes[1],
+       want_nodes[0]});
+
+  VerifyListOptions<Node>(
+      absl::Substitute(
+          kListOption,
+          "custom_properties.custom_property_0.int_value IS NULL AND "
+          "custom_properties.custom_property_0.double_value IS NULL AND "
+          "custom_properties.custom_property_0.string_value = 'foo'"),
+      metadata_access_object,
+      /*want_nodes=*/{want_nodes[0]});
+
+  // verify unknown property name can be used
+  VerifyListOptions<Node>(
+      absl::Substitute(kListOption,
+                       "properties.unknown.int_value > 0 OR "
+                       "custom_properties.some_property.string_value = '0'"),
+      metadata_access_object,
+      /*want_nodes=*/{});
+
+  // verify properties with backquoted string can be used
+  VerifyListOptions<Node>(
+      absl::Substitute(
+          kListOption,
+          "properties.p1.int_value = 0 AND "
+          "custom_properties.`custom_property:0`.int_value > 0 AND "
+          "custom_properties.`custom_property 0`.double_value > 0 "),
+      metadata_access_object,
+      /*want_nodes=*/{want_nodes[0]});
+}
+
+TEST_P(MetadataAccessObjectTest, ListArtifactsFilterPropertyQuery) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+  TestFilteringWithListOptionsImpl<ArtifactType, Artifact>(
+      *metadata_access_object_);
+}
+
+TEST_P(MetadataAccessObjectTest, ListExecutionsFilterPropertyQuery) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+  TestFilteringWithListOptionsImpl<ExecutionType, Execution>(
+      *metadata_access_object_);
+}
+
+TEST_P(MetadataAccessObjectTest, LisContextsFilterPropertyQuery) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+  TestFilteringWithListOptionsImpl<ContextType, Context>(
+      *metadata_access_object_);
+}
+
+TEST_P(MetadataAccessObjectTest, ListNodesFilterWithErrors) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+
+  ListOperationOptions list_options =
+      ParseTextProtoOrDie<ListOperationOptions>(R"(
+        max_result_size: 10,
+        order_by_field: { field: CREATE_TIME is_asc: false }
+        filter_query: "unknown_field = 'uri_3' and type_id = 1"
+      )");
+
+  std::string next_page_token;
+  {
+    std::vector<Artifact> got_artifacts;
+    const absl::Status status = metadata_access_object_->ListArtifacts(
+        list_options, &got_artifacts, &next_page_token);
+    EXPECT_TRUE(absl::IsInvalidArgument(status));
+  }
+
+  {
+    std::vector<Execution> got_executions;
+    const absl::Status status = metadata_access_object_->ListExecutions(
+        list_options, &got_executions, &next_page_token);
+    EXPECT_TRUE(absl::IsInvalidArgument(status));
+  }
+
+  {
+    std::vector<Context> got_contexts;
+    const absl::Status status = metadata_access_object_->ListContexts(
+        list_options, &got_contexts, &next_page_token);
+    EXPECT_TRUE(absl::IsInvalidArgument(status));
+  }
+}
+
+// Apply the list options to list the `Node`, and compare with the `want_nodes`
+// point-wise in order.
+void VerifyLineageGraph(const LineageGraph& subgraph,
+                        const std::vector<Artifact>& artifacts,
+                        const std::vector<Execution>& executions,
+                        const std::vector<Event>& events,
+                        MetadataAccessObject& metadata_access_object) {
+  // Compare nodes and edges.
+  EXPECT_THAT(subgraph.artifacts(),
+              UnorderedPointwise(EqualsProto<Artifact>(), artifacts));
+  EXPECT_THAT(subgraph.executions(),
+              UnorderedPointwise(EqualsProto<Execution>(), executions));
+  EXPECT_THAT(subgraph.events(),
+              UnorderedPointwise(EqualsProto<Event>(/*ignore_fields=*/{
+                                     "milliseconds_since_epoch",
+                                 }),
+                                 events));
+  // Compare types.
+  std::vector<ArtifactType> artifact_types;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object.FindTypes(&artifact_types));
+  EXPECT_THAT(subgraph.artifact_types(),
+              UnorderedPointwise(EqualsProto<ArtifactType>(), artifact_types));
+  std::vector<ExecutionType> execution_types;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object.FindTypes(&execution_types));
+  EXPECT_THAT(
+      subgraph.execution_types(),
+      UnorderedPointwise(EqualsProto<ExecutionType>(), execution_types));
+  std::vector<ContextType> context_types;
+  ASSERT_EQ(absl::OkStatus(), metadata_access_object.FindTypes(&context_types));
+  EXPECT_THAT(subgraph.context_types(),
+              UnorderedPointwise(EqualsProto<ContextType>(), context_types));
+}
+
 
 TEST_P(MetadataAccessObjectTest, DeleteArtifactsById) {
   if (!metadata_access_object_container_->HasDeletionSupport()) {

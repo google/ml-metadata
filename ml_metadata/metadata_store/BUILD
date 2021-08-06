@@ -120,18 +120,22 @@ cc_library(
         ":list_operation_util",
         ":metadata_source",
         ":query_executor",
+        "@com_google_glog//:glog",
+        "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
         
         "@com_google_absl//absl/memory",
-        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/time",
+        # BEGIN IFNDEF_WIN
+        "//ml_metadata/query:filter_query_ast_resolver",
+        "//ml_metadata/query:filter_query_builder",
+        # END IFNDEF_WIN
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/util:return_utils",
         "//ml_metadata/util:struct_utils",
-        "@com_google_glog//:glog",
-        "@com_google_protobuf//:cc_wkt_protos",
     ],
 )
 
@@ -673,7 +677,7 @@ cc_test(
     ],
 )
 
-cc_test(
+ml_metadata_cc_test(
     name = "metadata_access_object_factory_test",
     srcs = ["metadata_access_object_factory_test.cc"],
     deps = [
