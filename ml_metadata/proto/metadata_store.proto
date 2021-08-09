@@ -610,6 +610,9 @@ message ConnectionConfig {
 message GrpcChannelArguments {
   // Maximum message length in bytes per response that the channel can receive.
   optional int64 max_receive_message_length = 1;
+  // Maximum misbehaving pings the server can bear before sending goaway and
+  // closing the transport? (0 indicates infinite number of misbehaving pings)
+  optional int64 http2_max_ping_strikes = 2;
 }
 
 // Configuration for the gRPC metadata store client.

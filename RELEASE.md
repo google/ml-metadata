@@ -6,6 +6,8 @@
     supported on Linux and MacOS 10.14+.
 *   Extends get_artifacts, get_executions, get_contexts APIs with filtering
     capabilities on properties and 1-hop neighborhood nodes.
+*   Supports configure GRPC options `grpc.http2.max_ping_strikes` from the
+    python client.
 
 ## Bug Fixes and Other Changes
 

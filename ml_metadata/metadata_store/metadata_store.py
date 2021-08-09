@@ -139,11 +139,14 @@ class MetadataStore(object):
     if config.HasField('client_timeout_sec'):
       self._grpc_timeout_sec = config.client_timeout_sec
 
-    options = None
-    if (config.HasField('channel_arguments') and
-        config.channel_arguments.HasField('max_receive_message_length')):
-      options = [('grpc.max_receive_message_length',
-                  config.channel_arguments.max_receive_message_length)]
+    options = []
+    if config.HasField('channel_arguments'):
+      if config.channel_arguments.HasField('max_receive_message_length'):
+        options.append(('grpc.max_receive_message_length',
+                        config.channel_arguments.max_receive_message_length))
+      if config.channel_arguments.HasField('http2_max_ping_strikes'):
+        options.append(('grpc.http2.max_ping_strikes',
+                        config.channel_arguments.http2_max_ping_strikes))
 
     if not config.HasField('ssl_config'):
       return grpc.insecure_channel(target, options=options)

@@ -40,7 +40,8 @@ flags.DEFINE_integer(
 
 
 def _get_metadata_store(grpc_max_receive_message_length=None,
-                        grpc_client_timeout_sec=None):
+                        grpc_client_timeout_sec=None,
+                        grpc_http2_max_ping_strikes=None):
   if FLAGS.use_grpc_backend:
     grpc_connection_config = metadata_store_pb2.MetadataStoreClientConfig()
     if grpc_max_receive_message_length:
@@ -48,7 +49,10 @@ def _get_metadata_store(grpc_max_receive_message_length=None,
       ) = grpc_max_receive_message_length
     if grpc_client_timeout_sec is not None:
       grpc_connection_config.client_timeout_sec = grpc_client_timeout_sec
-    if FLAGS.grpc_host is None:
+    if grpc_http2_max_ping_strikes is not None:
+      (grpc_connection_config.channel_arguments.http2_max_ping_strikes
+      ) = grpc_http2_max_ping_strikes
+    if not FLAGS.grpc_host:
       raise ValueError("grpc_host argument not set.")
     grpc_connection_config.host = FLAGS.grpc_host
     if not FLAGS.grpc_port:
@@ -133,7 +137,7 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertLess(artifact_type.ByteSize(), 100)
     store = _get_metadata_store(grpc_max_receive_message_length=100)
     store.put_artifact_type(artifact_type)
-    _ = store.get_artifact_types()
+    _ = store.get_artifacts_by_type(type_name=artifact_type.name)
 
   def test_connection_config_with_grpc_max_receive_message_length_errors(self):
     # The test is irrelevant when not using grpc connection.
@@ -147,6 +151,17 @@ class MetadataStoreTest(parameterized.TestCase):
     with self.assertRaises(errors.ResourceExhaustedError):
       store.put_artifact_type(artifact_type)
       _ = store.get_artifact_types()
+
+  def test_connection_config_with_grpc_http2_max_ping_strikes(self):
+    # The test is irrelevant when not using grpc connection.
+    if not FLAGS.use_grpc_backend:
+      return
+    # Set grpc.http2_max_ping_strikes to 0. The request succeeds.
+    artifact_type_name = self._get_test_type_name()
+    artifact_type = _create_example_artifact_type(artifact_type_name)
+    store = _get_metadata_store(grpc_http2_max_ping_strikes=0)
+    store.put_artifact_type(artifact_type)
+    _ = store.get_artifact_types()
 
   def test_connection_config_with_grpc_client_timeout_sec_errors(self):
     # The test is irrelevant when not using grpc connection.
