@@ -2100,7 +2100,7 @@ TEST_P(MetadataAccessObjectTest, ListNodesFilterContextNeighborQuery) {
 }
 
 TEST_P(MetadataAccessObjectTest, ListContextNodesWithParentChildQuery) {
-  // TODO(b/184175823) Enable when spanner support is added.
+  // TODO(b/184175823) Enable when all backends support this.
   if (!metadata_access_object_container_->HasFilterQuerySupport()) {
     return;
   }
@@ -2217,7 +2217,7 @@ TEST_P(MetadataAccessObjectTest, ListContextNodesWithParentChildQuery) {
 
 TEST_P(MetadataAccessObjectTest,
        ListContextNodesWithParentChildAndPropertiesQuery) {
-  // TODO(b/184175823) Enable when spanner support is added.
+  // TODO(b/184175823) Enable when all backends support this.
   if (!metadata_access_object_container_->HasFilterQuerySupport()) {
     return;
   }

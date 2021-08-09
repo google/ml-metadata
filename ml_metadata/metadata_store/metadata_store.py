@@ -60,7 +60,8 @@ class ListOptions(object):
       descending order is used.
     filter_query: An optional boolean expression in SQL syntax to specify
       conditions on nodes' attributes and 1-hop neighborhood. See
-      go/mlmd-filter-syntax for the query capabilities and syntax.
+      https://github.com/google/ml-metadata/blob/master/ml_metadata/proto/metadata_store.proto#L705-L783
+      for the query capabilities and syntax.
       Note in Windows, this is only supported when using grpc config via an mlmd
       server instance.
   """
