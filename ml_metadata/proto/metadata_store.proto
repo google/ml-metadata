@@ -211,8 +211,8 @@ message Execution {
   // Output only. The globally unique server generated id of the execution.
   optional int64 id = 1;
   // The client provided name of the execution. This field is optional. If set,
-  // it must be unique among all the executions of the same artifact type within
-  // a database instance and cannot be changed once set.
+  // it must be unique among all the executions of the same execution type
+  // within a database instance and cannot be changed once set.
   optional string name = 6;
   // The id of an ExecutionType. This needs to be specified when an execution is
   // created, and it cannot be changed.
