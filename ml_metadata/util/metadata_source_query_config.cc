@@ -1725,6 +1725,29 @@ R"pb(
            " LOCK IN SHARE MODE; "
     parameter_num: 3
   }
+  select_context_by_id {
+    query: " SELECT `id`, `type_id`, `name`, `create_time_since_epoch`, "
+           "        `last_update_time_since_epoch`"
+           " from `Context` WHERE id IN ($0) "
+           " LOCK IN SHARE MODE; "
+    parameter_num: 1
+  }
+  select_execution_by_id {
+    query: " SELECT `id`, `type_id`, `last_known_state`, `name`, "
+           "        `create_time_since_epoch`, `last_update_time_since_epoch` "
+           " from `Execution` "
+           " WHERE id IN ($0) "
+           " LOCK IN SHARE MODE; "
+    parameter_num: 1
+  }
+  select_artifact_by_id {
+    query: " SELECT `id`, `type_id`, `uri`, `state`, `name`, "
+           "        `create_time_since_epoch`, `last_update_time_since_epoch` "
+           " from `Artifact` "
+           " WHERE id IN ($0) "
+           " LOCK IN SHARE MODE; "
+    parameter_num: 1
+  }
   create_type_table {
     query: " CREATE TABLE IF NOT EXISTS `Type` ( "
            "   `id` INT PRIMARY KEY AUTO_INCREMENT, "
