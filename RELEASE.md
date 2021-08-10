@@ -2,6 +2,16 @@
 
 ## Major Features and Improvements
 
+## Bug Fixes and Other Changes
+
+## Breaking Changes
+
+## Deprecations
+
+# Version 1.2.0
+
+## Major Features and Improvements
+
 *   Open sources declarative nodes filtering with zetaSQL. It is currently
     supported on Linux and MacOS 10.14+.
 *   Extends get_artifacts, get_executions, get_contexts APIs with filtering
@@ -21,6 +31,8 @@
 *   Bumped the minimum bazel version required to build `ml_metadata` to 3.7.2.
 
 ## Deprecations
+
+*   N/A
 
 # Version 1.1.0
 
