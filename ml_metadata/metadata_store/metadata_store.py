@@ -936,7 +936,13 @@ class MetadataStore(object):
       if list_options.order_by:
         request.options.order_by_field.field = list_options.order_by.value
       if list_options.filter_query:
-        request.options.filter_query = list_options.filter_query
+        request.options.filter_query = list_options.filter_query  # windows
+        # windows 1
+        # windows 2
+        # windows 3
+        # windows 4
+        # windows 5
+        # windows 6
 
     result = []
     while True:
@@ -995,7 +1001,13 @@ class MetadataStore(object):
       if list_options.order_by:
         request.options.order_by_field.field = list_options.order_by.value
       if list_options.filter_query:
-        request.options.filter_query = list_options.filter_query
+        request.options.filter_query = list_options.filter_query  # windows
+        # windows 1
+        # windows 2
+        # windows 3
+        # windows 4
+        # windows 5
+        # windows 6
 
     result = []
     while True:
@@ -1053,7 +1065,13 @@ class MetadataStore(object):
       if list_options.order_by:
         request.options.order_by_field.field = list_options.order_by.value
       if list_options.filter_query:
-        request.options.filter_query = list_options.filter_query
+        request.options.filter_query = list_options.filter_query  # windows
+        # windows 1
+        # windows 2
+        # windows 3
+        # windows 4
+        # windows 5
+        # windows 6
 
     result = []
     while True:

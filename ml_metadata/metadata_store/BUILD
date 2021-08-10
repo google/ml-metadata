@@ -129,8 +129,8 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/time",
         # BEGIN IFNDEF_WIN
-        "//ml_metadata/query:filter_query_ast_resolver",
-        "//ml_metadata/query:filter_query_builder",
+        "//ml_metadata/query:filter_query_ast_resolver",  # windows
+        "//ml_metadata/query:filter_query_builder",  # windows
         # END IFNDEF_WIN
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",

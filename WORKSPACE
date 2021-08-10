@@ -229,24 +229,24 @@ git_repository(
 )
 
 # BEGIN IFNDEF_WIN
-ZETASQL_COMMIT = "5ccb05880e72ab9ff75dd6b05d7b0acce53f1ea2" # 04/22/2021
-http_archive(
-    name = "com_google_zetasql",
-    urls = ["https://github.com/google/zetasql/archive/%s.zip" % ZETASQL_COMMIT],
-    strip_prefix = "zetasql-%s" % ZETASQL_COMMIT,
-    # patches = ["//ml_metadata/third_party:zetasql.patch"],
-    sha256 = '4ca4e45f457926484822701ec15ca4d0172b01d7ce43c0b34c6f3ab98c95b241'
-)
+ZETASQL_COMMIT = "5ccb05880e72ab9ff75dd6b05d7b0acce53f1ea2" # 04/22/2021  # windows
+http_archive(  # windows
+    name = "com_google_zetasql",  # windows
+    urls = ["https://github.com/google/zetasql/archive/%s.zip" % ZETASQL_COMMIT],  # windows
+    strip_prefix = "zetasql-%s" % ZETASQL_COMMIT,  # windows
+    # patches = ["//ml_metadata/third_party:zetasql.patch"],  # windows
+    sha256 = '4ca4e45f457926484822701ec15ca4d0172b01d7ce43c0b34c6f3ab98c95b241'  # windows
+)  # windows
 
-load("@com_google_zetasql//bazel:zetasql_deps_step_1.bzl", "zetasql_deps_step_1")
-zetasql_deps_step_1()
-load("@com_google_zetasql//bazel:zetasql_deps_step_2.bzl", "zetasql_deps_step_2")
-zetasql_deps_step_2(
-    analyzer_deps = True,
-    evaluator_deps = True,
-    tools_deps = False,
-    java_deps = False,
-    testing_deps = False)
+load("@com_google_zetasql//bazel:zetasql_deps_step_1.bzl", "zetasql_deps_step_1")  # windows
+zetasql_deps_step_1()  # windows
+load("@com_google_zetasql//bazel:zetasql_deps_step_2.bzl", "zetasql_deps_step_2")  # windows
+zetasql_deps_step_2(  # windows
+    analyzer_deps = True,  # windows
+    evaluator_deps = True,  # windows
+    tools_deps = False,  # windows
+    java_deps = False,  # windows
+    testing_deps = False)  # windows
 # END IFNDEF_WIN
 
 

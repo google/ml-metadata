@@ -1463,6 +1463,7 @@ class MetadataStoreTest(parameterized.TestCase):
        mlmd.MetadataStore.get_contexts))
   def test_get_nodes_by_filter_query(self, create_type_fn, put_type_fn,
                                      node_cls, put_nodes_fn, get_nodes_fn):
+    # windows
     store = _get_metadata_store()
     node_type = create_type_fn(self._get_test_type_name())
     type_id = put_type_fn(store, node_type)
@@ -1491,6 +1492,7 @@ class MetadataStoreTest(parameterized.TestCase):
                             (mlmd.MetadataStore.get_executions),
                             (mlmd.MetadataStore.get_contexts))
   def test_get_nodes_by_filter_query_syntax_errors(self, get_nodes_fn):
+    # windows
     store = _get_metadata_store()
     with self.assertRaises(errors.InvalidArgumentError):
       _ = get_nodes_fn(
