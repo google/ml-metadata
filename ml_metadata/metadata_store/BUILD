@@ -303,6 +303,7 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
+        "//ml_metadata/proto:metadata_store_proto",
         "@com_google_glog//:glog",
     ],
 )
@@ -439,9 +440,23 @@ cc_library(
     hdrs = ["simple_types_util.h"],
     deps = [
         "@com_google_protobuf//:protobuf",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/simple_types:simple_types_constants",
         "//ml_metadata/simple_types/proto:simple_types_proto",
+    ],
+)
+
+ml_metadata_cc_test(
+    name = "simple_types_util_test",
+    srcs = ["simple_types_util_test.cc"],
+    deps = [
+        ":simple_types_util",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/status",
+        "//ml_metadata/proto:metadata_store_proto",
     ],
 )
 

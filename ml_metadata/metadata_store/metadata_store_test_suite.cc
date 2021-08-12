@@ -27,6 +27,7 @@ limitations under the License.
 #include "absl/strings/substitute.h"
 #include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/metadata_store/test_util.h"
+#include "ml_metadata/proto/metadata_store.pb.h"
 
 namespace ml_metadata {
 namespace testing {
@@ -232,6 +233,56 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeGetArtifactType) {
       << "The name should be the same as the one returned.";
   // Don't test all the properties, to make the serialization of the type
   // more flexible. This can be tested at other layers.
+}
+
+TEST_P(MetadataStoreTestSuite, PutArtifactTypeInsertTypeLink) {
+  absl ::string_view type_definition =
+      R"( name: 'test_type2'
+              properties { key: 'property_1' value: STRING }
+              base_type: MODEL)";
+  ArtifactType expected =
+      ParseTextProtoOrDie<ArtifactType>(std::string(type_definition));
+  InsertTypeAndSetTypeID(metadata_store_, expected);
+
+  const GetArtifactTypeRequest get_request =
+      ParseTextProtoOrDie<GetArtifactTypeRequest>(
+          R"pb(
+            type_name: 'test_type2'
+          )pb");
+  GetArtifactTypeResponse get_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetArtifactType(get_request, &get_response));
+  EXPECT_THAT(get_response.artifact_type(), EqualsProto(expected));
+
+  PutArtifactTypeRequest type_request;
+  *type_request.mutable_artifact_type() = expected;
+  {
+    PutArtifactTypeRequest update_base_type_request = type_request;
+    update_base_type_request.mutable_artifact_type()->set_base_type(
+        ArtifactType::DATASET);
+    PutArtifactTypeResponse update_base_type_response;
+    ASSERT_EQ(absl::UnimplementedError("base_type update is not supported yet"),
+              metadata_store_->PutArtifactType(update_base_type_request,
+                                               &update_base_type_response));
+  }
+  {
+    PutArtifactTypeRequest null_base_type_request = type_request;
+    null_base_type_request.mutable_artifact_type()->clear_base_type();
+    PutArtifactTypeResponse null_base_type_response;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->PutArtifactType(null_base_type_request,
+                                               &null_base_type_response));
+  }
+  {
+    PutArtifactTypeRequest delete_base_type_request = type_request;
+    delete_base_type_request.mutable_artifact_type()->set_base_type(
+        ArtifactType::UNSET);
+    PutArtifactTypeResponse delete_base_type_response;
+    ASSERT_EQ(
+        absl::UnimplementedError("base_type deletion is not supported yet"),
+        metadata_store_->PutArtifactType(delete_base_type_request,
+                                         &delete_base_type_response));
+  }
 }
 
 TEST_P(MetadataStoreTestSuite, PutArtifactTypesGetArtifactTypes) {
@@ -1569,6 +1620,56 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypeGetExecutionType) {
   EXPECT_THAT(get_response.execution_type(), EqualsProto(expected));
 }
 
+TEST_P(MetadataStoreTestSuite, PutExecutionTypeInsertTypeLink) {
+  absl ::string_view type_definition =
+      R"( name: 'test_type2'
+              properties { key: 'property_1' value: STRING }
+              base_type: TRAIN)";
+  ExecutionType expected =
+      ParseTextProtoOrDie<ExecutionType>(std::string(type_definition));
+  InsertTypeAndSetTypeID(metadata_store_, expected);
+
+  const GetExecutionTypeRequest get_request =
+      ParseTextProtoOrDie<GetExecutionTypeRequest>(
+          R"pb(
+            type_name: 'test_type2'
+          )pb");
+  GetExecutionTypeResponse get_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetExecutionType(get_request, &get_response));
+  EXPECT_THAT(get_response.execution_type(), EqualsProto(expected));
+
+  PutExecutionTypeRequest type_request;
+  *type_request.mutable_execution_type() = expected;
+  {
+    PutExecutionTypeRequest update_base_type_request = type_request;
+    update_base_type_request.mutable_execution_type()->set_base_type(
+        ExecutionType::EVALUATE);
+    PutExecutionTypeResponse update_base_type_response;
+    ASSERT_EQ(absl::UnimplementedError("base_type update is not supported yet"),
+              metadata_store_->PutExecutionType(update_base_type_request,
+                                                &update_base_type_response));
+  }
+  {
+    PutExecutionTypeRequest null_base_type_request = type_request;
+    null_base_type_request.mutable_execution_type()->clear_base_type();
+    PutExecutionTypeResponse null_base_type_response;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->PutExecutionType(null_base_type_request,
+                                                &null_base_type_response));
+  }
+  {
+    PutExecutionTypeRequest delete_base_type_request = type_request;
+    delete_base_type_request.mutable_execution_type()->set_base_type(
+        ExecutionType::UNSET);
+    PutExecutionTypeResponse delete_base_type_response;
+    ASSERT_EQ(
+        absl::UnimplementedError("base_type deletion is not supported yet"),
+        metadata_store_->PutExecutionType(delete_base_type_request,
+                                          &delete_base_type_response));
+  }
+}
+
 TEST_P(MetadataStoreTestSuite, PutExecutionTypesGetExecutionTypes) {
   const PutExecutionTypeRequest put_request_1 =
       ParseTextProtoOrDie<PutExecutionTypeRequest>(
@@ -2355,6 +2456,73 @@ TEST_P(MetadataStoreTestSuite, PutTypesGetTypes) {
                                             &get_context_type_response));
   EXPECT_EQ(put_response.context_type_ids(0),
             get_context_type_response.context_type().id());
+}
+
+TEST_P(MetadataStoreTestSuite, PutTypesInsertTypeLink) {
+  const PutTypesRequest put_request = ParseTextProtoOrDie<PutTypesRequest>(
+      R"pb(
+        artifact_types: {
+          name: 'test_type1'
+          properties { key: 'property_1' value: STRING }
+          base_type: MODEL
+        }
+        artifact_types: {
+          name: 'test_type1'
+          properties { key: 'property_1' value: STRING }
+        }
+        execution_types: {
+          name: 'test_type1'
+          properties { key: 'property_1' value: STRING }
+        }
+        execution_types: {
+          name: 'test_type2'
+          properties { key: 'property_1' value: DOUBLE }
+          base_type: TRAIN
+        }
+      )pb");
+  PutTypesResponse put_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutTypes(put_request, &put_response));
+  ASSERT_THAT(put_response.artifact_type_ids(), SizeIs(2));
+  // Two artifact types with the same type name are inserted. The second
+  // artifact type has no base_type, and thus no-op for creating type link.
+  // The returned ids are the same.
+  EXPECT_EQ(put_response.artifact_type_ids(0),
+            put_response.artifact_type_ids(1));
+  ASSERT_THAT(put_response.execution_type_ids(), SizeIs(2));
+  // Two different execution types are inserted. The returned ids are different.
+  EXPECT_NE(put_response.execution_type_ids(0),
+            put_response.execution_type_ids(1));
+
+  const GetArtifactTypeRequest get_artifact_type_request =
+      ParseTextProtoOrDie<GetArtifactTypeRequest>("type_name: 'test_type1'");
+  GetArtifactTypeResponse get_artifact_type_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetArtifactType(get_artifact_type_request,
+                                             &get_artifact_type_response));
+  EXPECT_EQ(put_response.artifact_type_ids(0),
+            get_artifact_type_response.artifact_type().id());
+  // Verifies that GetArtifactType('test_type1') returns the first artifact type
+  // with base_type = MODEL.
+  ArtifactType expected_artifact_type = put_request.artifact_types()[0];
+  expected_artifact_type.set_id(put_response.artifact_type_ids(0));
+  EXPECT_THAT(get_artifact_type_response.artifact_type(),
+              EqualsProto(expected_artifact_type));
+
+  const GetExecutionTypeRequest get_execution_type_request =
+      ParseTextProtoOrDie<GetExecutionTypeRequest>("type_name: 'test_type2'");
+  GetExecutionTypeResponse get_execution_type_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetExecutionType(get_execution_type_request,
+                                              &get_execution_type_response));
+  EXPECT_EQ(put_response.execution_type_ids(1),
+            get_execution_type_response.execution_type().id());
+  // Verifies that GetExecutionType('test_type2') returns the second execution
+  // type with base_type = TRAIN.
+  ExecutionType expected_execution_type = put_request.execution_types()[1];
+  expected_execution_type.set_id(put_response.execution_type_ids(1));
+  EXPECT_THAT(get_execution_type_response.execution_type(),
+              EqualsProto(expected_execution_type));
 }
 
 TEST_P(MetadataStoreTestSuite, PutTypesUpdateTypes) {

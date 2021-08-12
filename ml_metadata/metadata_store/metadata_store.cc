@@ -26,6 +26,7 @@ limitations under the License.
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/types/optional.h"
+#include "ml_metadata/metadata_store/metadata_access_object.h"
 #include "ml_metadata/metadata_store/metadata_access_object_factory.h"
 #include "ml_metadata/metadata_store/simple_types_util.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
@@ -104,6 +105,60 @@ absl::Status CheckFieldsConsistent(const T& stored_type, const T& other_type,
   return absl::OkStatus();
 }
 
+// Creates a type inheritance link between 'type'.base_type from request and
+// type with 'type_id'.
+//
+// a) If 'type'.base_type = NULL in request 'type', no-op;
+// b) If 'type'.base_type = UNSET in request 'type', error out as type deletion
+//    is not supported yet;
+// c) If more than 1 parent types are found for 'type_id', return error;
+// d) If 'type'.base_type is set,
+//    1) If no parent type is found for 'type_id', create a new parent
+//       inheritance link;
+//    2) If 1 parent type is found for 'type_id' and it is not equal to
+//       'type'.base_type, error out as type update is not supported yet;
+//    3) If 1 parent type is found for 'type_id' and it is equal to
+//       'type'.base_type, no-op.
+// TODO(b/195375645): support parent type update and deletion
+template <typename T>
+absl::Status UpsertTypeInheritanceLink(
+    const T& type, int64 type_id,
+    MetadataAccessObject* metadata_access_object) {
+  if (!type.has_base_type()) return absl::OkStatus();
+
+  SystemTypeExtension extension;
+  MLMD_RETURN_IF_ERROR(GetSystemTypeExtension(type, extension));
+  if (IsUnsetBaseType(extension)) {
+    return absl::UnimplementedError("base_type deletion is not supported yet");
+  }
+
+  // TODO(b/195079959): use a read lock for FindParentTypesByTypeId query
+  std::vector<T> output_parent_types;
+  MLMD_RETURN_IF_ERROR(metadata_access_object->FindParentTypesByTypeId(
+      type_id, output_parent_types));
+
+  if (output_parent_types.size() > 1) {
+    return absl::FailedPreconditionError(absl::StrCat(
+        output_parent_types.size(), " parent types are found for type ",
+        type.name(), "; only single inheritance is supported"));
+  }
+
+  const bool no_parent_type = output_parent_types.empty();
+  if (no_parent_type) {
+    T type_with_id = type;
+    type_with_id.set_id(type_id);
+    T base_type;
+    MLMD_RETURN_IF_ERROR(metadata_access_object->FindTypeByNameAndVersion(
+        extension.type_name(), /*version=*/absl::nullopt, &base_type));
+    return metadata_access_object->CreateParentTypeInheritanceLink(type_with_id,
+                                                                   base_type);
+  }
+  if (output_parent_types[0].name() != extension.type_name()) {
+    return absl::UnimplementedError("base_type update is not supported yet");
+  }
+  return absl::OkStatus();
+}
+
 // If there is no type having the same name and version, then inserts a new
 // type. If a type with the same name and version already exists
 // (let's call it `old_type`), it checks the consistency of `type` and
@@ -130,7 +185,8 @@ absl::Status UpsertType(const T& type, bool can_add_fields,
   }
   // if not found, then it creates a type. `can_add_fields` is ignored.
   if (absl::IsNotFound(status)) {
-    return metadata_access_object->CreateType(type, type_id);
+    MLMD_RETURN_IF_ERROR(metadata_access_object->CreateType(type, type_id));
+    return UpsertTypeInheritanceLink(type, *type_id, metadata_access_object);
   }
   // otherwise it updates the type.
   *type_id = stored_type.id();
@@ -145,7 +201,8 @@ absl::Status UpsertType(const T& type, bool can_add_fields,
         absl::StrCat("Type already exists with different properties: ",
                      std::string(check_status.message())));
   }
-  return metadata_access_object->UpdateType(output_type);
+  MLMD_RETURN_IF_ERROR(metadata_access_object->UpdateType(output_type));
+  return UpsertTypeInheritanceLink(type, *type_id, metadata_access_object);
 }
 
 // Inserts or updates all the types in the argument list. 'can_add_fields' and
@@ -335,6 +392,30 @@ absl::optional<std::string> GetRequestTypeVersion(const T& type_request) {
              : absl::nullopt;
 }
 
+// Sets base_type field in `type` with its parent type queried from ParentType
+// table.
+// Returns FAILED_PRECONDITION if there are more than 1 system type.
+// TODO(b/153373285): consider moving it to FindTypesFromRecordSet at MAO layer
+template <typename T, typename ST>
+absl::Status SetBaseType(T& type,
+                         MetadataAccessObject* metadata_access_object) {
+  std::vector<T> output_parent_types;
+  MLMD_RETURN_IF_ERROR(metadata_access_object->FindParentTypesByTypeId(
+      type.id(), output_parent_types));
+  if (output_parent_types.empty()) return absl::OkStatus();
+  if (output_parent_types.size() > 1) {
+    return absl::FailedPreconditionError(absl::StrCat(
+        output_parent_types.size(), " parent types are found for type ",
+        type.name(), "; only single inheritance is supported"));
+  }
+  SystemTypeExtension extension;
+  extension.set_type_name(output_parent_types[0].name());
+  ST type_enum;
+  MLMD_RETURN_IF_ERROR(GetSystemTypeEnum(extension, type_enum));
+  type.set_base_type(type_enum);
+  return absl::OkStatus();
+}
+
 }  // namespace
 
 absl::Status MetadataStore::InitMetadataStore() {
@@ -435,9 +516,11 @@ absl::Status MetadataStore::GetArtifactType(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
-        return metadata_access_object_->FindTypeByNameAndVersion(
+        MLMD_RETURN_IF_ERROR(metadata_access_object_->FindTypeByNameAndVersion(
             request.type_name(), GetRequestTypeVersion(request),
-            response->mutable_artifact_type());
+            response->mutable_artifact_type()));
+        return SetBaseType<ArtifactType, ArtifactType::SystemDefinedBaseType>(
+            *response->mutable_artifact_type(), metadata_access_object_.get());
       });
 }
 
@@ -447,9 +530,11 @@ absl::Status MetadataStore::GetExecutionType(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
-        return metadata_access_object_->FindTypeByNameAndVersion(
+        MLMD_RETURN_IF_ERROR(metadata_access_object_->FindTypeByNameAndVersion(
             request.type_name(), GetRequestTypeVersion(request),
-            response->mutable_execution_type());
+            response->mutable_execution_type()));
+        return SetBaseType<ExecutionType, ExecutionType::SystemDefinedBaseType>(
+            *response->mutable_execution_type(), metadata_access_object_.get());
       });
 }
 
@@ -475,6 +560,9 @@ absl::Status MetadataStore::GetArtifactTypesByID(
           const absl::Status status =
               metadata_access_object_->FindTypeById(type_id, &artifact_type);
           if (status.ok()) {
+            MLMD_RETURN_IF_ERROR(
+                SetBaseType<ArtifactType, ArtifactType::SystemDefinedBaseType>(
+                    artifact_type, metadata_access_object_.get()));
             *response->mutable_artifact_types()->Add() = artifact_type;
           } else if (!absl::IsNotFound(status)) {
             return status;
@@ -495,6 +583,10 @@ absl::Status MetadataStore::GetExecutionTypesByID(
           const absl::Status status =
               metadata_access_object_->FindTypeById(type_id, &execution_type);
           if (status.ok()) {
+            MLMD_RETURN_IF_ERROR(
+                SetBaseType<ExecutionType,
+                            ExecutionType::SystemDefinedBaseType>(
+                    execution_type, metadata_access_object_.get()));
             *response->mutable_execution_types()->Add() = execution_type;
           } else if (!absl::IsNotFound(status)) {
             return status;
@@ -939,13 +1031,16 @@ absl::Status MetadataStore::GetArtifactTypes(
         } else if (!status.ok()) {
           return status;
         }
-        for (const ArtifactType& artifact_type : artifact_types) {
+        for (ArtifactType& artifact_type : artifact_types) {
           // Simple types will not be returned by Get*Types APIs because they
           // are invisible to users.
           const bool is_simple_type =
               std::find(kSimpleTypeNames.begin(), kSimpleTypeNames.end(),
                         artifact_type.name()) != kSimpleTypeNames.end();
           if (!is_simple_type) {
+            MLMD_RETURN_IF_ERROR(
+                SetBaseType<ArtifactType, ArtifactType::SystemDefinedBaseType>(
+                    artifact_type, metadata_access_object_.get()));
             *response->mutable_artifact_types()->Add() = artifact_type;
           }
         }
@@ -967,13 +1062,17 @@ absl::Status MetadataStore::GetExecutionTypes(
         } else if (!status.ok()) {
           return status;
         }
-        for (const ExecutionType& execution_type : execution_types) {
+        for (ExecutionType& execution_type : execution_types) {
           // Simple types will not be returned by Get*Types APIs because they
           // are invisible to users.
           const bool is_simple_type =
               std::find(kSimpleTypeNames.begin(), kSimpleTypeNames.end(),
                         execution_type.name()) != kSimpleTypeNames.end();
           if (!is_simple_type) {
+            MLMD_RETURN_IF_ERROR(
+                SetBaseType<ExecutionType,
+                            ExecutionType::SystemDefinedBaseType>(
+                    execution_type, metadata_access_object_.get()));
             *response->mutable_execution_types()->Add() = execution_type;
           }
         }

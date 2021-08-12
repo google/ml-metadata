@@ -15,7 +15,10 @@ limitations under the License.
 #include "ml_metadata/metadata_store/simple_types_util.h"
 
 #include "google/protobuf/text_format.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/strings/match.h"
+#include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/simple_types/proto/simple_types.pb.h"
 #include "ml_metadata/simple_types/simple_types_constants.h"
 
@@ -28,6 +31,50 @@ absl::Status LoadSimpleTypes(SimpleTypes& simple_types) {
         "Failed to parse simple types from string");
   }
   return absl::OkStatus();
+}
+
+bool IsUnsetBaseType(const SystemTypeExtension& extension) {
+  return absl::StartsWith(extension.type_name(), "unset");
+}
+
+absl::Status GetSystemTypeEnum(const SystemTypeExtension& extension,
+                               ArtifactType::SystemDefinedBaseType& type_enum) {
+  static const auto& type_name_to_enum =
+      *new absl::flat_hash_map<std::string,
+                               ArtifactType::SystemDefinedBaseType>(
+          {{"unset_artifact_type", ArtifactType::UNSET},
+           {"mlmd.DataSet", ArtifactType::DATASET},
+           {"mlmd.Model", ArtifactType::MODEL},
+           {"mlmd.Metrics", ArtifactType::METRICS},
+           {"mlmd.Statistics", ArtifactType::STATISTICS}});
+
+  if (type_name_to_enum.contains(extension.type_name())) {
+    type_enum = type_name_to_enum.at(extension.type_name());
+    return absl::OkStatus();
+  }
+  return absl::InvalidArgumentError(
+      absl::StrCat("invalid system type name: ", extension.type_name()));
+}
+
+absl::Status GetSystemTypeEnum(
+    const SystemTypeExtension& extension,
+    ExecutionType::SystemDefinedBaseType& type_enum) {
+  static const auto& type_name_to_enum =
+      *new absl::flat_hash_map<std::string,
+                               ExecutionType::SystemDefinedBaseType>(
+          {{"unset_execution_type", ExecutionType::UNSET},
+           {"mlmd.Train", ExecutionType::TRAIN},
+           {"mlmd.Transform", ExecutionType::TRANSFORM},
+           {"mlmd.Process", ExecutionType::PROCESS},
+           {"mlmd.Evaluate", ExecutionType::EVALUATE},
+           {"mlmd.Deploy", ExecutionType::DEPLOY}});
+
+  if (type_name_to_enum.contains(extension.type_name())) {
+    type_enum = type_name_to_enum.at(extension.type_name());
+    return absl::OkStatus();
+  }
+  return absl::InvalidArgumentError(
+      absl::StrCat("invalid system type name: ", extension.type_name()));
 }
 
 }  // namespace ml_metadata

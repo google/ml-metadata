@@ -22,9 +22,7 @@ ml_metadata_proto_library(
     name = "metadata_store_proto",
     srcs = ["metadata_store.proto"],
     cc_api_version = 2,
-    deps = [
-        "@com_google_protobuf//:cc_wkt_protos",
-    ],
+    deps = ["@com_google_protobuf//:cc_wkt_protos"],
 )
 
 ml_metadata_proto_library(

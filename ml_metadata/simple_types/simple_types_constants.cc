@@ -20,6 +20,7 @@ limitations under the License.
 
 namespace ml_metadata {
 
+// LINT.IfChange
 const absl::string_view kSimpleTypes =
     R"pb(
   artifact_types { name: "mlmd.Dataset" }
@@ -40,6 +41,8 @@ const absl::string_view kSimpleTypes =
 
   execution_types { name: "mlmd.Deploy" }
     )pb";
+// LINT.ThenChange(../proto/metadata_store.proto,
+//                 ../metadata_store/simple_types_util.cc)
 
 const std::array<absl::string_view, kNumSimpleTypes> kSimpleTypeNames = {
     "mlmd.Dataset",    "mlmd.Model",    "mlmd.Metrics",

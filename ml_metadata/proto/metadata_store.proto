@@ -17,6 +17,17 @@ syntax = "proto2";
 package ml_metadata;
 
 import "google/protobuf/struct.proto";
+import "google/protobuf/descriptor.proto";
+
+extend google.protobuf.EnumValueOptions {
+  // The system type information of each simple type enum refers to.
+  optional SystemTypeExtension system_type_extension = 384560917;
+}
+
+message SystemTypeExtension {
+  // The name of a system defined type.
+  optional string type_name = 1;
+}
 
 // A value in properties.
 message Value {
@@ -95,6 +106,20 @@ message ArtifactType {
   // Properties of an artifact type can be expanded but not contracted (i.e.,
   // you can add columns but not remove them).
   map<string, PropertyType> properties = 3;
+
+  // An enum of system-defined artifact types.
+  enum SystemDefinedBaseType {
+    UNSET = 0 [(system_type_extension).type_name = 'unset_artifact_type'];
+    DATASET = 1 [(system_type_extension).type_name = 'mlmd.DataSet'];
+    MODEL = 2 [(system_type_extension).type_name = 'mlmd.Model'];
+    METRICS = 3 [(system_type_extension).type_name = 'mlmd.Metrics'];
+    STATISTICS = 4 [(system_type_extension).type_name = 'mlmd.Statistics'];
+  }
+
+  // An optional system defined base_type expressing the intent of the current
+  // type. This field is useful for the tool builders to utilize the stored MLMD
+  // information, e.g., `MyModel` ArtifactType could set base_type = MODEL.
+  optional SystemDefinedBaseType base_type = 6;
 }
 
 // An event represents a relationship between an artifact and an execution.
@@ -283,6 +308,21 @@ message ExecutionType {
   // The ArtifactStructType of the output.
   // For example {"simple":{...stats gen output type...}}
   optional ArtifactStructType output_type = 5;
+
+  // An enum of system-defined execution types.
+  enum SystemDefinedBaseType {
+    UNSET = 0 [(system_type_extension).type_name = 'unset_execution_type'];
+    TRAIN = 1 [(system_type_extension).type_name = 'mlmd.Train'];
+    TRANSFORM = 2 [(system_type_extension).type_name = 'mlmd.Transform'];
+    PROCESS = 3 [(system_type_extension).type_name = 'mlmd.Process'];
+    EVALUATE = 4 [(system_type_extension).type_name = 'mlmd.Evaluate'];
+    DEPLOY = 5 [(system_type_extension).type_name = 'mlmd.Deploy'];
+  }
+
+  // An optional system defined base_type expressing the intent of the current
+  // type. This field is useful for the tool builders to utilize the stored MLMD
+  // information, e.g., `MyTrainer` ExecutionType could set base_type = TRAIN.
+  optional SystemDefinedBaseType base_type = 8;
 }
 
 message ContextType {
@@ -300,6 +340,17 @@ message ContextType {
   // Properties of an context type can be expanded but not contracted (i.e.,
   // you can add columns but not remove them).
   map<string, PropertyType> properties = 3;
+
+  // An enum of system-defined context types.
+  enum SystemDefinedBaseType {
+    UNSET = 0 [(system_type_extension).type_name = 'unset_context_type'];
+  }
+
+  // An optional system defined base_type expressing the intent of the current
+  // context type.
+  // *NOTE: currently there are no system Context types defined, and the field
+  // is not used for ContextType.
+  optional SystemDefinedBaseType base_type = 6;
 }
 
 message Context {
