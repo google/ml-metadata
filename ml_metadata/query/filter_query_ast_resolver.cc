@@ -37,10 +37,15 @@ constexpr char kCustomPropertyRE[] =
     "\\bcustom_properties\\.(:?([[:word:]]+)|(`[^`]+`))\\.";
 constexpr char kChildContextRE[] = "\\b(child_contexts_[[:word:]]+)\\.";
 constexpr char kParentContextRE[] = "\\b(parent_contexts_[[:word:]]+)\\.";
+constexpr char kEventRE[] = "\\b(events_[[:word:]]+)\\.";
+
 constexpr char kArtifactStatePredicateRE[] =
     "\\b(state)[[:space:]]*(=|!=)[[:space:]]*([[:word:]]+)\\b";
 constexpr char kExecutionStatePredicateRE[] =
     "\\b(last_known_state)[[:space:]]*(=|!=)[[:space:]]*([[:word:]]+)\\b";
+constexpr char kEventTypePredicateRE[] =
+    "\\b(events_[[:word:]]+)\\.(type)[[:space:]]*(=|!=)[[:"
+    "space:]]*([[:word:]]+)\\b";
 
 // Parses query for state predicates e.g. state = LIVE and re-writes the query
 // into form state = <int> based on the `state_value_mapping` provided by the
@@ -80,6 +85,53 @@ zetasql_base::StatusOr<std::string> ParseStatePredicateAndTransformQuery(
   return rewritten_query;
 }
 
+zetasql_base::StatusOr<std::string> ParseEventTypeAndTransformQuery(
+    absl::string_view query_string) {
+  std::string rewritten_query = std::string(query_string);
+  std::string event_alias_literal, state_string_literal, operator_literal,
+      value_literal;
+  static const auto& event_type_mapping =
+      *new absl::flat_hash_map<std::string, int>({
+          {Event::Type_Name(Event::INPUT), Event::INPUT},
+          {Event::Type_Name(Event::OUTPUT), Event::OUTPUT},
+          {Event::Type_Name(Event::DECLARED_INPUT), Event::DECLARED_INPUT},
+          {Event::Type_Name(Event::DECLARED_OUTPUT), Event::DECLARED_OUTPUT},
+          {Event::Type_Name(Event::INTERNAL_INPUT), Event::INTERNAL_INPUT},
+          {Event::Type_Name(Event::INTERNAL_OUTPUT), Event::INTERNAL_OUTPUT},
+      });
+  while (RE2::FindAndConsume(&query_string, kEventTypePredicateRE,
+                             &event_alias_literal, &state_string_literal,
+                             &operator_literal, &value_literal)) {
+    if (!event_type_mapping.contains(value_literal)) {
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Unsupported event type predicate specified in the query: ",
+          value_literal));
+    }
+
+    std::string query_subtitute;
+    if (operator_literal == "!=") {
+      query_subtitute = absl::Substitute(" (($0.$1 $2 $3) OR ($0.$1 IS NULL)) ",
+                                         event_alias_literal,
+                                         state_string_literal, operator_literal,
+                                         event_type_mapping.at(value_literal));
+    } else {
+      query_subtitute = absl::Substitute(" $0.$1 $2 $3 ", event_alias_literal,
+                                         state_string_literal, operator_literal,
+                                         event_type_mapping.at(value_literal));
+    }
+
+    if (!RE2::GlobalReplace(&rewritten_query, kEventTypePredicateRE,
+                            query_subtitute)) {
+      return absl::InternalError(absl::Substitute(
+          "Query cannot be rewritten successfully for matched type predicate: "
+          "$0.$1 $2 $3",
+          event_alias_literal, state_string_literal, operator_literal,
+          value_literal));
+    }
+  }
+
+  return rewritten_query;
+}
 zetasql_base::StatusOr<std::string> AddArtifactStateAndTransformQuery(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts) {
   MLMD_RETURN_IF_ERROR(analyzer_opts.AddExpressionColumn("state", Int64Type()));
@@ -159,9 +211,9 @@ zetasql_base::StatusOr<std::string> AddAttributesAndTransformQuery(
 // are supported in the filtering query; for context, the attributed artifacts
 // and associated executions can be used.
 template <typename T>
-absl::Status AddNeighborhoodNodes(absl::string_view query_string,
-                                  zetasql::AnalyzerOptions& analyzer_opts,
-                                  zetasql::TypeFactory& type_factory);
+zetasql_base::StatusOr<std::string> AddNeighborhoodNodes(
+    absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts,
+    zetasql::TypeFactory& type_factory);
 
 // Adds the Contexts used in the query to the analyzer as StructType column.
 absl::Status AddContextsImpl(absl::string_view query_string,
@@ -192,11 +244,39 @@ absl::Status AddContextsImpl(absl::string_view query_string,
   return absl::OkStatus();
 }
 
+zetasql_base::StatusOr<std::string> AddEvents(absl::string_view query_string,
+                                      absl::string_view neighbor_node_id,
+                                      zetasql::AnalyzerOptions& analyzer_opts,
+                                      zetasql::TypeFactory& type_factory) {
+  static LazyRE2 event_re = {kEventRE};
+  std::string matched_event;
+  absl::flat_hash_set<std::string> mentioned_events;
+  std::string original_query = std::string(query_string);
+  while (RE2::FindAndConsume(&query_string, *event_re, &matched_event)) {
+    // Each mentioned event is defined only once.
+    if (mentioned_events.contains(matched_event)) {
+      continue;
+    }
+    mentioned_events.insert(matched_event);
+    const zetasql::Type* event_struct_type;
+    MLMD_RETURN_IF_ERROR(type_factory.MakeStructType(
+        {{"type", Int64Type()},
+         {"milliseconds_since_epoch", Int64Type()},
+         {std::string(neighbor_node_id), Int64Type()}},
+        &event_struct_type));
+
+    MLMD_RETURN_IF_ERROR(
+        analyzer_opts.AddExpressionColumn(matched_event, event_struct_type));
+  }
+  return ParseEventTypeAndTransformQuery(original_query);
+}
+
 absl::Status AddContexts(absl::string_view query_string,
                          zetasql::AnalyzerOptions& analyzer_opts,
                          zetasql::TypeFactory& type_factory) {
   return AddContextsImpl(query_string, kContextRE, analyzer_opts, type_factory);
 }
+
 absl::Status AddParentContexts(absl::string_view query_string,
                                zetasql::AnalyzerOptions& analyzer_opts,
                                zetasql::TypeFactory& type_factory) {
@@ -212,32 +292,30 @@ absl::Status AddChildContexts(absl::string_view query_string,
 }
 
 template <>
-absl::Status AddNeighborhoodNodes<Artifact>(
+zetasql_base::StatusOr<std::string> AddNeighborhoodNodes<Artifact>(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts,
     zetasql::TypeFactory& type_factory) {
-  // TODO(b/145945460) Support events for artifacts.
   MLMD_RETURN_IF_ERROR(AddContexts(query_string, analyzer_opts, type_factory));
-  return absl::OkStatus();
+  return AddEvents(query_string, "execution_id", analyzer_opts, type_factory);
 }
 
 template <>
-absl::Status AddNeighborhoodNodes<Execution>(
+zetasql_base::StatusOr<std::string> AddNeighborhoodNodes<Execution>(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts,
     zetasql::TypeFactory& type_factory) {
-  // TODO(b/145945460) Support events for executions.
   MLMD_RETURN_IF_ERROR(AddContexts(query_string, analyzer_opts, type_factory));
-  return absl::OkStatus();
+  return AddEvents(query_string, "artifact_id", analyzer_opts, type_factory);
 }
 
 template <>
-absl::Status AddNeighborhoodNodes<Context>(
+zetasql_base::StatusOr<std::string> AddNeighborhoodNodes<Context>(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts,
     zetasql::TypeFactory& type_factory) {
   MLMD_RETURN_IF_ERROR(
       AddChildContexts(query_string, analyzer_opts, type_factory));
   MLMD_RETURN_IF_ERROR(
       AddParentContexts(query_string, analyzer_opts, type_factory));
-  return absl::OkStatus();
+  return std::string(query_string);
 }
 
 // Adds the (custom)properties used in the query to the analyzer as StructType
@@ -331,8 +409,9 @@ absl::Status FilterQueryAstResolver<T>::Resolve() {
   ZETASQL_ASSIGN_OR_RETURN(
       std::string transformed_query,
       AddAttributesAndTransformQuery<T>(raw_query_, analyzer_opts_));
-  MLMD_RETURN_IF_ERROR(AddNeighborhoodNodes<T>(transformed_query,
-                                               analyzer_opts_, type_factory_));
+  ZETASQL_ASSIGN_OR_RETURN(transformed_query,
+                   (AddNeighborhoodNodes<T>(transformed_query, analyzer_opts_,
+                                            type_factory_)));
   ZETASQL_ASSIGN_OR_RETURN(transformed_query,
                    AddPropertiesAndTransformQuery(
                        transformed_query, analyzer_opts_, type_factory_));

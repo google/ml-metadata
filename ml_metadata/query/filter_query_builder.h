@@ -67,6 +67,9 @@ class FilterQueryBuilder : public zetasql::SQLBuilder {
       absl::string_view base_alias, absl::string_view property_alias,
       absl::string_view property_name);
 
+  static std::string GetEventJoinTable(absl::string_view base_alias,
+                                       absl::string_view event_alias);
+
  protected:
   // Implementation details. API users need not look below.
   //
@@ -110,7 +113,6 @@ class FilterQueryBuilder : public zetasql::SQLBuilder {
       const zetasql::ResolvedExpressionColumn* node) final;
 
  private:
-  // TODO(b/145945460) Support events, and more nodes.
   // For each mentioned expression column, we maintain a mapping of unique
   // table alias, which are used for FROM and WHERE clause query generation.
   enum class AtomType {
@@ -119,7 +121,8 @@ class FilterQueryBuilder : public zetasql::SQLBuilder {
     PROPERTY,
     CUSTOM_PROPERTY,
     PARENT_CONTEXT,
-    CHILD_CONTEXT
+    CHILD_CONTEXT,
+    EVENT
   };
 
   using JoinTableAlias =

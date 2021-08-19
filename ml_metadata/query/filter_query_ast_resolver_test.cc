@@ -120,7 +120,20 @@ constexpr QueryTestCase kInValidTestQueriesWithErrors[] = {
      execution_only},
     {"state = RUNNING", "Unsupported state predicate specified", artifact_only},
     {"last_known_state = LIVE", "Unsupported state predicate specified",
-     execution_only}};
+     execution_only},
+    {"events_0.field_1 = '1'", "Field name field_1 does not exist",
+     exclude_context},
+    {"events", "Unrecognized name", exclude_context},
+    {"events_0.execution_id.", "Unexpected end of expression", exclude_context},
+    {"events_0.type = SOME_ENUM",
+     "Unsupported event type predicate specified in the query: SOME_ENUM",
+     exclude_context},
+    {"events_0.artifact_id = 1", "Field name artifact_id does not exist",
+     artifact_only},
+    {"events_0.execution_id = 1", "Field name execution_id does not exist",
+     execution_only},
+    {"events_0.artifact_id = 1", "Unrecognized name", context_only},
+    {"events_0.execution_id = 1", "Unrecognized name", context_only}};
 
 // A list of valid queries.
 constexpr QueryTestCase kValidTestQueries[] = {
@@ -168,7 +181,8 @@ constexpr QueryTestCase kValidTestQueries[] = {
     {"custom_properties.`0 b`.string_value != '1'", ""},
     {"properties.`0:b`.int_value = 1 AND "
      "properties.foo.double_value = 1 AND "
-     "custom_properties.`0 b`.string_value != '1'", ""},
+     "custom_properties.`0 b`.string_value != '1'",
+     ""},
     // mixed conditions with property and custom properties
     {"properties.0.int_value > 1 OR custom_properties.0.int_value > 1 ", ""},
     // mixed conditions with attributes, context, and properties
@@ -193,6 +207,11 @@ constexpr QueryTestCase kValidTestQueries[] = {
     {"state IS NULL", "", artifact_only},
     {"last_known_state IS NOT NULL", "", execution_only},
     {"state = PENDING AND state = LIVE", "", artifact_only},
+    // event related expressions
+    {"events_0.execution_id = 1", "", artifact_only},
+    {"events_0.artifact_id = 1", "", execution_only},
+    {"events_0.milliseconds_since_epoch = 1", "", exclude_context},
+    {"events_0.type = INPUT", "", exclude_context},
 };
 
 class InValidQueryTest : public ::testing::TestWithParam<QueryTestCase> {

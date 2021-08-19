@@ -784,6 +784,13 @@ message ListOperationOptions {
   //           child_contexts_$alias( $alias can be [0-9A-Za-z_]
   //   attributes: the following attributes can be used
   //      id:int64, name: string, type:string
+  //
+  // - Event (for Artifact and Execution)
+  //   syntax: events_$alias ($alias can be [0-9A-Za-z_])
+  //   attributes: the following attributes can be used
+  //     artifact_id: int64(Execution only), execution_id: int64(Artifact only),
+  //     type: ENUM, milliseconds_since_epoch: int64
+  //
   // Examples:
   // a) to filter nodes attributes:
   //    - id != 1
@@ -833,7 +840,15 @@ message ListOperationOptions {
   //    - child_contexts_a.type = 'RunContext'
   //    - parent_contexts_a.name = 'parent_context_1'
   //
-  // TODO(b/145945460) Support filtering events.
+  // h) to filter Artifacts on Events
+  //    - events_0.execution_id = 1
+  //    - events_0.type = INPUT
+  //    - events_0.milliseconds_since_epoch = 1
+  //    to filter Executions on Events
+  //    - events_0.artifact_id = 1
+  //    - events_0.type = INPUT
+  //    - events_0.milliseconds_since_epoch = 1
+  // TODO(b/145945460) Support filtering on event step fields.
   optional string filter_query = 4;
 }
 

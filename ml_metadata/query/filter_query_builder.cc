@@ -113,6 +113,12 @@ JOIN (
   FROM ContextProperty WHERE name = "$2" AND is_custom_property = $3
 ) AS $1 ON $0.id = $1.context_id )sql";
 
+constexpr absl::string_view kArtifactEventJoinTable = R"sql(
+JOIN Event AS $1 ON $0.id = $1.artifact_id )sql";
+
+constexpr absl::string_view kExecutionEventJoinTable = R"sql(
+JOIN Event AS $1 ON $0.id = $1.execution_id )sql";
+
 // Returns the persisted type kind value given a node template.
 template <typename T>
 int GetTypeKindValue() {
@@ -133,7 +139,20 @@ absl::string_view GetContextJoinTemplate() {
   } else if constexpr (std::is_same<T, Execution>::value) {
     return kContextJoinTableViaAssociation;
   } else if constexpr (std::is_same<T, Context>::value) {
-    LOG(FATAL) << "Context Join does not apply to T = Context.";
+    LOG(ERROR) << "Context Join does not apply to T = Context.";
+    return "";
+  }
+}
+
+template <typename T>
+absl::string_view GetEventJoinTemplate() {
+  if constexpr (std::is_same<T, Artifact>::value) {
+    return kArtifactEventJoinTable;
+  } else if constexpr (std::is_same<T, Execution>::value) {
+    return kExecutionEventJoinTable;
+  } else if constexpr (std::is_same<T, Context>::value) {
+    LOG(ERROR) << "Event Join does not apply to T = Context.";
+    return "";
   }
 }
 
@@ -154,7 +173,6 @@ std::string GetPropertyJoinTableImpl(absl::string_view base_alias,
                             property_alias, property_name, is_custom_property);
   }
 }
-
 }  // namespace
 
 template <typename T>
@@ -214,6 +232,12 @@ std::string FilterQueryBuilder<T>::GetCustomPropertyJoinTable(
 }
 
 template <typename T>
+std::string FilterQueryBuilder<T>::GetEventJoinTable(
+    absl::string_view base_alias, absl::string_view event_alias) {
+  return absl::Substitute(GetEventJoinTemplate<T>(), base_alias, event_alias);
+}
+
+template <typename T>
 FilterQueryBuilder<T>::FilterQueryBuilder() {
   mentioned_alias_[AtomType::ATTRIBUTE].insert(
       {kBaseTableRef, std::string(kBaseTableAlias)});
@@ -268,6 +292,10 @@ std::string FilterQueryBuilder<T>::GetFromClause() {
     absl::StrAppend(&result,
                     GetChildContextJoinTable(base_alias, child_context_alias));
   }
+  for (const auto& event : mentioned_alias_[AtomType::EVENT]) {
+    const std::string& event_alias = event.second;
+    absl::StrAppend(&result, GetEventJoinTable(base_alias, event_alias));
+  }
   return result;
 }
 
@@ -305,12 +333,13 @@ absl::Status FilterQueryBuilder<T>::VisitResolvedExpressionColumn(
     } else if (absl::StartsWith(neighbor_name, "child_contexts_")) {
       PushQueryFragment(node,
                         GetTableAlias(AtomType::CHILD_CONTEXT, neighbor_name));
+    } else if (absl::StartsWith(neighbor_name, "events_")) {
+      PushQueryFragment(node, GetTableAlias(AtomType::EVENT, neighbor_name));
     } else {
-      // TODO(b/145945460) Support Artifact/Execution neighbor events, Context
-      // neighbor artifacts/executions.
+      // TODO(b/145945460) Context neighbor artifacts/executions.
       return absl::UnimplementedError(
-          "events/executions/artifacts are not supported yet in filtering "
-          "predicate.");
+          "context-executions and context-artifacts are not supported yet in"
+          " filtering predicate.");
     }
   } else {
     // For attributes, except the `type` which requires join, in other cases

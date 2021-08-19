@@ -44,6 +44,7 @@ struct QueryTupleTestCase {
     std::vector<PropertyMention> custom_properties;
     std::vector<absl::string_view> parent_contexts;
     std::vector<absl::string_view> child_contexts;
+    std::vector<absl::string_view> events;
   };
   const MentionedNeighbors join_mentions;
   const std::string where_clause;
@@ -94,7 +95,10 @@ struct QueryTupleTestCase {
       from_clause += FilterQueryBuilder<Node>::GetChildContextJoinTable(
           base_alias, child_context_alias);
     }
-
+    for (absl::string_view event_alias : join_mentions.events) {
+      from_clause +=
+          FilterQueryBuilder<Node>::GetEventJoinTable(base_alias, event_alias);
+    }
     return from_clause;
   }
 };
@@ -114,9 +118,10 @@ QueryTupleTestCase::MentionedNeighbors JoinWith(
     std::vector<PropertyMention> properties = {},
     std::vector<PropertyMention> custom_properties = {},
     std::vector<absl::string_view> parent_contexts = {},
-    std::vector<absl::string_view> child_contexts = {}) {
-  return {types, contexts, properties, custom_properties,
-          parent_contexts, child_contexts};
+    std::vector<absl::string_view> child_contexts = {},
+    std::vector<absl::string_view> events = {}) {
+  return {types,           contexts,       properties, custom_properties,
+          parent_contexts, child_contexts, events};
 }
 
 QueryTupleTestCase::MentionedNeighbors JoinWithType(
@@ -159,6 +164,13 @@ QueryTupleTestCase::MentionedNeighbors JoinWithChildContexts(
   return JoinWith(/*types=*/{}, /*contexts=*/{}, /*properties=*/{},
                   /*custom_properties=*/{}, /*parent_contexts=*/{},
                   child_context_table_alias);
+}
+
+QueryTupleTestCase::MentionedNeighbors JoinWithEvents(
+    std::vector<absl::string_view> events_alias) {
+  return JoinWith(/*types=*/{}, /*contexts=*/{}, /*properties=*/{},
+                  /*custom_properties=*/{}, /*parent_contexts=*/{},
+                  /*child_contexts=*/{}, events_alias);
 }
 
 std::vector<QueryTupleTestCase> GetTestQueryTuples() {
@@ -347,7 +359,14 @@ std::vector<QueryTupleTestCase> GetTestQueryTuples() {
        "(\"parent_context_type\"))) AND (((table_5.name) = (\"pipeline_run\")) "
        "AND ((table_5.type) = (\"runs\")))",
        context_only},
-  };
+      {"events_0.execution_id = 1", JoinWithEvents({"table_1"}),
+       "(table_1.execution_id) = 1", artifact_only},
+      {"events_0.type = INPUT", JoinWithEvents({"table_1"}),
+       "(table_1.type) = 3", exclude_context},
+      {"uri = 'http://some_path' AND events_0.type = INPUT",
+       JoinWithEvents({"table_1"}),
+       "((table_0.uri) = (\"http://some_path\")) AND ((table_1.type) = 3)",
+       artifact_only}};
 }
 
 class SQLGenerationTest : public ::testing::TestWithParam<QueryTupleTestCase> {

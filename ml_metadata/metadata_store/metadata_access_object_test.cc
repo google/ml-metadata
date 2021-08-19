@@ -258,7 +258,7 @@ void CreateEventFromTextProto(const std::string& event_text_proto,
                               const Execution& execution,
                               MetadataAccessObject& metadata_access_object,
                               Event& output_event) {
-  output_event = ParseTextProtoOrDie<Event>("type: INPUT");
+  output_event = ParseTextProtoOrDie<Event>(event_text_proto);
   output_event.set_artifact_id(artifact.id());
   output_event.set_execution_id(execution.id());
   int64 dummy_id;
@@ -1808,6 +1808,106 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsFilterAttributeQuery) {
       filter_query: "uri LIKE 'uri_%' and type = '$0' and name = 'artifact_0'"
     )", type.name()), *metadata_access_object_,
       /*want_nodes=*/{want_artifacts[0]});
+}
+
+TEST_P(MetadataAccessObjectTest, ListNodesFilterEventQuery) {
+  if (!metadata_access_object_container_->HasFilterQuerySupport()) {
+    return;
+  }
+  ASSERT_EQ(absl::OkStatus(), Init());
+  const ArtifactType artifact_type = CreateTypeFromTextProto<ArtifactType>(
+      "name: 'at1'", *metadata_access_object_);
+  std::vector<Artifact> want_artifacts(3);
+  for (int i = 0; i < 3; i++) {
+    absl::SleepFor(absl::Milliseconds(1));
+    CreateNodeFromTextProto(absl::Substitute(R"(
+      uri: 'uri_$0',
+      name: 'artifact_$0')",
+                                             i),
+                            artifact_type.id(), *metadata_access_object_,
+                            want_artifacts[i]);
+  }
+
+  const ExecutionType execution_type = CreateTypeFromTextProto<ExecutionType>(
+      "name: 'et1'", *metadata_access_object_);
+  Execution want_execution;
+  CreateNodeFromTextProto(R"(
+      name: 'execution_0')",
+                          execution_type.id(), *metadata_access_object_,
+                          want_execution);
+
+  // Test Setup: a0 -INPUT-> e0 -OUTPUT-> a1
+  std::vector<Event> want_events(3);
+  CreateEventFromTextProto("type: INPUT", want_artifacts[0], want_execution,
+                           *metadata_access_object_, want_events[0]);
+  CreateEventFromTextProto("type: OUTPUT", want_artifacts[1], want_execution,
+                           *metadata_access_object_, want_events[1]);
+  CreateEventFromTextProto(R"(
+      type: OUTPUT,
+      milliseconds_since_epoch: 1)",
+                           want_artifacts[2], want_execution,
+                           *metadata_access_object_, want_events[2]);
+
+  VerifyListOptions<Artifact>(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "events_0.type = INPUT"
+    )",
+                              *metadata_access_object_,
+                              /*want_nodes=*/{want_artifacts[0]});
+
+  VerifyListOptions<Artifact>(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "uri = 'uri_0' AND events_0.type = INPUT"
+    )",
+                              *metadata_access_object_,
+                              /*want_nodes=*/{want_artifacts[0]});
+
+  VerifyListOptions<Artifact>(absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "uri = 'uri_0' AND events_0.execution_id = $0"
+    )",
+                                               want_execution.id()),
+                              *metadata_access_object_,
+                              /*want_nodes=*/{want_artifacts[0]});
+
+  VerifyListOptions<Artifact>(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query:
+        "events_0.type = OUTPUT AND events_0.milliseconds_since_epoch = 1"
+    )",
+                              *metadata_access_object_,
+                              /*want_nodes=*/{want_artifacts[2]});
+
+  VerifyListOptions<Execution>(absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "events_0.artifact_id = $0"
+    )",
+                                                want_artifacts[0].id()),
+                               *metadata_access_object_,
+                               /*want_nodes=*/{want_execution});
+
+  VerifyListOptions<Execution>(absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "events_0.artifact_id = $0 AND events_0.type = OUTPUT"
+    )",
+                                                want_artifacts[0].id()),
+                               *metadata_access_object_,
+                               /*want_nodes=*/{});
+
+  VerifyListOptions<Execution>(absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "events_0.artifact_id = $0 AND events_0.type = OUTPUT"
+    )",
+                                                want_artifacts[1].id()),
+                               *metadata_access_object_,
+                               /*want_nodes=*/{want_execution});
 }
 
 TEST_P(MetadataAccessObjectTest, ListExecutionsFilterAttributeQuery) {
