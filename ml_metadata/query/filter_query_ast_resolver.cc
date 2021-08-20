@@ -18,6 +18,7 @@ limitations under the License.
 #include "zetasql/public/simple_catalog.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_replace.h"
 #include "absl/strings/substitute.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/util/return_utils.h"
@@ -44,22 +45,24 @@ constexpr char kArtifactStatePredicateRE[] =
 constexpr char kExecutionStatePredicateRE[] =
     "\\b(last_known_state)[[:space:]]*(=|!=)[[:space:]]*([[:word:]]+)\\b";
 constexpr char kEventTypePredicateRE[] =
-    "\\b(events_[[:word:]]+)\\.(type)[[:space:]]*(=|!=)[[:"
-    "space:]]*([[:word:]]+)\\b";
+    "\\b(events_[[:word:]]+\\.type)[[:space:]]*(=|!=)[[:space:]]*([[:word:]]+)"
+    "\\b";
 
-// Parses query for state predicates e.g. state = LIVE and re-writes the query
-// into form state = <int> based on the `state_value_mapping` provided by the
-// caller. The `state_regex` provides the expected state predicate in the query.
-zetasql_base::StatusOr<std::string> ParseStatePredicateAndTransformQuery(
-    absl::string_view query_string, absl::string_view state_regex,
-    const absl::flat_hash_map<std::string, int>& state_value_mapping) {
+// Parses query for enum predicates e.g. state = LIVE and re-writes the query
+// into form state = <int> based on the `enum_value_mapping` provided by the
+// caller. The `enum_predicate_regex` provides the expected state predicate in
+// the query.
+zetasql_base::StatusOr<std::string> ParseEnumPredicateAndTransformQuery(
+    absl::string_view query_string, absl::string_view enum_predicate_regex,
+    const absl::flat_hash_map<std::string, int>& enum_value_mapping) {
   std::string rewritten_query = std::string(query_string);
   std::string state_string_literal, operator_literal, value_literal;
-  while (RE2::FindAndConsume(&query_string, state_regex, &state_string_literal,
-                             &operator_literal, &value_literal)) {
-    if (!state_value_mapping.contains(value_literal)) {
+  while (RE2::FindAndConsume(&query_string, enum_predicate_regex,
+                             &state_string_literal, &operator_literal,
+                             &value_literal)) {
+    if (!enum_value_mapping.contains(value_literal)) {
       return absl::InvalidArgumentError(
-          absl::StrCat("Unsupported state predicate specified in the query: ",
+          absl::StrCat("Unsupported enum value specified in the query: ",
                        value_literal));
     }
 
@@ -67,16 +70,17 @@ zetasql_base::StatusOr<std::string> ParseStatePredicateAndTransformQuery(
     if (operator_literal == "!=") {
       query_subtitute = absl::Substitute(" (($0 $1 $2) OR ($0 IS NULL)) ",
                                          state_string_literal, operator_literal,
-                                         state_value_mapping.at(value_literal));
+                                         enum_value_mapping.at(value_literal));
     } else {
       query_subtitute =
           absl::Substitute(" $0 $1 $2 ", state_string_literal, operator_literal,
-                           state_value_mapping.at(value_literal));
+                           enum_value_mapping.at(value_literal));
     }
-
-    if (!RE2::GlobalReplace(&rewritten_query, state_regex, query_subtitute)) {
+    const std::string replace_regex = absl::StrReplaceAll(
+        enum_predicate_regex, {{"([[:word:]]+)", value_literal}});
+    if (!RE2::GlobalReplace(&rewritten_query, replace_regex, query_subtitute)) {
       return absl::InternalError(absl::Substitute(
-          "Query cannot be rewritten successfully for matched state predicate: "
+          "Query cannot be rewritten successfully for matched enum predicate: "
           "$0 $1 $2",
           state_string_literal, operator_literal, value_literal));
     }
@@ -85,53 +89,6 @@ zetasql_base::StatusOr<std::string> ParseStatePredicateAndTransformQuery(
   return rewritten_query;
 }
 
-zetasql_base::StatusOr<std::string> ParseEventTypeAndTransformQuery(
-    absl::string_view query_string) {
-  std::string rewritten_query = std::string(query_string);
-  std::string event_alias_literal, state_string_literal, operator_literal,
-      value_literal;
-  static const auto& event_type_mapping =
-      *new absl::flat_hash_map<std::string, int>({
-          {Event::Type_Name(Event::INPUT), Event::INPUT},
-          {Event::Type_Name(Event::OUTPUT), Event::OUTPUT},
-          {Event::Type_Name(Event::DECLARED_INPUT), Event::DECLARED_INPUT},
-          {Event::Type_Name(Event::DECLARED_OUTPUT), Event::DECLARED_OUTPUT},
-          {Event::Type_Name(Event::INTERNAL_INPUT), Event::INTERNAL_INPUT},
-          {Event::Type_Name(Event::INTERNAL_OUTPUT), Event::INTERNAL_OUTPUT},
-      });
-  while (RE2::FindAndConsume(&query_string, kEventTypePredicateRE,
-                             &event_alias_literal, &state_string_literal,
-                             &operator_literal, &value_literal)) {
-    if (!event_type_mapping.contains(value_literal)) {
-      return absl::InvalidArgumentError(absl::StrCat(
-          "Unsupported event type predicate specified in the query: ",
-          value_literal));
-    }
-
-    std::string query_subtitute;
-    if (operator_literal == "!=") {
-      query_subtitute = absl::Substitute(" (($0.$1 $2 $3) OR ($0.$1 IS NULL)) ",
-                                         event_alias_literal,
-                                         state_string_literal, operator_literal,
-                                         event_type_mapping.at(value_literal));
-    } else {
-      query_subtitute = absl::Substitute(" $0.$1 $2 $3 ", event_alias_literal,
-                                         state_string_literal, operator_literal,
-                                         event_type_mapping.at(value_literal));
-    }
-
-    if (!RE2::GlobalReplace(&rewritten_query, kEventTypePredicateRE,
-                            query_subtitute)) {
-      return absl::InternalError(absl::Substitute(
-          "Query cannot be rewritten successfully for matched type predicate: "
-          "$0.$1 $2 $3",
-          event_alias_literal, state_string_literal, operator_literal,
-          value_literal));
-    }
-  }
-
-  return rewritten_query;
-}
 zetasql_base::StatusOr<std::string> AddArtifactStateAndTransformQuery(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts) {
   MLMD_RETURN_IF_ERROR(analyzer_opts.AddExpressionColumn("state", Int64Type()));
@@ -144,7 +101,7 @@ zetasql_base::StatusOr<std::string> AddArtifactStateAndTransformQuery(
             Artifact::MARKED_FOR_DELETION},
            {Artifact::State_Name(Artifact::DELETED), Artifact::DELETED}});
 
-  return ParseStatePredicateAndTransformQuery(
+  return ParseEnumPredicateAndTransformQuery(
       query_string, kArtifactStatePredicateRE, state_value_mapping);
 }
 
@@ -162,7 +119,7 @@ zetasql_base::StatusOr<std::string> AddExecutionLastKnownStateAndTransformQuery(
            {Execution::State_Name(Execution::CACHED), Execution::CACHED},
            {Execution::State_Name(Execution::CANCELED), Execution::CANCELED}});
 
-  return ParseStatePredicateAndTransformQuery(
+  return ParseEnumPredicateAndTransformQuery(
       query_string, kExecutionStatePredicateRE, state_value_mapping);
 }
 
@@ -268,7 +225,19 @@ zetasql_base::StatusOr<std::string> AddEvents(absl::string_view query_string,
     MLMD_RETURN_IF_ERROR(
         analyzer_opts.AddExpressionColumn(matched_event, event_struct_type));
   }
-  return ParseEventTypeAndTransformQuery(original_query);
+
+  static const auto& event_type_mapping =
+      *new absl::flat_hash_map<std::string, int>({
+          {Event::Type_Name(Event::INPUT), Event::INPUT},
+          {Event::Type_Name(Event::OUTPUT), Event::OUTPUT},
+          {Event::Type_Name(Event::DECLARED_INPUT), Event::DECLARED_INPUT},
+          {Event::Type_Name(Event::DECLARED_OUTPUT), Event::DECLARED_OUTPUT},
+          {Event::Type_Name(Event::INTERNAL_INPUT), Event::INTERNAL_INPUT},
+          {Event::Type_Name(Event::INTERNAL_OUTPUT), Event::INTERNAL_OUTPUT},
+      });
+
+  return ParseEnumPredicateAndTransformQuery(
+      original_query, kEventTypePredicateRE, event_type_mapping);
 }
 
 absl::Status AddContexts(absl::string_view query_string,

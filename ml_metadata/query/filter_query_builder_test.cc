@@ -104,6 +104,7 @@ struct QueryTupleTestCase {
 };
 
 constexpr QueryTupleTestCase::TestOnNodes artifact_only = {true, false, false};
+constexpr QueryTupleTestCase::TestOnNodes execution_only = {false, true, false};
 constexpr QueryTupleTestCase::TestOnNodes exclude_context = {true, true, false};
 constexpr QueryTupleTestCase::TestOnNodes context_only = {false, false, true};
 
@@ -182,6 +183,12 @@ std::vector<QueryTupleTestCase> GetTestQueryTuples() {
       // artifact-only attributes
       {"uri like 'abc'", NoJoin(), "(table_0.uri) LIKE (\"abc\")",
        artifact_only},
+      {"state = LIVE AND state = DELETED", NoJoin(),
+       "((table_0.state) = 2) AND ((table_0.state) = 4)", artifact_only},
+      // execution-only attributes
+      {"last_known_state = NEW OR last_known_state = COMPLETE", NoJoin(),
+       "((table_0.last_known_state) = 1) OR ((table_0.last_known_state) = 3)",
+       execution_only},
       // mention context (the neighbor only applies to artifact/execution)
       {"contexts_0.id = 1", JoinWithContexts({"table_1"}), "(table_1.id) = 1",
        exclude_context},
@@ -363,6 +370,9 @@ std::vector<QueryTupleTestCase> GetTestQueryTuples() {
        "(table_1.execution_id) = 1", artifact_only},
       {"events_0.type = INPUT", JoinWithEvents({"table_1"}),
        "(table_1.type) = 3", exclude_context},
+      {"events_0.type = INPUT OR events_0.type = OUTPUT",
+       JoinWithEvents({"table_1"}),
+       "((table_1.type) = 3) OR ((table_1.type) = 4)", exclude_context},
       {"uri = 'http://some_path' AND events_0.type = INPUT",
        JoinWithEvents({"table_1"}),
        "((table_0.uri) = (\"http://some_path\")) AND ((table_1.type) = 3)",
