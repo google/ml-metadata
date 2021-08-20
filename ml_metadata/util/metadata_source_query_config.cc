@@ -1748,6 +1748,11 @@ R"pb(
            " LOCK IN SHARE MODE; "
     parameter_num: 1
   }
+  select_parent_type_by_type_id {
+    query: " SELECT `type_id`, `parent_type_id` "
+           " FROM `ParentType` WHERE `type_id` = $0 LOCK IN SHARE MODE; "
+    parameter_num: 1
+  }
   create_type_table {
     query: " CREATE TABLE IF NOT EXISTS `Type` ( "
            "   `id` INT PRIMARY KEY AUTO_INCREMENT, "

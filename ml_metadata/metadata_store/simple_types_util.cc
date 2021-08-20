@@ -43,7 +43,7 @@ absl::Status GetSystemTypeEnum(const SystemTypeExtension& extension,
       *new absl::flat_hash_map<std::string,
                                ArtifactType::SystemDefinedBaseType>(
           {{"unset_artifact_type", ArtifactType::UNSET},
-           {"mlmd.DataSet", ArtifactType::DATASET},
+           {"mlmd.Dataset", ArtifactType::DATASET},
            {"mlmd.Model", ArtifactType::MODEL},
            {"mlmd.Metrics", ArtifactType::METRICS},
            {"mlmd.Statistics", ArtifactType::STATISTICS}});

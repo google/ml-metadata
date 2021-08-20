@@ -131,8 +131,6 @@ absl::Status UpsertTypeInheritanceLink(
   if (IsUnsetBaseType(extension)) {
     return absl::UnimplementedError("base_type deletion is not supported yet");
   }
-
-  // TODO(b/195079959): use a read lock for FindParentTypesByTypeId query
   std::vector<T> output_parent_types;
   MLMD_RETURN_IF_ERROR(metadata_access_object->FindParentTypesByTypeId(
       type_id, output_parent_types));

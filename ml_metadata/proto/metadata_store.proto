@@ -110,7 +110,7 @@ message ArtifactType {
   // An enum of system-defined artifact types.
   enum SystemDefinedBaseType {
     UNSET = 0 [(system_type_extension).type_name = 'unset_artifact_type'];
-    DATASET = 1 [(system_type_extension).type_name = 'mlmd.DataSet'];
+    DATASET = 1 [(system_type_extension).type_name = 'mlmd.Dataset'];
     MODEL = 2 [(system_type_extension).type_name = 'mlmd.Model'];
     METRICS = 3 [(system_type_extension).type_name = 'mlmd.Metrics'];
     STATISTICS = 4 [(system_type_extension).type_name = 'mlmd.Statistics'];

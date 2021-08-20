@@ -21,26 +21,17 @@ limitations under the License.
 namespace ml_metadata {
 
 // LINT.IfChange
-const absl::string_view kSimpleTypes =
-    R"pb(
+const absl::string_view kSimpleTypes = R"pb(
   artifact_types { name: "mlmd.Dataset" }
-
   artifact_types { name: "mlmd.Model" }
-
   artifact_types { name: "mlmd.Metrics" }
-
   artifact_types { name: "mlmd.Statistics" }
-
   execution_types { name: "mlmd.Train" }
-
   execution_types { name: "mlmd.Transform" }
-
   execution_types { name: "mlmd.Process" }
-
   execution_types { name: "mlmd.Evaluate" }
-
   execution_types { name: "mlmd.Deploy" }
-    )pb";
+)pb";
 // LINT.ThenChange(../proto/metadata_store.proto,
 //                 ../metadata_store/simple_types_util.cc)
 
