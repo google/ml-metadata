@@ -15,4 +15,4 @@
 """Contains the version string of ML Metadata."""
 
 # Note that setup.py uses this version.
-__version__ = '1.4.0.dev'
+__version__ = '1.3.0'
