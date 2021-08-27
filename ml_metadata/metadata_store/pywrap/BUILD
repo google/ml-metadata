@@ -33,6 +33,8 @@ ml_metadata_pybind_extension(
         "@com_google_absl//absl/status",
         "//ml_metadata/metadata_store:metadata_store_factory",
         "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/simple_types/proto:simple_types_proto",
+        "//ml_metadata/metadata_store:simple_types_util",
         "@pybind11",
     ],
 )

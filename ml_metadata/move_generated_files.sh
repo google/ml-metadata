@@ -45,6 +45,8 @@ function mlmd::move_generated_files() {
     ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
   cp -f ${BUILD_WORKSPACE_DIRECTORY}/${bazel_genfiles}/ml_metadata/proto/metadata_store_service_pb2_grpc.py \
     ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/proto
+  cp -f ${BUILD_WORKSPACE_DIRECTORY}/${bazel_genfiles}/ml_metadata/simple_types/proto/simple_types_pb2.py \
+    ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/simple_types/proto
 
   if _is_windows; then
     MLMD_EXTENSION="ml_metadata/metadata_store/pywrap/metadata_store_extension.pyd"

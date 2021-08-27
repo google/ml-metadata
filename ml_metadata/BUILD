@@ -17,6 +17,7 @@ config_setting(
 )
 
 _public_protos = [
+    "//ml_metadata/simple_types/proto:simple_types_pb2.py",
     "//ml_metadata/proto:metadata_store_pb2.py",
     "//ml_metadata/proto:metadata_store_service_pb2.py",
     "//ml_metadata/proto:metadata_store_service_pb2_grpc.py",
@@ -30,7 +31,6 @@ _py_extension = select({
         "//ml_metadata/metadata_store/pywrap:metadata_store_extension.so",
     ],
 })
-
 
 sh_binary(
     name = "move_generated_files",

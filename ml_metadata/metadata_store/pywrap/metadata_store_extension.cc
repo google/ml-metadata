@@ -17,7 +17,9 @@ limitations under the License.
 
 #include "absl/status/status.h"
 #include "ml_metadata/metadata_store/metadata_store_factory.h"
+#include "ml_metadata/metadata_store/simple_types_util.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
+#include "ml_metadata/simple_types/proto/simple_types.pb.h"
 #include "include/pybind11/pybind11.h"
 
 namespace {
@@ -43,6 +45,22 @@ std::unique_ptr<ml_metadata::MetadataStore> CreateMetadataStore(
     throw std::runtime_error(std::string(creation_status.message()));
   }
   return metadata_store;
+}
+
+// Loads simple types from
+// third_party/ml_metadata/simple_types/simple_types_constants.cc into a
+// serialized SimpleTypes proto.
+//
+// The returned tupe consists of the serialized proto, a strong-typed error with
+// error message and the canonical error code.
+py::tuple LoadSimpleTypes() {
+  ml_metadata::SimpleTypes simple_types;
+  absl::Status status = ml_metadata::LoadSimpleTypes(simple_types);
+  std::string simple_types_serialized;
+  simple_types.SerializeToString(&simple_types_serialized);
+  return py::make_tuple(py::bytes(simple_types_serialized),
+                        py::bytes(std::string(status.message())),
+                        py::int_((int)status.code()));
 }
 
 // A MetadataStore method returns a tuple to the python metadata_store.py.
@@ -92,6 +110,7 @@ PYBIND11_MODULE(metadata_store_extension, main_module) {
   m.doc() = "MLMD MetadataStore API pybind11 extension module.";
   py::class_<ml_metadata::MetadataStore>(m, "MetadataStore");
   m.def("CreateMetadataStore", &CreateMetadataStore, "Create MetadataStore.");
+  m.def("LoadSimpleTypes", &LoadSimpleTypes, "Load MLMD Simple Types.");
   METADATA_STORE_METHOD_PYBIND11_DECLARE(PutArtifactType)
   METADATA_STORE_METHOD_PYBIND11_DECLARE(PutArtifacts)
   METADATA_STORE_METHOD_PYBIND11_DECLARE(PutExecutions)
