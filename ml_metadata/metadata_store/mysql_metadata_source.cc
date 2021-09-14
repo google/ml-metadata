@@ -24,6 +24,7 @@ limitations under the License.
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
+#include "absl/strings/string_view.h"
 #include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
@@ -39,6 +40,9 @@ using absl::Status;
 constexpr char kBeginTransaction[] = "START TRANSACTION";
 constexpr char kCommitTransaction[] = "COMMIT";
 constexpr char kRollbackTransaction[] = "ROLLBACK";
+
+// url key used for storing ustom error information in the absl::Status payload.
+constexpr char kStatusErrorInfoUrl[] = "mysql-error-info";
 
 // A class that invokes mysql_thread_init() when constructed, and
 // mysql_thread_end() when destructed.  It can be used as a
@@ -97,6 +101,21 @@ Status CheckConfig(const MySQLDatabaseConfig& config) {
   return absl::OkStatus();
 }
 
+// Builds absl::Status for the `status_code` and attaches `mysql_error_code`
+// to the payload of the status object.
+absl::Status BuildErrorStatus(const absl::StatusCode status_code,
+                              const absl::string_view error_message,
+                              const int64 mysql_error_code,
+                              const absl::string_view mysql_error_message) {
+  auto error_status = absl::Status(
+      status_code, absl::StrCat(error_message, ": errno: ", mysql_error_message,
+                                ", error: ", mysql_error_message));
+  MySQLSourceErrorInfo error_info;
+  error_info.set_mysql_error_code(mysql_error_code);
+  error_status.SetPayload(kStatusErrorInfoUrl,
+                          absl::Cord(error_info.SerializeAsString()));
+  return error_status;
+}
 }  // namespace
 
 MySqlMetadataSource::MySqlMetadataSource(const MySQLDatabaseConfig& config)
@@ -115,9 +134,8 @@ Status MySqlMetadataSource::ConnectImpl() {
   if (!db_) {
     LOG(ERROR) << "MySQL error: " << mysql_errno(db_) << ": "
                << mysql_error(db_);
-    return absl::InternalError(
-        absl::StrCat("mysql_init failed: errno: ", mysql_errno(db_),
-                     ", error: ", mysql_error(db_)));
+    return BuildErrorStatus(absl::StatusCode::kInternal, "mysql_init failed",
+                            mysql_errno(db_), mysql_error(db_));
   }
 
   // Explicitly setup the thread-local initializer.
@@ -148,9 +166,9 @@ Status MySqlMetadataSource::ConnectImpl() {
           /*clientflag=*/0UL);
 
   if (!db_) {
-    return absl::InternalError(
-        absl::StrCat("mysql_real_connect failed: errno: ", mysql_errno(db_),
-                     ", error: ", mysql_error(db_)));
+    return BuildErrorStatus(absl::StatusCode::kInternal,
+                            "mysql_real_connect failed", mysql_errno(db_),
+                            mysql_error(db_));
   }
 
   // Return an error if the default storage engine doesn't support transactions.
@@ -265,16 +283,17 @@ Status MySqlMetadataSource::RunQuery(const std::string& query) {
 
       return RunQuery(query);
     }
-    // 1213: inno db aborts deadlock when running concurrent transactions.
+    // When running concurrent transactions for error codes:
+    // 1213: Deadlock detection on wait lock.
+    // 1205: Lock wait timeout.
     // returns Aborted for client side to retry.
     if (error_number == 1213 || error_number == 1205) {
-      return absl::AbortedError(
-          absl::StrCat("mysql_query aborted: errno: ", error_number,
-                       ", error: ", mysql_error(db_)));
+      return BuildErrorStatus(absl::StatusCode::kAborted, "mysql_query aborted",
+                              error_number, mysql_error(db_));
     }
-    return absl::InternalError(
-        absl::StrCat("mysql_query failed: errno: ", error_number,
-                     ", error: ", mysql_error(db_)));
+
+    return BuildErrorStatus(absl::StatusCode::kInternal, "mysql_query failed",
+                            error_number, mysql_error(db_));
   }
   // Updated database_name_ if the incoming query was "USE <database>" query and
   // run successfully.
@@ -282,10 +301,11 @@ Status MySqlMetadataSource::RunQuery(const std::string& query) {
 
   result_set_ = mysql_store_result(db_);
   if (!result_set_ && mysql_field_count(db_) != 0) {
-    return absl::InternalError(absl::StrCat(
-        "mysql_query ", query,
-        " returned an unexpected NULL result_set: Errno: ", mysql_errno(db_),
-        ", Error: ", mysql_error(db_)));
+    return BuildErrorStatus(
+        absl::StatusCode::kInternal,
+        absl::StrCat("mysql_query ", query,
+                     "returned an unexpected NULL result_set"),
+        mysql_errno(db_), mysql_error(db_));
   }
 
   return absl::OkStatus();

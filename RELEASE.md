@@ -2,6 +2,10 @@
 
 ## Major Features and Improvements
 
+*   Introduce MySQLSourceErrorInfo message to metadata_source proto to support
+    adding additional error information. MySQL implementation adds MySQL error
+    numbers as part MySQLSourceErrorInfo payload message.
+
 ## Bug Fixes and Other Changes
 
 ## Breaking Changes

@@ -652,3 +652,11 @@ message MetadataSourceQueryConfig {
   // $1 is the parent_type_id
   TemplateQuery delete_parent_type = 127;
 }
+
+// A payload that can be optionally attached to absl::Status messages to
+// indicate failure specific information like error codes for MySQL based
+// backends.
+message MySQLSourceErrorInfo {
+  // Error code for the error.
+  int64 mysql_error_code = 1;
+}
