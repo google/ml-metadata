@@ -22,6 +22,7 @@ limitations under the License.
 #include <gtest/gtest.h>
 #include "absl/algorithm/container.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
@@ -3857,6 +3858,72 @@ TEST_P(MetadataStoreTestSuite, PutParentContextsAndGetLinkedContextByContext) {
                                        "last_update_time_since_epoch"}),
                                    want_children[i]));
   }
+}
+
+TEST_P(MetadataStoreTestSuite,
+       PutTypesAndContextsGetContextsThroughTypeWithOptions) {
+  const int kNumNodes = 110;
+  std::vector<Context> nodes(kNumNodes);
+  ContextType context_type;
+  context_type.set_name("test_type");
+  InsertTypeAndSetTypeID(metadata_store_, context_type);
+  Context context;
+  context.set_type_id(context_type.id());
+  for (int i = 0; i < kNumNodes; ++i) {
+    context.set_name(absl::StrFormat("name_%d", i));
+    nodes[i] = context;
+  }
+  InsertNodeAndSetNodeID(metadata_store_, nodes);
+
+  auto call_get_contexts_by_type =
+      [this](GetContextsByTypeRequest get_nodes_request,
+             absl::Span<Context> want_contexts,
+             GetContextsByTypeResponse& get_nodes_response) {
+        ASSERT_EQ(absl::OkStatus(),
+                  metadata_store_->GetContextsByType(get_nodes_request,
+                                                     &get_nodes_response));
+        ASSERT_EQ(want_contexts.size(), get_nodes_response.contexts_size());
+        EXPECT_THAT(get_nodes_response.contexts(),
+                    UnorderedPointwise(EqualsProto<Context>(/*ignore_fields=*/{
+                                           "create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+                                       want_contexts));
+      };
+
+  GetContextsByTypeRequest get_nodes_request;
+  get_nodes_request.set_type_name("test_type");
+  GetContextsByTypeResponse get_nodes_response;
+
+  // Fetches the node according through the types.
+  // Test: lists the nodes without options, expecting all nodes are
+  // returned.
+  call_get_contexts_by_type(get_nodes_request, absl::MakeSpan(nodes),
+                            get_nodes_response);
+  EXPECT_TRUE(get_nodes_response.next_page_token().empty());
+
+  // Test: list the nodes with options.max_result_size >= 101
+  // nodes, expect top 101 nodes are returned.
+  get_nodes_request.mutable_options()->Clear();
+  get_nodes_request.mutable_options()->set_max_result_size(102);
+  call_get_contexts_by_type(
+      get_nodes_request, absl::MakeSpan(nodes.data(), 101), get_nodes_response);
+  EXPECT_TRUE(get_nodes_response.next_page_token().empty());
+
+  // Test: list the nodes with options.max_result_size < 101.
+  get_nodes_request.mutable_options()->Clear();
+  get_nodes_request.mutable_options()->set_max_result_size(100);
+  call_get_contexts_by_type(
+      get_nodes_request, absl::MakeSpan(nodes.data(), 100), get_nodes_response);
+  EXPECT_FALSE(get_nodes_response.next_page_token().empty());
+
+  // Test: lists the nodes with next page token.
+  get_nodes_request.mutable_options()->Clear();
+  get_nodes_request.mutable_options()->set_next_page_token(
+      get_nodes_response.next_page_token());
+  call_get_contexts_by_type(get_nodes_request,
+                            absl::MakeSpan(nodes.data() + 100, 10),
+                            get_nodes_response);
+  EXPECT_TRUE(get_nodes_response.next_page_token().empty());
 }
 
 }  // namespace
