@@ -257,7 +257,8 @@ class MetadataAccessObject {
   // Returns NOT_FOUND error, if the given artifact_type_id cannot be found.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status FindArtifactsByTypeId(
-      int64 artifact_type_id, std::vector<Artifact>* artifacts) = 0;
+      int64 artifact_type_id, absl::optional<ListOperationOptions> list_options,
+      std::vector<Artifact>* artifacts, std::string* next_page_token) = 0;
 
   // Queries artifacts by a given uri with exact match.
   // Returns NOT_FOUND error, if the given uri cannot be found.
@@ -311,7 +312,9 @@ class MetadataAccessObject {
   // Returns NOT_FOUND error, if the given execution_type_id cannot be found.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status FindExecutionsByTypeId(
-      int64 execution_type_id, std::vector<Execution>* executions) = 0;
+      int64 execution_type_id,
+      absl::optional<ListOperationOptions> list_options,
+      std::vector<Execution>* executions, std::string* next_page_token) = 0;
 
   // Updates an execution.
   // Returns INVALID_ARGUMENT error, if the id field is not given.

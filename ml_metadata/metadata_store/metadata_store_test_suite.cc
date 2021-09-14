@@ -1099,6 +1099,72 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndArtifactsGetArtifactsThroughType) {
       nodes[0].name(), {});
 }
 
+TEST_P(MetadataStoreTestSuite,
+       PutTypesAndArtifactsGetArtifactsThroughTypeWithOptions) {
+  const int kNumNodes = 110;
+  std::vector<Artifact> nodes(kNumNodes);
+  ArtifactType artifact_type;
+  artifact_type.set_name("test_type");
+  InsertTypeAndSetTypeID(metadata_store_, artifact_type);
+  Artifact artifact;
+  artifact.set_type_id(artifact_type.id());
+  for (int i = 0; i < kNumNodes; ++i) {
+    nodes[i] = artifact;
+  }
+  InsertNodeAndSetNodeID(metadata_store_, nodes);
+
+  auto call_get_artifacts_by_type =
+      [this](GetArtifactsByTypeRequest get_nodes_request,
+             absl::Span<Artifact> want_artifacts,
+             GetArtifactsByTypeResponse& get_nodes_response) {
+        ASSERT_EQ(absl::OkStatus(),
+                  metadata_store_->GetArtifactsByType(get_nodes_request,
+                                                      &get_nodes_response));
+        ASSERT_EQ(want_artifacts.size(), get_nodes_response.artifacts_size());
+        EXPECT_THAT(get_nodes_response.artifacts(),
+                    UnorderedPointwise(EqualsProto<Artifact>(/*ignore_fields=*/{
+                                           "uri", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+                                       want_artifacts));
+      };
+
+  GetArtifactsByTypeRequest get_nodes_request;
+  get_nodes_request.set_type_name("test_type");
+  GetArtifactsByTypeResponse get_nodes_response;
+
+  // Fetches the node according through the types.
+  // Test: lists the nodes without options, expecting all nodes are
+  // returned.
+  call_get_artifacts_by_type(get_nodes_request, absl::MakeSpan(nodes),
+                             get_nodes_response);
+  EXPECT_TRUE(get_nodes_response.next_page_token().empty());
+
+  // Test: list the nodes with options.max_result_size >= 101
+  // nodes, expect top 101 nodes are returned.
+  // TODO(b/197879364): Consider a better solution for boundary cases.
+  get_nodes_request.mutable_options()->Clear();
+  get_nodes_request.mutable_options()->set_max_result_size(102);
+  call_get_artifacts_by_type(
+      get_nodes_request, absl::MakeSpan(nodes.data(), 101), get_nodes_response);
+  EXPECT_TRUE(get_nodes_response.next_page_token().empty());
+
+  // Test: list the nodes with options.max_result_size < 101.
+  get_nodes_request.mutable_options()->Clear();
+  get_nodes_request.mutable_options()->set_max_result_size(100);
+  call_get_artifacts_by_type(
+      get_nodes_request, absl::MakeSpan(nodes.data(), 100), get_nodes_response);
+  EXPECT_FALSE(get_nodes_response.next_page_token().empty());
+
+  // Test: lists the nodes with next page token.
+  get_nodes_request.mutable_options()->Clear();
+  get_nodes_request.mutable_options()->set_next_page_token(
+      get_nodes_response.next_page_token());
+  call_get_artifacts_by_type(get_nodes_request,
+                             absl::MakeSpan(nodes.data() + 100, 10),
+                             get_nodes_response);
+  EXPECT_TRUE(get_nodes_response.next_page_token().empty());
+}
+
 TEST_P(MetadataStoreTestSuite, PutTypesAndExecutionsGetExecutionsThroughType) {
   std::vector<ExecutionType> types;
   std::vector<Execution> nodes(3);

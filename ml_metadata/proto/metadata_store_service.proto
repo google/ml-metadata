@@ -279,10 +279,18 @@ message GetArtifactsByTypeRequest {
   optional string type_name = 1;
   // If not set, it looks for the type with type_name with default type_version.
   optional string type_version = 2;
+  // Specify List options.
+  // Currently supports:
+  //   1. Field to order the results.
+  //   2. Page size.
+  optional ListOperationOptions options = 3;
 }
 
 message GetArtifactsByTypeResponse {
   repeated Artifact artifacts = 1;
+  // Token to use to retrieve next page of results if list options are used in
+  // the request.
+  optional string next_page_token = 2;
 }
 
 message GetArtifactByTypeAndNameRequest {
@@ -390,10 +398,18 @@ message GetExecutionsByTypeRequest {
   optional string type_name = 1;
   // If not set, it looks for the type with type_name with default type_version.
   optional string type_version = 2;
+  // Specify List options.
+  // Currently supports:
+  //   1. Field to order the results.
+  //   2. Page size.
+  optional ListOperationOptions options = 3;
 }
 
 message GetExecutionsByTypeResponse {
   repeated Execution executions = 1;
+  // Token to use to retrieve next page of results if list options are used in
+  // the request.
+  optional string next_page_token = 2;
 }
 
 message GetExecutionByTypeAndNameRequest {

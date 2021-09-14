@@ -3975,8 +3975,9 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIds) {
             metadata_access_object_->CreateArtifact(artifact3, &artifact3_id));
 
   std::vector<Artifact> got_artifacts;
-  EXPECT_EQ(absl::OkStatus(), metadata_access_object_->FindArtifactsByTypeId(
-                                  type_id, &got_artifacts));
+  EXPECT_EQ(absl::OkStatus(),
+            metadata_access_object_->FindArtifactsByTypeId(
+                type_id, absl::nullopt, &got_artifacts, nullptr));
   EXPECT_EQ(got_artifacts.size(), 2);
   EXPECT_THAT(want_artifact1, EqualsProto(got_artifacts[0], /*ignore_fields=*/{
                                               "id", "create_time_since_epoch",
@@ -4417,8 +4418,9 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
   // Test: retrieve by type
   {
     std::vector<Execution> type1_executions;
-    EXPECT_EQ(absl::OkStatus(), metadata_access_object_->FindExecutionsByTypeId(
-                                    type_id, &type1_executions));
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->FindExecutionsByTypeId(
+                  type_id, absl::nullopt, &type1_executions, nullptr));
     EXPECT_EQ(type1_executions.size(), 1);
     EXPECT_THAT(type1_executions[0], EqualsProto(got_execution1));
   }
@@ -4642,6 +4644,170 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
           type1_id, "my_context2", &got_empty_context)));
 
   EXPECT_THAT(got_empty_context, EqualsProto(Context()));
+}
+
+TEST_P(MetadataAccessObjectTest, ListArtifactsByType) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+
+  // Setup: create an artifact type and insert two instances.
+  int64 type_id;
+  {
+    ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"pb(
+      name: 'test_type_with_predefined_property'
+      properties { key: 'property_1' value: INT }
+    )pb");
+
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->CreateType(type, &type_id));
+  }
+  Artifact entity_1;
+  {
+    entity_1 = ParseTextProtoOrDie<Artifact>(R"pb(
+      name: "1a"
+      properties {
+        key: 'property_1'
+        value: { int_value: 1 }
+      }
+      custom_properties {
+        key: 'custom_property_1'
+        value: { int_value: 3 }
+      }
+    )pb");
+    entity_1.set_type_id(type_id);
+    int64 entity_id = -1;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->CreateArtifact(entity_1, &entity_id));
+    entity_1.set_id(entity_id);
+  }
+  Artifact entity_2;
+  {
+    entity_2 = ParseTextProtoOrDie<Artifact>(R"pb(
+      name: "1b"
+      properties {
+        key: 'property_1'
+        value: { int_value: 2 }
+      }
+      custom_properties {
+        key: 'custom_property_1'
+        value: { int_value: 4 }
+      }
+    )pb");
+    entity_2.set_type_id(type_id);
+    int64 entity_id = -1;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->CreateArtifact(entity_2, &entity_id));
+    entity_2.set_id(entity_id);
+  }
+  // Test: List entities by default ordering -- ID.
+  {
+    ListOperationOptions options;
+    options.set_max_result_size(1);
+
+    std::vector<Artifact> entities;
+    std::string next_page_token;
+    ASSERT_EQ(absl::OkStatus(), metadata_access_object_->FindArtifactsByTypeId(
+                                    type_id, absl::make_optional(options),
+                                    &entities, &next_page_token));
+    EXPECT_THAT(next_page_token, Not(IsEmpty()));
+    EXPECT_THAT(entities,
+                ElementsAre(EqualsProto(entity_1, /*ignore_fields=*/{
+                                            "uri", "create_time_since_epoch",
+                                            "last_update_time_since_epoch"})));
+
+    entities.clear();
+    options.set_next_page_token(next_page_token);
+    ASSERT_EQ(absl::OkStatus(), metadata_access_object_->FindArtifactsByTypeId(
+                                    type_id, absl::make_optional(options),
+                                    &entities, &next_page_token));
+    EXPECT_THAT(next_page_token, IsEmpty());
+    EXPECT_THAT(entities,
+                ElementsAre(EqualsProto(
+                    entity_2,
+                    /*ignore_fields=*/{"uri", "create_time_since_epoch",
+                                       "last_update_time_since_epoch"})));
+  }
+}
+
+TEST_P(MetadataAccessObjectTest, ListExecutionsByType) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+
+  // Setup: create an excution type and insert two instances.
+  int64 type_id;
+  {
+    ExecutionType type = ParseTextProtoOrDie<ExecutionType>(R"pb(
+      name: 'test_type_with_predefined_property'
+      properties { key: 'property_1' value: INT }
+    )pb");
+
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->CreateType(type, &type_id));
+  }
+  Execution entity_1;
+  {
+    entity_1 = ParseTextProtoOrDie<Execution>(R"pb(
+      name: "1a"
+      properties {
+        key: 'property_1'
+        value: { int_value: 1 }
+      }
+      custom_properties {
+        key: 'custom_property_1'
+        value: { int_value: 3 }
+      }
+    )pb");
+    entity_1.set_type_id(type_id);
+    int64 entity_id = -1;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->CreateExecution(entity_1, &entity_id));
+    entity_1.set_id(entity_id);
+  }
+  Execution entity_2;
+  {
+    entity_2 = ParseTextProtoOrDie<Execution>(R"pb(
+      name: "1b"
+      properties {
+        key: 'property_1'
+        value: { int_value: 2 }
+      }
+      custom_properties {
+        key: 'custom_property_1'
+        value: { int_value: 4 }
+      }
+    )pb");
+    entity_2.set_type_id(type_id);
+    int64 entity_id = -1;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->CreateExecution(entity_2, &entity_id));
+    entity_2.set_id(entity_id);
+  }
+  // Test: List entities by default ordering -- ID.
+  {
+    ListOperationOptions options;
+    options.set_max_result_size(1);
+
+    std::vector<Execution> entities;
+    std::string next_page_token;
+    ASSERT_EQ(absl::OkStatus(), metadata_access_object_->FindExecutionsByTypeId(
+                                    type_id, absl::make_optional(options),
+                                    &entities, &next_page_token));
+    EXPECT_THAT(next_page_token, Not(IsEmpty()));
+    EXPECT_THAT(entities,
+                ElementsAre(EqualsProto(entity_1, /*ignore_fields=*/{
+                                            "create_time_since_epoch",
+                                            "last_update_time_since_epoch"})));
+
+    entities.clear();
+    options.set_next_page_token(next_page_token);
+    ASSERT_EQ(absl::OkStatus(), metadata_access_object_->FindExecutionsByTypeId(
+                                    type_id, absl::make_optional(options),
+                                    &entities, &next_page_token));
+    EXPECT_THAT(next_page_token, IsEmpty());
+    EXPECT_THAT(entities,
+                ElementsAre(EqualsProto(
+                    entity_2,
+                    /*ignore_fields=*/{"create_time_since_epoch",
+                                       "last_update_time_since_epoch"})));
+  }
 }
 
 TEST_P(MetadataAccessObjectTest, ListContextsByType) {

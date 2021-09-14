@@ -1698,7 +1698,8 @@ absl::Status RDBMSMetadataAccessObject::FindArtifactByTypeIdAndArtifactName(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindArtifactsByTypeId(
-    const int64 type_id, std::vector<Artifact>* artifacts) {
+    const int64 type_id, absl::optional<ListOperationOptions> list_options,
+    std::vector<Artifact>* artifacts, std::string* next_page_token) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(
       executor_->SelectArtifactsByTypeID(type_id, &record_set));
@@ -1707,7 +1708,12 @@ absl::Status RDBMSMetadataAccessObject::FindArtifactsByTypeId(
     return absl::NotFoundError(
         absl::StrCat("No artifacts found for type_id:", type_id));
   }
-  return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *artifacts);
+  if (list_options) {
+    return ListNodes<Artifact>(list_options.value(), ids, artifacts,
+                               next_page_token);
+  } else {
+    return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *artifacts);
+  }
 }
 
 absl::Status RDBMSMetadataAccessObject::FindExecutions(
@@ -1744,7 +1750,8 @@ absl::Status RDBMSMetadataAccessObject::FindExecutionByTypeIdAndExecutionName(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindExecutionsByTypeId(
-    const int64 type_id, std::vector<Execution>* executions) {
+    const int64 type_id, absl::optional<ListOperationOptions> list_options,
+    std::vector<Execution>* executions, std::string* next_page_token) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(
       executor_->SelectExecutionsByTypeID(type_id, &record_set));
@@ -1753,7 +1760,12 @@ absl::Status RDBMSMetadataAccessObject::FindExecutionsByTypeId(
     return absl::NotFoundError(
         absl::StrCat("No executions found for type_id:", type_id));
   }
-  return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *executions);
+  if (list_options) {
+    return ListNodes<Execution>(list_options.value(), ids, executions,
+                                next_page_token);
+  } else {
+    return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *executions);
+  }
 }
 
 absl::Status RDBMSMetadataAccessObject::FindContexts(

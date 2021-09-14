@@ -1150,8 +1150,12 @@ absl::Status MetadataStore::GetArtifactsByType(
           return status;
         }
         std::vector<Artifact> artifacts;
+        std::string next_page_token;
         status = metadata_access_object_->FindArtifactsByTypeId(
-            artifact_type.id(), &artifacts);
+            artifact_type.id(),
+            (request.has_options() ? absl::make_optional(request.options())
+                                   : absl::nullopt),
+            &artifacts, &next_page_token);
         if (absl::IsNotFound(status)) {
           return absl::OkStatus();
         } else if (!status.ok()) {
@@ -1159,6 +1163,9 @@ absl::Status MetadataStore::GetArtifactsByType(
         }
         for (const Artifact& artifact : artifacts) {
           *response->mutable_artifacts()->Add() = artifact;
+        }
+        if (request.has_options()) {
+          response->set_next_page_token(next_page_token);
         }
         return absl::OkStatus();
       });
@@ -1208,8 +1215,12 @@ absl::Status MetadataStore::GetExecutionsByType(
           return status;
         }
         std::vector<Execution> executions;
+        std::string next_page_token;
         status = metadata_access_object_->FindExecutionsByTypeId(
-            execution_type.id(), &executions);
+            execution_type.id(),
+            (request.has_options() ? absl::make_optional(request.options())
+                                   : absl::nullopt),
+            &executions, &next_page_token);
         if (absl::IsNotFound(status)) {
           return absl::OkStatus();
         } else if (!status.ok()) {
@@ -1217,6 +1228,9 @@ absl::Status MetadataStore::GetExecutionsByType(
         }
         for (const Execution& execution : executions) {
           *response->mutable_executions()->Add() = execution;
+        }
+        if (request.has_options()) {
+          response->set_next_page_token(next_page_token);
         }
         return absl::OkStatus();
       });
