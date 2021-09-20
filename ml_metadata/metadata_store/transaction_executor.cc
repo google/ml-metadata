@@ -21,7 +21,8 @@ limitations under the License.
 namespace ml_metadata {
 
 absl::Status RdbmsTransactionExecutor::Execute(
-    const std::function<absl::Status()>& txn_body) const {
+    const std::function<absl::Status()>& txn_body,
+    const TransactionOptions& transaction_options) const {
   if (metadata_source_ == nullptr || !metadata_source_->is_connected()) {
     return absl::FailedPreconditionError(
         "To use ExecuteTransaction, the metadata_source should be created and "

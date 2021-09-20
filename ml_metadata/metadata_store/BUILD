@@ -238,6 +238,7 @@ cc_library(
     deps = [
         ":metadata_source",
         "@com_google_absl//absl/status",
+        "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/util:return_utils",
     ],
 )

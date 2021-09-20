@@ -879,3 +879,9 @@ message ListOperationNextPageToken {
   repeated int64 listed_ids = 4;
 }
 
+// Options for transactions.
+// Note: This is under development. Clients should not use it.
+message TransactionOptions {
+  extensions 1000 to max;
+}
+

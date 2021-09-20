@@ -18,6 +18,7 @@ limitations under the License.
 
 #include "absl/status/status.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
+#include "ml_metadata/proto/metadata_store.pb.h"
 
 namespace ml_metadata {
 
@@ -36,7 +37,9 @@ class TransactionExecutor {
 
   // Runs txn_body and return the transaction status.
   virtual absl::Status Execute(
-      const std::function<absl::Status()>& txn_body) const = 0;
+      const std::function<absl::Status()>& txn_body,
+      const TransactionOptions& transaction_options = TransactionOptions())
+      const = 0;
 };
 
 // An implementation of TransactionExecutor.
@@ -55,8 +58,9 @@ class RdbmsTransactionExecutor : public TransactionExecutor {
   // Returns FAILED_PRECONDITION if metadata_source is null or not connected.
   // Returns detailed internal errors of transaction, i.e.
   //   Begin, Rollback and Commit.
-  absl::Status Execute(
-      const std::function<absl::Status()>& txn_body) const override;
+  absl::Status Execute(const std::function<absl::Status()>& txn_body,
+                       const TransactionOptions& transaction_options =
+                           TransactionOptions()) const override;
 
  private:
   // The MetadataSource which has the connection to a database.
