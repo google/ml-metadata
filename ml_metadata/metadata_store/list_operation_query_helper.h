@@ -17,6 +17,7 @@ limitations under the License.
 
 #include "absl/status/status.h"
 #include "absl/types/optional.h"
+#include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 
@@ -92,7 +93,7 @@ absl::Status AppendLimitClause(const ListOperationOptions& options,
 
 // Gets the maximum number of returned resources for List operation.
 inline constexpr int GetDefaultMaxListOperationResultSize() {
-  return 100;
+  return kDefaultMaxListOperationResultSize;
 }
 
 }  // namespace ml_metadata

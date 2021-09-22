@@ -27,6 +27,9 @@ static constexpr char kMetadataSourceNull[] = "__MLMD_NULL__";
 enum class TypeKind { EXECUTION_TYPE = 0, ARTIFACT_TYPE = 1, CONTEXT_TYPE = 2 };
 // LINT.ThenChange(../util/metadata_source_query_config.cc)
 
+// Default maximum number of returned resources for List operation.
+constexpr int kDefaultMaxListOperationResultSize = 100;
+
 }  // namespace ml_metadata
 
 #endif  // THIRD_PARTY_ML_METADATA_METADATA_STORE_CONSTANTS_H_

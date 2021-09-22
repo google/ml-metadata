@@ -144,6 +144,7 @@ cc_library(
     srcs = ["list_operation_query_helper.cc"],
     hdrs = ["list_operation_query_helper.h"],
     deps = [
+        ":constants",
         ":list_operation_util",
         ":types",
         "@com_google_absl//absl/status",
