@@ -19,15 +19,6 @@ version: '3.1'
 # We mount the MLMD project root at /build (which is the WORKDIR of the image)
 # in the container.
 services:
-  manylinux-python36:
-    image: mlmd-build:manylinux2010
-    build:
-      context: .
-      dockerfile: ml_metadata/tools/docker_build/Dockerfile.manylinux2010
-    environment:
-      PYTHON_VERSION: 36
-    volumes:
-      - .:/build:delegated
   manylinux-python37:
     image: mlmd-build:manylinux2010
     build:
