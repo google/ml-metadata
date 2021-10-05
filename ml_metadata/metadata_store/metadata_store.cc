@@ -519,7 +519,8 @@ absl::Status MetadataStore::GetArtifactType(
             response->mutable_artifact_type()));
         return SetBaseType<ArtifactType, ArtifactType::SystemDefinedBaseType>(
             *response->mutable_artifact_type(), metadata_access_object_.get());
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetExecutionType(
@@ -533,7 +534,8 @@ absl::Status MetadataStore::GetExecutionType(
             response->mutable_execution_type()));
         return SetBaseType<ExecutionType, ExecutionType::SystemDefinedBaseType>(
             *response->mutable_execution_type(), metadata_access_object_.get());
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetContextType(const GetContextTypeRequest& request,
@@ -544,7 +546,8 @@ absl::Status MetadataStore::GetContextType(const GetContextTypeRequest& request,
         return metadata_access_object_->FindTypeByNameAndVersion(
             request.type_name(), GetRequestTypeVersion(request),
             response->mutable_context_type());
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetArtifactTypesByID(
@@ -567,7 +570,8 @@ absl::Status MetadataStore::GetArtifactTypesByID(
           }
         }
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetExecutionTypesByID(
@@ -591,7 +595,8 @@ absl::Status MetadataStore::GetExecutionTypesByID(
           }
         }
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetContextTypesByID(
@@ -611,7 +616,8 @@ absl::Status MetadataStore::GetContextTypesByID(
           }
         }
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetArtifactsByID(
@@ -631,7 +637,8 @@ absl::Status MetadataStore::GetArtifactsByID(
         absl::c_copy(artifacts, google::protobuf::RepeatedPtrFieldBackInserter(
                                     response->mutable_artifacts()));
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetExecutionsByID(
@@ -651,7 +658,8 @@ absl::Status MetadataStore::GetExecutionsByID(
         absl::c_copy(executions, google::protobuf::RepeatedPtrFieldBackInserter(
                                      response->mutable_executions()));
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetContextsByID(
@@ -670,7 +678,8 @@ absl::Status MetadataStore::GetContextsByID(
         absl::c_copy(contexts, google::protobuf::RepeatedFieldBackInserter(
                                    response->mutable_contexts()));
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::PutArtifacts(const PutArtifactsRequest& request,
@@ -890,7 +899,8 @@ absl::Status MetadataStore::GetEventsByExecutionIDs(
           *response->mutable_events()->Add() = event;
         }
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetEventsByArtifactIDs(
@@ -914,7 +924,8 @@ absl::Status MetadataStore::GetEventsByArtifactIDs(
           *response->mutable_events()->Add() = event;
         }
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetExecutions(const GetExecutionsRequest& request,
@@ -946,7 +957,8 @@ absl::Status MetadataStore::GetExecutions(const GetExecutionsRequest& request,
           response->set_next_page_token(next_page_token);
         }
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetArtifacts(const GetArtifactsRequest& request,
@@ -979,7 +991,8 @@ absl::Status MetadataStore::GetArtifacts(const GetArtifactsRequest& request,
         }
 
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetContexts(const GetContextsRequest& request,
@@ -1012,7 +1025,8 @@ absl::Status MetadataStore::GetContexts(const GetContextsRequest& request,
         }
 
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetArtifactTypes(
@@ -1043,7 +1057,8 @@ absl::Status MetadataStore::GetArtifactTypes(
           }
         }
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetExecutionTypes(
@@ -1075,26 +1090,29 @@ absl::Status MetadataStore::GetExecutionTypes(
           }
         }
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetContextTypes(
     const GetContextTypesRequest& request, GetContextTypesResponse* response) {
-  return transaction_executor_->Execute([this, &response]() -> absl::Status {
-    response->Clear();
-    std::vector<ContextType> context_types;
-    const absl::Status status =
-        metadata_access_object_->FindTypes(&context_types);
-    if (absl::IsNotFound(status)) {
-      return absl::OkStatus();
-    } else if (!status.ok()) {
-      return status;
-    }
-    for (const ContextType& context_type : context_types) {
-      *response->mutable_context_types()->Add() = context_type;
-    }
-    return absl::OkStatus();
-  });
+  return transaction_executor_->Execute(
+      [this, &response]() -> absl::Status {
+        response->Clear();
+        std::vector<ContextType> context_types;
+        const absl::Status status =
+            metadata_access_object_->FindTypes(&context_types);
+        if (absl::IsNotFound(status)) {
+          return absl::OkStatus();
+        } else if (!status.ok()) {
+          return status;
+        }
+        for (const ContextType& context_type : context_types) {
+          *response->mutable_context_types()->Add() = context_type;
+        }
+        return absl::OkStatus();
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetArtifactsByURI(
@@ -1131,7 +1149,8 @@ absl::Status MetadataStore::GetArtifactsByURI(
           }
         }
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetArtifactsByType(
@@ -1168,7 +1187,8 @@ absl::Status MetadataStore::GetArtifactsByType(
           response->set_next_page_token(next_page_token);
         }
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetArtifactByTypeAndName(
@@ -1196,7 +1216,8 @@ absl::Status MetadataStore::GetArtifactByTypeAndName(
         }
         *response->mutable_artifact() = artifact;
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetExecutionsByType(
@@ -1233,7 +1254,8 @@ absl::Status MetadataStore::GetExecutionsByType(
           response->set_next_page_token(next_page_token);
         }
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetExecutionByTypeAndName(
@@ -1261,7 +1283,8 @@ absl::Status MetadataStore::GetExecutionByTypeAndName(
         }
         *response->mutable_execution() = execution;
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetContextsByType(
@@ -1304,7 +1327,8 @@ absl::Status MetadataStore::GetContextsByType(
           response->set_next_page_token(next_page_token);
         }
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetContextByTypeAndName(
@@ -1331,7 +1355,8 @@ absl::Status MetadataStore::GetContextByTypeAndName(
         }
         *response->mutable_context() = context;
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::PutAttributionsAndAssociations(
@@ -1381,7 +1406,8 @@ absl::Status MetadataStore::GetContextsByArtifact(
           *response->mutable_contexts()->Add() = context;
         }
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetContextsByExecution(
@@ -1397,7 +1423,8 @@ absl::Status MetadataStore::GetContextsByExecution(
           *response->mutable_contexts()->Add() = context;
         }
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetArtifactsByContext(
@@ -1423,7 +1450,8 @@ absl::Status MetadataStore::GetArtifactsByContext(
         }
 
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetExecutionsByContext(
@@ -1450,7 +1478,8 @@ absl::Status MetadataStore::GetExecutionsByContext(
         }
 
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetParentContextsByContext(
@@ -1469,7 +1498,8 @@ absl::Status MetadataStore::GetParentContextsByContext(
         absl::c_copy(parent_contexts, google::protobuf::RepeatedPtrFieldBackInserter(
                                           response->mutable_contexts()));
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetChildrenContextsByContext(
@@ -1488,7 +1518,8 @@ absl::Status MetadataStore::GetChildrenContextsByContext(
         absl::c_copy(child_contexts, google::protobuf::RepeatedPtrFieldBackInserter(
                                          response->mutable_contexts()));
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 
