@@ -1,13 +1,5 @@
 workspace(name = "ml_metadata")
 
-# To update TensorFlow to a new revision.
-# 1. Update the 'git_commit' args below to include the new git hash.
-# 2. Get the sha256 hash of the archive with a command such as...
-#    curl -L https://github.com/tensorflow/tensorflow/archive/<git hash>.tar.gz | sha256sum
-#    and update the 'sha256' arg with the result.
-# 3. Request the new archive to be mirrored on mirror.bazel.build for more
-#    reliable downloads.
-
 load("//ml_metadata:repo.bzl", "mlmd_http_archive", "clean_dep")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
