@@ -408,6 +408,12 @@ class MetadataStore : public MetadataStoreServiceInterface {
       GetChildrenContextsByContextResponse* response) override;
 
 
+  // The method is used for accessing MLMD lineage. Please see
+  // metadata_store_service.proto for details. Returns detailed INTERNAL error,
+  // if query execution fails.
+  absl::Status GetLineageGraph(const GetLineageGraphRequest& request,
+                               GetLineageGraphResponse* response) override;
+
  private:
   // To construct the object, see Create(...).
   MetadataStore(std::unique_ptr<MetadataSource> metadata_source,

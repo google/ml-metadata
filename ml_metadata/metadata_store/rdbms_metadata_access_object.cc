@@ -1832,6 +1832,179 @@ absl::Status RDBMSMetadataAccessObject::FindContextByTypeIdAndContextName(
 }
 
 
+template <typename Node>
+absl::Status RDBMSMetadataAccessObject::SkipBoundaryNodesImpl(
+    absl::optional<std::string> boundary_condition,
+    absl::flat_hash_set<int64>& unvisited_node_ids) {
+  if (!boundary_condition) {
+    return absl::OkStatus();
+  }
+  const std::vector<int64> candidate_ids(unvisited_node_ids.begin(),
+                                         unvisited_node_ids.end());
+  auto list_ids = absl::MakeConstSpan(candidate_ids);
+  // Uses batched retrieval to bound query length and list query invariant.
+  static constexpr int kBatchSize = 100;
+  for (int i = 0; i * kBatchSize < candidate_ids.size(); i++) {
+    ListOperationOptions boundary_options;
+    boundary_options.set_max_result_size(kBatchSize);
+    boundary_options.set_filter_query(
+        absl::Substitute("NOT($0)", *boundary_condition));
+    RecordSet record_set;
+    MLMD_RETURN_IF_ERROR(ListNodeIds<Node>(
+        boundary_options, list_ids.subspan(i * kBatchSize, kBatchSize),
+        &record_set));
+    for (int64 skip_id : ConvertToIds(record_set)) {
+      unvisited_node_ids.erase(skip_id);
+    }
+  }
+  return absl::OkStatus();
+}
+
+absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
+    const std::vector<Artifact>& input_artifacts,
+    absl::optional<std::string> boundary_condition,
+    const absl::flat_hash_set<int64>& visited_execution_ids,
+    absl::flat_hash_set<int64>& visited_artifact_ids,
+    std::vector<Execution>& output_executions, LineageGraph& subgraph) {
+  std::vector<int64> input_artifact_ids(input_artifacts.size());
+  for (int i = 0; i < input_artifacts.size(); i++) {
+    input_artifact_ids[i] = input_artifacts[i].id();
+    visited_artifact_ids.insert(input_artifact_ids[i]);
+  }
+  std::vector<Event> events;
+  const auto status = FindEventsByArtifacts(input_artifact_ids, &events);
+  // If no events are found for the given artifacts, directly return ok status.
+  if (absl::IsNotFound(status)) {
+    return absl::OkStatus();
+  }
+  absl::flat_hash_set<int64> unvisited_execution_ids;
+  for (const Event& event : events) {
+    if (!visited_execution_ids.contains(event.execution_id())) {
+      unvisited_execution_ids.insert(event.execution_id());
+    }
+  }
+  MLMD_RETURN_IF_ERROR(SkipBoundaryNodesImpl<Execution>(
+      boundary_condition, unvisited_execution_ids));
+  for (const Event& event : events) {
+    if (unvisited_execution_ids.contains(event.execution_id())) {
+      *subgraph.add_events() = event;
+    }
+  }
+  const std::vector<int64> expand_execution_ids(unvisited_execution_ids.begin(),
+                                                unvisited_execution_ids.end());
+  output_executions.clear();
+  MLMD_RETURN_IF_ERROR(
+      FindExecutionsById(expand_execution_ids, &output_executions));
+  absl::c_copy(output_executions, google::protobuf::RepeatedFieldBackInserter(
+                                      subgraph.mutable_executions()));
+  return absl::OkStatus();
+}
+
+absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
+    const std::vector<Execution>& input_executions,
+    absl::optional<std::string> boundary_condition,
+    const absl::flat_hash_set<int64>& visited_artifact_ids,
+    absl::flat_hash_set<int64>& visited_execution_ids,
+    std::vector<Artifact>& output_artifacts, LineageGraph& subgraph) {
+  std::vector<int64> input_execution_ids(input_executions.size());
+  for (int i = 0; i < input_executions.size(); i++) {
+    input_execution_ids[i] = input_executions[i].id();
+    visited_execution_ids.insert(input_execution_ids[i]);
+  }
+  std::vector<Event> events;
+  const auto status = FindEventsByExecutions(input_execution_ids, &events);
+  // If no events are found for the given executions, directly return ok status.
+  if (absl::IsNotFound(status)) {
+    return absl::OkStatus();
+  }
+  absl::flat_hash_set<int64> unvisited_artifact_ids;
+  for (const Event& event : events) {
+    if (!visited_artifact_ids.contains(event.artifact_id())) {
+      unvisited_artifact_ids.insert(event.artifact_id());
+    }
+  }
+  MLMD_RETURN_IF_ERROR(SkipBoundaryNodesImpl<Artifact>(boundary_condition,
+                                                       unvisited_artifact_ids));
+  for (const Event& event : events) {
+    if (unvisited_artifact_ids.contains(event.artifact_id())) {
+      *subgraph.add_events() = event;
+    }
+  }
+  const std::vector<int64> expand_artifact_ids(unvisited_artifact_ids.begin(),
+                                               unvisited_artifact_ids.end());
+  output_artifacts.clear();
+  MLMD_RETURN_IF_ERROR(
+      FindArtifactsById(expand_artifact_ids, &output_artifacts));
+  absl::c_copy(output_artifacts,
+               google::protobuf::RepeatedFieldBackInserter(subgraph.mutable_artifacts()));
+  return absl::OkStatus();
+}
+
+absl::Status RDBMSMetadataAccessObject::QueryLineageGraph(
+    const std::vector<Artifact>& query_nodes, int64 max_num_hops,
+    absl::optional<std::string> boundary_artifacts,
+    absl::optional<std::string> boundary_executions, LineageGraph& subgraph) {
+  absl::c_copy(query_nodes,
+               google::protobuf::RepeatedFieldBackInserter(subgraph.mutable_artifacts()));
+  // Add nodes and edges
+  absl::flat_hash_set<int64> visited_artifacts_ids;
+  absl::flat_hash_set<int64> visited_executions_ids;
+  int64 curr_distance = 0;
+  std::vector<Artifact> output_artifacts;
+  std::vector<Execution> output_executions;
+  while (curr_distance < max_num_hops) {
+    const bool is_traverse_from_artifact = (curr_distance % 2 == 0);
+    if (is_traverse_from_artifact) {
+      if (curr_distance == 0) {
+        MLMD_RETURN_IF_ERROR(ExpandLineageGraphImpl(
+            query_nodes, boundary_executions, visited_executions_ids,
+            visited_artifacts_ids, output_executions, subgraph));
+      } else {
+        MLMD_RETURN_IF_ERROR(ExpandLineageGraphImpl(
+            output_artifacts, boundary_executions, visited_executions_ids,
+            visited_artifacts_ids, output_executions, subgraph));
+      }
+      if (output_executions.empty()) {
+        break;
+      }
+    } else {
+      MLMD_RETURN_IF_ERROR(ExpandLineageGraphImpl(
+          output_executions, boundary_artifacts, visited_artifacts_ids,
+          visited_executions_ids, output_artifacts, subgraph));
+      if (output_artifacts.empty()) {
+        break;
+      }
+    }
+    curr_distance++;
+  }
+  // Add node types.
+  std::vector<ArtifactType> artifact_types;
+  MLMD_RETURN_IF_ERROR(FindTypes(&artifact_types));
+  for (const ArtifactType& artifact_type : artifact_types) {
+    const bool is_simple_type =
+        std::find(kSimpleTypeNames.begin(), kSimpleTypeNames.end(),
+                  artifact_type.name()) != kSimpleTypeNames.end();
+    if (!is_simple_type) {
+      *subgraph.mutable_artifact_types()->Add() = artifact_type;
+    }
+  }
+  std::vector<ExecutionType> execution_types;
+  MLMD_RETURN_IF_ERROR(FindTypes(&execution_types));
+  for (const ExecutionType& execution_type : execution_types) {
+    const bool is_simple_type =
+        std::find(kSimpleTypeNames.begin(), kSimpleTypeNames.end(),
+                  execution_type.name()) != kSimpleTypeNames.end();
+    if (!is_simple_type) {
+      *subgraph.mutable_execution_types()->Add() = execution_type;
+    }
+  }
+  std::vector<ContextType> context_types;
+  MLMD_RETURN_IF_ERROR(FindTypes(&context_types));
+  absl::c_copy(context_types, google::protobuf::RepeatedFieldBackInserter(
+                                  subgraph.mutable_context_types()));
+  return absl::OkStatus();
+}
+
 absl::Status RDBMSMetadataAccessObject::DeleteArtifactsById(
     absl::Span<const int64> artifact_ids) {
   if (artifact_ids.empty()) {

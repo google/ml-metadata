@@ -699,6 +699,20 @@ message GetExecutionsByContextResponse {
 }
 
 
+// A lineage query request to specify the query nodes of interests and the
+// boundary conditions for the returned graph.
+message GetLineageGraphRequest {
+  optional LineageGraphQueryOptions options = 1;
+  // Options regarding transactions.
+  optional TransactionOptions transaction_options = 2;
+}
+
+// A connected lineage `subgraph` about the MLMD nodes derived from
+// LineageGraphRequest.query_conditions.
+message GetLineageGraphResponse {
+  optional LineageGraph subgraph = 1;
+}
+
 // LINT.IfChange
 service MetadataStoreService {
   // Inserts or updates an ArtifactType.
@@ -995,5 +1009,11 @@ service MetadataStoreService {
   rpc GetExecutionsByContext(GetExecutionsByContextRequest)
       returns (GetExecutionsByContextResponse) {}
 
+
+  // The transaction performs a constrained transitive closure and returns a
+  // lineage subgraph satisfying the conditions and constraints specified in
+  // the GetLineageGraphRequest.
+  rpc GetLineageGraph(GetLineageGraphRequest)
+      returns (GetLineageGraphResponse) {}
 }
 // LINT.ThenChange(../metadata_store/metadata_store_service_interface.h)

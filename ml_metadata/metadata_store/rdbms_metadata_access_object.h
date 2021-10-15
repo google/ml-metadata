@@ -237,6 +237,16 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   int64 GetLibraryVersion() final { return executor_->GetLibraryVersion(); }
 
 
+  // The method is currently used for accessing MLMD lineage.
+  // TODO(b/178491112) Support Execution typed query_nodes.
+  // TODO(b/178491112) Returns contexts in the returned subgraphs.
+  absl::Status QueryLineageGraph(
+      const std::vector<Artifact>& query_nodes, int64 max_num_hops,
+      absl::optional<std::string> boundary_artifacts,
+      absl::optional<std::string> boundary_executions,
+      LineageGraph& subgraph) final;
+
+
   // Deletes a list of artifacts by id.
   // Returns detailed INTERNAL error, if query execution fails.
   absl::Status DeleteArtifactsById(
@@ -512,6 +522,41 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
                                       ParentContextTraverseDirection direction,
                                       std::vector<Context>& output_contexts);
 
+  // The utilities to expand lineage `subgraph` within one hop from artifacts.
+  // For the `input_artifacts`, their neighborhood executions that do not
+  // satisfy `boundary_condition` are visited and output as `output_executions`.
+  // The `output_executions` and the events between `input_artifacts` are added
+  // to the `subgraph`. The `visited_execution_ids` captures the already
+  // visited executions in previous traversal, while the `visited_artifact_ids`
+  // maintains previously visited and the newly visited `input_artifacts`.
+  absl::Status ExpandLineageGraphImpl(
+      const std::vector<Artifact>& input_artifacts,
+      absl::optional<std::string> boundary_condition,
+      const absl::flat_hash_set<int64>& visited_execution_ids,
+      absl::flat_hash_set<int64>& visited_artifact_ids,
+      std::vector<Execution>& output_executions, LineageGraph& subgraph);
+
+  // The utilities to expand lineage `subgraph` within one hop from executions.
+  // For the `input_executions`, their neighborhood artifacts that do not
+  // satisfy `boundary_condition` are visited and output as `output_artifacts`.
+  // The `output_artifacts` and the events between `input_executions` are added
+  // to the `subgraph`. The `visited_artifact_ids` captures the already
+  // visited artifacts in previous traversal, while the `visited_execution_ids`
+  // maintains previously visited and the newly visited `input_executions`.
+  absl::Status ExpandLineageGraphImpl(
+      const std::vector<Execution>& input_executions,
+      absl::optional<std::string> boundary_condition,
+      const absl::flat_hash_set<int64>& visited_artifact_ids,
+      absl::flat_hash_set<int64>& visited_execution_ids,
+      std::vector<Artifact>& output_artifacts, LineageGraph& subgraph);
+
+  // Given `boundary_condition`, the utility method keeps nodes that satisfy
+  // the `boundary_condition`, and removes any nodes that do not satisfy the
+  // `boundary_condition` from `unvisited_node_ids`.
+  template <typename Node>
+  absl::Status SkipBoundaryNodesImpl(
+      absl::optional<std::string> boundary_condition,
+      absl::flat_hash_set<int64>& unvisited_node_ids);
 
   std::unique_ptr<QueryExecutor> executor_;
 };

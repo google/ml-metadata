@@ -885,3 +885,40 @@ message TransactionOptions {
   extensions 1000 to max;
 }
 
+
+// The query options for list lineage graph operation. It allows specifying the
+// `query_nodes` of interests and the `stop_conditions` when querying a
+// lineage graph. The query option is used for exporting provenance information
+// from a source MLMD instance.
+message LineageGraphQueryOptions {
+  // A query to specify the nodes of interests.
+  // TODO(b/178491112) Support query_nodes for Executions.
+  oneof query_nodes {
+    ListOperationOptions artifacts_options = 1;
+  }
+
+  // Boundary conditions to stop the traversal when return the `subgraph`.
+  message BoundaryConstraint {
+    // The maximum number of hops from the `query_nodes` to traverse. It should
+    // be non-negative. When zero, only the `query_nodes` are returned.
+    optional int64 max_num_hops = 1;
+
+    // Conditions for the boundary node in the returned the subgraph.
+    // Please refer to ListOperationOptions.filter_query for the syntax.
+    // If set, it stops traversing further at the artifacts that do not satisfy
+    // `boundary_artifacts` and exclude them from the returned subgraph.
+    // For example, to look for the models related to a DataSet and ignore
+    // other artifacts derived from the DataSet:
+    //   "type = 'DataSet' OR type = 'TransformGraph' OR type = 'Model'"
+    optional string boundary_artifacts = 2;
+    // If set, it stops traversing further at the executions that do not satisfy
+    // `boundary_executions` and exclude them from the returned subgraph.
+    // For example, two trainers may be connected due to the shared datasets,
+    // to exclude other trainers except a particular one (e.g., id = 5):
+    //   "type != 'Trainer' OR (type = 'Trainer' AND id = 5)"
+    optional string boundary_executions = 3;
+  }
+
+  // A constraint option to define the boundary of the returned subgraph.
+  optional BoundaryConstraint stop_conditions = 2;
+}

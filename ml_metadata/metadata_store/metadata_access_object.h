@@ -480,6 +480,20 @@ class MetadataAccessObject {
   virtual int64 GetLibraryVersion() = 0;
 
 
+  // Giving a set of `query_nodes` and a set of boundary constraints. The method
+  // performs constrained transitive closure and returns a subgraph including
+  // the reached nodes and edges. The boundary conditions include
+  // a) number of hops: it stops traversal at nodes that at max_num_hops away
+  //    from the `query_nodes`.
+  // b) boundary nodes: it stops traversal at the nodes that satisfies
+  //    `boundary_artifacts` or `boundary_executions`.
+  virtual absl::Status QueryLineageGraph(
+      const std::vector<Artifact>& query_nodes, int64 max_num_hops,
+      absl::optional<std::string> boundary_artifacts,
+      absl::optional<std::string> boundary_executions,
+      LineageGraph& subgraph) = 0;
+
+
   // Deletes a list of artifacts by id.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status DeleteArtifactsById(

@@ -2576,6 +2576,213 @@ void VerifyLineageGraph(const LineageGraph& subgraph,
               UnorderedPointwise(EqualsProto<ContextType>(), context_types));
 }
 
+TEST_P(MetadataAccessObjectTest, QueryLineageGraph) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+  // Test setup: use a simple graph with multiple paths between (a1, e2).
+  // a1 -> e1 -> a2
+  //  \            \
+  //   \------------> e2
+  const ArtifactType artifact_type = CreateTypeFromTextProto<ArtifactType>(
+      "name: 'artifact_type'", *metadata_access_object_);
+  const ExecutionType execution_type = CreateTypeFromTextProto<ExecutionType>(
+      "name: 'execution_type'", *metadata_access_object_);
+  std::vector<Artifact> want_artifacts(2);
+  std::vector<Execution> want_executions(2);
+  for (int i = 0; i < 2; i++) {
+    CreateNodeFromTextProto(absl::Substitute("uri: 'uri_$0'", i),
+                            artifact_type.id(), *metadata_access_object_,
+                            want_artifacts[i]);
+  }
+  for (int i = 0; i < 2; i++) {
+    CreateNodeFromTextProto("", execution_type.id(), *metadata_access_object_,
+                            want_executions[i]);
+  }
+  std::vector<Event> want_events(4);
+  CreateEventFromTextProto("type: INPUT", want_artifacts[0], want_executions[0],
+                           *metadata_access_object_, want_events[0]);
+  CreateEventFromTextProto("type: INPUT", want_artifacts[0], want_executions[1],
+                           *metadata_access_object_, want_events[1]);
+  CreateEventFromTextProto("type: OUTPUT", want_artifacts[1],
+                           want_executions[0], *metadata_access_object_,
+                           want_events[2]);
+  CreateEventFromTextProto("type: INPUT", want_artifacts[1], want_executions[1],
+                           *metadata_access_object_, want_events[3]);
+
+
+  {
+    // Empty query nodes is OK.
+    LineageGraph output_graph;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->QueryLineageGraph(
+                  /*query_nodes=*/{}, /*max_num_hops=*/0,
+                  /*boundary_artifacts=*/absl::nullopt,
+                  /*boundary_executions=*/absl::nullopt, output_graph));
+    VerifyLineageGraph(output_graph, /*artifacts=*/{}, /*executions=*/{},
+                       /*events=*/{}, *metadata_access_object_);
+  }
+
+  {
+    // Query a1 with 1 hop.
+    LineageGraph output_graph;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->QueryLineageGraph(
+                  /*query_nodes=*/{want_artifacts[0]}, /*max_num_hops=*/1,
+                  /*boundary_artifacts=*/absl::nullopt,
+                  /*boundary_executions=*/absl::nullopt, output_graph));
+    VerifyLineageGraph(
+        output_graph, /*artifacts=*/{want_artifacts[0]}, want_executions,
+        /*events=*/{want_events[0], want_events[1]}, *metadata_access_object_);
+  }
+
+  {
+    // Query a1 with 2 hop. It returns all nodes with no duplicate.
+    LineageGraph output_graph;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->QueryLineageGraph(
+                  /*query_nodes=*/{want_artifacts[0]}, /*max_num_hops=*/2,
+                  /*boundary_artifacts=*/absl::nullopt,
+                  /*boundary_executions=*/absl::nullopt, output_graph));
+    VerifyLineageGraph(output_graph, want_artifacts, want_executions,
+                       want_events, *metadata_access_object_);
+  }
+
+  {
+    // With multiple query nodes with 0 hop.
+    LineageGraph output_graph;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->QueryLineageGraph(
+                  want_artifacts, /*max_num_hops=*/0,
+                  /*boundary_artifacts=*/absl::nullopt,
+                  /*boundary_executions=*/absl::nullopt, output_graph));
+    VerifyLineageGraph(output_graph, want_artifacts, /*executions=*/{},
+                       /*events=*/{}, *metadata_access_object_);
+  }
+
+  {
+    // Query multiple nodes with a large hop.
+    // It returns all nodes with no duplicate.
+    LineageGraph output_graph;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->QueryLineageGraph(
+                  want_artifacts, /*max_num_hops=*/5,
+                  /*boundary_artifacts=*/absl::nullopt,
+                  /*boundary_executions=*/absl::nullopt, output_graph));
+    VerifyLineageGraph(output_graph, want_artifacts, want_executions,
+                       want_events, *metadata_access_object_);
+  }
+}
+
+TEST_P(MetadataAccessObjectTest, QueryLineageGraphArtifactsOnly) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+  // Test setup: only set up an artifact type and 2 artifacts.
+  const ArtifactType artifact_type = CreateTypeFromTextProto<ArtifactType>(
+      "name: 'artifact_type'", *metadata_access_object_);
+  std::vector<Artifact> want_artifacts(2);
+  for (int i = 0; i < 2; i++) {
+    CreateNodeFromTextProto(absl::Substitute("uri: 'uri_$0'", i),
+                            artifact_type.id(), *metadata_access_object_,
+                            want_artifacts[i]);
+  }
+
+  LineageGraph output_graph;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_->QueryLineageGraph(
+                want_artifacts, /*max_num_hops=*/1,
+                /*boundary_artifacts=*/absl::nullopt,
+                /*boundary_executions=*/absl::nullopt, output_graph));
+  VerifyLineageGraph(output_graph, want_artifacts, /*executions=*/{},
+                     /*events=*/{}, *metadata_access_object_);
+}
+
+TEST_P(MetadataAccessObjectTest, QueryLineageGraphWithBoundaryConditions) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+  // Test setup: use a high fan-out graph to test the boundaries cases
+  // a0 -> e1 -> a1 -> e0
+  //   \-> e2
+  //   \-> ...
+  //   \-> e250
+  const ArtifactType artifact_type = CreateTypeFromTextProto<ArtifactType>(
+      "name: 'artifact_type'", *metadata_access_object_);
+  const ExecutionType execution_type = CreateTypeFromTextProto<ExecutionType>(
+      "name: 'execution_type'", *metadata_access_object_);
+  std::vector<Artifact> want_artifacts(2);
+  std::vector<Execution> want_executions(251);
+  for (int i = 0; i < 2; i++) {
+    CreateNodeFromTextProto(absl::Substitute("uri: 'uri_$0'", i),
+                            artifact_type.id(), *metadata_access_object_,
+                            want_artifacts[i]);
+  }
+  for (int i = 0; i < 251; i++) {
+    CreateNodeFromTextProto(absl::Substitute("name: 'e$0'", i),
+                            execution_type.id(), *metadata_access_object_,
+                            want_executions[i]);
+  }
+  std::vector<Event> all_events(252);
+  for (int i = 1; i < 251; i++) {
+    CreateEventFromTextProto("type: INPUT", want_artifacts[0],
+                             want_executions[i], *metadata_access_object_,
+                             all_events[i - 1]);
+  }
+  const Event a0e1 = all_events[0];
+  CreateEventFromTextProto("type: INPUT", want_artifacts[1], want_executions[0],
+                           *metadata_access_object_, all_events[250]);
+  CreateEventFromTextProto("type: OUTPUT", want_artifacts[1],
+                           want_executions[1], *metadata_access_object_,
+                           all_events[251]);
+  const Event a1e0 = all_events[250];
+  const Event a1e1 = all_events[251];
+
+  {
+    // boundary execution condition with max num hops
+    LineageGraph output_graph;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->QueryLineageGraph(
+                  /*query_nodes=*/{want_artifacts[1]}, /*max_num_hops=*/2,
+                  /*boundary_artifacts=*/absl::nullopt,
+                  /*boundary_executions=*/"name != 'e0'", output_graph));
+    VerifyLineageGraph(output_graph, want_artifacts,
+                       /*executions=*/{want_executions[1]},
+                       /*events=*/{a1e1, a0e1}, *metadata_access_object_);
+  }
+
+  {
+    // boundary artifact condition with max_num_hops.
+    LineageGraph output_graph;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->QueryLineageGraph(
+                  /*query_nodes=*/{want_artifacts[1]}, /*max_num_hops=*/3,
+                  /*boundary_artifacts=*/"uri != 'unknown_uri'",
+                  /*boundary_executions=*/absl::nullopt, output_graph));
+    VerifyLineageGraph(output_graph, want_artifacts, want_executions,
+                       all_events, *metadata_access_object_);
+  }
+
+  {
+    // boundary artifact and execution condition with max num hops
+    LineageGraph output_graph;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->QueryLineageGraph(
+                  /*query_nodes=*/{want_artifacts[1]}, /*max_num_hops=*/2,
+                  /*boundary_artifacts=*/"uri != 'uri_0'",
+                  /*boundary_executions=*/"name != 'e0'", output_graph));
+    VerifyLineageGraph(output_graph, /*artifacts=*/{want_artifacts[1]},
+                       /*executions=*/{want_executions[1]},
+                       /*events=*/{a1e1}, *metadata_access_object_);
+  }
+
+  {
+    // boundary condition rejects large number of nodes.
+    LineageGraph output_graph;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->QueryLineageGraph(
+                  /*query_nodes=*/{want_artifacts[1]}, /*max_num_hops=*/3,
+                  /*boundary_artifacts=*/absl::nullopt,
+                  /*boundary_executions=*/"name = 'e1'", output_graph));
+    VerifyLineageGraph(output_graph, /*artifacts=*/want_artifacts,
+                       /*executions=*/{want_executions[1]},
+                       /*events=*/{a1e1, a0e1}, *metadata_access_object_);
+  }
+}
 
 TEST_P(MetadataAccessObjectTest, DeleteArtifactsById) {
   if (!metadata_access_object_container_->HasDeletionSupport()) {
