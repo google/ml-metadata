@@ -2072,6 +2072,18 @@ TEST_P(MetadataAccessObjectTest, ListContextsFilterAttributeQuery) {
     )", type.name(), type.id()), *metadata_access_object_,
       /*want_nodes=*/{});
 
+  VerifyListOptions<Context>(
+      absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: '(type = \'$0\' AND name = \'$1\') OR '
+                    '(type = \'$2\' AND name = \'$3\')'
+    )",
+        type.name(), want_contexts[2].name(),
+        type.name(), want_contexts[1].name()),
+      *metadata_access_object_,
+      /*want_nodes=*/{want_contexts[2], want_contexts[1]});
+
   Context old_context = want_contexts[2];
   const int64 old_update_time = want_contexts[2].last_update_time_since_epoch();
   (*old_context.mutable_properties())["p1"].set_int_value(1);
@@ -2203,6 +2215,55 @@ TEST_P(MetadataAccessObjectTest, ListNodesFilterContextNeighborQuery) {
                        contexts[1].last_update_time_since_epoch()),
       *metadata_access_object_,
       /*want_nodes=*/{want_executions[2], want_executions[0]});
+
+  // Add another Association and make the Association relationship as follows:
+  // contexts[0] <-> want_executions[0, 2]
+  // contexts[1] <-> want_executions[0, 1]
+  // contexts[2] <-> want_executions[0]
+  Association additional_association;
+  additional_association.set_execution_id(want_executions[1].id());
+  additional_association.set_context_id(contexts[1].id());
+  int64 dummy_assid;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateAssociation(additional_association,
+                                                       &dummy_assid));
+
+  VerifyListOptions<Execution>(
+      absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: " contexts_a.id = $0 OR contexts_a.id = $1")",
+                       contexts[0].id(),
+                       contexts[1].id()),
+      *metadata_access_object_,
+      /*want_nodes=*/{want_executions[2], want_executions[1],
+                      want_executions[0]});
+
+  VerifyListOptions<Execution>(
+      absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: '(contexts_1.type = \'$0\' AND contexts_1.name = \'$1\') OR '
+                    '(contexts_2.type = \'$2\' AND contexts_2.name = \'$3\')'
+    )",
+        context_type.name(), contexts[2].name(),
+        context_type.name(), contexts[1].name()),
+      *metadata_access_object_,
+      /*want_nodes=*/{want_executions[1], want_executions[0]});
+
+  VerifyListOptions<Execution>(
+      absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: '(contexts_1.type=\'$0\' AND contexts_1.name=\'$1\') AND '
+                    '(contexts_2.type=\'$2\' AND contexts_2.name=\'$3\') AND '
+                    '(contexts_3.type=\'$4\' AND contexts_3.name=\'$5\') '
+    )",
+        context_type.name(), contexts[2].name(),
+        context_type.name(), contexts[1].name(),
+        context_type.name(), contexts[0].name()),
+      *metadata_access_object_,
+      /*want_nodes=*/{want_executions[0]});
 }
 
 TEST_P(MetadataAccessObjectTest, ListContextNodesWithParentChildQuery) {

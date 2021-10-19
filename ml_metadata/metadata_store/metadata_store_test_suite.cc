@@ -3992,6 +3992,106 @@ TEST_P(MetadataStoreTestSuite,
   EXPECT_TRUE(get_nodes_response.next_page_token().empty());
 }
 
+TEST_P(MetadataStoreTestSuite, GetExecutionFilterWithSpecialChars) {
+  PutTypesRequest put_types_request = ParseTextProtoOrDie<PutTypesRequest>(R"pb(
+    context_types: { name: 'context_type' }
+    execution_types: { name: 'execution_type' }
+  )pb");
+  PutTypesResponse put_types_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutTypes(put_types_request, &put_types_response));
+  int64 context_type_id = put_types_response.context_type_ids(0);
+  int64 execution_type_id = put_types_response.execution_type_ids(0);
+
+  // Setup: Insert an execution, a context and an association.
+  Context context;
+  context.set_type_id(context_type_id);
+  context.set_name("context_name_with_'");
+  PutContextsRequest put_context_request;
+  *put_context_request.add_contexts() = context;
+  PutContextsResponse put_context_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutContexts(put_context_request,
+                                         &put_context_response));
+  context.set_id(put_context_response.context_ids(0));
+
+  Execution execution;
+  execution.set_type_id(execution_type_id);
+  execution.set_name("exe_name_with_'");
+  PutExecutionRequest put_execution_request;
+  *put_execution_request.mutable_execution() = execution;
+  *put_execution_request.add_contexts() = context;
+  PutExecutionResponse put_execution_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecution(put_execution_request,
+                                          &put_execution_response));
+  execution.set_id(put_execution_response.execution_id());
+
+  // Test: GetExecutions with filter query on execution.name could obtain the
+  // wanted execution.
+  {
+    GetExecutionsRequest get_executions_request;
+    GetExecutionsResponse get_executions_response;
+    get_executions_request.mutable_options()->set_filter_query(
+        R"( name = "exe_name_with_'" )");
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->GetExecutions(get_executions_request,
+                                             &get_executions_response));
+    ASSERT_THAT(get_executions_response.executions(), SizeIs(1));
+    EXPECT_THAT(
+        get_executions_response.executions(0),
+        EqualsProto(execution,
+                    /*ignore_fields=*/{"create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
+  }
+
+  // Test: GetExecutions with filter query on context.name could obtain the
+  // wanted execution.
+  {
+    GetExecutionsRequest get_executions_request;
+    GetExecutionsResponse get_executions_response;
+    get_executions_request.mutable_options()->set_filter_query(
+        R"( contexts_1.name = "context_name_with_'" )");
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->GetExecutions(get_executions_request,
+                                             &get_executions_response));
+    ASSERT_THAT(get_executions_response.executions(), SizeIs(1));
+    EXPECT_THAT(
+        get_executions_response.executions(0),
+        EqualsProto(execution,
+                    /*ignore_fields=*/{"create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
+  }
+
+  // Test: GetExecutions with filter query on both execution.name and
+  // context.name could obtain the wanted execution.
+  {
+    GetExecutionsRequest get_executions_request;
+    GetExecutionsResponse get_executions_response;
+    get_executions_request.mutable_options()->set_filter_query(R"(
+      contexts_1.name = "context_name_with_'" AND name = "exe_name_with_'")");
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->GetExecutions(get_executions_request,
+                                             &get_executions_response));
+    ASSERT_THAT(get_executions_response.executions(), SizeIs(1));
+    EXPECT_THAT(
+        get_executions_response.executions(0),
+        EqualsProto(execution,
+                    /*ignore_fields=*/{"create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
+  }
+
+  // Test: If single quote is exist in a pair of single quotes, return error.
+  {
+    GetExecutionsRequest get_executions_request;
+    GetExecutionsResponse get_executions_response;
+    get_executions_request.mutable_options()->set_filter_query(R"(
+      name = 'exe_name_with_'')");
+    EXPECT_TRUE(absl::IsInvalidArgument(metadata_store_->GetExecutions(
+        get_executions_request, &get_executions_response)));
+  }
+}
+
 }  // namespace
 }  // namespace testing
 }  // namespace ml_metadata
