@@ -2673,11 +2673,12 @@ TEST_P(MetadataAccessObjectTest, QueryLineageGraph) {
   {
     // Empty query nodes is OK.
     LineageGraph output_graph;
-    ASSERT_EQ(absl::OkStatus(),
-              metadata_access_object_->QueryLineageGraph(
-                  /*query_nodes=*/{}, /*max_num_hops=*/0,
-                  /*boundary_artifacts=*/absl::nullopt,
-                  /*boundary_executions=*/absl::nullopt, output_graph));
+    ASSERT_EQ(
+        absl::OkStatus(),
+        metadata_access_object_->QueryLineageGraph(
+            /*query_nodes=*/{}, /*max_num_hops=*/0, /*max_nodes=*/absl::nullopt,
+            /*boundary_artifacts=*/absl::nullopt,
+            /*boundary_executions=*/absl::nullopt, output_graph));
     VerifyLineageGraph(output_graph, /*artifacts=*/{}, /*executions=*/{},
                        /*events=*/{}, *metadata_access_object_);
   }
@@ -2688,6 +2689,7 @@ TEST_P(MetadataAccessObjectTest, QueryLineageGraph) {
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->QueryLineageGraph(
                   /*query_nodes=*/{want_artifacts[0]}, /*max_num_hops=*/1,
+                  /*max_nodes=*/absl::nullopt,
                   /*boundary_artifacts=*/absl::nullopt,
                   /*boundary_executions=*/absl::nullopt, output_graph));
     VerifyLineageGraph(
@@ -2701,6 +2703,54 @@ TEST_P(MetadataAccessObjectTest, QueryLineageGraph) {
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->QueryLineageGraph(
                   /*query_nodes=*/{want_artifacts[0]}, /*max_num_hops=*/2,
+                  /*max_nodes=*/absl::nullopt,
+                  /*boundary_artifacts=*/absl::nullopt,
+                  /*boundary_executions=*/absl::nullopt, output_graph));
+    VerifyLineageGraph(output_graph, want_artifacts, want_executions,
+                       want_events, *metadata_access_object_);
+  }
+
+  {
+    // Query a1 with 2 hop and max_nodes of 2. It returns a1 and one of e1 or
+    // e2.
+    LineageGraph output_graph;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->QueryLineageGraph(
+                  /*query_nodes=*/{want_artifacts[0]}, /*max_num_hops=*/2,
+                  /*max_nodes=*/2,
+                  /*boundary_artifacts=*/absl::nullopt,
+                  /*boundary_executions=*/absl::nullopt, output_graph));
+
+    // Compare nodes and edges.
+    EXPECT_THAT(
+        output_graph.artifacts(),
+        UnorderedPointwise(EqualsProto<Artifact>(), {want_artifacts[0]}));
+    EXPECT_EQ(output_graph.executions().size(), 1);
+    EXPECT_EQ(output_graph.events().size(), 1);
+  }
+
+  {
+    // Query a1 with 2 hop and max_nodes of 3.
+    LineageGraph output_graph;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->QueryLineageGraph(
+                  /*query_nodes=*/{want_artifacts[0]}, /*max_num_hops=*/2,
+                  /*max_nodes=*/3,
+                  /*boundary_artifacts=*/absl::nullopt,
+                  /*boundary_executions=*/absl::nullopt, output_graph));
+    VerifyLineageGraph(
+        output_graph, /*artifacts=*/{want_artifacts[0]}, want_executions,
+        /*events=*/{want_events[0], want_events[1]}, *metadata_access_object_);
+  }
+
+  {
+    // Query a1 with 2 hop and max_nodes of 4. It returns all nodes with no
+    // duplicate.
+    LineageGraph output_graph;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->QueryLineageGraph(
+                  /*query_nodes=*/{want_artifacts[0]}, /*max_num_hops=*/2,
+                  /*max_nodes=*/4,
                   /*boundary_artifacts=*/absl::nullopt,
                   /*boundary_executions=*/absl::nullopt, output_graph));
     VerifyLineageGraph(output_graph, want_artifacts, want_executions,
@@ -2710,11 +2760,12 @@ TEST_P(MetadataAccessObjectTest, QueryLineageGraph) {
   {
     // With multiple query nodes with 0 hop.
     LineageGraph output_graph;
-    ASSERT_EQ(absl::OkStatus(),
-              metadata_access_object_->QueryLineageGraph(
-                  want_artifacts, /*max_num_hops=*/0,
-                  /*boundary_artifacts=*/absl::nullopt,
-                  /*boundary_executions=*/absl::nullopt, output_graph));
+    ASSERT_EQ(
+        absl::OkStatus(),
+        metadata_access_object_->QueryLineageGraph(
+            want_artifacts, /*max_num_hops=*/0, /*max_nodes=*/absl::nullopt,
+            /*boundary_artifacts=*/absl::nullopt,
+            /*boundary_executions=*/absl::nullopt, output_graph));
     VerifyLineageGraph(output_graph, want_artifacts, /*executions=*/{},
                        /*events=*/{}, *metadata_access_object_);
   }
@@ -2723,11 +2774,12 @@ TEST_P(MetadataAccessObjectTest, QueryLineageGraph) {
     // Query multiple nodes with a large hop.
     // It returns all nodes with no duplicate.
     LineageGraph output_graph;
-    ASSERT_EQ(absl::OkStatus(),
-              metadata_access_object_->QueryLineageGraph(
-                  want_artifacts, /*max_num_hops=*/5,
-                  /*boundary_artifacts=*/absl::nullopt,
-                  /*boundary_executions=*/absl::nullopt, output_graph));
+    ASSERT_EQ(
+        absl::OkStatus(),
+        metadata_access_object_->QueryLineageGraph(
+            want_artifacts, /*max_num_hops=*/5, /*max_nodes=*/absl::nullopt,
+            /*boundary_artifacts=*/absl::nullopt,
+            /*boundary_executions=*/absl::nullopt, output_graph));
     VerifyLineageGraph(output_graph, want_artifacts, want_executions,
                        want_events, *metadata_access_object_);
   }
@@ -2748,7 +2800,7 @@ TEST_P(MetadataAccessObjectTest, QueryLineageGraphArtifactsOnly) {
   LineageGraph output_graph;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->QueryLineageGraph(
-                want_artifacts, /*max_num_hops=*/1,
+                want_artifacts, /*max_num_hops=*/1, /*max_nodes=*/absl::nullopt,
                 /*boundary_artifacts=*/absl::nullopt,
                 /*boundary_executions=*/absl::nullopt, output_graph));
   VerifyLineageGraph(output_graph, want_artifacts, /*executions=*/{},
@@ -2799,6 +2851,21 @@ TEST_P(MetadataAccessObjectTest, QueryLineageGraphWithBoundaryConditions) {
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->QueryLineageGraph(
                   /*query_nodes=*/{want_artifacts[1]}, /*max_num_hops=*/2,
+                  /*max_nodes=*/absl::nullopt,
+                  /*boundary_artifacts=*/absl::nullopt,
+                  /*boundary_executions=*/"name != 'e0'", output_graph));
+    VerifyLineageGraph(output_graph, want_artifacts,
+                       /*executions=*/{want_executions[1]},
+                       /*events=*/{a1e1, a0e1}, *metadata_access_object_);
+  }
+
+  {
+    // boundary execution condition with max num hops and max_nodes of 3.
+    LineageGraph output_graph;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->QueryLineageGraph(
+                  /*query_nodes=*/{want_artifacts[1]}, /*max_num_hops=*/2,
+                  /*max_nodes=*/3,
                   /*boundary_artifacts=*/absl::nullopt,
                   /*boundary_executions=*/"name != 'e0'", output_graph));
     VerifyLineageGraph(output_graph, want_artifacts,
@@ -2812,10 +2879,28 @@ TEST_P(MetadataAccessObjectTest, QueryLineageGraphWithBoundaryConditions) {
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->QueryLineageGraph(
                   /*query_nodes=*/{want_artifacts[1]}, /*max_num_hops=*/3,
+                  /*max_nodes=*/absl::nullopt,
                   /*boundary_artifacts=*/"uri != 'unknown_uri'",
                   /*boundary_executions=*/absl::nullopt, output_graph));
     VerifyLineageGraph(output_graph, want_artifacts, want_executions,
                        all_events, *metadata_access_object_);
+  }
+
+  {
+    // boundary artifact condition with max_num_hops and max nodes of 10.
+    // It should return both artifacts and 8 exeuctions.
+    LineageGraph output_graph;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->QueryLineageGraph(
+                  /*query_nodes=*/{want_artifacts[1]}, /*max_num_hops=*/3,
+                  /*max_nodes=*/10,
+                  /*boundary_artifacts=*/"uri != 'unknown_uri'",
+                  /*boundary_executions=*/absl::nullopt, output_graph));
+    // Compare nodes and edges.
+    EXPECT_THAT(output_graph.artifacts(),
+                UnorderedPointwise(EqualsProto<Artifact>(), want_artifacts));
+    EXPECT_EQ(output_graph.executions().size(), 8);
+    EXPECT_EQ(output_graph.events().size(), 9);
   }
 
   {
@@ -2824,6 +2909,7 @@ TEST_P(MetadataAccessObjectTest, QueryLineageGraphWithBoundaryConditions) {
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->QueryLineageGraph(
                   /*query_nodes=*/{want_artifacts[1]}, /*max_num_hops=*/2,
+                  /*max_nodes=*/absl::nullopt,
                   /*boundary_artifacts=*/"uri != 'uri_0'",
                   /*boundary_executions=*/"name != 'e0'", output_graph));
     VerifyLineageGraph(output_graph, /*artifacts=*/{want_artifacts[1]},
@@ -2837,6 +2923,7 @@ TEST_P(MetadataAccessObjectTest, QueryLineageGraphWithBoundaryConditions) {
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->QueryLineageGraph(
                   /*query_nodes=*/{want_artifacts[1]}, /*max_num_hops=*/3,
+                  /*max_nodes=*/absl::nullopt,
                   /*boundary_artifacts=*/absl::nullopt,
                   /*boundary_executions=*/"name = 'e1'", output_graph));
     VerifyLineageGraph(output_graph, /*artifacts=*/want_artifacts,

@@ -487,8 +487,11 @@ class MetadataAccessObject {
   //    from the `query_nodes`.
   // b) boundary nodes: it stops traversal at the nodes that satisfies
   //    `boundary_artifacts` or `boundary_executions`.
+  // c) number of total nodes: it stops traversal once total nodes meets
+  // max_nodes. No limits on total nodes if max_nodes is not set.
   virtual absl::Status QueryLineageGraph(
       const std::vector<Artifact>& query_nodes, int64 max_num_hops,
+      absl::optional<int64> max_nodes,
       absl::optional<std::string> boundary_artifacts,
       absl::optional<std::string> boundary_executions,
       LineageGraph& subgraph) = 0;

@@ -1566,7 +1566,7 @@ absl::Status MetadataStore::GetLineageGraph(
         const LineageGraphQueryOptions::BoundaryConstraint& stop_conditions =
             request.options().stop_conditions();
         return metadata_access_object_->QueryLineageGraph(
-            artifacts, max_num_hops,
+            artifacts, max_num_hops, /*max_nodes=*/absl::nullopt,
             !stop_conditions.boundary_artifacts().empty()
                 ? absl::make_optional<std::string>(
                       stop_conditions.boundary_artifacts())

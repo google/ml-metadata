@@ -242,6 +242,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // TODO(b/178491112) Returns contexts in the returned subgraphs.
   absl::Status QueryLineageGraph(
       const std::vector<Artifact>& query_nodes, int64 max_num_hops,
+      absl::optional<int64> max_nodes,
       absl::optional<std::string> boundary_artifacts,
       absl::optional<std::string> boundary_executions,
       LineageGraph& subgraph) final;
@@ -530,7 +531,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // visited executions in previous traversal, while the `visited_artifact_ids`
   // maintains previously visited and the newly visited `input_artifacts`.
   absl::Status ExpandLineageGraphImpl(
-      const std::vector<Artifact>& input_artifacts,
+      const std::vector<Artifact>& input_artifacts, int64 max_nodes,
       absl::optional<std::string> boundary_condition,
       const absl::flat_hash_set<int64>& visited_execution_ids,
       absl::flat_hash_set<int64>& visited_artifact_ids,
@@ -544,7 +545,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // visited artifacts in previous traversal, while the `visited_execution_ids`
   // maintains previously visited and the newly visited `input_executions`.
   absl::Status ExpandLineageGraphImpl(
-      const std::vector<Execution>& input_executions,
+      const std::vector<Execution>& input_executions, int64 max_nodes,
       absl::optional<std::string> boundary_condition,
       const absl::flat_hash_set<int64>& visited_artifact_ids,
       absl::flat_hash_set<int64>& visited_execution_ids,

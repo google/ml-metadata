@@ -1861,11 +1861,14 @@ absl::Status RDBMSMetadataAccessObject::SkipBoundaryNodesImpl(
 }
 
 absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
-    const std::vector<Artifact>& input_artifacts,
+    const std::vector<Artifact>& input_artifacts, int64 max_nodes,
     absl::optional<std::string> boundary_condition,
     const absl::flat_hash_set<int64>& visited_execution_ids,
     absl::flat_hash_set<int64>& visited_artifact_ids,
     std::vector<Execution>& output_executions, LineageGraph& subgraph) {
+  if (max_nodes <= 0) {
+    return absl::OkStatus();
+  }
   std::vector<int64> input_artifact_ids(input_artifacts.size());
   for (int i = 0; i < input_artifacts.size(); i++) {
     input_artifact_ids[i] = input_artifacts[i].id();
@@ -1885,6 +1888,12 @@ absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
   }
   MLMD_RETURN_IF_ERROR(SkipBoundaryNodesImpl<Execution>(
       boundary_condition, unvisited_execution_ids));
+
+  // Randomly remove extra nodes if more than max_nodes executions are found.
+  while (unvisited_execution_ids.size() > max_nodes) {
+    unvisited_execution_ids.erase(unvisited_execution_ids.begin());
+  }
+
   for (const Event& event : events) {
     if (unvisited_execution_ids.contains(event.execution_id())) {
       *subgraph.add_events() = event;
@@ -1901,11 +1910,14 @@ absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
 }
 
 absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
-    const std::vector<Execution>& input_executions,
+    const std::vector<Execution>& input_executions, int64 max_nodes,
     absl::optional<std::string> boundary_condition,
     const absl::flat_hash_set<int64>& visited_artifact_ids,
     absl::flat_hash_set<int64>& visited_execution_ids,
     std::vector<Artifact>& output_artifacts, LineageGraph& subgraph) {
+  if (max_nodes <= 0) {
+    return absl::OkStatus();
+  }
   std::vector<int64> input_execution_ids(input_executions.size());
   for (int i = 0; i < input_executions.size(); i++) {
     input_execution_ids[i] = input_executions[i].id();
@@ -1925,6 +1937,12 @@ absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
   }
   MLMD_RETURN_IF_ERROR(SkipBoundaryNodesImpl<Artifact>(boundary_condition,
                                                        unvisited_artifact_ids));
+
+  // Randomly remove extra nodes if more than max_nodes artifacts are found.
+  while (unvisited_artifact_ids.size() > max_nodes) {
+    unvisited_artifact_ids.erase(unvisited_artifact_ids.begin());
+  }
+
   for (const Event& event : events) {
     if (unvisited_artifact_ids.contains(event.artifact_id())) {
       *subgraph.add_events() = event;
@@ -1942,6 +1960,7 @@ absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
 
 absl::Status RDBMSMetadataAccessObject::QueryLineageGraph(
     const std::vector<Artifact>& query_nodes, int64 max_num_hops,
+    absl::optional<int64> max_nodes,
     absl::optional<std::string> boundary_artifacts,
     absl::optional<std::string> boundary_executions, LineageGraph& subgraph) {
   absl::c_copy(query_nodes,
@@ -1952,28 +1971,42 @@ absl::Status RDBMSMetadataAccessObject::QueryLineageGraph(
   int64 curr_distance = 0;
   std::vector<Artifact> output_artifacts;
   std::vector<Execution> output_executions;
-  while (curr_distance < max_num_hops) {
+  // If max_nodes is not set, set nodes quota to max int64 value to effectively
+  // disable limit the lineage graph by nodes count.
+  int64 nodes_quota;
+  if (!max_nodes) {
+    nodes_quota = std::numeric_limits<int64>::max();
+  } else {
+    nodes_quota = max_nodes.value() - query_nodes.size();
+  }
+
+  while (curr_distance < max_num_hops && nodes_quota > 0) {
     const bool is_traverse_from_artifact = (curr_distance % 2 == 0);
     if (is_traverse_from_artifact) {
       if (curr_distance == 0) {
         MLMD_RETURN_IF_ERROR(ExpandLineageGraphImpl(
-            query_nodes, boundary_executions, visited_executions_ids,
-            visited_artifacts_ids, output_executions, subgraph));
+            query_nodes, nodes_quota, boundary_executions,
+            visited_executions_ids, visited_artifacts_ids, output_executions,
+            subgraph));
       } else {
         MLMD_RETURN_IF_ERROR(ExpandLineageGraphImpl(
-            output_artifacts, boundary_executions, visited_executions_ids,
-            visited_artifacts_ids, output_executions, subgraph));
+            output_artifacts, nodes_quota, boundary_executions,
+            visited_executions_ids, visited_artifacts_ids, output_executions,
+            subgraph));
       }
       if (output_executions.empty()) {
         break;
       }
+      nodes_quota -= output_executions.size();
     } else {
       MLMD_RETURN_IF_ERROR(ExpandLineageGraphImpl(
-          output_executions, boundary_artifacts, visited_artifacts_ids,
-          visited_executions_ids, output_artifacts, subgraph));
+          output_executions, nodes_quota, boundary_artifacts,
+          visited_artifacts_ids, visited_executions_ids, output_artifacts,
+          subgraph));
       if (output_artifacts.empty()) {
         break;
       }
+      nodes_quota -= output_artifacts.size();
     }
     curr_distance++;
   }
