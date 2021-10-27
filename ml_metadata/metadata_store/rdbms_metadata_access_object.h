@@ -199,6 +199,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status CreateAssociation(const Association& association,
                                  int64* association_id) final;
 
+
   absl::Status FindContextsByExecution(int64 execution_id,
                                        std::vector<Context>* contexts) final;
 
@@ -477,6 +478,13 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // Returns INVALID_ARGUMENT error, if the `events` is null.
   absl::Status FindEventsFromRecordSet(const RecordSet& event_record_set,
                                        std::vector<Event>* events);
+
+  // Takes a record set that has one record per association and parses it into
+  // an Association object for each record.
+  // Returns INVALID_ARGUMENT error, if the `associations` is null.
+  absl::Status FindAssociationsFromRecordSet(
+      const RecordSet& association_record_set,
+      std::vector<Association>* associations);
 
   // Retrieves the ids of the nodes based on 'options' and `candidate_ids`.
   // If `candidate_ids` is provided, then only the nodes with those ids are

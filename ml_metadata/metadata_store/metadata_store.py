@@ -1278,6 +1278,7 @@ class MetadataStore(object):
     )
     self._call('PutAttributionsAndAssociations', request, response)
 
+
   def put_parent_contexts(
       self, parent_contexts: Sequence[proto.ParentContext]) -> None:
     """Inserts parent contexts in the database.

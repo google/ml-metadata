@@ -1064,6 +1064,7 @@ absl::Status RDBMSMetadataAccessObject::FindEventsFromRecordSet(
   return absl::OkStatus();
 }
 
+
 absl::Status RDBMSMetadataAccessObject::CreateType(const ArtifactType& type,
                                                    int64* type_id) {
   return CreateTypeImpl(type, type_id);
@@ -1392,6 +1393,7 @@ absl::Status RDBMSMetadataAccessObject::CreateAssociation(
   return status;
 }
 
+
 absl::Status RDBMSMetadataAccessObject::FindContextsByExecution(
     int64 execution_id, std::vector<Context>* contexts) {
   RecordSet record_set;
@@ -1417,7 +1419,7 @@ absl::Status RDBMSMetadataAccessObject::FindExecutionsByContext(
     std::vector<Execution>* executions, std::string* next_page_token) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(
-      executor_->SelectAssociationByContextID(context_id, &record_set));
+      executor_->SelectAssociationByContextIDs({context_id}, &record_set));
   const std::vector<int64> ids = AssociationsToExecutionIds(record_set);
   if (ids.empty()) {
     return absl::OkStatus();

@@ -451,8 +451,8 @@ class QueryExecutor {
   // Column 0: int: attribution id
   // Column 1: int: context id
   // Column 2: int: execution id
-  virtual absl::Status SelectAssociationByContextID(int64 context_id,
-                                                    RecordSet* record_set) = 0;
+  virtual absl::Status SelectAssociationByContextIDs(
+      absl::Span<const int64> context_id, RecordSet* record_set) = 0;
 
   // Returns association triplets for the given context id. Each triplet has:
   // Column 0: int: attribution id

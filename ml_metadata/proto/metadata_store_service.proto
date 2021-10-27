@@ -477,6 +477,7 @@ message GetExecutionTypeResponse {
   optional ExecutionType execution_type = 1;
 }
 
+
 // Gets all events with matching execution ids.
 message GetEventsByExecutionIDsRequest {
   repeated int64 execution_ids = 1;
@@ -984,6 +985,7 @@ service MetadataStoreService {
   // Gets all events with matching artifact ids.
   rpc GetEventsByArtifactIDs(GetEventsByArtifactIDsRequest)
       returns (GetEventsByArtifactIDsResponse) {}
+
 
   // Gets all context that an artifact is attributed to.
   rpc GetContextsByArtifact(GetContextsByArtifactRequest)

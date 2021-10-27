@@ -577,7 +577,7 @@ R"pb(
   select_association_by_context_id {
     query: " SELECT `id`, `context_id`, `execution_id` "
            " from `Association` "
-           " WHERE `context_id` = $0; "
+           " WHERE `context_id` IN ($0); "
     parameter_num: 1
   }
   select_association_by_execution_id {

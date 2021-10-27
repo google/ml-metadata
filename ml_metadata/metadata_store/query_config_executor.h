@@ -423,8 +423,8 @@ class QueryConfigExecutor : public QueryExecutor {
         {Bind(context_id), Bind(execution_id)}, association_id);
   }
 
-  absl::Status SelectAssociationByContextID(int64 context_id,
-                                            RecordSet* record_set) final {
+  absl::Status SelectAssociationByContextIDs(absl::Span<const int64> context_id,
+                                             RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_association_by_context_id(),
                         {Bind(context_id)}, record_set);
   }

@@ -5493,6 +5493,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndUseAssociation) {
   EXPECT_EQ(got_artifacts.size(), 0);
 }
 
+
 TEST_P(MetadataAccessObjectTest, GetAssociationUsingPagination) {
   ASSERT_EQ(absl::OkStatus(), Init());
   int64 execution_type_id = InsertType<ExecutionType>("execution_type");

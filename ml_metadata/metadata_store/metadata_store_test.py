@@ -1176,13 +1176,6 @@ class MetadataStoreTest(parameterized.TestCase):
     executions_by_context = store.get_executions_by_context(context_ids[0])
     self.assertLen(executions_by_context, 1)
 
-    # Test the attribution links between artifacts and the context are correct.
-    contexts_by_artifact_id = store.get_contexts_by_artifact(artifact_ids[0])
-    self.assertLen(contexts_by_artifact_id, 1)
-    self.assertEqual(contexts_by_artifact_id[0].name, context.name)
-    self.assertEqual(contexts_by_artifact_id[0].type_id, context_type_id)
-    artifacts_by_context = store.get_artifacts_by_context(context_ids[0])
-    self.assertLen(artifacts_by_context, 2)
 
   def test_get_executions_by_context_with_pagination(self):
     store = _get_metadata_store()

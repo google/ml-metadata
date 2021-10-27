@@ -2826,6 +2826,7 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContext) {
     ASSERT_THAT(get_executions_by_context_response.executions(), SizeIs(1));
     EXPECT_EQ(get_executions_by_context_response.executions(0).id(),
               put_execution_response.execution_id());
+
   }
 }
 
