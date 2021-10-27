@@ -323,6 +323,25 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   return transaction_status;
 }
 
+::grpc::Status MetadataStoreServiceImpl::PutTypes(
+    ::grpc::ServerContext* context, const PutTypesRequest* request,
+    PutTypesResponse* response) {
+  std::unique_ptr<MetadataStore> metadata_store;
+  const ::grpc::Status connection_status =
+      ConnectMetadataStore(connection_config_, &metadata_store);
+  if (!connection_status.ok()) {
+    LOG(WARNING) << "Failed to connect to the database: "
+                 << connection_status.error_message();
+    return connection_status;
+  }
+  const ::grpc::Status transaction_status =
+      ToGRPCStatus(metadata_store->PutTypes(*request, response));
+  if (!transaction_status.ok()) {
+    LOG(WARNING) << "PutTypes failed: " << transaction_status.error_message();
+  }
+  return transaction_status;
+}
+
 ::grpc::Status MetadataStoreServiceImpl::GetArtifactsByID(
     ::grpc::ServerContext* context, const GetArtifactsByIDRequest* request,
     GetArtifactsByIDResponse* response) {

@@ -109,6 +109,10 @@ class MetadataStoreServiceImpl final
                               const PutExecutionRequest* request,
                               PutExecutionResponse* response) override;
 
+  ::grpc::Status PutTypes(::grpc::ServerContext* context,
+                          const PutTypesRequest* request,
+                          PutTypesResponse* response) override;
+
   ::grpc::Status GetEventsByArtifactIDs(
       ::grpc::ServerContext* context,
       const GetEventsByArtifactIDsRequest* request,

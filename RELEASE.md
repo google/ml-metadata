@@ -42,7 +42,7 @@
 
 ## Bug Fixes and Other Changes
 
-*   N/A
+*   Adds support for PutTypes in the gRPC server.
 
 ## Breaking Changes
 
