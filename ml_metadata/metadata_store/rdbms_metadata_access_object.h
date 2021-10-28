@@ -70,6 +70,14 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
     return executor_->InitMetadataSourceIfNotExists(enable_upgrade_migration);
   }
 
+  // Initializes the metadata source without checking schema.
+  // It assumes the schema is already in place and up-to-date.
+  // Returns OK if the init succeeds.
+  // Returns detailed INTERNAL error, if query execution fails.
+  absl::Status InitMetadataSourceLight() final {
+    return executor_->InitMetadataSourceLight();
+  }
+
   // Downgrades the schema to `to_schema_version` in the given metadata source.
   // Returns INVALID_ARGUMENT, if `to_schema_version` is less than 0, or newer
   //   than the library version.

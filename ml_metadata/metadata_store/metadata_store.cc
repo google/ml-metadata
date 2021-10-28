@@ -441,6 +441,7 @@ absl::Status MetadataStore::InitMetadataStoreIfNotExists(
   });
 }
 
+
 absl::Status MetadataStore::PutTypes(const PutTypesRequest& request,
                                      PutTypesResponse* response) {
   if (!request.all_fields_match()) {

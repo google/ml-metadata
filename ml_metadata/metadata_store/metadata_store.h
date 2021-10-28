@@ -62,6 +62,7 @@ class MetadataStore : public MetadataStoreServiceInterface {
   absl::Status InitMetadataStoreIfNotExists(
       bool enable_upgrade_migration = false);
 
+
   // Inserts or updates a ArtifactType/ExecutionType/ContextType.
   //
   // A type has a set of strong typed properties describing the schema of any

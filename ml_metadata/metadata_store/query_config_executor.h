@@ -65,6 +65,11 @@ class QueryConfigExecutor : public QueryExecutor {
   absl::Status InitMetadataSourceIfNotExists(
       const bool enable_upgrade_migration) final;
 
+  absl::Status InitMetadataSourceLight() final {
+    return absl::UnimplementedError(
+        "InitMetadataSourceLight not supported for QueryConfigExecutor");
+  }
+
   absl::Status GetSchemaVersion(int64* db_version) final;
 
   absl::Status CheckTypeTable() final {
