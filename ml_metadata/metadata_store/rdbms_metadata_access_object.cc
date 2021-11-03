@@ -679,12 +679,6 @@ absl::Status RDBMSMetadataAccessObject::CreateTypeImpl(const Type& type,
   if (type_name.empty()) {
     return absl::InvalidArgumentError("No type name is specified.");
   }
-  const bool is_simple_type =
-      std::find(kSimpleTypeNames.begin(), kSimpleTypeNames.end(), type_name) !=
-      kSimpleTypeNames.end();
-  if (type_properties.empty() && !is_simple_type) {
-    LOG(INFO) << "No property is defined for the Type";
-  }
 
   // insert a type and get its given id
   MLMD_RETURN_IF_ERROR(InsertTypeID(type, type_id));
