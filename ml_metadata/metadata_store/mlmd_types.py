@@ -89,10 +89,16 @@ class ArtifactType(_SystemType):
 
   def __init__(
       self, system_type: metadata_store_pb2.ArtifactType.SystemDefinedBaseType):
+    self._system_type = system_type
     extensions = metadata_store_pb2.ArtifactType.SystemDefinedBaseType.DESCRIPTOR.values_by_number[
         system_type].GetOptions().Extensions
     type_name = extensions[metadata_store_pb2.system_type_extension].type_name
     super().__init__(type_name)
+
+  @property
+  def system_type(
+      self) -> metadata_store_pb2.ArtifactType.SystemDefinedBaseType:
+    return self._system_type
 
 
 class ExecutionType(_SystemType):
@@ -101,10 +107,16 @@ class ExecutionType(_SystemType):
   def __init__(
       self,
       system_type: metadata_store_pb2.ExecutionType.SystemDefinedBaseType):
+    self._system_type = system_type
     extensions = metadata_store_pb2.ExecutionType.SystemDefinedBaseType.DESCRIPTOR.values_by_number[
         system_type].GetOptions().Extensions
     type_name = extensions[metadata_store_pb2.system_type_extension].type_name
     super().__init__(type_name)
+
+  @property
+  def system_type(
+      self) -> metadata_store_pb2.ExecutionType.SystemDefinedBaseType:
+    return self._system_type
 
 
 # A list of system pre-defined artifact types.
