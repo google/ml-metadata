@@ -163,6 +163,7 @@ absl::Status SqliteMetadataSource::BeginImpl() {
   return RunStatement(kBeginTransaction);
 }
 
+
 absl::Status SqliteMetadataSource::CommitImpl() {
   return RunStatement(kCommitTransaction);
 }

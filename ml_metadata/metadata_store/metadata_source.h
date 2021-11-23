@@ -88,6 +88,7 @@ class MetadataSource {
   // Returns FAILED_PRECONDITION error, if a transaction has already begun.
   absl::Status Begin();
 
+
   // Commits a transaction.
   // Returns FAILED_PRECONDITION error, if Connection() is not opened.
   // Returns FAILED_PRECONDITION error, if a transaction has not begun.
@@ -128,6 +129,7 @@ class MetadataSource {
 
   // Implementation of opening a transaction.
   virtual absl::Status BeginImpl() = 0;
+
 
   // Implementation of a transaction commit.
   virtual absl::Status CommitImpl() = 0;

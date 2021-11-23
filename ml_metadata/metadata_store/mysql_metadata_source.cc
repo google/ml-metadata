@@ -37,6 +37,7 @@ namespace {
 
 using absl::Status;
 
+constexpr char kSetIsolationLevel[] = "SET TRANSACTION ISOLATION LEVEL ";
 constexpr char kBeginTransaction[] = "START TRANSACTION";
 constexpr char kCommitTransaction[] = "COMMIT";
 constexpr char kRollbackTransaction[] = "ROLLBACK";
@@ -242,6 +243,7 @@ Status MySqlMetadataSource::BeginImpl() {
 
   return RunQuery(kBeginTransaction);
 }
+
 
 Status MySqlMetadataSource::CheckTransactionSupport() {
   constexpr char kCheckTransactionSupport[] =

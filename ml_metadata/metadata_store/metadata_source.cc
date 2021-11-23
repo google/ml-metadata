@@ -57,6 +57,7 @@ absl::Status MetadataSource::Begin() {
   return absl::OkStatus();
 }
 
+
 absl::Status MetadataSource::Commit() {
   if (!is_connected_)
     return absl::FailedPreconditionError("No opened connection for querying.");

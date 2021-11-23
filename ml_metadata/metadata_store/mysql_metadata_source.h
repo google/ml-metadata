@@ -56,6 +56,7 @@ class MySqlMetadataSource : public MetadataSource {
   // Opens a transaction.
   absl::Status BeginImpl() final;
 
+
   // Executes a SQL statement and returns the rows if any.
   // Returns an INTERNAL error upon any errors from the MYSQL backend.
   absl::Status ExecuteQueryImpl(const std::string& query,

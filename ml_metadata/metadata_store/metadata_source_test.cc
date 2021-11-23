@@ -94,6 +94,7 @@ TEST(MetadataSourceTest, TestBeginAndCommit) {
   EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Begin());
   EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Commit());
 }
+
 TEST(MetadataSourceTest, TestBeginAndCommitTwice) {
   MockMetadataSource mock_metadata_source;
   {
@@ -109,6 +110,7 @@ TEST(MetadataSourceTest, TestBeginAndCommitTwice) {
   EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Begin());
   EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Commit());
 }
+
 
 TEST(MetadataSourceTest, TestCommitWithoutConnect) {
   MockMetadataSource mock_metadata_source;
@@ -136,6 +138,7 @@ TEST(MetadataSourceTest, TestBeginAndRollback) {
   EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Begin());
   EXPECT_EQ(absl::OkStatus(), mock_metadata_source.Rollback());
 }
+
 
 TEST(MetadataSourceTest, TestBeginAndRollbackTwice) {
   MockMetadataSource mock_metadata_source;
@@ -175,5 +178,6 @@ TEST(MetadataSourceTest, TestBeginWithoutConnect) {
   absl::Status s = mock_metadata_source.Begin();
   EXPECT_TRUE(absl::IsFailedPrecondition(s));
 }
+
 
 }  // namespace ml_metadata

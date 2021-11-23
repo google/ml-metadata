@@ -102,6 +102,7 @@ TEST(MySqlMetadataSourceExtendedTest, TestConnectBySocket) {
 }
 
 
+
 // Test EscapeString utility method.
 // Same here, we adopt a fixtureless test here because it is using TCP
 // connection type, different from TestConnectBySocket.

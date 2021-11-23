@@ -61,6 +61,7 @@ class SqliteMetadataSource : public MetadataSource {
   // Begins a transaction
   absl::Status BeginImpl() final;
 
+
   // Util methods to execute query.
   absl::Status RunStatement(const std::string& query, RecordSet* results);
 
