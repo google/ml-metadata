@@ -1,8 +1,5 @@
 # Current Version (not yet released; still in development)
 
-*   Remove INFO log when a type is has empty property definition and not a
-    simple type.
-
 ## Major Features and Improvements
 
 ## Bug Fixes and Other Changes
@@ -10,6 +7,25 @@
 ## Breaking Changes
 
 ## Deprecations
+
+# Version 1.5.0
+
+## Major Features and Improvements
+
+*   N/A
+
+## Bug Fixes and Other Changes
+
+*   Remove INFO log when a type is has empty property definition and not a
+    simple type.
+
+## Breaking Changes
+
+*   N/A
+
+## Deprecations
+
+*   N/A
 
 # Version 1.4.0
 
