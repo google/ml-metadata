@@ -1565,10 +1565,18 @@ absl::Status MetadataStore::GetLineageGraph(
               "The query_nodes condition does not match any nodes to do "
               "traversal.");
         }
+        if (request.options().max_node_size() > 0 &&
+            artifacts.size() > request.options().max_node_size()) {
+          artifacts.erase(artifacts.begin() + request.options().max_node_size(),
+                          artifacts.end());
+        }
         const LineageGraphQueryOptions::BoundaryConstraint& stop_conditions =
             request.options().stop_conditions();
         return metadata_access_object_->QueryLineageGraph(
-            artifacts, max_num_hops, /*max_nodes=*/absl::nullopt,
+            artifacts, max_num_hops,
+            request.options().max_node_size() > 0
+                ? absl::make_optional<int64>(request.options().max_node_size())
+                : absl::nullopt,
             !stop_conditions.boundary_artifacts().empty()
                 ? absl::make_optional<std::string>(
                       stop_conditions.boundary_artifacts())

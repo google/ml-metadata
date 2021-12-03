@@ -23,6 +23,7 @@ limitations under the License.
 #include "absl/status/status.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "absl/types/optional.h"
 #include "ml_metadata/metadata_store/metadata_store_test_suite.h"
 #include "ml_metadata/metadata_store/sqlite_metadata_source.h"
 #include "ml_metadata/metadata_store/test_util.h"
@@ -285,6 +286,102 @@ TEST(MetadataStoreExtendedTest, GetLineageGraphWithMaxHops) {
       /*want_events=*/{{4, 2}, {4, 3}, {2, 2}, {3, 3}, {5, 3}, {3, 1}, {1, 1}});
 }
 
+// Test valid query options when using GetLineageGraph on the lineage graph
+// created with `CreateLineageGraph`.
+TEST(MetadataStoreExtendedTest, GetLineageGraphWithMaxNodeSize) {
+  // Prepare a store with the lineage graph
+  std::unique_ptr<MetadataStore> metadata_store = CreateMetadataStore();
+  int64 min_creation_time;
+  std::vector<Artifact> want_artifacts;
+  std::vector<Execution> want_executions;
+  ASSERT_EQ(absl::OkStatus(),
+            CreateLineageGraph(*metadata_store, min_creation_time,
+                               want_artifacts, want_executions));
+
+  // Verify the query results with the specified max_node_size
+  auto verify_lineage_graph_with_max_node_size =
+      [&metadata_store](absl::optional<int64> max_node_size,
+                        const std::vector<Artifact>& want_artifacts,
+                        const std::vector<Execution>& want_executions,
+                        const std::vector<std::pair<int64, int64>>& want_events,
+                        bool artifact_requires_live_state = false) {
+        GetLineageGraphRequest req;
+        GetLineageGraphResponse resp;
+        if (artifact_requires_live_state) {
+          req.mutable_options()->mutable_artifacts_options()->set_filter_query(
+              "type = 't1' and state = LIVE");
+        } else {
+          req.mutable_options()->mutable_artifacts_options()->set_filter_query(
+              "type = 't1'");
+        }
+        req.mutable_options()
+            ->mutable_artifacts_options()
+            ->mutable_order_by_field()
+            ->set_is_asc(true);
+
+        if (max_node_size.has_value()) {
+          LOG(INFO) << "Test when max_node_size = " << *max_node_size;
+          req.mutable_options()->set_max_node_size(*max_node_size);
+        } else {
+          LOG(INFO) << "Test when max_node_size is unset.";
+        }
+        EXPECT_EQ(absl::OkStatus(),
+                  metadata_store->GetLineageGraph(req, &resp));
+
+        VerifySubgraph(resp.subgraph(), want_artifacts, want_executions,
+                       want_events, metadata_store);
+      };
+
+  // Verify the lineage graph query results by increasing the max_node_size.
+  // Return every related node if max_node_size is absl::nullopt.
+  verify_lineage_graph_with_max_node_size(
+      /*max_node_size=*/absl::nullopt,
+      /*want_artifacts=*/want_artifacts,
+      /*want_executions=*/want_executions,
+      /*want_events=*/
+      {{4, 2}, {0, 0}, {4, 3}, {2, 2}, {3, 3}, {5, 3}, {3, 1}, {1, 1}});
+
+  // Return every related node if max_node_size <= 0.
+  verify_lineage_graph_with_max_node_size(
+      /*max_node_size=*/0,
+      /*want_artifacts=*/want_artifacts,
+      /*want_executions=*/want_executions,
+      /*want_events=*/
+      {{4, 2}, {0, 0}, {4, 3}, {2, 2}, {3, 3}, {5, 3}, {3, 1}, {1, 1}});
+
+  verify_lineage_graph_with_max_node_size(
+      /*max_node_size=*/-1,
+      /*want_artifacts=*/want_artifacts,
+      /*want_executions=*/want_executions,
+      /*want_events=*/
+      {{4, 2}, {0, 0}, {4, 3}, {2, 2}, {3, 3}, {5, 3}, {3, 1}, {1, 1}});
+
+  verify_lineage_graph_with_max_node_size(
+      /*max_node_size=*/1,
+      /*want_artifacts=*/{want_artifacts[0]},
+      /*want_executions=*/{},
+      /*want_events=*/{});
+
+  verify_lineage_graph_with_max_node_size(
+      /*max_node_size=*/6,
+      /*want_artifacts=*/want_artifacts,
+      /*want_executions=*/{},
+      /*want_events=*/{});
+
+  verify_lineage_graph_with_max_node_size(
+      /*max_node_size=*/3,
+      /*want_artifacts=*/{want_artifacts[4]},
+      /*want_executions=*/{want_executions[2], want_executions[3]},
+      /*want_events=*/{{4, 2}, {4, 3}},
+      /*artifact_requires_live_state=*/true);
+
+  verify_lineage_graph_with_max_node_size(
+      /*max_num_hop=*/20,
+      /*want_artifacts=*/want_artifacts,
+      /*want_executions=*/want_executions,
+      /*want_events=*/
+      {{4, 2}, {0, 0}, {4, 3}, {2, 2}, {3, 3}, {5, 3}, {3, 1}, {1, 1}});
+}
 
 TEST(MetadataStoreExtendedTest, GetLineageGraphWithBoundaryConditions) {
   // Prepare a store with the lineage graph

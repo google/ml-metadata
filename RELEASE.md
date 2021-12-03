@@ -2,6 +2,8 @@
 
 ## Major Features and Improvements
 
+*   Apply max_node_size to GetLineageGraphRequest for returned nodes.
+
 ## Bug Fixes and Other Changes
 
 ## Breaking Changes

@@ -324,6 +324,7 @@ ml_metadata_cc_test(
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/time",
+        "@com_google_absl//absl/types:optional",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/util:metadata_source_query_config",
         "//ml_metadata/util:return_utils",

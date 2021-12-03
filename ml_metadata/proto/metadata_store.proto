@@ -921,4 +921,8 @@ message LineageGraphQueryOptions {
 
   // A constraint option to define the boundary of the returned subgraph.
   optional BoundaryConstraint stop_conditions = 2;
+
+  // Maximum number of returned nodes.
+  // If set to 0 or below, all related nodes will be returned.
+  optional int64 max_node_size = 3 [default = 20];
 }
