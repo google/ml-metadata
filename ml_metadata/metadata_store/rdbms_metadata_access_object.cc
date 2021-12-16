@@ -1122,6 +1122,32 @@ absl::Status RDBMSMetadataAccessObject::FindTypeByNameAndVersion(
   return FindTypeImpl(name, version, context_type);
 }
 
+absl::Status RDBMSMetadataAccessObject::FindTypeIdByNameAndVersion(
+    absl::string_view name, absl::optional<absl::string_view> version,
+    TypeKind type_kind, int64* type_id) {
+  RecordSet record_set;
+  MLMD_RETURN_IF_ERROR(executor_->SelectTypeByNameAndVersion(
+      name, version, type_kind, &record_set));
+  if (record_set.records().empty()) {
+    return absl::NotFoundError(
+        absl::StrCat("No type found for query, name: `", name, "`, version: `",
+                     version ? *version : "nullopt", "`"));
+  }
+  for (int i = 0; i < record_set.column_names_size(); i++) {
+    if (record_set.column_names(i) == "id") {
+      if (absl::SimpleAtoi(record_set.records(0).values(i), type_id)) {
+        return absl::OkStatus();
+      }
+      return absl::InternalError(absl::StrCat(
+          "Cannot parse RecordSet for type_id on type name: `", name,
+          "`, version: `", version ? *version : "nullopt", "`"));
+    }
+  }
+  return absl::NotFoundError(
+      absl::StrCat("No type_id found from RecordSet for type name: `", name,
+                   "`, version: `", version ? *version : "nullopt", "`"));
+}
+
 absl::Status RDBMSMetadataAccessObject::UpdateType(const ArtifactType& type) {
   return UpdateTypeImpl(type);
 }

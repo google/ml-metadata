@@ -1163,6 +1163,47 @@ TEST_P(MetadataAccessObjectTest, FindTypeByName) {
           "test_type", /*version=*/absl::nullopt, &context_type)));
 }
 
+TEST_P(MetadataAccessObjectTest, FindTypeIdByNameAndVersion) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+  ExecutionType want_type = ParseTextProtoOrDie<ExecutionType>(R"(
+    name: 'test_type'
+    properties { key: 'property_1' value: INT }
+  )");
+  int64 v0_type_id;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateType(want_type, &v0_type_id));
+
+  int64 v0_got_type_id;
+  EXPECT_EQ(absl::OkStatus(),
+            metadata_access_object_->FindTypeIdByNameAndVersion(
+                "test_type", /*version=*/absl::nullopt,
+                TypeKind::EXECUTION_TYPE, &v0_got_type_id));
+  EXPECT_EQ(v0_got_type_id, v0_type_id);
+
+  want_type.set_version("v1");
+  int64 v1_type_id;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateType(want_type, &v1_type_id));
+  int64 v1_got_type_id;
+  EXPECT_EQ(absl::OkStatus(),
+            metadata_access_object_->FindTypeIdByNameAndVersion(
+                "test_type", "v1",
+                TypeKind::EXECUTION_TYPE, &v1_got_type_id));
+  EXPECT_EQ(v1_got_type_id, v1_type_id);
+
+
+  // The type with this name is an execution type, not an artifact/context type.
+  int64 got_type_id;
+  EXPECT_TRUE(
+      absl::IsNotFound(metadata_access_object_->FindTypeIdByNameAndVersion(
+          "test_type", /*version=*/absl::nullopt, TypeKind::ARTIFACT_TYPE,
+          &got_type_id)));
+  EXPECT_TRUE(
+      absl::IsNotFound(metadata_access_object_->FindTypeIdByNameAndVersion(
+          "test_type", /*version=*/absl::nullopt, TypeKind::CONTEXT_TYPE,
+          &got_type_id)));
+}
+
 // Test if an execution type can be stored without input_type and output_type.
 TEST_P(MetadataAccessObjectTest, FindTypeByNameNoSignature) {
   ASSERT_EQ(absl::OkStatus(), Init());
@@ -6304,6 +6345,7 @@ TEST_P(MetadataAccessObjectTest, AutoMigrationTurnedOffByDefault) {
       metadata_access_object_->InitMetadataSourceIfNotExists();
   EXPECT_TRUE(absl::IsFailedPrecondition(status));
 }
+
 
 }  // namespace
 }  // namespace testing

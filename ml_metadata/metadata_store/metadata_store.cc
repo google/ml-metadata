@@ -1163,10 +1163,11 @@ absl::Status MetadataStore::GetArtifactsByType(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
-        ArtifactType artifact_type;
-        absl::Status status = metadata_access_object_->FindTypeByNameAndVersion(
-            request.type_name(), GetRequestTypeVersion(request),
-            &artifact_type);
+        int64 artifact_type_id;
+        absl::Status status =
+            metadata_access_object_->FindTypeIdByNameAndVersion(
+                request.type_name(), GetRequestTypeVersion(request),
+                TypeKind::ARTIFACT_TYPE, &artifact_type_id);
         if (absl::IsNotFound(status)) {
           return absl::OkStatus();
         } else if (!status.ok()) {
@@ -1175,7 +1176,7 @@ absl::Status MetadataStore::GetArtifactsByType(
         std::vector<Artifact> artifacts;
         std::string next_page_token;
         status = metadata_access_object_->FindArtifactsByTypeId(
-            artifact_type.id(),
+            artifact_type_id,
             (request.has_options() ? absl::make_optional(request.options())
                                    : absl::nullopt),
             &artifacts, &next_page_token);
@@ -1201,10 +1202,11 @@ absl::Status MetadataStore::GetArtifactByTypeAndName(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
-        ArtifactType artifact_type;
-        absl::Status status = metadata_access_object_->FindTypeByNameAndVersion(
-            request.type_name(), GetRequestTypeVersion(request),
-            &artifact_type);
+        int64 artifact_type_id;
+        absl::Status status =
+            metadata_access_object_->FindTypeIdByNameAndVersion(
+                request.type_name(), GetRequestTypeVersion(request),
+                TypeKind::ARTIFACT_TYPE, &artifact_type_id);
         if (absl::IsNotFound(status)) {
           return absl::OkStatus();
         } else if (!status.ok()) {
@@ -1212,7 +1214,7 @@ absl::Status MetadataStore::GetArtifactByTypeAndName(
         }
         Artifact artifact;
         status = metadata_access_object_->FindArtifactByTypeIdAndArtifactName(
-            artifact_type.id(), request.artifact_name(), &artifact);
+            artifact_type_id, request.artifact_name(), &artifact);
         if (absl::IsNotFound(status)) {
           return absl::OkStatus();
         } else if (!status.ok()) {
@@ -1230,10 +1232,11 @@ absl::Status MetadataStore::GetExecutionsByType(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
-        ExecutionType execution_type;
-        absl::Status status = metadata_access_object_->FindTypeByNameAndVersion(
-            request.type_name(), GetRequestTypeVersion(request),
-            &execution_type);
+        int64 execution_type_id;
+        absl::Status status =
+            metadata_access_object_->FindTypeIdByNameAndVersion(
+                request.type_name(), GetRequestTypeVersion(request),
+                TypeKind::EXECUTION_TYPE, &execution_type_id);
         if (absl::IsNotFound(status)) {
           return absl::OkStatus();
         } else if (!status.ok()) {
@@ -1242,7 +1245,7 @@ absl::Status MetadataStore::GetExecutionsByType(
         std::vector<Execution> executions;
         std::string next_page_token;
         status = metadata_access_object_->FindExecutionsByTypeId(
-            execution_type.id(),
+            execution_type_id,
             (request.has_options() ? absl::make_optional(request.options())
                                    : absl::nullopt),
             &executions, &next_page_token);
@@ -1268,10 +1271,11 @@ absl::Status MetadataStore::GetExecutionByTypeAndName(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
-        ExecutionType execution_type;
-        absl::Status status = metadata_access_object_->FindTypeByNameAndVersion(
-            request.type_name(), GetRequestTypeVersion(request),
-            &execution_type);
+        int64 execution_type_id;
+        absl::Status status =
+            metadata_access_object_->FindTypeIdByNameAndVersion(
+                request.type_name(), GetRequestTypeVersion(request),
+                TypeKind::EXECUTION_TYPE, &execution_type_id);
         if (absl::IsNotFound(status)) {
           return absl::OkStatus();
         } else if (!status.ok()) {
@@ -1279,7 +1283,7 @@ absl::Status MetadataStore::GetExecutionByTypeAndName(
         }
         Execution execution;
         status = metadata_access_object_->FindExecutionByTypeIdAndExecutionName(
-            execution_type.id(), request.execution_name(), &execution);
+            execution_type_id, request.execution_name(), &execution);
         if (absl::IsNotFound(status)) {
           return absl::OkStatus();
         } else if (!status.ok()) {
@@ -1297,12 +1301,12 @@ absl::Status MetadataStore::GetContextsByType(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
-        ContextType context_type;
+        int64 context_type_id;
         {
           absl::Status status =
-              metadata_access_object_->FindTypeByNameAndVersion(
+              metadata_access_object_->FindTypeIdByNameAndVersion(
                   request.type_name(), GetRequestTypeVersion(request),
-                  &context_type);
+                  TypeKind::CONTEXT_TYPE, &context_type_id);
           if (absl::IsNotFound(status)) {
             return absl::OkStatus();
           } else if (!status.ok()) {
@@ -1314,7 +1318,7 @@ absl::Status MetadataStore::GetContextsByType(
         {
           absl::Status status;
           status = metadata_access_object_->FindContextsByTypeId(
-              context_type.id(),
+              context_type_id,
               (request.has_options() ? absl::make_optional(request.options())
                                      : absl::nullopt),
               &contexts, &next_page_token);
@@ -1341,9 +1345,11 @@ absl::Status MetadataStore::GetContextByTypeAndName(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
-        ContextType context_type;
-        absl::Status status = metadata_access_object_->FindTypeByNameAndVersion(
-            request.type_name(), GetRequestTypeVersion(request), &context_type);
+        int64 context_type_id;
+        absl::Status status =
+            metadata_access_object_->FindTypeIdByNameAndVersion(
+                request.type_name(), GetRequestTypeVersion(request),
+                TypeKind::CONTEXT_TYPE, &context_type_id);
         if (absl::IsNotFound(status)) {
           return absl::OkStatus();
         } else if (!status.ok()) {
@@ -1351,7 +1357,7 @@ absl::Status MetadataStore::GetContextByTypeAndName(
         }
         Context context;
         status = metadata_access_object_->FindContextByTypeIdAndContextName(
-            context_type.id(), request.context_name(), &context);
+            context_type_id, request.context_name(), &context);
         if (absl::IsNotFound(status)) {
           return absl::OkStatus();
         } else if (!status.ok()) {

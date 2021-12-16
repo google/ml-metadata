@@ -110,6 +110,10 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
       absl::string_view name, absl::optional<absl::string_view> version,
       ContextType* context_type) final;
 
+  absl::Status FindTypeIdByNameAndVersion(
+      absl::string_view name, absl::optional<absl::string_view> version,
+      TypeKind type_kind, int64* type_id) final;
+
   absl::Status FindTypes(std::vector<ArtifactType>* artifact_types) final;
   absl::Status FindTypes(std::vector<ExecutionType>* execution_types) final;
   absl::Status FindTypes(std::vector<ContextType>* context_types) final;

@@ -21,6 +21,7 @@ limitations under the License.
 #include "absl/status/status.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
+#include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
@@ -140,6 +141,10 @@ class MetadataAccessObject {
   virtual absl::Status FindTypeByNameAndVersion(
       absl::string_view name, absl::optional<absl::string_view> version,
       ContextType* context_type) = 0;
+
+  virtual absl::Status FindTypeIdByNameAndVersion(
+      absl::string_view name, absl::optional<absl::string_view> version,
+      TypeKind type_kind, int64* type_id) = 0;
 
   // Returns a list of all known type instances. A type is one of
   // {ArtifactType, ExecutionType, ContextType}
