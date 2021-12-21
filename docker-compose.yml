@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-version: '3.1'
+version: '3'
 
 # Extensions are not support until 3.4 thus the repeated boilerplate below.
 
@@ -44,5 +44,14 @@ services:
       dockerfile: ml_metadata/tools/docker_build/Dockerfile.manylinux2010
     environment:
       PYTHON_VERSION: 39
+    volumes:
+      - .:/build:delegated
+  manylinux-python310:
+    image: mlmd-build:manylinux2010
+    build:
+      context: .
+      dockerfile: ml_metadata/tools/docker_build/Dockerfile.manylinux2010
+    environment:
+      PYTHON_VERSION: 310
     volumes:
       - .:/build:delegated

@@ -46,7 +46,7 @@ This is the recommended way to build ML Metadata under Linux, and is
 continuously tested at Google.
 
 Please first install `docker` and `docker-compose` by following the directions:
-[docker](https://docs.docker.com/install/);
+[docker](https://docs.docker.com/get-docker/);
 [docker-compose](https://docs.docker.com/compose/install/).
 
 Then, run the following at the project root:
@@ -57,7 +57,7 @@ sudo docker-compose build ${DOCKER_SERVICE}
 sudo docker-compose run ${DOCKER_SERVICE}
 ```
 
-where `PY_VERSION` is one of `{37, 38}`.
+where `PY_VERSION` is one of `{37, 38, 39, 310}`.
 
 A wheel will be produced under `dist/`, and installed as follows:
 
@@ -109,7 +109,7 @@ You can find the generated `.whl` file in the `dist` subdirectory.
 pip install dist/*.whl
 ```
 
-### 5.(Optional) Build the grpc server
+### 5. (Optional) Build the grpc server
 
 ML Metadata uses Bazel to build the c++ binary from source:
 
