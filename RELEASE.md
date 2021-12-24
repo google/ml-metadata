@@ -7,6 +7,8 @@
 
 ## Bug Fixes and Other Changes
 
+*   Added type information file py.typed according to PEP-561.
+
 ## Breaking Changes
 
 ## Deprecations
