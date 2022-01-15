@@ -12,13 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Init module for ML Metadata."""
-from ml_metadata import proto
 
-# Import metadata_store API.
-from ml_metadata.metadata_store import downgrade_schema
-from ml_metadata.metadata_store import ListOptions
-from ml_metadata.metadata_store import MetadataStore
-from ml_metadata.metadata_store import OrderByField
 
-# Import version string.
-from ml_metadata.version import __version__
+# pylint: disable=g-import-not-at-top
+try:
+  from ml_metadata import proto
+
+  # Import metadata_store API.
+  from ml_metadata.metadata_store import downgrade_schema
+  from ml_metadata.metadata_store import ListOptions
+  from ml_metadata.metadata_store import MetadataStore
+  from ml_metadata.metadata_store import OrderByField
+
+  # Import version string.
+  from ml_metadata.version import __version__
+
+except ImportError as err:
+  import sys
+  sys.stderr.write('Error importing: {}'.format(err))
+# pylint: enable=g-import-not-at-top
