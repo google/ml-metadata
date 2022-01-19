@@ -8,6 +8,7 @@
 ## Bug Fixes and Other Changes
 
 *   Added type information file py.typed according to PEP-561.
+*   Depends on `absl-py>=0.9,<2.0.0`.
 
 ## Breaking Changes
 
