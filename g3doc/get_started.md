@@ -493,6 +493,7 @@ The list of `schema_version` used in MLMD releases are:
 
 ml-metadata (MLMD) | schema_version
 ------------------ | --------------
+1.6.0              | 7
 1.5.0              | 7
 1.4.0              | 7
 1.3.0              | 7
