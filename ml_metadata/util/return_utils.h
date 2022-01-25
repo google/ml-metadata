@@ -33,6 +33,26 @@ namespace ml_metadata {
     }                                                                    \
   } while (0)
 
+#define MLMD_STATUS_MACROS_CONCAT_NAME(x, y) \
+  MLMD_STATUS_MACROS_CONCAT_IMPL(x, y)
+
+#define MLMD_STATUS_MACROS_CONCAT_IMPL(x, y) x##y
+
+// Executes an expression `rexpr` that returns an `absl::StatusOr<T>`. On OK,
+// moves its value into the variable defined by `lhs`, otherwise returns
+// from the current function.
+#define MLMD_ASSIGN_OR_RETURN(lhs, rexpr)                                 \
+  MLMD_ASSIGN_OR_RETURN_IMPL(                                             \
+      MLMD_STATUS_MACROS_CONCAT_NAME(_status_or_value, __COUNTER__), lhs, \
+      rexpr)
+
+#define MLMD_ASSIGN_OR_RETURN_IMPL(statusor, lhs, rexpr) \
+  auto statusor = (rexpr);                               \
+  if (!statusor.ok()) {                                  \
+    return statusor.status();                            \
+  }                                                      \
+  lhs = std::move(statusor.value())
+
 }  // namespace ml_metadata
 
 #endif  // THIRD_PARTY_ML_METADATA_UTIL_RETURN_UTILS_H_

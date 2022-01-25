@@ -27,6 +27,7 @@ cc_library(
     deps = [
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/util:return_utils",

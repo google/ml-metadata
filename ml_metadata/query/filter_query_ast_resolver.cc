@@ -18,6 +18,7 @@ limitations under the License.
 #include "zetasql/public/simple_catalog.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/substitute.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
@@ -52,7 +53,7 @@ constexpr char kEventTypePredicateRE[] =
 // into form state = <int> based on the `enum_value_mapping` provided by the
 // caller. The `enum_predicate_regex` provides the expected state predicate in
 // the query.
-zetasql_base::StatusOr<std::string> ParseEnumPredicateAndTransformQuery(
+absl::StatusOr<std::string> ParseEnumPredicateAndTransformQuery(
     absl::string_view query_string, absl::string_view enum_predicate_regex,
     const absl::flat_hash_map<std::string, int>& enum_value_mapping) {
   std::string rewritten_query = std::string(query_string);
@@ -89,7 +90,7 @@ zetasql_base::StatusOr<std::string> ParseEnumPredicateAndTransformQuery(
   return rewritten_query;
 }
 
-zetasql_base::StatusOr<std::string> AddArtifactStateAndTransformQuery(
+absl::StatusOr<std::string> AddArtifactStateAndTransformQuery(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts) {
   MLMD_RETURN_IF_ERROR(analyzer_opts.AddExpressionColumn("state", Int64Type()));
   static const auto& state_value_mapping =
@@ -105,7 +106,7 @@ zetasql_base::StatusOr<std::string> AddArtifactStateAndTransformQuery(
       query_string, kArtifactStatePredicateRE, state_value_mapping);
 }
 
-zetasql_base::StatusOr<std::string> AddExecutionLastKnownStateAndTransformQuery(
+absl::StatusOr<std::string> AddExecutionLastKnownStateAndTransformQuery(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts) {
   MLMD_RETURN_IF_ERROR(
       analyzer_opts.AddExpressionColumn("last_known_state", Int64Type()));
@@ -128,27 +129,27 @@ zetasql_base::StatusOr<std::string> AddExecutionLastKnownStateAndTransformQuery(
 // attributes, such as id, type and name, while each node type has its own
 // specific fields, e.g., Artifact.uri, Execution.last_known_state.
 template <typename T>
-zetasql_base::StatusOr<std::string> AddSpecificAttributesAndTransformQuery(
+absl::StatusOr<std::string> AddSpecificAttributesAndTransformQuery(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts) {
   return std::string(query_string);
 }
 
 template <>
-zetasql_base::StatusOr<std::string> AddSpecificAttributesAndTransformQuery<Artifact>(
+absl::StatusOr<std::string> AddSpecificAttributesAndTransformQuery<Artifact>(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts) {
   MLMD_RETURN_IF_ERROR(analyzer_opts.AddExpressionColumn("uri", StringType()));
   return AddArtifactStateAndTransformQuery(query_string, analyzer_opts);
 }
 
 template <>
-zetasql_base::StatusOr<std::string> AddSpecificAttributesAndTransformQuery<Execution>(
+absl::StatusOr<std::string> AddSpecificAttributesAndTransformQuery<Execution>(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts) {
   return AddExecutionLastKnownStateAndTransformQuery(query_string,
                                                      analyzer_opts);
 }
 
 template <typename T>
-zetasql_base::StatusOr<std::string> AddAttributesAndTransformQuery(
+absl::StatusOr<std::string> AddAttributesAndTransformQuery(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts) {
   // TODO(b/145945460) Consider to expose configurable names to extend ast.
   MLMD_RETURN_IF_ERROR(analyzer_opts.AddExpressionColumn("id", Int64Type()));
@@ -168,7 +169,7 @@ zetasql_base::StatusOr<std::string> AddAttributesAndTransformQuery(
 // are supported in the filtering query; for context, the attributed artifacts
 // and associated executions can be used.
 template <typename T>
-zetasql_base::StatusOr<std::string> AddNeighborhoodNodes(
+absl::StatusOr<std::string> AddNeighborhoodNodes(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts,
     zetasql::TypeFactory& type_factory);
 
@@ -201,7 +202,7 @@ absl::Status AddContextsImpl(absl::string_view query_string,
   return absl::OkStatus();
 }
 
-zetasql_base::StatusOr<std::string> AddEvents(absl::string_view query_string,
+absl::StatusOr<std::string> AddEvents(absl::string_view query_string,
                                       absl::string_view neighbor_node_id,
                                       zetasql::AnalyzerOptions& analyzer_opts,
                                       zetasql::TypeFactory& type_factory) {
@@ -261,7 +262,7 @@ absl::Status AddChildContexts(absl::string_view query_string,
 }
 
 template <>
-zetasql_base::StatusOr<std::string> AddNeighborhoodNodes<Artifact>(
+absl::StatusOr<std::string> AddNeighborhoodNodes<Artifact>(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts,
     zetasql::TypeFactory& type_factory) {
   MLMD_RETURN_IF_ERROR(AddContexts(query_string, analyzer_opts, type_factory));
@@ -269,7 +270,7 @@ zetasql_base::StatusOr<std::string> AddNeighborhoodNodes<Artifact>(
 }
 
 template <>
-zetasql_base::StatusOr<std::string> AddNeighborhoodNodes<Execution>(
+absl::StatusOr<std::string> AddNeighborhoodNodes<Execution>(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts,
     zetasql::TypeFactory& type_factory) {
   MLMD_RETURN_IF_ERROR(AddContexts(query_string, analyzer_opts, type_factory));
@@ -277,7 +278,7 @@ zetasql_base::StatusOr<std::string> AddNeighborhoodNodes<Execution>(
 }
 
 template <>
-zetasql_base::StatusOr<std::string> AddNeighborhoodNodes<Context>(
+absl::StatusOr<std::string> AddNeighborhoodNodes<Context>(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts,
     zetasql::TypeFactory& type_factory) {
   MLMD_RETURN_IF_ERROR(
@@ -292,7 +293,7 @@ zetasql_base::StatusOr<std::string> AddNeighborhoodNodes<Context>(
 // Rewrites the user-facing syntax `column_prefix.name.` to valid
 // ZetaSQL syntax `column_prefix_name.`, where `column_prefix` is either
 // `properties` or `custom_properties`.
-zetasql_base::StatusOr<std::string> AddPropertiesAndTransformQueryImpl(
+absl::StatusOr<std::string> AddPropertiesAndTransformQueryImpl(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts,
     zetasql::TypeFactory& type_factory, const RE2& property_re,
     absl::string_view column_prefix) {
@@ -340,7 +341,7 @@ zetasql_base::StatusOr<std::string> AddPropertiesAndTransformQueryImpl(
 
 // Adds the properties used in the query to the analyzer as StructType
 // column and rewrite the user-facing syntax using ZetaSQL syntax.
-zetasql_base::StatusOr<std::string> AddPropertiesAndTransformQuery(
+absl::StatusOr<std::string> AddPropertiesAndTransformQuery(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts,
     zetasql::TypeFactory& type_factory) {
   static LazyRE2 property_re = {kPropertyRE};
@@ -351,7 +352,7 @@ zetasql_base::StatusOr<std::string> AddPropertiesAndTransformQuery(
 
 // Adds the custom properties used in the query to the analyzer as StructType
 // column and rewrite the user-facing syntax using ZetaSQL syntax.
-zetasql_base::StatusOr<std::string> AddCustomPropertiesAndTransformQuery(
+absl::StatusOr<std::string> AddCustomPropertiesAndTransformQuery(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts,
     zetasql::TypeFactory& type_factory) {
   static LazyRE2 property_re = {kCustomPropertyRE};
@@ -375,18 +376,18 @@ absl::Status FilterQueryAstResolver<T>::Resolve() {
   }
 
   // Scan the query string and prepare the type factory.
-  ZETASQL_ASSIGN_OR_RETURN(
+  MLMD_ASSIGN_OR_RETURN(
       std::string transformed_query,
       AddAttributesAndTransformQuery<T>(raw_query_, analyzer_opts_));
-  ZETASQL_ASSIGN_OR_RETURN(transformed_query,
-                   (AddNeighborhoodNodes<T>(transformed_query, analyzer_opts_,
-                                            type_factory_)));
-  ZETASQL_ASSIGN_OR_RETURN(transformed_query,
-                   AddPropertiesAndTransformQuery(
-                       transformed_query, analyzer_opts_, type_factory_));
-  ZETASQL_ASSIGN_OR_RETURN(transformed_query,
-                   AddCustomPropertiesAndTransformQuery(
-                       transformed_query, analyzer_opts_, type_factory_));
+  MLMD_ASSIGN_OR_RETURN(transformed_query,
+                        (AddNeighborhoodNodes<T>(
+                            transformed_query, analyzer_opts_, type_factory_)));
+  MLMD_ASSIGN_OR_RETURN(transformed_query,
+                        AddPropertiesAndTransformQuery(
+                            transformed_query, analyzer_opts_, type_factory_));
+  MLMD_ASSIGN_OR_RETURN(transformed_query,
+                        AddCustomPropertiesAndTransformQuery(
+                            transformed_query, analyzer_opts_, type_factory_));
   // Parse the query string with the type factory and return errors if invalid.
   catalog_.AddZetaSQLFunctions(analyzer_opts_.language());
   MLMD_RETURN_IF_ERROR(zetasql::AnalyzeExpression(
