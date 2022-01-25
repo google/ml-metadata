@@ -62,6 +62,16 @@ class MySqlMetadataAccessObjectContainer
     return metadata_access_object_.get();
   }
 
+  std::string GetTableNumQuery() final {
+    return "select count(*) from `information_schema`.`tables` where "
+           "`table_schema`=(SELECT DATABASE())";
+  }
+
+  std::string GetIndexNumQuery() final {
+    return "select count(*) from `information_schema`.`statistics` where "
+           "`table_schema`=(SELECT DATABASE())";
+  }
+
  private:
   // An unowned TestMySqlMetadataSourceInitializer from a call to
   // GetTestMySqlMetadataSourceInitializer().

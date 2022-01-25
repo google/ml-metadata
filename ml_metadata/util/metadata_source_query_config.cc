@@ -733,7 +733,8 @@ R"pb(
   }
 )pb",
 R"pb(
-  # From 0.13.2 to v1, it creates a new MLMDEnv table to track schema_version.
+  # From 0.13.2 to v1, it creates a new MLMDEnv table to track
+  # schema_version.
   migration_schemes {
     key: 1
     value: {
@@ -1701,6 +1702,7 @@ R"pb(
                  "       `name` = 'idx_eventpath_event_id';"
         }
       }
+      db_verification { total_num_indexes: 23 total_num_tables: 15 }
     }
   }
 )pb");
@@ -2499,7 +2501,7 @@ R"pb(
       }
       upgrade_queries {
         query: " ALTER TABLE `Artifact` "
-               " ADD INDEX `idx_artifact_uri`(`uri`(255)), "
+              " ADD INDEX `idx_artifact_uri`(`uri`(255)), "
               "  ADD INDEX `idx_artifact_create_time_since_epoch` "
               "             (`create_time_since_epoch`), "
               "  ADD INDEX `idx_artifact_last_update_time_since_epoch` "
@@ -2804,6 +2806,7 @@ R"pb(
                  "       `data_type` = 'mediumtext'; "
         }
       }
+      db_verification { total_num_indexes: 45 total_num_tables: 15 }
     }
   }
 )pb");

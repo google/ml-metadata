@@ -36,6 +36,29 @@ limitations under the License.
 
 namespace ml_metadata {
 namespace testing {
+namespace {
+
+// A utility macros for OSS files as ASSERT_OK is not avaiable in OSS.
+#define MLMD_ASSERT_OK(expr) ASSERT_EQ(absl::OkStatus(), expr)
+
+absl::Status GetCountQueryResult(const std::string& query,
+                                 MetadataSource* metadata_source, int* result) {
+  RecordSet record_set;
+  MLMD_RETURN_WITH_CONTEXT_IF_ERROR(
+      metadata_source->ExecuteQuery(query, &record_set), "query: ", query);
+  if (record_set.records_size() != 1) {
+    return absl::InternalError(
+        absl::StrCat("Verification failed on query ", query));
+  }
+  if (!absl::SimpleAtoi(record_set.records(0).values(0), result)) {
+    return absl::InternalError(
+        absl::StrCat("Value incorrect:", record_set.records(0).DebugString(),
+                     " on query ", query));
+  }
+  return absl::OkStatus();
+}
+
+}  // namespace
 
 // Get a migration scheme, or return NOT_FOUND.
 absl::Status QueryConfigMetadataAccessObjectContainer::GetMigrationScheme(
@@ -58,6 +81,44 @@ bool QueryConfigMetadataAccessObjectContainer::HasUpgradeVerification(
     return false;
   }
   return migration_scheme.has_upgrade_verification();
+}
+
+absl::Status QueryConfigMetadataAccessObjectContainer::VerifyDbSchema(
+    const int64 version) {
+  MetadataSourceQueryConfig::MigrationScheme migration_scheme;
+  if (!GetMigrationScheme(version, &migration_scheme).ok()) {
+    return absl::InternalError(
+        absl::StrCat("Migration scheme of version ", version, " is not found"));
+  }
+  if (!migration_scheme.has_db_verification()) {
+    return absl::OkStatus();
+  }
+  const MetadataSourceQueryConfig::DbVerification& db_verification =
+      migration_scheme.db_verification();
+  RecordSet record_set;
+  if (db_verification.total_num_tables() > 0) {
+    int result = 0;
+    MLMD_RETURN_IF_ERROR(
+        GetCountQueryResult(GetTableNumQuery(), GetMetadataSource(), &result));
+    if (result != db_verification.total_num_tables()) {
+      return absl::InternalError(
+          absl::StrCat("Verification failed for version ", version,
+                       " as total number of tables mismatch, expected: ",
+                       db_verification.total_num_tables(), ", got: ", result));
+    }
+  }
+  if (db_verification.total_num_indexes() > 0) {
+    int result = 0;
+    MLMD_RETURN_IF_ERROR(
+        GetCountQueryResult(GetIndexNumQuery(), GetMetadataSource(), &result));
+    if (result != db_verification.total_num_indexes()) {
+      return absl::InternalError(
+          absl::StrCat("Verification failed for version ", version,
+                       " as total number of indexes mismatch, expected: ",
+                       db_verification.total_num_indexes(), ", got: ", result));
+    }
+  }
+  return absl::OkStatus();
 }
 
 bool QueryConfigMetadataAccessObjectContainer::HasDowngradeVerification(
@@ -6246,8 +6307,7 @@ TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
     if (!metadata_access_object_container_->HasUpgradeVerification(i)) {
       continue;
     }
-    ASSERT_EQ(
-        absl::OkStatus(),
+    MLMD_ASSERT_OK(
         metadata_access_object_container_->SetupPreviousVersionForUpgrade(i));
     if (i > 1) continue;
     // when i = 0, it is v0.13.2. At that time, the MLMDEnv table does not
@@ -6277,10 +6337,11 @@ TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
   ASSERT_EQ(lib_version, curr_version);
   // check the verification queries in the previous version scheme
   if (metadata_access_object_container_->HasUpgradeVerification(lib_version)) {
-    ASSERT_EQ(
-        absl::OkStatus(),
+    MLMD_ASSERT_OK(
         metadata_access_object_container_->UpgradeVerification(lib_version));
   }
+  MLMD_ASSERT_OK(
+      metadata_access_object_container_->VerifyDbSchema(lib_version));
 }
 
 TEST_P(MetadataAccessObjectTest, DowngradeToV0FromCurrentLibVersion) {
@@ -6294,6 +6355,8 @@ TEST_P(MetadataAccessObjectTest, DowngradeToV0FromCurrentLibVersion) {
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->InitMetadataSourceIfNotExists());
   int64 lib_version = metadata_access_object_->GetLibraryVersion();
+  MLMD_ASSERT_OK(
+      metadata_access_object_container_->VerifyDbSchema(lib_version));
   int64 curr_version = 0;
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->GetSchemaVersion(&curr_version));
@@ -6305,19 +6368,17 @@ TEST_P(MetadataAccessObjectTest, DowngradeToV0FromCurrentLibVersion) {
     if (!metadata_access_object_container_->HasDowngradeVerification(i)) {
       continue;
     }
-    ASSERT_EQ(
-        absl::OkStatus(),
+    MLMD_ASSERT_OK(
         metadata_access_object_container_->SetupPreviousVersionForDowngrade(i));
     // downgrade
-    ASSERT_EQ(absl::OkStatus(),
-              metadata_access_object_->DowngradeMetadataSource(i));
+    MLMD_ASSERT_OK(metadata_access_object_->DowngradeMetadataSource(i));
 
-    ASSERT_EQ(absl::OkStatus(),
-              metadata_access_object_container_->DowngradeVerification(i));
+    MLMD_ASSERT_OK(metadata_access_object_container_->DowngradeVerification(i));
     // verify the db schema version
     EXPECT_EQ(absl::OkStatus(),
               metadata_access_object_->GetSchemaVersion(&curr_version));
     EXPECT_EQ(curr_version, i);
+    MLMD_ASSERT_OK(metadata_access_object_container_->VerifyDbSchema(i));
   }
 }
 

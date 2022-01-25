@@ -47,6 +47,11 @@ class MetadataAccessObjectContainer {
     return absl::nullopt;
   }
 
+  // Returns OK if DB schema passed verification.
+  virtual absl::Status VerifyDbSchema(const int64 version) {
+    return absl::OkStatus();
+  }
+
   // Init a test db environment. By default the testsuite is run against the
   // head schema. If GetSchemaVersion() is overridden, it prepares a
   // db at tht particular schema version.
@@ -139,6 +144,8 @@ class QueryConfigMetadataAccessObjectContainer
 
   bool HasFilterQuerySupport() final { return true; }
 
+  absl::Status VerifyDbSchema(const int64 version) final;
+
   absl::Status SetupPreviousVersionForDowngrade(int64 version) final;
 
   absl::Status DowngradeVerification(int64 version) final;
@@ -158,6 +165,15 @@ class QueryConfigMetadataAccessObjectContainer
   bool PerformExtendedTests() final { return true; }
 
   int64 MinimumVersion() final;
+
+  virtual std::string GetTableNumQuery() {
+    return "select count(*) from sqlite_master where type='table' "
+           "and name NOT LIKE 'sqlite_%' ;";
+  }
+
+  virtual std::string GetIndexNumQuery() {
+    return "select count(*) from sqlite_master where type='index';";
+  }
 
  private:
   // Get a migration scheme, or return NOT_FOUND.

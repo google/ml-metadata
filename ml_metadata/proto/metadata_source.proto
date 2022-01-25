@@ -543,6 +543,13 @@ message MetadataSourceQueryConfig {
 
   reserved 38, 39, 43;
 
+  message DbVerification {
+    // Total number of MLMD tables.
+    int32 total_num_tables = 1;
+    // Total number of MLMD indexes.
+    int32 total_num_indexes = 2;
+  }
+
   // A migration scheme that is used by a migration function to transit a
   // database at a schema_version to schema_version + 1.
   // DDL is often metadata source specific, if provided, each metadata source
@@ -579,6 +586,9 @@ message MetadataSourceQueryConfig {
 
     // Details of verifying the correctness of downgrade_queries.
     VerificationScheme downgrade_verification = 4;
+
+    // Verification of the DB schema in this version.
+    DbVerification db_verification = 5;
   }
 
   // Each metadata source should provides migration schemes, each of which
