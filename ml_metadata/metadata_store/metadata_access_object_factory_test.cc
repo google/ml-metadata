@@ -50,5 +50,45 @@ TEST(MetadataAccessObjectFactory, CreateMetadataAccessObject) {
   EXPECT_EQ(schema_version, library_version);
 }
 
+// Test that the head library is capable of creating MetadataAccessObjects at
+// different query_versions.
+TEST(MetadataAccessObjectFactory, CreateMetadataAccessObjectAtSchemaVersion7) {
+  // Create MetadataAccessObject with default schema_version = library_version,
+  // then downgrade the source to 7. Then create an instance of
+  // MetadataAccessObject with that query_version.
+  constexpr int64 kLibSchemaVersion = 8;
+  const int64 earlier_schema_version = kLibSchemaVersion - 1;
+  SqliteMetadataSourceConfig config;
+  std::unique_ptr<MetadataSource> metadata_source =
+      absl::make_unique<SqliteMetadataSource>(config);
+
+  {
+    std::unique_ptr<MetadataAccessObject> metadata_access_object;
+    ASSERT_EQ(absl::OkStatus(), CreateMetadataAccessObject(
+        util::GetSqliteMetadataSourceQueryConfig(), metadata_source.get(),
+        kLibSchemaVersion, &metadata_access_object));
+    ASSERT_EQ(absl::OkStatus(), metadata_source->Begin());
+    ASSERT_EQ(absl::OkStatus(), metadata_access_object->InitMetadataSource());
+    ASSERT_EQ(absl::OkStatus(), metadata_access_object->DowngradeMetadataSource(
+        earlier_schema_version));
+    int64 schema_version;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object->GetSchemaVersion(&schema_version));
+    ASSERT_EQ(absl::OkStatus(), metadata_source->Commit());
+    ASSERT_EQ(schema_version, earlier_schema_version);
+  }
+
+  {
+    std::unique_ptr<MetadataAccessObject> metadata_access_object;
+    ASSERT_EQ(absl::OkStatus(), metadata_source->Begin());
+    ASSERT_EQ(absl::OkStatus(), CreateMetadataAccessObject(
+        util::GetSqliteMetadataSourceQueryConfig(), metadata_source.get(),
+        earlier_schema_version, &metadata_access_object));
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object->InitMetadataSourceIfNotExists());
+    ASSERT_EQ(absl::OkStatus(), metadata_source->Commit());
+  }
+}
+
 }  // namespace
 }  // namespace ml_metadata

@@ -14,6 +14,10 @@
 
 *   Apply max_node_size to GetLineageGraphRequest for returned nodes.
 *   Skip querying type properties when not needed.
+*   Upgrade DB schema to V8, including the following changes:
+    -   Add constraint on Event table on (artifact_id, execution_id, type). If
+        duplicated events are created, already exists error will be returned.
+    -   Add index for properties (for both property name and value).
 
 ## Bug Fixes and Other Changes
 

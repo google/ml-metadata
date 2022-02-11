@@ -392,6 +392,7 @@ class MetadataAccessObject {
   // Returns INVALID_ARGUMENT error, if no artifact matches the artifact_id.
   // Returns INVALID_ARGUMENT error, if no execution matches the execution_id.
   // Returns INVALID_ARGUMENT error, if the type field is UNKNOWN.
+  // Returns ALREADY_EXIST error, if duplicated event is found.
   virtual absl::Status CreateEvent(const Event& event, int64* event_id) = 0;
 
   // Queries the events associated with a collection of artifact_ids.

@@ -28,7 +28,7 @@ namespace {
 // no-lint to support vc (C2026) 16380 max length for char[].
 const std::string kBaseQueryConfig = absl::StrCat(  // NOLINT
 R"pb(
-  schema_version: 7
+  schema_version: 8
   drop_type_table { query: " DROP TABLE IF EXISTS `Type`; " }
   create_type_table {
     query: " CREATE TABLE IF NOT EXISTS `Type` ( "
@@ -115,7 +115,9 @@ R"pb(
            " FROM `ParentType` WHERE `type_id` = $0; "
     parameter_num: 1
   }
-  drop_type_property_table { query: " DROP TABLE IF EXISTS `TypeProperty`; " }
+  drop_type_property_table {
+    query: " DROP TABLE IF EXISTS `TypeProperty`; "
+  }
   create_type_property_table {
     query: " CREATE TABLE IF NOT EXISTS `TypeProperty` ( "
            "   `type_id` INT NOT NULL, "
@@ -435,7 +437,9 @@ R"pb(
            " WHERE `context_id` = $0 and `name` = $1;"
     parameter_num: 2
   }
-  drop_parent_context_table { query: " DROP TABLE IF EXISTS `ParentContext`;" }
+  drop_parent_context_table {
+    query: " DROP TABLE IF EXISTS `ParentContext`;"
+  }
   create_parent_context_table {
     query: " CREATE TABLE IF NOT EXISTS `ParentContext` ( "
            "   `context_id` INT NOT NULL, "
@@ -487,7 +491,8 @@ R"pb(
            "   `artifact_id` INT NOT NULL, "
            "   `execution_id` INT NOT NULL, "
            "   `type` INT NOT NULL, "
-           "   `milliseconds_since_epoch` INT "
+           "   `milliseconds_since_epoch` INT, "
+           "   UNIQUE(`artifact_id`, `execution_id`, `type`) "
            " ); "
   }
   check_event_table {
@@ -623,7 +628,9 @@ R"pb(
            "   `schema_version` INTEGER PRIMARY KEY "
            " ); "
   }
-  check_mlmd_env_table { query: " SELECT `schema_version` FROM `MLMDEnv`; " }
+  check_mlmd_env_table {
+    query: " SELECT `schema_version` FROM `MLMDEnv`; "
+  }
   insert_schema_version {
     query: " INSERT INTO `MLMDEnv`(`schema_version`) VALUES($0); "
     parameter_num: 1
@@ -675,10 +682,6 @@ R"pb(
            " ON `Artifact`(`last_update_time_since_epoch`); "
   }
   secondary_indices {
-    query: " CREATE INDEX IF NOT EXISTS `idx_event_artifact_id` "
-           " ON `Event`(`artifact_id`); "
-  }
-  secondary_indices {
     query: " CREATE INDEX IF NOT EXISTS `idx_event_execution_id` "
            " ON `Event`(`execution_id`); "
   }
@@ -713,6 +716,51 @@ R"pb(
   secondary_indices {
     query: " CREATE INDEX IF NOT EXISTS `idx_eventpath_event_id` "
            " ON `EventPath`(`event_id`); "
+  }
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS `idx_artifact_property_int` "
+           " ON `ArtifactProperty`(`name`, `is_custom_property`, `int_value`) "
+           " WHERE `int_value` IS NOT NULL; "
+  }
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS `idx_artifact_property_double` "
+           " ON `ArtifactProperty`(`name`, `is_custom_property`, `double_value`) "
+           " WHERE `double_value` IS NOT NULL; "
+  }
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS `idx_artifact_property_string` "
+           " ON `ArtifactProperty`(`name`, `is_custom_property`, `string_value`) "
+           " WHERE `string_value` IS NOT NULL; "
+  }
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS `idx_execution_property_int` "
+           " ON `ExecutionProperty`(`name`, `is_custom_property`, `int_value`) "
+           " WHERE `int_value` IS NOT NULL; "
+  }
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS `idx_execution_property_double` "
+           " ON `ExecutionProperty`(`name`, `is_custom_property`, `double_value`) "
+           " WHERE `double_value` IS NOT NULL; "
+  }
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS `idx_execution_property_string` "
+           " ON `ExecutionProperty`(`name`, `is_custom_property`, `string_value`) "
+           " WHERE `string_value` IS NOT NULL; "
+  }
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS `idx_context_property_int` "
+           " ON `ContextProperty`(`name`, `is_custom_property`, `int_value`) "
+           " WHERE `int_value` IS NOT NULL; "
+  }
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS `idx_context_property_double` "
+           " ON `ContextProperty`(`name`, `is_custom_property`, `double_value`) "
+           " WHERE `double_value` IS NOT NULL; "
+  }
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS `idx_context_property_string` "
+           " ON `ContextProperty`(`name`, `is_custom_property`, `string_value`) "
+           " WHERE `string_value` IS NOT NULL; "
   }
 )pb",
 R"pb(
@@ -822,7 +870,9 @@ R"pb(
       }
       # downgrade queries from version 2, drop all ContextTypes and rename
       # the `type_kind` back to `is_artifact_type` column.
-      downgrade_queries { query: " DELETE FROM `Type` WHERE `type_kind` = 2; " }
+      downgrade_queries {
+        query: " DELETE FROM `Type` WHERE `type_kind` = 2; "
+      }
       downgrade_queries {
         query: " CREATE TABLE IF NOT EXISTS `TypeTemp` ( "
                "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -836,7 +886,9 @@ R"pb(
         query: " INSERT INTO `TypeTemp` SELECT * FROM `Type`; "
       }
       downgrade_queries { query: " DROP TABLE `Type`; " }
-      downgrade_queries { query: " ALTER TABLE `TypeTemp` rename to `Type`; " }
+      downgrade_queries {
+        query: " ALTER TABLE `TypeTemp` rename to `Type`; "
+      }
       # check the tables are deleted properly
       downgrade_verification {
         # populate the `Type` table with context types.
@@ -872,8 +924,8 @@ R"pb(
   }
 )pb",
 R"pb(
-  # In v2, to support context type, and we renamed `is_artifact_type` column in
-  # `Type` table.
+  # In v2, to support context type, and we renamed `is_artifact_type` column
+  # in `Type` table.
   migration_schemes {
     key: 2
     value: {
@@ -890,7 +942,9 @@ R"pb(
         query: " INSERT INTO `TypeTemp` SELECT * FROM `Type`; "
       }
       upgrade_queries { query: " DROP TABLE `Type`; " }
-      upgrade_queries { query: " ALTER TABLE `TypeTemp` rename to `Type`; " }
+      upgrade_queries {
+        query: " ALTER TABLE `TypeTemp` rename to `Type`; "
+      }
       upgrade_verification {
         # populate one ArtifactType and one ExecutionType.
         previous_version_setup_queries {
@@ -902,7 +956,8 @@ R"pb(
                  " (`name`, `is_artifact_type`, `input_type`, `output_type`) "
                  " VALUES ('execution_type', 0, 'input', 'output'); "
         }
-        # check after migration, the existing types are the same including id.
+        # check after migration, the existing types are the same including
+        # id.
         post_migration_verification_queries {
           query: " SELECT count(*) = 1 FROM `Type` WHERE "
                  " `id` = 1 AND `type_kind` = 1 AND `name` = 'artifact_type'; "
@@ -915,7 +970,9 @@ R"pb(
       }
       # downgrade queries from version 3
       downgrade_queries { query: " DROP TABLE IF EXISTS `Context`; " }
-      downgrade_queries { query: " DROP TABLE IF EXISTS `ContextProperty`; " }
+      downgrade_queries {
+        query: " DROP TABLE IF EXISTS `ContextProperty`; "
+      }
       # check the tables are deleted properly
       downgrade_verification {
         post_migration_verification_queries {
@@ -988,8 +1045,8 @@ R"pb(
 )pb",
 R"pb(
   # In v4, to support context-execution association and context-artifact
-  # attribution, we added two tables `Association` and `Attribution` and made
-  # no change to other existing records.
+  # attribution, we added two tables `Association` and `Attribution` and
+  # made no change to other existing records.
   migration_schemes {
     key: 4
     value: {
@@ -1267,7 +1324,9 @@ R"pb(
                " FROM `Type`; "
       }
       downgrade_queries { query: " DROP TABLE `Type`; " }
-      downgrade_queries { query: " ALTER TABLE `TypeTemp` RENAME TO `Type`; " }
+      downgrade_queries {
+        query: " ALTER TABLE `TypeTemp` RENAME TO `Type`; "
+      }
       downgrade_queries { query: " DROP INDEX `idx_artifact_uri`; " }
       downgrade_queries {
         query: " DROP INDEX`idx_artifact_create_time_since_epoch`; "
@@ -1357,9 +1416,9 @@ R"pb(
   }
 )pb",
 R"pb(
-  # In v6, to support parental type and parental context, we added two tables
-  # `ParentType` and `ParentContext`. In addition, we added `version` and
-  # `description` in the `Type` table for improving type registrations.
+  # In v6, to support parental type and parental context, we added two
+  # tables `ParentType` and `ParentContext`. In addition, we added `version`
+  # and `description` in the `Type` table for improving type registrations.
   # We introduce indices on Type.name, Artifact.uri, Event's artifact_id and
   # execution_id, and create_time_since_epoch, last_update_time_since_epoch
   # for all nodes.
@@ -1396,7 +1455,9 @@ R"pb(
                " SELECT * FROM `Type`; "
       }
       upgrade_queries { query: " DROP TABLE `Type`; " }
-      upgrade_queries { query: " ALTER TABLE `TypeTemp` rename to `Type`; " }
+      upgrade_queries {
+        query: " ALTER TABLE `TypeTemp` rename to `Type`; "
+      }
       upgrade_queries {
         query: " CREATE INDEX IF NOT EXISTS `idx_artifact_uri` "
                " ON `Artifact`(`uri`); "
@@ -1548,7 +1609,7 @@ R"pb(
       downgrade_queries { query: " DROP TABLE `ArtifactProperty`; " }
       downgrade_queries {
         query: " ALTER TABLE `ArtifactPropertyTemp` "
-              "  RENAME TO `ArtifactProperty`; "
+               "  RENAME TO `ArtifactProperty`; "
       }
       downgrade_queries {
         query: " CREATE TABLE IF NOT EXISTS `ExecutionPropertyTemp` ( "
@@ -1569,7 +1630,7 @@ R"pb(
       downgrade_queries { query: " DROP TABLE `ExecutionProperty`; " }
       downgrade_queries {
         query: " ALTER TABLE `ExecutionPropertyTemp` "
-              "  RENAME TO `ExecutionProperty`; "
+               "  RENAME TO `ExecutionProperty`; "
       }
       downgrade_queries {
         query: " CREATE TABLE IF NOT EXISTS `ContextPropertyTemp` ( "
@@ -1590,7 +1651,7 @@ R"pb(
       downgrade_queries { query: " DROP TABLE `ContextProperty`; " }
       downgrade_queries {
         query: " ALTER TABLE `ContextPropertyTemp` "
-              "  RENAME TO `ContextProperty`; "
+               "  RENAME TO `ContextProperty`; "
       }
       downgrade_queries { query: " DROP INDEX `idx_eventpath_event_id`; " }
       # verify if the downgrading keeps the existing columns
@@ -1703,6 +1764,303 @@ R"pb(
         }
       }
       db_verification { total_num_indexes: 23 total_num_tables: 15 }
+      # Downgrade from v8.
+      downgrade_queries {
+        query: " CREATE TABLE `EventTemp` ( "
+               "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+               "   `artifact_id` INT NOT NULL, "
+               "   `execution_id` INT NOT NULL, "
+               "   `type` INT NOT NULL, "
+               "   `milliseconds_since_epoch` INT "
+               " ); "
+      }
+      downgrade_queries {
+        query: " INSERT INTO `EventTemp` "
+               " (`id`, `artifact_id`, `execution_id`, `type`, "
+               " `milliseconds_since_epoch`) "
+               " SELECT * FROM `Event`; "
+      }
+      downgrade_queries { query: " DROP TABLE `Event`; " }
+      downgrade_queries {
+        query: " ALTER TABLE `EventTemp` RENAME TO `Event`; "
+      }
+      downgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_event_artifact_id` "
+               " ON `Event`(`artifact_id`); "
+      }
+      downgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_event_execution_id` "
+               " ON `Event`(`execution_id`); "
+      }
+      downgrade_queries {
+        query: " DROP INDEX `idx_artifact_property_int`; "
+      }
+      downgrade_queries {
+        query: " DROP INDEX `idx_artifact_property_double`; "
+      }
+      downgrade_queries {
+        query: " DROP INDEX `idx_artifact_property_string`; "
+      }
+      downgrade_queries {
+        query: " DROP INDEX `idx_execution_property_int`; "
+      }
+      downgrade_queries {
+        query: " DROP INDEX `idx_execution_property_double`; "
+      }
+      downgrade_queries {
+        query: " DROP INDEX `idx_execution_property_string`; "
+      }
+      downgrade_queries {
+        query: " DROP INDEX `idx_context_property_int`; "
+      }
+      downgrade_queries {
+        query: " DROP INDEX `idx_context_property_double`; "
+      }
+      downgrade_queries {
+        query: " DROP INDEX `idx_context_property_string`; "
+      }
+      downgrade_verification {
+        previous_version_setup_queries { query: "DELETE FROM `Event`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Event` "
+                 " (`id`, `artifact_id`, `execution_id`, `type`, "
+                 " `milliseconds_since_epoch`) "
+                 " VALUES (1, 1, 1, 1, 1); "
+        }
+        previous_version_setup_queries { query: "DELETE FROM `EventPath`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `EventPath` "
+                 " (`event_id`, `is_index_step`, `step_index`, `step_key`) "
+                 " VALUES (1, 1, 1, 'a'); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `Event` "
+                 " WHERE `artifact_id` = 1 AND `execution_id` = 1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `EventPath` "
+                 " WHERE `event_id` = 1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'Event' AND "
+                 "       `name` = 'idx_event_artifact_id'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'Event' AND "
+                 "       `name` = 'idx_event_execution_id'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'EventPath' AND "
+                 "       `name` = 'idx_eventpath_event_id'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'ArtifactProperty' "
+                 "       AND `name` LIKE 'idx_artifact_property_%'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'ExecutionProperty' "
+                 "       AND `name` LIKE 'idx_execution_property_%'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'ContextProperty' "
+                 "       AND `name` LIKE 'idx_context_property_%'; "
+        }
+      }
+    }
+  }
+)pb",
+R"pb(
+  # In v8, we added index for `ArtifactProperty`, `ExecutionProperty`,
+  # `ContextProperty` to improve property queries on name, and unique
+  # constraint on Event table for (`artifact_id`, `execution_id`, `type`).
+  migration_schemes {
+    key: 8
+    value: {
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_artifact_property_int` "
+               " ON `ArtifactProperty`(`name`, `is_custom_property`, "
+               " `int_value`) "
+               " WHERE `int_value` IS NOT NULL; "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_artifact_property_double` "
+               " ON `ArtifactProperty`(`name`, `is_custom_property`, "
+               " `double_value`) "
+               " WHERE `double_value` IS NOT NULL; "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_artifact_property_string` "
+               " ON `ArtifactProperty`(`name`, `is_custom_property`, "
+               " `string_value`) "
+               " WHERE `string_value` IS NOT NULL; "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_execution_property_int` "
+               " ON `ExecutionProperty`(`name`, `is_custom_property`, "
+               " `int_value`) "
+               " WHERE `int_value` IS NOT NULL; "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_execution_property_double` "
+               " ON `ExecutionProperty`(`name`, `is_custom_property`, "
+               " `double_value`) "
+               " WHERE `double_value` IS NOT NULL; "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_execution_property_string` "
+               " ON `ExecutionProperty`(`name`, `is_custom_property`, "
+               " `string_value`) "
+               " WHERE `string_value` IS NOT NULL; "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_context_property_int` "
+               " ON `ContextProperty`(`name`, `is_custom_property`, "
+               " `int_value`) "
+               " WHERE `int_value` IS NOT NULL; "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_context_property_double` "
+               " ON `ContextProperty`(`name`, `is_custom_property`, "
+               " `double_value`) "
+               " WHERE `double_value` IS NOT NULL; "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_context_property_string` "
+               " ON `ContextProperty`(`name`, `is_custom_property`, "
+               " `string_value`) "
+               " WHERE `string_value` IS NOT NULL; "
+      }
+      upgrade_queries {
+        query: " CREATE TABLE `EventTemp` ( "
+               "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+               "   `artifact_id` INT NOT NULL, "
+               "   `execution_id` INT NOT NULL, "
+               "   `type` INT NOT NULL, "
+               "   `milliseconds_since_epoch` INT, "
+               "   UNIQUE(`artifact_id`, `execution_id`, `type`) "
+               " ); "
+      }
+      upgrade_queries {
+        query: " INSERT OR IGNORE INTO `EventTemp` "
+               " (`id`, `artifact_id`, `execution_id`, `type`, "
+               " `milliseconds_since_epoch`) "
+               " SELECT * FROM `Event` ORDER BY `id` desc; "
+      }
+      upgrade_queries { query: " DROP TABLE `Event`; " }
+      upgrade_queries {
+        query: " ALTER TABLE `EventTemp` RENAME TO `Event`; "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_event_execution_id` "
+               " ON `Event`(`execution_id`); "
+      }
+      upgrade_queries {
+        query: " DELETE FROM `EventPath` "
+               "   WHERE event_id not in ( SELECT `id` from Event ) "
+      }
+      upgrade_verification {
+        previous_version_setup_queries { query: "DELETE FROM `Event`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Event` "
+                 " (`id`, `artifact_id`, `execution_id`, `type`, "
+                 " `milliseconds_since_epoch`) "
+                 " VALUES (1, 1, 1, 1, 1); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Event` "
+                 " (`id`, `artifact_id`, `execution_id`, `type`, "
+                 " `milliseconds_since_epoch`) "
+                 " VALUES (2, 1, 1, 1, 2); "
+        }
+        previous_version_setup_queries { query: "DELETE FROM `EventPath`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `EventPath` "
+                 " (`event_id`, `is_index_step`, `step_index`, `step_key`) "
+                 " VALUES (1, 1, 1, 'a'); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `EventPath` "
+                 " (`event_id`, `is_index_step`, `step_index`, `step_key`) "
+                 " VALUES (2, 1, 1, 'b'); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `EventPath` "
+                 " (`event_id`, `is_index_step`, `step_index`, `step_key`) "
+                 " VALUES (2, 1, 2, 'c'); "
+        }
+        # check event table unique constraint is applied and event path
+        # records are deleted.
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `Event` "
+                 " WHERE `artifact_id` = 1 AND `execution_id` = 1 "
+                 "     AND `type` = 1;"
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM ( "
+                 "   SELECT * FROM `Event` "
+                 "   WHERE `id` = 2 AND `artifact_id` = 1 AND  "
+                 "       `execution_id` = 1 AND `type` = 1 "
+                 " ); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 2 FROM `EventPath` "
+                 " WHERE `event_id` = 2; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `EventPath` "
+                 " WHERE `event_id` = 2 AND `step_key` = 'b'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `EventPath` "
+                 " WHERE `event_id` = 2 AND `step_key` = 'c'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `EventPath` "
+                 " WHERE `event_id` = 1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 2 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'Event'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'Event' AND "
+                 "       `name` = 'idx_event_artifact_id';"
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'Event' AND "
+                 "       `name` = 'idx_event_execution_id';"
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'EventPath' AND "
+                 "       `name` = 'idx_eventpath_event_id';"
+        }
+        # check indexes are added.
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 3 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'ArtifactProperty' "
+                 "       AND `name` LIKE 'idx_artifact_property_%';"
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 3 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'ExecutionProperty' "
+                 "       AND `name` LIKE 'idx_execution_property_%';"
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 3 FROM `sqlite_master` "
+                 " WHERE `type` = 'index' AND `tbl_name` = 'ContextProperty' "
+                 "       AND `name` LIKE 'idx_context_property_%';"
+        }
+      }
+      db_verification { total_num_indexes: 32 total_num_tables: 15 }
     }
   }
 )pb");
@@ -1838,7 +2196,9 @@ R"pb(
            "   `artifact_id` INT NOT NULL, "
            "   `execution_id` INT NOT NULL, "
            "   `type` INT NOT NULL, "
-           "   `milliseconds_since_epoch` BIGINT "
+           "   `milliseconds_since_epoch` BIGINT, "
+           "   CONSTRAINT UniqueEvent UNIQUE( "
+           "     `artifact_id`, `execution_id`, `type`) "
            " ); "
   }
   create_association_table {
@@ -1859,18 +2219,18 @@ R"pb(
   }
   # secondary indices in the current schema.
   secondary_indices {
-    # MySQL does not support arbitrary length string index. Only prefix index
+    # MySQL does not support arbitrary length string index. Only prefix
+    # index
     # is supported. Max size for 5.6/5.7 is 255 char for utf8 charset.
     query: " ALTER TABLE `Artifact` "
-          "  ADD INDEX `idx_artifact_uri`(`uri`(255)), "
-          "  ADD INDEX `idx_artifact_create_time_since_epoch` "
-          "             (`create_time_since_epoch`), "
-          "  ADD INDEX `idx_artifact_last_update_time_since_epoch` "
-          "             (`last_update_time_since_epoch`); "
+           "  ADD INDEX `idx_artifact_uri`(`uri`(255)), "
+           "  ADD INDEX `idx_artifact_create_time_since_epoch` "
+           "             (`create_time_since_epoch`), "
+           "  ADD INDEX `idx_artifact_last_update_time_since_epoch` "
+           "             (`last_update_time_since_epoch`); "
   }
   secondary_indices {
     query: " ALTER TABLE `Event` "
-           " ADD INDEX `idx_event_artifact_id` (`artifact_id`), "
            " ADD INDEX `idx_event_execution_id` (`execution_id`); "
   }
   secondary_indices {
@@ -1884,21 +2244,66 @@ R"pb(
   }
   secondary_indices {
     query: " ALTER TABLE `Execution` "
-          "  ADD INDEX `idx_execution_create_time_since_epoch` "
-          "             (`create_time_since_epoch`), "
-          "  ADD INDEX `idx_execution_last_update_time_since_epoch` "
-          "             (`last_update_time_since_epoch`); "
+           "  ADD INDEX `idx_execution_create_time_since_epoch` "
+           "             (`create_time_since_epoch`), "
+           "  ADD INDEX `idx_execution_last_update_time_since_epoch` "
+           "             (`last_update_time_since_epoch`); "
   }
   secondary_indices {
     query: " ALTER TABLE `Context` "
-          "  ADD INDEX `idx_context_create_time_since_epoch` "
-          "             (`create_time_since_epoch`), "
-          "  ADD INDEX `idx_context_last_update_time_since_epoch` "
-          "             (`last_update_time_since_epoch`); "
+           "  ADD INDEX `idx_context_create_time_since_epoch` "
+           "             (`create_time_since_epoch`), "
+           "  ADD INDEX `idx_context_last_update_time_since_epoch` "
+           "             (`last_update_time_since_epoch`); "
   }
   secondary_indices {
     query: " ALTER TABLE `EventPath` "
-          "  ADD INDEX `idx_eventpath_event_id`(`event_id`); "
+           "  ADD INDEX `idx_eventpath_event_id`(`event_id`); "
+  }
+  secondary_indices {
+    query: " ALTER TABLE `ArtifactProperty` "
+           "  ADD INDEX `idx_artifact_property_int`( "
+           "    `name`, `is_custom_property`, `int_value`); "
+  }
+  secondary_indices {
+    query: " ALTER TABLE `ArtifactProperty` "
+           "  ADD INDEX `idx_artifact_property_double`( "
+           "    `name`, `is_custom_property`, `double_value`); "
+  }
+  secondary_indices {
+    query: " ALTER TABLE `ArtifactProperty` "
+           "  ADD INDEX `idx_artifact_property_string`( "
+           "    `name`, `is_custom_property`, `string_value`(255)); "
+  }
+  secondary_indices {
+    query: " ALTER TABLE `ExecutionProperty` "
+           "  ADD INDEX `idx_execution_property_int`( "
+           "    `name`, `is_custom_property`, `int_value`); "
+  }
+  secondary_indices {
+    query: " ALTER TABLE `ExecutionProperty` "
+           "  ADD INDEX `idx_execution_property_double`( "
+           "    `name`, `is_custom_property`, `double_value`); "
+  }
+  secondary_indices {
+    query: " ALTER TABLE `ExecutionProperty` "
+           "  ADD INDEX `idx_execution_property_string`( "
+           "    `name`, `is_custom_property`, `string_value`(255)); "
+  }
+  secondary_indices {
+    query: " ALTER TABLE `ContextProperty` "
+           "  ADD INDEX `idx_context_property_int`( "
+           "    `name`, `is_custom_property`, `int_value`); "
+  }
+  secondary_indices {
+    query: " ALTER TABLE `ContextProperty` "
+           "  ADD INDEX `idx_context_property_double`( "
+           "    `name`, `is_custom_property`, `double_value`); "
+  }
+  secondary_indices {
+    query: " ALTER TABLE `ContextProperty` "
+           "  ADD INDEX `idx_context_property_string`( "
+           "    `name`, `is_custom_property`, `string_value`(255)); "
   }
   # downgrade to 0.13.2 (i.e., v0), and drops the MLMDEnv table.
   migration_schemes {
@@ -2004,7 +2409,9 @@ R"pb(
       }
       # downgrade queries from version 2, drop all ContextTypes and rename
       # the `type_kind` back to `is_artifact_type` column.
-      downgrade_queries { query: " DELETE FROM `Type` WHERE `type_kind` = 2; " }
+      downgrade_queries {
+        query: " DELETE FROM `Type` WHERE `type_kind` = 2; "
+      }
       downgrade_queries {
         query: " ALTER TABLE `Type` CHANGE COLUMN "
                " `type_kind` `is_artifact_type` TINYINT(1) NOT NULL; "
@@ -2062,7 +2469,8 @@ R"pb(
                  " (`name`, `is_artifact_type`, `input_type`, `output_type`) "
                  " VALUES ('execution_type', 0, 'input', 'output'); "
         }
-        # check after migration, the existing types are the same including id.
+        # check after migration, the existing types are the same including
+        # id.
         post_migration_verification_queries {
           query: " SELECT count(*) = 1 FROM `Type` WHERE "
                  " `id` = 1 AND `type_kind` = 1 AND `name` = 'artifact_type'; "
@@ -2075,7 +2483,9 @@ R"pb(
       }
       # downgrade queries from version 3
       downgrade_queries { query: " DROP TABLE IF EXISTS `Context`; " }
-      downgrade_queries { query: " DROP TABLE IF EXISTS `ContextProperty`; " }
+      downgrade_queries {
+        query: " DROP TABLE IF EXISTS `ContextProperty`; "
+      }
       # check the tables are deleted properly
       downgrade_verification {
         post_migration_verification_queries {
@@ -2472,9 +2882,9 @@ R"pb(
   }
 )pb",
 R"pb(
-  # In v6, to support parental type and parental context, we added two tables
-  # `ParentType` and `ParentContext`. In addition, we added `version` and
-  # `description` in the `Type` table for improving type registrations.
+  # In v6, to support parental type and parental context, we added two
+  # tables `ParentType` and `ParentContext`. In addition, we added `version`
+  # and `description` in the `Type` table for improving type registrations.
   # We introduce indices on Type.name, Artifact.uri, Event's artifact_id and
   # execution_id, and create_time_since_epoch, last_update_time_since_epoch
   # for all nodes.
@@ -2501,11 +2911,11 @@ R"pb(
       }
       upgrade_queries {
         query: " ALTER TABLE `Artifact` "
-              " ADD INDEX `idx_artifact_uri`(`uri`(255)), "
-              "  ADD INDEX `idx_artifact_create_time_since_epoch` "
-              "             (`create_time_since_epoch`), "
-              "  ADD INDEX `idx_artifact_last_update_time_since_epoch` "
-              "             (`last_update_time_since_epoch`); "
+               " ADD INDEX `idx_artifact_uri`(`uri`(255)), "
+               "  ADD INDEX `idx_artifact_create_time_since_epoch` "
+               "             (`create_time_since_epoch`), "
+               "  ADD INDEX `idx_artifact_last_update_time_since_epoch` "
+               "             (`last_update_time_since_epoch`); "
       }
       upgrade_queries {
         query: " ALTER TABLE `Event` "
@@ -2523,17 +2933,17 @@ R"pb(
       }
       upgrade_queries {
         query: " ALTER TABLE `Execution` "
-              "  ADD INDEX `idx_execution_create_time_since_epoch` "
-              "             (`create_time_since_epoch`), "
-              "  ADD INDEX `idx_execution_last_update_time_since_epoch` "
-              "             (`last_update_time_since_epoch`); "
+               "  ADD INDEX `idx_execution_create_time_since_epoch` "
+               "             (`create_time_since_epoch`), "
+               "  ADD INDEX `idx_execution_last_update_time_since_epoch` "
+               "             (`last_update_time_since_epoch`); "
       }
       upgrade_queries {
         query: " ALTER TABLE `Context` "
-              "  ADD INDEX `idx_context_create_time_since_epoch` "
-              "             (`create_time_since_epoch`), "
-              "  ADD INDEX `idx_context_last_update_time_since_epoch` "
-              "             (`last_update_time_since_epoch`); "
+               "  ADD INDEX `idx_context_create_time_since_epoch` "
+               "             (`create_time_since_epoch`), "
+               "  ADD INDEX `idx_context_last_update_time_since_epoch` "
+               "             (`last_update_time_since_epoch`); "
       }
       # check the expected table columns are created properly.
       upgrade_verification {
@@ -2751,9 +3161,9 @@ R"pb(
 )pb",
 R"pb(
   # In v7, we added byte_value for property tables for better storing binary
-  # property values. For MySQL, we extends string_value column to be MEDIUMTEXT
-  # in order to persist string value with size upto 16MB. In addition, we added
-  # index for `EventPath` to improve Event reads.
+  # property values. For MySQL, we extends string_value column to be
+  # MEDIUMTEXT in order to persist string value with size upto 16MB. In
+  # addition, we added index for `EventPath` to improve Event reads.
   migration_schemes {
     key: 7
     value: {
@@ -2807,6 +3217,290 @@ R"pb(
         }
       }
       db_verification { total_num_indexes: 45 total_num_tables: 15 }
+      # downgrade queries from version 8
+      downgrade_queries {
+        query: " ALTER TABLE `Event` "
+               " DROP INDEX UniqueEvent; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `Event` "
+               " ADD INDEX `idx_event_artifact_id` (`artifact_id`); "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `ArtifactProperty` "
+               " DROP INDEX `idx_artifact_property_int`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `ArtifactProperty` "
+               " DROP INDEX `idx_artifact_property_double`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `ArtifactProperty` "
+               " DROP INDEX `idx_artifact_property_string`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `ExecutionProperty` "
+               " DROP INDEX `idx_execution_property_int`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `ExecutionProperty` "
+               " DROP INDEX `idx_execution_property_double`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `ExecutionProperty` "
+               " DROP INDEX `idx_execution_property_string`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `ContextProperty` "
+               " DROP INDEX `idx_context_property_int`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `ContextProperty` "
+               " DROP INDEX `idx_context_property_double`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `ContextProperty` "
+               " DROP INDEX `idx_context_property_string`; "
+      }
+      downgrade_verification {
+        previous_version_setup_queries {
+          query: " INSERT INTO `Event` "
+                 " (`id`, `artifact_id`, `execution_id`, `type`, "
+                 " `milliseconds_since_epoch`) "
+                 " VALUES (1, 1, 1, 1, 1); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `EventPath` "
+                 " (`event_id`, `is_index_step`, `step_index`, `step_key`) "
+                 " VALUES (1, 1, 1, 'a'); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `Event` "
+                 " WHERE `artifact_id` = 1 AND `execution_id` = 1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `EventPath` "
+                 " WHERE `event_id` = 1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) AND "
+                 "       `table_name` = 'Event' AND "
+                 "       `index_name` = 'UniqueEvent'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) AND "
+                 "       `table_name` = 'Event' AND "
+                 "       `index_name` = 'idx_event_artifact_id'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) AND "
+                 "       `table_name` = 'Event' AND "
+                 "       `index_name` = 'idx_event_execution_id'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) AND "
+                 "       `table_name` = 'EventPath' AND "
+                 "       `index_name` = 'idx_eventpath_event_id'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) AND "
+                 "       `table_name` = 'ArtifactProperty' AND "
+                 "       `index_name` LIKE 'idx_artifact_property_%'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) AND "
+                 "       `table_name` = 'ExecutionProperty' AND "
+                 "       `index_name` LIKE 'idx_execution_property_%'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) AND "
+                 "       `table_name` = 'ContextProperty' AND "
+                 "       `index_name` LIKE 'idx_context_property_%'; "
+        }
+      }
+    }
+  }
+)pb",
+R"pb(
+  # In v8, we added index for `ArtifactProperty`, `ExecutionProperty`,
+  # `ContextProperty` to improve property queries on name.
+  migration_schemes {
+    key: 8
+    value: {
+      upgrade_queries {
+        query: " ALTER TABLE `ArtifactProperty` "
+               "  ADD INDEX `idx_artifact_property_int`( "
+               "    `name`, `is_custom_property`, `int_value`); "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `ArtifactProperty` "
+               "  ADD INDEX `idx_artifact_property_double`( "
+               "    `name`, `is_custom_property`, `double_value`); "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `ArtifactProperty` "
+               "  ADD INDEX `idx_artifact_property_string`( "
+               "    `name`, `is_custom_property`, `string_value`(255)); "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `ExecutionProperty` "
+               "  ADD INDEX `idx_execution_property_int`( "
+               "    `name`, `is_custom_property`, `int_value`); "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `ExecutionProperty` "
+               "  ADD INDEX `idx_execution_property_double`( "
+               "    `name`, `is_custom_property`, `double_value`); "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `ExecutionProperty` "
+               "  ADD INDEX `idx_execution_property_string`( "
+               "    `name`, `is_custom_property`, `string_value`(255)); "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `ContextProperty` "
+               "  ADD INDEX `idx_context_property_int`( "
+               "    `name`, `is_custom_property`, `int_value`); "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `ContextProperty` "
+               "  ADD INDEX `idx_context_property_double`( "
+               "    `name`, `is_custom_property`, `double_value`); "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `ContextProperty` "
+               "  ADD INDEX `idx_context_property_string`( "
+               "    `name`, `is_custom_property`, `string_value`(255)); "
+      }
+      upgrade_queries {
+        query: " CREATE TABLE `EventTemp` ( "
+               "   `id` INTEGER PRIMARY KEY AUTO_INCREMENT, "
+               "   `artifact_id` INT NOT NULL, "
+               "   `execution_id` INT NOT NULL, "
+               "   `type` INT NOT NULL, "
+               "   `milliseconds_since_epoch` BIGINT, "
+               "   CONSTRAINT UniqueEvent UNIQUE(`artifact_id`, `execution_id`, `type`) "
+               " ); "
+      }
+      upgrade_queries {
+        query: " INSERT IGNORE INTO `EventTemp` "
+               " (`id`, `artifact_id`, `execution_id`, `type`, "
+               " `milliseconds_since_epoch`) "
+               " SELECT * FROM `Event` ORDER BY `id` desc; "
+      }
+      upgrade_queries { query: " DROP TABLE `Event`; " }
+      upgrade_queries {
+        query: " ALTER TABLE `EventTemp` RENAME TO `Event`, "
+               " ADD INDEX `idx_event_execution_id` (`execution_id`) ; "
+      }
+      upgrade_queries {
+        query: " DELETE FROM `EventPath` "
+               "   WHERE event_id not in ( SELECT `id` from Event ) "
+      }
+      # check the expected indexes are created properly.
+      upgrade_verification {
+        previous_version_setup_queries { query: "DELETE FROM `Event`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Event` "
+                 " (`id`, `artifact_id`, `execution_id`, `type`, "
+                 " `milliseconds_since_epoch`) "
+                 " VALUES (1, 1, 1, 1, 1); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Event` "
+                 " (`id`, `artifact_id`, `execution_id`, `type`, "
+                 " `milliseconds_since_epoch`) "
+                 " VALUES (2, 1, 1, 1, 2); "
+        }
+        previous_version_setup_queries { query: "DELETE FROM `EventPath`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `EventPath` "
+                 " (`event_id`, `is_index_step`, `step_index`, `step_key`) "
+                 " VALUES (1, 1, 1, 'a'); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `EventPath` "
+                 " (`event_id`, `is_index_step`, `step_index`, `step_key`) "
+                 " VALUES (2, 1, 1, 'b'); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `EventPath` "
+                 " (`event_id`, `is_index_step`, `step_index`, `step_key`) "
+                 " VALUES (2, 1, 2, 'c'); "
+        }
+        # check event table unique constraint is applied and event path
+        # records are deleted.
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `Event` "
+                 " WHERE `artifact_id` = 1 AND `execution_id` = 1 "
+                 "     AND `type` = 1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `Event` "
+                 "   WHERE `id` = 2 AND `artifact_id` = 1 AND  "
+                 "       `execution_id` = 1 AND `type` = 1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 2 FROM `EventPath` "
+                 " WHERE `event_id` = 2; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `EventPath` "
+                 " WHERE `event_id` = 2 AND `step_key` = 'b'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `EventPath` "
+                 " WHERE `event_id` = 2 AND `step_key` = 'c'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `EventPath` "
+                 " WHERE `event_id` = 1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 3 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) and "
+                 "       `table_name` = 'Event' AND "
+                 "       `index_name` = 'UniqueEvent'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) and "
+                 "       `table_name` = 'Event' AND "
+                 "       `index_name` LIKE 'idx_event_execution_%'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) and "
+                 "       `table_name` = 'EventPath' AND "
+                 "       `index_name` LIKE 'idx_eventpath_event_%'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 9 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) and "
+                 "       `table_name` = 'ArtifactProperty' AND "
+                 "       `index_name` LIKE 'idx_artifact_property_%'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 9 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) and "
+                 "       `table_name` = 'ExecutionProperty' AND "
+                 "       `index_name` LIKE 'idx_execution_property_%'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 9 FROM `information_schema`.`statistics` "
+                 " WHERE `table_schema` = (SELECT DATABASE()) and "
+                 "       `table_name` = 'ContextProperty' AND "
+                 "       `index_name` LIKE 'idx_context_property_%'; "
+        }
+      }
+      db_verification { total_num_indexes: 74 total_num_tables: 15 }
     }
   }
 )pb");

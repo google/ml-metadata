@@ -6081,6 +6081,85 @@ TEST_P(MetadataAccessObjectTest, PutEventsWithPaths) {
   EXPECT_EQ(events_with_execution.size(), 2);
 }
 
+TEST_P(MetadataAccessObjectTest, CreateDuplicatedEvents) {
+  // Support after Spanner upgrade schema to V8.
+  if (!metadata_access_object_container_->HasFilterQuerySupport()) {
+    return;
+  }
+  ASSERT_EQ(absl::OkStatus(), Init());
+  int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
+  int64 execution_type_id = InsertType<ExecutionType>("test_execution_type");
+  Artifact input_artifact;
+  input_artifact.set_type_id(artifact_type_id);
+  int64 input_artifact_id;
+  ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateArtifact(
+                                  input_artifact, &input_artifact_id));
+
+  Artifact output_artifact;
+  output_artifact.set_type_id(artifact_type_id);
+  int64 output_artifact_id;
+  ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateArtifact(
+                                  output_artifact, &output_artifact_id));
+
+  Execution execution;
+  execution.set_type_id(execution_type_id);
+  int64 execution_id;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateExecution(execution, &execution_id));
+
+  // event1 with event paths
+  Event event1 = ParseTextProtoOrDie<Event>("type: INPUT");
+  event1.set_artifact_id(input_artifact_id);
+  event1.set_execution_id(execution_id);
+  event1.set_milliseconds_since_epoch(12345);
+  event1.mutable_path()->add_steps()->set_index(1);
+  event1.mutable_path()->add_steps()->set_key("key");
+  int64 event1_id = -1;
+  EXPECT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateEvent(event1, &event1_id));
+  EXPECT_NE(event1_id, -1);
+
+  // event2 with same artifact_id, execution_id but different type.
+  Event event2 = ParseTextProtoOrDie<Event>("type: DECLARED_INPUT");
+  event2.set_artifact_id(input_artifact_id);
+  event2.set_execution_id(execution_id);
+  int64 event2_id = -1;
+  EXPECT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateEvent(event2, &event2_id));
+  EXPECT_NE(event2_id, -1);
+  EXPECT_NE(event1_id, event2_id);
+
+  // event3 with same artifact_id, execution_id and type.
+  Event event3 = ParseTextProtoOrDie<Event>("type: INPUT");
+  event3.set_artifact_id(input_artifact_id);
+  event3.set_execution_id(execution_id);
+  int64 unused_event3_id = -1;
+  EXPECT_TRUE(absl::IsAlreadyExists(
+      metadata_access_object_->CreateEvent(event3, &unused_event3_id)));
+
+  // query the events
+  std::vector<Event> events_with_artifacts;
+  EXPECT_EQ(absl::OkStatus(), metadata_access_object_->FindEventsByArtifacts(
+                                  {input_artifact_id},
+                                  &events_with_artifacts));
+  EXPECT_EQ(events_with_artifacts.size(), 2);
+  EXPECT_THAT(
+      events_with_artifacts,
+      UnorderedElementsAre(
+          EqualsProto(event1),
+          EqualsProto(event2, /*ignore_fields=*/{"milliseconds_since_epoch"})));
+
+  std::vector<Event> events_with_execution;
+  EXPECT_EQ(absl::OkStatus(), metadata_access_object_->FindEventsByExecutions(
+                                  {execution_id}, &events_with_execution));
+  EXPECT_EQ(events_with_execution.size(), 2);
+  EXPECT_THAT(
+      events_with_execution,
+      UnorderedElementsAre(
+          EqualsProto(event1),
+          EqualsProto(event2, /*ignore_fields=*/{"milliseconds_since_epoch"})));
+}
+
 TEST_P(MetadataAccessObjectTest, CreateParentContext) {
   ASSERT_EQ(absl::OkStatus(), Init());
   ContextType context_type;

@@ -813,6 +813,7 @@ service MetadataStoreService {
   //
   // The execution_id and artifact_id must already exist.
   // Once created, events cannot be modified.
+  // AlreadyExists error will be raised if duplicated events are found.
   //
   // Args:
   //   events: A list of events to insert or update.
@@ -824,9 +825,12 @@ service MetadataStoreService {
   // input/output Event. The `contexts` describe the associations of the
   // execution and the attributions of the artifacts.
   //
-  // If an execution_id, artifact_id or context_id is specified, it is an
-  // update, otherwise it does an insertion. For insertion, type must be
-  // specified.
+  // If an execution_id is specified, it is an update on
+  // corresponding execution, otherwise it does an insertion.
+  // For insertion, type must be specified. Same rule applies to artifacts
+  // and contexts in the request. Corresponding errors may raised. For example:
+  // AlreadyExists error will be raised if duplicated executions, artifacts
+  // or events are found.
   //
   // Args:
   //   execution: An execution to insert or update.

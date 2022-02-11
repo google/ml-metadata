@@ -190,6 +190,8 @@ message ArtifactType {
 //       type:INTERNAL_OUTPUT,
 //       path:{step:[{"key":"gc_result"}]}
 //   }
+// Events are unique of the same
+// (artifact_id, execution_id, type) combination within a metadata store.
 message Event {
   // A simple path (e.g. {step{key:"foo"}}) can name an artifact in the context
   // of an execution.

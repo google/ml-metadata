@@ -1337,9 +1337,14 @@ absl::Status RDBMSMetadataAccessObject::CreateEvent(const Event& event,
                          ? event.milliseconds_since_epoch()
                          : absl::ToUnixMillis(absl::Now());
 
-  MLMD_RETURN_IF_ERROR(
+  const absl::Status status =
       executor_->InsertEvent(event.artifact_id(), event.execution_id(),
-                             event.type(), event_time, event_id));
+                             event.type(), event_time, event_id);
+  if (IsUniqueConstraintViolated(status)) {
+    return absl::AlreadyExistsError(
+        absl::StrCat("Given event already exists: ", event.DebugString(),
+                     status.ToString()));
+  }
   // insert event paths
   for (const Event::Path::Step& step : event.path().steps()) {
     // step value oneof
