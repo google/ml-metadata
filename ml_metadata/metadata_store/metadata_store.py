@@ -20,7 +20,7 @@ types can be created on the fly.
 import enum
 import random
 import time
-from typing import Iterable, List, Optional, Sequence, Text, Tuple, Union
+from typing import Any, Iterable, List, Optional, Sequence, Text, Tuple, Union
 
 from absl import logging
 import attr
@@ -32,6 +32,10 @@ from ml_metadata.metadata_store.pywrap.metadata_store_extension import metadata_
 from ml_metadata.proto import metadata_store_pb2
 from ml_metadata.proto import metadata_store_service_pb2
 from ml_metadata.proto import metadata_store_service_pb2_grpc
+
+
+# Max number of results for one call.
+MAX_NUM_RESULT = 100
 
 
 @enum.unique
@@ -920,16 +924,37 @@ class MetadataStore(object):
       errors.InternalError: if query execution fails.
       errors.InvalidArgument: if list_options is invalid.
     """
-    if list_options:
+    request = metadata_store_service_pb2.GetExecutionsRequest()
+    return self._call_method_with_list_options('GetExecutions', 'executions',
+                                               request, list_options)
+
+  def _call_method_with_list_options(
+      self,
+      method_name: str,
+      entity_field_name: str,
+      request_without_list_options: Any,
+      list_options: Optional[ListOptions] = None) -> List[Any]:
+    """Apply for loop for functions with list_options in request.
+
+    Args:
+      method_name: MLMD method name.
+      entity_field_name: Field name to look for in response.
+      request_without_list_options: A MLMD API request without setting options.
+      list_options: optional list options.
+
+    Returns:
+      A list of entities.
+    """
+    if list_options is not None:
       if list_options.limit and list_options.limit < 1:
         raise _make_exception(
-            'Invalid list_options.limit value passed. list_options.limit '
-            'is expected to be greater than 1', errors.INVALID_ARGUMENT)
-
-    request = metadata_store_service_pb2.GetExecutionsRequest()
+            'Invalid list_options.limit value passed. '
+            'list_options.limit is expected to be greater than 1',
+            errors.INVALID_ARGUMENT)
+    request = request_without_list_options
     return_size = None
-    if list_options:
-      request.options.max_result_size = 100
+    if list_options is not None:
+      request.options.max_result_size = MAX_NUM_RESULT
       request.options.order_by_field.is_asc = list_options.is_asc
       if list_options.limit:
         return_size = list_options.limit
@@ -946,26 +971,27 @@ class MetadataStore(object):
 
     result = []
     while True:
-      response = metadata_store_service_pb2.GetExecutionsResponse()
+      response = getattr(metadata_store_service_pb2, method_name + 'Response')()
       # Updating request max_result_size option to optimize and avoid
       # discarding returned results.
-      if return_size and return_size < 100:
+      if return_size and return_size < MAX_NUM_RESULT:
         request.options.max_result_size = return_size
 
-      self._call('GetExecutions', request, response)
-      for x in response.executions:
+      self._call(method_name, request, response)
+      entities = getattr(response, entity_field_name)
+      for x in entities:
         result.append(x)
 
       if return_size:
-        return_size = return_size - len(response.executions)
+        return_size = return_size - len(entities)
         if return_size <= 0:
           break
 
-      if not response.HasField('next_page_token'):
+      if (not response.HasField('next_page_token') or
+          not response.next_page_token):
         break
 
       request.options.next_page_token = response.next_page_token
-
     return result
 
   def get_artifacts(self,
@@ -984,54 +1010,9 @@ class MetadataStore(object):
       errors.InternalError: if query execution fails.
       errors.InvalidArgument: if list_options is invalid.
     """
-
-    if list_options:
-      if list_options.limit and list_options.limit < 1:
-        raise _make_exception(
-            'Invalid list_options.limit value passed. list_options.limit is '
-            'expected to be greater than 1', errors.INVALID_ARGUMENT)
-
     request = metadata_store_service_pb2.GetArtifactsRequest()
-    return_size = None
-    if list_options:
-      request.options.max_result_size = 100
-      request.options.order_by_field.is_asc = list_options.is_asc
-      if list_options.limit:
-        return_size = list_options.limit
-      if list_options.order_by:
-        request.options.order_by_field.field = list_options.order_by.value
-      if list_options.filter_query:
-        request.options.filter_query = list_options.filter_query  # windows
-        # windows 1
-        # windows 2
-        # windows 3
-        # windows 4
-        # windows 5
-        # windows 6
-
-    result = []
-    while True:
-      response = metadata_store_service_pb2.GetArtifactsResponse()
-      # Updating request max_result_size option to optimize and avoid
-      # discarding returned results.
-      if return_size and return_size < 100:
-        request.options.max_result_size = return_size
-
-      self._call('GetArtifacts', request, response)
-      for x in response.artifacts:
-        result.append(x)
-
-      if return_size:
-        return_size = return_size - len(response.artifacts)
-        if return_size <= 0:
-          break
-
-      if not response.HasField('next_page_token'):
-        break
-
-      request.options.next_page_token = response.next_page_token
-
-    return result
+    return self._call_method_with_list_options('GetArtifacts', 'artifacts',
+                                               request, list_options)
 
   def get_contexts(self,
                    list_options: Optional[ListOptions] = None
@@ -1049,53 +1030,9 @@ class MetadataStore(object):
       errors.InternalError: if query execution fails.
       errors.InvalidArgument: if list_options is invalid.
     """
-    if list_options:
-      if list_options.limit and list_options.limit < 1:
-        raise _make_exception(
-            'Invalid list_options.limit value passed. list_options.limit '
-            'is expected to be greater than 1', errors.INVALID_ARGUMENT)
-
     request = metadata_store_service_pb2.GetContextsRequest()
-    return_size = None
-    if list_options:
-      request.options.max_result_size = 100
-      request.options.order_by_field.is_asc = list_options.is_asc
-      if list_options.limit:
-        return_size = list_options.limit
-      if list_options.order_by:
-        request.options.order_by_field.field = list_options.order_by.value
-      if list_options.filter_query:
-        request.options.filter_query = list_options.filter_query  # windows
-        # windows 1
-        # windows 2
-        # windows 3
-        # windows 4
-        # windows 5
-        # windows 6
-
-    result = []
-    while True:
-      response = metadata_store_service_pb2.GetContextsResponse()
-      # Updating request max_result_size option to optimize and avoid
-      # discarding returned results.
-      if return_size and return_size < 100:
-        request.options.max_result_size = return_size
-
-      self._call('GetContexts', request, response)
-      for x in response.contexts:
-        result.append(x)
-
-      if return_size:
-        return_size = return_size - len(response.contexts)
-        if return_size <= 0:
-          break
-
-      if not response.HasField('next_page_token'):
-        break
-
-      request.options.next_page_token = response.next_page_token
-
-    return result
+    return self._call_method_with_list_options('GetContexts', 'contexts',
+                                               request, list_options)
 
   def get_contexts_by_id(self,
                          context_ids: Iterable[int]) -> List[proto.Context]:
@@ -1367,35 +1304,30 @@ class MetadataStore(object):
 
     return result
 
-  def get_executions_by_context(self, context_id: int) -> List[proto.Execution]:
+  def get_executions_by_context(
+      self,
+      context_id: int,
+      list_options: Optional[ListOptions] = None) -> List[proto.Execution]:
     """Gets all direct executions that a context associates with.
 
     Args:
       context_id: The id of the querying context
+      list_options: A set of options to specify the conditions, limit the size
+        and adjust order of the returned executions.
 
     Returns:
       Executions associating with the context.
     """
+    if list_options is None:
+      # Default order is CREATE_TIME DESC.
+      list_options = ListOptions(
+          order_by=OrderByField.CREATE_TIME, is_asc=False)
+
     request = metadata_store_service_pb2.GetExecutionsByContextRequest()
     request.context_id = context_id
-    request.options.max_result_size = 100
-    request.options.order_by_field.field = (
-        metadata_store_pb2.ListOperationOptions.OrderByField.Field.CREATE_TIME)
-    request.options.order_by_field.is_asc = False
-
-    result = []
-    while True:
-      response = metadata_store_service_pb2.GetExecutionsByContextResponse()
-      self._call('GetExecutionsByContext', request, response)
-      for x in response.executions:
-        result.append(x)
-
-      if not response.next_page_token:
-        break
-
-      request.options.next_page_token = response.next_page_token
-
-    return result
+    return self._call_method_with_list_options('GetExecutionsByContext',
+                                               'executions', request,
+                                               list_options)
 
   def get_events_by_execution_ids(
       self, execution_ids: Iterable[int]) -> List[proto.Event]:

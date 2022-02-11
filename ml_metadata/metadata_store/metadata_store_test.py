@@ -1214,6 +1214,44 @@ class MetadataStoreTest(parameterized.TestCase):
     ]
     self.assertCountEqual(execution_ids, got_executions_ids)
 
+  def test_get_executions_by_context_with_list_options(self):
+    store = _get_metadata_store()
+    execution_type = metadata_store_pb2.ExecutionType(
+        name=self._get_test_type_name())
+    execution_type_id = store.put_execution_type(execution_type)
+
+    context_type = metadata_store_pb2.ContextType(
+        name=self._get_test_type_name())
+    context_type_id = store.put_context_type(context_type)
+    context = metadata_store_pb2.Context(
+        type_id=context_type_id, name=self._get_test_type_name())
+    context_ids = store.put_contexts([context])
+    context_id = context_ids[0]
+
+    executions = []
+    for _ in range(5):
+      execution = metadata_store_pb2.Execution(type_id=execution_type_id)
+      executions.append(execution)
+
+    execution_ids = store.put_executions(executions)
+
+    associations = []
+    for execution_id in execution_ids:
+      association = metadata_store_pb2.Association(
+          context_id=context_id, execution_id=execution_id)
+      associations.append(association)
+    store.put_attributions_and_associations([], associations)
+
+    expected_execution_ids = sorted(execution_ids)[:4]
+
+    list_options = mlmd.ListOptions(
+        order_by=mlmd.OrderByField.ID, is_asc=True, limit=4)
+    got_executions_ids = [
+        execution.id for execution in store.get_executions_by_context(
+            context_id, list_options)
+    ]
+    self.assertEqual(expected_execution_ids, got_executions_ids)
+
   def test_get_artifacts_by_context_with_pagination(self):
     store = _get_metadata_store()
     artifact_type = metadata_store_pb2.ArtifactType(
