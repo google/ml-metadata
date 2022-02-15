@@ -454,7 +454,8 @@ absl::Status MetadataStore::PutTypes(const PutTypesRequest& request,
                            request.context_types(), request.can_add_fields(),
                            request.can_omit_fields(),
                            metadata_access_object_.get(), response);
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::PutArtifactType(
@@ -472,7 +473,8 @@ absl::Status MetadataStore::PutArtifactType(
                        &type_id));
         response->set_type_id(type_id);
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::PutExecutionType(
@@ -491,7 +493,8 @@ absl::Status MetadataStore::PutExecutionType(
                        &type_id));
         response->set_type_id(type_id);
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::PutContextType(const PutContextTypeRequest& request,
@@ -509,7 +512,8 @@ absl::Status MetadataStore::PutContextType(const PutContextTypeRequest& request,
                        &type_id));
         response->set_type_id(type_id);
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetArtifactType(
@@ -728,7 +732,8 @@ absl::Status MetadataStore::PutArtifacts(const PutArtifactsRequest& request,
       response->add_artifact_ids(artifact_id);
     }
     return absl::OkStatus();
-  });
+  },
+  request.transaction_options());
 }
 
 absl::Status MetadataStore::PutExecutions(const PutExecutionsRequest& request,
@@ -743,7 +748,8 @@ absl::Status MetadataStore::PutExecutions(const PutExecutionsRequest& request,
           response->add_execution_ids(execution_id);
         }
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::PutContexts(const PutContextsRequest& request,
@@ -758,7 +764,8 @@ absl::Status MetadataStore::PutContexts(const PutContextsRequest& request,
           response->add_context_ids(context_id);
         }
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::Create(
@@ -801,7 +808,8 @@ absl::Status MetadataStore::PutEvents(const PutEventsRequest& request,
               metadata_access_object_->CreateEvent(event, &dummy_event_id));
         }
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::PutExecution(const PutExecutionRequest& request,
@@ -878,7 +886,8 @@ absl::Status MetadataStore::PutExecution(const PutExecutionRequest& request,
       }
     }
     return absl::OkStatus();
-  });
+  },
+  request.transaction_options());
 }
 
 
@@ -1386,7 +1395,8 @@ absl::Status MetadataStore::PutAttributionsAndAssociations(
               metadata_access_object_.get()));
         }
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::PutParentContexts(
@@ -1400,7 +1410,8 @@ absl::Status MetadataStore::PutParentContexts(
               metadata_access_object_->CreateParentContext(parent_context));
         }
         return absl::OkStatus();
-      });
+      },
+      request.transaction_options());
 }
 
 absl::Status MetadataStore::GetContextsByArtifact(
