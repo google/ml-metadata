@@ -89,6 +89,10 @@ class QueryExecutor {
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status InitMetadataSourceLight() = 0;
 
+  // Deletes the metadata source.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteMetadataSource() = 0;
+
   // Upgrades the database schema version (db_v) to align with the library
   // schema version (lib_v). It retrieves db_v from the metadata source and
   // compares it with the lib_v in the given query_config, and runs migration

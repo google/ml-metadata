@@ -70,6 +70,11 @@ class QueryConfigExecutor : public QueryExecutor {
         "InitMetadataSourceLight not supported for QueryConfigExecutor");
   }
 
+  absl::Status DeleteMetadataSource() final {
+    return absl::UnimplementedError(
+        "DeleteMetadataSource not supported for QueryConfigExecutor");
+  }
+
   absl::Status GetSchemaVersion(int64* db_version) final;
 
   absl::Status CheckTypeTable() final {

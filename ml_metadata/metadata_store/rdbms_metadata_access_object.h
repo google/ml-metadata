@@ -78,6 +78,14 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
     return executor_->InitMetadataSourceLight();
   }
 
+  // Deletes the metadata source. All the metadata and other associated data
+  // will be deleted. The metadata source can no longer be queried before
+  // calling InitMetadataSourceIfNotExists again.
+  // Returns detailed INTERNAL error, if update execution fails.
+  absl::Status DeleteMetadataSource() final {
+    return executor_->DeleteMetadataSource();
+  }
+
   // Downgrades the schema to `to_schema_version` in the given metadata source.
   // Returns INVALID_ARGUMENT, if `to_schema_version` is less than 0, or newer
   //   than the library version.

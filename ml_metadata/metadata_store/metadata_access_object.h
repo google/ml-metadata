@@ -83,6 +83,10 @@ class MetadataAccessObject {
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status InitMetadataSourceLight() = 0;
 
+  // Deletes the metadata source.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteMetadataSource() = 0;
+
   // Downgrades the schema to `to_schema_version` in the given metadata source.
   // Returns INVALID_ARGUMENT, if `to_schema_version` is less than 0, or newer
   //   than the library version.

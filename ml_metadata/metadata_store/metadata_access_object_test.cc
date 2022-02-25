@@ -3101,16 +3101,15 @@ TEST_P(MetadataAccessObjectTest, DeleteExecutionsById) {
 }
 
 TEST_P(MetadataAccessObjectTest, DeleteContextsById) {
-  if (!metadata_access_object_container_->HasDeletionSupport()) {
-    return;
-  }
   ASSERT_EQ(absl::OkStatus(), Init());
 
   const ContextType type = CreateTypeFromTextProto<ContextType>(
       "name: 'test_type'", *metadata_access_object_);
-  Context context;
-  CreateNodeFromTextProto("name: 'delete_contexts_by_id_test'", type.id(),
-                          *metadata_access_object_, context);
+  Context context1, context2;
+  CreateNodeFromTextProto("name: 'delete_contexts_by_id_test_1'", type.id(),
+                          *metadata_access_object_, context1);
+  CreateNodeFromTextProto("name: 'delete_contexts_by_id_test_2'", type.id(),
+                          *metadata_access_object_, context2);
 
   // Test: empty ids
   {
@@ -3118,18 +3117,35 @@ TEST_P(MetadataAccessObjectTest, DeleteContextsById) {
     EXPECT_EQ(absl::OkStatus(),
               metadata_access_object_->DeleteContextsById({}));
     ASSERT_EQ(absl::OkStatus(), metadata_access_object_->FindContextsById(
-                                    {context.id()}, &result));
-    EXPECT_THAT(result.size(), 1);
+                                    {context1.id(), context2.id()}, &result));
+    EXPECT_THAT(result.size(), 2);
   }
-  // Test: actual deletion
+  // Test: actual deletion on context1
   {
     std::vector<Context> result;
     EXPECT_EQ(absl::OkStatus(),
-              metadata_access_object_->DeleteContextsById({context.id()}));
-    absl::Status status =
-        metadata_access_object_->FindContextsById({context.id()}, &result);
+              metadata_access_object_->DeleteContextsById({context1.id()}));
+    absl::Status status = metadata_access_object_->FindContextsById(
+        {context1.id(), context2.id()}, &result);
+    // context1 not found
     EXPECT_TRUE(absl::IsNotFound(status)) << status;
-    EXPECT_THAT(result, IsEmpty());
+    // context2 remains
+    EXPECT_THAT(result.size(), 1);
+    EXPECT_EQ(result.front().id(), context2.id());
+  }
+  // Test: context id is wrong when deleting context2
+  {
+    std::vector<Context> result;
+    // still returns OK status when context id is not found
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteContextsById({context2.id() + 1}));
+    absl::Status status = metadata_access_object_->FindContextsById(
+        {context1.id(), context2.id()}, &result);
+    // context1 not found
+    EXPECT_TRUE(absl::IsNotFound(status)) << status;
+    // context2 remains because context id is wrong when deleting it
+    EXPECT_THAT(result.size(), 1);
+    EXPECT_EQ(result.front().id(), context2.id());
   }
 }
 

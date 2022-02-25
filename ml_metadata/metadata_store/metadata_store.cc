@@ -442,6 +442,7 @@ absl::Status MetadataStore::InitMetadataStoreIfNotExists(
 }
 
 
+
 absl::Status MetadataStore::PutTypes(const PutTypesRequest& request,
                                      PutTypesResponse* response) {
   if (!request.all_fields_match()) {
@@ -1606,6 +1607,7 @@ absl::Status MetadataStore::GetLineageGraph(
       },
       request.transaction_options());
 }
+
 
 MetadataStore::MetadataStore(
     std::unique_ptr<MetadataSource> metadata_source,

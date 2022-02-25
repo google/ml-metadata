@@ -63,6 +63,7 @@ class MetadataStore : public MetadataStoreServiceInterface {
       bool enable_upgrade_migration = false);
 
 
+
   // Inserts or updates a ArtifactType/ExecutionType/ContextType.
   //
   // A type has a set of strong typed properties describing the schema of any
@@ -415,6 +416,7 @@ class MetadataStore : public MetadataStoreServiceInterface {
   // if query execution fails.
   absl::Status GetLineageGraph(const GetLineageGraphRequest& request,
                                GetLineageGraphResponse* response) override;
+
 
  private:
   // To construct the object, see Create(...).
