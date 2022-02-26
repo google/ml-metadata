@@ -22,6 +22,8 @@ limitations under the License.
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "ml_metadata/metadata_store/metadata_access_object.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/util/return_utils.h"
@@ -71,9 +73,6 @@ class MetadataAccessObjectContainer {
   // Tests if there is upgrade verification.
   virtual bool HasUpgradeVerification(int64 version) = 0;
 
-  // Tests if there is deletion support.
-  virtual bool HasDeletionSupport() { return false; }
-
   // Tests if there is upgrade verification.
   virtual bool HasDowngradeVerification(int64 version) = 0;
 
@@ -102,6 +101,13 @@ class MetadataAccessObjectContainer {
 
   // Deletes the schema version from MLMDVersion: this corrupts the database.
   virtual absl::Status DeleteSchemaVersion() = 0;
+
+  // Determines whether or not the specified table is empty.
+  // Returns `true` if the specified table is empty and `false` otherwise.
+  // Returns an InternalError if there is an error executing the underlying
+  // queries.
+  virtual absl::StatusOr<bool> CheckTableEmpty(
+      absl::string_view table_name) = 0;
 
   // Sets the schema version to an incompatible version in the future,
   virtual absl::Status SetDatabaseVersionIncompatible() = 0;
@@ -140,8 +146,6 @@ class QueryConfigMetadataAccessObjectContainer
 
   bool HasDowngradeVerification(int64 version) final;
 
-  bool HasDeletionSupport() final { return true; }
-
   bool HasFilterQuerySupport() final { return true; }
 
   absl::Status VerifyDbSchema(const int64 version) final;
@@ -159,6 +163,8 @@ class QueryConfigMetadataAccessObjectContainer
   absl::Status DropArtifactTable() final;
 
   absl::Status DeleteSchemaVersion() final;
+
+  absl::StatusOr<bool> CheckTableEmpty(absl::string_view table_name) final;
 
   absl::Status SetDatabaseVersionIncompatible() final;
 

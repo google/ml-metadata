@@ -24,7 +24,10 @@ limitations under the License.
 #include <gtest/gtest.h>
 #include "absl/container/node_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_replace.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -226,6 +229,28 @@ absl::Status QueryConfigMetadataAccessObjectContainer::DeleteSchemaVersion() {
   RecordSet record_set;
   return GetMetadataSource()->ExecuteQuery("DELETE FROM `MLMDEnv`;",
                                            &record_set);
+}
+
+absl::StatusOr<bool> QueryConfigMetadataAccessObjectContainer::CheckTableEmpty(
+    absl::string_view table_name) {
+  absl::string_view query = R"(SELECT EXISTS (SELECT 1 FROM $0);)";
+  RecordSet record_set;
+  MLMD_RETURN_IF_ERROR(GetMetadataSource()->ExecuteQuery(
+      absl::Substitute(query, table_name), &record_set));
+
+  if (record_set.records_size() != 1) {
+    return absl::InternalError(
+        absl::StrCat("Failed to check if table ", table_name,
+                     " is empty when running query ", query));
+  }
+
+  int64 result;
+  if (!absl::SimpleAtoi(record_set.records(0).values(0), &result)) {
+    return absl::InternalError(
+        absl::StrCat("Value incorrect: ", record_set.records(0).DebugString(),
+                     " on query ", query));
+  }
+  return absl::StatusOr<bool>(result == 0);
 }
 
 absl::Status
@@ -3035,17 +3060,34 @@ TEST_P(MetadataAccessObjectTest, QueryLineageGraphWithBoundaryConditions) {
 }
 
 TEST_P(MetadataAccessObjectTest, DeleteArtifactsById) {
-  if (!metadata_access_object_container_->HasDeletionSupport()) {
-    return;
-  }
   ASSERT_EQ(absl::OkStatus(), Init());
 
   const ArtifactType type = CreateTypeFromTextProto<ArtifactType>(
-      "name: 'test_type'", *metadata_access_object_);
+      R"pb(
+        name: 'test_type'
+        properties { key: 'property_1' value: INT }
+        properties { key: 'property_2' value: DOUBLE }
+        properties { key: 'property_3' value: STRING }
+      )pb",
+      *metadata_access_object_);
   Artifact artifact;
-  CreateNodeFromTextProto("name: 'delete_artifacts_by_id_test'", type.id(),
-                          *metadata_access_object_, artifact);
-
+  CreateNodeFromTextProto(
+      R"pb(
+        name: 'delete_artifacts_by_id_test'
+        properties {
+          key: 'property_1'
+          value: { int_value: 3 }
+        }
+        properties {
+          key: 'property_2'
+          value: { double_value: 3.0 }
+        }
+        properties {
+          key: 'property_3'
+          value: { string_value: '3' }
+        }
+      )pb",
+      type.id(), *metadata_access_object_, artifact);
   // Test: empty ids
   {
     std::vector<Artifact> result;
@@ -3054,6 +3096,9 @@ TEST_P(MetadataAccessObjectTest, DeleteArtifactsById) {
     ASSERT_EQ(absl::OkStatus(), metadata_access_object_->FindArtifactsById(
                                     {artifact.id()}, &result));
     EXPECT_THAT(result.size(), 1);
+    ASSERT_EQ(
+        absl::StatusOr<bool>(false),
+        metadata_access_object_container_->CheckTableEmpty("ArtifactProperty"));
   }
   // Test: actual deletion
   {
@@ -3064,20 +3109,43 @@ TEST_P(MetadataAccessObjectTest, DeleteArtifactsById) {
         metadata_access_object_->FindArtifactsById({artifact.id()}, &result);
     EXPECT_TRUE(absl::IsNotFound(status)) << status;
     EXPECT_THAT(result, IsEmpty());
+    // We expect the properties table to be empty because we deleted the only
+    // Artifact that was in our database.
+    ASSERT_EQ(
+        absl::StatusOr<bool>(true),
+        metadata_access_object_container_->CheckTableEmpty("ArtifactProperty"));
   }
 }
 
 TEST_P(MetadataAccessObjectTest, DeleteExecutionsById) {
-  if (!metadata_access_object_container_->HasDeletionSupport()) {
-    return;
-  }
   ASSERT_EQ(absl::OkStatus(), Init());
 
   const ExecutionType type = CreateTypeFromTextProto<ExecutionType>(
-      "name: 'test_type'", *metadata_access_object_);
+      R"pb(
+        name: 'test_type'
+        properties { key: 'property_1' value: INT }
+        properties { key: 'property_2' value: DOUBLE }
+        properties { key: 'property_3' value: STRING }
+      )pb",
+      *metadata_access_object_);
   Execution execution;
-  CreateNodeFromTextProto("name: 'delete_executions_by_id_test'", type.id(),
-                          *metadata_access_object_, execution);
+  CreateNodeFromTextProto(
+      R"pb(
+        name: 'delete_executions_by_id_test'
+        properties {
+          key: 'property_1'
+          value: { int_value: 3 }
+        }
+        properties {
+          key: 'property_2'
+          value: { double_value: 3.0 }
+        }
+        properties {
+          key: 'property_3'
+          value: { string_value: '3' }
+        }
+      )pb",
+      type.id(), *metadata_access_object_, execution);
 
   // Test: empty ids
   {
@@ -3087,6 +3155,9 @@ TEST_P(MetadataAccessObjectTest, DeleteExecutionsById) {
     ASSERT_EQ(absl::OkStatus(), metadata_access_object_->FindExecutionsById(
                                     {execution.id()}, &result));
     EXPECT_THAT(result.size(), 1);
+    ASSERT_EQ(absl::StatusOr<bool>(false),
+              metadata_access_object_container_->CheckTableEmpty(
+                  "ExecutionProperty"));
   }
   // Test: actual deletion
   {
@@ -3097,6 +3168,11 @@ TEST_P(MetadataAccessObjectTest, DeleteExecutionsById) {
         metadata_access_object_->FindExecutionsById({execution.id()}, &result);
     EXPECT_TRUE(absl::IsNotFound(status)) << status;
     EXPECT_THAT(result, IsEmpty());
+    // We expect the properties table to be empty because we deleted the only
+    // Execution that was in our database.
+    ASSERT_EQ(absl::StatusOr<bool>(true),
+              metadata_access_object_container_->CheckTableEmpty(
+                  "ExecutionProperty"));
   }
 }
 
@@ -3104,7 +3180,13 @@ TEST_P(MetadataAccessObjectTest, DeleteContextsById) {
   ASSERT_EQ(absl::OkStatus(), Init());
 
   const ContextType type = CreateTypeFromTextProto<ContextType>(
-      "name: 'test_type'", *metadata_access_object_);
+      R"pb(
+        name: 'test_type'
+        properties { key: 'property_1' value: INT }
+        properties { key: 'property_2' value: DOUBLE }
+        properties { key: 'property_3' value: STRING }
+      )pb",
+      *metadata_access_object_);
   Context context1, context2;
   CreateNodeFromTextProto("name: 'delete_contexts_by_id_test_1'", type.id(),
                           *metadata_access_object_, context1);
@@ -3150,9 +3232,6 @@ TEST_P(MetadataAccessObjectTest, DeleteContextsById) {
 }
 
 TEST_P(MetadataAccessObjectTest, DeleteEventsByArtifactsId) {
-  if (!metadata_access_object_container_->HasDeletionSupport()) {
-    return;
-  }
   ASSERT_EQ(absl::OkStatus(), Init());
 
   int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
@@ -3200,9 +3279,6 @@ TEST_P(MetadataAccessObjectTest, DeleteEventsByArtifactsId) {
 }
 
 TEST_P(MetadataAccessObjectTest, DeleteEventsByExecutionsId) {
-  if (!metadata_access_object_container_->HasDeletionSupport()) {
-    return;
-  }
   ASSERT_EQ(absl::OkStatus(), Init());
 
   int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
@@ -3250,9 +3326,6 @@ TEST_P(MetadataAccessObjectTest, DeleteEventsByExecutionsId) {
 }
 
 TEST_P(MetadataAccessObjectTest, DeleteAssociationsByContextsId) {
-  if (!metadata_access_object_container_->HasDeletionSupport()) {
-    return;
-  }
   ASSERT_EQ(absl::OkStatus(), Init());
 
   int64 execution_type_id = InsertType<ExecutionType>("execution_type");
@@ -3296,9 +3369,6 @@ TEST_P(MetadataAccessObjectTest, DeleteAssociationsByContextsId) {
 }
 
 TEST_P(MetadataAccessObjectTest, DeleteAssociationsByExecutionsId) {
-  if (!metadata_access_object_container_->HasDeletionSupport()) {
-    return;
-  }
   ASSERT_EQ(absl::OkStatus(), Init());
 
   int64 execution_type_id = InsertType<ExecutionType>("execution_type");
@@ -3344,9 +3414,6 @@ TEST_P(MetadataAccessObjectTest, DeleteAssociationsByExecutionsId) {
 }
 
 TEST_P(MetadataAccessObjectTest, DeleteAttributionsByContextsId) {
-  if (!metadata_access_object_container_->HasDeletionSupport()) {
-    return;
-  }
   ASSERT_EQ(absl::OkStatus(), Init());
 
   int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
@@ -3388,9 +3455,6 @@ TEST_P(MetadataAccessObjectTest, DeleteAttributionsByContextsId) {
 }
 
 TEST_P(MetadataAccessObjectTest, DeleteAttributionsByArtifactsId) {
-  if (!metadata_access_object_container_->HasDeletionSupport()) {
-    return;
-  }
   ASSERT_EQ(absl::OkStatus(), Init());
 
   int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
@@ -3544,9 +3608,6 @@ TEST_P(MetadataAccessObjectTest, DeleteParentType) {
 }
 
 TEST_P(MetadataAccessObjectTest, DeleteParentContextsByParentIds) {
-  if (!metadata_access_object_container_->HasDeletionSupport()) {
-    return;
-  }
   ASSERT_EQ(absl::OkStatus(), Init());
 
   int64 context_type_id = InsertType<ContextType>("test_context_type");
@@ -3588,9 +3649,6 @@ TEST_P(MetadataAccessObjectTest, DeleteParentContextsByParentIds) {
 }
 
 TEST_P(MetadataAccessObjectTest, DeleteParentContextsByChildIds) {
-  if (!metadata_access_object_container_->HasDeletionSupport()) {
-    return;
-  }
   ASSERT_EQ(absl::OkStatus(), Init());
 
   int64 context_type_id = InsertType<ContextType>("test_context_type");
