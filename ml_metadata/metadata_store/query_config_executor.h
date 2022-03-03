@@ -97,6 +97,9 @@ class QueryConfigExecutor : public QueryExecutor {
                                  absl::optional<absl::string_view> description,
                                  int64* type_id) final;
 
+  absl::Status SelectTypesByID(const absl::Span<const int64> type_ids,
+                               TypeKind type_kind, RecordSet* record_set) final;
+
   absl::Status SelectTypeByID(int64 type_id, TypeKind type_kind,
                               RecordSet* record_set) final;
 

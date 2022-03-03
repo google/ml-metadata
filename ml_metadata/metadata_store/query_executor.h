@@ -182,6 +182,13 @@ class QueryExecutor {
       const std::string& name, absl::optional<absl::string_view> version,
       absl::optional<absl::string_view> description, int64* type_id) = 0;
 
+  // Retrieves types from the database by their ids. Not found ids are
+  // skipped.
+  // Returned messages can be converted to ArtifactType, ContextType, or
+  // ExecutionType.
+  virtual absl::Status SelectTypesByID(const absl::Span<const int64> type_ids,
+                                       TypeKind type_kind,
+                                       RecordSet* record_set) = 0;
   // Queries a type by its type id.
   // Returns a message that can be converted to an ArtifactType,
   // ContextType, or ExecutionType.

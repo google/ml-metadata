@@ -576,6 +576,13 @@ absl::Status QueryConfigExecutor::InsertContextType(
       {Bind(name), Bind(version), Bind(description)}, type_id);
 }
 
+absl::Status QueryConfigExecutor::SelectTypesByID(
+    const absl::Span<const int64> type_ids, TypeKind type_kind,
+    RecordSet* record_set) {
+  return ExecuteQuery(query_config_.select_types_by_id(),
+                      {Bind(type_ids), Bind(type_kind)}, record_set);
+}
+
 absl::Status QueryConfigExecutor::SelectTypeByID(int64 type_id,
                                                  TypeKind type_kind,
                                                  RecordSet* record_set) {

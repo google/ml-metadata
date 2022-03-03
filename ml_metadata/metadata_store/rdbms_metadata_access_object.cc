@@ -708,7 +708,8 @@ absl::Status RDBMSMetadataAccessObject::GenerateFindAllTypeInstancesQuery(
 // information such as properties, and returns it in `types`.
 template <typename MessageType>
 absl::Status RDBMSMetadataAccessObject::FindTypesFromRecordSet(
-    const RecordSet& type_record_set, std::vector<MessageType>* types) {
+    const RecordSet& type_record_set, std::vector<MessageType>* types,
+    bool get_properties) {
   // Query type with the given condition
   const int num_records = type_record_set.records_size();
   types->resize(num_records);
@@ -716,14 +717,46 @@ absl::Status RDBMSMetadataAccessObject::FindTypesFromRecordSet(
     MLMD_RETURN_IF_ERROR(
         ParseRecordSetToMessage(type_record_set, &types->at(i), i));
 
-    RecordSet property_record_set;
-    MLMD_RETURN_IF_ERROR(executor_->SelectPropertyByTypeID(
-        types->at(i).id(), &property_record_set));
-
-    MLMD_RETURN_IF_ERROR(ParseRecordSetToMapField(property_record_set,
-                                                  "properties", &types->at(i)));
+    if (get_properties) {
+      RecordSet property_record_set;
+      // TODO(b/218884256): batch SelectPropertyByTypeID call to handle a list
+      // of type ids.
+      MLMD_RETURN_IF_ERROR(executor_->SelectPropertyByTypeID(
+          types->at(i).id(), &property_record_set));
+      MLMD_RETURN_IF_ERROR(ParseRecordSetToMapField(
+          property_record_set, "properties", &types->at(i)));
+    }
   }
 
+  return absl::OkStatus();
+}
+
+template <typename MessageType>
+absl::Status RDBMSMetadataAccessObject::FindTypesImpl(
+    absl::Span<const int64> type_ids,
+    std::vector<MessageType>& types) {
+  if (type_ids.empty()) {
+    return absl::InvalidArgumentError("ids cannot be empty");
+  }
+  if (!types.empty()) {
+    return absl::InvalidArgumentError("types parameter is not empty");
+  }
+  const TypeKind type_kind = ResolveTypeKind(types[0]);
+
+  RecordSet record_set;
+  MLMD_RETURN_IF_ERROR(
+      executor_->SelectTypesByID(type_ids, type_kind, &record_set));
+  MLMD_RETURN_IF_ERROR(
+      FindTypesFromRecordSet(record_set, &types, /*get_properties=*/false));
+
+  if (type_ids.size() != types.size()) {
+    std::vector<int64> found_ids;
+    absl::c_transform(types, std::back_inserter(found_ids),
+                      [](const MessageType& type) { return type.id(); });
+    return absl::NotFoundError(absl::StrCat(
+        "Results missing for ids: {", absl::StrJoin(type_ids, ","),
+        "}. Found results for {", absl::StrJoin(found_ids, ","), "}"));
+  }
   return absl::OkStatus();
 }
 

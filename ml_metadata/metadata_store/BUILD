@@ -86,6 +86,47 @@ cc_library(
 )
 
 cc_library(
+    name = "rdbms_metadata_access_object_test",
+    testonly = 1,
+    srcs = [
+        "rdbms_metadata_access_object_test.cc",
+    ],
+    hdrs = [
+        "rdbms_metadata_access_object_test.h",
+    ],
+    deps = [
+        ":rdbms_metadata_access_object",
+        ":test_util",
+        "@com_google_googletest//:gtest",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/util:return_utils",
+        "@com_google_glog//:glog",
+    ],
+)
+
+ml_metadata_cc_test(
+    name = "sqlite_rdbms_metadata_access_object_test",
+    size = "small",
+    srcs = ["sqlite_rdbms_metadata_access_object_test.cc"],
+    deps = [
+        ":metadata_source",
+        ":query_config_executor",
+        ":rdbms_metadata_access_object",
+        ":rdbms_metadata_access_object_test",
+        ":sqlite_metadata_source",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
+        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/util:metadata_source_query_config",
+        "@com_google_glog//:glog",
+    ],
+)
+
+cc_library(
     name = "query_executor",
     srcs = [
         "query_executor.cc",
@@ -104,6 +145,52 @@ cc_library(
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/util:return_utils",
+        "@com_google_glog//:glog",
+    ],
+)
+
+cc_library(
+    name = "query_executor_test",
+    testonly = 1,
+    srcs = [
+        "query_executor_test.cc",
+    ],
+    hdrs = [
+        "query_executor_test.h",
+    ],
+    deps = [
+        ":constants",
+        ":metadata_source",
+        ":query_executor",
+        ":test_util",
+        "@com_google_googletest//:gtest",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+        "@com_google_absl//absl/types:optional",
+        "@com_google_absl//absl/types:span",
+        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/util:return_utils",
+        "@com_google_glog//:glog",
+    ],
+)
+
+ml_metadata_cc_test(
+    name = "sqlite_query_config_executor_test",
+    srcs = [
+        "sqlite_query_config_executor_test.cc",
+    ],
+    deps = [
+        ":metadata_source",
+        ":query_config_executor",
+        ":query_executor",
+        ":query_executor_test",
+        ":sqlite_metadata_source",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/memory",
+        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/util:metadata_source_query_config",
         "@com_google_glog//:glog",
     ],
 )

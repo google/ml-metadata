@@ -28,6 +28,10 @@ limitations under the License.
 
 namespace ml_metadata {
 
+// Declare a parameterized abstract test fixture to run tests on private methods
+// of RDBMSMetadataAccessObject created with different MetadataSource types.
+class RDBMSMetadataAccessObjectTest;
+
 // An implementation of MetadataAccessObject for a typical relational
 // database. The basic assumption is that the database has a schema similar
 // to the schema of the SQLite database, and that an API close to SQL queries
@@ -416,9 +420,21 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   // FindType takes a result of a query for types, and populates additional
   // information such as properties, and returns it in `types`.
+  // If `get_properties` equals false, skip the query that retrieves properties
+  // from property table.
   template <typename MessageType>
   absl::Status FindTypesFromRecordSet(const RecordSet& type_record_set,
-                                      std::vector<MessageType>* types);
+                                      std::vector<MessageType>* types,
+                                      bool get_properties = true);
+
+  // Finds types by the given `type_ids`. Acceptable types are {ArtifactType,
+  // ExecutionType, ContextType} (`MessageType`).
+  // Returns INVALID_ARGUMENT if `type_ids` is empty or `types` is not empty.
+  // Returns detailed INTERNAL error if query execution fails.
+  // If any ids are not found then returns NOT_FOUND error.
+  template <typename MessageType>
+  absl::Status FindTypesImpl(absl::Span<const int64> type_ids,
+                             std::vector<MessageType>& types);
 
   // Finds a type by its type_id. Acceptable types are {ArtifactType,
   // ExecutionType, ContextType} (`MessageType`).
@@ -588,6 +604,8 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
       absl::flat_hash_set<int64>& unvisited_node_ids);
 
   std::unique_ptr<QueryExecutor> executor_;
+
+  friend RDBMSMetadataAccessObjectTest;
 };
 
 }  // namespace ml_metadata

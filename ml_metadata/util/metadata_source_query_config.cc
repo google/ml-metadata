@@ -65,6 +65,12 @@ R"pb(
            ") VALUES($0, 2, $1, $2);"
     parameter_num: 3
   }
+  select_types_by_id {
+    query: " SELECT `id`, `name`, `version`, `description` "
+           " FROM `Type` "
+           " WHERE id IN ($0) and type_kind = $1; "
+    parameter_num: 2
+  }
   select_type_by_id {
     query: " SELECT `id`, `name`, `version`, `description`, "
            "        `input_type`, `output_type` FROM `Type` "
