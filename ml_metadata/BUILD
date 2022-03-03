@@ -1,5 +1,7 @@
 licenses(["notice"])  # Apache 2.0
 
+load("@bazel_skylib//lib:selects.bzl", "selects")
+
 package(default_visibility = ["//visibility:public"])
 
 config_setting(
@@ -10,9 +12,26 @@ config_setting(
 )
 
 config_setting(
+    name = "macos_x86_64",
+    values = {
+        "apple_platform_type": "macos",
+        "cpu": "darwin",
+    },
+)
+
+config_setting(
+    name = "macos_arm64",
+    values = {
+        "apple_platform_type": "macos",
+        "cpu": "darwin_arm64",
+    },
+)
+
+selects.config_setting_group(
     name = "macos",
-    constraint_values = [
-        "@bazel_tools//platforms:osx",
+    match_any = [
+        ":macos_x86_64",
+        ":macos_arm64",
     ],
 )
 

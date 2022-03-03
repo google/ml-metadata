@@ -24,3 +24,5 @@ build --incompatible_restrict_string_escapes=false
 # parameter 'user_link_flags' is deprecated and will be removed soon.
 # It may be temporarily re-enabled by setting --incompatible_require_linker_input_cc_api=false
 build --incompatible_require_linker_input_cc_api=false
+build:macos --apple_platform_type=macos
+build:macos_arm64 --cpu=darwin_arm64
