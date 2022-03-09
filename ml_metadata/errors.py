@@ -38,7 +38,7 @@ class StatusError(Exception):
   """A general error class that cast maps Status to typed errors."""
 
   def __init__(self, message, error_code):
-    """Creates a `CancelledError`."""
+    """Creates a `StatusError`."""
     super(StatusError, self).__init__(message)
     self.message = message
     self.error_code = error_code
