@@ -22,6 +22,7 @@ limitations under the License.
 #include "google/protobuf/repeated_field.h"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/node_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -685,7 +686,7 @@ TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeId) {
   ASSERT_EQ(absl::OkStatus(), Init());
   // Setup: init the store with the following types and inheritance links
   // ArtifactType:  type1 -> type2
-  //                     \-> type3
+  //                type3 -> type2
   // ExecutionType: type4 -> type5
   // ContextType:   type6 -> type7
   //                type8
@@ -693,20 +694,24 @@ TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeId) {
           name: 't1'
           properties { key: 'property_1' value: STRING }
       )", *metadata_access_object_);
-  const ArtifactType type2 = CreateTypeFromTextProto<ArtifactType>(R"(
+  ArtifactType type2 =
+      CreateTypeFromTextProto<ArtifactType>(R"(
           name: 't2'
           properties { key: 'property_2' value: INT }
-      )", *metadata_access_object_);
-  const ArtifactType type3 = CreateTypeFromTextProto<ArtifactType>(R"(
+      )",
+                                            *metadata_access_object_);
+  ArtifactType type3 =
+      CreateTypeFromTextProto<ArtifactType>(R"(
           name: 't3'
           properties { key: 'property_3' value: DOUBLE }
-      )", *metadata_access_object_);
+      )",
+                                            *metadata_access_object_);
   ASSERT_EQ(
       absl::OkStatus(),
       metadata_access_object_->CreateParentTypeInheritanceLink(type1, type2));
   ASSERT_EQ(
       absl::OkStatus(),
-      metadata_access_object_->CreateParentTypeInheritanceLink(type1, type3));
+      metadata_access_object_->CreateParentTypeInheritanceLink(type3, type2));
 
   const ExecutionType type4 = CreateTypeFromTextProto<ExecutionType>(R"(
           name: 't4'
@@ -734,105 +739,76 @@ TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeId) {
 
   // verify artifact types
   {
-    std::vector<ArtifactType> parent_types;
+    absl::flat_hash_map<int64, ArtifactType> parent_types;
     ASSERT_EQ(absl::OkStatus(),
-              metadata_access_object_->FindParentTypesByTypeId(type1.id(),
-                                                               parent_types));
-    EXPECT_THAT(parent_types,
-                UnorderedElementsAre(EqualsProto(type2), EqualsProto(type3)));
+              metadata_access_object_->FindParentTypesByTypeId(
+                  {type1.id(), type3.id()}, parent_types));
+    // Type properties will not be retrieved in FindParentTypesByTypeId.
+    type2.clear_properties();
+    type3.clear_properties();
+    ASSERT_EQ(parent_types.size(), 2);
+    EXPECT_THAT(parent_types[type1.id()], EqualsProto(type2));
+    EXPECT_THAT(parent_types[type3.id()], EqualsProto(type2));
   }
 
   {
-    std::vector<ArtifactType> parent_types;
+    absl::flat_hash_map<int64, ArtifactType> parent_types;
     ASSERT_EQ(absl::OkStatus(),
-              metadata_access_object_->FindParentTypesByTypeId(type2.id(),
-                                                               parent_types));
-    EXPECT_THAT(parent_types, IsEmpty());
-  }
-
-  {
-    std::vector<ArtifactType> parent_types;
-    ASSERT_EQ(absl::OkStatus(),
-              metadata_access_object_->FindParentTypesByTypeId(type3.id(),
+              metadata_access_object_->FindParentTypesByTypeId({type2.id()},
                                                                parent_types));
     EXPECT_THAT(parent_types, IsEmpty());
   }
 
   // verify execution types
   {
-    std::vector<ExecutionType> parent_types;
+    absl::flat_hash_map<int64, ExecutionType> parent_types;
     ASSERT_EQ(absl::OkStatus(),
-              metadata_access_object_->FindParentTypesByTypeId(type4.id(),
+              metadata_access_object_->FindParentTypesByTypeId({type4.id()},
                                                                parent_types));
-    EXPECT_THAT(parent_types,
-                UnorderedPointwise(EqualsProto<ExecutionType>(), {type5}));
+    EXPECT_THAT(parent_types[type4.id()], EqualsProto(type5));
   }
 
   {
-    std::vector<ExecutionType> parent_types;
+    absl::flat_hash_map<int64, ExecutionType> parent_types;
     ASSERT_EQ(absl::OkStatus(),
-              metadata_access_object_->FindParentTypesByTypeId(type5.id(),
+              metadata_access_object_->FindParentTypesByTypeId({type5.id()},
                                                                parent_types));
     EXPECT_THAT(parent_types, IsEmpty());
   }
 
   // verify context types
   {
-    std::vector<ContextType> parent_types;
+    absl::flat_hash_map<int64, ContextType> parent_types;
     ASSERT_EQ(absl::OkStatus(),
-              metadata_access_object_->FindParentTypesByTypeId(type6.id(),
+              metadata_access_object_->FindParentTypesByTypeId({type6.id()},
                                                                parent_types));
-    EXPECT_THAT(parent_types,
-                UnorderedPointwise(EqualsProto<ContextType>(), {type7}));
+    EXPECT_THAT(parent_types[type6.id()], EqualsProto(type7));
   }
 
   {
-    std::vector<ContextType> parent_types;
+    absl::flat_hash_map<int64, ContextType> parent_types;
     ASSERT_EQ(absl::OkStatus(),
-              metadata_access_object_->FindParentTypesByTypeId(type7.id(),
+              metadata_access_object_->FindParentTypesByTypeId({type7.id()},
+                                                               parent_types));
+    EXPECT_THAT(parent_types, IsEmpty());
+  }
+
+  {
+    absl::flat_hash_map<int64, ContextType> parent_types;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->FindParentTypesByTypeId({type8.id()},
                                                                parent_types));
     EXPECT_THAT(parent_types, IsEmpty());
   }
 
+  // verify mixed type ids
   {
-    std::vector<ContextType> parent_types;
-    ASSERT_EQ(absl::OkStatus(),
-              metadata_access_object_->FindParentTypesByTypeId(type8.id(),
-                                                               parent_types));
-    EXPECT_THAT(parent_types, IsEmpty());
-  }
-}
-
-TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeIdError) {
-  ASSERT_EQ(absl::OkStatus(), Init());
-  const int64 stored_artifact_type_id = InsertType<ArtifactType>("t1");
-  const int64 stored_execution_type_id = InsertType<ExecutionType>("t1");
-  const int64 stored_context_type_id = InsertType<ContextType>("t1");
-  const int64 unknown_artifact_type_id = stored_artifact_type_id + 1;
-  const int64 unknown_execution_type_id = stored_execution_type_id + 1;
-  const int64 unknown_context_type_id = stored_context_type_id + 1;
-
-  {
-    std::vector<ArtifactType> parent_artifact_types;
-    const absl::Status status =
-        metadata_access_object_->FindParentTypesByTypeId(
-            unknown_artifact_type_id, parent_artifact_types);
-    EXPECT_TRUE(absl::IsNotFound(status));
-  }
-
-  {
-    std::vector<ExecutionType> parent_execution_types;
-    const absl::Status status =
-        metadata_access_object_->FindParentTypesByTypeId(
-            unknown_execution_type_id, parent_execution_types);
-    EXPECT_TRUE(absl::IsNotFound(status));
-  }
-
-  {
-    std::vector<ContextType> parent_context_types;
-    const absl::Status status =
-        metadata_access_object_->FindParentTypesByTypeId(
-            unknown_context_type_id, parent_context_types);
+    absl::flat_hash_map<int64, ArtifactType> parent_types;
+    // A mixture of context, exectuion and artifact type ids.
+    const auto status = metadata_access_object_->FindParentTypesByTypeId(
+        {type1.id(), type4.id(), type6.id()}, parent_types);
+    // NOT_FOUND status was returned because `type4` and `type6` are not
+    // artifact types and hence will not be found by FindTypesImpl.
     EXPECT_TRUE(absl::IsNotFound(status));
   }
 }
@@ -3513,27 +3489,16 @@ TEST_P(MetadataAccessObjectTest, DeleteParentType) {
     // create parent type links ok.
     ASSERT_EQ(
         absl::OkStatus(),
-        metadata_access_object_->CreateParentTypeInheritanceLink(type1, type2));
+        metadata_access_object_->CreateParentTypeInheritanceLink(type1, type3));
     ASSERT_EQ(
         absl::OkStatus(),
-        metadata_access_object_->CreateParentTypeInheritanceLink(type1, type3));
+        metadata_access_object_->CreateParentTypeInheritanceLink(type2, type3));
 
-    std::vector<ArtifactType> output_artifact_types;
+    absl::flat_hash_map<int64, ArtifactType> output_artifact_types;
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->FindParentTypesByTypeId(
-                  type1.id(), output_artifact_types));
-    EXPECT_THAT(output_artifact_types.size(), 2);
-
-    // delete parent link (type1, type2)
-    ASSERT_EQ(absl::OkStatus(),
-              metadata_access_object_->DeleteParentTypeInheritanceLink(
-                  type1.id(), type2.id()));
-
-    output_artifact_types.clear();
-    ASSERT_EQ(absl::OkStatus(),
-              metadata_access_object_->FindParentTypesByTypeId(
-                  type1.id(), output_artifact_types));
-    EXPECT_THAT(output_artifact_types.size(), 1);
+                  {type1.id(), type2.id()}, output_artifact_types));
+    ASSERT_EQ(output_artifact_types.size(), 2);
 
     // delete parent link (type1, type3)
     ASSERT_EQ(absl::OkStatus(),
@@ -3543,8 +3508,20 @@ TEST_P(MetadataAccessObjectTest, DeleteParentType) {
     output_artifact_types.clear();
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->FindParentTypesByTypeId(
-                  type1.id(), output_artifact_types));
-    EXPECT_TRUE(output_artifact_types.empty());
+                  {type1.id(), type2.id()}, output_artifact_types));
+    ASSERT_EQ(output_artifact_types.size(), 1);
+    EXPECT_TRUE(output_artifact_types.contains(type2.id()));
+
+    // delete parent link (type2, type3)
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->DeleteParentTypeInheritanceLink(
+                  type2.id(), type3.id()));
+
+    output_artifact_types.clear();
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_access_object_->FindParentTypesByTypeId(
+                  {type1.id()}, output_artifact_types));
+    EXPECT_THAT(output_artifact_types, IsEmpty());
   }
 
   {
@@ -3563,10 +3540,10 @@ TEST_P(MetadataAccessObjectTest, DeleteParentType) {
               metadata_access_object_->DeleteParentTypeInheritanceLink(
                   type1.id(), type2.id()));
 
-    std::vector<ExecutionType> output_execution_types;
+    absl::flat_hash_map<int64, ExecutionType> output_execution_types;
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->FindParentTypesByTypeId(
-                  type1.id(), output_execution_types));
+                  {type1.id()}, output_execution_types));
     EXPECT_TRUE(output_execution_types.empty());
   }
 
@@ -3586,10 +3563,10 @@ TEST_P(MetadataAccessObjectTest, DeleteParentType) {
               metadata_access_object_->DeleteParentTypeInheritanceLink(
                   type1.id(), type2.id()));
 
-    std::vector<ContextType> output_context_types;
+    absl::flat_hash_map<int64, ContextType> output_context_types;
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->FindParentTypesByTypeId(
-                  type1.id(), output_context_types));
+                  {type1.id()}, output_context_types));
     EXPECT_TRUE(output_context_types.empty());
   }
 

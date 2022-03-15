@@ -240,11 +240,11 @@ class QueryExecutor {
   virtual absl::Status DeleteParentType(int64 type_id,
                                         int64 parent_type_id) = 0;
 
-  // Returns parent types for the type id. Each record has:
-  // Column 0: int: type_id (= type_id)
+  // Returns parent types for the type id in `type_ids`. Each record has:
+  // Column 0: int: type_id (= type_id in `type_ids`)
   // Column 1: int: parent_type_id
-  virtual absl::Status SelectParentTypesByTypeID(int64 type_id,
-                                                 RecordSet* record_set) = 0;
+  virtual absl::Status SelectParentTypesByTypeID(
+      const absl::Span<const int64> type_ids, RecordSet* record_set) = 0;
 
   // Checks the existence of the Artifact table.
   virtual absl::Status CheckArtifactTable() = 0;

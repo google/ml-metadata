@@ -209,13 +209,14 @@ TEST_P(MetadataStoreTestSuite, InitMetadataStoreIfNotExists) {
 TEST_P(MetadataStoreTestSuite, PutArtifactTypeGetArtifactType) {
   const PutArtifactTypeRequest put_request =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
-          R"(
+          R"pb(
             all_fields_match: true
             artifact_type: {
               name: 'test_type2'
               properties { key: 'property_1' value: STRING }
+              base_type: MODEL
             }
-          )");
+          )pb");
   PutArtifactTypeResponse put_response;
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->PutArtifactType(put_request, &put_response));
@@ -232,6 +233,9 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeGetArtifactType) {
       << "Type ID should be the same as the type created.";
   EXPECT_EQ("test_type2", get_response.artifact_type().name())
       << "The name should be the same as the one returned.";
+  EXPECT_EQ(put_request.artifact_type().base_type(),
+            get_response.artifact_type().base_type())
+      << "The base type should be the same as the one returned.";
   // Don't test all the properties, to make the serialization of the type
   // more flexible. This can be tested at other layers.
 }
@@ -289,41 +293,45 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeInsertTypeLink) {
 TEST_P(MetadataStoreTestSuite, PutArtifactTypesGetArtifactTypes) {
   const PutArtifactTypeRequest put_request_1 =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
-          R"(
+          R"pb(
             all_fields_match: true
             artifact_type: {
               name: 'test_type_1'
               properties { key: 'property_1' value: STRING }
+              base_type: DATASET
             }
-          )");
+          )pb");
   PutArtifactTypeResponse put_response;
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->PutArtifactType(put_request_1, &put_response));
   ASSERT_TRUE(put_response.has_type_id());
   ArtifactType type_1 = ParseTextProtoOrDie<ArtifactType>(
-      R"(
+      R"pb(
         name: 'test_type_1'
         properties { key: 'property_1' value: STRING }
-      )");
+        base_type: DATASET
+      )pb");
   type_1.set_id(put_response.type_id());
 
   const PutArtifactTypeRequest put_request_2 =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
-          R"(
+          R"pb(
             all_fields_match: true
             artifact_type: {
               name: 'test_type_2'
               properties { key: 'property_2' value: INT }
+              base_type: MODEL
             }
-          )");
+          )pb");
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->PutArtifactType(put_request_2, &put_response));
   ASSERT_TRUE(put_response.has_type_id());
   ArtifactType type_2 = ParseTextProtoOrDie<ArtifactType>(
-      R"(
+      R"pb(
         name: 'test_type_2'
         properties { key: 'property_2' value: INT }
-      )");
+        base_type: MODEL
+      )pb");
   type_2.set_id(put_response.type_id());
 
   GetArtifactTypesRequest get_request;
@@ -693,13 +701,14 @@ TEST_P(MetadataStoreTestSuite, GetArtifactTypeMissing) {
 TEST_P(MetadataStoreTestSuite, PutArtifactTypeGetArtifactTypesByID) {
   const PutArtifactTypeRequest put_request =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
-          R"(
+          R"pb(
             all_fields_match: true
             artifact_type: {
               name: 'test_type2'
               properties { key: 'property_1' value: STRING }
+              base_type: MODEL
             }
-          )");
+          )pb");
   PutArtifactTypeResponse put_response;
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->PutArtifactType(put_request, &put_response));
@@ -835,13 +844,14 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypeGetExecutionTypesByIDTwo) {
   ASSERT_TRUE(put_response_1.has_type_id());
   const PutExecutionTypeRequest put_request_2 =
       ParseTextProtoOrDie<PutExecutionTypeRequest>(
-          R"(
+          R"pb(
             all_fields_match: true
             execution_type: {
               name: 'test_type2'
               properties { key: 'property_1' value: STRING }
+              base_type: TRAIN
             }
-          )");
+          )pb");
   PutExecutionTypeResponse put_response_2;
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->PutExecutionType(put_request_2, &put_response_2));
@@ -1663,13 +1673,14 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsUpdateGetExecutionsByID) {
 TEST_P(MetadataStoreTestSuite, PutExecutionTypeGetExecutionType) {
   const PutExecutionTypeRequest put_request =
       ParseTextProtoOrDie<PutExecutionTypeRequest>(
-          R"(
+          R"pb(
             all_fields_match: true
             execution_type: {
               name: 'test_type2'
               properties { key: 'property_1' value: STRING }
+              base_type: TRAIN
             }
-          )");
+          )pb");
   PutExecutionTypeResponse put_response;
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->PutExecutionType(put_request, &put_response));
@@ -1760,21 +1771,23 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypesGetExecutionTypes) {
 
   const PutExecutionTypeRequest put_request_2 =
       ParseTextProtoOrDie<PutExecutionTypeRequest>(
-          R"(
+          R"pb(
             all_fields_match: true
             execution_type: {
               name: 'test_type_2'
               properties { key: 'property_2' value: INT }
+              base_type: PROCESS
             }
-          )");
+          )pb");
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->PutExecutionType(put_request_2, &put_response));
   ASSERT_TRUE(put_response.has_type_id());
   ExecutionType type_2 = ParseTextProtoOrDie<ExecutionType>(
-      R"(
+      R"pb(
         name: 'test_type_2'
         properties { key: 'property_2' value: INT }
-      )");
+        base_type: PROCESS
+      )pb");
   type_2.set_id(put_response.type_id());
 
   GetExecutionTypesRequest get_request;

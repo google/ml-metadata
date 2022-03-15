@@ -118,7 +118,7 @@ R"pb(
   }
   select_parent_type_by_type_id {
     query: " SELECT `type_id`, `parent_type_id` "
-           " FROM `ParentType` WHERE `type_id` = $0; "
+           " FROM `ParentType` WHERE `type_id` IN ($0); "
     parameter_num: 1
   }
   drop_type_property_table {
@@ -2116,7 +2116,8 @@ R"pb(
   }
   select_parent_type_by_type_id {
     query: " SELECT `type_id`, `parent_type_id` "
-           " FROM `ParentType` WHERE `type_id` = $0 LOCK IN SHARE MODE; "
+           " FROM `ParentType` WHERE type_id IN ($0) "
+           " LOCK IN SHARE MODE; "
     parameter_num: 1
   }
   create_type_table {

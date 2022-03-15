@@ -16,11 +16,13 @@ limitations under the License.
 
 #include <algorithm>
 #include <iterator>
+#include <vector>
 
 #include <glog/logging.h>
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/repeated_field.h"
 #include "absl/algorithm/container.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
@@ -28,6 +30,7 @@ limitations under the License.
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "absl/types/optional.h"
+#include "absl/types/span.h"
 #include "ml_metadata/metadata_store/metadata_access_object.h"
 #include "ml_metadata/metadata_store/metadata_access_object_factory.h"
 #include "ml_metadata/metadata_store/simple_types_util.h"
@@ -133,17 +136,11 @@ absl::Status UpsertTypeInheritanceLink(
   if (IsUnsetBaseType(extension)) {
     return absl::UnimplementedError("base_type deletion is not supported yet");
   }
-  std::vector<T> output_parent_types;
+  absl::flat_hash_map<int64, T> output_parent_types;
   MLMD_RETURN_IF_ERROR(metadata_access_object->FindParentTypesByTypeId(
-      type_id, output_parent_types));
+      {type_id}, output_parent_types));
 
-  if (output_parent_types.size() > 1) {
-    return absl::FailedPreconditionError(absl::StrCat(
-        output_parent_types.size(), " parent types are found for type ",
-        type.name(), "; only single inheritance is supported"));
-  }
-
-  const bool no_parent_type = output_parent_types.empty();
+  const bool no_parent_type = !output_parent_types.contains(type_id);
   if (no_parent_type) {
     T type_with_id = type;
     type_with_id.set_id(type_id);
@@ -153,7 +150,8 @@ absl::Status UpsertTypeInheritanceLink(
     return metadata_access_object->CreateParentTypeInheritanceLink(type_with_id,
                                                                    base_type);
   }
-  if (output_parent_types[0].name() != extension.type_name()) {
+
+  if (output_parent_types[type_id].name() != extension.type_name()) {
     return absl::UnimplementedError("base_type update is not supported yet");
   }
   return absl::OkStatus();
@@ -397,22 +395,26 @@ absl::optional<std::string> GetRequestTypeVersion(const T& type_request) {
 // Returns FAILED_PRECONDITION if there are more than 1 system type.
 // TODO(b/153373285): consider moving it to FindTypesFromRecordSet at MAO layer
 template <typename T, typename ST>
-absl::Status SetBaseType(T& type,
+absl::Status SetBaseType(absl::Span<T* const> types,
                          MetadataAccessObject* metadata_access_object) {
-  std::vector<T> output_parent_types;
+  if (types.empty()) return absl::OkStatus();
+  absl::flat_hash_map<int64, T> output_parent_types;
+  std::vector<int64> type_ids;
+  absl::c_transform(types, std::back_inserter(type_ids),
+                    [](const T* type) { return type->id(); });
   MLMD_RETURN_IF_ERROR(metadata_access_object->FindParentTypesByTypeId(
-      type.id(), output_parent_types));
-  if (output_parent_types.empty()) return absl::OkStatus();
-  if (output_parent_types.size() > 1) {
-    return absl::FailedPreconditionError(absl::StrCat(
-        output_parent_types.size(), " parent types are found for type ",
-        type.name(), "; only single inheritance is supported"));
+      type_ids, output_parent_types));
+
+  for (T* type : types) {
+    if (output_parent_types.find(type->id()) == output_parent_types.end())
+      continue;
+    auto parent_type = output_parent_types[type->id()];
+    SystemTypeExtension extension;
+    extension.set_type_name(parent_type.name());
+    ST type_enum;
+    MLMD_RETURN_IF_ERROR(GetSystemTypeEnum(extension, type_enum));
+    type->set_base_type(type_enum);
   }
-  SystemTypeExtension extension;
-  extension.set_type_name(output_parent_types[0].name());
-  ST type_enum;
-  MLMD_RETURN_IF_ERROR(GetSystemTypeEnum(extension, type_enum));
-  type.set_base_type(type_enum);
   return absl::OkStatus();
 }
 
@@ -522,11 +524,15 @@ absl::Status MetadataStore::GetArtifactType(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
+        ArtifactType type;
         MLMD_RETURN_IF_ERROR(metadata_access_object_->FindTypeByNameAndVersion(
-            request.type_name(), GetRequestTypeVersion(request),
-            response->mutable_artifact_type()));
-        return SetBaseType<ArtifactType, ArtifactType::SystemDefinedBaseType>(
-            *response->mutable_artifact_type(), metadata_access_object_.get());
+            request.type_name(), GetRequestTypeVersion(request), &type));
+        std::vector<ArtifactType*> types({&type});
+        MLMD_RETURN_IF_ERROR(
+            SetBaseType<ArtifactType, ArtifactType::SystemDefinedBaseType>(
+                absl::MakeSpan(types), metadata_access_object_.get()));
+        *response->mutable_artifact_type() = type;
+        return absl::OkStatus();
       },
       request.transaction_options());
 }
@@ -537,11 +543,15 @@ absl::Status MetadataStore::GetExecutionType(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
+        ExecutionType type;
         MLMD_RETURN_IF_ERROR(metadata_access_object_->FindTypeByNameAndVersion(
-            request.type_name(), GetRequestTypeVersion(request),
-            response->mutable_execution_type()));
-        return SetBaseType<ExecutionType, ExecutionType::SystemDefinedBaseType>(
-            *response->mutable_execution_type(), metadata_access_object_.get());
+            request.type_name(), GetRequestTypeVersion(request), &type));
+        std::vector<ExecutionType*> types({&type});
+        MLMD_RETURN_IF_ERROR(
+            SetBaseType<ExecutionType, ExecutionType::SystemDefinedBaseType>(
+                absl::MakeSpan(types), metadata_access_object_.get()));
+        *response->mutable_execution_type() = type;
+        return absl::OkStatus();
       },
       request.transaction_options());
 }
@@ -566,17 +576,21 @@ absl::Status MetadataStore::GetArtifactTypesByID(
         response->Clear();
         for (const int64 type_id : request.type_ids()) {
           ArtifactType artifact_type;
+          // TODO(b/218884256): replace FindTypeById with FindTypesById.
           const absl::Status status =
               metadata_access_object_->FindTypeById(type_id, &artifact_type);
           if (status.ok()) {
-            MLMD_RETURN_IF_ERROR(
-                SetBaseType<ArtifactType, ArtifactType::SystemDefinedBaseType>(
-                    artifact_type, metadata_access_object_.get()));
             *response->mutable_artifact_types()->Add() = artifact_type;
           } else if (!absl::IsNotFound(status)) {
             return status;
           }
         }
+        MLMD_RETURN_IF_ERROR(
+            SetBaseType<ArtifactType, ArtifactType::SystemDefinedBaseType>(
+                absl::MakeSpan(const_cast<ArtifactType* const*>(
+                                   response->mutable_artifact_types()->data()),
+                               response->artifact_types_size()),
+                metadata_access_object_.get()));
         return absl::OkStatus();
       },
       request.transaction_options());
@@ -593,15 +607,17 @@ absl::Status MetadataStore::GetExecutionTypesByID(
           const absl::Status status =
               metadata_access_object_->FindTypeById(type_id, &execution_type);
           if (status.ok()) {
-            MLMD_RETURN_IF_ERROR(
-                SetBaseType<ExecutionType,
-                            ExecutionType::SystemDefinedBaseType>(
-                    execution_type, metadata_access_object_.get()));
             *response->mutable_execution_types()->Add() = execution_type;
           } else if (!absl::IsNotFound(status)) {
             return status;
           }
         }
+        MLMD_RETURN_IF_ERROR(
+            SetBaseType<ExecutionType, ExecutionType::SystemDefinedBaseType>(
+                absl::MakeSpan(const_cast<ExecutionType* const*>(
+                                   response->mutable_execution_types()->data()),
+                               response->execution_types_size()),
+                metadata_access_object_.get()));
         return absl::OkStatus();
       },
       request.transaction_options());
@@ -1057,19 +1073,22 @@ absl::Status MetadataStore::GetArtifactTypes(
         } else if (!status.ok()) {
           return status;
         }
-        for (ArtifactType& artifact_type : artifact_types) {
-          // Simple types will not be returned by Get*Types APIs because they
-          // are invisible to users.
-          const bool is_simple_type =
-              std::find(kSimpleTypeNames.begin(), kSimpleTypeNames.end(),
-                        artifact_type.name()) != kSimpleTypeNames.end();
-          if (!is_simple_type) {
-            MLMD_RETURN_IF_ERROR(
-                SetBaseType<ArtifactType, ArtifactType::SystemDefinedBaseType>(
-                    artifact_type, metadata_access_object_.get()));
-            *response->mutable_artifact_types()->Add() = artifact_type;
-          }
-        }
+        absl::c_copy_if(
+            artifact_types,
+            google::protobuf::RepeatedFieldBackInserter(
+                response->mutable_artifact_types()),
+            [](const ArtifactType& type) {
+              // Simple types will not be returned by Get*Types APIs
+              // because they are invisible to users.
+              return std::find(kSimpleTypeNames.begin(), kSimpleTypeNames.end(),
+                               type.name()) == kSimpleTypeNames.end();
+            });
+        MLMD_RETURN_IF_ERROR(
+            SetBaseType<ArtifactType, ArtifactType::SystemDefinedBaseType>(
+                absl::MakeSpan(const_cast<ArtifactType* const*>(
+                                   response->mutable_artifact_types()->data()),
+                               response->artifact_types_size()),
+                metadata_access_object_.get()));
         return absl::OkStatus();
       },
       request.transaction_options());
@@ -1089,20 +1108,22 @@ absl::Status MetadataStore::GetExecutionTypes(
         } else if (!status.ok()) {
           return status;
         }
-        for (ExecutionType& execution_type : execution_types) {
-          // Simple types will not be returned by Get*Types APIs because they
-          // are invisible to users.
-          const bool is_simple_type =
-              std::find(kSimpleTypeNames.begin(), kSimpleTypeNames.end(),
-                        execution_type.name()) != kSimpleTypeNames.end();
-          if (!is_simple_type) {
-            MLMD_RETURN_IF_ERROR(
-                SetBaseType<ExecutionType,
-                            ExecutionType::SystemDefinedBaseType>(
-                    execution_type, metadata_access_object_.get()));
-            *response->mutable_execution_types()->Add() = execution_type;
-          }
-        }
+        absl::c_copy_if(
+            execution_types,
+            google::protobuf::RepeatedFieldBackInserter(
+                response->mutable_execution_types()),
+            [](const ExecutionType& type) {
+              // Simple types will not be returned by Get*Types APIs
+              // because they are invisible to users.
+              return std::find(kSimpleTypeNames.begin(), kSimpleTypeNames.end(),
+                               type.name()) == kSimpleTypeNames.end();
+            });
+        MLMD_RETURN_IF_ERROR(
+            SetBaseType<ExecutionType, ExecutionType::SystemDefinedBaseType>(
+                absl::MakeSpan(const_cast<ExecutionType* const*>(
+                                   response->mutable_execution_types()->data()),
+                               response->execution_types_size()),
+                metadata_access_object_.get()));
         return absl::OkStatus();
       },
       request.transaction_options());

@@ -18,6 +18,7 @@ limitations under the License.
 #include <memory>
 #include <vector>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "ml_metadata/metadata_store/metadata_access_object.h"
@@ -138,11 +139,14 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
       const ContextType& type, const ContextType& parent_type) final;
 
   absl::Status FindParentTypesByTypeId(
-      int64 type_id, std::vector<ArtifactType>& output_parent_types) final;
+      const absl::Span<const int64> type_ids,
+      absl::flat_hash_map<int64, ArtifactType>& output_parent_types) final;
   absl::Status FindParentTypesByTypeId(
-      int64 type_id, std::vector<ExecutionType>& output_parent_types) final;
+      const absl::Span<const int64> type_ids,
+      absl::flat_hash_map<int64, ExecutionType>& output_parent_types) final;
   absl::Status FindParentTypesByTypeId(
-      int64 type_id, std::vector<ContextType>& output_parent_types) final;
+      const absl::Span<const int64> type_ids,
+      absl::flat_hash_map<int64, ContextType>& output_parent_types) final;
 
   absl::Status CreateArtifact(const Artifact& artifact,
                               int64* artifact_id) final;
@@ -468,10 +472,15 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   template <typename Type>
   absl::Status UpdateTypeImpl(const Type& type);
 
-  // Queries the parent types of a type_id.
+  // Queries the parent type of each type_id in `type_ids`. Currently only
+  // single inheritance (one parent type per type_id) is supported.
+  // The prerequisite is that all the types with `type_ids` already exist in db.
+  // Returns INVALID_ARGUMENT error, if the given `type_ids` is empty, or
+  // `output_parent_types` is not empty.
   template <typename Type>
   absl::Status FindParentTypesByTypeIdImpl(
-      int64 type_id, std::vector<Type>& output_parent_types);
+      const absl::Span<const int64> type_ids,
+      absl::flat_hash_map<int64, Type>& output_parent_types);
 
   // Creates an `Node`, which is one of {`Artifact`, `Execution`, `Context`},
   // then returns the assigned node id. The node's id field is ignored. The node

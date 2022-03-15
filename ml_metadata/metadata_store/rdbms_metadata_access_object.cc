@@ -17,6 +17,7 @@ limitations under the License.
 
 #endif
 
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -115,7 +116,19 @@ std::vector<int64> ConvertToIds(const RecordSet& record_set, int position = 0) {
   return result;
 }
 
-// Extracts a vector of type ids from the parent_type triplets.
+// Extracts 2 vectors of type ids and corresponding parent type ids from the
+// parent_type triplets.
+void ConvertToTypeAndParentTypeIds(const RecordSet& record_set,
+                                   std::vector<int64>& type_ids,
+                                   std::vector<int64>& parent_type_ids) {
+  const std::vector<int64> ids = ConvertToIds(record_set);
+  absl::c_copy(ids, std::back_inserter(type_ids));
+  const std::vector<int64> parent_ids =
+      ConvertToIds(record_set, /*position=*/1);
+  absl::c_copy(parent_ids, std::back_inserter(parent_type_ids));
+}
+
+// Extracts a vector of parent type ids from the parent_type triplets.
 std::vector<int64> ParentTypesToParentTypeIds(const RecordSet& record_set) {
   return ConvertToIds(record_set, /*position=*/1);
 }
@@ -363,8 +376,8 @@ absl::Status AddAncestors(int64 ancestor_id, std::vector<int64>& ancestor_ids,
     return absl::InternalError("Unexpected node type!");
   }
   RecordSet record_set;
-  MLMD_RETURN_IF_ERROR(
-      executor->SelectParentTypesByTypeID(ancestor_id, &record_set));
+  MLMD_RETURN_IF_ERROR(executor->SelectParentTypesByTypeID(
+      absl::Span<const int64>({ancestor_id}), &record_set));
   for (const int64 parent_id : ParentTypesToParentTypeIds(record_set)) {
     ancestor_ids.push_back(parent_id);
   }
@@ -741,20 +754,29 @@ absl::Status RDBMSMetadataAccessObject::FindTypesImpl(
   if (!types.empty()) {
     return absl::InvalidArgumentError("types parameter is not empty");
   }
-  const TypeKind type_kind = ResolveTypeKind(types[0]);
+  MessageType dummy_type;
+  const TypeKind type_kind = ResolveTypeKind(&dummy_type);
+
+  absl::flat_hash_set<int64> deduped_id_set;
+  for (const auto& id : type_ids) {
+    deduped_id_set.insert(id);
+  }
+  std::vector<int64> deduped_ids;
+  absl::c_transform(deduped_id_set, std::back_inserter(deduped_ids),
+                    [](const int64 id) { return id; });
 
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(
-      executor_->SelectTypesByID(type_ids, type_kind, &record_set));
+      executor_->SelectTypesByID(deduped_ids, type_kind, &record_set));
   MLMD_RETURN_IF_ERROR(
       FindTypesFromRecordSet(record_set, &types, /*get_properties=*/false));
 
-  if (type_ids.size() != types.size()) {
+  if (deduped_ids.size() != types.size()) {
     std::vector<int64> found_ids;
     absl::c_transform(types, std::back_inserter(found_ids),
                       [](const MessageType& type) { return type.id(); });
     return absl::NotFoundError(absl::StrCat(
-        "Results missing for ids: {", absl::StrJoin(type_ids, ","),
+        "Results missing for ids: {", absl::StrJoin(deduped_ids, ","),
         "}. Found results for {", absl::StrJoin(found_ids, ","), "}"));
   }
   return absl::OkStatus();
@@ -859,19 +881,40 @@ absl::Status RDBMSMetadataAccessObject::UpdateTypeImpl(const Type& type) {
 
 template <typename Type>
 absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeIdImpl(
-    int64 type_id, std::vector<Type>& output_parent_types) {
-  // check the there's a Type instance with the given type_id
-  Type type;
-  MLMD_RETURN_IF_ERROR(FindTypeImpl(type_id, &type));
+    const absl::Span<const int64> type_ids,
+    absl::flat_hash_map<int64, Type>& output_parent_types) {
+  if (type_ids.empty()) {
+    return absl::InvalidArgumentError("type_ids cannot be empty");
+  }
+  if (!output_parent_types.empty()) {
+    return absl::InvalidArgumentError("output_parent_types is not empty");
+  }
+
+  // Retrieve parent types based on `type_ids`.
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(
-      executor_->SelectParentTypesByTypeID(type_id, &record_set));
-  const std::vector<int64> ids = ParentTypesToParentTypeIds(record_set);
-  const int output_size = output_parent_types.size();
-  output_parent_types.resize(output_size + ids.size());
-  // TODO(b/169075639) Use a single query to retrieve a list of types.
-  for (int i = output_size; i < output_size + ids.size(); i++) {
-    MLMD_RETURN_IF_ERROR(FindTypeImpl(ids[i], &output_parent_types.at(i)));
+      executor_->SelectParentTypesByTypeID(type_ids, &record_set));
+  if (record_set.records_size() == 0) return absl::OkStatus();
+
+  // `type_id` and `parent_type_id` have a 1:1 mapping based on the database
+  // records.
+  std::vector<int64> type_ids_with_parent, parent_type_ids;
+  ConvertToTypeAndParentTypeIds(record_set, type_ids_with_parent,
+                                parent_type_ids);
+
+  // Creates a {parent_id, parent_type} mapping.
+  std::vector<Type> parent_types;
+  MLMD_RETURN_IF_ERROR(FindTypesImpl(parent_type_ids, parent_types));
+  absl::flat_hash_map<int64, Type> parent_id_to_type;
+  for (const auto& parent_type : parent_types) {
+    parent_id_to_type.insert({parent_type.id(), parent_type});
+  }
+
+  // Returns a {type_id, parent_type} mapping. Each type_id in
+  // `type_ids_with_parent` maps to its parent type.
+  for (int i = 0; i < type_ids_with_parent.size(); ++i) {
+    output_parent_types.insert(
+        {type_ids_with_parent[i], parent_id_to_type[parent_type_ids[i]]});
   }
   return absl::OkStatus();
 }
@@ -1251,18 +1294,21 @@ absl::Status RDBMSMetadataAccessObject::DeleteParentTypeInheritanceLink(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeId(
-    int64 type_id, std::vector<ArtifactType>& output_parent_types) {
-  return FindParentTypesByTypeIdImpl(type_id, output_parent_types);
+    const absl::Span<const int64> type_ids,
+    absl::flat_hash_map<int64, ArtifactType>& output_parent_types) {
+  return FindParentTypesByTypeIdImpl(type_ids, output_parent_types);
 }
 
 absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeId(
-    int64 type_id, std::vector<ExecutionType>& output_parent_types) {
-  return FindParentTypesByTypeIdImpl(type_id, output_parent_types);
+    const absl::Span<const int64> type_ids,
+    absl::flat_hash_map<int64, ExecutionType>& output_parent_types) {
+  return FindParentTypesByTypeIdImpl(type_ids, output_parent_types);
 }
 
 absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeId(
-    int64 type_id, std::vector<ContextType>& output_parent_types) {
-  return FindParentTypesByTypeIdImpl(type_id, output_parent_types);
+    const absl::Span<const int64> type_ids,
+    absl::flat_hash_map<int64, ContextType>& output_parent_types) {
+  return FindParentTypesByTypeIdImpl(type_ids, output_parent_types);
 }
 
 absl::Status RDBMSMetadataAccessObject::CreateArtifact(const Artifact& artifact,

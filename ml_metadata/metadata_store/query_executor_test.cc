@@ -310,5 +310,107 @@ TEST_P(QueryExecutorTest, DeleteContextsById) {
   }
 }
 
+TEST_P(QueryExecutorTest, SelectParentTypesByTypeID) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+  // Setup: Create context type.
+  int64 context_type_id;
+  ASSERT_EQ(absl::OkStatus(), query_executor_->InsertContextType(
+                                  "context_type", absl::nullopt, absl::nullopt,
+                                  &context_type_id));
+  ASSERT_EQ(absl::OkStatus(),
+            query_executor_->InsertTypeProperty(context_type_id, "property_1",
+                                                PropertyType::INT));
+  // Create artifact types.
+  int64 artifact_type_id, parent_artifact_type_id;
+  ASSERT_EQ(absl::OkStatus(), query_executor_->InsertArtifactType(
+                                  "artifact_type", absl::nullopt, absl::nullopt,
+                                  &artifact_type_id));
+  ASSERT_EQ(absl::OkStatus(), query_executor_->InsertArtifactType(
+                                  "parent_artifact_type", absl::nullopt,
+                                  absl::nullopt, &parent_artifact_type_id));
+
+  // Setup: Create execution types.
+  int64 execution_type_id, parent_execution_type_id;
+  ArtifactStructType input_type;
+  AnyArtifactStructType any_input_type;
+  *input_type.mutable_any() = any_input_type;
+  ArtifactStructType output_type;
+  NoneArtifactStructType none_input_type;
+  *output_type.mutable_none() = none_input_type;
+  ASSERT_EQ(absl::OkStatus(),
+            query_executor_->InsertExecutionType(
+                "execution_type", absl::nullopt, absl::nullopt, &input_type,
+                &output_type, &execution_type_id));
+  ASSERT_EQ(absl::OkStatus(),
+            query_executor_->InsertExecutionType(
+                "parent_execution_type", absl::nullopt, absl::nullopt,
+                &input_type, &output_type, &parent_execution_type_id));
+  int64 non_exist_parent_type_id = parent_execution_type_id + execution_type_id;
+
+  // Setup: Insert parent type links.
+  ASSERT_EQ(absl::OkStatus(), query_executor_->InsertParentType(
+                                  artifact_type_id, parent_artifact_type_id));
+  ASSERT_EQ(absl::OkStatus(), query_executor_->InsertParentType(
+                                  execution_type_id, parent_execution_type_id));
+  ASSERT_EQ(absl::OkStatus(), query_executor_->InsertParentType(
+                                  execution_type_id, non_exist_parent_type_id));
+
+  // Test: empty ids
+  {
+    RecordSet record_set;
+    ASSERT_EQ(absl::OkStatus(),
+              query_executor_->SelectParentTypesByTypeID({}, &record_set));
+    EXPECT_EQ(record_set.records_size(), 0);
+  }
+  // Test: select parent type ids for a type without parent types.
+  {
+    RecordSet record_set;
+    ASSERT_EQ(absl::OkStatus(), query_executor_->SelectParentTypesByTypeID(
+                                    {context_type_id}, &record_set));
+    EXPECT_EQ(record_set.records_size(), 0);
+  }
+  // Test: select a parent type that does not exist.
+  {
+    RecordSet record_set;
+    ASSERT_EQ(absl::OkStatus(), query_executor_->SelectParentTypesByTypeID(
+                                    {execution_type_id}, &record_set));
+    ASSERT_EQ(record_set.records_size(), 2);
+    EXPECT_EQ(record_set.records(0).values(0),
+              std::to_string(execution_type_id));
+    EXPECT_EQ(record_set.records(0).values(1),
+              std::to_string(parent_execution_type_id));
+    // Verify: the record is still returned although the type does not exist
+    // because it only stores type ids.
+    EXPECT_EQ(record_set.records(1).values(0),
+              std::to_string(execution_type_id));
+    EXPECT_EQ(record_set.records(1).values(1),
+              std::to_string(non_exist_parent_type_id));
+  }
+  // Test: select parent type ids for a mixture of context, artifact and
+  // execution type ids.
+  {
+    RecordSet record_set;
+    ASSERT_EQ(absl::OkStatus(),
+              query_executor_->SelectParentTypesByTypeID(
+                  {context_type_id, artifact_type_id, execution_type_id},
+                  &record_set));
+    // Verify: SelectParentTypesByTypeID can return a mixture of different type
+    // kinds because it only stores type ids.
+    ASSERT_EQ(record_set.records_size(), 3);
+    EXPECT_EQ(record_set.records(0).values(0),
+              std::to_string(artifact_type_id));
+    EXPECT_EQ(record_set.records(0).values(1),
+              std::to_string(parent_artifact_type_id));
+    EXPECT_EQ(record_set.records(1).values(0),
+              std::to_string(execution_type_id));
+    EXPECT_EQ(record_set.records(1).values(1),
+              std::to_string(parent_execution_type_id));
+    EXPECT_EQ(record_set.records(2).values(0),
+              std::to_string(execution_type_id));
+    EXPECT_EQ(record_set.records(2).values(1),
+              std::to_string(non_exist_parent_type_id));
+  }
+}
+
 }  // namespace testing
 }  // namespace ml_metadata

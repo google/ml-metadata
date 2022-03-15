@@ -135,7 +135,7 @@ class QueryConfigExecutor : public QueryExecutor {
   absl::Status DeleteParentType(int64 type_id,
                                 int64 parent_type_id) final;
 
-  absl::Status SelectParentTypesByTypeID(int64 type_id,
+  absl::Status SelectParentTypesByTypeID(const absl::Span<const int64> type_ids,
                                          RecordSet* record_set) final;
 
   // Queries the last inserted id.

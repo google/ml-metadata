@@ -18,6 +18,7 @@ limitations under the License.
 #include <memory>
 #include <vector>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
@@ -175,14 +176,20 @@ class MetadataAccessObject {
   virtual absl::Status DeleteParentTypeInheritanceLink(
       int64 type_id, int64 parent_type_id) = 0;
 
-  // Queries the parent types of a type_id.
-  // Returns NOT_FOUND error, if the given type_id is missing.
+  // Queries the parent type of each type_id in `type_ids`. Currently only
+  // single inheritance (one parent type per type_id) is supported.
+  // The prerequisite is that all the types with `type_ids` already exist in db.
+  // Returns INVALID_ARGUMENT error, if the given `type_ids` is empty, or
+  // `output_parent_types` is not empty.
   virtual absl::Status FindParentTypesByTypeId(
-      int64 type_id, std::vector<ArtifactType>& output_parent_types) = 0;
+      const absl::Span<const int64> type_ids,
+      absl::flat_hash_map<int64, ArtifactType>& output_parent_types) = 0;
   virtual absl::Status FindParentTypesByTypeId(
-      int64 type_id, std::vector<ExecutionType>& output_parent_types) = 0;
+      const absl::Span<const int64> type_ids,
+      absl::flat_hash_map<int64, ExecutionType>& output_parent_types) = 0;
   virtual absl::Status FindParentTypesByTypeId(
-      int64 type_id, std::vector<ContextType>& output_parent_types) = 0;
+      const absl::Span<const int64> type_ids,
+      absl::flat_hash_map<int64, ContextType>& output_parent_types) = 0;
 
   // Creates an artifact, returns the assigned artifact id. The id field of the
   // artifact is ignored.
