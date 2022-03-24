@@ -78,11 +78,6 @@ class MetadataAccessObject {
   virtual absl::Status InitMetadataSourceIfNotExists(
       bool enable_upgrade_migration = false) = 0;
 
-  // Initializes the metadata source without checking schema.
-  // It assumes the schema is already in place and up-to-date.
-  // Returns OK if the init succeeds.
-  // Returns detailed INTERNAL error, if query execution fails.
-  virtual absl::Status InitMetadataSourceLight() = 0;
 
   // Deletes the metadata source.
   // Returns detailed INTERNAL error, if query execution fails.

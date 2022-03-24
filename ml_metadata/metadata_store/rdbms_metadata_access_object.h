@@ -75,13 +75,6 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
     return executor_->InitMetadataSourceIfNotExists(enable_upgrade_migration);
   }
 
-  // Initializes the metadata source without checking schema.
-  // It assumes the schema is already in place and up-to-date.
-  // Returns OK if the init succeeds.
-  // Returns detailed INTERNAL error, if query execution fails.
-  absl::Status InitMetadataSourceLight() final {
-    return executor_->InitMetadataSourceLight();
-  }
 
   // Deletes the metadata source. All the metadata and other associated data
   // will be deleted. The metadata source can no longer be queried before

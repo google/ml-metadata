@@ -63,9 +63,9 @@ class QueryConfigExecutor : public QueryExecutor {
   absl::Status InitMetadataSource() final;
 
   absl::Status InitMetadataSourceIfNotExists(
-      const bool enable_upgrade_migration) final;
+      bool enable_upgrade_migration) final;
 
-  absl::Status InitMetadataSourceLight() final {
+  absl::Status InitMetadataSourceLight(bool enable_new_store_creation) final {
     return absl::UnimplementedError(
         "InitMetadataSourceLight not supported for QueryConfigExecutor");
   }
