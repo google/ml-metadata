@@ -434,11 +434,11 @@ MLMD provides utilities to upgrade the database version.
 
 For example, when connecting to a backend with a Python library:
 
-```python
+```python  {highlight="range:enable,True"}
 connection_config = metadata_store_pb2.ConnectionConfig()
 connection_config.sqlite.filename_uri = '...'
 store = metadata_store.MetadataStore(connection_config,
-                                     <b>enable_upgrade_migration = True</b>)
+                                     enable_upgrade_migration=True)
 ```
 
 Or when using gRPC server, set the MetadataStoreServerConfig as follows:
