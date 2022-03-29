@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# TODO(b/195701120) Introduces l.gcr.io/google/bazel:3.7.2 when it is available
-# and makes sure that it uses ubuntu 18.04 as base image. Currently the lastest
-# version only supports bazel 3.5.0.
-FROM ubuntu:18.04 as builder
+FROM ubuntu:20.04 as builder
+
+ENV DEBIAN_FRONTEND=noninteractive
 
 RUN export DEBIAN_FRONTEND=noninteractive && \
   apt-get update -y --option Acquire::Retries=3 && \
@@ -58,7 +57,7 @@ RUN bazel build -c opt --action_env=PATH \
 RUN mkdir -p /mlmd-src/third_party
 RUN cp -RL /mlmd-src/bazel-mlmd-src/external/libmysqlclient /mlmd-src/third_party/mariadb-connector-c
 
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
 COPY --from=builder /mlmd-src/bazel-bin/ml_metadata/metadata_store/metadata_store_server /bin/metadata_store_server
 COPY --from=builder /mlmd-src/third_party /mlmd-src/third_party
