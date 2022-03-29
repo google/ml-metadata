@@ -1,7 +1,7 @@
 
 # ML Metadata
 
-[![Python](https://img.shields.io/badge/python%20-3.7%7C3.8-blue)](https://github.com/google/ml-metadata)
+[![Python](https://img.shields.io/badge/python%20-3.7%7C3.8%7C3.9-blue)](https://github.com/google/ml-metadata)
 [![PyPI](https://badge.fury.io/py/ml-metadata.svg)](https://badge.fury.io/py/ml-metadata)
 
 *ML Metadata (MLMD)* is a library for recording and retrieving metadata
@@ -53,11 +53,11 @@ Then, run the following at the project root:
 
 ```bash
 DOCKER_SERVICE=manylinux-python${PY_VERSION}
-sudo docker-compose build ${DOCKER_SERVICE}
-sudo docker-compose run ${DOCKER_SERVICE}
+sudo docker compose build ${DOCKER_SERVICE}
+sudo docker compose run ${DOCKER_SERVICE}
 ```
 
-where `PY_VERSION` is one of `{37, 38}`.
+where `PY_VERSION` is one of `{37, 38, 39}`.
 
 A wheel will be produced under `dist/`, and installed as follows:
 
