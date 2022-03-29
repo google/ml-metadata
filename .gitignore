@@ -1,0 +1,15 @@
+# Ignore all bazel-* symlinks. There is no full list since this can change
+# based on the name of the directory bazel is cloned into.
+/bazel-*
+
+build/
+dist/
+metadata_store_extension.so
+
+# egg
+*.egg-info/
+
+
+# generated grpc/protobuf files
+*_pb2.py
+*_pb2_grpc.py
