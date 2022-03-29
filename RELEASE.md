@@ -2,10 +2,11 @@
 
 ## Major Features and Improvements
 
+*   Adds python 3.9 support.
 ## Bug Fixes and Other Changes
 
 *   Updates Zlib to 1.2.12.
-
+*   Adds .gitignore support
 ## Breaking Changes
 
 ## Deprecations
