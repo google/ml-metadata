@@ -118,8 +118,8 @@ http_archive(
 http_archive(
     name = "pybind11",
     build_file = "@pybind11_bazel//:pybind11.BUILD",
-    strip_prefix = "pybind11-2.4.3",
-    urls = ["https://github.com/pybind/pybind11/archive/v2.4.3.tar.gz"],
+    strip_prefix = "pybind11-2.6.0",
+    urls = ["https://github.com/pybind/pybind11/archive/v2.6.0.tar.gz"],
 )
 
 # Bazel rules for pybind11
