@@ -419,6 +419,8 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExists) {
   // creates the schema and insert some records
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->InitMetadataSourceIfNotExists());
+  ASSERT_EQ(absl::OkStatus(), metadata_source_->Commit());
+  ASSERT_EQ(absl::OkStatus(), metadata_source_->Begin());
   ArtifactType want_type =
       ParseTextProtoOrDie<ArtifactType>("name: 'test_type'");
   int64 type_id = -1;
@@ -435,10 +437,14 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExists) {
 
 TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExistsErrorAborted) {
   // Skip empty db init tests for earlier schema version.
-  if (EarlierSchemaEnabled()) { return; }
+  if (EarlierSchemaEnabled() || SkipSchemaMigrationTests()) {
+    return;
+  }
   // creates the schema and insert some records
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->InitMetadataSourceIfNotExists());
+  ASSERT_EQ(absl::OkStatus(), metadata_source_->Commit());
+  ASSERT_EQ(absl::OkStatus(), metadata_source_->Begin());
   {
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_container_->DropTypeTable());
@@ -450,7 +456,9 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExistsErrorAborted) {
 
 TEST_P(MetadataAccessObjectTest, InitForReset) {
   // Skip empty db init tests for earlier schema version.
-  if (EarlierSchemaEnabled()) { return; }
+  if (EarlierSchemaEnabled() || SkipSchemaMigrationTests()) {
+    return;
+  }
   // Tests if Init() can reset a corrupted database.
   // Not applicable to all databases.
   if (!metadata_access_object_container_->PerformExtendedTests()) {
@@ -467,7 +475,9 @@ TEST_P(MetadataAccessObjectTest, InitForReset) {
 
 TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExistsErrorAborted2) {
   // Skip partial schema initialization for earlier schema version.
-  if (EarlierSchemaEnabled()) { return; }
+  if (EarlierSchemaEnabled() || SkipSchemaMigrationTests()) {
+    return;
+  }
   // Drop the artifact table (or artifact property table).
   EXPECT_EQ(absl::OkStatus(), Init());
   {
@@ -483,7 +493,9 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExistsErrorAborted2) {
 
 TEST_P(MetadataAccessObjectTest, InitMetadataSourceSchemaVersionMismatch) {
   // Skip schema/library version consistency test for earlier schema version.
-  if (EarlierSchemaEnabled()) { return; }
+  if (EarlierSchemaEnabled() || SkipSchemaMigrationTests()) {
+    return;
+  }
   // Skip partial schema initialization for earlier schema version.
   if (!metadata_access_object_container_->PerformExtendedTests()) {
     return;
@@ -503,7 +515,9 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceSchemaVersionMismatch) {
 
 TEST_P(MetadataAccessObjectTest, InitMetadataSourceSchemaVersionMismatch2) {
   // Skip schema/library version consistency test for earlier schema version.
-  if (EarlierSchemaEnabled()) { return; }
+  if (EarlierSchemaEnabled() || SkipSchemaMigrationTests()) {
+    return;
+  }
   // reset the database by recreating all missing tables
   EXPECT_EQ(absl::OkStatus(), Init());
   {
@@ -6428,7 +6442,9 @@ TEST_P(MetadataAccessObjectTest, CreateParentContextInheritanceLinkWithCycle) {
 
 TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
   // Skip upgrade/downgrade migration tests for earlier schema version.
-  if (EarlierSchemaEnabled()) { return; }
+  if (EarlierSchemaEnabled() || SkipSchemaMigrationTests()) {
+    return;
+  }
   // setup the database using the previous version.
   // Calling this with the minimum version sets up the original database.
   int64 lib_version = metadata_access_object_->GetLibraryVersion();
@@ -6455,6 +6471,9 @@ TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
   ASSERT_TRUE(absl::IsFailedPrecondition(status))
       << "Error: " << status.message();
 
+  ASSERT_EQ(absl::OkStatus(), metadata_source_->Commit());
+  ASSERT_EQ(absl::OkStatus(), metadata_source_->Begin());
+
   // then init the store and the migration queries runs.
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->InitMetadataSourceIfNotExists(
@@ -6476,7 +6495,9 @@ TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
 
 TEST_P(MetadataAccessObjectTest, DowngradeToV0FromCurrentLibVersion) {
   // Skip upgrade/downgrade migration tests for earlier schema version.
-  if (EarlierSchemaEnabled()) { return; }
+  if (EarlierSchemaEnabled() || SkipSchemaMigrationTests()) {
+    return;
+  }
   // should not use downgrade when the database is empty.
   EXPECT_TRUE(
       absl::IsInvalidArgument(metadata_access_object_->DowngradeMetadataSource(
@@ -6484,6 +6505,8 @@ TEST_P(MetadataAccessObjectTest, DowngradeToV0FromCurrentLibVersion) {
   // init the database to the current library version.
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->InitMetadataSourceIfNotExists());
+  ASSERT_EQ(absl::OkStatus(), metadata_source_->Commit());
+  ASSERT_EQ(absl::OkStatus(), metadata_source_->Begin());
   int64 lib_version = metadata_access_object_->GetLibraryVersion();
   MLMD_ASSERT_OK(
       metadata_access_object_container_->VerifyDbSchema(lib_version));
@@ -6514,10 +6537,14 @@ TEST_P(MetadataAccessObjectTest, DowngradeToV0FromCurrentLibVersion) {
 
 TEST_P(MetadataAccessObjectTest, AutoMigrationTurnedOffByDefault) {
   // Skip upgrade/downgrade migration tests for earlier schema version.
-  if (EarlierSchemaEnabled()) { return; }
+  if (EarlierSchemaEnabled() || SkipSchemaMigrationTests()) {
+    return;
+  }
   // init the database to the current library version.
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->InitMetadataSourceIfNotExists());
+  ASSERT_EQ(absl::OkStatus(), metadata_source_->Commit());
+  ASSERT_EQ(absl::OkStatus(), metadata_source_->Begin());
   // downgrade when the database to version 0.
   int64 current_library_version = metadata_access_object_->GetLibraryVersion();
   if (current_library_version ==

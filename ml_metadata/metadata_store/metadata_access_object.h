@@ -68,6 +68,7 @@ class MetadataAccessObject {
   virtual absl::Status InitMetadataSource() = 0;
 
   // Initializes the metadata source and creates schema.
+  // Changes not in effect until transaction is COMMITTED.
   // Returns OK and does nothing, if all required schema exist.
   // Returns OK and creates schema, if no schema exists yet.
   // Returns DATA_LOSS error, if the MLMDENv has more than one schema version.
