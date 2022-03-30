@@ -5,6 +5,7 @@
 ## Bug Fixes and Other Changes
 
 *   Updates Zlib to 1.2.12.
+*   Add support for Bazelisk
 
 ## Breaking Changes
 
