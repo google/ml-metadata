@@ -421,26 +421,39 @@ absl::Status SetBaseType(absl::Span<T* const> types,
 }  // namespace
 
 absl::Status MetadataStore::InitMetadataStore() {
-  MLMD_RETURN_IF_ERROR(transaction_executor_->Execute([this]() -> absl::Status {
-    return metadata_access_object_->InitMetadataSource();
-  }));
-  return transaction_executor_->Execute([this]() -> absl::Status {
-    return UpsertSimpleTypes(metadata_access_object_.get());
-  });
+  TransactionOptions options;
+  options.set_tag("InitMetadataStore");
+  MLMD_RETURN_IF_ERROR(transaction_executor_->Execute(
+      [this]() -> absl::Status {
+        return metadata_access_object_->InitMetadataSource();
+      },
+      options));
+  options.set_tag("InitMetadataStore_UpsertSimpleTypes");
+  return transaction_executor_->Execute(
+      [this]() -> absl::Status {
+        return UpsertSimpleTypes(metadata_access_object_.get());
+      },
+      options);
 }
 
 // TODO(b/187357155): duplicated results when inserting simple types
 // concurrently
 absl::Status MetadataStore::InitMetadataStoreIfNotExists(
     const bool enable_upgrade_migration) {
+  TransactionOptions options;
+  options.set_tag("InitMetadataStoreIfNotExists");
   MLMD_RETURN_IF_ERROR(transaction_executor_->Execute(
       [this, &enable_upgrade_migration]() -> absl::Status {
         return metadata_access_object_->InitMetadataSourceIfNotExists(
             enable_upgrade_migration);
-      }));
-  return transaction_executor_->Execute([this]() -> absl::Status {
-    return UpsertSimpleTypes(metadata_access_object_.get());
-  });
+      },
+      options));
+  options.set_tag("InitMetadataStoreIfNotExists_UpsertSimpleTypes");
+  return transaction_executor_->Execute(
+      [this]() -> absl::Status {
+        return UpsertSimpleTypes(metadata_access_object_.get());
+      },
+      options);
 }
 
 

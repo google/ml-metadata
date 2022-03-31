@@ -885,6 +885,9 @@ message ListOperationNextPageToken {
 // Note: This is under development. Clients should not use it.
 message TransactionOptions {
   extensions 1000 to max;
+
+  // Transaction tag for debug use only.
+  optional string tag = 1;
 }
 
 
