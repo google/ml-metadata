@@ -224,10 +224,11 @@ class QueryExecutor {
                                           const absl::string_view property_name,
                                           PropertyType property_type) = 0;
 
-  // Queries properties of a type from the database by the type_id
-  // Returns a list of properties (name, data_type).
-  virtual absl::Status SelectPropertyByTypeID(int64 type_id,
-                                              RecordSet* record_set) = 0;
+  // Queries properties of types from the database for each type_id in
+  // `type_ids`.
+  // Returns a list of properties (type_id, name, data_type).
+  virtual absl::Status SelectPropertiesByTypeID(
+      const absl::Span<const int64> type_ids, RecordSet* record_set) = 0;
 
   // Checks the existence of the ParentType table.
   virtual absl::Status CheckParentTypeTable() = 0;

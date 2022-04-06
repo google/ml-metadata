@@ -122,10 +122,10 @@ class QueryConfigExecutor : public QueryExecutor {
         {Bind(type_id), Bind(property_name), Bind(property_type)});
   }
 
-  absl::Status SelectPropertyByTypeID(int64 type_id,
-                                      RecordSet* record_set) final {
-    return ExecuteQuery(query_config_.select_property_by_type_id(),
-                        {Bind(type_id)}, record_set);
+  absl::Status SelectPropertiesByTypeID(const absl::Span<const int64> type_ids,
+                                        RecordSet* record_set) final {
+    return ExecuteQuery(query_config_.select_properties_by_type_id(),
+                        {Bind(type_ids)}, record_set);
   }
 
   absl::Status CheckParentTypeTable() final;

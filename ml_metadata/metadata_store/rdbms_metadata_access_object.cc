@@ -265,13 +265,13 @@ absl::Status ParseRecordSetToMessageArray(const RecordSet& record_set,
   return absl::OkStatus();
 }
 
-// Converts a RecordSet containing key-value pairs to a proto Map.
+// Converts a list of Records containing key-value pairs to a proto Map.
 // The field_name is the map field in the MessageType. The method fills the
-// message's map field with field_name using the rows in the given record_set.
+// message's map field with field_name using the given records.
 template <typename MessageType>
-absl::Status ParseRecordSetToMapField(const RecordSet& record_set,
-                                      const std::string& field_name,
-                                      MessageType* message) {
+absl::Status ParseRecordsToMapField(
+    const std::vector<RecordSet::Record>& records,
+    const std::string& field_name, MessageType* message) {
   const google::protobuf::Descriptor* descriptor = message->descriptor();
   const google::protobuf::Reflection* reflection = message->GetReflection();
   const google::protobuf::FieldDescriptor* map_field_descriptor =
@@ -286,11 +286,11 @@ absl::Status ParseRecordSetToMapField(const RecordSet& record_set,
   const google::protobuf::FieldDescriptor* value_descriptor =
       map_field_descriptor->message_type()->FindFieldByName("value");
 
-  for (const RecordSet::Record& record : record_set.records()) {
+  for (const RecordSet::Record& record : records) {
     google::protobuf::Message* map_field_message =
         reflection->AddMessage(message, map_field_descriptor);
-    const std::string& key = record.values(0);
-    const std::string& value = record.values(1);
+    const std::string& key = record.values(1);
+    const std::string& value = record.values(2);
     MLMD_RETURN_IF_ERROR(
         ParseValueToField(key_descriptor, key, map_field_message));
     MLMD_RETURN_IF_ERROR(
@@ -725,19 +725,42 @@ absl::Status RDBMSMetadataAccessObject::FindTypesFromRecordSet(
     bool get_properties) {
   // Query type with the given condition
   const int num_records = type_record_set.records_size();
+  if (num_records == 0) return absl::OkStatus();
+
   types->resize(num_records);
   for (int i = 0; i < num_records; ++i) {
     MLMD_RETURN_IF_ERROR(
         ParseRecordSetToMessage(type_record_set, &types->at(i), i));
-
-    if (get_properties) {
-      RecordSet property_record_set;
-      // TODO(b/218884256): batch SelectPropertyByTypeID call to handle a list
-      // of type ids.
-      MLMD_RETURN_IF_ERROR(executor_->SelectPropertyByTypeID(
-          types->at(i).id(), &property_record_set));
-      MLMD_RETURN_IF_ERROR(ParseRecordSetToMapField(
-          property_record_set, "properties", &types->at(i)));
+  }
+  if (get_properties) {
+    RecordSet property_record_set;
+    std::vector<int64> type_ids;
+    absl::c_transform(*types, std::back_inserter(type_ids),
+                      [](const MessageType& type) { return type.id(); });
+    MLMD_RETURN_IF_ERROR(
+        executor_->SelectPropertiesByTypeID(type_ids, &property_record_set));
+    // Builds a map between type.id and all its properties.
+    absl::flat_hash_map<int64, std::vector<RecordSet::Record>>
+        type_id_to_records;
+    for (const RecordSet::Record& record : property_record_set.records()) {
+      int64 type_id;
+      CHECK(absl::SimpleAtoi(record.values(0), &type_id));
+      if (type_id_to_records.contains(type_id)) {
+        type_id_to_records[type_id].push_back(record);
+      } else {
+        type_id_to_records.insert({type_id, {record}});
+      }
+    }
+    // Builds a map between type.id and its position in `types` vector.
+    absl::flat_hash_map<int64, int64> type_id_to_pos;
+    for (int i = 0; i < types->size(); ++i) {
+      type_id_to_pos.insert({types->at(i).id(), i});
+    }
+    // Populates `properties` field.
+    for (auto i = type_id_to_records.begin(); i != type_id_to_records.end();
+         ++i) {
+      MLMD_RETURN_IF_ERROR(ParseRecordsToMapField(
+          i->second, "properties", &types->at(type_id_to_pos[i->first])));
     }
   }
 

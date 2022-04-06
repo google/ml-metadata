@@ -412,5 +412,95 @@ TEST_P(QueryExecutorTest, SelectParentTypesByTypeID) {
   }
 }
 
+TEST_P(QueryExecutorTest, SelectPropertiesByTypeID) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+  // Setup: Create context type.
+  int64 context_type_id;
+  ASSERT_EQ(absl::OkStatus(), query_executor_->InsertContextType(
+                                  "context_type", absl::nullopt, absl::nullopt,
+                                  &context_type_id));
+  ASSERT_EQ(absl::OkStatus(),
+            query_executor_->InsertTypeProperty(context_type_id, "property_1",
+                                                PropertyType::INT));
+  // Create artifact types.
+  int64 artifact_type_id_1, artifact_type_id_2;
+  ASSERT_EQ(absl::OkStatus(), query_executor_->InsertArtifactType(
+                                  "artifact_type_1", absl::nullopt,
+                                  absl::nullopt, &artifact_type_id_1));
+  ASSERT_EQ(absl::OkStatus(),
+            query_executor_->InsertTypeProperty(
+                artifact_type_id_1, "property_1", PropertyType::INT));
+  ASSERT_EQ(absl::OkStatus(),
+            query_executor_->InsertTypeProperty(
+                artifact_type_id_1, "property_2", PropertyType::STRING));
+
+  ASSERT_EQ(absl::OkStatus(), query_executor_->InsertArtifactType(
+                                  "artifact_type_2", absl::nullopt,
+                                  absl::nullopt, &artifact_type_id_2));
+
+  // Test: empty ids
+  {
+    RecordSet record_set;
+    ASSERT_EQ(absl::OkStatus(),
+              query_executor_->SelectPropertiesByTypeID({}, &record_set));
+    EXPECT_EQ(record_set.records_size(), 0);
+  }
+  // Test: select a type with no type properties.
+  {
+    RecordSet record_set;
+    ASSERT_EQ(absl::OkStatus(), query_executor_->SelectPropertiesByTypeID(
+                                    {artifact_type_id_2}, &record_set));
+    ASSERT_EQ(record_set.records_size(), 0);
+  }
+
+  // Test: select properties for multiple type ids.
+  {
+    RecordSet record_set;
+    ASSERT_EQ(absl::OkStatus(),
+              query_executor_->SelectPropertiesByTypeID(
+                  {artifact_type_id_1, artifact_type_id_2}, &record_set));
+    ASSERT_EQ(record_set.records_size(), 2);
+    EXPECT_EQ(record_set.records(0).values(0),
+              std::to_string(artifact_type_id_1));
+    EXPECT_EQ(record_set.records(0).values(1), "property_1");
+    EXPECT_EQ(record_set.records(0).values(2),
+              std::to_string(PropertyType::INT));
+
+    EXPECT_EQ(record_set.records(1).values(0),
+              std::to_string(artifact_type_id_1));
+    EXPECT_EQ(record_set.records(1).values(1), "property_2");
+    EXPECT_EQ(record_set.records(1).values(2),
+              std::to_string(PropertyType::STRING));
+  }
+  // Test: select properties for type ids of a mixture of context and artifact
+  // types.
+  {
+    RecordSet record_set;
+    ASSERT_EQ(absl::OkStatus(),
+              query_executor_->SelectPropertiesByTypeID(
+                  {context_type_id, artifact_type_id_1, artifact_type_id_2},
+                  &record_set));
+    // Verify: SelectPropertiesByTypeID can return a mixture of different type
+    // kinds because it only stores type ids.
+    ASSERT_EQ(record_set.records_size(), 3);
+    EXPECT_EQ(record_set.records(0).values(0), std::to_string(context_type_id));
+    EXPECT_EQ(record_set.records(0).values(1), "property_1");
+    EXPECT_EQ(record_set.records(0).values(2),
+              std::to_string(PropertyType::INT));
+
+    EXPECT_EQ(record_set.records(1).values(0),
+              std::to_string(artifact_type_id_1));
+    EXPECT_EQ(record_set.records(1).values(1), "property_1");
+    EXPECT_EQ(record_set.records(1).values(2),
+              std::to_string(PropertyType::INT));
+
+    EXPECT_EQ(record_set.records(2).values(0),
+              std::to_string(artifact_type_id_1));
+    EXPECT_EQ(record_set.records(2).values(1), "property_2");
+    EXPECT_EQ(record_set.records(2).values(2),
+              std::to_string(PropertyType::STRING));
+  }
+}
+
 }  // namespace testing
 }  // namespace ml_metadata

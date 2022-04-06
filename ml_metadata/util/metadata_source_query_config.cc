@@ -141,6 +141,11 @@ R"pb(
            ") VALUES($0, $1, $2);"
     parameter_num: 3
   }
+  select_properties_by_type_id {
+    query: " SELECT `type_id`, `name` as `key`, `data_type` as `value` "
+           " from `TypeProperty` WHERE `type_id` IN ($0); "
+    parameter_num: 1
+  }
   select_property_by_type_id {
     query: " SELECT `name` as `key`, `data_type` as `value` "
            " from `TypeProperty` "

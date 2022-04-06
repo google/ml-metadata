@@ -109,7 +109,6 @@ TEST_P(RDBMSMetadataAccessObjectTest, FindExecutionTypesFromRecordSet) {
   )pb");
   ExecutionType type_2 = testing::ParseTextProtoOrDie<ExecutionType>(R"pb(
     name: 'execution_type_2'
-    properties { key: 'property_1' value: INT }
   )pb");
   ASSERT_EQ(absl::OkStatus(), CreateType(type_1, &type_id_1));
   type_1.set_id(type_id_1);
@@ -130,8 +129,6 @@ TEST_P(RDBMSMetadataAccessObjectTest, FindContextTypesFromRecordSet) {
   int64 type_id_1;
   ContextType type_1 = testing::ParseTextProtoOrDie<ContextType>(R"pb(
     name: 'context_type_1'
-    properties { key: 'property_1' value: STRING }
-    properties { key: 'property_2' value: DOUBLE }
   )pb");
   ASSERT_EQ(absl::OkStatus(), CreateType(type_1, &type_id_1));
   type_1.set_id(type_id_1);
