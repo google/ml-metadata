@@ -83,8 +83,8 @@ connection_config.mysql.password = '...'
 store = metadata_store.MetadataStore(connection_config)
 ```
 
-Similarly, when using a MySQL instance with Google
-CloudSQL ([quickstart](https://cloud.google.com/sql/docs/mysql/quickstart),
+Similarly, when using a MySQL instance with Google CloudSQL
+([quickstart](https://cloud.google.com/sql/docs/mysql/quickstart),
 [connect-overview](https://cloud.google.com/sql/docs/mysql/connect-overview)),
 one could also use SSL option if applicable.
 
