@@ -1936,9 +1936,6 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsFilterAttributeQuery) {
 }
 
 TEST_P(MetadataAccessObjectTest, ListNodesFilterEventQuery) {
-  if (!metadata_access_object_container_->HasFilterQuerySupport()) {
-    return;
-  }
   ASSERT_EQ(absl::OkStatus(), Init());
   const ArtifactType artifact_type = CreateTypeFromTextProto<ArtifactType>(
       "name: 'at1'", *metadata_access_object_);
@@ -2384,11 +2381,6 @@ TEST_P(MetadataAccessObjectTest, ListNodesFilterContextNeighborQuery) {
 }
 
 TEST_P(MetadataAccessObjectTest, ListContextNodesWithParentChildQuery) {
-  // TODO(b/184175823) Enable when all backends support this.
-  if (!metadata_access_object_container_->HasFilterQuerySupport()) {
-    return;
-  }
-
   ASSERT_EQ(absl::OkStatus(), Init());
   const ContextType parent_context_type_1 =
       CreateTypeFromTextProto<ContextType>("name: 'parent_context_type_1'",
@@ -2501,11 +2493,6 @@ TEST_P(MetadataAccessObjectTest, ListContextNodesWithParentChildQuery) {
 
 TEST_P(MetadataAccessObjectTest,
        ListContextNodesWithParentChildAndPropertiesQuery) {
-  // TODO(b/184175823) Enable when all backends support this.
-  if (!metadata_access_object_container_->HasFilterQuerySupport()) {
-    return;
-  }
-
   ASSERT_EQ(absl::OkStatus(), Init());
   const ContextType parent_context_type_1 =
       CreateTypeFromTextProto<ContextType>("name: 'parent_context_type_1'",
