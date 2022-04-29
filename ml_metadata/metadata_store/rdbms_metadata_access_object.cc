@@ -1940,7 +1940,7 @@ absl::Status RDBMSMetadataAccessObject::FindArtifactsByURI(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindContextByTypeIdAndContextName(
-    int64 type_id, absl::string_view name, Context* context) {
+    int64 type_id, absl::string_view name, bool id_only, Context* context) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(executor_->SelectContextByTypeIDAndContextName(
       type_id, name, &record_set));
@@ -1949,13 +1949,18 @@ absl::Status RDBMSMetadataAccessObject::FindContextByTypeIdAndContextName(
     return absl::NotFoundError(absl::StrCat(
         "No contexts found with type_id: ", type_id, ", name: ", name));
   }
-  std::vector<Context> contexts;
-  MLMD_RETURN_IF_ERROR(FindNodesImpl(ids, /*skipped_ids_ok=*/false, contexts));
   // By design, a <type_id, name> pair uniquely identifies a context.
   // Fails if multiple contexts are found.
-  CHECK_EQ(contexts.size(), 1)
+  CHECK_EQ(ids.size(), 1)
       << absl::StrCat("Found more than one contexts with type_id: ", type_id,
                       " and context name: ", name);
+  if (id_only) {
+    context->set_id(ids[0]);
+    return absl::OkStatus();
+  }
+
+  std::vector<Context> contexts;
+  MLMD_RETURN_IF_ERROR(FindNodesImpl(ids, /*skipped_ids_ok=*/false, contexts));
   *context = contexts[0];
   return absl::OkStatus();
 }

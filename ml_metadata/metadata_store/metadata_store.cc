@@ -883,13 +883,14 @@ absl::Status MetadataStore::PutExecution(const PutExecutionRequest& request,
       // Try to reuse existing context if the options is set.
       if (request.options().reuse_context_if_already_exist() &&
           !context.has_id()) {
-        Context existing_context;
+        Context id_only_context;
         const absl::Status status =
             metadata_access_object_->FindContextByTypeIdAndContextName(
-                context.type_id(), context.name(), &existing_context);
+                context.type_id(), context.name(), /*id_only=*/true,
+                &id_only_context);
         if (!absl::IsNotFound(status)) {
           MLMD_RETURN_IF_ERROR(status);
-          context_id = existing_context.id();
+          context_id = id_only_context.id();
         }
       }
       if (context_id == -1) {
@@ -1401,7 +1402,8 @@ absl::Status MetadataStore::GetContextByTypeAndName(
         }
         Context context;
         status = metadata_access_object_->FindContextByTypeIdAndContextName(
-            context_type_id, request.context_name(), &context);
+            context_type_id, request.context_name(), /*id_only=*/false,
+            &context);
         if (absl::IsNotFound(status)) {
           return absl::OkStatus();
         } else if (!status.ok()) {

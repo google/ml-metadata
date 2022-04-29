@@ -376,11 +376,13 @@ class MetadataAccessObject {
       int64 type_id, absl::optional<ListOperationOptions> list_options,
       std::vector<Context>* contexts, std::string* next_page_token) = 0;
 
-  // Queries a context by a type_id and a context name.
+  // Queries a context by a type_id and a context name. If id_only is true, the
+  // returned context will contain only the id field.
   // Returns NOT_FOUND error, if no context can be found.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status FindContextByTypeIdAndContextName(int64 type_id,
                                                          absl::string_view name,
+                                                         bool id_only,
                                                          Context* context) = 0;
 
   // Updates a context.

@@ -5139,20 +5139,31 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
   Context got_context_from_type_and_name1;
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->FindContextByTypeIdAndContextName(
-                type1_id, "my_context1", &got_context_from_type_and_name1));
+                type1_id, "my_context1", /*id_only=*/false,
+                &got_context_from_type_and_name1));
   EXPECT_THAT(got_context_from_type_and_name1, EqualsProto(got_contexts[0]));
 
   Context got_context_from_type_and_name2;
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->FindContextByTypeIdAndContextName(
-                type2_id, "my_context2", &got_context_from_type_and_name2));
+                type2_id, "my_context2", /*id_only=*/false,
+                &got_context_from_type_and_name2));
   EXPECT_THAT(got_context_from_type_and_name2, EqualsProto(got_contexts[1]));
   Context got_empty_context;
   EXPECT_TRUE(absl::IsNotFound(
       metadata_access_object_->FindContextByTypeIdAndContextName(
-          type1_id, "my_context2", &got_empty_context)));
-
+          type1_id, "my_context2", /*id_only=*/false, &got_empty_context)));
   EXPECT_THAT(got_empty_context, EqualsProto(Context()));
+
+  Context got_context_from_type_and_name_with_only_id;
+  Context expected_context_from_type_and_name_with_only_id;
+  expected_context_from_type_and_name_with_only_id.set_id(got_contexts[0].id());
+  EXPECT_EQ(absl::OkStatus(),
+            metadata_access_object_->FindContextByTypeIdAndContextName(
+                type1_id, "my_context1", /*id_only=*/true,
+                &got_context_from_type_and_name_with_only_id));
+  EXPECT_THAT(got_context_from_type_and_name_with_only_id,
+              EqualsProto(expected_context_from_type_and_name_with_only_id));
 }
 
 TEST_P(MetadataAccessObjectTest, ListArtifactsByType) {

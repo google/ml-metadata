@@ -205,6 +205,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   absl::Status FindContextByTypeIdAndContextName(int64 type_id,
                                                  absl::string_view name,
+                                                 bool id_only,
                                                  Context* context) final;
 
   absl::Status UpdateContext(const Context& context) final;
