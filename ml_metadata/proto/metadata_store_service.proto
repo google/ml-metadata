@@ -213,6 +213,42 @@ message PutExecutionResponse {
   repeated int64 context_ids = 3;
 }
 
+message PutLineageSubgraphRequest {
+  repeated Execution executions = 1;
+  repeated Artifact artifacts = 2;
+  repeated Context contexts = 3;
+
+  message EventEdge {
+    // Index in the array of executions.
+    optional int32 execution_index = 1;
+    // Index in the array of artifacts.
+    optional int32 artifact_index = 2;
+    optional Event event = 3;
+  }
+  repeated EventEdge event_edges = 4;
+
+  message Options {
+    // When there's a race to publish executions with a new context with the
+    // same context.name, by default there'll be one writer succeeds and
+    // the rest of the writers returning AlreadyExists errors. If set the field,
+    // the failed writer will reuse the stored context in the transaction.
+    optional bool reuse_context_if_already_exist = 1;
+  }
+  optional Options options = 5;
+
+  optional TransactionOptions transaction_options = 6;
+}
+
+message PutLineageSubgraphResponse {
+  // A list of execution ids index-aligned with `executions` in the request
+  repeated int64 execution_ids = 1 [packed = true];
+  // A list of artifact ids index-aligned with `artifacts` in the request
+  repeated int64 artifact_ids = 2 [packed = true];
+  // A list of context ids index-aligned with `contexts` in the request
+  repeated int64 context_ids = 3 [packed = true];
+}
+
+
 message PutTypesRequest {
   repeated ArtifactType artifact_types = 1;
   repeated ExecutionType execution_types = 2;
@@ -875,6 +911,33 @@ service MetadataStoreService {
   //   An execution id and a list of artifacts and contexts ids index-aligned
   //   with the input.
   rpc PutExecution(PutExecutionRequest) returns (PutExecutionResponse) {}
+
+  // Inserts or updates a lineage subgraph (i.e. a collection of event edges
+  // and its executions, artifacts, and related contexts) atomically. The
+  // `event_edges` include an Event and the indices of the corresponding
+  // execution and artifact from the input list of executions and artifacts. The
+  // `contexts` describe the associations of the Execution and the attributions
+  // of the Artifact.
+  //
+  // If an execution_id is specified, it is an update on the corresponding
+  // Execution, otherwise it does an insertion. For insertion, type must be
+  // specified. These rules apply to Artifacts and Contexts as well.
+  // Corresponding errors may be raised. For example: AlreadyExists error will
+  // be raised if duplicated executions, artifacts, or events are found.
+  //
+  // Args:
+  //   executions: A list of executions to insert or update.
+  //   artifacts: A list of artifacts to insert or update.
+  //   contexts: A list of contexts to insert or update.
+  //   event_edges: A list of events to insert with the indices of the
+  //       corresponding execution and artifact from the input lists of
+  //       executions and artifacts.
+  //
+  // Returns:
+  //   Lists of execution, artifact, and context ids index-aligned with the
+  //   inputs.
+  rpc PutLineageSubgraph(PutLineageSubgraphRequest)
+      returns (PutLineageSubgraphResponse) {}
 
   // Inserts or updates contexts in database and returns a list of context ids.
   //

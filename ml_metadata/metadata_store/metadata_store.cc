@@ -26,6 +26,7 @@ limitations under the License.
 #include "absl/container/flat_hash_set.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -295,6 +296,53 @@ absl::Status UpsertContext(const Context& context,
   return absl::OkStatus();
 }
 
+// Updates, inserts, or finds context. If `reuse_context_if_already_exist`, it
+// tries to find the existing context before trying to upsert the context.
+absl::Status UpsertContextWithOptions(
+    const Context& context, MetadataAccessObject* metadata_access_object,
+    bool reuse_context_if_already_exist, int64* context_id) {
+  CHECK(context_id) << "context_id should not be null";
+
+  if (!context.has_type_id()) {
+    return absl::InvalidArgumentError(
+      absl::StrCat("Context is missing a type_id: ", context.DebugString())
+    );
+  }
+  if (!context.has_name()) {
+    return absl::InvalidArgumentError(
+      absl::StrCat("Context is missing a name: ", context.DebugString())
+    );
+  }
+
+  // Try to reuse existing context if the options is set.
+  if (reuse_context_if_already_exist && !context.has_id()) {
+    Context id_only_context;
+    const absl::Status status =
+        metadata_access_object->FindContextByTypeIdAndContextName(
+            context.type_id(), context.name(), /*id_only=*/true,
+            &id_only_context);
+    if (!absl::IsNotFound(status)) {
+      MLMD_RETURN_IF_ERROR(status);
+      *context_id = id_only_context.id();
+    }
+  }
+  if (*context_id == -1) {
+    const absl::Status status =
+        UpsertContext(context, metadata_access_object, context_id);
+    // When `reuse_context_if_already_exist`, there are concurrent timelines
+    // to create the same new context. If use the option, let client side
+    // to retry the failed transaction safely.
+    if (reuse_context_if_already_exist && absl::IsAlreadyExists(status)) {
+      return absl::AbortedError(absl::StrCat(
+          "Concurrent creation of the same context at the first time. "
+          "Retry the transaction to reuse the context: ",
+          context.DebugString()));
+    }
+    MLMD_RETURN_IF_ERROR(status);
+  }
+  return absl::OkStatus();
+}
+
 // Inserts an association. If the association already exists it returns OK.
 absl::Status InsertAssociationIfNotExist(
     int64 context_id, int64 execution_id,
@@ -418,6 +466,105 @@ absl::Status SetBaseType(absl::Span<T* const> types,
   return absl::OkStatus();
 }
 
+// Verifies that the input PutLineageSubgraphRequest has valid EventEdges.
+absl::Status CheckEventEdges(const PutLineageSubgraphRequest& request) {
+  for (const auto& event_edge : request.event_edges()) {
+    if (!event_edge.has_event()) {
+      return absl::InvalidArgumentError(absl::StrCat(
+          "No event found for event_edge: ", request.DebugString()));
+    }
+    if (!event_edge.has_execution_index() &&
+        !event_edge.event().has_execution_id()) {
+      return absl::InvalidArgumentError(
+          absl::StrCat("Event_edge is missing an execution. Could not "
+                       "find either an execution_index or an "
+                       "event.execution_id: ",
+                       event_edge.DebugString()));
+    }
+    if (event_edge.has_execution_index() &&
+        (event_edge.execution_index() < 0 ||
+         event_edge.execution_index() >= request.executions_size())) {
+      return absl::OutOfRangeError(absl::StrCat(
+          "The event_edge has an execution_index ",
+          event_edge.execution_index(),
+          " that is outside the bounds of the request's executions list, [0, ",
+          request.executions_size(),
+          "). Event_edge: ", event_edge.DebugString()));
+    }
+    if (event_edge.has_execution_index() &&
+        event_edge.event().has_execution_id()) {
+      const Execution& execution =
+          request.executions(event_edge.execution_index());
+
+      if (!execution.has_id()) {
+        return absl::InvalidArgumentError(absl::StrCat(
+            "Missing execution ID. The referenced execution at "
+            "execution_index ",
+            event_edge.execution_index(),
+            " does not have an ID even though the event_edge specifies an "
+            "event.execution_id of ",
+            event_edge.event().execution_id(),
+            ". Execution: ", execution.DebugString(),
+            ", Event_edge: ", event_edge.DebugString()));
+      }
+
+      if (execution.id() != event_edge.event().execution_id()) {
+        return absl::InvalidArgumentError(absl::StrCat(
+            "Execution ID mismatch. The referenced execution at "
+            "execution_index ",
+            event_edge.execution_index(), " has an ID of ", execution.id(),
+            " that does not match the event_edge's event.execution_id of ",
+            event_edge.event().execution_id(),
+            ". Artifact: ", execution.DebugString(),
+            ", Event_edge: ", event_edge.DebugString()));
+      }
+    }
+    if (!event_edge.has_artifact_index() &&
+        !event_edge.event().has_artifact_id()) {
+      return absl::InvalidArgumentError(
+          absl::StrCat("Event_edge is missing an artifact. Could not "
+                       "find either an artifact_index or an "
+                       "event.artifact_id: ",
+                       event_edge.DebugString()));
+    }
+    if (event_edge.has_artifact_index() &&
+        (event_edge.artifact_index() < 0 ||
+         event_edge.artifact_index() >= request.artifacts_size())) {
+      return absl::OutOfRangeError(absl::StrCat(
+          "The event_edge has an artifact_index ", event_edge.artifact_index(),
+          " that is outside the bounds of the request's artifacts list, [0, ",
+          request.artifacts_size(),
+          "). Event_edge: ", event_edge.DebugString()));
+    }
+    if (event_edge.has_artifact_index() &&
+        event_edge.event().has_artifact_id()) {
+      const Artifact& artifact = request.artifacts(event_edge.artifact_index());
+
+      if (!artifact.has_id()) {
+        return absl::InvalidArgumentError(absl::StrCat(
+            "Missing artifact ID. The referenced artifact at artifact_index ",
+            event_edge.artifact_index(),
+            " does not have an ID even though the event_edge specifies an "
+            "event.artifact_id of ",
+            event_edge.event().artifact_id(),
+            ". Artifact: ", artifact.DebugString(),
+            ", Event_edge: ", event_edge.DebugString()));
+      }
+
+      if (artifact.id() != event_edge.event().artifact_id()) {
+        return absl::InvalidArgumentError(absl::StrCat(
+            "Artifact ID mismatch. The referenced artifact at artifact_index ",
+            event_edge.artifact_index(), " has an ID of ", artifact.id(),
+            " that does not match the event_edge's event.artifact_id of ",
+            event_edge.event().artifact_id(),
+            ". Artifact: ", artifact.DebugString(),
+            ", Event_edge: ", event_edge.DebugString()));
+      }
+    }
+  }
+
+  return absl::OkStatus();
+}
 }  // namespace
 
 absl::Status MetadataStore::InitMetadataStore() {
@@ -880,34 +1027,10 @@ absl::Status MetadataStore::PutExecution(const PutExecutionRequest& request,
     // 3. Upsert contexts and insert associations and attributions.
     for (const Context& context : request.contexts()) {
       int64 context_id = -1;
-      // Try to reuse existing context if the options is set.
-      if (request.options().reuse_context_if_already_exist() &&
-          !context.has_id()) {
-        Context id_only_context;
-        const absl::Status status =
-            metadata_access_object_->FindContextByTypeIdAndContextName(
-                context.type_id(), context.name(), /*id_only=*/true,
-                &id_only_context);
-        if (!absl::IsNotFound(status)) {
-          MLMD_RETURN_IF_ERROR(status);
-          context_id = id_only_context.id();
-        }
-      }
-      if (context_id == -1) {
-        const absl::Status status =
-            UpsertContext(context, metadata_access_object_.get(), &context_id);
-        // When `reuse_context_if_already_exist`, there are concurrent timelines
-        // to create the same new context. If use the option, let client side
-        // to retry the failed transaction safely.
-        if (request.options().reuse_context_if_already_exist() &&
-            absl::IsAlreadyExists(status)) {
-          return absl::AbortedError(absl::StrCat(
-              "Concurrent creation of the same context at the first time. "
-              "Retry the transaction to reuse the context: ",
-              context.DebugString()));
-        }
-        MLMD_RETURN_IF_ERROR(status);
-      }
+      const absl::Status status = UpsertContextWithOptions(
+          context, metadata_access_object_.get(),
+          request.options().reuse_context_if_already_exist(), &context_id);
+      MLMD_RETURN_IF_ERROR(status);
       response->add_context_ids(context_id);
       MLMD_RETURN_IF_ERROR(InsertAssociationIfNotExist(
           context_id, response->execution_id(), metadata_access_object_.get()));
@@ -920,6 +1043,7 @@ absl::Status MetadataStore::PutExecution(const PutExecutionRequest& request,
   },
   request.transaction_options());
 }
+
 
 
 absl::Status MetadataStore::GetEventsByExecutionIDs(
