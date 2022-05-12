@@ -37,7 +37,7 @@ https://pypi-nightly.tensorflow.org on Google Cloud. To install the latest
 nightly package, please use the following command:
 
 ```bash
-pip install -i https://pypi-nightly.tensorflow.org/simple ml-metadata
+pip install --extra-index-url https://pypi-nightly.tensorflow.org/simple ml-metadata
 ```
 
 ## Installing with Docker
