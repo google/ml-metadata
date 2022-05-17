@@ -1044,6 +1044,77 @@ absl::Status MetadataStore::PutExecution(const PutExecutionRequest& request,
   request.transaction_options());
 }
 
+// TODO(b/217390865): Optimize upsert calls once b/197686185 is complete.
+absl::Status MetadataStore::PutLineageSubgraph(
+    const PutLineageSubgraphRequest& request,
+    PutLineageSubgraphResponse* response) {
+  return transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
+        response->Clear();
+
+        MLMD_RETURN_IF_ERROR(CheckEventEdges(request));
+
+        // 1. Upsert contexts
+        for (const Context& context : request.contexts()) {
+          int64 context_id = -1;
+          absl::Status status = UpsertContextWithOptions(
+              context, metadata_access_object_.get(),
+              request.options().reuse_context_if_already_exist(), &context_id);
+          MLMD_RETURN_IF_ERROR(status);
+          response->add_context_ids(context_id);
+        }
+
+        // 2. Upsert executions and create associations with contexts
+        for (const Execution& execution : request.executions()) {
+          int64 execution_id = -1;
+          MLMD_RETURN_IF_ERROR(UpsertExecution(
+              execution, metadata_access_object_.get(), &execution_id));
+          response->add_execution_ids(execution_id);
+
+          for (const int64 context_id : response->context_ids()) {
+            MLMD_RETURN_IF_ERROR(InsertAssociationIfNotExist(
+                context_id, execution_id, metadata_access_object_.get()));
+          }
+        }
+
+        // 3. Upsert artifacts and create attributions with contexts
+        for (const Artifact& artifact : request.artifacts()) {
+          int64 artifact_id = -1;
+          MLMD_RETURN_IF_ERROR(UpsertArtifact(
+              artifact, metadata_access_object_.get(), &artifact_id));
+          response->add_artifact_ids(artifact_id);
+
+          for (const int64 context_id : response->context_ids()) {
+            MLMD_RETURN_IF_ERROR(InsertAttributionIfNotExist(
+                context_id, artifact_id, metadata_access_object_.get()));
+          }
+        }
+
+        // 4. Add events with the upserted executions and artifacts
+        for (const PutLineageSubgraphRequest::EventEdge& event_edge :
+             request.event_edges()) {
+          Event event = event_edge.event();
+
+          // Provided execution ID and artifact ID are verified to be valid in
+          // CheckEventEdges(). If not provided, use the ID of the created
+          // execution or artifact.
+          if (!event.has_execution_id()) {
+            event.set_execution_id(
+                response->execution_ids(event_edge.execution_index()));
+          }
+          if (!event.has_artifact_id()) {
+            event.set_artifact_id(
+                response->artifact_ids(event_edge.artifact_index()));
+          }
+
+          int64 dummy_event_id = -1;
+          MLMD_RETURN_IF_ERROR(
+              metadata_access_object_->CreateEvent(event, &dummy_event_id));
+        }
+        return absl::OkStatus();
+      },
+      request.transaction_options());
+}
 
 
 absl::Status MetadataStore::GetEventsByExecutionIDs(

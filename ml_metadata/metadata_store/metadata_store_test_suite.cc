@@ -4106,6 +4106,325 @@ TEST_P(MetadataStoreTestSuite, GetExecutionFilterWithSpecialChars) {
   }
 }
 
+// Test that PutLineageSubgraph adds entire subgraph.
+TEST_P(MetadataStoreTestSuite, PutLineageSubgraphAndVerifyLineageGraph) {
+  // Prepare the metadata store with types
+  PutTypesRequest put_types_request = ParseTextProtoOrDie<PutTypesRequest>(R"pb(
+    context_types: { name: 'context_type' }
+    execution_types: { name: 'execution_type' }
+    artifact_types: { name: 'artifact_type' }
+  )pb");
+  PutTypesResponse put_types_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutTypes(put_types_request, &put_types_response));
+
+  // Prepare the metadata store with existing data to verify input validity
+  Context context;
+  context.set_type_id(put_types_response.context_type_ids(0));
+  context.set_name("context");
+  PutContextsRequest put_contexts_request;
+  *put_contexts_request.add_contexts() = context;
+  PutContextsResponse put_contexts_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutContexts(put_contexts_request,
+                                         &put_contexts_response));
+
+  Execution execution;
+  execution.set_type_id(put_types_response.execution_type_ids(0));
+  PutExecutionRequest put_execution_request;
+  *put_execution_request.mutable_execution() = execution;
+  PutExecutionResponse put_execution_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecution(put_execution_request,
+                                          &put_execution_response));
+  execution.set_id(put_execution_response.execution_id());
+
+  Artifact artifact;
+  artifact.set_type_id(put_types_response.artifact_type_ids(0));
+  artifact.set_uri("testuri");
+  PutArtifactsRequest put_artifacts_request;
+  *put_artifacts_request.add_artifacts() = artifact;
+  PutArtifactsResponse put_artifacts_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifacts(put_artifacts_request,
+                                          &put_artifacts_response));
+  artifact.set_id(put_artifacts_response.artifact_ids(0));
+
+  // Prepare the PutLineageSubgraph request
+  PutLineageSubgraphRequest put_lineage_subgraph_request;
+  *put_lineage_subgraph_request.add_executions() = execution;
+  *put_lineage_subgraph_request.add_artifacts() = artifact;
+  *put_lineage_subgraph_request.add_contexts() = context;
+  put_lineage_subgraph_request.mutable_options()
+      ->set_reuse_context_if_already_exist(true);
+
+  // Prepare event_edge with execution_index and artifact_index but no
+  // execution_id and no artifact_id
+  Event event_1;
+  event_1.set_type(Event::OUTPUT);
+  PutLineageSubgraphRequest::EventEdge* event_edge_1 =
+      put_lineage_subgraph_request.add_event_edges();
+  event_edge_1->set_execution_index(0);
+  event_edge_1->set_artifact_index(0);
+  *event_edge_1->mutable_event() = event_1;
+
+  // Prepare event with execution_index and artifact_index and matching
+  // execution_id and matching artifact_id
+  Event event_2;
+  event_2.set_type(Event::INPUT);
+  event_2.set_execution_id(put_execution_response.execution_id());
+  event_2.set_artifact_id(put_artifacts_response.artifact_ids(0));
+  PutLineageSubgraphRequest::EventEdge* event_edge_2 =
+      put_lineage_subgraph_request.add_event_edges();
+  event_edge_2->set_execution_index(0);
+  event_edge_2->set_artifact_index(0);
+  *event_edge_2->mutable_event() = event_2;
+
+  // Prepare event with execution_id and artifact_id but no execution_index
+  // and no artifact_index
+  Event event_3;
+  event_3.set_type(Event::DECLARED_INPUT);
+  event_3.set_execution_id(put_execution_response.execution_id());
+  event_3.set_artifact_id(put_artifacts_response.artifact_ids(0));
+  PutLineageSubgraphRequest::EventEdge* event_edge_3 =
+      put_lineage_subgraph_request.add_event_edges();
+  *event_edge_3->mutable_event() = event_3;
+
+  PutLineageSubgraphResponse put_lineage_subgraph_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutLineageSubgraph(
+                put_lineage_subgraph_request, &put_lineage_subgraph_response));
+
+  // Verify lineage subgraph is inserted correctly
+  GetExecutionsByContextRequest get_executions_by_context_request;
+  get_executions_by_context_request.set_context_id(
+      put_lineage_subgraph_response.context_ids(0));
+  GetExecutionsByContextResponse get_executions_by_context_response;
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetExecutionsByContext(
+                                  get_executions_by_context_request,
+                                  &get_executions_by_context_response));
+  ASSERT_THAT(get_executions_by_context_response.executions(), SizeIs(1));
+  EXPECT_THAT(get_executions_by_context_response.executions(),
+              ElementsAre(EqualsProto(
+                  execution,
+                  /*ignore_fields=*/{"create_time_since_epoch",
+                                     "last_update_time_since_epoch"})));
+
+  GetArtifactsByContextRequest get_artifacts_by_context_request;
+  get_artifacts_by_context_request.set_context_id(
+      put_lineage_subgraph_response.context_ids(0));
+  GetArtifactsByContextResponse get_artifacts_by_context_response;
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetArtifactsByContext(
+                                  get_artifacts_by_context_request,
+                                  &get_artifacts_by_context_response));
+  ASSERT_THAT(get_artifacts_by_context_response.artifacts(), SizeIs(1));
+  EXPECT_THAT(get_artifacts_by_context_response.artifacts(),
+              ElementsAre(EqualsProto(
+                  artifact,
+                  /*ignore_fields=*/{"create_time_since_epoch",
+                                     "last_update_time_since_epoch"})));
+
+  GetContextsRequest get_contexts_request;
+  GetContextsResponse get_contexts_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetContexts(get_contexts_request,
+                                         &get_contexts_response));
+  ASSERT_THAT(get_contexts_response.contexts(), SizeIs(1));
+  EXPECT_EQ(get_contexts_response.contexts(0).id(),
+            put_lineage_subgraph_response.context_ids(0));
+  EXPECT_THAT(get_contexts_response.contexts(),
+              ElementsAre(EqualsProto(context,
+                                      /*ignore_fields=*/
+                                      {"id", "create_time_since_epoch",
+                                       "last_update_time_since_epoch"})));
+
+  GetEventsByExecutionIDsRequest get_events_by_execution_ids_request;
+  get_events_by_execution_ids_request.add_execution_ids(
+      put_lineage_subgraph_response.execution_ids(0));
+  GetEventsByExecutionIDsResponse get_events_by_execution_ids_response;
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetEventsByExecutionIDs(
+                                  get_events_by_execution_ids_request,
+                                  &get_events_by_execution_ids_response));
+  ASSERT_THAT(get_events_by_execution_ids_response.events(), SizeIs(3));
+  EXPECT_EQ(get_events_by_execution_ids_response.events(0).execution_id(),
+            put_lineage_subgraph_response.execution_ids(0));
+  EXPECT_EQ(get_events_by_execution_ids_response.events(0).artifact_id(),
+            put_lineage_subgraph_response.artifact_ids(0));
+  EXPECT_THAT(
+      get_events_by_execution_ids_response.events(),
+      ElementsAre(EqualsProto(event_1,
+                              /*ignore_fields=*/{"artifact_id", "execution_id",
+                                                 "milliseconds_since_epoch"}),
+                  EqualsProto(event_2,
+                              /*ignore_fields=*/{"milliseconds_since_epoch"}),
+                  EqualsProto(event_3,
+                              /*ignore_fields=*/{"milliseconds_since_epoch"})));
+}
+
+// Test that PutLineageSubgraph fails on invalid inputs.
+TEST_P(MetadataStoreTestSuite, PutLineageSubgraphFailsWithInvalidEventEdge) {
+  // Prepare the metadata store with types
+  PutTypesRequest put_types_request = ParseTextProtoOrDie<PutTypesRequest>(R"pb(
+    context_types: { name: 'context_type' }
+    execution_types: { name: 'execution_type' }
+    artifact_types: { name: 'artifact_type' }
+  )pb");
+  PutTypesResponse put_types_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutTypes(put_types_request, &put_types_response));
+
+  Execution execution;
+  execution.set_type_id(put_types_response.execution_type_ids(0));
+  PutExecutionRequest put_execution_request;
+  *put_execution_request.mutable_execution() = execution;
+  PutExecutionResponse put_execution_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecution(put_execution_request,
+                                          &put_execution_response));
+  execution.set_id(put_execution_response.execution_id());
+
+  Artifact artifact;
+  artifact.set_type_id(put_types_response.artifact_type_ids(0));
+  artifact.set_uri("testuri");
+  PutArtifactsRequest put_artifacts_request;
+  *put_artifacts_request.add_artifacts() = artifact;
+  PutArtifactsResponse put_artifacts_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifacts(put_artifacts_request,
+                                          &put_artifacts_response));
+  artifact.set_id(put_artifacts_response.artifact_ids(0));
+
+  Context context;
+  context.set_type_id(put_types_response.context_type_ids(0));
+  context.set_name("context");
+  PutContextsRequest put_contexts_request;
+  *put_contexts_request.add_contexts() = context;
+  PutContextsResponse put_contexts_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutContexts(put_contexts_request,
+                                         &put_contexts_response));
+  // Setup `base_request` that has
+  //   1) 1 Artifact proto with id populated
+  //   2) 1 Execution proto with id populated
+  //   3) 1 EventEdge proto with indices populated but without artifact_id and
+  //      execution_id in the event.
+  PutLineageSubgraphRequest base_request;
+  *base_request.add_artifacts() = artifact;
+  *base_request.add_executions() = execution;
+  PutLineageSubgraphRequest::EventEdge* base_event_edge =
+      base_request.add_event_edges();
+  base_event_edge->set_execution_index(0);
+  base_event_edge->set_artifact_index(0);
+  base_event_edge->mutable_event()->set_type(Event::INPUT);
+
+  // Test failure on event_edge with no Event
+  {
+    PutLineageSubgraphRequest request = base_request;
+    request.mutable_event_edges(0)->clear_event();
+
+    PutLineageSubgraphResponse response;
+    EXPECT_TRUE(absl::IsInvalidArgument(
+        metadata_store_->PutLineageSubgraph(request, &response)));
+  }
+
+  // Test failure on event_edge with no execution_index and no execution id
+  {
+    PutLineageSubgraphRequest request = base_request;
+    request.mutable_event_edges(0)->clear_execution_index();
+
+    PutLineageSubgraphResponse response;
+    EXPECT_TRUE(absl::IsInvalidArgument(
+        metadata_store_->PutLineageSubgraph(request, &response)));
+  }
+
+  // Test failure on event_edge with no artifact_index and no artifact id
+  {
+    PutLineageSubgraphRequest request = base_request;
+    request.mutable_event_edges(0)->clear_artifact_index();
+
+    PutLineageSubgraphResponse response;
+    EXPECT_TRUE(absl::IsInvalidArgument(
+        metadata_store_->PutLineageSubgraph(request, &response)));
+  }
+
+  // Test failure on event_edge with out of range execution_index
+  {
+    PutLineageSubgraphRequest request = base_request;
+    request.mutable_executions()->Clear();
+
+    PutLineageSubgraphResponse response;
+    EXPECT_TRUE(absl::IsOutOfRange(
+        metadata_store_->PutLineageSubgraph(request, &response)));
+  }
+
+  // Test failure on event_edge with out of range artifact_index
+  {
+    PutLineageSubgraphRequest request = base_request;
+    request.mutable_artifacts()->Clear();
+
+    PutLineageSubgraphResponse response;
+    EXPECT_TRUE(absl::IsOutOfRange(
+        metadata_store_->PutLineageSubgraph(request, &response)));
+  }
+
+  // Test failure on inserting with already existing context
+  {
+    PutLineageSubgraphRequest request = base_request;
+    *request.add_contexts() = context;
+
+    PutLineageSubgraphResponse response;
+    EXPECT_TRUE(absl::IsAlreadyExists(
+        metadata_store_->PutLineageSubgraph(request, &response)));
+  }
+
+  // Test failure on inserting event with non-matching execution ID
+  {
+    PutLineageSubgraphRequest request = base_request;
+    request.mutable_event_edges(0)->mutable_event()
+        ->set_execution_id(execution.id() + 1);
+
+    PutLineageSubgraphResponse response;
+    EXPECT_TRUE(absl::IsInvalidArgument(
+        metadata_store_->PutLineageSubgraph(request, &response)));
+  }
+
+  // Test failure on inserting event with non-matching artifact ID
+  {
+    PutLineageSubgraphRequest request = base_request;
+    request.mutable_event_edges(0)->mutable_event()
+        ->set_artifact_id(artifact.id() + 1);
+
+    PutLineageSubgraphResponse response;
+    EXPECT_TRUE(absl::IsInvalidArgument(
+        metadata_store_->PutLineageSubgraph(request, &response)));
+  }
+
+  // Test failure on event_edge with event.execution_id and execution_index that
+  // points to an execution without an ID
+  {
+    PutLineageSubgraphRequest request = base_request;
+    request.mutable_event_edges(0)->mutable_event()->set_execution_id(
+        execution.id());
+    request.mutable_executions(0)->clear_id();
+
+    PutLineageSubgraphResponse response;
+    EXPECT_TRUE(absl::IsInvalidArgument(
+        metadata_store_->PutLineageSubgraph(request, &response)));
+  }
+
+  // Test failure on event_edge with event.artifact_id and artifact_index that
+  // points to an artifact without an ID
+  {
+    PutLineageSubgraphRequest request = base_request;
+    request.mutable_event_edges(0)->mutable_event()->set_artifact_id(
+        artifact.id());
+    request.mutable_artifacts(0)->clear_id();
+
+    PutLineageSubgraphResponse response;
+    EXPECT_TRUE(absl::IsInvalidArgument(
+        metadata_store_->PutLineageSubgraph(request, &response)));
+  }
+}
 
 }  // namespace
 }  // namespace testing

@@ -254,6 +254,25 @@ class MetadataStore : public MetadataStoreServiceInterface {
   absl::Status PutExecution(const PutExecutionRequest& request,
                             PutExecutionResponse* response) override;
 
+  // Inserts or updates a lineage subgraph (i.e. a collection of event edges
+  // and its executions, artifacts, and related contexts) atomically. All
+  // contexts will be associated to every execution and attributed to every
+  // artifact provided in the request.
+  //
+  // Returns a list of execution, artifact, and context ids index-aligned with
+  // the input.
+  // Returns INVALID_ARGUMENT error, if no artifact, execution, or context
+  // matches the id.
+  // Returns INVALID_ARGUMENT error, if event_edge has no event.
+  // Returns INVALID_ARGUMENT error, if type_id is different from stored one.
+  // Returns INVALID_ARGUMENT error, if the event.type field is UNKNOWN.
+  // Returns detailed INTERNAL error, if query execution fails.
+  // Returns OUT_OF_BOUND error, if event_edge has an out of bound
+  // execution_index or artifact_index.
+  // TODO(b/217390865): OSS after this API is tested and stable.
+  absl::Status PutLineageSubgraph(
+      const PutLineageSubgraphRequest& request,
+      PutLineageSubgraphResponse* response) override;
 
 
   // Gets all events with matching execution ids.
