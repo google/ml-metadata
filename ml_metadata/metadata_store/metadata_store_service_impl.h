@@ -213,6 +213,10 @@ class MetadataStoreServiceImpl final
       const GetChildrenContextsByContextRequest* request,
       GetChildrenContextsByContextResponse* response) override;
 
+  ::grpc::Status PutLineageSubgraph(
+      ::grpc::ServerContext* context, const PutLineageSubgraphRequest* request,
+      PutLineageSubgraphResponse* response) override;
+
  private:
   const ConnectionConfig connection_config_;
 };

@@ -1622,6 +1622,168 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertEqual(context_result.properties["bar"].string_value, "Goodbye")
     self.assertEqual(context_result.properties["foo"].int_value, 12)
 
+  def test_put_lineage_subgraph(self):
+    store = _get_metadata_store()
+    execution_type = _create_example_execution_type(self._get_test_type_name())
+    execution_type_id = store.put_execution_type(execution_type)
+    artifact_type = _create_example_artifact_type(self._get_test_type_name())
+    artifact_type_id = store.put_artifact_type(artifact_type)
+    context_type = _create_example_context_type(self._get_test_type_name())
+    context_type_id = store.put_context_type(context_type)
+
+    existing_context = metadata_store_pb2.Context(
+        type_id=context_type_id, name="existing_context")
+    [existing_context_id] = store.put_contexts([existing_context])
+    new_context = metadata_store_pb2.Context(
+        type_id=context_type_id, name="new_context")
+    request_contexts = [existing_context, new_context]
+
+    existing_execution = metadata_store_pb2.Execution(
+        type_id=execution_type_id, name="existing_execution")
+    [existing_execution_id] = store.put_executions([existing_execution])
+    existing_execution.id = existing_execution_id
+    new_execution = metadata_store_pb2.Execution(
+        type_id=execution_type_id, name="new_execution")
+    request_executions = [existing_execution, new_execution]
+
+    input_artifact = metadata_store_pb2.Artifact(
+        type_id=artifact_type_id, uri="testuri")
+    [input_artifact_id] = store.put_artifacts([input_artifact])
+    input_artifact.id = input_artifact_id
+    output_artifact = metadata_store_pb2.Artifact(
+        type_id=artifact_type_id, uri="output_artifact")
+    request_artifacts = [input_artifact, output_artifact]
+
+    input_event_for_existing_execution = metadata_store_pb2.Event(
+        type=metadata_store_pb2.Event.INPUT,
+        execution_id=existing_execution_id,
+        artifact_id=input_artifact_id)
+    input_event_for_new_execution = metadata_store_pb2.Event(
+        type=metadata_store_pb2.Event.INPUT, artifact_id=input_artifact_id)
+    output_event_for_existing_execution = metadata_store_pb2.Event(
+        type=metadata_store_pb2.Event.OUTPUT,
+        execution_id=existing_execution_id)
+    output_event_for_new_execution = metadata_store_pb2.Event(
+        type=metadata_store_pb2.Event.OUTPUT)
+    request_event_edges = [(0, 0, input_event_for_existing_execution),
+                           (None, 1, output_event_for_existing_execution),
+                           (1, None, input_event_for_new_execution),
+                           (1, 1, output_event_for_new_execution)]
+
+    # Request should fail since existing_context already inserted
+    with self.assertRaises(errors.AlreadyExistsError):
+      store.put_lineage_subgraph(request_executions, request_artifacts,
+                                 request_contexts, request_event_edges)
+
+    # Request should succeed with `reuse_context_if_already_exist` set
+    execution_ids, artifact_ids, context_ids = store.put_lineage_subgraph(
+        request_executions,
+        request_artifacts,
+        request_contexts,
+        request_event_edges,
+        reuse_context_if_already_exist=True)
+    for execution, execution_id in zip(request_executions, execution_ids):
+      execution.id = execution_id
+    for artifact, artifact_id in zip(request_artifacts, artifact_ids):
+      artifact.id = artifact_id
+    for context, context_id in zip(request_contexts, context_ids):
+      context.id = context_id
+
+    # Verify inserted items
+    self.assertLen(execution_ids, 2)
+    self.assertEqual(execution_ids[0], existing_execution_id)
+    self.assertLen(artifact_ids, 2)
+    self.assertEqual(artifact_ids[0], input_artifact_id)
+    self.assertLen(context_ids, 2)
+    self.assertEqual(context_ids[0], existing_context_id)
+
+    get_contexts_results = store.get_contexts_by_type(
+        type_name=context_type.name)
+    self.assertLen(get_contexts_results, 2)
+    get_contexts_results = {
+        context.id: context for context in get_contexts_results
+    }
+    self.assertIn(existing_context.id, get_contexts_results)
+    self.assertEqual(get_contexts_results[existing_context.id].name,
+                     existing_context.name)
+    self.assertEqual(get_contexts_results[existing_context.id].type_id,
+                     existing_context.type_id)
+    self.assertIn(new_context.id, get_contexts_results)
+    self.assertEqual(get_contexts_results[new_context.id].name,
+                     new_context.name)
+    self.assertEqual(get_contexts_results[new_context.id].type_id,
+                     new_context.type_id)
+
+    get_artifacts_by_existing_context_result = store.get_artifacts_by_context(
+        existing_context.id)
+    get_artifacts_by_new_context_result = store.get_artifacts_by_context(
+        new_context.id)
+    self.assertEqual(get_artifacts_by_existing_context_result,
+                     get_artifacts_by_new_context_result)
+    self.assertLen(get_artifacts_by_new_context_result, 2)
+    get_artifacts_result = {
+        artifact.id: artifact
+        for artifact in get_artifacts_by_new_context_result
+    }
+    self.assertIn(artifact_ids[0], get_artifacts_result)
+    self.assertEqual(get_artifacts_result[artifact_ids[0]].type_id,
+                     input_artifact.type_id)
+    self.assertEqual(get_artifacts_result[artifact_ids[0]].uri,
+                     input_artifact.uri)
+    self.assertIn(artifact_ids[1], get_artifacts_result)
+    self.assertEqual(get_artifacts_result[artifact_ids[1]].type_id,
+                     output_artifact.type_id)
+    self.assertEqual(get_artifacts_result[artifact_ids[1]].uri,
+                     output_artifact.uri)
+
+    get_executions_by_existing_context_result = store.get_executions_by_context(
+        existing_context.id)
+    get_executions_by_new_context_result = store.get_executions_by_context(
+        new_context.id)
+    self.assertEqual(get_executions_by_existing_context_result,
+                     get_executions_by_new_context_result)
+    self.assertLen(get_executions_by_new_context_result, 2)
+    get_executions_result = {
+        execution.id: execution
+        for execution in get_executions_by_new_context_result
+    }
+    self.assertIn(execution_ids[0], get_executions_result)
+    self.assertEqual(get_executions_result[execution_ids[0]].type_id,
+                     existing_execution.type_id)
+    self.assertEqual(get_executions_result[execution_ids[0]].name,
+                     existing_execution.name)
+    self.assertIn(execution_ids[1], get_executions_result)
+    self.assertEqual(get_executions_result[execution_ids[1]].type_id,
+                     new_execution.type_id)
+    self.assertEqual(get_executions_result[execution_ids[1]].name,
+                     new_execution.name)
+
+    get_events_result = store.get_events_by_execution_ids(execution_ids)
+    self.assertLen(get_events_result, 4)
+    get_events_result = {(event.execution_id, event.artifact_id): event
+                         for event in get_events_result}
+    input_event_for_existing_execution_key = (existing_execution.id,
+                                              input_artifact.id)
+    self.assertIn(input_event_for_existing_execution_key, get_events_result)
+    self.assertEqual(
+        get_events_result[input_event_for_existing_execution_key].type,
+        input_event_for_existing_execution.type)
+    output_event_for_existing_execution_key = (new_execution.id,
+                                               output_artifact.id)
+    self.assertIn(output_event_for_existing_execution_key, get_events_result)
+    self.assertEqual(
+        get_events_result[output_event_for_existing_execution_key].type,
+        output_event_for_existing_execution.type)
+    input_event_for_new_execution_key = (existing_execution.id,
+                                         input_artifact.id)
+    self.assertIn(input_event_for_new_execution_key, get_events_result)
+    self.assertEqual(get_events_result[input_event_for_new_execution_key].type,
+                     input_event_for_new_execution.type)
+    output_event_for_new_execution_key = (new_execution.id, output_artifact.id)
+    self.assertIn(output_event_for_new_execution_key, get_events_result)
+    self.assertEqual(get_events_result[output_event_for_new_execution_key].type,
+                     output_event_for_new_execution.type)
+
   def test_put_and_use_attributions_and_associations(self):
     store = _get_metadata_store()
     context_type = _create_example_context_type(self._get_test_type_name())

@@ -593,6 +593,74 @@ class MetadataStore(object):
     context_ids = [x for x in response.context_ids]
     return response.execution_id, artifact_ids, context_ids
 
+  def put_lineage_subgraph(
+      self,
+      executions: Sequence[proto.Execution],
+      artifacts: Sequence[proto.Artifact],
+      contexts: Sequence[proto.Context],
+      event_edges: Sequence[Tuple[Optional[int], Optional[int], proto.Event]],
+      reuse_context_if_already_exist: bool = False
+  ) -> Tuple[List[int], List[int], List[int]]:
+    """Inserts a collection of executions, artifacts, contexts, and events.
+
+    This method atomically inserts or updates all specified executions,
+    artifacts, and events and adds attributions and associations to related
+    contexts.
+
+    Args:
+      executions: List of executions to be created or updated.
+      artifacts: List of artifacts to be created or updated.
+      contexts: List of contexts to be created or reused. Contexts will be
+        associated with the inserted executions and attributed to the inserted
+        artifacts.
+      event_edges: List of event edges in the subgraph to be inserted. Event
+        edges are defined as an optional execution_index, an optional
+        artifact_index, and a required event. Event edges must have an
+        execution_index and/or an event.execution_id. Execution_index
+        corresponds to an execution in the executions list at the specified
+        index. If both execution_index and event.execution_id are provided, the
+        execution ids of the execution and the event must match. The same rules
+        apply to artifact_index and event.artifact_id.
+      reuse_context_if_already_exist: When there's a race to publish executions
+        with a new context (no id) with the same context.name, by default there
+        will be one writer that succeeds and the rest of the writers will fail
+        with AlreadyExists errors. If set to True, failed writers will reuse the
+        stored context.
+
+    Returns:
+      The lists of execution ids, artifact ids, and context ids index aligned
+      to the input executions, artifacts, and contexts.
+
+    Raises:
+      errors.InvalidArgumentError: If the id of the input nodes do not align
+        with the store. Please refer to InvalidArgument errors in other put
+        methods.
+      errors.AlreadyExistsError: If the new nodes to be created already exist.
+        Please refer to AlreadyExists errors in other put methods.
+      errors.OutOfRangeError: If event_edge indices do not correspond to
+        existing indices in the input lists of executions and artifacts.
+    """
+    request = metadata_store_service_pb2.PutLineageSubgraphRequest(
+        executions=executions,
+        artifacts=artifacts,
+        contexts=contexts,
+        options=metadata_store_service_pb2.PutLineageSubgraphRequest.Options(
+            reuse_context_if_already_exist=reuse_context_if_already_exist))
+
+    # Add event edges to the request
+    for execution_index, artifact_index, event in event_edges:
+      request.event_edges.add(
+          execution_index=execution_index,
+          artifact_index=artifact_index,
+          event=event)
+
+    response = metadata_store_service_pb2.PutLineageSubgraphResponse()
+    self._call('PutLineageSubgraph', request, response)
+    execution_ids = list(response.execution_ids)
+    artifact_ids = list(response.artifact_ids)
+    context_ids = list(response.context_ids)
+    return execution_ids, artifact_ids, context_ids
+
   def get_artifacts_by_type(
       self,
       type_name: Text,
