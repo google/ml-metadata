@@ -5958,6 +5958,128 @@ TEST_P(MetadataAccessObjectTest, CreateAssociationWithoutValidation) {
             create_invalid_association_without_validation_status);
 }
 
+TEST_P(MetadataAccessObjectTest, CreateAttributionError) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+
+  // Create base attribution with
+  // * valid context id
+  // * valid artifact id
+  int64 context_type_id = InsertType<ContextType>("test_context_type");
+  Context context;
+  context.set_type_id(context_type_id);
+  context.set_name("test_context");
+  int64 context_id;
+  ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateContext(
+                                  context, &context_id));
+
+  int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
+  Artifact artifact;
+  artifact.set_type_id(artifact_type_id);
+  int64 artifact_id;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateArtifact(artifact, &artifact_id));
+
+  Attribution base_attribution;
+  base_attribution.set_context_id(context_id);
+  base_attribution.set_artifact_id(artifact_id);
+
+  // no context id
+  {
+    Attribution attribution = base_attribution;
+    attribution.clear_context_id();
+    int64 attribution_id;
+    absl::Status s = metadata_access_object_->CreateAttribution(
+        attribution, &attribution_id);
+    EXPECT_TRUE(absl::IsInvalidArgument(s));
+  }
+
+  // no artifact id
+  {
+    Attribution attribution = base_attribution;
+    attribution.clear_artifact_id();
+    int64 attribution_id;
+    absl::Status s = metadata_access_object_->CreateAttribution(
+        attribution, &attribution_id);
+    EXPECT_TRUE(absl::IsInvalidArgument(s));
+  }
+
+  // the context cannot be found
+  {
+    Attribution attribution = base_attribution;
+    int64 unknown_id = 12345;
+    attribution.set_context_id(unknown_id);
+    int64 attribution_id;
+    absl::Status s = metadata_access_object_->CreateAttribution(
+        attribution, &attribution_id);
+    EXPECT_TRUE(absl::IsInvalidArgument(s));
+  }
+
+  // the artifact cannot be found
+  {
+    Attribution attribution = base_attribution;
+    int64 unknown_id = 12345;
+    attribution.set_artifact_id(unknown_id);
+    int64 attribution_id;
+    absl::Status s = metadata_access_object_->CreateAttribution(
+        attribution, &attribution_id);
+    EXPECT_TRUE(absl::IsInvalidArgument(s));
+  }
+}
+
+// TODO(b/197686185): Remove test once foreign keys schema is implemented for
+// CreateAttribution
+TEST_P(MetadataAccessObjectTest, CreateAttributionWithoutValidation) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+
+  int64 context_type_id = InsertType<ContextType>("test_context_type");
+  Context context;
+  context.set_type_id(context_type_id);
+  context.set_name("test_context");
+  int64 context_id;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateContext(context, &context_id));
+
+  int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
+  Artifact artifact;
+  artifact.set_type_id(artifact_type_id);
+  int64 artifact_id;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateArtifact(artifact, &artifact_id));
+
+  // create attribution without validation (since the nodes are known to exist)
+  Attribution attribution;
+  attribution.set_context_id(context_id);
+  attribution.set_artifact_id(artifact_id);
+  int64 attribution_id;
+  absl::Status create_new_attribution_without_validation_status =
+      metadata_access_object_->CreateAttribution(
+          attribution, /*is_already_validated=*/true, &attribution_id);
+  EXPECT_EQ(absl::OkStatus(), create_new_attribution_without_validation_status);
+
+  // create duplicate attribution without validation
+  int64 duplicate_attribution_id;
+  absl::Status create_duplicate_attribution_without_validation_status =
+      metadata_access_object_->CreateAttribution(attribution,
+                                                 /*is_already_validated=*/true,
+                                                 &duplicate_attribution_id);
+  EXPECT_TRUE(absl::IsAlreadyExists(
+      create_duplicate_attribution_without_validation_status));
+
+  // create invalid attribution without validation
+  // NOTE: This is an invalid use case, but is intended to break once foreign
+  // key support is implemented in the schema.
+  Attribution invalid_attribution;
+  invalid_attribution.set_context_id(context_id + 1);
+  invalid_attribution.set_artifact_id(artifact_id + 1);
+  int64 invalid_attribution_id;
+  absl::Status create_invalid_attribution_without_validation_status =
+      metadata_access_object_->CreateAttribution(invalid_attribution,
+                                                 /*is_already_validated=*/true,
+                                                 &invalid_attribution_id);
+  EXPECT_EQ(absl::OkStatus(),
+            create_invalid_attribution_without_validation_status);
+}
+
 TEST_P(MetadataAccessObjectTest, CreateAssociationError2) {
   ASSERT_EQ(absl::OkStatus(), Init());
   Association association;

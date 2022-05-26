@@ -239,6 +239,10 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status CreateAttribution(const Attribution& attribution,
                                  int64* attribution_id) final;
 
+  absl::Status CreateAttribution(const Attribution& attribution,
+                                 bool is_already_validated,
+                                 int64* attribution_id) final;
+
   absl::Status FindContextsByArtifact(int64 artifact_id,
                                       std::vector<Context>* contexts) final;
 

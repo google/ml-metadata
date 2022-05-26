@@ -1575,21 +1575,36 @@ absl::Status RDBMSMetadataAccessObject::FindExecutionsByContext(
 
 absl::Status RDBMSMetadataAccessObject::CreateAttribution(
     const Attribution& attribution, int64* attribution_id) {
+  return CreateAttribution(attribution,
+                           /*is_already_validated=*/false, attribution_id);
+}
+
+absl::Status RDBMSMetadataAccessObject::CreateAttribution(
+    const Attribution& attribution, const bool is_already_validated,
+    int64* attribution_id) {
   if (!attribution.has_context_id())
     return absl::InvalidArgumentError("No context id is specified.");
-  RecordSet context_id_header;
-  MLMD_RETURN_IF_ERROR(executor_->SelectContextsByID({attribution.context_id()},
-                                                     &context_id_header));
-  if (context_id_header.records_size() == 0)
-    return absl::InvalidArgumentError("Context id not found.");
-
   if (!attribution.has_artifact_id())
     return absl::InvalidArgumentError("No artifact id is specified");
-  RecordSet artifact_id_header;
-  MLMD_RETURN_IF_ERROR(executor_->SelectArtifactsByID(
-      {attribution.artifact_id()}, &artifact_id_header));
-  if (artifact_id_header.records_size() == 0)
-    return absl::InvalidArgumentError("Artifact id not found.");
+
+  // check database for existing context and artifact
+  // skip check iff a transaction guarantees the context and artifact exist,
+  // i.e. `PutExecution()` and `PutLineageSubgraph()` in metadata_store.cc.
+  // TODO(b/197686185): Remove validation after migrating to a schema with
+  // foreign keys for context id and artifact id
+  if (!is_already_validated) {
+    RecordSet context_id_header;
+    MLMD_RETURN_IF_ERROR(executor_->SelectContextsByID(
+        {attribution.context_id()}, &context_id_header));
+    if (context_id_header.records_size() == 0)
+      return absl::InvalidArgumentError("Context id not found.");
+
+    RecordSet artifact_id_header;
+    MLMD_RETURN_IF_ERROR(executor_->SelectArtifactsByID(
+        {attribution.artifact_id()}, &artifact_id_header));
+    if (artifact_id_header.records_size() == 0)
+      return absl::InvalidArgumentError("Artifact id not found.");
+  }
 
   absl::Status status = executor_->InsertAttributionDirect(
       attribution.context_id(), attribution.artifact_id(), attribution_id);

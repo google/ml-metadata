@@ -457,11 +457,28 @@ class MetadataAccessObject {
       int64 context_id, absl::optional<ListOperationOptions> list_options,
       std::vector<Execution>* executions, std::string* next_page_token) = 0;
 
-  // Creates an attribution, returns the assigned attribution id.
-  // Returns INVALID_ARGUMENT error, if no context matches the context_id.
-  // Returns INVALID_ARGUMENT error, if no artifact matches the artifact_id.
-  // Returns ALREADY_EXISTS error, if the same attribution already exists.
+  // Creates an attribution, and returns the assigned attribution id.
+  // Please refer to the docstring for CreateAttribution() with the
+  // `is_already_validated` flag for more details. This method assumes the
+  // attribution has not been validated yet and sets `is_already_validated` to
+  // false.
   virtual absl::Status CreateAttribution(const Attribution& attribution,
+                                         int64* attribution_id) = 0;
+
+  // Creates an attribution, returns the assigned attribution id.
+  // If the attribution's context and artifact are known to exist in the
+  // database, set `is_already_validated` to true to avoid redundant reads to
+  // the database for checking.
+  //
+  // Returns INVALID_ARGUMENT error, if no context matches the context_id
+  //   and `is_already_validated=false`.
+  // Returns INVALID_ARGUMENT error, if no artifact matches the artifact_id.
+  //   and `is_already_validated=false`.
+  // Returns ALREADY_EXISTS error, if the same attribution already exists.
+  // TODO(b/197686185): Deprecate this method once foreign keys schema is
+  // implemented.
+  virtual absl::Status CreateAttribution(const Attribution& attribution,
+                                         bool is_already_validated,
                                          int64* attribution_id) = 0;
 
   // Queries the contexts that an artifact_id is attributed to.
