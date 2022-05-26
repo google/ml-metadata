@@ -416,11 +416,28 @@ class MetadataAccessObject {
   virtual absl::Status FindEventsByExecutions(
       const std::vector<int64>& execution_ids, std::vector<Event>* events) = 0;
 
-  // Creates an association, returns the assigned association id.
-  // Returns INVALID_ARGUMENT error, if no context matches the context_id.
-  // Returns INVALID_ARGUMENT error, if no execution matches the execution_id.
-  // Returns ALREADY_EXISTS error, if the same association already exists.
+  // Creates an association, and returns the assigned association id.
+  // Please refer to the docstring for CreateAssociation() with the
+  // `is_already_validated` flag for more details. This method assumes the
+  // association has not been validated yet and sets `is_already_validated` to
+  // false.
   virtual absl::Status CreateAssociation(const Association& association,
+                                         int64* association_id) = 0;
+
+  // Creates an association, returns the assigned association id.
+  // If the association's context and execution are known to exist in the
+  // database, set `is_already_validated` to true to avoid redundant reads to
+  // the database for checking.
+  //
+  // Returns INVALID_ARGUMENT error, if no context matches the context_id
+  //   and `is_already_validated=false`.
+  // Returns INVALID_ARGUMENT error, if no execution matches the execution_id.
+  //   and `is_already_validated=false`.
+  // Returns ALREADY_EXISTS error, if the same association already exists.
+  // TODO(b/197686185): Deprecate this method once foreign keys schema is
+  // implemented.
+  virtual absl::Status CreateAssociation(const Association& association,
+                                         bool is_already_validated,
                                          int64* association_id) = 0;
 
 

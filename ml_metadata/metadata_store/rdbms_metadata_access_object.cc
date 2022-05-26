@@ -1493,21 +1493,36 @@ absl::Status RDBMSMetadataAccessObject::FindEventsByExecutions(
 
 absl::Status RDBMSMetadataAccessObject::CreateAssociation(
     const Association& association, int64* association_id) {
+  return CreateAssociation(association, /*is_already_validated=*/false,
+                           association_id);
+}
+
+absl::Status RDBMSMetadataAccessObject::CreateAssociation(
+    const Association& association, const bool is_already_validated,
+    int64* association_id) {
   if (!association.has_context_id())
     return absl::InvalidArgumentError("No context id is specified.");
-  RecordSet context_id_header;
-  MLMD_RETURN_IF_ERROR(executor_->SelectContextsByID({association.context_id()},
-                                                     &context_id_header));
-  if (context_id_header.records_size() == 0)
-    return absl::InvalidArgumentError("Context id not found.");
-
   if (!association.has_execution_id())
     return absl::InvalidArgumentError("No execution id is specified");
-  RecordSet execution_id_header;
-  MLMD_RETURN_IF_ERROR(executor_->SelectExecutionsByID(
-      {association.execution_id()}, &execution_id_header));
-  if (execution_id_header.records_size() == 0)
-    return absl::InvalidArgumentError("Execution id not found.");
+
+  // check database for existing context and execution
+  // skip check iff a transaction guarantees the context and execution exist
+  // i.e. `PutExecution()` and `PutLineageSubgraph()` in metadata_store.cc
+  // TODO(b/197686185): Remove validation after migrating to a schema with
+  // foreign keys for context id and execution id
+  if (!is_already_validated) {
+    RecordSet context_id_header;
+    MLMD_RETURN_IF_ERROR(executor_->SelectContextsByID(
+        {association.context_id()}, &context_id_header));
+    if (context_id_header.records_size() == 0)
+      return absl::InvalidArgumentError("Context id not found.");
+
+    RecordSet execution_id_header;
+    MLMD_RETURN_IF_ERROR(executor_->SelectExecutionsByID(
+        {association.execution_id()}, &execution_id_header));
+    if (execution_id_header.records_size() == 0)
+      return absl::InvalidArgumentError("Execution id not found.");
+  }
 
   absl::Status status = executor_->InsertAssociation(
       association.context_id(), association.execution_id(), association_id);

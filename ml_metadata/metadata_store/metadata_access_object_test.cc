@@ -2338,9 +2338,8 @@ TEST_P(MetadataAccessObjectTest, ListNodesFilterContextNeighborQuery) {
   additional_association.set_execution_id(want_executions[1].id());
   additional_association.set_context_id(contexts[1].id());
   int64 dummy_assid;
-  ASSERT_EQ(absl::OkStatus(),
-            metadata_access_object_->CreateAssociation(additional_association,
-                                                       &dummy_assid));
+  ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateAssociation(
+                                  additional_association, &dummy_assid));
 
   VerifyListOptions<Execution>(
       absl::Substitute(R"(
@@ -5838,24 +5837,125 @@ TEST_P(MetadataAccessObjectTest, GetEmptyAttributionAssociationWithPagination) {
 
 TEST_P(MetadataAccessObjectTest, CreateAssociationError) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  Association association;
-  int64 association_id;
+
+  // Create base association with
+  // * valid context id
+  // * valid execution id
+  int64 context_type_id = InsertType<ContextType>("test_context_type");
+  Context context;
+  context.set_type_id(context_type_id);
+  context.set_name("test_context");
+  int64 context_id;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateContext(context, &context_id));
+
+  int64 execution_type_id = InsertType<ExecutionType>("test_execution_type");
+  Execution execution;
+  execution.set_type_id(execution_type_id);
+  int64 execution_id;
+  ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateExecution(
+                                  execution, &execution_id));
+
+  Association base_association;
+  base_association.set_context_id(context_id);
+  base_association.set_execution_id(execution_id);
+
   // no context id
-  EXPECT_TRUE(
-      absl::IsInvalidArgument(metadata_access_object_->CreateAssociation(
-          association, &association_id)));
+  {
+    Association association = base_association;
+    association.clear_context_id();
+    int64 association_id;
+    EXPECT_TRUE(
+        absl::IsInvalidArgument(metadata_access_object_->CreateAssociation(
+            association, &association_id)));
+  }
 
   // no execution id
-  association.set_context_id(100);
-  EXPECT_TRUE(
-      absl::IsInvalidArgument(metadata_access_object_->CreateAssociation(
-          association, &association_id)));
+  {
+    Association association = base_association;
+    association.clear_execution_id();
+    int64 association_id;
+    EXPECT_TRUE(
+        absl::IsInvalidArgument(metadata_access_object_->CreateAssociation(
+            association, &association_id)));
+  }
 
-  // the context or execution cannot be found
-  association.set_execution_id(100);
-  EXPECT_TRUE(
-      absl::IsInvalidArgument(metadata_access_object_->CreateAssociation(
-          association, &association_id)));
+  // the context cannot be found
+  {
+    Association association = base_association;
+    int64 unknown_id = 12345;
+    association.set_context_id(unknown_id);
+    int64 association_id;
+    EXPECT_TRUE(
+        absl::IsInvalidArgument(metadata_access_object_->CreateAssociation(
+            association, &association_id)));
+  }
+
+  // the execution cannot be found
+
+  {
+    Association association = base_association;
+    int64 unknown_id = 12345;
+    association.set_execution_id(unknown_id);
+    int64 association_id;
+    EXPECT_TRUE(
+        absl::IsInvalidArgument(metadata_access_object_->CreateAssociation(
+            association, &association_id)));
+  }
+}
+
+// TODO(b/197686185): Remove test once foreign keys schema is implemented for
+// CreateAssociation
+TEST_P(MetadataAccessObjectTest, CreateAssociationWithoutValidation) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+
+  int64 context_type_id = InsertType<ContextType>("test_context_type");
+  Context context;
+  context.set_type_id(context_type_id);
+  context.set_name("test_context");
+  int64 context_id;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateContext(context, &context_id));
+
+  int64 execution_type_id = InsertType<ExecutionType>("test_execution_type");
+  Execution execution;
+  execution.set_type_id(execution_type_id);
+  int64 execution_id;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateExecution(execution, &execution_id));
+
+  // create association without validation (since the nodes are known to exist)
+  Association association;
+  association.set_context_id(context_id);
+  association.set_execution_id(execution_id);
+  int64 association_id;
+  absl::Status create_new_association_without_validation_status =
+      metadata_access_object_->CreateAssociation(
+          association, /*is_already_validated=*/true, &association_id);
+  EXPECT_EQ(absl::OkStatus(), create_new_association_without_validation_status);
+
+  // create duplicate association without validation
+  int64 duplicate_association_id;
+  absl::Status create_duplicate_association_without_validation_status =
+      metadata_access_object_->CreateAssociation(association,
+                                                 /*is_already_validated=*/true,
+                                                 &duplicate_association_id);
+  EXPECT_TRUE(absl::IsAlreadyExists(
+      create_duplicate_association_without_validation_status));
+
+  // create invalid association without validation
+  // NOTE: This is an invalid use case, but is intended to break once foreign
+  // key support is implemented in the schema.
+  Association invalid_association;
+  invalid_association.set_context_id(context_id + 1);
+  invalid_association.set_execution_id(execution_id + 1);
+  int64 invalid_association_id;
+  absl::Status create_invalid_association_without_validation_status =
+      metadata_access_object_->CreateAssociation(invalid_association,
+                                                 /*is_already_validated=*/true,
+                                                 &invalid_association_id);
+  EXPECT_EQ(absl::OkStatus(),
+            create_invalid_association_without_validation_status);
 }
 
 TEST_P(MetadataAccessObjectTest, CreateAssociationError2) {

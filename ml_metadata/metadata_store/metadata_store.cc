@@ -343,15 +343,18 @@ absl::Status UpsertContextWithOptions(
 }
 
 // Inserts an association. If the association already exists it returns OK.
+// TODO(b/197686185): Remove `is_already_validated` parameter once foreign key
+// schema is implemented.
 absl::Status InsertAssociationIfNotExist(
-    int64 context_id, int64 execution_id,
+    int64 context_id, int64 execution_id, bool is_already_validated,
     MetadataAccessObject* metadata_access_object) {
   Association association;
   association.set_execution_id(execution_id);
   association.set_context_id(context_id);
-  int64 dummy_assocation_id;
+  int64 dummy_association_id;
   absl::Status status = metadata_access_object->CreateAssociation(
-      association, &dummy_assocation_id);
+      association, /*is_already_validated=*/is_already_validated,
+      &dummy_association_id);
   if (!status.ok() && !absl::IsAlreadyExists(status)) {
     return status;
   }
@@ -1032,7 +1035,8 @@ absl::Status MetadataStore::PutExecution(const PutExecutionRequest& request,
       MLMD_RETURN_IF_ERROR(status);
       response->add_context_ids(context_id);
       MLMD_RETURN_IF_ERROR(InsertAssociationIfNotExist(
-          context_id, response->execution_id(), metadata_access_object_.get()));
+          context_id, response->execution_id(), /*is_already_validated=*/true,
+          metadata_access_object_.get()));
       for (const int64 artifact_id : response->artifact_ids()) {
         MLMD_RETURN_IF_ERROR(InsertAttributionIfNotExist(
             context_id, artifact_id, metadata_access_object_.get()));
@@ -1072,7 +1076,8 @@ absl::Status MetadataStore::PutLineageSubgraph(
 
           for (const int64 context_id : response->context_ids()) {
             MLMD_RETURN_IF_ERROR(InsertAssociationIfNotExist(
-                context_id, execution_id, metadata_access_object_.get()));
+                context_id, execution_id, /*is_already_validated=*/true,
+                metadata_access_object_.get()));
           }
         }
 
@@ -1623,7 +1628,7 @@ absl::Status MetadataStore::PutAttributionsAndAssociations(
         for (const Association& association : request.associations()) {
           MLMD_RETURN_IF_ERROR(InsertAssociationIfNotExist(
               association.context_id(), association.execution_id(),
-              metadata_access_object_.get()));
+              /*is_already_validated=*/false, metadata_access_object_.get()));
         }
         return absl::OkStatus();
       },

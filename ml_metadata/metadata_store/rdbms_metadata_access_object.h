@@ -221,6 +221,10 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status CreateAssociation(const Association& association,
                                  int64* association_id) final;
 
+  absl::Status CreateAssociation(const Association& association,
+                                 bool is_already_validated,
+                                 int64* association_id) final;
+
 
   absl::Status FindContextsByExecution(int64 execution_id,
                                        std::vector<Context>* contexts) final;
