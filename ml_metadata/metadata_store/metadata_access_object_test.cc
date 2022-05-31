@@ -6190,16 +6190,16 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindEvent) {
   event1.mutable_path()->add_steps()->set_index(1);
   event1.mutable_path()->add_steps()->set_key("key");
   int64 event1_id = -1;
-  EXPECT_EQ(absl::OkStatus(),
-            metadata_access_object_->CreateEvent(event1, &event1_id));
+  EXPECT_EQ(metadata_access_object_->CreateEvent(event1, &event1_id),
+            absl::OkStatus());
 
   // event2 with optional fields
   Event event2 = ParseTextProtoOrDie<Event>("type: OUTPUT");
   event2.set_artifact_id(output_artifact_id);
   event2.set_execution_id(execution_id);
   int64 event2_id = -1;
-  EXPECT_EQ(absl::OkStatus(),
-            metadata_access_object_->CreateEvent(event2, &event2_id));
+  EXPECT_EQ(metadata_access_object_->CreateEvent(event2, &event2_id),
+            absl::OkStatus());
 
   EXPECT_NE(event1_id, -1);
   EXPECT_NE(event2_id, -1);
@@ -6252,11 +6252,35 @@ TEST_P(MetadataAccessObjectTest, FindEventsByExecutionsNotFound) {
 }
 
 TEST_P(MetadataAccessObjectTest, CreateEventError) {
-  ASSERT_EQ(absl::OkStatus(), Init());
+  ASSERT_EQ(Init(), absl::OkStatus());
+
+  // Create base event with
+  // * valid artifact id
+  // * valid execution id
+  // * event_type
+  int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
+  Artifact artifact;
+  artifact.set_type_id(artifact_type_id);
+  int64 artifact_id;
+  ASSERT_EQ(metadata_access_object_->CreateArtifact(artifact, &artifact_id),
+            absl::OkStatus());
+
+  int64 execution_type_id = InsertType<ExecutionType>("test_execution_type");
+  Execution execution;
+  execution.set_type_id(execution_type_id);
+  int64 execution_id;
+  ASSERT_EQ(metadata_access_object_->CreateExecution(execution, &execution_id),
+            absl::OkStatus());
+
+  Event base_event;
+  base_event.set_artifact_id(artifact_id);
+  base_event.set_execution_id(execution_id);
+  base_event.set_type(Event::INPUT);
 
   // no artifact id
   {
-    Event event;
+    Event event = base_event;
+    event.clear_artifact_id();
     int64 event_id;
     absl::Status s = metadata_access_object_->CreateEvent(event, &event_id);
     EXPECT_TRUE(absl::IsInvalidArgument(s));
@@ -6264,40 +6288,85 @@ TEST_P(MetadataAccessObjectTest, CreateEventError) {
 
   // no execution id
   {
-    Event event;
+    Event event = base_event;
+    event.clear_execution_id();
     int64 event_id;
-    event.set_artifact_id(1);
     absl::Status s = metadata_access_object_->CreateEvent(event, &event_id);
     EXPECT_TRUE(absl::IsInvalidArgument(s));
   }
 
   // no event type
   {
-    Event event;
+    Event event = base_event;
+    event.clear_type();
     int64 event_id;
-    event.set_artifact_id(1);
-    event.set_execution_id(1);
     absl::Status s = metadata_access_object_->CreateEvent(event, &event_id);
     EXPECT_TRUE(absl::IsInvalidArgument(s));
   }
 
-  // artifact or execution cannot be found
+  // artifact cannot be found
   {
-    int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
-    Artifact artifact;
-    artifact.set_type_id(artifact_type_id);
-    int64 artifact_id;
-    ASSERT_EQ(absl::OkStatus(),
-              metadata_access_object_->CreateArtifact(artifact, &artifact_id));
-
-    Event event;
-    int64 event_id;
-    event.set_artifact_id(artifact_id);
+    Event event = base_event;
     int64 unknown_id = 12345;
+    int64 event_id;
+    event.set_artifact_id(unknown_id);
+    absl::Status s = metadata_access_object_->CreateEvent(event, &event_id);
+    EXPECT_TRUE(absl::IsInvalidArgument(s));
+  }
+
+  // execution cannot be found
+  {
+    Event event = base_event;
+    int64 unknown_id = 12345;
+    int64 event_id;
     event.set_execution_id(unknown_id);
     absl::Status s = metadata_access_object_->CreateEvent(event, &event_id);
     EXPECT_TRUE(absl::IsInvalidArgument(s));
   }
+}
+
+// TODO(b/197686185): Remove test once foreign keys schema is implemented for
+// CreateEvent
+TEST_P(MetadataAccessObjectTest, CreateEventWithoutValidation) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+
+  int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
+  Artifact artifact;
+  artifact.set_type_id(artifact_type_id);
+  int64 artifact_id;
+  ASSERT_EQ(metadata_access_object_->CreateArtifact(artifact, &artifact_id),
+            absl::OkStatus());
+
+  int64 execution_type_id = InsertType<ExecutionType>("test_execution_type");
+  Execution execution;
+  execution.set_type_id(execution_type_id);
+  int64 execution_id;
+  ASSERT_EQ(metadata_access_object_->CreateExecution(execution, &execution_id),
+            absl::OkStatus());
+
+  // insert event without validating (since the nodes are known to exist)
+  Event event;
+  event.set_artifact_id(artifact_id);
+  event.set_execution_id(execution_id);
+  event.set_type(Event::INPUT);
+  int64 event_id;
+  absl::Status create_new_event_without_validation_status =
+      metadata_access_object_->CreateEvent(event, /*is_already_validated=*/true,
+                                           &event_id);
+  EXPECT_EQ(create_new_event_without_validation_status, absl::OkStatus());
+
+  // insert invalid event without validation
+  // NOTE: This is an invalid use case, but is intended to break once foreign
+  // key support is implemented in the schema.
+  Event invalid_event;
+  int64 invalid_event_id;
+  invalid_event.set_artifact_id(artifact_id + 1);
+  invalid_event.set_execution_id(execution_id + 1);
+  invalid_event.set_type(Event::INPUT);
+  absl::Status create_invalid_event_without_validation_status =
+      metadata_access_object_->CreateEvent(
+          invalid_event, /*is_already_validated=*/true, &invalid_event_id);
+  EXPECT_EQ(create_invalid_event_without_validation_status, absl::OkStatus());
 }
 
 TEST_P(MetadataAccessObjectTest, PutEventsWithPaths) {
@@ -6330,8 +6399,8 @@ TEST_P(MetadataAccessObjectTest, PutEventsWithPaths) {
   event1.mutable_path()->add_steps()->set_index(1);
   event1.mutable_path()->add_steps()->set_key("key");
   int64 event1_id = -1;
-  EXPECT_EQ(absl::OkStatus(),
-            metadata_access_object_->CreateEvent(event1, &event1_id));
+  EXPECT_EQ(metadata_access_object_->CreateEvent(event1, &event1_id),
+            absl::OkStatus());
 
   // event2 with optional fields
   Event event2 = ParseTextProtoOrDie<Event>("type: OUTPUT");
@@ -6341,8 +6410,8 @@ TEST_P(MetadataAccessObjectTest, PutEventsWithPaths) {
   event2.mutable_path()->add_steps()->set_key("output_key");
 
   int64 event2_id = -1;
-  EXPECT_EQ(absl::OkStatus(),
-            metadata_access_object_->CreateEvent(event2, &event2_id));
+  EXPECT_EQ(metadata_access_object_->CreateEvent(event2, &event2_id),
+            absl::OkStatus());
 
   EXPECT_NE(event1_id, -1);
   EXPECT_NE(event2_id, -1);
@@ -6400,8 +6469,8 @@ TEST_P(MetadataAccessObjectTest, CreateDuplicatedEvents) {
   event1.mutable_path()->add_steps()->set_index(1);
   event1.mutable_path()->add_steps()->set_key("key");
   int64 event1_id = -1;
-  EXPECT_EQ(absl::OkStatus(),
-            metadata_access_object_->CreateEvent(event1, &event1_id));
+  EXPECT_EQ(metadata_access_object_->CreateEvent(event1, &event1_id),
+            absl::OkStatus());
   EXPECT_NE(event1_id, -1);
 
   // event2 with same artifact_id, execution_id but different type.
@@ -6409,8 +6478,8 @@ TEST_P(MetadataAccessObjectTest, CreateDuplicatedEvents) {
   event2.set_artifact_id(input_artifact_id);
   event2.set_execution_id(execution_id);
   int64 event2_id = -1;
-  EXPECT_EQ(absl::OkStatus(),
-            metadata_access_object_->CreateEvent(event2, &event2_id));
+  EXPECT_EQ(metadata_access_object_->CreateEvent(event2, &event2_id),
+            absl::OkStatus());
   EXPECT_NE(event2_id, -1);
   EXPECT_NE(event1_id, event2_id);
 

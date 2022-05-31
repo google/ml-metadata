@@ -395,14 +395,26 @@ class MetadataAccessObject {
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status UpdateContext(const Context& context) = 0;
 
+  // Creates an event, and returns the assigned event id. Please refer to the
+  // docstring for CreateEvent() with the `is_already_validated` flag for more
+  // details. This method assumes the event has not been validated yet and sets
+  // `is_already_validated` to false.
+  virtual absl::Status CreateEvent(const Event& event, int64* event_id) = 0;
+
   // Creates an event, returns the assigned event id. If the event occurrence
-  // time is not given, the insertion time is used.
+  // time is not given, the insertion time is used. If the event's execution
+  // and artifact are known to exist in the database, set is_already_validated
+  // to true to avoid redundant reads to the database for checking.
   // TODO(huimiao) Allow to have a unknown event time.
   // Returns INVALID_ARGUMENT error, if no artifact matches the artifact_id.
   // Returns INVALID_ARGUMENT error, if no execution matches the execution_id.
   // Returns INVALID_ARGUMENT error, if the type field is UNKNOWN.
   // Returns ALREADY_EXIST error, if duplicated event is found.
-  virtual absl::Status CreateEvent(const Event& event, int64* event_id) = 0;
+  // TODO(b/197686185): Deprecate this method once foreign keys schema is
+  // implemented.
+  virtual absl::Status CreateEvent(const Event& event,
+                                   bool is_already_validated,
+                                   int64* event_id) = 0;
 
   // Queries the events associated with a collection of artifact_ids.
   // Returns NOT_FOUND error, if no `events` can be found.

@@ -212,6 +212,9 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   absl::Status CreateEvent(const Event& event, int64* event_id) final;
 
+  absl::Status CreateEvent(const Event& event, const bool is_already_validated,
+                           int64* event_id) final;
+
   absl::Status FindEventsByArtifacts(const std::vector<int64>& artifact_ids,
                                      std::vector<Event>* events) final;
 

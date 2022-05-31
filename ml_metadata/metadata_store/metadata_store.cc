@@ -383,7 +383,8 @@ absl::Status InsertAttributionIfNotExist(
 // Updates or inserts a pair of {Artifact, Event}. If artifact is not given,
 // the event.artifact_id must exist, and it inserts the event, and returns the
 // artifact_id. Otherwise if artifact is given, event.artifact_id is optional,
-// if set, then artifact.id and event.artifact_id must align.
+// if set, then artifact.id and event.artifact_id must align. The event is
+// assumed to have been populated with a valid execution_id.
 absl::Status UpsertArtifactAndEvent(
     const PutExecutionRequest::ArtifactAndEvent& artifact_and_event,
     MetadataAccessObject* metadata_access_object, int64* artifact_id) {
@@ -432,7 +433,9 @@ absl::Status UpsertArtifactAndEvent(
     *artifact_id = event.artifact_id();
   }
   int64 dummy_event_id = -1;
-  return metadata_access_object->CreateEvent(event, &dummy_event_id);
+  return metadata_access_object->CreateEvent(event,
+                                             /*is_already_validated=*/true,
+                                             &dummy_event_id);
 }
 
 // A util to handle type_version in type read/write API requests.
@@ -1117,8 +1120,8 @@ absl::Status MetadataStore::PutLineageSubgraph(
           }
 
           int64 dummy_event_id = -1;
-          MLMD_RETURN_IF_ERROR(
-              metadata_access_object_->CreateEvent(event, &dummy_event_id));
+          MLMD_RETURN_IF_ERROR(metadata_access_object_->CreateEvent(
+              event, /*is_already_validated=*/true, &dummy_event_id));
         }
         return absl::OkStatus();
       },

@@ -1413,6 +1413,11 @@ absl::Status RDBMSMetadataAccessObject::UpdateContext(const Context& context) {
 
 absl::Status RDBMSMetadataAccessObject::CreateEvent(const Event& event,
                                                     int64* event_id) {
+  return CreateEvent(event, /*is_already_validated=*/false, event_id);
+}
+
+absl::Status RDBMSMetadataAccessObject::CreateEvent(
+    const Event& event, const bool is_already_validated, int64* event_id) {
   // validate the given event
   if (!event.has_artifact_id())
     return absl::InvalidArgumentError("No artifact id is specified.");
@@ -1420,19 +1425,27 @@ absl::Status RDBMSMetadataAccessObject::CreateEvent(const Event& event,
     return absl::InvalidArgumentError("No execution id is specified.");
   if (!event.has_type() || event.type() == Event::UNKNOWN)
     return absl::InvalidArgumentError("No event type is specified.");
-  RecordSet artifacts;
-  MLMD_RETURN_IF_ERROR(
-      executor_->SelectArtifactsByID({event.artifact_id()}, &artifacts));
-  RecordSet executions;
-  MLMD_RETURN_IF_ERROR(
-      executor_->SelectExecutionsByID({event.execution_id()}, &executions));
-  RecordSet record_set;
-  if (artifacts.records_size() == 0)
-    return absl::InvalidArgumentError(
-        absl::StrCat("No artifact with the given id ", event.artifact_id()));
-  if (executions.records_size() == 0)
-    return absl::InvalidArgumentError(
-        absl::StrCat("No execution with the given id ", event.execution_id()));
+
+  // check database for existing artifact and execution
+  // skip check iff a transaction guarantees the artifact and execution exist,
+  // i.e. `PutExecution()` and `PutLineageSubgraph()` in metadata_store.cc.
+  // TODO(b/197686185): Remove validation after migrating to a schema with
+  // foreign keys for artifact id and execution id
+  if (!is_already_validated) {
+    RecordSet artifacts;
+    MLMD_RETURN_IF_ERROR(
+        executor_->SelectArtifactsByID({event.artifact_id()}, &artifacts));
+    RecordSet executions;
+    MLMD_RETURN_IF_ERROR(
+        executor_->SelectExecutionsByID({event.execution_id()}, &executions));
+    RecordSet record_set;
+    if (artifacts.records_size() == 0)
+      return absl::InvalidArgumentError(
+          absl::StrCat("No artifact with the given id ", event.artifact_id()));
+    if (executions.records_size() == 0)
+      return absl::InvalidArgumentError(absl::StrCat(
+          "No execution with the given id ", event.execution_id()));
+  }
 
   // insert an event and get its given id
   int64 event_time = event.has_milliseconds_since_epoch()
