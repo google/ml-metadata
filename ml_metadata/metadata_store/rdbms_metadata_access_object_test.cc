@@ -182,16 +182,42 @@ TEST_P(RDBMSMetadataAccessObjectTest, FindTypesImpl) {
   // Test: empty ids
   {
     std::vector<ArtifactType> types;
-    EXPECT_TRUE(absl::IsInvalidArgument(FindTypesImpl({}, types)));
+    EXPECT_TRUE(absl::IsInvalidArgument(
+        FindTypesImpl({}, /*get_properties=*/false, types)));
   }
-
-  // Test: get types succeeded
+  // Test: get types succeeded when `get_properties` is set to true.
   {
     std::vector<ArtifactType> artifact_types;
     ASSERT_EQ(absl::OkStatus(),
               FindTypesImpl({artifact_type_id_1, artifact_type_id_2},
-                            artifact_types));
-    // Verify: type properties will NOT be retrieved by FindTypesImpl.
+                            /*get_properties=*/true, artifact_types));
+    // Verify: type properties WILL be retrieved by FindTypesImpl if
+    // `get_properties` is true.
+    EXPECT_THAT(artifact_types,
+                UnorderedElementsAre(EqualsProto(artifact_type_1),
+                                     EqualsProto(artifact_type_2)));
+    std::vector<ExecutionType> execution_types;
+    ASSERT_EQ(absl::OkStatus(),
+              FindTypesImpl({execution_type_id}, /*get_properties=*/true,
+                            execution_types));
+    ASSERT_EQ(execution_types.size(), 1);
+    EXPECT_THAT(execution_types[0], EqualsProto(execution_type));
+
+    std::vector<ContextType> context_types;
+    ASSERT_EQ(absl::OkStatus(),
+              FindTypesImpl({context_type_id}, /*get_properties=*/true,
+                            context_types));
+    ASSERT_EQ(context_types.size(), 1);
+    EXPECT_THAT(context_types[0], EqualsProto(context_type));
+  }
+  // Test: get types succeeded when `get_properties` is set to false.
+  {
+    std::vector<ArtifactType> artifact_types;
+    ASSERT_EQ(absl::OkStatus(),
+              FindTypesImpl({artifact_type_id_1, artifact_type_id_2},
+                            /*get_properties=*/false, artifact_types));
+    // Verify: type properties will NOT be retrieved by FindTypesImpl if
+    // `get_properties` is false.
     artifact_type_1.clear_properties();
     artifact_type_2.clear_properties();
     EXPECT_THAT(artifact_types,
@@ -199,13 +225,15 @@ TEST_P(RDBMSMetadataAccessObjectTest, FindTypesImpl) {
                                      EqualsProto(artifact_type_2)));
     std::vector<ExecutionType> execution_types;
     ASSERT_EQ(absl::OkStatus(),
-              FindTypesImpl({execution_type_id}, execution_types));
+              FindTypesImpl({execution_type_id}, /*get_properties=*/false,
+                            execution_types));
     ASSERT_EQ(execution_types.size(), 1);
     EXPECT_THAT(execution_types[0], EqualsProto(execution_type));
 
     std::vector<ContextType> context_types;
     ASSERT_EQ(absl::OkStatus(),
-              FindTypesImpl({context_type_id}, context_types));
+              FindTypesImpl({context_type_id}, /*get_properties=*/false,
+                            context_types));
     ASSERT_EQ(context_types.size(), 1);
     EXPECT_THAT(context_types[0], EqualsProto(context_type));
   }
@@ -214,8 +242,9 @@ TEST_P(RDBMSMetadataAccessObjectTest, FindTypesImpl) {
     std::vector<ArtifactType> artifact_types;
     // Verify: NOT_FOUND error was returned because results were missing for
     // execution type id.
-    EXPECT_TRUE(absl::IsNotFound(FindTypesImpl(
-        {artifact_type_id_1, execution_type_id}, artifact_types)));
+    EXPECT_TRUE(absl::IsNotFound(
+        FindTypesImpl({artifact_type_id_1, execution_type_id},
+                      /*get_properties=*/false, artifact_types)));
   }
 }
 
@@ -306,7 +335,8 @@ TEST_P(RDBMSMetadataAccessObjectTest, FindParentTypesByTypeIdImpl) {
                   parent_types));
     // Verify: only type_1 and type_4 have parent types.
     ASSERT_EQ(parent_types.size(), 3);
-    // Verify: type properties will NOT be retrieved by FindTypesImpl.
+    // Verify: type properties will NOT be retrieved by FindTypesImpl in
+    // FindParentTypesByTypeIdImpl.
     type_3.clear_properties();
     EXPECT_THAT(parent_types[type_id_1], EqualsProto(type_3));
     EXPECT_THAT(parent_types[type_id_2], EqualsProto(type_3));

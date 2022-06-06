@@ -106,6 +106,14 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status FindTypeById(int64 type_id, ExecutionType* execution_type) final;
   absl::Status FindTypeById(int64 type_id, ContextType* context_type) final;
 
+  absl::Status FindTypesByIds(absl::Span<const int64> type_ids,
+                              std::vector<ArtifactType>& artifact_types) final;
+  absl::Status FindTypesByIds(
+      absl::Span<const int64> type_ids,
+      std::vector<ExecutionType>& execution_types) final;
+  absl::Status FindTypesByIds(absl::Span<const int64> type_ids,
+                              std::vector<ContextType>& context_types) final;
+
   absl::Status FindTypeByNameAndVersion(
       absl::string_view name, absl::optional<absl::string_view> version,
       ArtifactType* artifact_type) final;
@@ -438,11 +446,14 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   // Finds types by the given `type_ids`. Acceptable types are {ArtifactType,
   // ExecutionType, ContextType} (`MessageType`).
+  // `get_properties` flag is used to control whether the returned `types`
+  // should contains any properties.
   // Returns INVALID_ARGUMENT if `type_ids` is empty or `types` is not empty.
   // Returns detailed INTERNAL error if query execution fails.
   // If any ids are not found then returns NOT_FOUND error.
   template <typename MessageType>
   absl::Status FindTypesImpl(absl::Span<const int64> type_ids,
+                             bool get_properties,
                              std::vector<MessageType>& types);
 
   // Finds a type by its type_id. Acceptable types are {ArtifactType,

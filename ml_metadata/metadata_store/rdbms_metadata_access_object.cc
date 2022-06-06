@@ -769,7 +769,7 @@ absl::Status RDBMSMetadataAccessObject::FindTypesFromRecordSet(
 
 template <typename MessageType>
 absl::Status RDBMSMetadataAccessObject::FindTypesImpl(
-    absl::Span<const int64> type_ids,
+    absl::Span<const int64> type_ids, bool get_properties,
     std::vector<MessageType>& types) {
   if (type_ids.empty()) {
     return absl::InvalidArgumentError("ids cannot be empty");
@@ -792,7 +792,7 @@ absl::Status RDBMSMetadataAccessObject::FindTypesImpl(
   MLMD_RETURN_IF_ERROR(
       executor_->SelectTypesByID(deduped_ids, type_kind, &record_set));
   MLMD_RETURN_IF_ERROR(
-      FindTypesFromRecordSet(record_set, &types, /*get_properties=*/false));
+      FindTypesFromRecordSet(record_set, &types, get_properties));
 
   if (deduped_ids.size() != types.size()) {
     std::vector<int64> found_ids;
@@ -927,7 +927,8 @@ absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeIdImpl(
 
   // Creates a {parent_id, parent_type} mapping.
   std::vector<Type> parent_types;
-  MLMD_RETURN_IF_ERROR(FindTypesImpl(parent_type_ids, parent_types));
+  MLMD_RETURN_IF_ERROR(
+      FindTypesImpl(parent_type_ids, /*get_properties=*/false, parent_types));
   absl::flat_hash_map<int64, Type> parent_id_to_type;
   for (const auto& parent_type : parent_types) {
     parent_id_to_type.insert({parent_type.id(), parent_type});
@@ -1191,6 +1192,23 @@ absl::Status RDBMSMetadataAccessObject::FindTypes(
 absl::Status RDBMSMetadataAccessObject::FindTypeById(
     const int64 type_id, ContextType* context_type) {
   return FindTypeImpl(type_id, context_type);
+}
+
+absl::Status RDBMSMetadataAccessObject::FindTypesByIds(
+    absl::Span<const int64> type_ids,
+    std::vector<ArtifactType>& artifact_types) {
+  return FindTypesImpl(type_ids, /*get_properties=*/true, artifact_types);
+}
+
+absl::Status RDBMSMetadataAccessObject::FindTypesByIds(
+    absl::Span<const int64> type_ids,
+    std::vector<ExecutionType>& execution_types) {
+  return FindTypesImpl(type_ids, /*get_properties=*/true, execution_types);
+}
+
+absl::Status RDBMSMetadataAccessObject::FindTypesByIds(
+    absl::Span<const int64> type_ids, std::vector<ContextType>& context_types) {
+  return FindTypesImpl(type_ids, /*get_properties=*/true, context_types);
 }
 
 absl::Status RDBMSMetadataAccessObject::FindTypes(

@@ -110,8 +110,10 @@ class RDBMSMetadataAccessObjectTest
 
   template <typename MessageType>
   absl::Status FindTypesImpl(absl::Span<const int64> type_ids,
+                             bool get_properties,
                              std::vector<MessageType>& types) {
-    return rdbms_metadata_access_object_->FindTypesImpl(type_ids, types);
+    return rdbms_metadata_access_object_->FindTypesImpl(type_ids,
+                                                        get_properties, types);
   }
 
   template <typename Type>

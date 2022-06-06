@@ -27,12 +27,11 @@ limitations under the License.
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_format.h"
-#include "absl/strings/str_replace.h"
-#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "absl/types/optional.h"
+#include "ml_metadata/metadata_store/metadata_access_object.h"
 #include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
@@ -400,6 +399,33 @@ void UpdateAndReturnNode(const Context& updated_node,
                                   {updated_node.id()}, &contexts));
   ASSERT_THAT(contexts, SizeIs(1));
   output = contexts.at(0);
+}
+
+// Set up for FindTypesByIds() related tests.
+// `type_1` and `type_2` are initilized, inserted into db and returned.
+template <class Type>
+absl::Status FindTypesByIdsSetup(MetadataAccessObject& metadata_access_object,
+                                 Type& type_1, Type& type_2) {
+  type_1 = ParseTextProtoOrDie<Type>(R"pb(
+    name: 'test_type_1'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: DOUBLE }
+    properties { key: 'property_3' value: STRING }
+    properties { key: 'property_4' value: STRUCT }
+  )pb");
+  type_2 = ParseTextProtoOrDie<Type>(R"pb(
+    name: 'test_type_2'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: DOUBLE }
+  )pb");
+  int64 type_id_1;
+  int64 type_id_2;
+  MLMD_RETURN_IF_ERROR(metadata_access_object.CreateType(type_1, &type_id_1));
+  MLMD_RETURN_IF_ERROR(metadata_access_object.CreateType(type_2, &type_id_2));
+  type_1.set_id(type_id_1);
+  type_2.set_id(type_id_2);
+
+  return absl::OkStatus();
 }
 
 TEST_P(MetadataAccessObjectTest, InitMetadataSourceCheckSchemaVersion) {
@@ -1278,6 +1304,207 @@ TEST_P(MetadataAccessObjectTest, FindTypeIdByNameAndVersion) {
       absl::IsNotFound(metadata_access_object_->FindTypeIdByNameAndVersion(
           "test_type", /*version=*/absl::nullopt, TypeKind::CONTEXT_TYPE,
           &got_type_id)));
+}
+
+TEST_P(MetadataAccessObjectTest, FindTypesByIdsArtifactSuccess) {
+  MLMD_ASSERT_OK(Init());
+  ArtifactType want_type_1;
+  ArtifactType want_type_2;
+  MLMD_ASSERT_OK(
+      FindTypesByIdsSetup(*metadata_access_object_, want_type_1, want_type_2));
+
+  std::vector<ArtifactType> got_types;
+  MLMD_ASSERT_OK(metadata_access_object_->FindTypesByIds(
+      {want_type_1.id(), want_type_2.id()}, got_types));
+  EXPECT_THAT(got_types,
+              ElementsAre(EqualsProto(want_type_1, /*ignore_fields=*/{"id"}),
+                          EqualsProto(want_type_2, /*ignore_fields=*/{"id"})));
+}
+
+TEST_P(MetadataAccessObjectTest, FindTypesByIdsArtifactInvalidInput) {
+  MLMD_ASSERT_OK(Init());
+  ArtifactType want_type_1;
+  ArtifactType want_type_2;
+  MLMD_ASSERT_OK(
+      FindTypesByIdsSetup(*metadata_access_object_, want_type_1, want_type_2));
+  std::vector<ArtifactType> got_types;
+
+  // Returns INVALID_ARGUMENT error if `type_ids` is empty or `a/e/c_types` is
+  // not empty.
+  EXPECT_TRUE(absl::IsInvalidArgument(
+      metadata_access_object_->FindTypesByIds({}, got_types)));
+  EXPECT_THAT(got_types, IsEmpty());
+  // Makes `a/e/c_types` to be not empty.
+  got_types.push_back(want_type_1);
+  EXPECT_TRUE(absl::IsInvalidArgument(metadata_access_object_->FindTypesByIds(
+      {want_type_1.id(), want_type_2.id()}, got_types)));
+}
+
+TEST_P(MetadataAccessObjectTest, FindTypesByIdsArtifactNotFound) {
+  MLMD_ASSERT_OK(Init());
+  ArtifactType want_type_1;
+  ArtifactType want_type_2;
+  MLMD_ASSERT_OK(
+      FindTypesByIdsSetup(*metadata_access_object_, want_type_1, want_type_2));
+  std::vector<ArtifactType> got_types;
+
+  // Returns NOT_FOUND error if any of the id cannot be found.
+  EXPECT_TRUE(absl::IsNotFound(metadata_access_object_->FindTypesByIds(
+      {want_type_1.id() + 123, want_type_2.id()}, got_types)));
+  got_types.clear();
+  EXPECT_TRUE(absl::IsNotFound(metadata_access_object_->FindTypesByIds(
+      {want_type_1.id(), want_type_2.id() + 123}, got_types)));
+}
+TEST_P(MetadataAccessObjectTest, FindTypesByIdsArtifactInvalidTypeKind) {
+  MLMD_ASSERT_OK(Init());
+  ArtifactType want_type_1;
+  ArtifactType want_type_2;
+  MLMD_ASSERT_OK(
+      FindTypesByIdsSetup(*metadata_access_object_, want_type_1, want_type_2));
+
+  // type_ids are for artifact types, not execution/context types.
+  std::vector<ExecutionType> execution_types;
+  EXPECT_TRUE(absl::IsNotFound(metadata_access_object_->FindTypesByIds(
+      {want_type_1.id(), want_type_2.id()}, execution_types)));
+  EXPECT_THAT(execution_types, IsEmpty());
+  std::vector<ContextType> context_types;
+  EXPECT_TRUE(absl::IsNotFound(metadata_access_object_->FindTypesByIds(
+      {want_type_1.id(), want_type_2.id()}, context_types)));
+  EXPECT_THAT(context_types, IsEmpty());
+}
+
+TEST_P(MetadataAccessObjectTest, FindTypesByIdsExecutionSuccess) {
+  MLMD_ASSERT_OK(Init());
+  ExecutionType want_type_1;
+  ExecutionType want_type_2;
+  MLMD_ASSERT_OK(
+      FindTypesByIdsSetup(*metadata_access_object_, want_type_1, want_type_2));
+
+  std::vector<ExecutionType> got_types;
+  MLMD_ASSERT_OK(metadata_access_object_->FindTypesByIds(
+      {want_type_1.id(), want_type_2.id()}, got_types));
+  EXPECT_THAT(got_types,
+              ElementsAre(EqualsProto(want_type_1, /*ignore_fields=*/{"id"}),
+                          EqualsProto(want_type_2, /*ignore_fields=*/{"id"})));
+}
+
+TEST_P(MetadataAccessObjectTest, FindTypesByIdsExecutionInvalidInput) {
+  MLMD_ASSERT_OK(Init());
+  ExecutionType want_type_1;
+  ExecutionType want_type_2;
+  MLMD_ASSERT_OK(
+      FindTypesByIdsSetup(*metadata_access_object_, want_type_1, want_type_2));
+  std::vector<ExecutionType> got_types;
+
+  // Returns INVALID_ARGUMENT error if `type_ids` is empty or `a/e/c_types` is
+  // not empty.
+  EXPECT_TRUE(absl::IsInvalidArgument(
+      metadata_access_object_->FindTypesByIds({}, got_types)));
+  EXPECT_THAT(got_types, IsEmpty());
+  // Makes `a/e/c_types` to be not empty.
+  got_types.push_back(want_type_1);
+  EXPECT_TRUE(absl::IsInvalidArgument(metadata_access_object_->FindTypesByIds(
+      {want_type_1.id(), want_type_2.id()}, got_types)));
+}
+
+TEST_P(MetadataAccessObjectTest, FindTypesByIdsExecutionNotFound) {
+  MLMD_ASSERT_OK(Init());
+  ExecutionType want_type_1;
+  ExecutionType want_type_2;
+  MLMD_ASSERT_OK(
+      FindTypesByIdsSetup(*metadata_access_object_, want_type_1, want_type_2));
+  std::vector<ExecutionType> got_types;
+
+  // Returns NOT_FOUND error if any of the id cannot be found.
+  EXPECT_TRUE(absl::IsNotFound(metadata_access_object_->FindTypesByIds(
+      {want_type_1.id() + 123, want_type_2.id()}, got_types)));
+  got_types.clear();
+  EXPECT_TRUE(absl::IsNotFound(metadata_access_object_->FindTypesByIds(
+      {want_type_1.id(), want_type_2.id() + 123}, got_types)));
+}
+TEST_P(MetadataAccessObjectTest, FindTypesByIdsExecutionInvalidTypeKind) {
+  MLMD_ASSERT_OK(Init());
+  ExecutionType want_type_1;
+  ExecutionType want_type_2;
+  MLMD_ASSERT_OK(
+      FindTypesByIdsSetup(*metadata_access_object_, want_type_1, want_type_2));
+
+  // type_ids are for execution types, not artifact/context types.
+  std::vector<ArtifactType> artifact_types;
+  EXPECT_TRUE(absl::IsNotFound(metadata_access_object_->FindTypesByIds(
+      {want_type_1.id(), want_type_2.id()}, artifact_types)));
+  EXPECT_THAT(artifact_types, IsEmpty());
+  std::vector<ContextType> context_types;
+  EXPECT_TRUE(absl::IsNotFound(metadata_access_object_->FindTypesByIds(
+      {want_type_1.id(), want_type_2.id()}, context_types)));
+  EXPECT_THAT(context_types, IsEmpty());
+}
+
+TEST_P(MetadataAccessObjectTest, FindTypesByIdsContextSuccess) {
+  MLMD_ASSERT_OK(Init());
+  ContextType want_type_1;
+  ContextType want_type_2;
+  MLMD_ASSERT_OK(
+      FindTypesByIdsSetup(*metadata_access_object_, want_type_1, want_type_2));
+
+  std::vector<ContextType> got_types;
+  MLMD_ASSERT_OK(metadata_access_object_->FindTypesByIds(
+      {want_type_1.id(), want_type_2.id()}, got_types));
+  EXPECT_THAT(got_types,
+              ElementsAre(EqualsProto(want_type_1, /*ignore_fields=*/{"id"}),
+                          EqualsProto(want_type_2, /*ignore_fields=*/{"id"})));
+}
+
+TEST_P(MetadataAccessObjectTest, FindTypesByIdsContextInvalidInput) {
+  MLMD_ASSERT_OK(Init());
+  ContextType want_type_1;
+  ContextType want_type_2;
+  MLMD_ASSERT_OK(
+      FindTypesByIdsSetup(*metadata_access_object_, want_type_1, want_type_2));
+  std::vector<ContextType> got_types;
+
+  // Returns INVALID_ARGUMENT error if `type_ids` is empty or `a/e/c_types` is
+  // not empty.
+  EXPECT_TRUE(absl::IsInvalidArgument(
+      metadata_access_object_->FindTypesByIds({}, got_types)));
+  EXPECT_THAT(got_types, IsEmpty());
+  // Makes `a/e/c_types` to be not empty.
+  got_types.push_back(want_type_1);
+  EXPECT_TRUE(absl::IsInvalidArgument(metadata_access_object_->FindTypesByIds(
+      {want_type_1.id(), want_type_2.id()}, got_types)));
+}
+
+TEST_P(MetadataAccessObjectTest, FindTypesByIdsContextNotFound) {
+  MLMD_ASSERT_OK(Init());
+  ContextType want_type_1;
+  ContextType want_type_2;
+  MLMD_ASSERT_OK(
+      FindTypesByIdsSetup(*metadata_access_object_, want_type_1, want_type_2));
+  std::vector<ContextType> got_types;
+
+  // Returns NOT_FOUND error if any of the id cannot be found.
+  EXPECT_TRUE(absl::IsNotFound(metadata_access_object_->FindTypesByIds(
+      {want_type_1.id() + 123, want_type_2.id()}, got_types)));
+  got_types.clear();
+  EXPECT_TRUE(absl::IsNotFound(metadata_access_object_->FindTypesByIds(
+      {want_type_1.id(), want_type_2.id() + 123}, got_types)));
+}
+TEST_P(MetadataAccessObjectTest, FindTypesByIdsContextInvalidTypeKind) {
+  MLMD_ASSERT_OK(Init());
+  ContextType want_type_1;
+  ContextType want_type_2;
+  MLMD_ASSERT_OK(
+      FindTypesByIdsSetup(*metadata_access_object_, want_type_1, want_type_2));
+
+  // type_ids are for context types, not artifact/execution types.
+  std::vector<ArtifactType> artifact_types;
+  EXPECT_TRUE(absl::IsNotFound(metadata_access_object_->FindTypesByIds(
+      {want_type_1.id(), want_type_2.id()}, artifact_types)));
+  EXPECT_THAT(artifact_types, IsEmpty());
+  std::vector<ExecutionType> execution_types;
+  EXPECT_TRUE(absl::IsNotFound(metadata_access_object_->FindTypesByIds(
+      {want_type_1.id(), want_type_2.id()}, execution_types)));
+  EXPECT_THAT(execution_types, IsEmpty());
 }
 
 // Test if an execution type can be stored without input_type and output_type.

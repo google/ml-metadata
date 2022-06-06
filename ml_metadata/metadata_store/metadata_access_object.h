@@ -127,6 +127,25 @@ class MetadataAccessObject {
   virtual absl::Status FindTypeById(int64 type_id,
                                     ContextType* context_type) = 0;
 
+  // Queries a list of types using their ids in `type_ids` and appends the types
+  // to `artifact_types`/`execution_type`/`context_type`.
+  // Returns absl::OkStatus() if every type is fetched by the according id
+  // successfully.
+  // Note: The `types` has been deduped.
+  // Returns INVALID_ARGUMENT if `type_ids` is empty or
+  // `artifact_types`/`execution_type`/`context_type` is not empty.
+  // Returns NOT_FOUND error if any of the given `type_ids` cannot be found.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status FindTypesByIds(
+      absl::Span<const int64> type_ids,
+      std::vector<ArtifactType>& artifact_types) = 0;
+  virtual absl::Status FindTypesByIds(
+      absl::Span<const int64> type_ids,
+      std::vector<ExecutionType>& execution_types) = 0;
+  virtual absl::Status FindTypesByIds(
+      absl::Span<const int64> type_ids,
+      std::vector<ContextType>& context_types) = 0;
+
   // Queries a type by its name and version. A type is one of
   // {ArtifactType, ExecutionType, ContextType}. The type version is optional.
   // If not given or the version is an empty string, the type with
