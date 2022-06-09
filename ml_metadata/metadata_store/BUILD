@@ -603,7 +603,6 @@ cc_library(
         ":metadata_store_factory",
         "@com_google_absl//absl/status",
         "//ml_metadata/proto:metadata_store_proto",
-        "//ml_metadata/proto:metadata_store_service_proto",
         "@com_github_grpc_grpc//:grpc++",
         "@com_google_glog//:glog",
     ],
