@@ -15,7 +15,6 @@ limitations under the License.
 #include "ml_metadata/metadata_store/metadata_store_service_impl.h"
 
 #include <glog/logging.h>
-#include "grpcpp/support/status_code_enum.h"
 #include "absl/status/status.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/metadata_store/metadata_store_factory.h"
