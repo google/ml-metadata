@@ -208,6 +208,8 @@ class MetadataAccessObject {
 
   // Creates an artifact, returns the assigned artifact id. The id field of the
   // artifact is ignored.
+  // `skip_type_and_property_validation` is set to be true if the `artifact`'s
+  // type and properties have been validated.
   // Returns INVALID_ARGUMENT error, if the ArtifactType is not given.
   // Returns NOT_FOUND error, if the ArtifactType cannot be found.
   // Returns INVALID_ARGUMENT error, if the artifact contains any property
@@ -217,6 +219,18 @@ class MetadataAccessObject {
   // Returns ALREADY_EXISTS error, if the ArtifactType has artifact with the
   // same name.
   // Returns detailed INTERNAL error, if query execution fails.
+  // TODO(b/197686185): Deprecate this method once foreign keys schema is
+  // implemented.
+  virtual absl::Status CreateArtifact(const Artifact& artifact,
+                                      bool skip_type_and_property_validation,
+                                      int64* artifact_id) = 0;
+
+  // Creates an artifact, returns the assigned artifact id. The id field of the
+  // artifact is ignored.
+  // Please refer to the docstring for CreateArtifact() with the
+  // `skip_type_and_property_validation` flag for more details. This method
+  // assumes the `artifact`'s type/property has not been validated yet and
+  // sets `skip_type_and_property_validation` to false.
   virtual absl::Status CreateArtifact(const Artifact& artifact,
                                       int64* artifact_id) = 0;
 

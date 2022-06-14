@@ -4110,9 +4110,19 @@ TEST_P(MetadataStoreTestSuite, GetExecutionFilterWithSpecialChars) {
 TEST_P(MetadataStoreTestSuite, PutLineageSubgraphAndVerifyLineageGraph) {
   // Prepare the metadata store with types
   PutTypesRequest put_types_request = ParseTextProtoOrDie<PutTypesRequest>(R"pb(
-    context_types: { name: 'context_type' }
-    execution_types: { name: 'execution_type' }
-    artifact_types: { name: 'artifact_type' }
+    context_types: {
+      name: 'context_type'
+      properties { key: 'property_1' value: INT }
+    }
+
+    execution_types: {
+      name: 'execution_type'
+      properties { key: 'property_1' value: DOUBLE }
+    }
+    artifact_types: {
+      name: 'artifact_type'
+      properties { key: 'property_1' value: STRING }
+    }
   )pb");
   PutTypesResponse put_types_response;
   ASSERT_EQ(absl::OkStatus(),
@@ -4122,6 +4132,7 @@ TEST_P(MetadataStoreTestSuite, PutLineageSubgraphAndVerifyLineageGraph) {
   Context context;
   context.set_type_id(put_types_response.context_type_ids(0));
   context.set_name("context");
+  (*context.mutable_properties())["property_1"].set_int_value(1);
   PutContextsRequest put_contexts_request;
   *put_contexts_request.add_contexts() = context;
   PutContextsResponse put_contexts_response;
@@ -4131,6 +4142,7 @@ TEST_P(MetadataStoreTestSuite, PutLineageSubgraphAndVerifyLineageGraph) {
 
   Execution execution;
   execution.set_type_id(put_types_response.execution_type_ids(0));
+  (*execution.mutable_properties())["property_1"].set_double_value(1.0);
   PutExecutionRequest put_execution_request;
   *put_execution_request.mutable_execution() = execution;
   PutExecutionResponse put_execution_response;
@@ -4142,6 +4154,7 @@ TEST_P(MetadataStoreTestSuite, PutLineageSubgraphAndVerifyLineageGraph) {
   Artifact artifact;
   artifact.set_type_id(put_types_response.artifact_type_ids(0));
   artifact.set_uri("testuri");
+  (*artifact.mutable_properties())["property_1"].set_string_value("1");
   PutArtifactsRequest put_artifacts_request;
   *put_artifacts_request.add_artifacts() = artifact;
   PutArtifactsResponse put_artifacts_response;

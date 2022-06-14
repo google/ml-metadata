@@ -365,6 +365,7 @@ cc_library(
         ":metadata_access_object_factory",
         ":metadata_source",
         ":metadata_store_service_interface",
+        ":rdbms_metadata_access_object",
         ":simple_types_util",
         ":transaction_executor",
         "@com_google_protobuf//:protobuf",

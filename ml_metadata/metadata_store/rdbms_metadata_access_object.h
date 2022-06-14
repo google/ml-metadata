@@ -29,6 +29,53 @@ limitations under the License.
 
 namespace ml_metadata {
 
+// Validates properties in a `Node` with the properties defined in a `Type`.
+// `Node` is one of {`Artifact`, `Execution`, `Context`}. `Type` is one of
+// {`ArtifactType`, `ExecutionType`, `ContextType`}.
+// Returns INVALID_ARGUMENT error, if there is unknown or mismatched property
+// w.r.t. its definition.
+// TODO(b/197686185): Move this helper function to  metadata_store.cc once MAO
+// no longer needs it.
+template <typename Node, typename Type>
+absl::Status ValidatePropertiesWithType(const Node& node, const Type& type) {
+  const google::protobuf::Map<std::string, PropertyType>& type_properties =
+      type.properties();
+  for (const auto& p : node.properties()) {
+    const std::string& property_name = p.first;
+    const Value& property_value = p.second;
+    if (type_properties.find(property_name) == type_properties.end())
+      return absl::InvalidArgumentError(
+          absl::StrCat("Found unknown property: ", property_name));
+    bool is_type_match = false;
+    switch (type_properties.at(property_name)) {
+      case PropertyType::INT: {
+        is_type_match = property_value.has_int_value();
+        break;
+      }
+      case PropertyType::DOUBLE: {
+        is_type_match = property_value.has_double_value();
+        break;
+      }
+      case PropertyType::STRING: {
+        is_type_match = property_value.has_string_value();
+        break;
+      }
+      case PropertyType::STRUCT: {
+        is_type_match = property_value.has_struct_value();
+        break;
+      }
+      default: {
+        return absl::InternalError(absl::StrCat(
+            "Unknown registered property type: ", type.DebugString()));
+      }
+    }
+    if (!is_type_match)
+      return absl::InvalidArgumentError(
+          absl::StrCat("Found unmatched property type: ", property_name));
+  }
+  return absl::OkStatus();
+}
+
 // Declare a parameterized abstract test fixture to run tests on private methods
 // of RDBMSMetadataAccessObject created with different MetadataSource types.
 class RDBMSMetadataAccessObjectTest;
@@ -148,6 +195,10 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status FindParentTypesByTypeId(
       const absl::Span<const int64> type_ids,
       absl::flat_hash_map<int64, ContextType>& output_parent_types) final;
+
+  absl::Status CreateArtifact(const Artifact& artifact,
+                              bool skip_type_and_property_validation,
+                              int64* artifact_id) final;
 
   absl::Status CreateArtifact(const Artifact& artifact,
                               int64* artifact_id) final;
@@ -502,10 +553,16 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // then returns the assigned node id. The node's id field is ignored. The node
   // should have a `NodeType`, which is one of {`ArtifactType`, `ExecutionType`,
   // `ContextType`}.
+  // If `skip_type_verfication` is set to be true, the `FindTypeImpl()` and
+  // `ValidatePropertiesWithType()` are skipped.
   // Returns INVALID_ARGUMENT error, if the node does not align with its type.
   // Returns detailed INTERNAL error, if query execution fails.
+  // TODO(b/197686185): Deprecate `skip_type_and_property_validation` flag
+  // once foreign keys schema is implemented.
   template <typename Node, typename NodeType>
-  absl::Status CreateNodeImpl(const Node& node, int64* node_id);
+  absl::Status CreateNodeImpl(const Node& node,
+                              bool skip_type_and_property_validation,
+                              int64* node_id);
 
   // Queries a `Node` which is one of {`Artifact`, `Execution`, `Context`} by
   // an id.

@@ -300,52 +300,6 @@ absl::Status ParseRecordsToMapField(
   return absl::OkStatus();
 }
 
-// Validates properties in a `Node` with the properties defined in a `Type`.
-// `Node` is one of {`Artifact`, `Execution`, `Context`}. `Type` is one of
-// {`ArtifactType`, `ExecutionType`, `ContextType`}.
-// Returns INVALID_ARGUMENT error, if there is unknown or mismatched property
-// w.r.t. its definition.
-template <typename Node, typename Type>
-absl::Status ValidatePropertiesWithType(const Node& node, const Type& type) {
-  const google::protobuf::Map<std::string, PropertyType>& type_properties =
-      type.properties();
-  for (const auto& p : node.properties()) {
-    const std::string& property_name = p.first;
-    const Value& property_value = p.second;
-    // Note that this is a google::protobuf::Map, not a std::map.
-    if (type_properties.find(property_name) == type_properties.end())
-      return absl::InvalidArgumentError(
-          absl::StrCat("Found unknown property: ", property_name));
-    bool is_type_match = false;
-    switch (type_properties.at(property_name)) {
-      case PropertyType::INT: {
-        is_type_match = property_value.has_int_value();
-        break;
-      }
-      case PropertyType::DOUBLE: {
-        is_type_match = property_value.has_double_value();
-        break;
-      }
-      case PropertyType::STRING: {
-        is_type_match = property_value.has_string_value();
-        break;
-      }
-      case PropertyType::STRUCT: {
-        is_type_match = property_value.has_struct_value();
-        break;
-      }
-      default: {
-        return absl::InternalError(absl::StrCat(
-            "Unknown registered property type: ", type.DebugString()));
-      }
-    }
-    if (!is_type_match)
-      return absl::InvalidArgumentError(
-          absl::StrCat("Found unmatched property type: ", property_name));
-  }
-  return absl::OkStatus();
-}
-
 // Casts lower level db error messages for violating primary key constraint or
 // unique constraint. Returns true when the status error message indicates such
 // unique constraint is violated.
@@ -950,23 +904,26 @@ absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeIdImpl(
 // Returns INVALID_ARGUMENT error, if the node does not align with its type.
 // Returns detailed INTERNAL error, if query execution fails.
 template <typename Node, typename NodeType>
-absl::Status RDBMSMetadataAccessObject::CreateNodeImpl(const Node& node,
-                                                       int64* node_id) {
+absl::Status RDBMSMetadataAccessObject::CreateNodeImpl(
+    const Node& node, const bool skip_type_and_property_validation,
+    int64* node_id) {
   // clear node id
   *node_id = 0;
-  // validate type
-  if (!node.has_type_id())
-    return absl::InvalidArgumentError("Type id is missing.");
-  const int64 type_id = node.type_id();
-  NodeType node_type;
-  MLMD_RETURN_WITH_CONTEXT_IF_ERROR(FindTypeImpl(type_id, &node_type),
-                                    "Cannot find type for ",
-                                    node.ShortDebugString());
+  if (!skip_type_and_property_validation) {
+    // validate type
+    if (!node.has_type_id())
+      return absl::InvalidArgumentError("Type id is missing.");
+    const int64 type_id = node.type_id();
+    NodeType node_type;
+    MLMD_RETURN_WITH_CONTEXT_IF_ERROR(FindTypeImpl(type_id, &node_type),
+                                      "Cannot find type for ",
+                                      node.ShortDebugString());
 
-  // validate properties
-  MLMD_RETURN_WITH_CONTEXT_IF_ERROR(ValidatePropertiesWithType(node, node_type),
-                                    "Cannot validate properties of ",
-                                    node.ShortDebugString());
+    // validate properties
+    MLMD_RETURN_WITH_CONTEXT_IF_ERROR(
+        ValidatePropertiesWithType(node, node_type),
+        "Cannot validate properties of ", node.ShortDebugString());
+  }
 
   // insert a node and get the assigned id
   MLMD_RETURN_WITH_CONTEXT_IF_ERROR(CreateBasicNode(node, node_id),
@@ -1352,10 +1309,11 @@ absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeId(
   return FindParentTypesByTypeIdImpl(type_ids, output_parent_types);
 }
 
-absl::Status RDBMSMetadataAccessObject::CreateArtifact(const Artifact& artifact,
-                                                       int64* artifact_id) {
-  const absl::Status& status =
-      CreateNodeImpl<Artifact, ArtifactType>(artifact, artifact_id);
+absl::Status RDBMSMetadataAccessObject::CreateArtifact(
+    const Artifact& artifact, const bool skip_type_and_property_validation,
+    int64* artifact_id) {
+  const absl::Status& status = CreateNodeImpl<Artifact, ArtifactType>(
+      artifact, skip_type_and_property_validation, artifact_id);
   if (IsUniqueConstraintViolated(status)) {
     return absl::AlreadyExistsError(
         absl::StrCat("Given node already exists: ", artifact.DebugString(),
@@ -1364,10 +1322,16 @@ absl::Status RDBMSMetadataAccessObject::CreateArtifact(const Artifact& artifact,
   return status;
 }
 
+absl::Status RDBMSMetadataAccessObject::CreateArtifact(const Artifact& artifact,
+                                                       int64* artifact_id) {
+  return CreateArtifact(artifact, /*skip_type_and_property_validation=*/false,
+                        artifact_id);
+}
+
 absl::Status RDBMSMetadataAccessObject::CreateExecution(
     const Execution& execution, int64* execution_id) {
-  const absl::Status& status =
-      CreateNodeImpl<Execution, ExecutionType>(execution, execution_id);
+  const absl::Status& status = CreateNodeImpl<Execution, ExecutionType>(
+      execution, /*skip_type_and_property_validation=*/false, execution_id);
   if (IsUniqueConstraintViolated(status)) {
     return absl::AlreadyExistsError(
         absl::StrCat("Given node already exists: ", execution.DebugString(),
@@ -1378,8 +1342,8 @@ absl::Status RDBMSMetadataAccessObject::CreateExecution(
 
 absl::Status RDBMSMetadataAccessObject::CreateContext(const Context& context,
                                                       int64* context_id) {
-  const absl::Status& status =
-      CreateNodeImpl<Context, ContextType>(context, context_id);
+  const absl::Status& status = CreateNodeImpl<Context, ContextType>(
+      context, /*skip_type_and_property_validation=*/false, context_id);
   if (IsUniqueConstraintViolated(status)) {
     return absl::AlreadyExistsError(
         absl::StrCat("Given node already exists: ", context.DebugString(),

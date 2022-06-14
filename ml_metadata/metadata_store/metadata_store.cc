@@ -33,6 +33,7 @@ limitations under the License.
 #include "absl/types/span.h"
 #include "ml_metadata/metadata_store/metadata_access_object.h"
 #include "ml_metadata/metadata_store/metadata_access_object_factory.h"
+#include "ml_metadata/metadata_store/rdbms_metadata_access_object.h"
 #include "ml_metadata/metadata_store/simple_types_util.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
@@ -249,16 +250,21 @@ absl::Status UpsertSimpleTypes(MetadataAccessObject* metadata_access_object) {
 
 // Updates or inserts an artifact. If the artifact.id is given, it updates the
 // stored artifact, otherwise, it creates a new artifact.
+// `skip_type_and_property_validation` is set to be true if the `artifact`'s
+// type/property has been validated.
+// TODO(b/197686185): Deprecate `skip_type_and_property_validation` flag once
+// foreign keys schema is implemented.
 absl::Status UpsertArtifact(const Artifact& artifact,
                             MetadataAccessObject* metadata_access_object,
+                            const bool skip_type_and_property_validation,
                             int64* artifact_id) {
   CHECK(artifact_id) << "artifact_id should not be null";
   if (artifact.has_id()) {
     MLMD_RETURN_IF_ERROR(metadata_access_object->UpdateArtifact(artifact));
     *artifact_id = artifact.id();
   } else {
-    MLMD_RETURN_IF_ERROR(
-        metadata_access_object->CreateArtifact(artifact, artifact_id));
+    MLMD_RETURN_IF_ERROR(metadata_access_object->CreateArtifact(
+        artifact, skip_type_and_property_validation, artifact_id));
   }
   return absl::OkStatus();
 }
@@ -419,8 +425,9 @@ absl::Status UpsertArtifactAndEvent(
   }
   // upsert artifact if present.
   if (artifact_and_event.has_artifact()) {
-    MLMD_RETURN_IF_ERROR(UpsertArtifact(artifact_and_event.artifact(),
-                                        metadata_access_object, artifact_id));
+    MLMD_RETURN_IF_ERROR(UpsertArtifact(
+        artifact_and_event.artifact(), metadata_access_object,
+        /*skip_type_and_property_validation=*/false, artifact_id));
   }
   // insert event if any.
   if (!artifact_and_event.has_event()) {
@@ -573,6 +580,52 @@ absl::Status CheckEventEdges(const PutLineageSubgraphRequest& request) {
 
   return absl::OkStatus();
 }
+
+// Validates the properties of all `nodes` with corresponding `types`.
+template <typename Type, typename Node>
+absl::Status ValidateNodesPropertyWithTypes(
+    const std::vector<Type>& types,
+    const google::protobuf::RepeatedPtrField<Node>& nodes) {
+  absl::flat_hash_map<int64, Type> type_id_to_type;
+  for (const Type& type : types) {
+    type_id_to_type.insert({type.id(), type});
+  }
+
+  for (const Node& node : nodes) {
+    MLMD_RETURN_WITH_CONTEXT_IF_ERROR(
+        ml_metadata::ValidatePropertiesWithType(
+            node, type_id_to_type[node.type_id()]),
+        "Cannot validate properties of ", node.ShortDebugString());
+  }
+
+  return absl::OkStatus();
+}
+
+// Batch validates type existance and property matching for artifacts in
+// `request`.
+// TODO(b/197686185): Also batch validates executions and contexts.
+// TODO(b/197686185): Deprecate this function once foreign keys schema is
+// implemented.
+absl::Status BatchTypeAndPropertyValidation(
+    const PutLineageSubgraphRequest& request,
+    MetadataAccessObject* metadata_access_object) {
+  std::vector<int64> artifact_type_ids;
+  std::vector<ArtifactType> artifact_types;
+  for (const auto& artifact : request.artifacts()) {
+    if (!artifact.has_type_id()) {
+      return absl::InvalidArgumentError("Type id is missing.");
+    }
+    artifact_type_ids.push_back(artifact.type_id());
+  }
+  // Validates types.
+  MLMD_RETURN_IF_ERROR(metadata_access_object->FindTypesByIds(artifact_type_ids,
+                                                              artifact_types));
+  // Validates properties.
+  MLMD_RETURN_IF_ERROR(
+      ValidateNodesPropertyWithTypes(artifact_types, request.artifacts()));
+  return absl::OkStatus();
+}
+
 }  // namespace
 
 absl::Status MetadataStore::InitMetadataStore() {
@@ -913,7 +966,8 @@ absl::Status MetadataStore::PutArtifacts(const PutArtifactsRequest& request,
         }
       }
       MLMD_RETURN_IF_ERROR(UpsertArtifact(
-          artifact, metadata_access_object_.get(), &artifact_id));
+          artifact, metadata_access_object_.get(),
+          /*skip_type_and_property_validation=*/false, &artifact_id));
       response->add_artifact_ids(artifact_id);
     }
     return absl::OkStatus();
@@ -1063,6 +1117,8 @@ absl::Status MetadataStore::PutLineageSubgraph(
         response->Clear();
 
         MLMD_RETURN_IF_ERROR(CheckEventEdges(request));
+        MLMD_RETURN_IF_ERROR(BatchTypeAndPropertyValidation(
+            request, metadata_access_object_.get()));
 
         // 1. Upsert contexts
         for (const Context& context : request.contexts()) {
@@ -1092,7 +1148,8 @@ absl::Status MetadataStore::PutLineageSubgraph(
         for (const Artifact& artifact : request.artifacts()) {
           int64 artifact_id = -1;
           MLMD_RETURN_IF_ERROR(UpsertArtifact(
-              artifact, metadata_access_object_.get(), &artifact_id));
+              artifact, metadata_access_object_.get(),
+              /*skip_type_and_property_validation=*/true, &artifact_id));
           response->add_artifact_ids(artifact_id);
 
           for (const int64 context_id : response->context_ids()) {
