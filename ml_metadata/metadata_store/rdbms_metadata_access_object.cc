@@ -1329,15 +1329,22 @@ absl::Status RDBMSMetadataAccessObject::CreateArtifact(const Artifact& artifact,
 }
 
 absl::Status RDBMSMetadataAccessObject::CreateExecution(
-    const Execution& execution, int64* execution_id) {
+    const Execution& execution, const bool skip_type_and_property_validation,
+    int64* execution_id) {
   const absl::Status& status = CreateNodeImpl<Execution, ExecutionType>(
-      execution, /*skip_type_and_property_validation=*/false, execution_id);
+      execution, skip_type_and_property_validation, execution_id);
   if (IsUniqueConstraintViolated(status)) {
     return absl::AlreadyExistsError(
         absl::StrCat("Given node already exists: ", execution.DebugString(),
                      status.ToString()));
   }
   return status;
+}
+
+absl::Status RDBMSMetadataAccessObject::CreateExecution(
+    const Execution& execution, int64* execution_id) {
+  return CreateExecution(execution, /*skip_type_and_property_validation=*/false,
+                         execution_id);
 }
 
 absl::Status RDBMSMetadataAccessObject::CreateContext(const Context& context,

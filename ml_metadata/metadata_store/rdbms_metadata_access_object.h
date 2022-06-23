@@ -234,6 +234,10 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status UpdateArtifact(const Artifact& artifact) final;
 
   absl::Status CreateExecution(const Execution& execution,
+                               bool skip_type_and_property_validation,
+                               int64* execution_id) final;
+
+  absl::Status CreateExecution(const Execution& execution,
                                int64* execution_id) final;
 
   absl::Status FindExecutionsById(absl::Span<const int64> execution_ids,
@@ -557,8 +561,6 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // `ValidatePropertiesWithType()` are skipped.
   // Returns INVALID_ARGUMENT error, if the node does not align with its type.
   // Returns detailed INTERNAL error, if query execution fails.
-  // TODO(b/197686185): Deprecate `skip_type_and_property_validation` flag
-  // once foreign keys schema is implemented.
   template <typename Node, typename NodeType>
   absl::Status CreateNodeImpl(const Node& node,
                               bool skip_type_and_property_validation,

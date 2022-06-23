@@ -1821,7 +1821,6 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithDuplicatedNameError) {
   ASSERT_EQ(absl::OkStatus(), metadata_source_->Begin());
 }
 
-// TODO(b/197686185): Removes test once foreign key contrainsts are introduced.
 TEST_P(MetadataAccessObjectTest, CreateArtifactWithoutValidation) {
   MLMD_ASSERT_OK(Init());
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"pb(
@@ -1852,8 +1851,8 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithoutValidation) {
       absl::OkStatus());
 
   // Inserts artifact with invalid type id without validation.
-  // Note: this test would fail once the foreigen key contrainsts are
-  // introduced.
+  // TODO(b/197686185) this test would fail once the foreigen key contrainsts
+  // are introduced, remove it at that time.
   Artifact artifact_with_invalid_type = ParseTextProtoOrDie<Artifact>(R"pb(
     properties {
       key: 'property_1'
@@ -1891,6 +1890,78 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithoutValidation) {
                 artifact_with_unmatched_property,
                 /*skip_type_and_property_validation=*/true,
                 &artifact_id_with_unmatched_property),
+            absl::OkStatus());
+}
+
+TEST_P(MetadataAccessObjectTest, CreateExecutionWithoutValidation) {
+  MLMD_ASSERT_OK(Init());
+  ExecutionType type = ParseTextProtoOrDie<ExecutionType>(R"pb(
+    name: 'test_type'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: STRING }
+  )pb");
+  int64 type_id;
+  MLMD_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
+
+  // Inserts execution without validation since the type are known to exist and
+  // the execution's properties are matched with its type.
+  Execution execution = ParseTextProtoOrDie<Execution>(R"pb(
+    properties {
+      key: 'property_1'
+      value: { int_value: 3 }
+    }
+    properties {
+      key: 'property_2'
+      value: { string_value: '3' }
+    }
+  )pb");
+  execution.set_type_id(type_id);
+  int64 execution_id;
+  EXPECT_EQ(
+      metadata_access_object_->CreateExecution(
+          execution, /*skip_type_and_property_validation=*/true, &execution_id),
+      absl::OkStatus());
+
+  // Inserts execution with invalid type id without validation.
+  // TODO(b/197686185) this test would fail once the foreigen key contrainsts
+  // are introduced, remove it at that time.
+  Execution execution_with_invalid_type = ParseTextProtoOrDie<Execution>(R"pb(
+    properties {
+      key: 'property_1'
+      value: { int_value: 3 }
+    }
+    properties {
+      key: 'property_2'
+      value: { string_value: '3' }
+    }
+  )pb");
+  execution_with_invalid_type.set_type_id(type_id + 123);
+  int64 execution_id_with_invalid_type;
+  EXPECT_EQ(metadata_access_object_->CreateExecution(
+                execution_with_invalid_type,
+                /*skip_type_and_property_validation=*/true,
+                &execution_id_with_invalid_type),
+            absl::OkStatus());
+
+  // Inserts execution with unmatched property with its type(e.g., inserting a
+  // double to a string property defined in type) without validation.
+  Execution execution_with_unmatched_property =
+      ParseTextProtoOrDie<Execution>(R"pb(
+        properties {
+          key: 'property_1'
+          value: { int_value: 3 }
+        }
+        properties {
+          key: 'property_2'
+          value: { double_value: 3.0 }
+        }
+      )pb");
+  execution_with_unmatched_property.set_type_id(type_id);
+  int64 execution_id_with_unmatched_property;
+  EXPECT_EQ(metadata_access_object_->CreateExecution(
+                execution_with_unmatched_property,
+                /*skip_type_and_property_validation=*/true,
+                &execution_id_with_unmatched_property),
             absl::OkStatus());
 }
 

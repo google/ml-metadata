@@ -252,8 +252,6 @@ absl::Status UpsertSimpleTypes(MetadataAccessObject* metadata_access_object) {
 // stored artifact, otherwise, it creates a new artifact.
 // `skip_type_and_property_validation` is set to be true if the `artifact`'s
 // type/property has been validated.
-// TODO(b/197686185): Deprecate `skip_type_and_property_validation` flag once
-// foreign keys schema is implemented.
 absl::Status UpsertArtifact(const Artifact& artifact,
                             MetadataAccessObject* metadata_access_object,
                             const bool skip_type_and_property_validation,
@@ -271,16 +269,19 @@ absl::Status UpsertArtifact(const Artifact& artifact,
 
 // Updates or inserts an execution. If the execution.id is given, it updates the
 // stored execution, otherwise, it creates a new execution.
+// `skip_type_and_property_validation` is set to be true if the `execution`'s
+// type/property has been validated.
 absl::Status UpsertExecution(const Execution& execution,
                              MetadataAccessObject* metadata_access_object,
+                             const bool skip_type_and_property_validation,
                              int64* execution_id) {
   CHECK(execution_id) << "execution_id should not be null";
   if (execution.has_id()) {
     MLMD_RETURN_IF_ERROR(metadata_access_object->UpdateExecution(execution));
     *execution_id = execution.id();
   } else {
-    MLMD_RETURN_IF_ERROR(
-        metadata_access_object->CreateExecution(execution, execution_id));
+    MLMD_RETURN_IF_ERROR(metadata_access_object->CreateExecution(
+        execution, skip_type_and_property_validation, execution_id));
   }
   return absl::OkStatus();
 }
@@ -601,28 +602,23 @@ absl::Status ValidateNodesPropertyWithTypes(
   return absl::OkStatus();
 }
 
-// Batch validates type existance and property matching for artifacts in
-// `request`.
-// TODO(b/197686185): Also batch validates executions and contexts.
-// TODO(b/197686185): Deprecate this function once foreign keys schema is
-// implemented.
+// Batch validates type existance and property matching for `nodes`.
+template <typename Type, typename Node>
 absl::Status BatchTypeAndPropertyValidation(
-    const PutLineageSubgraphRequest& request,
+    const google::protobuf::RepeatedPtrField<Node>& nodes,
     MetadataAccessObject* metadata_access_object) {
-  std::vector<int64> artifact_type_ids;
-  std::vector<ArtifactType> artifact_types;
-  for (const auto& artifact : request.artifacts()) {
-    if (!artifact.has_type_id()) {
+  std::vector<int64> type_ids;
+  std::vector<Type> types;
+  for (const auto& node : nodes) {
+    if (!node.has_type_id()) {
       return absl::InvalidArgumentError("Type id is missing.");
     }
-    artifact_type_ids.push_back(artifact.type_id());
+    type_ids.push_back(node.type_id());
   }
   // Validates types.
-  MLMD_RETURN_IF_ERROR(metadata_access_object->FindTypesByIds(artifact_type_ids,
-                                                              artifact_types));
+  MLMD_RETURN_IF_ERROR(metadata_access_object->FindTypesByIds(type_ids, types));
   // Validates properties.
-  MLMD_RETURN_IF_ERROR(
-      ValidateNodesPropertyWithTypes(artifact_types, request.artifacts()));
+  MLMD_RETURN_IF_ERROR(ValidateNodesPropertyWithTypes(types, nodes));
   return absl::OkStatus();
 }
 
@@ -983,7 +979,8 @@ absl::Status MetadataStore::PutExecutions(const PutExecutionsRequest& request,
         for (const Execution& execution : request.executions()) {
           int64 execution_id = -1;
           MLMD_RETURN_IF_ERROR(UpsertExecution(
-              execution, metadata_access_object_.get(), &execution_id));
+              execution, metadata_access_object_.get(),
+              /*skip_type_and_property_validation=*/false, &execution_id));
           response->add_execution_ids(execution_id);
         }
         return absl::OkStatus();
@@ -1064,7 +1061,8 @@ absl::Status MetadataStore::PutExecution(const PutExecutionRequest& request,
     const Execution& execution = request.execution();
     int64 execution_id = -1;
     MLMD_RETURN_IF_ERROR(UpsertExecution(
-        execution, metadata_access_object_.get(), &execution_id));
+        execution, metadata_access_object_.get(),
+        /*skip_type_and_property_validation=*/false, &execution_id));
     response->set_execution_id(execution_id);
     // 2. Upsert Artifacts and insert events
     for (PutExecutionRequest::ArtifactAndEvent artifact_and_event :
@@ -1117,8 +1115,12 @@ absl::Status MetadataStore::PutLineageSubgraph(
         response->Clear();
 
         MLMD_RETURN_IF_ERROR(CheckEventEdges(request));
-        MLMD_RETURN_IF_ERROR(BatchTypeAndPropertyValidation(
-            request, metadata_access_object_.get()));
+        MLMD_RETURN_IF_ERROR(
+            BatchTypeAndPropertyValidation<ArtifactType, Artifact>(
+                request.artifacts(), metadata_access_object_.get()));
+        MLMD_RETURN_IF_ERROR(
+            BatchTypeAndPropertyValidation<ExecutionType, Execution>(
+                request.executions(), metadata_access_object_.get()));
 
         // 1. Upsert contexts
         for (const Context& context : request.contexts()) {
@@ -1134,7 +1136,8 @@ absl::Status MetadataStore::PutLineageSubgraph(
         for (const Execution& execution : request.executions()) {
           int64 execution_id = -1;
           MLMD_RETURN_IF_ERROR(UpsertExecution(
-              execution, metadata_access_object_.get(), &execution_id));
+              execution, metadata_access_object_.get(),
+              /*skip_type_and_property_validation=*/true, &execution_id));
           response->add_execution_ids(execution_id);
 
           for (const int64 context_id : response->context_ids()) {

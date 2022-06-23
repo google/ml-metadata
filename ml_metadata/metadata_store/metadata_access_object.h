@@ -219,8 +219,6 @@ class MetadataAccessObject {
   // Returns ALREADY_EXISTS error, if the ArtifactType has artifact with the
   // same name.
   // Returns detailed INTERNAL error, if query execution fails.
-  // TODO(b/197686185): Deprecate this method once foreign keys schema is
-  // implemented.
   virtual absl::Status CreateArtifact(const Artifact& artifact,
                                       bool skip_type_and_property_validation,
                                       int64* artifact_id) = 0;
@@ -329,6 +327,8 @@ class MetadataAccessObject {
 
   // Creates an execution, returns the assigned execution id. The id field of
   // the execution is ignored.
+  // `skip_type_and_property_validation` is set to be true if the `execution`'s
+  // type and properties have been validated.
   // Returns INVALID_ARGUMENT error, if the ExecutionType is not given.
   // Returns NOT_FOUND error, if the ExecutionType cannot be found.
   // Returns INVALID_ARGUMENT error, if the execution contains any property
@@ -338,6 +338,16 @@ class MetadataAccessObject {
   // Returns ALREADY_EXISTS error, if the ExecutionType has execution with the
   // same name.
   // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status CreateExecution(const Execution& execution,
+                                       bool skip_type_and_property_validation,
+                                       int64* execution_id) = 0;
+
+  // Creates an execution, returns the assigned execution id. The id field of
+  // the execution is ignored.
+  // Please refer to the docstring for CreateExecution() with the
+  // `skip_type_and_property_validation` flag for more details. This method
+  // assumes the `execution`'s type/property has not been validated yet and
+  // by setting `skip_type_and_property_validation` to false.
   virtual absl::Status CreateExecution(const Execution& execution,
                                        int64* execution_id) = 0;
 
