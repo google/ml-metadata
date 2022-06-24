@@ -390,6 +390,8 @@ class MetadataAccessObject {
   // Creates a context, returns the assigned context id. The id field of the
   // context is ignored. The name field of the context must not be empty and it
   // should be unique in the same ContextType.
+  // `skip_type_and_property_validation` is set to be true if the `context`'s
+  // type and properties have been validated.
   // Returns INVALID_ARGUMENT error, if the ContextType is not given.
   // Returns NOT_FOUND error, if the ContextType cannot be found.
   // Returns INVALID_ARGUMENT error, if the context name is empty.
@@ -399,6 +401,17 @@ class MetadataAccessObject {
   //   with its data type definition in the context type.
   // Returns ALREADY_EXISTS error, if the ContextType has context with the name.
   // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status CreateContext(const Context& context,
+                                     bool skip_type_and_property_validation,
+                                     int64* context_id) = 0;
+
+  // Creates a context, returns the assigned context id. The id field of the
+  // context is ignored. The name field of the context must not be empty and it
+  // should be unique in the same ContextType.
+  // Please refer to the docstring for CreateContext() with the
+  // `skip_type_and_property_validation` flag for more details. This method
+  // assumes the `context`'s type/property has not been validated yet and
+  // by setting `skip_type_and_property_validation` to false.
   virtual absl::Status CreateContext(const Context& context,
                                      int64* context_id) = 0;
 

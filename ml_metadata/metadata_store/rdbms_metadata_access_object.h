@@ -255,6 +255,10 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   absl::Status UpdateExecution(const Execution& execution) final;
 
+  absl::Status CreateContext(const Context& context,
+                             bool skip_type_and_property_validation,
+                             int64* context_id) final;
+
   absl::Status CreateContext(const Context& context, int64* context_id) final;
 
   absl::Status FindContextsById(absl::Span<const int64> context_ids,

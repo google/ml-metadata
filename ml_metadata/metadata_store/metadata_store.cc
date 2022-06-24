@@ -288,25 +288,31 @@ absl::Status UpsertExecution(const Execution& execution,
 
 // Updates or inserts a context. If the context.id is given, it updates the
 // stored context, otherwise, it creates a new context.
+// `skip_type_and_property_validation` is set to be true if the `context`'s
+// type/property has been validated.
 absl::Status UpsertContext(const Context& context,
                            MetadataAccessObject* metadata_access_object,
+                           const bool skip_type_and_property_validation,
                            int64* context_id) {
   CHECK(context_id) << "context_id should not be null";
   if (context.has_id()) {
     MLMD_RETURN_IF_ERROR(metadata_access_object->UpdateContext(context));
     *context_id = context.id();
   } else {
-    MLMD_RETURN_IF_ERROR(
-        metadata_access_object->CreateContext(context, context_id));
+    MLMD_RETURN_IF_ERROR(metadata_access_object->CreateContext(
+        context, skip_type_and_property_validation, context_id));
   }
   return absl::OkStatus();
 }
 
 // Updates, inserts, or finds context. If `reuse_context_if_already_exist`, it
 // tries to find the existing context before trying to upsert the context.
+// `skip_type_and_property_validation` is set to be true if the `context`'s
+// type/property has been validated.
 absl::Status UpsertContextWithOptions(
     const Context& context, MetadataAccessObject* metadata_access_object,
-    bool reuse_context_if_already_exist, int64* context_id) {
+    bool reuse_context_if_already_exist,
+    const bool skip_type_and_property_validation, int64* context_id) {
   CHECK(context_id) << "context_id should not be null";
 
   if (!context.has_type_id()) {
@@ -334,7 +340,8 @@ absl::Status UpsertContextWithOptions(
   }
   if (*context_id == -1) {
     const absl::Status status =
-        UpsertContext(context, metadata_access_object, context_id);
+        UpsertContext(context, metadata_access_object,
+                      skip_type_and_property_validation, context_id);
     // When `reuse_context_if_already_exist`, there are concurrent timelines
     // to create the same new context. If use the option, let client side
     // to retry the failed transaction safely.
@@ -996,7 +1003,8 @@ absl::Status MetadataStore::PutContexts(const PutContextsRequest& request,
         for (const Context& context : request.contexts()) {
           int64 context_id = -1;
           MLMD_RETURN_IF_ERROR(UpsertContext(
-              context, metadata_access_object_.get(), &context_id));
+              context, metadata_access_object_.get(),
+              /*skip_type_and_property_validation=*/false, &context_id));
           response->add_context_ids(context_id);
         }
         return absl::OkStatus();
@@ -1089,7 +1097,8 @@ absl::Status MetadataStore::PutExecution(const PutExecutionRequest& request,
       int64 context_id = -1;
       const absl::Status status = UpsertContextWithOptions(
           context, metadata_access_object_.get(),
-          request.options().reuse_context_if_already_exist(), &context_id);
+          request.options().reuse_context_if_already_exist(),
+          /*skip_type_and_property_validation=*/false, &context_id);
       MLMD_RETURN_IF_ERROR(status);
       response->add_context_ids(context_id);
       MLMD_RETURN_IF_ERROR(InsertAssociationIfNotExist(
@@ -1121,13 +1130,17 @@ absl::Status MetadataStore::PutLineageSubgraph(
         MLMD_RETURN_IF_ERROR(
             BatchTypeAndPropertyValidation<ExecutionType, Execution>(
                 request.executions(), metadata_access_object_.get()));
+        MLMD_RETURN_IF_ERROR(
+            BatchTypeAndPropertyValidation<ContextType, Context>(
+                request.contexts(), metadata_access_object_.get()));
 
         // 1. Upsert contexts
         for (const Context& context : request.contexts()) {
           int64 context_id = -1;
           absl::Status status = UpsertContextWithOptions(
               context, metadata_access_object_.get(),
-              request.options().reuse_context_if_already_exist(), &context_id);
+              request.options().reuse_context_if_already_exist(),
+              /*skip_type_and_property_validation=*/true, &context_id);
           MLMD_RETURN_IF_ERROR(status);
           response->add_context_ids(context_id);
         }

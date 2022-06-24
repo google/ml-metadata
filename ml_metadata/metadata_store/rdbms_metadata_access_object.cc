@@ -1347,16 +1347,23 @@ absl::Status RDBMSMetadataAccessObject::CreateExecution(
                          execution_id);
 }
 
-absl::Status RDBMSMetadataAccessObject::CreateContext(const Context& context,
-                                                      int64* context_id) {
+absl::Status RDBMSMetadataAccessObject::CreateContext(
+    const Context& context, const bool skip_type_and_property_validation,
+    int64* context_id) {
   const absl::Status& status = CreateNodeImpl<Context, ContextType>(
-      context, /*skip_type_and_property_validation=*/false, context_id);
+      context, skip_type_and_property_validation, context_id);
   if (IsUniqueConstraintViolated(status)) {
     return absl::AlreadyExistsError(
         absl::StrCat("Given node already exists: ", context.DebugString(),
                      status.ToString()));
   }
   return status;
+}
+
+absl::Status RDBMSMetadataAccessObject::CreateContext(const Context& context,
+                                                      int64* context_id) {
+  return CreateContext(context, /*skip_type_and_property_validation=*/false,
+                       context_id);
 }
 
 absl::Status RDBMSMetadataAccessObject::FindArtifactsById(

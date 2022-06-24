@@ -1965,6 +1965,80 @@ TEST_P(MetadataAccessObjectTest, CreateExecutionWithoutValidation) {
             absl::OkStatus());
 }
 
+TEST_P(MetadataAccessObjectTest, CreateContextWithoutValidation) {
+  MLMD_ASSERT_OK(Init());
+  ContextType type = ParseTextProtoOrDie<ContextType>(R"pb(
+    name: 'test_type'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: STRING }
+  )pb");
+  int64 type_id;
+  MLMD_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
+
+  // Inserts context without validation since the type are known to exist and
+  // the context's properties are matched with its type.
+  Context context = ParseTextProtoOrDie<Context>(R"pb(
+    name: 'test_context_1'
+    properties {
+      key: 'property_1'
+      value: { int_value: 3 }
+    }
+    properties {
+      key: 'property_2'
+      value: { string_value: '3' }
+    }
+  )pb");
+  context.set_type_id(type_id);
+  int64 context_id;
+  EXPECT_EQ(
+      metadata_access_object_->CreateContext(
+          context, /*skip_type_and_property_validation=*/true, &context_id),
+      absl::OkStatus());
+
+  // Inserts context with invalid type id without validation.
+  // TODO(b/197686185) this test would fail once the foreigen key contrainsts
+  // are introduced, remove it at that time.
+  Context context_with_invalid_type = ParseTextProtoOrDie<Context>(R"pb(
+    name: 'test_context_2'
+    properties {
+      key: 'property_1'
+      value: { int_value: 3 }
+    }
+    properties {
+      key: 'property_2'
+      value: { string_value: '3' }
+    }
+  )pb");
+  context_with_invalid_type.set_type_id(type_id + 123);
+  int64 context_id_with_invalid_type;
+  EXPECT_EQ(metadata_access_object_->CreateContext(
+                context_with_invalid_type,
+                /*skip_type_and_property_validation=*/true,
+                &context_id_with_invalid_type),
+            absl::OkStatus());
+
+  // Inserts context with unmatched property with its type(e.g., inserting a
+  // double to a string property defined in type) without validation.
+  Context context_with_unmatched_property = ParseTextProtoOrDie<Context>(R"pb(
+    name: 'test_context_3'
+    properties {
+      key: 'property_1'
+      value: { int_value: 3 }
+    }
+    properties {
+      key: 'property_2'
+      value: { double_value: 3.0 }
+    }
+  )pb");
+  context_with_unmatched_property.set_type_id(type_id);
+  int64 context_id_with_unmatched_property;
+  EXPECT_EQ(metadata_access_object_->CreateContext(
+                context_with_unmatched_property,
+                /*skip_type_and_property_validation=*/true,
+                &context_id_with_unmatched_property),
+            absl::OkStatus());
+}
+
 TEST_P(MetadataAccessObjectTest, FindArtifactById) {
   ASSERT_EQ(absl::OkStatus(), Init());
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
