@@ -19,7 +19,6 @@ limitations under the License.
 #include <utility>
 
 #include <glog/logging.h>
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -81,6 +80,10 @@ class MetadataAccessObjectContainer {
 
   // Tests if there is filter query support.
   virtual bool HasFilterQuerySupport() { return false; }
+
+  // Adds a commit point in the tests.
+  // Default to be a no-op for SQLite, MySQL.
+  virtual absl::Status AddCommitPoint() { return absl::OkStatus(); }
 
   // Initializes the previous version of the database for downgrade.
   virtual absl::Status SetupPreviousVersionForDowngrade(int64 version) = 0;
@@ -274,6 +277,12 @@ class MetadataAccessObjectTest
                 << min_schema_version;
     }
     return is_skip;
+  }
+
+  // Uses to a add commit point if needed in the tests.
+  // Default to be a no-op for SQLite, MySQL.
+  absl::Status AddCommitPointIfNeeded() {
+    return metadata_access_object_container_->AddCommitPoint();
   }
 
   template <class NodeType>
