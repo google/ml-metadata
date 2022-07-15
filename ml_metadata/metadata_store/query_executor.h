@@ -221,7 +221,7 @@ class QueryExecutor {
 
   // Inserts a property of a type into the database.
   virtual absl::Status InsertTypeProperty(int64 type_id,
-                                          const absl::string_view property_name,
+                                          absl::string_view property_name,
                                           PropertyType property_type) = 0;
 
   // Queries properties of types from the database for each type_id in
@@ -275,7 +275,7 @@ class QueryExecutor {
   // Queries an artifact from the Artifact table by its type_id and name.
   // Returns the artifact ID.
   virtual absl::Status SelectArtifactByTypeIDAndArtifactName(
-      int64 artifact_type_id, const absl::string_view name,
+      int64 artifact_type_id, absl::string_view name,
       RecordSet* record_set) = 0;
 
   // Queries artifacts from the Artifact table by their type_id.
@@ -285,7 +285,7 @@ class QueryExecutor {
 
   // Queries an artifact from the database by its uri.
   // Returns a list of artifact IDs.
-  virtual absl::Status SelectArtifactsByURI(const absl::string_view uri,
+  virtual absl::Status SelectArtifactsByURI(absl::string_view uri,
                                             RecordSet* record_set) = 0;
 
   // Updates an artifact in the database.
@@ -309,12 +309,12 @@ class QueryExecutor {
 
   // Updates a property of an artifact in the database.
   virtual absl::Status UpdateArtifactProperty(
-      int64 artifact_id, const absl::string_view property_name,
+      int64 artifact_id, absl::string_view property_name,
       const Value& property_value) = 0;
 
   // Deletes a property of an artifact.
   virtual absl::Status DeleteArtifactProperty(
-      int64 artifact_id, const absl::string_view property_name) = 0;
+      int64 artifact_id, absl::string_view property_name) = 0;
 
   // Checks the existence of the Execution table.
   virtual absl::Status CheckExecutionTable() = 0;
@@ -339,7 +339,7 @@ class QueryExecutor {
 
   // Queries an execution from the database by its type_id and name.
   virtual absl::Status SelectExecutionByTypeIDAndExecutionName(
-      int64 execution_type_id, const absl::string_view name,
+      int64 execution_type_id, absl::string_view name,
       RecordSet* record_set) = 0;
 
   // Queries an execution from the database by its type_id.
@@ -357,7 +357,7 @@ class QueryExecutor {
 
   // Insert a property of an execution from the database.
   virtual absl::Status InsertExecutionProperty(int64 execution_id,
-                                               const absl::string_view name,
+                                               absl::string_view name,
                                                bool is_custom_property,
                                                const Value& value) = 0;
 
@@ -369,12 +369,12 @@ class QueryExecutor {
 
   // Updates a property of an execution from the database.
   virtual absl::Status UpdateExecutionProperty(int64 execution_id,
-                                               const absl::string_view name,
+                                               absl::string_view name,
                                                const Value& value) = 0;
 
   // Deletes a property of an execution.
   virtual absl::Status DeleteExecutionProperty(
-      int64 execution_id, const absl::string_view name) = 0;
+      int64 execution_id, absl::string_view name) = 0;
 
   // Checks the existence of the Context table.
   virtual absl::Status CheckContextTable() = 0;
@@ -401,7 +401,7 @@ class QueryExecutor {
 
   // Returns ids of contexts matching the given context_type_id and name.
   virtual absl::Status SelectContextByTypeIDAndContextName(
-      int64 context_type_id, const absl::string_view name,
+      int64 context_type_id, absl::string_view name,
       RecordSet* record_set) = 0;
 
   // Updates a context in the Context table.
@@ -415,7 +415,7 @@ class QueryExecutor {
 
   // Insert a property of a context into the database.
   virtual absl::Status InsertContextProperty(int64 context_id,
-                                             const absl::string_view name,
+                                             absl::string_view name,
                                              bool custom_property,
                                              const Value& value) = 0;
 
@@ -426,12 +426,12 @@ class QueryExecutor {
 
   // Updates a property of a context in the database.
   virtual absl::Status UpdateContextProperty(
-      int64 context_id, const absl::string_view property_name,
+      int64 context_id, absl::string_view property_name,
       const Value& property_value) = 0;
 
   // Deletes a property of a context.
   virtual absl::Status DeleteContextProperty(
-      const int64 context_id, const absl::string_view property_name) = 0;
+      const int64 context_id, absl::string_view property_name) = 0;
 
   // Checks the existence of the Event table.
   virtual absl::Status CheckEventTable() = 0;

@@ -29,7 +29,7 @@ void SetListOperationInitialValues(const ListOperationOptions& options,
 }
 
 absl::Status DecodeListOperationNextPageToken(
-    const absl::string_view next_page_token,
+    absl::string_view next_page_token,
     ListOperationNextPageToken& list_operation_next_page_token) {
   std::string token_str;
   if (!absl::WebSafeBase64Unescape(next_page_token, &token_str)) {

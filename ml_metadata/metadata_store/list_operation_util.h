@@ -30,7 +30,7 @@ void SetListOperationInitialValues(const ListOperationOptions& options,
 
 // Decodes ListOperationNextPageToken encoded in `next_page_token`.
 absl::Status DecodeListOperationNextPageToken(
-    const absl::string_view next_page_token,
+    absl::string_view next_page_token,
     ListOperationNextPageToken& list_operation_next_page_token);
 
 // Generates encoded list operation next page token string.

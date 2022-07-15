@@ -105,9 +105,9 @@ Status CheckConfig(const MySQLDatabaseConfig& config) {
 // Builds absl::Status for the `status_code` and attaches `mysql_error_code`
 // to the payload of the status object.
 absl::Status BuildErrorStatus(const absl::StatusCode status_code,
-                              const absl::string_view error_message,
+                              absl::string_view error_message,
                               const int64 mysql_error_code,
-                              const absl::string_view mysql_error_message) {
+                              absl::string_view mysql_error_message) {
   auto error_status = absl::Status(
       status_code, absl::StrCat(error_message, ": errno: ", mysql_error_message,
                                 ", error: ", mysql_error_message));

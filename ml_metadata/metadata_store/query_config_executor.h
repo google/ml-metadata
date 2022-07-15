@@ -115,7 +115,7 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   absl::Status InsertTypeProperty(int64 type_id,
-                                  const absl::string_view property_name,
+                                  absl::string_view property_name,
                                   PropertyType property_type) final {
     return ExecuteQuery(
         query_config_.insert_type_property(),
@@ -166,7 +166,7 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   absl::Status SelectArtifactByTypeIDAndArtifactName(
-      int64 artifact_type_id, const absl::string_view name,
+      int64 artifact_type_id, absl::string_view name,
       RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_artifact_by_type_id_and_name(),
                         {Bind(artifact_type_id), Bind(name)}, record_set);
@@ -178,7 +178,7 @@ class QueryConfigExecutor : public QueryExecutor {
                         {Bind(artifact_type_id)}, record_set);
   }
 
-  absl::Status SelectArtifactsByURI(const absl::string_view uri,
+  absl::Status SelectArtifactsByURI(absl::string_view uri,
                                     RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_artifacts_by_uri(), {Bind(uri)},
                         record_set);
@@ -214,7 +214,7 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   absl::Status UpdateArtifactProperty(int64 artifact_id,
-                                      const absl::string_view property_name,
+                                      absl::string_view property_name,
                                       const Value& property_value) final {
     return ExecuteQuery(
         query_config_.update_artifact_property(),
@@ -223,7 +223,7 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   absl::Status DeleteArtifactProperty(
-      int64 artifact_id, const absl::string_view property_name) final {
+      int64 artifact_id, absl::string_view property_name) final {
     return ExecuteQuery(query_config_.delete_artifact_property(),
                         {Bind(artifact_id), Bind(property_name)});
   }
@@ -251,7 +251,7 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   absl::Status SelectExecutionByTypeIDAndExecutionName(
-      int64 execution_type_id, const absl::string_view name,
+      int64 execution_type_id, absl::string_view name,
       RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_execution_by_type_id_and_name(),
                         {Bind(execution_type_id), Bind(name)}, record_set);
@@ -278,7 +278,7 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   absl::Status InsertExecutionProperty(int64 execution_id,
-                                       const absl::string_view name,
+                                       absl::string_view name,
                                        bool is_custom_property,
                                        const Value& value) final {
     return ExecuteQuery(query_config_.insert_execution_property(),
@@ -294,7 +294,7 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   absl::Status UpdateExecutionProperty(int64 execution_id,
-                                       const absl::string_view name,
+                                       absl::string_view name,
                                        const Value& value) final {
     return ExecuteQuery(query_config_.update_execution_property(),
                         {BindDataType(value), BindValue(value),
@@ -302,7 +302,7 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   absl::Status DeleteExecutionProperty(int64 execution_id,
-                                       const absl::string_view name) final {
+                                       absl::string_view name) final {
     return ExecuteQuery(query_config_.delete_execution_property(),
                         {Bind(execution_id), Bind(name)});
   }
@@ -335,7 +335,7 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   absl::Status SelectContextByTypeIDAndContextName(
-      int64 context_type_id, const absl::string_view name,
+      int64 context_type_id, absl::string_view name,
       RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_context_by_type_id_and_name(),
                         {Bind(context_type_id), Bind(name)}, record_set);
@@ -355,7 +355,7 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   absl::Status InsertContextProperty(int64 context_id,
-                                     const absl::string_view name,
+                                     absl::string_view name,
                                      bool custom_property,
                                      const Value& value) final {
     return ExecuteQuery(query_config_.insert_context_property(),
@@ -370,7 +370,7 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   absl::Status UpdateContextProperty(int64 context_id,
-                                     const absl::string_view property_name,
+                                     absl::string_view property_name,
                                      const Value& property_value) final {
     return ExecuteQuery(
         query_config_.update_context_property(),
@@ -379,7 +379,7 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   absl::Status DeleteContextProperty(
-      const int64 context_id, const absl::string_view property_name) final {
+      const int64 context_id, absl::string_view property_name) final {
     return ExecuteQuery(query_config_.delete_context_property(),
                         {Bind(context_id), Bind(property_name)});
   }

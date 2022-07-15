@@ -168,7 +168,7 @@ std::vector<int64> ParentContextsToContextIds(const RecordSet& record_set,
 // The field should be a scalar field. The field type must be one of {string,
 // int64, bool, enum, message}.
 absl::Status ParseValueToField(const google::protobuf::FieldDescriptor* field_descriptor,
-                               const absl::string_view value,
+                               absl::string_view value,
                                google::protobuf::Message* message) {
   if (value == kMetadataSourceNull) {
     return absl::OkStatus();
@@ -487,7 +487,7 @@ absl::Status RDBMSMetadataAccessObject::RunNodeUpdate(const Context& context) {
 // Runs a property insertion query for a NodeType.
 template <typename NodeType>
 absl::Status RDBMSMetadataAccessObject::InsertProperty(
-    const int64 node_id, const absl::string_view name,
+    const int64 node_id, absl::string_view name,
     const bool is_custom_property, const Value& value) {
   NodeType node;
   const TypeKind type_kind = ResolveTypeKind(&node);
@@ -512,7 +512,7 @@ absl::Status RDBMSMetadataAccessObject::InsertProperty(
 // Generates a property update query for a NodeType.
 template <typename NodeType>
 absl::Status RDBMSMetadataAccessObject::UpdateProperty(
-    const int64 node_id, const absl::string_view name, const Value& value) {
+    const int64 node_id, absl::string_view name, const Value& value) {
   NodeType node;
   const TypeKind type_kind = ResolveTypeKind(&node);
   MetadataSourceQueryConfig::TemplateQuery update_property;
@@ -532,7 +532,7 @@ absl::Status RDBMSMetadataAccessObject::UpdateProperty(
 // Generates a property deletion query for a NodeType.
 template <typename NodeType>
 absl::Status RDBMSMetadataAccessObject::DeleteProperty(
-    const int64 node_id, const absl::string_view name) {
+    const int64 node_id, absl::string_view name) {
   NodeType type;
   const TypeKind type_kind = ResolveTypeKind(&type);
   switch (type_kind) {
@@ -1845,7 +1845,7 @@ absl::Status RDBMSMetadataAccessObject::ListContexts(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindArtifactByTypeIdAndArtifactName(
-    const int64 type_id, const absl::string_view name, Artifact* artifact) {
+    const int64 type_id, absl::string_view name, Artifact* artifact) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(executor_->SelectArtifactByTypeIDAndArtifactName(
       type_id, name, &record_set));
@@ -1896,7 +1896,7 @@ absl::Status RDBMSMetadataAccessObject::FindExecutions(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindExecutionByTypeIdAndExecutionName(
-    const int64 type_id, const absl::string_view name, Execution* execution) {
+    const int64 type_id, absl::string_view name, Execution* execution) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(executor_->SelectExecutionByTypeIDAndExecutionName(
       type_id, name, &record_set));
@@ -1967,7 +1967,7 @@ absl::Status RDBMSMetadataAccessObject::FindContextsByTypeId(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindArtifactsByURI(
-    const absl::string_view uri, std::vector<Artifact>* artifacts) {
+    absl::string_view uri, std::vector<Artifact>* artifacts) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(executor_->SelectArtifactsByURI(uri, &record_set));
   const std::vector<int64> ids = ConvertToIds(record_set);

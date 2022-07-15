@@ -442,19 +442,19 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   // Runs a property insertion query for a NodeType.
   template <typename NodeType>
-  absl::Status InsertProperty(const int64 node_id, const absl::string_view name,
+  absl::Status InsertProperty(const int64 node_id, absl::string_view name,
                               const bool is_custom_property,
                               const Value& value);
 
   // Generates a property update query for a NodeType.
   template <typename NodeType>
-  absl::Status UpdateProperty(const int64 node_id, const absl::string_view name,
+  absl::Status UpdateProperty(const int64 node_id, absl::string_view name,
                               const Value& value);
 
   // Generates a property deletion query for a NodeType.
   template <typename NodeType>
   absl::Status DeleteProperty(const int64 node_id,
-                              const absl::string_view name);
+                              absl::string_view name);
 
   // Generates a list of queries for the `curr_properties` (C) based on the
   // given `prev_properties` (P). A property definition is a 2-tuple (name,
