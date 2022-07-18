@@ -197,13 +197,13 @@ class MetadataAccessObject {
   // Returns INVALID_ARGUMENT error, if the given `type_ids` is empty, or
   // `output_parent_types` is not empty.
   virtual absl::Status FindParentTypesByTypeId(
-      const absl::Span<const int64> type_ids,
+      absl::Span<const int64> type_ids,
       absl::flat_hash_map<int64, ArtifactType>& output_parent_types) = 0;
   virtual absl::Status FindParentTypesByTypeId(
-      const absl::Span<const int64> type_ids,
+      absl::Span<const int64> type_ids,
       absl::flat_hash_map<int64, ExecutionType>& output_parent_types) = 0;
   virtual absl::Status FindParentTypesByTypeId(
-      const absl::Span<const int64> type_ids,
+      absl::Span<const int64> type_ids,
       absl::flat_hash_map<int64, ContextType>& output_parent_types) = 0;
 
   // Creates an artifact, returns the assigned artifact id. The id field of the

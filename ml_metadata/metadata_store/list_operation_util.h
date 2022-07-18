@@ -36,7 +36,7 @@ absl::Status DecodeListOperationNextPageToken(
 // Generates encoded list operation next page token string.
 template <typename Node>
 absl::Status BuildListOperationNextPageToken(
-    const absl::Span<const Node> nodes, const ListOperationOptions& options,
+    absl::Span<const Node> nodes, const ListOperationOptions& options,
     std::string* next_page_token) {
   const Node& last_node = nodes.back();
   ListOperationNextPageToken list_operation_next_page_token;

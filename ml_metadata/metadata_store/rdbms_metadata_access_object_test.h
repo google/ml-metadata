@@ -118,7 +118,7 @@ class RDBMSMetadataAccessObjectTest
 
   template <typename Type>
   absl::Status FindParentTypesByTypeIdImpl(
-      const absl::Span<const int64> type_ids,
+      absl::Span<const int64> type_ids,
       absl::flat_hash_map<int64, Type>& output_parent_types) {
     return rdbms_metadata_access_object_->FindParentTypesByTypeIdImpl(
         type_ids, output_parent_types);

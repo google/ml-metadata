@@ -187,13 +187,13 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
       const ContextType& type, const ContextType& parent_type) final;
 
   absl::Status FindParentTypesByTypeId(
-      const absl::Span<const int64> type_ids,
+      absl::Span<const int64> type_ids,
       absl::flat_hash_map<int64, ArtifactType>& output_parent_types) final;
   absl::Status FindParentTypesByTypeId(
-      const absl::Span<const int64> type_ids,
+      absl::Span<const int64> type_ids,
       absl::flat_hash_map<int64, ExecutionType>& output_parent_types) final;
   absl::Status FindParentTypesByTypeId(
-      const absl::Span<const int64> type_ids,
+      absl::Span<const int64> type_ids,
       absl::flat_hash_map<int64, ContextType>& output_parent_types) final;
 
   absl::Status CreateArtifact(const Artifact& artifact,
@@ -554,7 +554,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // `output_parent_types` is not empty.
   template <typename Type>
   absl::Status FindParentTypesByTypeIdImpl(
-      const absl::Span<const int64> type_ids,
+      absl::Span<const int64> type_ids,
       absl::flat_hash_map<int64, Type>& output_parent_types);
 
   // Creates an `Node`, which is one of {`Artifact`, `Execution`, `Context`},

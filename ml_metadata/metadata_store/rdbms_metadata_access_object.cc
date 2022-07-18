@@ -420,7 +420,7 @@ absl::Status RDBMSMetadataAccessObject::CreateBasicNode(const Context& context,
 
 template <>
 absl::Status RDBMSMetadataAccessObject::RetrieveNodesById(
-    const absl::Span<const int64> ids, RecordSet* header, RecordSet* properties,
+    absl::Span<const int64> ids, RecordSet* header, RecordSet* properties,
     Context* tag) {
   MLMD_RETURN_IF_ERROR(executor_->SelectContextsByID(ids, header));
   if (!header->records().empty()) {
@@ -432,7 +432,7 @@ absl::Status RDBMSMetadataAccessObject::RetrieveNodesById(
 
 template <>
 absl::Status RDBMSMetadataAccessObject::RetrieveNodesById(
-    const absl::Span<const int64> ids, RecordSet* header, RecordSet* properties,
+    absl::Span<const int64> ids, RecordSet* header, RecordSet* properties,
     Artifact* tag) {
   MLMD_RETURN_IF_ERROR(executor_->SelectArtifactsByID(ids, header));
   if (!header->records().empty()) {
@@ -444,7 +444,7 @@ absl::Status RDBMSMetadataAccessObject::RetrieveNodesById(
 
 template <>
 absl::Status RDBMSMetadataAccessObject::RetrieveNodesById(
-    const absl::Span<const int64> ids, RecordSet* header, RecordSet* properties,
+    absl::Span<const int64> ids, RecordSet* header, RecordSet* properties,
     Execution* tag) {
   MLMD_RETURN_IF_ERROR(executor_->SelectExecutionsByID(ids, header));
   if (!header->records().empty()) {
@@ -858,7 +858,7 @@ absl::Status RDBMSMetadataAccessObject::UpdateTypeImpl(const Type& type) {
 
 template <typename Type>
 absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeIdImpl(
-    const absl::Span<const int64> type_ids,
+    absl::Span<const int64> type_ids,
     absl::flat_hash_map<int64, Type>& output_parent_types) {
   if (type_ids.empty()) {
     return absl::InvalidArgumentError("type_ids cannot be empty");
@@ -945,7 +945,7 @@ absl::Status RDBMSMetadataAccessObject::CreateNodeImpl(
 
 template <typename Node>
 absl::Status RDBMSMetadataAccessObject::FindNodesImpl(
-    const absl::Span<const int64> node_ids, const bool skipped_ids_ok,
+    absl::Span<const int64> node_ids, const bool skipped_ids_ok,
     std::vector<Node>& nodes) {
   if (node_ids.empty()) {
     return absl::InvalidArgumentError("ids cannot be empty");
@@ -1292,19 +1292,19 @@ absl::Status RDBMSMetadataAccessObject::DeleteParentTypeInheritanceLink(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeId(
-    const absl::Span<const int64> type_ids,
+    absl::Span<const int64> type_ids,
     absl::flat_hash_map<int64, ArtifactType>& output_parent_types) {
   return FindParentTypesByTypeIdImpl(type_ids, output_parent_types);
 }
 
 absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeId(
-    const absl::Span<const int64> type_ids,
+    absl::Span<const int64> type_ids,
     absl::flat_hash_map<int64, ExecutionType>& output_parent_types) {
   return FindParentTypesByTypeIdImpl(type_ids, output_parent_types);
 }
 
 absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeId(
-    const absl::Span<const int64> type_ids,
+    absl::Span<const int64> type_ids,
     absl::flat_hash_map<int64, ContextType>& output_parent_types) {
   return FindParentTypesByTypeIdImpl(type_ids, output_parent_types);
 }
@@ -1367,7 +1367,7 @@ absl::Status RDBMSMetadataAccessObject::CreateContext(const Context& context,
 }
 
 absl::Status RDBMSMetadataAccessObject::FindArtifactsById(
-    const absl::Span<const int64> artifact_ids,
+    absl::Span<const int64> artifact_ids,
     std::vector<Artifact>* artifacts) {
   if (artifact_ids.empty()) {
     return absl::OkStatus();
@@ -1376,7 +1376,7 @@ absl::Status RDBMSMetadataAccessObject::FindArtifactsById(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindExecutionsById(
-    const absl::Span<const int64> execution_ids,
+    absl::Span<const int64> execution_ids,
     std::vector<Execution>* executions) {
   if (execution_ids.empty()) {
     return absl::OkStatus();
@@ -1386,7 +1386,7 @@ absl::Status RDBMSMetadataAccessObject::FindExecutionsById(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindContextsById(
-    const absl::Span<const int64> context_ids, std::vector<Context>* contexts) {
+    absl::Span<const int64> context_ids, std::vector<Context>* contexts) {
   if (context_ids.empty()) {
     return absl::OkStatus();
   }

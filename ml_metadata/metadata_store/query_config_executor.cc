@@ -83,7 +83,7 @@ absl::Status QueryConfigExecutor::DeleteParentType(int64 type_id,
 }
 
 absl::Status QueryConfigExecutor::SelectParentTypesByTypeID(
-    const absl::Span<const int64> type_ids, RecordSet* record_set) {
+    absl::Span<const int64> type_ids, RecordSet* record_set) {
   return ExecuteQuery(query_config_.select_parent_type_by_type_id(),
                       {Bind(type_ids)}, record_set);
 }
@@ -335,7 +335,7 @@ std::string QueryConfigExecutor::Bind(Execution::State value) {
   return std::to_string((int)value);
 }
 
-std::string QueryConfigExecutor::Bind(const absl::Span<const int64> value) {
+std::string QueryConfigExecutor::Bind(absl::Span<const int64> value) {
   return absl::StrJoin(value, ", ");
 }
 
@@ -408,7 +408,7 @@ absl::Status QueryConfigExecutor::ExecuteQuery(const std::string& query,
 
 absl::Status QueryConfigExecutor::ExecuteQuery(
     const MetadataSourceQueryConfig::TemplateQuery& template_query,
-    const absl::Span<const std::string> parameters, RecordSet* record_set) {
+    absl::Span<const std::string> parameters, RecordSet* record_set) {
   if (parameters.size() > 10) {
     return absl::InvalidArgumentError(
         "Template query has too many parameters (at most 10 is supported).");
@@ -577,7 +577,7 @@ absl::Status QueryConfigExecutor::InsertContextType(
 }
 
 absl::Status QueryConfigExecutor::SelectTypesByID(
-    const absl::Span<const int64> type_ids, TypeKind type_kind,
+    absl::Span<const int64> type_ids, TypeKind type_kind,
     RecordSet* record_set) {
   return ExecuteQuery(query_config_.select_types_by_id(),
                       {Bind(type_ids), Bind(type_kind)}, record_set);
@@ -692,7 +692,7 @@ absl::Status QueryConfigExecutor::ListContextIDsUsingOptions(
 
 
 absl::Status QueryConfigExecutor::DeleteExecutionsById(
-    const absl::Span<const int64> execution_ids) {
+    absl::Span<const int64> execution_ids) {
   MLMD_RETURN_IF_ERROR(ExecuteQuery(query_config_.delete_executions_by_id(),
                                     {Bind(execution_ids)}));
   MLMD_RETURN_IF_ERROR(ExecuteQuery(
@@ -702,7 +702,7 @@ absl::Status QueryConfigExecutor::DeleteExecutionsById(
 }
 
 absl::Status QueryConfigExecutor::DeleteArtifactsById(
-    const absl::Span<const int64> artifact_ids) {
+    absl::Span<const int64> artifact_ids) {
   MLMD_RETURN_IF_ERROR(ExecuteQuery(query_config_.delete_artifacts_by_id(),
                                     {Bind(artifact_ids)}));
   MLMD_RETURN_IF_ERROR(
@@ -712,7 +712,7 @@ absl::Status QueryConfigExecutor::DeleteArtifactsById(
 }
 
 absl::Status QueryConfigExecutor::DeleteContextsById(
-    const absl::Span<const int64> context_ids) {
+    absl::Span<const int64> context_ids) {
   MLMD_RETURN_IF_ERROR(
       ExecuteQuery(query_config_.delete_contexts_by_id(), {Bind(context_ids)}));
   MLMD_RETURN_IF_ERROR(
@@ -722,7 +722,7 @@ absl::Status QueryConfigExecutor::DeleteContextsById(
 }
 
 absl::Status QueryConfigExecutor::DeleteEventsByArtifactsId(
-    const absl::Span<const int64> artifact_ids) {
+    absl::Span<const int64> artifact_ids) {
   MLMD_RETURN_IF_ERROR(ExecuteQuery(
       query_config_.delete_events_by_artifacts_id(), {Bind(artifact_ids)}));
   MLMD_RETURN_IF_ERROR(ExecuteQuery(query_config_.delete_event_paths()));
@@ -730,7 +730,7 @@ absl::Status QueryConfigExecutor::DeleteEventsByArtifactsId(
 }
 
 absl::Status QueryConfigExecutor::DeleteEventsByExecutionsId(
-    const absl::Span<const int64> execution_ids) {
+    absl::Span<const int64> execution_ids) {
   MLMD_RETURN_IF_ERROR(ExecuteQuery(
       query_config_.delete_events_by_executions_id(), {Bind(execution_ids)}));
   MLMD_RETURN_IF_ERROR(ExecuteQuery(query_config_.delete_event_paths()));
@@ -738,14 +738,14 @@ absl::Status QueryConfigExecutor::DeleteEventsByExecutionsId(
 }
 
 absl::Status QueryConfigExecutor::DeleteAttributionsByContextsId(
-    const absl::Span<const int64> context_ids) {
+    absl::Span<const int64> context_ids) {
   MLMD_RETURN_IF_ERROR(ExecuteQuery(
       query_config_.delete_attributions_by_contexts_id(), {Bind(context_ids)}));
   return absl::OkStatus();
 }
 
 absl::Status QueryConfigExecutor::DeleteAttributionsByArtifactsId(
-    const absl::Span<const int64> artifact_ids) {
+    absl::Span<const int64> artifact_ids) {
   MLMD_RETURN_IF_ERROR(
       ExecuteQuery(query_config_.delete_attributions_by_artifacts_id(),
                    {Bind(artifact_ids)}));
@@ -753,7 +753,7 @@ absl::Status QueryConfigExecutor::DeleteAttributionsByArtifactsId(
 }
 
 absl::Status QueryConfigExecutor::DeleteAssociationsByContextsId(
-    const absl::Span<const int64> context_ids) {
+    absl::Span<const int64> context_ids) {
   MLMD_RETURN_IF_ERROR(
       ExecuteQuery(query_config_.delete_associations_by_contexts_id(),
                    {Bind(context_ids)}));
@@ -761,7 +761,7 @@ absl::Status QueryConfigExecutor::DeleteAssociationsByContextsId(
 }
 
 absl::Status QueryConfigExecutor::DeleteAssociationsByExecutionsId(
-    const absl::Span<const int64> execution_ids) {
+    absl::Span<const int64> execution_ids) {
   MLMD_RETURN_IF_ERROR(
       ExecuteQuery(query_config_.delete_associations_by_executions_id(),
                    {Bind(execution_ids)}));
@@ -769,7 +769,7 @@ absl::Status QueryConfigExecutor::DeleteAssociationsByExecutionsId(
 }
 
 absl::Status QueryConfigExecutor::DeleteParentContextsByParentIds(
-    const absl::Span<const int64> parent_context_ids) {
+    absl::Span<const int64> parent_context_ids) {
   MLMD_RETURN_IF_ERROR(
       ExecuteQuery(query_config_.delete_parent_contexts_by_parent_ids(),
                    {Bind(parent_context_ids)}));
@@ -777,7 +777,7 @@ absl::Status QueryConfigExecutor::DeleteParentContextsByParentIds(
 }
 
 absl::Status QueryConfigExecutor::DeleteParentContextsByChildIds(
-    const absl::Span<const int64> child_context_ids) {
+    absl::Span<const int64> child_context_ids) {
   MLMD_RETURN_IF_ERROR(
       ExecuteQuery(query_config_.delete_parent_contexts_by_child_ids(),
                    {Bind(child_context_ids)}));

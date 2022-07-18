@@ -97,7 +97,7 @@ class QueryConfigExecutor : public QueryExecutor {
                                  absl::optional<absl::string_view> description,
                                  int64* type_id) final;
 
-  absl::Status SelectTypesByID(const absl::Span<const int64> type_ids,
+  absl::Status SelectTypesByID(absl::Span<const int64> type_ids,
                                TypeKind type_kind, RecordSet* record_set) final;
 
   absl::Status SelectTypeByID(int64 type_id, TypeKind type_kind,
@@ -122,7 +122,7 @@ class QueryConfigExecutor : public QueryExecutor {
         {Bind(type_id), Bind(property_name), Bind(property_type)});
   }
 
-  absl::Status SelectPropertiesByTypeID(const absl::Span<const int64> type_ids,
+  absl::Status SelectPropertiesByTypeID(absl::Span<const int64> type_ids,
                                         RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_properties_by_type_id(),
                         {Bind(type_ids)}, record_set);
@@ -135,7 +135,7 @@ class QueryConfigExecutor : public QueryExecutor {
   absl::Status DeleteParentType(int64 type_id,
                                 int64 parent_type_id) final;
 
-  absl::Status SelectParentTypesByTypeID(const absl::Span<const int64> type_ids,
+  absl::Status SelectParentTypesByTypeID(absl::Span<const int64> type_ids,
                                          RecordSet* record_set) final;
 
   // Queries the last inserted id.
@@ -159,7 +159,7 @@ class QueryConfigExecutor : public QueryExecutor {
         artifact_id);
   }
 
-  absl::Status SelectArtifactsByID(const absl::Span<const int64> artifact_ids,
+  absl::Status SelectArtifactsByID(absl::Span<const int64> artifact_ids,
                                    RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_artifact_by_id(),
                         {Bind(artifact_ids)}, record_set);
@@ -208,7 +208,7 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   absl::Status SelectArtifactPropertyByArtifactID(
-      const absl::Span<const int64> artifact_ids, RecordSet* record_set) final {
+      absl::Span<const int64> artifact_ids, RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_artifact_property_by_artifact_id(),
                         {Bind(artifact_ids)}, record_set);
   }
@@ -244,7 +244,7 @@ class QueryConfigExecutor : public QueryExecutor {
         execution_id);
   }
 
-  absl::Status SelectExecutionsByID(const absl::Span<const int64> ids,
+  absl::Status SelectExecutionsByID(absl::Span<const int64> ids,
                                     RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_execution_by_id(), {Bind(ids)},
                         record_set);
@@ -287,7 +287,7 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   absl::Status SelectExecutionPropertyByExecutionID(
-      const absl::Span<const int64> ids, RecordSet* record_set) final {
+      absl::Span<const int64> ids, RecordSet* record_set) final {
     return ExecuteQuery(
         query_config_.select_execution_property_by_execution_id(), {Bind(ids)},
         record_set);
@@ -322,7 +322,7 @@ class QueryConfigExecutor : public QueryExecutor {
         context_id);
   }
 
-  absl::Status SelectContextsByID(const absl::Span<const int64> context_ids,
+  absl::Status SelectContextsByID(absl::Span<const int64> context_ids,
                                   RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_context_by_id(),
                         {Bind(context_ids)}, record_set);
@@ -364,7 +364,7 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   absl::Status SelectContextPropertyByContextID(
-      const absl::Span<const int64> context_ids, RecordSet* record_set) final {
+      absl::Span<const int64> context_ids, RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_context_property_by_context_id(),
                         {Bind(context_ids)}, record_set);
   }
@@ -399,14 +399,14 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   absl::Status SelectEventByArtifactIDs(
-      const absl::Span<const int64> artifact_ids,
+      absl::Span<const int64> artifact_ids,
       RecordSet* event_record_set) final {
     return ExecuteQuery(query_config_.select_event_by_artifact_ids(),
                         {Bind(artifact_ids)}, event_record_set);
   }
 
   absl::Status SelectEventByExecutionIDs(
-      const absl::Span<const int64> execution_ids,
+      absl::Span<const int64> execution_ids,
       RecordSet* event_record_set) final {
     return ExecuteQuery(query_config_.select_event_by_execution_ids(),
                         {Bind(execution_ids)}, event_record_set);
@@ -420,7 +420,7 @@ class QueryConfigExecutor : public QueryExecutor {
                                const Event::Path::Step& step) final;
 
   absl::Status SelectEventPathByEventIDs(
-      const absl::Span<const int64> event_ids, RecordSet* record_set) final {
+      absl::Span<const int64> event_ids, RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_event_path_by_event_ids(),
                         {Bind(event_ids)}, record_set);
   }
@@ -542,28 +542,28 @@ class QueryConfigExecutor : public QueryExecutor {
       absl::Span<const int64> execution_ids) final;
 
   absl::Status DeleteEventsByArtifactsId(
-      const absl::Span<const int64> artifact_ids) final;
+      absl::Span<const int64> artifact_ids) final;
 
   absl::Status DeleteEventsByExecutionsId(
-      const absl::Span<const int64> execution_ids) final;
+      absl::Span<const int64> execution_ids) final;
 
   absl::Status DeleteAssociationsByContextsId(
-      const absl::Span<const int64> context_ids) final;
+      absl::Span<const int64> context_ids) final;
 
   absl::Status DeleteAssociationsByExecutionsId(
-      const absl::Span<const int64> execution_ids) final;
+      absl::Span<const int64> execution_ids) final;
 
   absl::Status DeleteAttributionsByContextsId(
-      const absl::Span<const int64> context_ids) final;
+      absl::Span<const int64> context_ids) final;
 
   absl::Status DeleteAttributionsByArtifactsId(
-      const absl::Span<const int64> artifact_ids) final;
+      absl::Span<const int64> artifact_ids) final;
 
   absl::Status DeleteParentContextsByParentIds(
-      const absl::Span<const int64> parent_context_ids) final;
+      absl::Span<const int64> parent_context_ids) final;
 
   absl::Status DeleteParentContextsByChildIds(
-      const absl::Span<const int64> child_context_ids) final;
+      absl::Span<const int64> child_context_ids) final;
 
  private:
   // Utility method to bind an nullable value.
@@ -638,7 +638,7 @@ class QueryConfigExecutor : public QueryExecutor {
   // Returns FAILED_PRECONDITION error, if a transaction has not begun.
   absl::Status ExecuteQuery(
       const MetadataSourceQueryConfig::TemplateQuery& template_query,
-      const absl::Span<const std::string> parameters) {
+      absl::Span<const std::string> parameters) {
     RecordSet record_set;
     return ExecuteQuery(template_query, parameters, &record_set);
   }
@@ -659,7 +659,7 @@ class QueryConfigExecutor : public QueryExecutor {
   // Returns INTERNAL error, if it cannot find the last insert ID.
   absl::Status ExecuteQuerySelectLastInsertID(
       const MetadataSourceQueryConfig::TemplateQuery& query,
-      const absl::Span<const std::string> arguments, int64* last_insert_id) {
+      absl::Span<const std::string> arguments, int64* last_insert_id) {
     MLMD_RETURN_IF_ERROR(ExecuteQuery(query, arguments));
     return SelectLastInsertID(last_insert_id);
   }

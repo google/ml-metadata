@@ -189,7 +189,7 @@ class QueryExecutor {
   // skipped.
   // Returned messages can be converted to ArtifactType, ContextType, or
   // ExecutionType.
-  virtual absl::Status SelectTypesByID(const absl::Span<const int64> type_ids,
+  virtual absl::Status SelectTypesByID(absl::Span<const int64> type_ids,
                                        TypeKind type_kind,
                                        RecordSet* record_set) = 0;
   // Queries a type by its type id.
@@ -228,7 +228,7 @@ class QueryExecutor {
   // `type_ids`.
   // Returns a list of properties (type_id, name, data_type).
   virtual absl::Status SelectPropertiesByTypeID(
-      const absl::Span<const int64> type_ids, RecordSet* record_set) = 0;
+      absl::Span<const int64> type_ids, RecordSet* record_set) = 0;
 
   // Checks the existence of the ParentType table.
   virtual absl::Status CheckParentTypeTable() = 0;
@@ -248,7 +248,7 @@ class QueryExecutor {
   // Column 0: int: type_id (= type_id in `type_ids`)
   // Column 1: int: parent_type_id
   virtual absl::Status SelectParentTypesByTypeID(
-      const absl::Span<const int64> type_ids, RecordSet* record_set) = 0;
+      absl::Span<const int64> type_ids, RecordSet* record_set) = 0;
 
   // Checks the existence of the Artifact table.
   virtual absl::Status CheckArtifactTable() = 0;
@@ -597,42 +597,42 @@ class QueryExecutor {
   // Deletes the events corresponding to the |artifact_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status DeleteEventsByArtifactsId(
-      const absl::Span<const int64> artifact_ids) = 0;
+      absl::Span<const int64> artifact_ids) = 0;
 
   // Deletes the events corresponding to the |execution_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status DeleteEventsByExecutionsId(
-      const absl::Span<const int64> execution_ids) = 0;
+      absl::Span<const int64> execution_ids) = 0;
 
   // Deletes the associations corresponding to the |context_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status DeleteAssociationsByContextsId(
-      const absl::Span<const int64> context_ids) = 0;
+      absl::Span<const int64> context_ids) = 0;
 
   // Deletes the associations corresponding to the |execution_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status DeleteAssociationsByExecutionsId(
-      const absl::Span<const int64> execution_ids) = 0;
+      absl::Span<const int64> execution_ids) = 0;
 
   // Deletes the attributions corresponding to the |context_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status DeleteAttributionsByContextsId(
-      const absl::Span<const int64> context_ids) = 0;
+      absl::Span<const int64> context_ids) = 0;
 
   // Deletes the attributions corresponding to the |artifact_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status DeleteAttributionsByArtifactsId(
-      const absl::Span<const int64> artifact_ids) = 0;
+      absl::Span<const int64> artifact_ids) = 0;
 
   // Deletes the parent contexts corresponding to the |parent_context_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status DeleteParentContextsByParentIds(
-      const absl::Span<const int64> parent_context_ids) = 0;
+      absl::Span<const int64> parent_context_ids) = 0;
 
   // Deletes the parent contexts corresponding to the |child_context_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status DeleteParentContextsByChildIds(
-      const absl::Span<const int64> child_context_ids) = 0;
+      absl::Span<const int64> child_context_ids) = 0;
 
  protected:
   // Uses the method to document the min schema version of an API explicitly.
