@@ -167,10 +167,8 @@ cc_library(
         ":test_util",
         "@com_google_googletest//:gtest",
         "@com_google_absl//absl/status",
-        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
-        "@com_google_absl//absl/types:span",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/util:return_utils",
@@ -634,6 +632,7 @@ cc_library(
     hdrs = ["metadata_access_object_test.h"],
     deps = [
         ":metadata_access_object_base",
+        ":metadata_source",
         ":test_util",
         "@com_google_protobuf//:protobuf",
         "@com_google_googletest//:gtest",

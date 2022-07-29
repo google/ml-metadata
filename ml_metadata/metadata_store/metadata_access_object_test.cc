@@ -32,6 +32,7 @@ limitations under the License.
 #include "absl/time/time.h"
 #include "absl/types/optional.h"
 #include "ml_metadata/metadata_store/metadata_access_object.h"
+#include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
@@ -287,19 +288,25 @@ NodeType CreateTypeFromTextProto(const std::string& type_text_proto,
 // Utilities that create and store a node with the given text proto.
 // Returns stored node proto with id and timestamps.
 template <class Node>
-void CreateNodeFromTextProto(const std::string& node_text_proto, int64 type_id,
-                             MetadataAccessObject& metadata_access_object,
-                             Node& output);
+void CreateNodeFromTextProto(
+    const std::string& node_text_proto, int64 type_id,
+    MetadataAccessObject& metadata_access_object,
+    MetadataAccessObjectContainer* metadata_access_object_container,
+    Node& output);
 
 template <>
-void CreateNodeFromTextProto(const std::string& node_text_proto, int64 type_id,
-                             MetadataAccessObject& metadata_access_object,
-                             Artifact& output) {
+void CreateNodeFromTextProto(
+    const std::string& node_text_proto, int64 type_id,
+    MetadataAccessObject& metadata_access_object,
+    MetadataAccessObjectContainer* metadata_access_object_container,
+    Artifact& output) {
   Artifact node = ParseTextProtoOrDie<Artifact>(node_text_proto);
   node.set_type_id(type_id);
   int64 node_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object.CreateArtifact(node, &node_id));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_container->AddCommitPoint());
   std::vector<Artifact> nodes;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object.FindArtifactsById({node_id}, &nodes));
@@ -308,14 +315,18 @@ void CreateNodeFromTextProto(const std::string& node_text_proto, int64 type_id,
 }
 
 template <>
-void CreateNodeFromTextProto(const std::string& node_text_proto, int64 type_id,
-                             MetadataAccessObject& metadata_access_object,
-                             Execution& output) {
+void CreateNodeFromTextProto(
+    const std::string& node_text_proto, int64 type_id,
+    MetadataAccessObject& metadata_access_object,
+    MetadataAccessObjectContainer* metadata_access_object_container,
+    Execution& output) {
   Execution node = ParseTextProtoOrDie<Execution>(node_text_proto);
   node.set_type_id(type_id);
   int64 node_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object.CreateExecution(node, &node_id));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_container->AddCommitPoint());
   std::vector<Execution> nodes;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object.FindExecutionsById({node_id}, &nodes));
@@ -324,14 +335,18 @@ void CreateNodeFromTextProto(const std::string& node_text_proto, int64 type_id,
 }
 
 template <>
-void CreateNodeFromTextProto(const std::string& node_text_proto, int64 type_id,
-                             MetadataAccessObject& metadata_access_object,
-                             Context& output) {
+void CreateNodeFromTextProto(
+    const std::string& node_text_proto, int64 type_id,
+    MetadataAccessObject& metadata_access_object,
+    MetadataAccessObjectContainer* metadata_access_object_container,
+    Context& output) {
   Context node = ParseTextProtoOrDie<Context>(node_text_proto);
   node.set_type_id(type_id);
   int64 node_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object.CreateContext(node, &node_id));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_container->AddCommitPoint());
   std::vector<Context> nodes;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object.FindContextsById({node_id}, &nodes));
@@ -339,33 +354,39 @@ void CreateNodeFromTextProto(const std::string& node_text_proto, int64 type_id,
   output = nodes[0];
 }
 
-void CreateEventFromTextProto(const std::string& event_text_proto,
-                              const Artifact& artifact,
-                              const Execution& execution,
-                              MetadataAccessObject& metadata_access_object,
-                              Event& output_event) {
+void CreateEventFromTextProto(
+    const std::string& event_text_proto, const Artifact& artifact,
+    const Execution& execution, MetadataAccessObject& metadata_access_object,
+    MetadataAccessObjectContainer* metadata_access_object_container,
+    Event& output_event) {
   output_event = ParseTextProtoOrDie<Event>(event_text_proto);
   output_event.set_artifact_id(artifact.id());
   output_event.set_execution_id(execution.id());
   int64 dummy_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object.CreateEvent(output_event, &dummy_id));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_container->AddCommitPoint());
 }
 
 // Utilities that waits for a millisecond to update a node and returns stored
 // node proto with updated timestamps.
 template <class Node>
-void UpdateAndReturnNode(const Node& updated_node,
-                         MetadataAccessObject& metadata_access_object,
-                         Node& output);
+void UpdateAndReturnNode(
+    const Node& updated_node, MetadataAccessObject& metadata_access_object,
+    MetadataAccessObjectContainer* metadata_access_object_container,
+    Node& output);
 
 template <>
-void UpdateAndReturnNode(const Artifact& updated_node,
-                         MetadataAccessObject& metadata_access_object,
-                         Artifact& output) {
+void UpdateAndReturnNode(
+    const Artifact& updated_node, MetadataAccessObject& metadata_access_object,
+    MetadataAccessObjectContainer* metadata_access_object_container,
+    Artifact& output) {
   absl::SleepFor(absl::Milliseconds(1));
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object.UpdateArtifact(updated_node));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_container->AddCommitPoint());
   std::vector<Artifact> artifacts;
   ASSERT_EQ(absl::OkStatus(), metadata_access_object.FindArtifactsById(
                                   {updated_node.id()}, &artifacts));
@@ -374,12 +395,15 @@ void UpdateAndReturnNode(const Artifact& updated_node,
 }
 
 template <>
-void UpdateAndReturnNode(const Execution& updated_node,
-                         MetadataAccessObject& metadata_access_object,
-                         Execution& output) {
+void UpdateAndReturnNode(
+    const Execution& updated_node, MetadataAccessObject& metadata_access_object,
+    MetadataAccessObjectContainer* metadata_access_object_container,
+    Execution& output) {
   absl::SleepFor(absl::Milliseconds(1));
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object.UpdateExecution(updated_node));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_container->AddCommitPoint());
   std::vector<Execution> executions;
   ASSERT_EQ(absl::OkStatus(), metadata_access_object.FindExecutionsById(
                                   {updated_node.id()}, &executions));
@@ -388,12 +412,15 @@ void UpdateAndReturnNode(const Execution& updated_node,
 }
 
 template <>
-void UpdateAndReturnNode(const Context& updated_node,
-                         MetadataAccessObject& metadata_access_object,
-                         Context& output) {
+void UpdateAndReturnNode(
+    const Context& updated_node, MetadataAccessObject& metadata_access_object,
+    MetadataAccessObjectContainer* metadata_access_object_container,
+    Context& output) {
   absl::SleepFor(absl::Milliseconds(1));
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object.UpdateContext(updated_node));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_container->AddCommitPoint());
   std::vector<Context> contexts;
   ASSERT_EQ(absl::OkStatus(), metadata_access_object.FindContextsById(
                                   {updated_node.id()}, &contexts));
@@ -1817,7 +1844,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithDuplicatedNameError) {
   // insert the same artifact again to check the unique constraint
   absl::Status unique_constraint_violation_status =
       metadata_access_object_->CreateArtifact(artifact, &artifact_id);
-  EXPECT_EQ(CheckUniqueConstraintAndResetTranscation(
+  EXPECT_EQ(CheckUniqueConstraintAndResetTransaction(
                 unique_constraint_violation_status),
             absl::OkStatus());
 }
@@ -2075,6 +2102,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactById) {
   int64 artifact_id;
   ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateArtifact(
                                   want_artifact, &artifact_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Artifact got_artifact;
   {
@@ -2145,6 +2173,8 @@ TEST_P(MetadataAccessObjectTest, FindArtifacts) {
     want_artifact2.set_id(artifact2_id);
   }
   ASSERT_NE(want_artifact1.id(), want_artifact2.id());
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // Test: retrieve by empty ids
   {
@@ -2285,8 +2315,11 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsFilterAttributeQuery) {
     absl::SleepFor(absl::Milliseconds(1));
     CreateNodeFromTextProto(absl::Substitute(R"(
       uri: 'uri_$0',
-      name: 'artifact_$0')", i),
-      type.id(), *metadata_access_object_, want_artifacts[i]);
+      name: 'artifact_$0')",
+                                             i),
+                            type.id(), *metadata_access_object_,
+                            metadata_access_object_container_.get(),
+                            want_artifacts[i]);
   }
 
   VerifyListOptions<Artifact>(
@@ -2339,6 +2372,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsFilterAttributeQuery) {
   old_artifact.set_state(Artifact::LIVE);
   Artifact updated_artifact;
   UpdateAndReturnNode<Artifact>(old_artifact, *metadata_access_object_,
+                                metadata_access_object_container_.get(),
                                 updated_artifact);
 
   VerifyListOptions<Artifact>(absl::Substitute(R"(
@@ -2390,27 +2424,34 @@ TEST_P(MetadataAccessObjectTest, ListNodesFilterEventQuery) {
     absl::SleepFor(absl::Milliseconds(1));
     CreateNodeFromTextProto(
         absl::Substitute("uri: 'uri_$0' name: 'artifact_$0'", i),
-        artifact_type.id(), *metadata_access_object_, want_artifacts[i]);
+        artifact_type.id(), *metadata_access_object_,
+        metadata_access_object_container_.get(), want_artifacts[i]);
   }
 
   const ExecutionType execution_type = CreateTypeFromTextProto<ExecutionType>(
       "name: 'et1'", *metadata_access_object_);
   Execution want_execution;
-  CreateNodeFromTextProto("name: 'execution_0' ", execution_type.id(),
-                          *metadata_access_object_, want_execution);
+  CreateNodeFromTextProto(
+      "name: 'execution_0' ", execution_type.id(), *metadata_access_object_,
+      metadata_access_object_container_.get(), want_execution);
 
   // Test Setup: a0 -INPUT-> e0 -OUTPUT-> a1
   //                          \ -OUTPUT-> a2
   std::vector<Event> want_events(3);
   CreateEventFromTextProto("type: INPUT", want_artifacts[0], want_execution,
-                           *metadata_access_object_, want_events[0]);
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[0]);
   CreateEventFromTextProto("type: OUTPUT", want_artifacts[1], want_execution,
-                           *metadata_access_object_, want_events[1]);
-  CreateEventFromTextProto(R"(
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[1]);
+  CreateEventFromTextProto(
+      R"(
       type: OUTPUT,
       milliseconds_since_epoch: 1)",
-                           want_artifacts[2], want_execution,
-                           *metadata_access_object_, want_events[2]);
+      want_artifacts[2], want_execution, *metadata_access_object_,
+      metadata_access_object_container_.get(), want_events[2]);
 
   // Filter Artifacts based on Events
   VerifyListOptions<Artifact>(R"(
@@ -2476,8 +2517,11 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsFilterAttributeQuery) {
   for (int i = 0; i < 3; i++) {
     absl::SleepFor(absl::Milliseconds(1));
     CreateNodeFromTextProto(absl::Substitute(R"(
-      name: 'execution_$0')", i),
-    type.id(), *metadata_access_object_, want_executions[i]);
+      name: 'execution_$0')",
+                                             i),
+                            type.id(), *metadata_access_object_,
+                            metadata_access_object_container_.get(),
+                            want_executions[i]);
   }
 
   VerifyListOptions<Execution>(absl::Substitute(R"(
@@ -2530,6 +2574,7 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsFilterAttributeQuery) {
   old_execution.set_last_known_state(Execution::COMPLETE);
   Execution updated_execution;
   UpdateAndReturnNode<Execution>(old_execution, *metadata_access_object_,
+                                 metadata_access_object_container_.get(),
                                  updated_execution);
 
   VerifyListOptions<Execution>(
@@ -2584,8 +2629,9 @@ TEST_P(MetadataAccessObjectTest, ListContextsFilterAttributeQuery) {
   std::vector<Context> want_contexts(3);
   for (int i = 0; i < 3; i++) {
     absl::SleepFor(absl::Milliseconds(1));
-    CreateNodeFromTextProto(absl::Substitute("name: 'c$0'", i), type.id(),
-                            *metadata_access_object_, want_contexts[i]);
+    CreateNodeFromTextProto(
+        absl::Substitute("name: 'c$0'", i), type.id(), *metadata_access_object_,
+        metadata_access_object_container_.get(), want_contexts[i]);
   }
 
   VerifyListOptions<Context>(
@@ -2649,6 +2695,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsFilterAttributeQuery) {
   (*old_context.mutable_properties())["p1"].set_int_value(1);
   Context updated_context;
   UpdateAndReturnNode<Context>(old_context, *metadata_access_object_,
+                               metadata_access_object_container_.get(),
                                updated_context);
   VerifyListOptions<Context>(
       absl::Substitute(R"(
@@ -2686,11 +2733,14 @@ TEST_P(MetadataAccessObjectTest, ListNodesFilterContextNeighborQuery) {
   for (int i = 0; i < 3; i++) {
     CreateNodeFromTextProto(absl::Substitute("uri: 'uri_$0'", i),
                             artifact_type.id(), *metadata_access_object_,
+                            metadata_access_object_container_.get(),
                             want_artifacts[i]);
     CreateNodeFromTextProto("", execution_type.id(), *metadata_access_object_,
+                            metadata_access_object_container_.get(),
                             want_executions[i]);
     CreateNodeFromTextProto(absl::Substitute("name: 'c$0'", i),
                             context_type.id(), *metadata_access_object_,
+                            metadata_access_object_container_.get(),
                             contexts[i]);
     absl::SleepFor(absl::Milliseconds(1));
   }
@@ -2720,6 +2770,7 @@ TEST_P(MetadataAccessObjectTest, ListNodesFilterContextNeighborQuery) {
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->CreateAssociation(association, &assid));
   }
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   VerifyListOptions<Artifact>(
       absl::Substitute(R"(
@@ -2786,6 +2837,7 @@ TEST_P(MetadataAccessObjectTest, ListNodesFilterContextNeighborQuery) {
   int64 dummy_assid;
   ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateAssociation(
                                   additional_association, &dummy_assid));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   VerifyListOptions<Execution>(
       absl::Substitute(R"(
@@ -2840,18 +2892,21 @@ TEST_P(MetadataAccessObjectTest, ListContextNodesWithParentChildQuery) {
   // Test Setup: Creates 3 context nodes with same parent and 2 of the 3
   // context nodes with same different parent.
   Context parent_context_1;
-  CreateNodeFromTextProto("name: 'p1'", parent_context_type_1.id(),
-                          *metadata_access_object_, parent_context_1);
+  CreateNodeFromTextProto(
+      "name: 'p1'", parent_context_type_1.id(), *metadata_access_object_,
+      metadata_access_object_container_.get(), parent_context_1);
 
   Context parent_context_2;
-  CreateNodeFromTextProto("name: 'p2'", parent_context_type_2.id(),
-                          *metadata_access_object_, parent_context_2);
+  CreateNodeFromTextProto(
+      "name: 'p2'", parent_context_type_2.id(), *metadata_access_object_,
+      metadata_access_object_container_.get(), parent_context_2);
 
   std::vector<Context> child_contexts;
   for (int i = 0; i < 3; i++) {
     Context child_context;
     CreateNodeFromTextProto(absl::Substitute("name: 'c$0'", i + 1),
                             child_context_type.id(), *metadata_access_object_,
+                            metadata_access_object_container_.get(),
                             child_context);
     child_contexts.push_back(child_context);
 
@@ -2947,8 +3002,9 @@ TEST_P(MetadataAccessObjectTest,
       "name: 'child_context_type'", *metadata_access_object_);
 
   Context parent_context_1;
-  CreateNodeFromTextProto("name: 'p1'", parent_context_type_1.id(),
-                          *metadata_access_object_, parent_context_1);
+  CreateNodeFromTextProto(
+      "name: 'p1'", parent_context_type_1.id(), *metadata_access_object_,
+      metadata_access_object_container_.get(), parent_context_1);
 
   Context child_context_1;
   CreateNodeFromTextProto(absl::StrFormat(R"(
@@ -2959,6 +3015,7 @@ TEST_P(MetadataAccessObjectTest,
         })",
                                           child_context_type.id()),
                           child_context_type.id(), *metadata_access_object_,
+                          metadata_access_object_container_.get(),
                           child_context_1);
 
   Context child_context_2;
@@ -2970,6 +3027,7 @@ TEST_P(MetadataAccessObjectTest,
         })",
                                           child_context_type.id()),
                           child_context_type.id(), *metadata_access_object_,
+                          metadata_access_object_container_.get(),
                           child_context_2);
 
   Context child_context_3;
@@ -2981,6 +3039,7 @@ TEST_P(MetadataAccessObjectTest,
         })",
                                           child_context_type.id()),
                           child_context_type.id(), *metadata_access_object_,
+                          metadata_access_object_container_.get(),
                           child_context_3);
 
   ParentContext parent_child_context_1;
@@ -3005,7 +3064,8 @@ TEST_P(MetadataAccessObjectTest,
 
 template <class NodeType, class Node>
 void TestFilteringWithListOptionsImpl(
-    MetadataAccessObject& metadata_access_object) {
+    MetadataAccessObject& metadata_access_object,
+    MetadataAccessObjectContainer* metadata_access_object_container) {
   const NodeType type = CreateTypeFromTextProto<NodeType>(R"(
     name: 'test_type'
     properties { key: 'p1' value: INT }
@@ -3018,8 +3078,7 @@ void TestFilteringWithListOptionsImpl(
   // node_$i also has p1 = $i, p2 = $i.0, p3 = '$i'
   std::vector<Node> want_nodes(5);
   for (int i = 0; i < want_nodes.size(); i++) {
-    CreateNodeFromTextProto(
-        absl::StrFormat(R"(
+    CreateNodeFromTextProto(absl::StrFormat(R"(
           type_id: %d
           name: 'test_%d'
           properties { key: 'p1' value: { int_value: %d } }
@@ -3034,8 +3093,11 @@ void TestFilteringWithListOptionsImpl(
         }
         custom_properties {
           key: 'custom_property:%d' value: { int_value: 1 }
-        })", type.id(), i, i, 1.0 * i, absl::StrCat("0", i), i, i, i),
-        type.id(), metadata_access_object, want_nodes[i]);
+        })",
+                                            type.id(), i, i, 1.0 * i,
+                                            absl::StrCat("0", i), i, i, i),
+                            type.id(), metadata_access_object,
+                            metadata_access_object_container, want_nodes[i]);
   }
 
   static constexpr char kListOption[] = R"(
@@ -3103,19 +3165,19 @@ void TestFilteringWithListOptionsImpl(
 TEST_P(MetadataAccessObjectTest, ListArtifactsFilterPropertyQuery) {
   ASSERT_EQ(absl::OkStatus(), Init());
   TestFilteringWithListOptionsImpl<ArtifactType, Artifact>(
-      *metadata_access_object_);
+      *metadata_access_object_, metadata_access_object_container_.get());
 }
 
 TEST_P(MetadataAccessObjectTest, ListExecutionsFilterPropertyQuery) {
   ASSERT_EQ(absl::OkStatus(), Init());
   TestFilteringWithListOptionsImpl<ExecutionType, Execution>(
-      *metadata_access_object_);
+      *metadata_access_object_, metadata_access_object_container_.get());
 }
 
 TEST_P(MetadataAccessObjectTest, LisContextsFilterPropertyQuery) {
   ASSERT_EQ(absl::OkStatus(), Init());
   TestFilteringWithListOptionsImpl<ContextType, Context>(
-      *metadata_access_object_);
+      *metadata_access_object_, metadata_access_object_container_.get());
 }
 
 TEST_P(MetadataAccessObjectTest, ListNodesFilterWithErrors) {
@@ -3201,23 +3263,31 @@ TEST_P(MetadataAccessObjectTest, QueryLineageGraph) {
   for (int i = 0; i < 2; i++) {
     CreateNodeFromTextProto(absl::Substitute("uri: 'uri_$0'", i),
                             artifact_type.id(), *metadata_access_object_,
+                            metadata_access_object_container_.get(),
                             want_artifacts[i]);
   }
   for (int i = 0; i < 2; i++) {
     CreateNodeFromTextProto("", execution_type.id(), *metadata_access_object_,
+                            metadata_access_object_container_.get(),
                             want_executions[i]);
   }
   std::vector<Event> want_events(4);
   CreateEventFromTextProto("type: INPUT", want_artifacts[0], want_executions[0],
-                           *metadata_access_object_, want_events[0]);
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[0]);
   CreateEventFromTextProto("type: INPUT", want_artifacts[0], want_executions[1],
-                           *metadata_access_object_, want_events[1]);
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[1]);
   CreateEventFromTextProto("type: OUTPUT", want_artifacts[1],
                            want_executions[0], *metadata_access_object_,
+                           metadata_access_object_container_.get(),
                            want_events[2]);
   CreateEventFromTextProto("type: INPUT", want_artifacts[1], want_executions[1],
-                           *metadata_access_object_, want_events[3]);
-
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[3]);
 
   {
     // Empty query nodes is OK.
@@ -3343,6 +3413,7 @@ TEST_P(MetadataAccessObjectTest, QueryLineageGraphArtifactsOnly) {
   for (int i = 0; i < 2; i++) {
     CreateNodeFromTextProto(absl::Substitute("uri: 'uri_$0'", i),
                             artifact_type.id(), *metadata_access_object_,
+                            metadata_access_object_container_.get(),
                             want_artifacts[i]);
   }
 
@@ -3372,24 +3443,30 @@ TEST_P(MetadataAccessObjectTest, QueryLineageGraphWithBoundaryConditions) {
   for (int i = 0; i < 2; i++) {
     CreateNodeFromTextProto(absl::Substitute("uri: 'uri_$0'", i),
                             artifact_type.id(), *metadata_access_object_,
+                            metadata_access_object_container_.get(),
                             want_artifacts[i]);
   }
   for (int i = 0; i < 251; i++) {
     CreateNodeFromTextProto(absl::Substitute("name: 'e$0'", i),
                             execution_type.id(), *metadata_access_object_,
+                            metadata_access_object_container_.get(),
                             want_executions[i]);
   }
   std::vector<Event> all_events(252);
   for (int i = 1; i < 251; i++) {
     CreateEventFromTextProto("type: INPUT", want_artifacts[0],
                              want_executions[i], *metadata_access_object_,
+                             metadata_access_object_container_.get(),
                              all_events[i - 1]);
   }
   const Event a0e1 = all_events[0];
   CreateEventFromTextProto("type: INPUT", want_artifacts[1], want_executions[0],
-                           *metadata_access_object_, all_events[250]);
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           all_events[250]);
   CreateEventFromTextProto("type: OUTPUT", want_artifacts[1],
                            want_executions[1], *metadata_access_object_,
+                           metadata_access_object_container_.get(),
                            all_events[251]);
   const Event a1e0 = all_events[250];
   const Event a1e1 = all_events[251];
@@ -3509,7 +3586,8 @@ TEST_P(MetadataAccessObjectTest, DeleteArtifactsById) {
           value: { string_value: '3' }
         }
       )pb",
-      type.id(), *metadata_access_object_, artifact);
+      type.id(), *metadata_access_object_,
+      metadata_access_object_container_.get(), artifact);
   // Test: empty ids
   {
     std::vector<Artifact> result;
@@ -3567,7 +3645,8 @@ TEST_P(MetadataAccessObjectTest, DeleteExecutionsById) {
           value: { string_value: '3' }
         }
       )pb",
-      type.id(), *metadata_access_object_, execution);
+      type.id(), *metadata_access_object_,
+      metadata_access_object_container_.get(), execution);
 
   // Test: empty ids
   {
@@ -3611,9 +3690,11 @@ TEST_P(MetadataAccessObjectTest, DeleteContextsById) {
       *metadata_access_object_);
   Context context1, context2;
   CreateNodeFromTextProto("name: 'delete_contexts_by_id_test_1'", type.id(),
-                          *metadata_access_object_, context1);
+                          *metadata_access_object_,
+                          metadata_access_object_container_.get(), context1);
   CreateNodeFromTextProto("name: 'delete_contexts_by_id_test_2'", type.id(),
-                          *metadata_access_object_, context2);
+                          *metadata_access_object_,
+                          metadata_access_object_container_.get(), context2);
 
   // Test: empty ids
   {
@@ -3659,20 +3740,25 @@ TEST_P(MetadataAccessObjectTest, DeleteEventsByArtifactsId) {
   int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
   int64 execution_type_id = InsertType<ExecutionType>("test_execution_type");
   Artifact input_artifact;
-  CreateNodeFromTextProto("name: 'input_artifact'", artifact_type_id,
-                          *metadata_access_object_, input_artifact);
+  CreateNodeFromTextProto(
+      "name: 'input_artifact'", artifact_type_id, *metadata_access_object_,
+      metadata_access_object_container_.get(), input_artifact);
   Artifact output_artifact;
-  CreateNodeFromTextProto("name: 'output_artifact'", artifact_type_id,
-                          *metadata_access_object_, output_artifact);
+  CreateNodeFromTextProto(
+      "name: 'output_artifact'", artifact_type_id, *metadata_access_object_,
+      metadata_access_object_container_.get(), output_artifact);
   Execution execution;
   CreateNodeFromTextProto("name: 'execution'", execution_type_id,
-                          *metadata_access_object_, execution);
+                          *metadata_access_object_,
+                          metadata_access_object_container_.get(), execution);
   Event event1;
   CreateEventFromTextProto("type: INPUT", input_artifact, execution,
-                           *metadata_access_object_, event1);
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(), event1);
   Event event2;
   CreateEventFromTextProto("type: OUTPUT", output_artifact, execution,
-                           *metadata_access_object_, event2);
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(), event2);
 
   // Test: empty ids
   {
@@ -3706,20 +3792,25 @@ TEST_P(MetadataAccessObjectTest, DeleteEventsByExecutionsId) {
   int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
   int64 execution_type_id = InsertType<ExecutionType>("test_execution_type");
   Artifact input_artifact;
-  CreateNodeFromTextProto("name: 'input_artifact'", artifact_type_id,
-                          *metadata_access_object_, input_artifact);
+  CreateNodeFromTextProto(
+      "name: 'input_artifact'", artifact_type_id, *metadata_access_object_,
+      metadata_access_object_container_.get(), input_artifact);
   Artifact output_artifact;
-  CreateNodeFromTextProto("name: 'output_artifact'", artifact_type_id,
-                          *metadata_access_object_, output_artifact);
+  CreateNodeFromTextProto(
+      "name: 'output_artifact'", artifact_type_id, *metadata_access_object_,
+      metadata_access_object_container_.get(), output_artifact);
   Execution execution;
   CreateNodeFromTextProto("name: 'execution'", execution_type_id,
-                          *metadata_access_object_, execution);
+                          *metadata_access_object_,
+                          metadata_access_object_container_.get(), execution);
   Event event1;
   CreateEventFromTextProto("type: INPUT", input_artifact, execution,
-                           *metadata_access_object_, event1);
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(), event1);
   Event event2;
   CreateEventFromTextProto("type: OUTPUT", output_artifact, execution,
-                           *metadata_access_object_, event2);
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(), event2);
 
   // Test: empty ids
   {
@@ -3754,10 +3845,12 @@ TEST_P(MetadataAccessObjectTest, DeleteAssociationsByContextsId) {
   int64 context_type_id = InsertType<ContextType>("context_type");
   Execution execution;
   CreateNodeFromTextProto("name: 'execution'", execution_type_id,
-                          *metadata_access_object_, execution);
+                          *metadata_access_object_,
+                          metadata_access_object_container_.get(), execution);
   Context context;
   CreateNodeFromTextProto("name: 'context'", context_type_id,
-                          *metadata_access_object_, context);
+                          *metadata_access_object_,
+                          metadata_access_object_container_.get(), context);
 
   Association association;
   association.set_execution_id(execution.id());
@@ -3766,6 +3859,7 @@ TEST_P(MetadataAccessObjectTest, DeleteAssociationsByContextsId) {
   int64 association_id;
   EXPECT_EQ(absl::OkStatus(), metadata_access_object_->CreateAssociation(
                                   association, &association_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // Test: empty ids
   {
@@ -3797,10 +3891,12 @@ TEST_P(MetadataAccessObjectTest, DeleteAssociationsByExecutionsId) {
   int64 context_type_id = InsertType<ContextType>("context_type");
   Execution execution;
   CreateNodeFromTextProto("name: 'execution'", execution_type_id,
-                          *metadata_access_object_, execution);
+                          *metadata_access_object_,
+                          metadata_access_object_container_.get(), execution);
   Context context;
   CreateNodeFromTextProto("name: 'context'", context_type_id,
-                          *metadata_access_object_, context);
+                          *metadata_access_object_,
+                          metadata_access_object_container_.get(), context);
 
   Association association;
   association.set_execution_id(execution.id());
@@ -3809,6 +3905,7 @@ TEST_P(MetadataAccessObjectTest, DeleteAssociationsByExecutionsId) {
   int64 association_id;
   EXPECT_EQ(absl::OkStatus(), metadata_access_object_->CreateAssociation(
                                   association, &association_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // Test: empty ids
   {
@@ -3842,10 +3939,12 @@ TEST_P(MetadataAccessObjectTest, DeleteAttributionsByContextsId) {
   int64 context_type_id = InsertType<ContextType>("test_context_type");
   Artifact artifact;
   CreateNodeFromTextProto("name: 'artifact'", artifact_type_id,
-                          *metadata_access_object_, artifact);
+                          *metadata_access_object_,
+                          metadata_access_object_container_.get(), artifact);
   Context context;
   CreateNodeFromTextProto("name: 'context'", context_type_id,
-                          *metadata_access_object_, context);
+                          *metadata_access_object_,
+                          metadata_access_object_container_.get(), context);
 
   Attribution attribution;
   attribution.set_artifact_id(artifact.id());
@@ -3854,6 +3953,7 @@ TEST_P(MetadataAccessObjectTest, DeleteAttributionsByContextsId) {
   int64 attribution_id;
   EXPECT_EQ(absl::OkStatus(), metadata_access_object_->CreateAttribution(
                                   attribution, &attribution_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // Test: empty ids
   {
@@ -3883,10 +3983,12 @@ TEST_P(MetadataAccessObjectTest, DeleteAttributionsByArtifactsId) {
   int64 context_type_id = InsertType<ContextType>("test_context_type");
   Artifact artifact;
   CreateNodeFromTextProto("name: 'artifact'", artifact_type_id,
-                          *metadata_access_object_, artifact);
+                          *metadata_access_object_,
+                          metadata_access_object_container_.get(), artifact);
   Context context;
   CreateNodeFromTextProto("name: 'context'", context_type_id,
-                          *metadata_access_object_, context);
+                          *metadata_access_object_,
+                          metadata_access_object_container_.get(), context);
 
   Attribution attribution;
   attribution.set_artifact_id(artifact.id());
@@ -3895,6 +3997,7 @@ TEST_P(MetadataAccessObjectTest, DeleteAttributionsByArtifactsId) {
   int64 attribution_id;
   EXPECT_EQ(absl::OkStatus(), metadata_access_object_->CreateAttribution(
                                   attribution, &attribution_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // Test: empty ids
   {
@@ -4037,10 +4140,12 @@ TEST_P(MetadataAccessObjectTest, DeleteParentContextsByParentIds) {
 
   Context context1;
   CreateNodeFromTextProto("name: 'parent_context'", context_type_id,
-                          *metadata_access_object_, context1);
+                          *metadata_access_object_,
+                          metadata_access_object_container_.get(), context1);
   Context context2;
   CreateNodeFromTextProto("name: 'child_context'", context_type_id,
-                          *metadata_access_object_, context2);
+                          *metadata_access_object_,
+                          metadata_access_object_container_.get(), context2);
 
   ParentContext parent_context;
   parent_context.set_parent_id(context1.id());
@@ -4078,10 +4183,12 @@ TEST_P(MetadataAccessObjectTest, DeleteParentContextsByChildIds) {
 
   Context context1;
   CreateNodeFromTextProto("name: 'parent_context'", context_type_id,
-                          *metadata_access_object_, context1);
+                          *metadata_access_object_,
+                          metadata_access_object_container_.get(), context1);
   Context context2;
   CreateNodeFromTextProto("name: 'child_context'", context_type_id,
-                          *metadata_access_object_, context2);
+                          *metadata_access_object_,
+                          metadata_access_object_container_.get(), context2);
 
   ParentContext parent_context;
   parent_context.set_parent_id(context1.id());
@@ -4151,6 +4258,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithNonIdFieldOptions) {
     ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateArtifact(
                                     sample_artifact, &last_stored_artifact_id));
   }
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   const int page_size = 2;
   ListOperationOptions list_options =
@@ -4215,6 +4323,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithIdFieldOptions) {
                                     sample_artifact, &unused_artifact_id));
   }
   stored_artifacts_count += 6;
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   const int page_size = 2;
   ListOperationOptions list_options =
@@ -4305,6 +4414,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsOnLastUpdateTime) {
               metadata_access_object_->UpdateArtifact(sample_artifact));
     expected_artifact_ids.push_front(stored_artifact_ids[i]);
   }
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   const int page_size = 2;
   ListOperationOptions list_options =
@@ -4358,6 +4468,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithChangedOptions) {
                                   sample_artifact, &last_stored_artifact_id));
   ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateArtifact(
                                   sample_artifact, &last_stored_artifact_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   ListOperationOptions list_options =
       ParseTextProtoOrDie<ListOperationOptions>(R"(
@@ -4411,6 +4522,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithInvalidNextPageToken) {
                                   sample_artifact, &last_stored_artifact_id));
   ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateArtifact(
                                   sample_artifact, &last_stored_artifact_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   ListOperationOptions list_options =
       ParseTextProtoOrDie<ListOperationOptions>(R"(
@@ -4472,6 +4584,7 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsWithNonIdFieldOptions) {
               metadata_access_object_->CreateExecution(
                   sample_execution, &last_stored_execution_id));
   }
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   const int page_size = 2;
   ListOperationOptions list_options =
@@ -4536,6 +4649,7 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsWithIdFieldOptions) {
                                     sample_execution, &unused_execution_id));
   }
   stored_executions_count += 6;
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   const int page_size = 2;
   ListOperationOptions list_options =
@@ -4613,6 +4727,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsWithNonIdFieldOptions) {
   ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateContext(
                                   sample_context, &last_stored_context_id));
   context_name_suffix++;
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   const int page_size = 2;
   ListOperationOptions list_options =
@@ -4682,6 +4797,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsWithIdFieldOptions) {
   ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateContext(
                                   sample_context, &unused_context_id));
   stored_contexts_count++;
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   const int page_size = 2;
   ListOperationOptions list_options =
@@ -4785,6 +4901,8 @@ TEST_P(MetadataAccessObjectTest, GetContextsById) {
 
   const int64 unknown_id =
       first_context.id() + second_context.id() + third_context.id() + 1;
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // Test: empty ids
   {
@@ -4891,6 +5009,8 @@ TEST_P(MetadataAccessObjectTest, DefaultArtifactState) {
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateArtifact(want_artifact2, &id2));
 
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
   std::vector<Artifact> artifacts;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->FindArtifacts(&artifacts));
@@ -4927,6 +5047,8 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIds) {
   int64 artifact3_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateArtifact(artifact3, &artifact3_id));
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   std::vector<Artifact> got_artifacts;
   EXPECT_EQ(absl::OkStatus(),
@@ -4967,6 +5089,8 @@ TEST_P(MetadataAccessObjectTest, FindArtifactByTypeIdAndArtifactName) {
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateArtifact(artifact3, &artifact3_id));
 
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
   Artifact got_artifact;
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->FindArtifactByTypeIdAndArtifactName(
@@ -5001,6 +5125,8 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByURI) {
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateArtifact(artifact2, &artifact2_id));
   artifact2.set_id(artifact2_id);
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   std::vector<Artifact> got_artifacts;
   EXPECT_EQ(absl::OkStatus(), metadata_access_object_->FindArtifactsByURI(
@@ -5043,6 +5169,9 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
   int64 artifact_id;
   ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateArtifact(
                                   stored_artifact, &artifact_id));
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
   Artifact got_artifact_before_update;
   {
     std::vector<Artifact> artifacts;
@@ -5079,6 +5208,8 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->UpdateArtifact(updated_artifact));
 
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
   Artifact got_artifact_after_update;
   {
     std::vector<Artifact> artifacts;
@@ -5112,6 +5243,9 @@ TEST_P(MetadataAccessObjectTest, UpdateNodeLastUpdateTimeSinceEpoch) {
   int64 artifact_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateArtifact(artifact, &artifact_id));
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
   Artifact curr_artifact;
   {
     std::vector<Artifact> artifacts;
@@ -5127,6 +5261,7 @@ TEST_P(MetadataAccessObjectTest, UpdateNodeLastUpdateTimeSinceEpoch) {
         absl::SleepFor(absl::Milliseconds(1));
         CHECK_EQ(absl::OkStatus(),
                  metadata_access_object_->UpdateArtifact(artifact));
+        CHECK_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
         Artifact got_artifact_after_update;
         {
           std::vector<Artifact> artifacts;
@@ -5199,6 +5334,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactError) {
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateArtifact(artifact, &artifact_id));
   artifact.set_id(artifact_id);
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // no artifact id given
   Artifact wrong_artifact;
@@ -5274,6 +5410,8 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
     want_execution2.set_id(execution_id);
   }
   EXPECT_NE(want_execution1.id(), want_execution2.id());
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // Test: retrieve one execution at a time
   Execution got_execution1;
@@ -5420,7 +5558,7 @@ TEST_P(MetadataAccessObjectTest, CreateExecutionWithDuplicatedNameError) {
   // insert the same execution again to check the unique constraint
   absl::Status unique_constraint_violation_status =
       metadata_access_object_->CreateExecution(execution, &execution_id);
-  EXPECT_EQ(CheckUniqueConstraintAndResetTranscation(
+  EXPECT_EQ(CheckUniqueConstraintAndResetTransaction(
                 unique_constraint_violation_status),
             absl::OkStatus());
 }
@@ -5452,6 +5590,8 @@ TEST_P(MetadataAccessObjectTest, UpdateExecution) {
   int64 execution_id;
   ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateExecution(
                                   stored_execution, &execution_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
   Execution got_execution_before_update;
   {
     std::vector<Execution> executions;
@@ -5480,6 +5620,7 @@ TEST_P(MetadataAccessObjectTest, UpdateExecution) {
   absl::SleepFor(absl::Milliseconds(1));
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->UpdateExecution(updated_execution));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Execution got_execution_after_update;
   {
@@ -5542,6 +5683,8 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
   context2.set_id(context2_id);
 
   EXPECT_NE(context1_id, context2_id);
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // Find contexts
   Context got_context1;
@@ -5663,6 +5806,9 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsByType) {
               metadata_access_object_->CreateArtifact(entity_2, &entity_id));
     entity_2.set_id(entity_id);
   }
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
   // Test: List entities by default ordering -- ID.
   {
     ListOperationOptions options;
@@ -5745,6 +5891,9 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsByType) {
               metadata_access_object_->CreateExecution(entity_2, &entity_id));
     entity_2.set_id(entity_id);
   }
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
   // Test: List entities by default ordering -- ID.
   {
     ListOperationOptions options;
@@ -5845,6 +5994,8 @@ TEST_P(MetadataAccessObjectTest, ListContextsByType) {
     EXPECT_EQ(absl::OkStatus(),
               metadata_access_object_->CreateContext(context, &context_id));
   }
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // Test: List contexts by default ordering -- ID.
   {
@@ -5978,7 +6129,7 @@ TEST_P(MetadataAccessObjectTest, CreateContextWithDuplicatedNameError) {
   // insert the same context again to check the unique constraint
   absl::Status unique_constraint_violation_status =
       metadata_access_object_->CreateContext(context, &context_id);
-  EXPECT_EQ(CheckUniqueConstraintAndResetTranscation(
+  EXPECT_EQ(CheckUniqueConstraintAndResetTransaction(
                 unique_constraint_violation_status),
             absl::OkStatus());
 }
@@ -6010,6 +6161,9 @@ TEST_P(MetadataAccessObjectTest, UpdateContext) {
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateContext(context1, &context_id));
   Context got_context_before_update;
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
   {
     std::vector<Context> contexts;
     EXPECT_EQ(absl::OkStatus(), metadata_access_object_->FindContextsById(
@@ -6036,6 +6190,8 @@ TEST_P(MetadataAccessObjectTest, UpdateContext) {
   absl::SleepFor(absl::Milliseconds(1));
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->UpdateContext(want_context));
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Context got_context_after_update;
   {
@@ -6077,9 +6233,13 @@ TEST_P(MetadataAccessObjectTest, CreateAndUseAssociation) {
   association.set_execution_id(execution_id);
   association.set_context_id(context_id);
 
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
   int64 association_id;
   EXPECT_EQ(absl::OkStatus(), metadata_access_object_->CreateAssociation(
                                   association, &association_id));
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   std::vector<Context> got_contexts;
   EXPECT_EQ(absl::OkStatus(), metadata_access_object_->FindContextsByExecution(
@@ -6130,6 +6290,8 @@ TEST_P(MetadataAccessObjectTest, GetAssociationUsingPagination) {
             metadata_access_object_->CreateContext(context, &context_id));
   context.set_id(context_id);
 
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
   Association association1;
   association1.set_execution_id(execution_id_1);
   association1.set_context_id(context_id);
@@ -6144,6 +6306,8 @@ TEST_P(MetadataAccessObjectTest, GetAssociationUsingPagination) {
   int64 association_id_2;
   EXPECT_EQ(absl::OkStatus(), metadata_access_object_->CreateAssociation(
                                   association2, &association_id_2));
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   ListOperationOptions list_options =
       ParseTextProtoOrDie<ListOperationOptions>(R"(
@@ -6203,6 +6367,8 @@ TEST_P(MetadataAccessObjectTest, GetAttributionUsingPagination) {
             metadata_access_object_->CreateContext(context, &context_id));
   context.set_id(context_id);
 
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
   Attribution attribution1;
   attribution1.set_artifact_id(artifact_id_1);
   attribution1.set_context_id(context_id);
@@ -6217,6 +6383,8 @@ TEST_P(MetadataAccessObjectTest, GetAttributionUsingPagination) {
   int64 attribution_id_2;
   EXPECT_EQ(absl::OkStatus(), metadata_access_object_->CreateAttribution(
                                   attribution2, &attribution_id_2));
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   ListOperationOptions list_options =
       ParseTextProtoOrDie<ListOperationOptions>(R"(
@@ -6257,6 +6425,9 @@ TEST_P(MetadataAccessObjectTest, GetEmptyAttributionAssociationWithPagination) {
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateContext(context, &context_id));
   context.set_id(context_id);
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
   const ListOperationOptions list_options =
       ParseTextProtoOrDie<ListOperationOptions>(R"(
         max_result_size: 1,
@@ -6301,6 +6472,8 @@ TEST_P(MetadataAccessObjectTest, CreateAssociationError) {
   int64 execution_id;
   ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateExecution(
                                   execution, &execution_id));
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Association base_association;
   base_association.set_context_id(context_id);
@@ -6379,6 +6552,8 @@ TEST_P(MetadataAccessObjectTest, CreateAssociationWithoutValidation) {
       metadata_access_object_->CreateAssociation(
           association, /*is_already_validated=*/true, &association_id);
   EXPECT_EQ(absl::OkStatus(), create_new_association_without_validation_status);
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // create duplicate association without validation
   int64 duplicate_association_id;
@@ -6502,6 +6677,8 @@ TEST_P(MetadataAccessObjectTest, CreateAttributionWithoutValidation) {
           attribution, /*is_already_validated=*/true, &attribution_id);
   EXPECT_EQ(absl::OkStatus(), create_new_attribution_without_validation_status);
 
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
   // create duplicate attribution without validation
   int64 duplicate_attribution_id;
   absl::Status create_duplicate_attribution_without_validation_status =
@@ -6544,10 +6721,12 @@ TEST_P(MetadataAccessObjectTest, CreateAssociationError2) {
             metadata_access_object_->CreateContext(context, &context_id));
   association.set_execution_id(execution_id);
   association.set_context_id(context_id);
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // first insertion succeeds
   EXPECT_EQ(absl::OkStatus(), metadata_access_object_->CreateAssociation(
                                   association, &association_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   // second insertion fails
   EXPECT_TRUE(absl::IsAlreadyExists(metadata_access_object_->CreateAssociation(
       association, &association_id)));
@@ -6576,6 +6755,8 @@ TEST_P(MetadataAccessObjectTest, CreateAndUseAttribution) {
             metadata_access_object_->CreateContext(context, &context_id));
   context.set_id(context_id);
 
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
   Attribution attribution;
   attribution.set_artifact_id(artifact_id);
   attribution.set_context_id(context_id);
@@ -6583,6 +6764,8 @@ TEST_P(MetadataAccessObjectTest, CreateAndUseAttribution) {
   int64 attribution_id;
   EXPECT_EQ(absl::OkStatus(), metadata_access_object_->CreateAttribution(
                                   attribution, &attribution_id));
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   std::vector<Context> got_contexts;
   EXPECT_EQ(absl::OkStatus(), metadata_access_object_->FindContextsByArtifact(
@@ -6627,6 +6810,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindEvent) {
   int64 execution_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateExecution(execution, &execution_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // event1 with event paths
   Event event1 = ParseTextProtoOrDie<Event>("type: INPUT");
@@ -6638,6 +6822,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindEvent) {
   int64 event1_id = -1;
   EXPECT_EQ(metadata_access_object_->CreateEvent(event1, &event1_id),
             absl::OkStatus());
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // event2 with optional fields
   Event event2 = ParseTextProtoOrDie<Event>("type: OUTPUT");
@@ -6646,6 +6831,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindEvent) {
   int64 event2_id = -1;
   EXPECT_EQ(metadata_access_object_->CreateEvent(event2, &event2_id),
             absl::OkStatus());
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   EXPECT_NE(event1_id, -1);
   EXPECT_NE(event2_id, -1);
@@ -6837,6 +7023,8 @@ TEST_P(MetadataAccessObjectTest, PutEventsWithPaths) {
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateExecution(execution, &execution_id));
 
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
   // event1 with event paths
   Event event1 = ParseTextProtoOrDie<Event>("type: INPUT");
   event1.set_artifact_id(input_artifact_id);
@@ -6862,6 +7050,8 @@ TEST_P(MetadataAccessObjectTest, PutEventsWithPaths) {
   EXPECT_NE(event1_id, -1);
   EXPECT_NE(event2_id, -1);
   EXPECT_NE(event1_id, event2_id);
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // query the events
   std::vector<Event> events_with_artifacts;
@@ -6979,6 +7169,8 @@ TEST_P(MetadataAccessObjectTest, CreateParentContext) {
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateContext(context2, &context2_id));
 
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
   ParentContext parent_context;
   parent_context.set_parent_id(context1_id);
   parent_context.set_child_id(context2_id);
@@ -7063,6 +7255,8 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindParentContext) {
     contexts[i].set_id(ctx_id);
   }
 
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
   // Populate a list of parent contexts and capture expected results of number
   // of parents and children per context.
   absl::node_hash_map<int, std::vector<Context>> want_parents;
@@ -7082,6 +7276,8 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindParentContext) {
   put_parent_context(/*parent_idx=*/0, /*child_idx=*/3);
   put_parent_context(/*parent_idx=*/2, /*child_idx=*/3);
   put_parent_context(/*parent_idx=*/4, /*child_idx=*/3);
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // Verify the results by look up contexts
   for (int i = 0; i < num_contexts; i++) {
@@ -7122,6 +7318,8 @@ TEST_P(MetadataAccessObjectTest, CreateParentContextInheritanceLinkWithCycle) {
     contexts[i].set_id(ctx_id);
   }
 
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
   auto set_and_return_parent_context = [](int parent_id, int child_id) {
     ParentContext parent_context;
     parent_context.set_parent_id(parent_id);
@@ -7138,6 +7336,8 @@ TEST_P(MetadataAccessObjectTest, CreateParentContextInheritanceLinkWithCycle) {
         metadata_access_object_->CreateParentContext(parent_context);
     EXPECT_TRUE(absl::IsInvalidArgument(status));
   };
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // Cannot add self as parent context.
   verify_insert_parent_context_is_invalid(

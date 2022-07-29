@@ -95,7 +95,7 @@ class MetadataAccessObjectContainer {
   // Returns InvalidArgumentError error, if `unique_constraint_violation_status`
   // is not `AlreadyExistsError`.
   // Returns detailed INTERNAL error, if the transaction reset fails.
-  virtual absl::Status CheckUniqueConstraintAndResetTranscation(
+  virtual absl::Status CheckUniqueConstraintAndResetTransaction(
       const absl::Status& unique_constraint_violation_status) {
     if (!absl::IsAlreadyExists(unique_constraint_violation_status)) {
       return absl::InvalidArgumentError(
@@ -308,10 +308,10 @@ class MetadataAccessObjectTest
 
   // Checks whether the unique constraint violation status is correct and reset
   // the test transaction.
-  absl::Status CheckUniqueConstraintAndResetTranscation(
+  absl::Status CheckUniqueConstraintAndResetTransaction(
       const absl::Status& unique_constraint_violation_status) {
     return metadata_access_object_container_
-        ->CheckUniqueConstraintAndResetTranscation(
+        ->CheckUniqueConstraintAndResetTransaction(
             unique_constraint_violation_status);
   }
 

@@ -20,6 +20,7 @@ limitations under the License.
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include "absl/status/status.h"
 #include "absl/time/clock.h"
 #include "absl/types/optional.h"
 #include "ml_metadata/metadata_store/constants.h"
@@ -243,6 +244,8 @@ TEST_P(QueryExecutorTest, DeleteContextsById) {
                                   context_id_1, artifact_id, &attribution_id));
   ASSERT_EQ(absl::OkStatus(), query_executor_->InsertAssociation(
                                   context_id_1, execution_id, &association_id));
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // Test: empty ids
   {
