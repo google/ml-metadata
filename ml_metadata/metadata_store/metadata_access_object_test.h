@@ -85,6 +85,27 @@ class MetadataAccessObjectContainer {
   // Default to be a no-op for SQLite, MySQL.
   virtual absl::Status AddCommitPoint() { return absl::OkStatus(); }
 
+  // Resets the test transaction to the empty state.
+  // Used after the test transaction commit fails.
+  // Default to be a no-op for SQLite, MySQL.
+  virtual absl::Status ResetForRetry() { return absl::OkStatus(); }
+
+  // Checks the `unique_constraint_violation_status` is `AlreadyExistsError` and
+  // reset the test transaction.
+  // Returns InvalidArgumentError error, if `unique_constraint_violation_status`
+  // is not `AlreadyExistsError`.
+  // Returns detailed INTERNAL error, if the transaction reset fails.
+  virtual absl::Status CheckUniqueConstraintAndResetTranscation(
+      const absl::Status& unique_constraint_violation_status) {
+    if (!absl::IsAlreadyExists(unique_constraint_violation_status)) {
+      return absl::InvalidArgumentError(
+          "Unique constraint violation status is not AlreadyExistsError!");
+    }
+    MLMD_RETURN_IF_ERROR(GetMetadataSource()->Rollback());
+    MLMD_RETURN_IF_ERROR(GetMetadataSource()->Begin());
+    return absl::OkStatus();
+  }
+
   // Initializes the previous version of the database for downgrade.
   virtual absl::Status SetupPreviousVersionForDowngrade(int64 version) = 0;
 
@@ -283,6 +304,15 @@ class MetadataAccessObjectTest
   // Default to be a no-op for SQLite, MySQL.
   absl::Status AddCommitPointIfNeeded() {
     return metadata_access_object_container_->AddCommitPoint();
+  }
+
+  // Checks whether the unique constraint violation status is correct and reset
+  // the test transaction.
+  absl::Status CheckUniqueConstraintAndResetTranscation(
+      const absl::Status& unique_constraint_violation_status) {
+    return metadata_access_object_container_
+        ->CheckUniqueConstraintAndResetTranscation(
+            unique_constraint_violation_status);
   }
 
   template <class NodeType>

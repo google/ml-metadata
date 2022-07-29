@@ -1815,10 +1815,11 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithDuplicatedNameError) {
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateArtifact(artifact, &artifact_id));
   // insert the same artifact again to check the unique constraint
-  ASSERT_TRUE(absl::IsAlreadyExists(
-      metadata_access_object_->CreateArtifact(artifact, &artifact_id)));
-  ASSERT_EQ(absl::OkStatus(), metadata_source_->Rollback());
-  ASSERT_EQ(absl::OkStatus(), metadata_source_->Begin());
+  absl::Status unique_constraint_violation_status =
+      metadata_access_object_->CreateArtifact(artifact, &artifact_id);
+  EXPECT_EQ(CheckUniqueConstraintAndResetTranscation(
+                unique_constraint_violation_status),
+            absl::OkStatus());
 }
 
 TEST_P(MetadataAccessObjectTest, CreateArtifactWithoutValidation) {
@@ -5417,11 +5418,11 @@ TEST_P(MetadataAccessObjectTest, CreateExecutionWithDuplicatedNameError) {
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateExecution(execution, &execution_id));
   // insert the same execution again to check the unique constraint
-  ASSERT_TRUE(absl::IsAlreadyExists(
-      metadata_access_object_->CreateExecution(execution, &execution_id)));
-
-  ASSERT_EQ(absl::OkStatus(), metadata_source_->Rollback());
-  ASSERT_EQ(absl::OkStatus(), metadata_source_->Begin());
+  absl::Status unique_constraint_violation_status =
+      metadata_access_object_->CreateExecution(execution, &execution_id);
+  EXPECT_EQ(CheckUniqueConstraintAndResetTranscation(
+                unique_constraint_violation_status),
+            absl::OkStatus());
 }
 
 TEST_P(MetadataAccessObjectTest, UpdateExecution) {
@@ -5975,11 +5976,11 @@ TEST_P(MetadataAccessObjectTest, CreateContextWithDuplicatedNameError) {
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateContext(context, &context_id));
   // insert the same context again to check the unique constraint
-  ASSERT_TRUE(absl::IsAlreadyExists(
-      metadata_access_object_->CreateContext(context, &context_id)));
-
-  ASSERT_EQ(absl::OkStatus(), metadata_source_->Rollback());
-  ASSERT_EQ(absl::OkStatus(), metadata_source_->Begin());
+  absl::Status unique_constraint_violation_status =
+      metadata_access_object_->CreateContext(context, &context_id);
+  EXPECT_EQ(CheckUniqueConstraintAndResetTranscation(
+                unique_constraint_violation_status),
+            absl::OkStatus());
 }
 
 TEST_P(MetadataAccessObjectTest, UpdateContext) {
