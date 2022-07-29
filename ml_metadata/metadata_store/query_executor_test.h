@@ -40,6 +40,10 @@ class QueryExecutorContainer {
     MLMD_RETURN_IF_ERROR(GetQueryExecutor()->InitMetadataSource());
     return absl::OkStatus();
   }
+
+  // Adds a commit point in the tests.
+  // Default to be a no-op for SQLite, MySQL.
+  virtual absl::Status AddCommitPoint() { return absl::OkStatus(); }
 };
 
 class QueryConfigExecutorContainer : public QueryExecutorContainer {
@@ -82,6 +86,12 @@ class QueryExecutorTest
   }
 
   absl::Status Init() { return query_executor_container_->Init(); }
+
+  // Uses to a add commit point if needed in the tests.
+  // Default to be a no-op for SQLite, MySQL.
+  absl::Status AddCommitPointIfNeeded() {
+    return query_executor_container_->AddCommitPoint();
+  }
 
   std::unique_ptr<QueryExecutorContainer> query_executor_container_;
 
