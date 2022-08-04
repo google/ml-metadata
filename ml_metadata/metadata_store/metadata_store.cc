@@ -614,6 +614,10 @@ template <typename Type, typename Node>
 absl::Status BatchTypeAndPropertyValidation(
     const google::protobuf::RepeatedPtrField<Node>& nodes,
     MetadataAccessObject* metadata_access_object) {
+  if (nodes.empty()) {
+    return absl::OkStatus();
+  }
+
   std::vector<int64> type_ids;
   std::vector<Type> types;
   for (const auto& node : nodes) {
@@ -622,6 +626,7 @@ absl::Status BatchTypeAndPropertyValidation(
     }
     type_ids.push_back(node.type_id());
   }
+
   // Validates types.
   MLMD_RETURN_IF_ERROR(metadata_access_object->FindTypesByIds(type_ids, types));
   // Validates properties.

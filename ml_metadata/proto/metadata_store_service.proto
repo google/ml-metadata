@@ -248,7 +248,6 @@ message PutLineageSubgraphResponse {
   repeated int64 context_ids = 3 [packed = true];
 }
 
-
 message PutTypesRequest {
   repeated ArtifactType artifact_types = 1;
   repeated ExecutionType execution_types = 2;
@@ -928,7 +927,8 @@ service MetadataStoreService {
   // Args:
   //   executions: A list of executions to insert or update.
   //   artifacts: A list of artifacts to insert or update.
-  //   contexts: A list of contexts to insert or update.
+  //   contexts: A list of contexts to insert and/or create associations and
+  //       attributions with.
   //   event_edges: A list of events to insert with the indices of the
   //       corresponding execution and artifact from the input lists of
   //       executions and artifacts.

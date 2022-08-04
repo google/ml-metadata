@@ -4274,6 +4274,101 @@ TEST_P(MetadataStoreTestSuite, PutLineageSubgraphAndVerifyLineageGraph) {
                               /*ignore_fields=*/{"milliseconds_since_epoch"})));
 }
 
+TEST_P(MetadataStoreTestSuite,
+       PutLineageSubgraphUpdatesArtifactsAndExecutions) {
+  // Prepare the metadata store with types
+  PutTypesRequest put_types_request = ParseTextProtoOrDie<PutTypesRequest>(R"pb(
+    execution_types: {
+      name: 'execution_type'
+      properties { key: 'property_1' value: DOUBLE }
+    }
+    artifact_types: {
+      name: 'artifact_type'
+      properties { key: 'property_1' value: STRING }
+    }
+  )pb");
+  PutTypesResponse put_types_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutTypes(put_types_request, &put_types_response));
+
+  // Prepare the metadata store with existing data to verify input validity
+  Execution execution;
+  execution.set_last_known_state(Execution::RUNNING);
+  execution.set_type_id(put_types_response.execution_type_ids(0));
+  (*execution.mutable_properties())["property_1"].set_double_value(1.0);
+  (*execution.mutable_custom_properties())["property_2"].set_double_value(2.0);
+  PutExecutionRequest put_execution_request;
+  *put_execution_request.mutable_execution() = execution;
+  PutExecutionResponse put_execution_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecution(put_execution_request,
+                                          &put_execution_response));
+  execution.set_id(put_execution_response.execution_id());
+
+  Artifact artifact;
+  artifact.set_state(Artifact::PENDING);
+  artifact.set_type_id(put_types_response.artifact_type_ids(0));
+  artifact.set_uri("testuri");
+  (*artifact.mutable_properties())["property_1"].set_string_value("1");
+  (*artifact.mutable_custom_properties())["property_2"].set_string_value("2");
+  PutArtifactsRequest put_artifacts_request;
+  *put_artifacts_request.add_artifacts() = artifact;
+  PutArtifactsResponse put_artifacts_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifacts(put_artifacts_request,
+                                          &put_artifacts_response));
+  artifact.set_id(put_artifacts_response.artifact_ids(0));
+
+  // Modify existing execution and artifact nodes for verifying update in API
+  // call.
+  execution.set_last_known_state(Execution::COMPLETE);
+  (*execution.mutable_properties())["property_1"].set_double_value(2.0);
+  (*execution.mutable_custom_properties())["property_2"].set_double_value(3.0);
+  artifact.set_state(Artifact::LIVE);
+  (*artifact.mutable_properties())["property_1"].set_string_value("2");
+  (*artifact.mutable_custom_properties())["property_2"].set_string_value("3");
+
+  // Prepare the PutLineageSubgraph request
+  PutLineageSubgraphRequest put_lineage_subgraph_request;
+  *put_lineage_subgraph_request.add_executions() = execution;
+  *put_lineage_subgraph_request.add_artifacts() = artifact;
+
+  // Verify API call is successful
+  PutLineageSubgraphResponse put_lineage_subgraph_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutLineageSubgraph(
+                put_lineage_subgraph_request, &put_lineage_subgraph_response));
+
+  // Verify lineage subgraph is updated
+  GetExecutionsByIDRequest get_executions_by_id_request;
+  get_executions_by_id_request.mutable_execution_ids()->CopyFrom(
+      put_lineage_subgraph_response.execution_ids());
+  GetExecutionsByIDResponse get_executions_by_id_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetExecutionsByID(get_executions_by_id_request,
+                                               &get_executions_by_id_response));
+  ASSERT_THAT(get_executions_by_id_response.executions(), SizeIs(1));
+  EXPECT_THAT(get_executions_by_id_response.executions(),
+              ElementsAre(EqualsProto(
+                  execution,
+                  /*ignore_fields=*/{"create_time_since_epoch",
+                                     "last_update_time_since_epoch"})));
+
+  GetArtifactsByIDRequest get_artifacts_by_id_request;
+  get_artifacts_by_id_request.mutable_artifact_ids()->CopyFrom(
+      put_lineage_subgraph_response.artifact_ids());
+  GetArtifactsByIDResponse get_artifacts_by_id_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->GetArtifactsByID(get_artifacts_by_id_request,
+                                              &get_artifacts_by_id_response));
+  ASSERT_THAT(get_artifacts_by_id_response.artifacts(), SizeIs(1));
+  EXPECT_THAT(get_artifacts_by_id_response.artifacts(),
+              ElementsAre(EqualsProto(
+                  artifact,
+                  /*ignore_fields=*/{"create_time_since_epoch",
+                                     "last_update_time_since_epoch"})));
+}
+
 // Test that PutLineageSubgraph fails on invalid inputs.
 TEST_P(MetadataStoreTestSuite, PutLineageSubgraphFailsWithInvalidEventEdge) {
   // Prepare the metadata store with types
