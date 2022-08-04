@@ -27,10 +27,12 @@ limitations under the License.
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "absl/types/optional.h"
+#include "absl/types/span.h"
 #include "ml_metadata/metadata_store/metadata_access_object.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/metadata_store/test_util.h"
@@ -1848,6 +1850,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithDuplicatedNameError) {
                 unique_constraint_violation_status),
             absl::OkStatus());
 }
+
 
 TEST_P(MetadataAccessObjectTest, CreateArtifactWithoutValidation) {
   MLMD_ASSERT_OK(Init());
@@ -5137,6 +5140,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByURI) {
                                               "last_update_time_since_epoch"}));
 }
 
+
 TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
   ASSERT_EQ(absl::OkStatus(), Init());
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
@@ -5225,6 +5229,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
             got_artifact_after_update.create_time_since_epoch());
   EXPECT_LT(got_artifact_before_update.last_update_time_since_epoch(),
             got_artifact_after_update.last_update_time_since_epoch());
+
 }
 
 TEST_P(MetadataAccessObjectTest, UpdateNodeLastUpdateTimeSinceEpoch) {

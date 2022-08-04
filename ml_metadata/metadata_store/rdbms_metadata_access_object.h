@@ -21,6 +21,7 @@ limitations under the License.
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 #include "ml_metadata/metadata_store/metadata_access_object.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/metadata_store/query_executor.h"
@@ -205,6 +206,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   absl::Status FindArtifactsById(absl::Span<const int64> artifact_ids,
                                  std::vector<Artifact>* artifacts) final;
+
 
   absl::Status FindArtifacts(std::vector<Artifact>* artifacts) final;
 
@@ -506,7 +508,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // Finds types by the given `type_ids`. Acceptable types are {ArtifactType,
   // ExecutionType, ContextType} (`MessageType`).
   // `get_properties` flag is used to control whether the returned `types`
-  // should contains any properties.
+  // should contain any properties.
   // Returns INVALID_ARGUMENT if `type_ids` is empty or `types` is not empty.
   // Returns detailed INTERNAL error if query execution fails.
   // If any ids are not found then returns NOT_FOUND error.

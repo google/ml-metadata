@@ -20,6 +20,7 @@ limitations under the License.
 
 #include <glog/logging.h>
 #include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/metadata_store/query_executor.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
@@ -145,12 +146,12 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(query_config_.check_artifact_table());
   }
 
-  absl::Status InsertArtifact(int64 type_id, const std::string& artifact_uri,
-                              const absl::optional<Artifact::State>& state,
-                              const absl::optional<std::string>& name,
-                              const absl::Time create_time,
-                              const absl::Time update_time,
-                              int64* artifact_id) final {
+  absl::Status InsertArtifact(
+      int64 type_id, const std::string& artifact_uri,
+      const absl::optional<Artifact::State>& state,
+      const absl::optional<std::string>& name,
+      const absl::Time create_time, const absl::Time update_time,
+      int64* artifact_id) final {
     return ExecuteQuerySelectLastInsertID(
         query_config_.insert_artifact(),
         {Bind(type_id), Bind(artifact_uri), Bind(state), Bind(name),
@@ -164,6 +165,7 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(query_config_.select_artifact_by_id(),
                         {Bind(artifact_ids)}, record_set);
   }
+
 
   absl::Status SelectArtifactByTypeIDAndArtifactName(
       int64 artifact_type_id, absl::string_view name,
@@ -183,7 +185,6 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(query_config_.select_artifacts_by_uri(), {Bind(uri)},
                         record_set);
   }
-
   absl::Status UpdateArtifactDirect(
       int64 artifact_id, int64 type_id, const std::string& uri,
       const absl::optional<Artifact::State>& state,

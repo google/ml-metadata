@@ -257,8 +257,8 @@ class QueryExecutor {
   virtual absl::Status InsertArtifact(
       int64 type_id, const std::string& artifact_uri,
       const absl::optional<Artifact::State>& state,
-      const absl::optional<std::string>& name, absl::Time create_time,
-      absl::Time update_time, int64* artifact_id) = 0;
+      const absl::optional<std::string>& name,
+      absl::Time create_time, absl::Time update_time, int64* artifact_id) = 0;
 
   // Retrieves artifacts from the database by their ids. Not found ids are
   // skipped. For each matched artifact, returns a row that contains the
@@ -272,6 +272,8 @@ class QueryExecutor {
   // - int: last update time (since epoch)
   virtual absl::Status SelectArtifactsByID(absl::Span<const int64> ids,
                                            RecordSet* record_set) = 0;
+
+
   // Queries an artifact from the Artifact table by its type_id and name.
   // Returns the artifact ID.
   virtual absl::Status SelectArtifactByTypeIDAndArtifactName(
@@ -291,7 +293,8 @@ class QueryExecutor {
   // Updates an artifact in the database.
   virtual absl::Status UpdateArtifactDirect(
       int64 artifact_id, int64 type_id, const std::string& uri,
-      const absl::optional<Artifact::State>& state, absl::Time update_time) = 0;
+      const absl::optional<Artifact::State>& state,
+      absl::Time update_time) = 0;
 
   // Checks the existence of the ArtifactProperty table.
   virtual absl::Status CheckArtifactPropertyTable() = 0;

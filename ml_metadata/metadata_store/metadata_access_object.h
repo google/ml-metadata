@@ -20,6 +20,7 @@ limitations under the License.
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "ml_metadata/metadata_store/constants.h"
@@ -218,6 +219,8 @@ class MetadataAccessObject {
   //   with its data type definition in the artifact type.
   // Returns ALREADY_EXISTS error, if the ArtifactType has artifact with the
   // same name.
+  // Returns ALREADY_EXISTS error, if there is artifact with the same
+  // external_id.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status CreateArtifact(const Artifact& artifact,
                                       bool skip_type_and_property_validation,
@@ -237,6 +240,7 @@ class MetadataAccessObject {
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status FindArtifactsById(absl::Span<const int64> artifact_ids,
                                          std::vector<Artifact>* artifact) = 0;
+
 
   // Queries artifacts stored in the metadata source
   // Returns detailed INTERNAL error, if query execution fails.

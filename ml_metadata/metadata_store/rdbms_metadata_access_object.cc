@@ -28,15 +28,12 @@ limitations under the License.
 #include "google/protobuf/util/message_differencer.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
-#include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
-#include "absl/strings/str_replace.h"
-#include "absl/strings/strip.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -454,7 +451,7 @@ absl::Status RDBMSMetadataAccessObject::RetrieveNodesById(
   return absl::OkStatus();
 }
 
-// Update an Artifact's type_id, URI and last_update_time.
+// Update an Artifact's type_id, URI, external_id and last_update_time.
 absl::Status RDBMSMetadataAccessObject::RunNodeUpdate(
     const Artifact& artifact) {
   return executor_->UpdateArtifactDirect(
@@ -830,7 +827,7 @@ absl::Status RDBMSMetadataAccessObject::UpdateTypeImpl(const Type& type) {
         absl::StrCat("Given type id is different from the existing type: ",
                      stored_type.DebugString()));
   }
-  // updates the list of type properties
+  // update the list of type properties
   const google::protobuf::Map<std::string, PropertyType>& stored_properties =
       stored_type.properties();
   for (const auto& p : type.properties()) {
@@ -1392,6 +1389,7 @@ absl::Status RDBMSMetadataAccessObject::FindContextsById(
   }
   return FindNodesImpl(context_ids, /*skipped_ids_ok=*/true, *contexts);
 }
+
 
 absl::Status RDBMSMetadataAccessObject::UpdateArtifact(
     const Artifact& artifact) {

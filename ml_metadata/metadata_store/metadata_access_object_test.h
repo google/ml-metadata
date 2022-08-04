@@ -72,6 +72,8 @@ class MetadataAccessObjectContainer {
   // Skips schema migration tests if returned true.
   virtual bool SkipSchemaMigrationTests() { return false; }
 
+  virtual bool SkipLibraryV9Tests() { return true; }
+
   // Tests if there is upgrade verification.
   virtual bool HasUpgradeVerification(int64 version) = 0;
 
@@ -285,6 +287,10 @@ class MetadataAccessObjectTest
   // Uses to skip the schema migration related tests.
   bool SkipSchemaMigrationTests() {
     return metadata_access_object_container_->SkipSchemaMigrationTests();
+  }
+
+  bool SkipLibraryV9Tests() {
+    return metadata_access_object_container_->SkipLibraryV9Tests();
   }
 
   // Uses to indicate the minimum expected schema version to run a test.
