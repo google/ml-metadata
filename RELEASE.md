@@ -4,6 +4,8 @@
 
 ## Bug Fixes and Other Changes
 
+*   Depends on `attrs>=20.3,<22`.
+
 ## Breaking Changes
 
 ## Deprecations
