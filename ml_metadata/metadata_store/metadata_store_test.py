@@ -720,6 +720,7 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertLen(artifact_result, 1)
     self.assertEqual(artifact_result[0].id, want_artifact_id)
 
+
   def test_puts_artifacts_duplicated_name_with_the_same_type(self):
     store = _get_metadata_store()
     with self.assertRaises(errors.AlreadyExistsError):

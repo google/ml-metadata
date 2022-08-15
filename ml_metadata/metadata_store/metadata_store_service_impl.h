@@ -127,6 +127,7 @@ class MetadataStoreServiceImpl final
                               const GetArtifactsRequest* request,
                               GetArtifactsResponse* response) override;
 
+
   ::grpc::Status GetArtifactsByType(
       ::grpc::ServerContext* context, const GetArtifactsByTypeRequest* request,
       GetArtifactsByTypeResponse* response) override;

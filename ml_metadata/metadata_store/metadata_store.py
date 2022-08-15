@@ -761,6 +761,7 @@ class MetadataStore(object):
       result.append(x)
     return result
 
+
   def get_artifact_type(
       self,
       type_name: Text,

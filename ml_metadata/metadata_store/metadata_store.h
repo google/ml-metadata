@@ -300,6 +300,7 @@ class MetadataStore : public MetadataStoreServiceInterface {
   absl::Status GetArtifacts(const GetArtifactsRequest& request,
                             GetArtifactsResponse* response) override;
 
+
   // Gets all the artifacts of a given type. If no artifacts found, it returns
   // OK and empty response.
   // Returns detailed INTERNAL error, if query execution fails.

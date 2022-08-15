@@ -485,6 +485,7 @@ message GetContextTypesResponse {
   repeated ContextType context_types = 1;
 }
 
+
 message GetExecutionsByTypeRequest {
   optional string type_name = 1;
   // If not set, it looks for the type with type_name with default type_version.
@@ -1086,6 +1087,7 @@ service MetadataStoreService {
   // Gets all events with matching artifact ids.
   rpc GetEventsByArtifactIDs(GetEventsByArtifactIDsRequest)
       returns (GetEventsByArtifactIDsResponse) {}
+
 
 
   // Gets all context that an artifact is attributed to.

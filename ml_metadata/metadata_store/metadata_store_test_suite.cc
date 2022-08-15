@@ -1414,6 +1414,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {
   }
 }
 
+
 // Test creating an artifact and then updating one of its properties.
 TEST_P(MetadataStoreTestSuite, PutArtifactsUpdateGetArtifactsByID) {
   const PutArtifactTypeRequest put_artifact_type_request =

@@ -33,6 +33,7 @@ class MetadataStoreContainer {
 
   // MetadataStore is owned by MetadataStoreContainer.
   virtual MetadataStore* GetMetadataStore() = 0;
+
 };
 
 // Represents the type of the Gunit Test param for the parameterized

@@ -16,7 +16,6 @@
 
 ## Major Features and Improvements
 
-*   N/A
 
 ## Bug Fixes and Other Changes
 
