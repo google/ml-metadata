@@ -185,14 +185,14 @@ class QueryExecutor {
       const std::string& name, absl::optional<absl::string_view> version,
       absl::optional<absl::string_view> description, int64* type_id) = 0;
 
-  // Retrieves types from the database by their ids. Not found ids are
+  // Gets types from the database by their ids. Not found ids are
   // skipped.
   // Returned messages can be converted to ArtifactType, ContextType, or
   // ExecutionType.
   virtual absl::Status SelectTypesByID(absl::Span<const int64> type_ids,
                                        TypeKind type_kind,
                                        RecordSet* record_set) = 0;
-  // Queries a type by its type id.
+  // Gets a type by its type id.
   // Returns a message that can be converted to an ArtifactType,
   // ContextType, or ExecutionType.
   // TODO(b/171597866) Improve document and describe the returned `record_set`.
@@ -200,7 +200,7 @@ class QueryExecutor {
   virtual absl::Status SelectTypeByID(int64 type_id, TypeKind type_kind,
                                       RecordSet* record_set) = 0;
 
-  // Queries a type by its type name and an optional version. If version is
+  // Gets a type by its type name and an optional version. If version is
   // not given or the version is an empty string, (type_name, version = NULL)
   // is used to retrieve types.
   // Returns a message that can be converted to an ArtifactType,
@@ -210,7 +210,7 @@ class QueryExecutor {
       absl::optional<absl::string_view> type_version, TypeKind type_kind,
       RecordSet* record_set) = 0;
 
-  // Queries for all type instances.
+  // Gets all type instances.
   // Returns a message that can be converted to an ArtifactType,
   // ContextType, or ExecutionType.
   virtual absl::Status SelectAllTypes(TypeKind type_kind,
@@ -224,7 +224,7 @@ class QueryExecutor {
                                           absl::string_view property_name,
                                           PropertyType property_type) = 0;
 
-  // Queries properties of types from the database for each type_id in
+  // Gets properties of types from the database for each type_id in
   // `type_ids`.
   // Returns a list of properties (type_id, name, data_type).
   virtual absl::Status SelectPropertiesByTypeID(
@@ -260,7 +260,7 @@ class QueryExecutor {
       const absl::optional<std::string>& name,
       absl::Time create_time, absl::Time update_time, int64* artifact_id) = 0;
 
-  // Retrieves artifacts from the database by their ids. Not found ids are
+  // Gets artifacts from the database by their ids. Not found ids are
   // skipped. For each matched artifact, returns a row that contains the
   // following columns (order not important):
   // - int: id
@@ -274,18 +274,18 @@ class QueryExecutor {
                                            RecordSet* record_set) = 0;
 
 
-  // Queries an artifact from the Artifact table by its type_id and name.
+  // Gets an artifact from the Artifact table by its type_id and name.
   // Returns the artifact ID.
   virtual absl::Status SelectArtifactByTypeIDAndArtifactName(
       int64 artifact_type_id, absl::string_view name,
       RecordSet* record_set) = 0;
 
-  // Queries artifacts from the Artifact table by their type_id.
+  // Gets artifacts from the Artifact table by their type_id.
   // Returns a list of artifact IDs.
   virtual absl::Status SelectArtifactsByTypeID(int64 artifact_type_id,
                                                RecordSet* record_set) = 0;
 
-  // Queries an artifact from the database by its uri.
+  // Gets an artifact from the database by its uri.
   // Returns a list of artifact IDs.
   virtual absl::Status SelectArtifactsByURI(absl::string_view uri,
                                             RecordSet* record_set) = 0;
@@ -304,7 +304,7 @@ class QueryExecutor {
       int64 artifact_id, absl::string_view artifact_property_name,
       bool is_custom_property, const Value& property_value) = 0;
 
-  // Queries properties of an artifact from the database by the
+  // Gets properties of an artifact from the database by the
   // artifact id. Upon return, each property is mapped to a row in 'record_set'
   // using the convention spelled out in the class docstring.
   virtual absl::Status SelectArtifactPropertyByArtifactID(
@@ -328,7 +328,7 @@ class QueryExecutor {
       const absl::optional<std::string>& name, absl::Time create_time,
       absl::Time update_time, int64* execution_id) = 0;
 
-  // Retrieves Executions based on the given ids. Not found ids are skipped.
+  // Gets Executions based on the given ids. Not found ids are skipped.
   // For each matched execution, returns a row that contains the following
   // columns (order not important):
   // - id
@@ -340,12 +340,12 @@ class QueryExecutor {
   virtual absl::Status SelectExecutionsByID(
       absl::Span<const int64> execution_ids, RecordSet* record_set) = 0;
 
-  // Queries an execution from the database by its type_id and name.
+  // Gets an execution from the database by its type_id and name.
   virtual absl::Status SelectExecutionByTypeIDAndExecutionName(
       int64 execution_type_id, absl::string_view name,
       RecordSet* record_set) = 0;
 
-  // Queries an execution from the database by its type_id.
+  // Gets an execution from the database by its type_id.
   virtual absl::Status SelectExecutionsByTypeID(int64 execution_type_id,
                                                 RecordSet* record_set) = 0;
 
@@ -364,7 +364,7 @@ class QueryExecutor {
                                                bool is_custom_property,
                                                const Value& value) = 0;
 
-  // Queries properties of executions matching the given 'ids'.
+  // Gets properties of executions matching the given 'ids'.
   // Upon return, each property is mapped to a row in 'record_set'
   // using the convention spelled out in the class docstring.
   virtual absl::Status SelectExecutionPropertyByExecutionID(
@@ -388,7 +388,7 @@ class QueryExecutor {
                                      const absl::Time update_time,
                                      int64* context_id) = 0;
 
-  // Retrieves contexts from the database by their ids. For each context,
+  // Gets contexts from the database by their ids. For each context,
   // returns a row that contains the following columns (order not important):
   // - int: id
   // - int: type_id
@@ -422,7 +422,7 @@ class QueryExecutor {
                                              bool custom_property,
                                              const Value& value) = 0;
 
-  // Queries properties of contexts from the database by the
+  // Gets properties of contexts from the database by the
   // given context ids.
   virtual absl::Status SelectContextPropertyByContextID(
       absl::Span<const int64> context_id, RecordSet* record_set) = 0;
@@ -445,11 +445,11 @@ class QueryExecutor {
                                    int64 event_time_milliseconds,
                                    int64* event_id) = 0;
 
-  // Queries events from the Event table by a collection of artifact ids.
+  // Gets events from the Event table by a collection of artifact ids.
   virtual absl::Status SelectEventByArtifactIDs(
       absl::Span<const int64> artifact_ids, RecordSet* event_record_set) = 0;
 
-  // Queries events from the Event table by a collection of execution ids.
+  // Gets events from the Event table by a collection of execution ids.
   virtual absl::Status SelectEventByExecutionIDs(
       absl::Span<const int64> execution_ids, RecordSet* event_record_set) = 0;
 
@@ -460,7 +460,7 @@ class QueryExecutor {
   virtual absl::Status InsertEventPath(int64 event_id,
                                        const Event::Path::Step& step) = 0;
 
-  // Queries paths from the database by a collection of event ids.
+  // Gets paths from the database by a collection of event ids.
   virtual absl::Status SelectEventPathByEventIDs(
       absl::Span<const int64> event_ids, RecordSet* record_set) = 0;
 

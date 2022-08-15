@@ -294,7 +294,7 @@ class MetadataStore : public MetadataStoreServiceInterface {
   absl::Status GetArtifactsByID(const GetArtifactsByIDRequest& request,
                                 GetArtifactsByIDResponse* response) override;
 
-  // Retrieve artifacts using list options.
+  // Gets Artifacts using list options.
   // If option is not set in the request, then all Artifacts are returned.
   // Returns detailed INTERNAL error, if query execution fails.
   absl::Status GetArtifacts(const GetArtifactsRequest& request,
@@ -328,7 +328,7 @@ class MetadataStore : public MetadataStoreServiceInterface {
   absl::Status GetExecutionsByID(const GetExecutionsByIDRequest& request,
                                  GetExecutionsByIDResponse* response) override;
 
-  // Retrieve Executions using list options.
+  // Gets Executions using list options.
   // If option is not set in the request, then all Executions are returned.
   // Returns detailed INTERNAL error, if query execution fails.
   absl::Status GetExecutions(const GetExecutionsRequest& request,

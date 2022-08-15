@@ -422,7 +422,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // Creates a Context (without properties).
   absl::Status CreateBasicNode(const Context& context, int64* node_id);
 
-  // Retrieves nodes (and their properties) based on the provided 'ids'.
+  // Gets nodes (and their properties) based on the provided 'ids'.
   // 'header' contains the non-property information, and 'properties' contains
   // information about properties. The node id is present in both record sets
   // and can be used to join the information. The 'properties' are returned
@@ -549,7 +549,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   template <typename Type>
   absl::Status UpdateTypeImpl(const Type& type);
 
-  // Queries the parent type of each type_id in `type_ids`. Currently only
+  // Gets the parent type of each type_id in `type_ids`. Currently only
   // single inheritance (one parent type per type_id) is supported.
   // The prerequisite is that all the types with `type_ids` already exist in db.
   // Returns INVALID_ARGUMENT error, if the given `type_ids` is empty, or
@@ -572,14 +572,14 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
                               bool skip_type_and_property_validation,
                               int64* node_id);
 
-  // Queries a `Node` which is one of {`Artifact`, `Execution`, `Context`} by
+  // Gets a `Node` which is one of {`Artifact`, `Execution`, `Context`} by
   // an id.
   // Returns NOT_FOUND error, if the given id cannot be found.
   // Returns detailed INTERNAL error, if query execution fails.
   template <typename Node>
   absl::Status FindNodeImpl(const int64 node_id, Node* node);
 
-  // Retrieves a set of `Node` which is one of {`Artifact`, `Execution`,
+  // Gets a set of `Node` which is one of {`Artifact`, `Execution`,
   // `Context`} by the given 'ids'.
   // 'skipped_ids_ok' controls the return error value if any of the ids are not
   // found.
@@ -612,7 +612,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
       const RecordSet& association_record_set,
       std::vector<Association>* associations);
 
-  // Retrieves the ids of the nodes based on 'options' and `candidate_ids`.
+  // Gets the ids of the nodes based on 'options' and `candidate_ids`.
   // If `candidate_ids` is provided, then only the nodes with those ids are
   // considered when applying list options; when nullopt, all stored nodes are
   // considered as candidates.
@@ -625,7 +625,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
       RecordSet* record_set,
       Node* tag = nullptr /* used only for template instantiation*/);
 
-  // Queries nodes stored in the metadata source using `options`.
+  // Gets nodes stored in the metadata source using `options`.
   // `options` is the ListOperationOptions proto message defined
   // in metadata_store.
   // If `candidate_ids` is provided, then only the nodes with those ids are
@@ -650,7 +650,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // Traverse a ParentContext relation to look for parent or child context.
   enum class ParentContextTraverseDirection { kParent, kChild };
 
-  // Queries the ParentContext with a context_id and returns a list of Context.
+  // Gets the ParentContext with a context_id and returns a list of Context.
   // If direction is kParent, then context_id is used to look for its parents.
   // If direction is kChild, then context_id is used to look for its children.
   absl::Status FindLinkedContextsImpl(int64 context_id,

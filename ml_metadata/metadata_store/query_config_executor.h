@@ -139,7 +139,7 @@ class QueryConfigExecutor : public QueryExecutor {
   absl::Status SelectParentTypesByTypeID(absl::Span<const int64> type_ids,
                                          RecordSet* record_set) final;
 
-  // Queries the last inserted id.
+  // Gets the last inserted id.
   absl::Status SelectLastInsertID(int64* id);
 
   absl::Status CheckArtifactTable() final {
