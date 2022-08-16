@@ -325,8 +325,8 @@ class QueryExecutor {
   // Inserts an execution into the database.
   virtual absl::Status InsertExecution(
       int64 type_id, const absl::optional<Execution::State>& last_known_state,
-      const absl::optional<std::string>& name, absl::Time create_time,
-      absl::Time update_time, int64* execution_id) = 0;
+      const absl::optional<std::string>& name,
+      absl::Time create_time, absl::Time update_time, int64* execution_id) = 0;
 
   // Gets Executions based on the given ids. Not found ids are skipped.
   // For each matched execution, returns a row that contains the following
@@ -339,6 +339,7 @@ class QueryExecutor {
   // - last_update_time_since_epoch
   virtual absl::Status SelectExecutionsByID(
       absl::Span<const int64> execution_ids, RecordSet* record_set) = 0;
+
 
   // Gets an execution from the database by its type_id and name.
   virtual absl::Status SelectExecutionByTypeIDAndExecutionName(

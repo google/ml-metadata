@@ -235,8 +235,9 @@ class QueryConfigExecutor : public QueryExecutor {
 
   absl::Status InsertExecution(
       int64 type_id, const absl::optional<Execution::State>& last_known_state,
-      const absl::optional<std::string>& name, const absl::Time create_time,
-      const absl::Time update_time, int64* execution_id) final {
+      const absl::optional<std::string>& name,
+      const absl::Time create_time, const absl::Time update_time,
+      int64* execution_id) final {
     return ExecuteQuerySelectLastInsertID(
         query_config_.insert_execution(),
         {Bind(type_id), Bind(last_known_state), Bind(name),

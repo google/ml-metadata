@@ -5472,6 +5472,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
                                     want_execution2, &execution_id));
     want_execution2.set_id(execution_id);
   }
+
   EXPECT_NE(want_execution1.id(), want_execution2.id());
 
   ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
@@ -5602,6 +5603,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
             type_id, "my_execution2", &got_empty_execution)));
     EXPECT_THAT(got_empty_execution, EqualsProto(Execution()));
   }
+
 }
 
 TEST_P(MetadataAccessObjectTest, CreateExecutionWithDuplicatedNameError) {
@@ -5625,6 +5627,7 @@ TEST_P(MetadataAccessObjectTest, CreateExecutionWithDuplicatedNameError) {
                 unique_constraint_violation_status),
             absl::OkStatus());
 }
+
 
 TEST_P(MetadataAccessObjectTest, UpdateExecution) {
   ASSERT_EQ(absl::OkStatus(), Init());

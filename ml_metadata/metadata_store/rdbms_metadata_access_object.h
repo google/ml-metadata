@@ -245,6 +245,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status FindExecutionsById(absl::Span<const int64> execution_ids,
                                   std::vector<Execution>* executions) final;
 
+
   absl::Status FindExecutions(std::vector<Execution>* executions) final;
 
   absl::Status FindExecutionByTypeIdAndExecutionName(

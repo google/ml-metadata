@@ -461,7 +461,7 @@ absl::Status RDBMSMetadataAccessObject::RunNodeUpdate(
       absl::Now());
 }
 
-// Update an Execution's type_id and last_update_time.
+// Update an Execution's type_id, external_id and last_update_time.
 absl::Status RDBMSMetadataAccessObject::RunNodeUpdate(
     const Execution& execution) {
   return executor_->UpdateExecutionDirect(
@@ -1389,6 +1389,7 @@ absl::Status RDBMSMetadataAccessObject::FindContextsById(
   }
   return FindNodesImpl(context_ids, /*skipped_ids_ok=*/true, *contexts);
 }
+
 
 
 absl::Status RDBMSMetadataAccessObject::UpdateArtifact(

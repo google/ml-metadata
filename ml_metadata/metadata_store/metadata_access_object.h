@@ -341,6 +341,8 @@ class MetadataAccessObject {
   //   with its data type definition in the ExecutionType.
   // Returns ALREADY_EXISTS error, if the ExecutionType has execution with the
   // same name.
+  // Returns ALREADY_EXISTS error, if there is execution with the
+  // same external_id.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status CreateExecution(const Execution& execution,
                                        bool skip_type_and_property_validation,
@@ -361,6 +363,7 @@ class MetadataAccessObject {
   virtual absl::Status FindExecutionsById(
       absl::Span<const int64> execution_ids,
       std::vector<Execution>* executions) = 0;
+
 
   // Gets executions stored in the metadata source
   // Returns detailed INTERNAL error, if query execution fails.

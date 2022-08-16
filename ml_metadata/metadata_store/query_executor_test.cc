@@ -233,13 +233,12 @@ TEST_P(QueryExecutorTest, DeleteContextsById) {
                                                    false, int_value));
   // Create artifact and execution.
   int64 artifact_id, execution_id;
-  ASSERT_EQ(absl::OkStatus(),
-            query_executor_->InsertArtifact(
-                artifact_type_id, "/foo/bar", absl::nullopt, "artifact",
-                absl::Now(), absl::Now(), &artifact_id));
-  ASSERT_EQ(absl::OkStatus(), query_executor_->InsertExecution(
-                                  execution_type_id, absl::nullopt, "execution",
-                                  absl::Now(), absl::Now(), &execution_id));
+  MLMD_ASSERT_OK(query_executor_->InsertArtifact(
+      artifact_type_id, "/foo/bar", absl::nullopt, "artifact",
+      absl::Now(), absl::Now(), &artifact_id));
+  MLMD_ASSERT_OK(query_executor_->InsertExecution(
+      execution_type_id, absl::nullopt, "execution",
+      absl::Now(), absl::Now(), &execution_id));
 
   // Create attribution and association.
   int64 attribution_id, association_id;
