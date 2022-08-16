@@ -44,8 +44,11 @@ namespace ml_metadata {
 namespace testing {
 namespace {
 
-// A utility macros for OSS files as ASSERT_OK is not avaiable in OSS.
+// A utility macros for OSS files as ASSERT_OK is not available in OSS.
 #define MLMD_ASSERT_OK(expr) ASSERT_EQ(absl::OkStatus(), expr)
+
+// A utility macros for OSS files as EXPECT_OK is not available in OSS.
+#define MLMD_EXPECT_OK(expr) EXPECT_EQ(absl::OkStatus(), expr)
 
 absl::Status GetCountQueryResult(const std::string& query,
                                  MetadataSource* metadata_source, int* result) {
@@ -4217,6 +4220,61 @@ TEST_P(MetadataAccessObjectTest, DeleteParentContextsByChildIds) {
                   {context2.id()}));
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->FindParentContextsByContextId(
+                  context2.id(), &result));
+    EXPECT_THAT(result, IsEmpty());
+  }
+}
+
+TEST_P(MetadataAccessObjectTest, DeleteParentContextsByParentIdAndChildIds) {
+  MLMD_ASSERT_OK(Init());
+
+  int64 context_type_id = InsertType<ContextType>("test_context_type");
+
+  Context context1;
+  CreateNodeFromTextProto("name: 'parent_context'", context_type_id,
+                          *metadata_access_object_,
+                          metadata_access_object_container_.get(), context1);
+  Context context2;
+  CreateNodeFromTextProto("name: 'child_context'", context_type_id,
+                          *metadata_access_object_,
+                          metadata_access_object_container_.get(), context2);
+
+  Context context3;
+  CreateNodeFromTextProto("name: 'independent_context'", context_type_id,
+                          *metadata_access_object_,
+                          metadata_access_object_container_.get(), context2);
+
+  ParentContext parent_context;
+  parent_context.set_parent_id(context1.id());
+  parent_context.set_child_id(context2.id());
+  MLMD_EXPECT_OK(metadata_access_object_->CreateParentContext(parent_context));
+
+  // Test: independent parent id
+  {
+    std::vector<Context> result;
+    MLMD_EXPECT_OK(metadata_access_object_->
+                  DeleteParentContextsByParentIdAndChildIds(
+                     context3.id(), {context2.id()}));
+    MLMD_ASSERT_OK(metadata_access_object_->FindParentContextsByContextId(
+                  context2.id(), &result));
+    EXPECT_THAT(result, SizeIs(1));
+  }
+  // Test: empty child ids
+  {
+    std::vector<Context> result;
+    MLMD_EXPECT_OK(metadata_access_object_->
+                  DeleteParentContextsByParentIdAndChildIds(context1.id(), {}));
+    MLMD_ASSERT_OK(metadata_access_object_->FindParentContextsByContextId(
+                  context2.id(), &result));
+    EXPECT_THAT(result, SizeIs(1));
+  }
+  // Test: delete parent context
+  {
+    std::vector<Context> result;
+    MLMD_EXPECT_OK(metadata_access_object_->
+                  DeleteParentContextsByParentIdAndChildIds(
+                      context1.id(), {context2.id()}));
+    MLMD_ASSERT_OK(metadata_access_object_->FindParentContextsByContextId(
                   context2.id(), &result));
     EXPECT_THAT(result, IsEmpty());
   }

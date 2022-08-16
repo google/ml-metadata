@@ -30,6 +30,10 @@ limitations under the License.
 
 namespace ml_metadata {
 namespace testing {
+using ::testing::SizeIs;
+
+// A utility macros for OSS files as ASSERT_OK is not available in OSS.
+#define MLMD_ASSERT_OK(expr) ASSERT_EQ(absl::OkStatus(), expr)
 
 constexpr absl::string_view kArtifactTypeRecordSet =
     R"pb(column_names: "id"
@@ -80,11 +84,10 @@ constexpr absl::string_view kContextTypeRecordSet =
          }
     )pb";
 
-int GetIdColumnIndex(const RecordSet& record_set) {
-  // For different backends, the index for column "id" varies.
+int GetColumnIndex(const RecordSet& record_set, const std::string column_name) {
   int id_column_index = -1;
   for (int i = 0; i < record_set.column_names_size(); ++i) {
-    if (record_set.column_names()[i] == "id") {
+    if (record_set.column_names()[i] == column_name) {
       id_column_index = i;
       break;
     }
@@ -265,8 +268,7 @@ TEST_P(QueryExecutorTest, DeleteContextsById) {
 
     // Verify: context1 was deleted; context2 still remains.
     ASSERT_EQ(record_set.records_size(), 1);
-    // For different backends, the index for column "id" varies.
-    const int id_column_index = GetIdColumnIndex(record_set);
+    const int id_column_index = GetColumnIndex(record_set, "id");
     ASSERT_GE(id_column_index, 0);
     EXPECT_EQ(record_set.records(0).values(id_column_index),
               std::to_string(context_id_2));
@@ -298,8 +300,7 @@ TEST_P(QueryExecutorTest, DeleteContextsById) {
 
     // Verify: context2 remains because context id was wrong when deleting it.
     ASSERT_EQ(record_set.records_size(), 1);
-    // For different backends, the index for column "id" varies.
-    const int id_column_index = GetIdColumnIndex(record_set);
+    const int id_column_index = GetColumnIndex(record_set, "id");
     ASSERT_GE(id_column_index, 0);
     EXPECT_EQ(record_set.records(0).values(id_column_index),
               std::to_string(context_id_2));
@@ -310,6 +311,116 @@ TEST_P(QueryExecutorTest, DeleteContextsById) {
               query_executor_->SelectContextPropertyByContextID(
                   {context_id_2}, &property_record_set));
     EXPECT_EQ(property_record_set.records_size(), 1);
+  }
+}
+
+TEST_P(QueryExecutorTest, DeleteParentContextsByParentIdAndChildIds) {
+  MLMD_ASSERT_OK(Init());
+  // Create context type.
+  int64 context_type_id;
+  MLMD_ASSERT_OK(query_executor_->InsertContextType(
+                                  "context_type", absl::nullopt, absl::nullopt,
+                                  &context_type_id));
+  MLMD_ASSERT_OK(query_executor_->InsertTypeProperty(context_type_id,
+                                  "property_1", PropertyType::INT));
+
+  // Create contexts
+  int64 parent_id_1, parent_id_2, parent_id_3;
+  int64 child_id_1, child_id_2, child_id_3;
+  MLMD_ASSERT_OK(query_executor_->InsertContext(
+                context_type_id, "parent_context_1", absl::Now(),
+                absl::Now(), &parent_id_1));
+  MLMD_ASSERT_OK(query_executor_->InsertContext(
+                context_type_id, "parent_context_2", absl::Now(),
+                absl::Now(), &parent_id_2));
+  MLMD_ASSERT_OK(query_executor_->InsertContext(
+                context_type_id, "parent_context_3", absl::Now(),
+                absl::Now(), &parent_id_3));
+  MLMD_ASSERT_OK(query_executor_->InsertContext(
+                context_type_id, "child_context_1", absl::Now(),
+                absl::Now(), &child_id_1));
+  MLMD_ASSERT_OK(query_executor_->InsertContext(
+                context_type_id, "child_context_2", absl::Now(),
+                absl::Now(), &child_id_2));
+  MLMD_ASSERT_OK(query_executor_->InsertContext(
+                context_type_id, "child_context_3", absl::Now(),
+                absl::Now(), &child_id_3));
+
+  // Create Parent Context
+  // parent context 1 has three child contexts:
+  // {child_id_1, child_id_2, child_id_3}
+  // parent context 2 has one child contexts: {child_id_1}
+  // parent context 3 has no child id (independent)
+  MLMD_ASSERT_OK(query_executor_->InsertParentContext(parent_id_1, child_id_1));
+  MLMD_ASSERT_OK(query_executor_->InsertParentContext(parent_id_1, child_id_2));
+  MLMD_ASSERT_OK(query_executor_->InsertParentContext(parent_id_1, child_id_3));
+  MLMD_ASSERT_OK(query_executor_->InsertParentContext(parent_id_2, child_id_1));
+
+  // Test: empty child IDs
+  {
+    MLMD_ASSERT_OK(query_executor_->
+        DeleteParentContextsByParentIdAndChildIds(parent_id_1, {}));
+    RecordSet record_set;
+    MLMD_ASSERT_OK(query_executor_->
+        SelectChildContextsByContextID(parent_id_1, &record_set));
+    EXPECT_THAT(record_set.records(), SizeIs(3));
+  }
+
+  // Test: independent context
+  {
+    // Still returns OK status when `parent_id_3` is not found
+    // in CheckParentContextTable
+    MLMD_ASSERT_OK(query_executor_->
+        DeleteParentContextsByParentIdAndChildIds(parent_id_3, {child_id_1}));
+    RecordSet record_set;
+    // Verify: child context 1 still remains
+    MLMD_ASSERT_OK(query_executor_->
+        SelectParentContextsByContextID(child_id_1, &record_set));
+    EXPECT_THAT(record_set.records(), SizeIs(2));
+  }
+
+  // Test: actual delete child context 1 from parent context 1
+  {
+    // Remove child context 1 and child context 2 from parent context 1
+    MLMD_ASSERT_OK(query_executor_->
+        DeleteParentContextsByParentIdAndChildIds(
+            parent_id_1, {child_id_1, child_id_2}));
+
+    RecordSet record_set_1;
+    // Verify: parent context 1 still has one record in the table
+    MLMD_ASSERT_OK(query_executor_->
+        SelectChildContextsByContextID(parent_id_1, &record_set_1));
+    ASSERT_THAT(record_set_1.records(), SizeIs(1));
+    // Find the index for column "context_id" and "parent_context_id"
+    const int child_id_column_index_1 =
+        GetColumnIndex(record_set_1, "context_id");
+    ASSERT_GE(child_id_column_index_1, 0);
+    const int parent_id_column_index_1 =
+        GetColumnIndex(record_set_1, "parent_context_id");
+    ASSERT_GE(parent_id_column_index_1, 0);
+    // Verify: child context 2 remains as child context of parent context 1
+    EXPECT_EQ(record_set_1.records(0).values(child_id_column_index_1),
+        absl::StrCat(child_id_3));
+    EXPECT_EQ(record_set_1.records(0).values(parent_id_column_index_1),
+        absl::StrCat(parent_id_1));
+
+    RecordSet record_set_2;
+    // Verify: parent context 2 still has one record in the table
+    MLMD_ASSERT_OK(query_executor_->
+        SelectChildContextsByContextID(parent_id_2, &record_set_2));
+    ASSERT_THAT(record_set_2.records(), SizeIs(1));
+    // Find the index for column "context_id" and "parent_context_id"
+    const int child_id_column_index_2 =
+        GetColumnIndex(record_set_2, "context_id");
+    ASSERT_GE(child_id_column_index_2, 0);
+    const int parent_id_column_index_2 =
+        GetColumnIndex(record_set_2, "parent_context_id");
+    ASSERT_GE(parent_id_column_index_2, 0);
+    // Verify: child context 1 remains as child context of parent context 2
+    EXPECT_EQ(record_set_2.records(0).values(child_id_column_index_2),
+        absl::StrCat(child_id_1));
+    EXPECT_EQ(record_set_2.records(0).values(parent_id_column_index_2),
+        absl::StrCat(parent_id_2));
   }
 }
 

@@ -2297,4 +2297,14 @@ absl::Status RDBMSMetadataAccessObject::DeleteParentContextsByChildIds(
   return executor_->DeleteParentContextsByChildIds(child_context_ids);
 }
 
+absl::Status RDBMSMetadataAccessObject::
+  DeleteParentContextsByParentIdAndChildIds(
+    int64 parent_context_id, absl::Span<const int64> child_context_ids) {
+  if (child_context_ids.empty()) {
+    return absl::OkStatus();
+  }
+  return executor_->DeleteParentContextsByParentIdAndChildIds(
+    parent_context_id, child_context_ids);
+}
+
 }  // namespace ml_metadata

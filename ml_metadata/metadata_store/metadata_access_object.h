@@ -677,6 +677,14 @@ class MetadataAccessObject {
   // Deletes the parent contexts corresponding to the |child_context_ids|.
   virtual absl::Status DeleteParentContextsByChildIds(
       absl::Span<const int64> child_context_ids) = 0;
+
+  // Deletes the parent contexts corresponding to the |parent_context_id|
+  // and |child_context_ids|.
+  // Nothing will be deleted if |child_context_ids| is empty.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteParentContextsByParentIdAndChildIds(
+      int64 parent_context_id,
+      absl::Span<const int64> child_context_ids) = 0;
 };
 
 }  // namespace ml_metadata

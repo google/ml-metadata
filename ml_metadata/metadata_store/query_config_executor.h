@@ -566,6 +566,10 @@ class QueryConfigExecutor : public QueryExecutor {
   absl::Status DeleteParentContextsByChildIds(
       absl::Span<const int64> child_context_ids) final;
 
+  absl::Status DeleteParentContextsByParentIdAndChildIds(
+      int64 parent_context_id,
+      absl::Span<const int64> child_context_ids) final;
+
  private:
   // Utility method to bind an nullable value.
   template <typename T>

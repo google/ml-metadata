@@ -637,6 +637,13 @@ class QueryExecutor {
   virtual absl::Status DeleteParentContextsByChildIds(
       absl::Span<const int64> child_context_ids) = 0;
 
+  // Deletes the parent contexts corresponding to the |parent_context_id|
+  // and |child_context_ids|.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status DeleteParentContextsByParentIdAndChildIds(
+      int64 parent_context_id,
+      absl::Span<const int64> child_context_ids) = 0;
+
  protected:
   // Uses the method to document the min schema version of an API explicitly.
   // Returns FailedPrecondition, if the |query_schema_version_| is less than the

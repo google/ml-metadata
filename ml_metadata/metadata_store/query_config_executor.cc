@@ -780,5 +780,15 @@ absl::Status QueryConfigExecutor::DeleteParentContextsByChildIds(
   return absl::OkStatus();
 }
 
+absl::Status QueryConfigExecutor::DeleteParentContextsByParentIdAndChildIds(
+    int64 parent_context_id,
+    absl::Span<const int64> child_context_ids) {
+  MLMD_RETURN_IF_ERROR(
+      ExecuteQuery(
+          query_config_.delete_parent_contexts_by_parent_id_and_child_ids(),
+          {Bind(parent_context_id), Bind(child_context_ids)}));
+  return absl::OkStatus();
+}
+
 
 }  // namespace ml_metadata

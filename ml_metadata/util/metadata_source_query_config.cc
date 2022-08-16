@@ -493,6 +493,11 @@ R"pb(
     query: "DELETE FROM `ParentContext` WHERE `context_id` IN ($0); "
     parameter_num: 1
   }
+  delete_parent_contexts_by_parent_id_and_child_ids {
+    query: "DELETE FROM `ParentContext` "
+           "WHERE `parent_context_id` = $0 AND `context_id` IN ($1); "
+    parameter_num: 2
+  }
 )pb",
 R"pb(
   drop_event_table { query: " DROP TABLE IF EXISTS `Event`; " }

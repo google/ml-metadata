@@ -1,4 +1,6 @@
 # Current Version (not yet released; still in development)
+*   Adds utils in shared C++ lib to delete ParentContexts by parent_context_id 
+    and child_context_ids.
 
 ## Major Features and Improvements
 
