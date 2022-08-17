@@ -5748,6 +5748,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
             metadata_access_object_->CreateContext(context2, &context2_id));
   context2.set_id(context2_id);
 
+
   EXPECT_NE(context1_id, context2_id);
 
   ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
@@ -6199,6 +6200,7 @@ TEST_P(MetadataAccessObjectTest, CreateContextWithDuplicatedNameError) {
                 unique_constraint_violation_status),
             absl::OkStatus());
 }
+
 
 TEST_P(MetadataAccessObjectTest, UpdateContext) {
   ASSERT_EQ(absl::OkStatus(), Init());

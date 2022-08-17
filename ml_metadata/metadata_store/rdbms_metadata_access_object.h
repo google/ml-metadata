@@ -266,7 +266,6 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   absl::Status FindContextsById(absl::Span<const int64> context_ids,
                                 std::vector<Context>* contexts) final;
-
   absl::Status FindContexts(std::vector<Context>* contexts) final;
 
   absl::Status FindContextsByTypeId(

@@ -313,10 +313,10 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(query_config_.check_context_table());
   }
 
-  absl::Status InsertContext(int64 type_id, const std::string& name,
-                             const absl::Time create_time,
-                             const absl::Time update_time,
-                             int64* context_id) final {
+  absl::Status InsertContext(
+      int64 type_id, const std::string& name,
+      const absl::Time create_time, const absl::Time update_time,
+      int64* context_id) final {
     return ExecuteQuerySelectLastInsertID(
         query_config_.insert_context(),
         {Bind(type_id), Bind(name), Bind(absl::ToUnixMillis(create_time)),
@@ -329,6 +329,7 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(query_config_.select_context_by_id(),
                         {Bind(context_ids)}, record_set);
   }
+
 
   absl::Status SelectContextsByTypeID(int64 context_type_id,
                                       RecordSet* record_set) final {
@@ -343,9 +344,9 @@ class QueryConfigExecutor : public QueryExecutor {
                         {Bind(context_type_id), Bind(name)}, record_set);
   }
 
-  absl::Status UpdateContextDirect(int64 existing_context_id, int64 type_id,
-                                   const std::string& context_name,
-                                   const absl::Time update_time) final {
+  absl::Status UpdateContextDirect(
+      int64 existing_context_id, int64 type_id, const std::string& context_name,
+      const absl::Time update_time) final {
     return ExecuteQuery(
         query_config_.update_context(),
         {Bind(existing_context_id), Bind(type_id), Bind(context_name),

@@ -407,6 +407,8 @@ class MetadataAccessObject {
   // Returns INVALID_ARGUMENT error, if given value of a property does not match
   //   with its data type definition in the context type.
   // Returns ALREADY_EXISTS error, if the ContextType has context with the name.
+  // Returns ALREADY_EXISTS error, if there is context with the
+  // same external_id.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status CreateContext(const Context& context,
                                      bool skip_type_and_property_validation,
@@ -427,6 +429,7 @@ class MetadataAccessObject {
   // Returns detailed INTERNAL error if query execution fails.
   virtual absl::Status FindContextsById(absl::Span<const int64> context_ids,
                                         std::vector<Context>* context) = 0;
+
 
   // Gets contexts stored in the metadata source
   // Returns detailed INTERNAL error, if query execution fails.

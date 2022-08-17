@@ -215,14 +215,12 @@ TEST_P(QueryExecutorTest, DeleteContextsById) {
 
   // Create contexts.
   int64 context_id_1, context_id_2;
-  ASSERT_EQ(absl::OkStatus(),
-            query_executor_->InsertContext(
-                context_type_id, "delete_contexts_by_id_test_1", absl::Now(),
-                absl::Now(), &context_id_1));
-  ASSERT_EQ(absl::OkStatus(),
-            query_executor_->InsertContext(
-                context_type_id, "delete_contexts_by_id_test_2", absl::Now(),
-                absl::Now(), &context_id_2));
+  MLMD_ASSERT_OK(query_executor_->InsertContext(
+      context_type_id, "delete_contexts_by_id_test_1",
+      absl::Now(), absl::Now(), &context_id_1));
+  MLMD_ASSERT_OK(query_executor_->InsertContext(
+      context_type_id, "delete_contexts_by_id_test_2",
+      absl::Now(), absl::Now(), &context_id_2));
   Value int_value;
   int_value.set_int_value(3);
   ASSERT_EQ(absl::OkStatus(),
@@ -327,23 +325,23 @@ TEST_P(QueryExecutorTest, DeleteParentContextsByParentIdAndChildIds) {
   int64 parent_id_1, parent_id_2, parent_id_3;
   int64 child_id_1, child_id_2, child_id_3;
   MLMD_ASSERT_OK(query_executor_->InsertContext(
-                context_type_id, "parent_context_1", absl::Now(),
-                absl::Now(), &parent_id_1));
+      context_type_id, "parent_context_1",
+      absl::Now(), absl::Now(), &parent_id_1));
   MLMD_ASSERT_OK(query_executor_->InsertContext(
-                context_type_id, "parent_context_2", absl::Now(),
-                absl::Now(), &parent_id_2));
+      context_type_id, "parent_context_2",
+      absl::Now(), absl::Now(), &parent_id_2));
   MLMD_ASSERT_OK(query_executor_->InsertContext(
-                context_type_id, "parent_context_3", absl::Now(),
-                absl::Now(), &parent_id_3));
+      context_type_id, "parent_context_3",
+      absl::Now(), absl::Now(), &parent_id_3));
   MLMD_ASSERT_OK(query_executor_->InsertContext(
-                context_type_id, "child_context_1", absl::Now(),
-                absl::Now(), &child_id_1));
+      context_type_id, "child_context_1",
+      absl::Now(), absl::Now(), &child_id_1));
   MLMD_ASSERT_OK(query_executor_->InsertContext(
-                context_type_id, "child_context_2", absl::Now(),
-                absl::Now(), &child_id_2));
+      context_type_id, "child_context_2",
+      absl::Now(), absl::Now(), &child_id_2));
   MLMD_ASSERT_OK(query_executor_->InsertContext(
-                context_type_id, "child_context_3", absl::Now(),
-                absl::Now(), &child_id_3));
+      context_type_id, "child_context_3",
+      absl::Now(), absl::Now(), &child_id_3));
 
   // Create Parent Context
   // parent context 1 has three child contexts:

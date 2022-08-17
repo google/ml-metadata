@@ -411,8 +411,9 @@ absl::Status RDBMSMetadataAccessObject::CreateBasicNode(const Context& context,
   if (!context.has_name() || context.name().empty()) {
     return absl::InvalidArgumentError("Context name should not be empty");
   }
-  return executor_->InsertContext(context.type_id(), context.name(), now, now,
-                                  node_id);
+  return executor_->InsertContext(
+      context.type_id(), context.name(),
+      now, now, node_id);
 }
 
 template <>
@@ -472,13 +473,14 @@ absl::Status RDBMSMetadataAccessObject::RunNodeUpdate(
       absl::Now());
 }
 
-// Update a Context's type id and name.
+// Update a Context's type id, external_id and name.
 absl::Status RDBMSMetadataAccessObject::RunNodeUpdate(const Context& context) {
   if (!context.has_name() || context.name().empty()) {
     return absl::InvalidArgumentError("Context name should not be empty");
   }
-  return executor_->UpdateContextDirect(context.id(), context.type_id(),
-                                        context.name(), absl::Now());
+  return executor_->UpdateContextDirect(
+      context.id(), context.type_id(), context.name(),
+      absl::Now());
 }
 
 // Runs a property insertion query for a NodeType.
@@ -1389,6 +1391,7 @@ absl::Status RDBMSMetadataAccessObject::FindContextsById(
   }
   return FindNodesImpl(context_ids, /*skipped_ids_ok=*/true, *contexts);
 }
+
 
 
 

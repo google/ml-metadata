@@ -384,10 +384,10 @@ class QueryExecutor {
   virtual absl::Status CheckContextTable() = 0;
 
   // Inserts a context into the database.
-  virtual absl::Status InsertContext(int64 type_id, const std::string& name,
-                                     const absl::Time create_time,
-                                     const absl::Time update_time,
-                                     int64* context_id) = 0;
+  virtual absl::Status InsertContext(
+      int64 type_id, const std::string& name,
+      const absl::Time create_time, const absl::Time update_time,
+      int64* context_id) = 0;
 
   // Gets contexts from the database by their ids. For each context,
   // returns a row that contains the following columns (order not important):
@@ -399,6 +399,7 @@ class QueryExecutor {
   virtual absl::Status SelectContextsByID(absl::Span<const int64> context_ids,
                                           RecordSet* record_set) = 0;
 
+
   // Returns ids of contexts matching the given context_type_id.
   virtual absl::Status SelectContextsByTypeID(int64 context_type_id,
                                               RecordSet* record_set) = 0;
@@ -409,10 +410,9 @@ class QueryExecutor {
       RecordSet* record_set) = 0;
 
   // Updates a context in the Context table.
-  virtual absl::Status UpdateContextDirect(int64 existing_context_id,
-                                           int64 type_id,
-                                           const std::string& context_name,
-                                           const absl::Time update_time) = 0;
+  virtual absl::Status UpdateContextDirect(
+      int64 existing_context_id, int64 type_id, const std::string& context_name,
+      const absl::Time update_time) = 0;
 
   // Checks the existence of the ContextProperty table.
   virtual absl::Status CheckContextPropertyTable() = 0;
