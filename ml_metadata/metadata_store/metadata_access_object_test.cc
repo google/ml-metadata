@@ -1032,6 +1032,7 @@ TEST_P(MetadataAccessObjectTest, CreateTypeError) {
   }
 }
 
+
 TEST_P(MetadataAccessObjectTest, UpdateType) {
   ASSERT_EQ(absl::OkStatus(), Init());
   ArtifactType type1 = ParseTextProtoOrDie<ArtifactType>(R"(
@@ -1131,7 +1132,7 @@ TEST_P(MetadataAccessObjectTest, UpdateTypeError) {
   }
 }
 
-TEST_P(MetadataAccessObjectTest, FindTypeById) {
+TEST_P(MetadataAccessObjectTest, FindTypeByIdArtifact) {
   ASSERT_EQ(absl::OkStatus(), Init());
   ArtifactType want_type = ParseTextProtoOrDie<ArtifactType>(R"(
     name: 'test_type'
@@ -1296,6 +1297,9 @@ TEST_P(MetadataAccessObjectTest, FindTypeByName) {
       absl::IsNotFound(metadata_access_object_->FindTypeByNameAndVersion(
           "test_type", /*version=*/absl::nullopt, &context_type)));
 }
+
+
+
 
 TEST_P(MetadataAccessObjectTest, FindTypeIdByNameAndVersion) {
   ASSERT_EQ(absl::OkStatus(), Init());

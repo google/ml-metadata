@@ -165,7 +165,8 @@ class QueryExecutor {
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status InsertArtifactType(
       const std::string& name, absl::optional<absl::string_view> version,
-      absl::optional<absl::string_view> description, int64* type_id) = 0;
+      absl::optional<absl::string_view> description,
+      int64* type_id) = 0;
 
   // Inserts an ExecutionType into the database.
   // `input_type` is an optional field to describe the input artifact types.
@@ -176,14 +177,16 @@ class QueryExecutor {
       const std::string& name, absl::optional<absl::string_view> version,
       absl::optional<absl::string_view> description,
       const ArtifactStructType* input_type,
-      const ArtifactStructType* output_type, int64* type_id) = 0;
+      const ArtifactStructType* output_type,
+      int64* type_id) = 0;
 
   // Inserts a ContextType into the database.
   // `type_id` is the ID of the context type.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status InsertContextType(
       const std::string& name, absl::optional<absl::string_view> version,
-      absl::optional<absl::string_view> description, int64* type_id) = 0;
+      absl::optional<absl::string_view> description,
+      int64* type_id) = 0;
 
   // Gets types from the database by their ids. Not found ids are
   // skipped.
@@ -192,6 +195,8 @@ class QueryExecutor {
   virtual absl::Status SelectTypesByID(absl::Span<const int64> type_ids,
                                        TypeKind type_kind,
                                        RecordSet* record_set) = 0;
+
+
   // Gets a type by its type id.
   // Returns a message that can be converted to an ArtifactType,
   // ContextType, or ExecutionType.
@@ -215,6 +220,7 @@ class QueryExecutor {
   // ContextType, or ExecutionType.
   virtual absl::Status SelectAllTypes(TypeKind type_kind,
                                       RecordSet* record_set) = 0;
+
 
   // Checks the existence of the TypeProperty table.
   virtual absl::Status CheckTypePropertyTable() = 0;

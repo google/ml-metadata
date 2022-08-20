@@ -162,6 +162,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status FindTypesByIds(absl::Span<const int64> type_ids,
                               std::vector<ContextType>& context_types) final;
 
+
   absl::Status FindTypeByNameAndVersion(
       absl::string_view name, absl::optional<absl::string_view> version,
       ArtifactType* artifact_type) final;
@@ -523,6 +524,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status FindTypesImpl(absl::Span<const int64> type_ids,
                              bool get_properties,
                              std::vector<MessageType>& types);
+
 
   // Finds a type by its type_id. Acceptable types are {ArtifactType,
   // ExecutionType, ContextType} (`MessageType`).

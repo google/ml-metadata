@@ -546,7 +546,8 @@ absl::Status QueryConfigExecutor::InitMetadataSourceIfNotExists(
 
 absl::Status QueryConfigExecutor::InsertArtifactType(
     const std::string& name, absl::optional<absl::string_view> version,
-    absl::optional<absl::string_view> description, int64* type_id) {
+    absl::optional<absl::string_view> description,
+    int64* type_id) {
   return ExecuteQuerySelectLastInsertID(
       query_config_.insert_artifact_type(),
       {Bind(name), Bind(version), Bind(description)}, type_id);
@@ -566,7 +567,8 @@ absl::Status QueryConfigExecutor::InsertExecutionType(
 
 absl::Status QueryConfigExecutor::InsertContextType(
     const std::string& name, absl::optional<absl::string_view> version,
-    absl::optional<absl::string_view> description, int64* type_id) {
+    absl::optional<absl::string_view> description,
+    int64* type_id) {
   return ExecuteQuerySelectLastInsertID(
       query_config_.insert_context_type(),
       {Bind(name), Bind(version), Bind(description)}, type_id);
@@ -578,6 +580,7 @@ absl::Status QueryConfigExecutor::SelectTypesByID(
   return ExecuteQuery(query_config_.select_types_by_id(),
                       {Bind(type_ids), Bind(type_kind)}, record_set);
 }
+
 
 absl::Status QueryConfigExecutor::SelectTypeByID(int64 type_id,
                                                  TypeKind type_kind,

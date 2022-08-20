@@ -147,6 +147,7 @@ class MetadataAccessObject {
       absl::Span<const int64> type_ids,
       std::vector<ContextType>& context_types) = 0;
 
+
   // Gets a type by its name and version. A type is one of
   // {ArtifactType, ExecutionType, ContextType}. The type version is optional.
   // If not given or the version is an empty string, the type with

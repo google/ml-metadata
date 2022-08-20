@@ -82,24 +82,26 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(query_config_.check_type_table());
   }
 
-  absl::Status InsertArtifactType(const std::string& name,
-                                  absl::optional<absl::string_view> version,
-                                  absl::optional<absl::string_view> description,
-                                  int64* type_id) final;
+  absl::Status InsertArtifactType(
+      const std::string& name, absl::optional<absl::string_view> version,
+      absl::optional<absl::string_view> description,
+      int64* type_id) final;
 
   absl::Status InsertExecutionType(
       const std::string& name, absl::optional<absl::string_view> version,
       absl::optional<absl::string_view> description,
       const ArtifactStructType* input_type,
-      const ArtifactStructType* output_type, int64* type_id) final;
+      const ArtifactStructType* output_type,
+      int64* type_id) final;
 
-  absl::Status InsertContextType(const std::string& name,
-                                 absl::optional<absl::string_view> version,
-                                 absl::optional<absl::string_view> description,
-                                 int64* type_id) final;
+  absl::Status InsertContextType(
+      const std::string& name, absl::optional<absl::string_view> version,
+      absl::optional<absl::string_view> description,
+      int64* type_id) final;
 
   absl::Status SelectTypesByID(absl::Span<const int64> type_ids,
                                TypeKind type_kind, RecordSet* record_set) final;
+
 
   absl::Status SelectTypeByID(int64 type_id, TypeKind type_kind,
                               RecordSet* record_set) final;
@@ -110,6 +112,7 @@ class QueryConfigExecutor : public QueryExecutor {
       RecordSet* record_set) final;
 
   absl::Status SelectAllTypes(TypeKind type_kind, RecordSet* record_set) final;
+
 
   absl::Status CheckTypePropertyTable() final {
     return ExecuteQuery(query_config_.check_type_property_table());

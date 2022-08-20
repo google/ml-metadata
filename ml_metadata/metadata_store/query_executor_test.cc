@@ -101,10 +101,12 @@ TEST_P(QueryExecutorTest, SelectTypesByID) {
   int64 type_id_1, type_id_2;
   ASSERT_EQ(absl::OkStatus(),
             query_executor_->InsertArtifactType(
-                "artifact_type_1", absl::nullopt, absl::nullopt, &type_id_1));
+                "artifact_type_1", absl::nullopt, absl::nullopt,
+                &type_id_1));
   ASSERT_EQ(absl::OkStatus(),
             query_executor_->InsertArtifactType(
-                "artifact_type_2", absl::nullopt, absl::nullopt, &type_id_2));
+                "artifact_type_2", absl::nullopt, absl::nullopt,
+                &type_id_2));
   // Exectuion type insertion.
   int64 type_id_3, type_id_4;
   ArtifactStructType input_type;
@@ -116,16 +118,19 @@ TEST_P(QueryExecutorTest, SelectTypesByID) {
   ASSERT_EQ(absl::OkStatus(),
             query_executor_->InsertExecutionType(
                 "execution_type_1", absl::nullopt, absl::nullopt, &input_type,
-                &output_type, &type_id_3));
+                &output_type,
+                &type_id_3));
   ASSERT_EQ(absl::OkStatus(),
             query_executor_->InsertExecutionType(
                 "execution_type_2", absl::nullopt, absl::nullopt, &input_type,
-                &output_type, &type_id_4));
+                &output_type,
+                &type_id_4));
   // Context type insertion.
   int64 type_id_5;
   ASSERT_EQ(absl::OkStatus(),
-            query_executor_->InsertContextType("context_type_1", absl::nullopt,
-                                               absl::nullopt, &type_id_5));
+            query_executor_->InsertContextType(
+                "context_type_1", absl::nullopt, absl::nullopt,
+                &type_id_5));
 
   // Test select artifact types by ids.
   TypeKind type_kind = TypeKind::ARTIFACT_TYPE;
@@ -164,15 +169,18 @@ TEST_P(QueryExecutorTest, SelectTypesByIDWithMixedTypeIDKinds) {
   int64 type_id_1, type_id_2;
   ASSERT_EQ(absl::OkStatus(),
             query_executor_->InsertArtifactType(
-                "artifact_type_1", absl::nullopt, absl::nullopt, &type_id_1));
+                "artifact_type_1", absl::nullopt, absl::nullopt,
+                &type_id_1));
   ASSERT_EQ(absl::OkStatus(),
             query_executor_->InsertArtifactType(
-                "artifact_type_2", absl::nullopt, absl::nullopt, &type_id_2));
+                "artifact_type_2", absl::nullopt, absl::nullopt,
+                &type_id_2));
   // Context type insertion.
   int64 type_id_3;
   ASSERT_EQ(absl::OkStatus(),
-            query_executor_->InsertContextType("context_type_1", absl::nullopt,
-                                               absl::nullopt, &type_id_3));
+            query_executor_->InsertContextType(
+                "context_type_1", absl::nullopt, absl::nullopt,
+                &type_id_3));
 
   // Test select artifact types with a mixture of artifact and context type ids.
   TypeKind type_kind = TypeKind::ARTIFACT_TYPE;
@@ -189,17 +197,19 @@ TEST_P(QueryExecutorTest, DeleteContextsById) {
   ASSERT_EQ(absl::OkStatus(), Init());
   // Create context type.
   int64 context_type_id;
-  ASSERT_EQ(absl::OkStatus(), query_executor_->InsertContextType(
-                                  "context_type", absl::nullopt, absl::nullopt,
-                                  &context_type_id));
+  ASSERT_EQ(absl::OkStatus(),
+            query_executor_->InsertContextType(
+                "context_type", absl::nullopt, absl::nullopt,
+                &context_type_id));
   ASSERT_EQ(absl::OkStatus(),
             query_executor_->InsertTypeProperty(context_type_id, "property_1",
                                                 PropertyType::INT));
   // Create artifact type.
   int64 artifact_type_id;
-  ASSERT_EQ(absl::OkStatus(), query_executor_->InsertArtifactType(
-                                  "artifact_type", absl::nullopt, absl::nullopt,
-                                  &artifact_type_id));
+  ASSERT_EQ(absl::OkStatus(),
+            query_executor_->InsertArtifactType(
+                "artifact_type", absl::nullopt, absl::nullopt,
+                &artifact_type_id));
   // Create execution type.
   int64 execution_type_id;
   ArtifactStructType input_type;
@@ -211,7 +221,8 @@ TEST_P(QueryExecutorTest, DeleteContextsById) {
   ASSERT_EQ(absl::OkStatus(),
             query_executor_->InsertExecutionType(
                 "execution_type", absl::nullopt, absl::nullopt, &input_type,
-                &output_type, &execution_type_id));
+                &output_type,
+                &execution_type_id));
 
   // Create contexts.
   int64 context_id_1, context_id_2;
@@ -316,8 +327,8 @@ TEST_P(QueryExecutorTest, DeleteParentContextsByParentIdAndChildIds) {
   // Create context type.
   int64 context_type_id;
   MLMD_ASSERT_OK(query_executor_->InsertContextType(
-                                  "context_type", absl::nullopt, absl::nullopt,
-                                  &context_type_id));
+      "context_type", absl::nullopt, absl::nullopt,
+      &context_type_id));
   MLMD_ASSERT_OK(query_executor_->InsertTypeProperty(context_type_id,
                                   "property_1", PropertyType::INT));
 
@@ -425,20 +436,23 @@ TEST_P(QueryExecutorTest, SelectParentTypesByTypeID) {
   ASSERT_EQ(absl::OkStatus(), Init());
   // Setup: Create context type.
   int64 context_type_id;
-  ASSERT_EQ(absl::OkStatus(), query_executor_->InsertContextType(
-                                  "context_type", absl::nullopt, absl::nullopt,
-                                  &context_type_id));
+  ASSERT_EQ(absl::OkStatus(),
+            query_executor_->InsertContextType(
+                "context_type", absl::nullopt, absl::nullopt,
+                &context_type_id));
   ASSERT_EQ(absl::OkStatus(),
             query_executor_->InsertTypeProperty(context_type_id, "property_1",
                                                 PropertyType::INT));
   // Create artifact types.
   int64 artifact_type_id, parent_artifact_type_id;
-  ASSERT_EQ(absl::OkStatus(), query_executor_->InsertArtifactType(
-                                  "artifact_type", absl::nullopt, absl::nullopt,
-                                  &artifact_type_id));
-  ASSERT_EQ(absl::OkStatus(), query_executor_->InsertArtifactType(
-                                  "parent_artifact_type", absl::nullopt,
-                                  absl::nullopt, &parent_artifact_type_id));
+  ASSERT_EQ(absl::OkStatus(),
+            query_executor_->InsertArtifactType(
+                "artifact_type", absl::nullopt, absl::nullopt,
+                &artifact_type_id));
+  ASSERT_EQ(absl::OkStatus(),
+            query_executor_->InsertArtifactType(
+                "parent_artifact_type", absl::nullopt, absl::nullopt,
+                &parent_artifact_type_id));
 
   // Setup: Create execution types.
   int64 execution_type_id, parent_execution_type_id;
@@ -451,11 +465,13 @@ TEST_P(QueryExecutorTest, SelectParentTypesByTypeID) {
   ASSERT_EQ(absl::OkStatus(),
             query_executor_->InsertExecutionType(
                 "execution_type", absl::nullopt, absl::nullopt, &input_type,
-                &output_type, &execution_type_id));
+                &output_type,
+                &execution_type_id));
   ASSERT_EQ(absl::OkStatus(),
             query_executor_->InsertExecutionType(
                 "parent_execution_type", absl::nullopt, absl::nullopt,
-                &input_type, &output_type, &parent_execution_type_id));
+                &input_type, &output_type,
+                &parent_execution_type_id));
   int64 non_exist_parent_type_id = parent_execution_type_id + execution_type_id;
 
   // Setup: Insert parent type links.
@@ -527,17 +543,19 @@ TEST_P(QueryExecutorTest, SelectPropertiesByTypeID) {
   ASSERT_EQ(absl::OkStatus(), Init());
   // Setup: Create context type.
   int64 context_type_id;
-  ASSERT_EQ(absl::OkStatus(), query_executor_->InsertContextType(
-                                  "context_type", absl::nullopt, absl::nullopt,
-                                  &context_type_id));
+  ASSERT_EQ(absl::OkStatus(),
+            query_executor_->InsertContextType(
+                "context_type", absl::nullopt, absl::nullopt,
+                &context_type_id));
   ASSERT_EQ(absl::OkStatus(),
             query_executor_->InsertTypeProperty(context_type_id, "property_1",
                                                 PropertyType::INT));
   // Create artifact types.
   int64 artifact_type_id_1, artifact_type_id_2;
-  ASSERT_EQ(absl::OkStatus(), query_executor_->InsertArtifactType(
-                                  "artifact_type_1", absl::nullopt,
-                                  absl::nullopt, &artifact_type_id_1));
+  ASSERT_EQ(absl::OkStatus(),
+            query_executor_->InsertArtifactType(
+                "artifact_type_1", absl::nullopt, absl::nullopt,
+                &artifact_type_id_1));
   ASSERT_EQ(absl::OkStatus(),
             query_executor_->InsertTypeProperty(
                 artifact_type_id_1, "property_1", PropertyType::INT));
@@ -545,9 +563,10 @@ TEST_P(QueryExecutorTest, SelectPropertiesByTypeID) {
             query_executor_->InsertTypeProperty(
                 artifact_type_id_1, "property_2", PropertyType::STRING));
 
-  ASSERT_EQ(absl::OkStatus(), query_executor_->InsertArtifactType(
-                                  "artifact_type_2", absl::nullopt,
-                                  absl::nullopt, &artifact_type_id_2));
+  ASSERT_EQ(absl::OkStatus(),
+            query_executor_->InsertArtifactType(
+                "artifact_type_2", absl::nullopt, absl::nullopt,
+                &artifact_type_id_2));
 
   // Test: empty ids
   {

@@ -616,7 +616,8 @@ absl::Status RDBMSMetadataAccessObject::InsertTypeID(const ExecutionType& type,
       type.has_description() ? absl::make_optional(type.description())
                              : absl::nullopt,
       type.has_input_type() ? &type.input_type() : nullptr,
-      type.has_output_type() ? &type.output_type() : nullptr, type_id);
+      type.has_output_type() ? &type.output_type() : nullptr,
+      type_id);
 }
 
 // Creates a query to insert a context type.
@@ -775,6 +776,7 @@ absl::Status RDBMSMetadataAccessObject::FindTypeImpl(int64 type_id,
   return absl::OkStatus();
 }
 
+
 template <typename MessageType>
 absl::Status RDBMSMetadataAccessObject::FindTypeImpl(
     absl::string_view name, absl::optional<absl::string_view> version,
@@ -852,6 +854,7 @@ absl::Status RDBMSMetadataAccessObject::UpdateTypeImpl(const Type& type) {
     MLMD_RETURN_IF_ERROR(executor_->InsertTypeProperty(
         stored_type.id(), property_name, property_type));
   }
+
   return absl::OkStatus();
 }
 
@@ -1166,6 +1169,9 @@ absl::Status RDBMSMetadataAccessObject::FindTypesByIds(
     absl::Span<const int64> type_ids, std::vector<ContextType>& context_types) {
   return FindTypesImpl(type_ids, /*get_properties=*/true, context_types);
 }
+
+
+
 
 absl::Status RDBMSMetadataAccessObject::FindTypes(
     std::vector<ExecutionType>* execution_types) {
