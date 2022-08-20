@@ -1299,8 +1299,6 @@ TEST_P(MetadataAccessObjectTest, FindTypeByName) {
 }
 
 
-
-
 TEST_P(MetadataAccessObjectTest, FindTypeIdByNameAndVersion) {
   ASSERT_EQ(absl::OkStatus(), Init());
   ExecutionType want_type = ParseTextProtoOrDie<ExecutionType>(R"(

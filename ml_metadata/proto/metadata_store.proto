@@ -101,10 +101,6 @@ message ArtifactType {
   optional string version = 4;
   // An optional description about the type.
   optional string description = 5;
-  // The external id that come from the clients’ system. This field is optional.
-  // If set, it must be unique among all ArtifactTypes within a virtual
-  // database.
-  optional string external_id = 7;
   // The schema of the type.
   // Properties are always optional in the artifact.
   // Properties of an artifact type can be expanded but not contracted (i.e.,
@@ -290,10 +286,6 @@ message ExecutionType {
   optional string version = 6;
   // An optional description about the type.
   optional string description = 7;
-  // The external id that come from the clients’ system. This field is optional.
-  // If set, it must be unique among all ExecutionTypes within a virtual
-  // database.
-  optional string external_id = 9;
   // The schema of the type.
   // Properties are always optional in the execution.
   map<string, PropertyType> properties = 3;
@@ -345,9 +337,6 @@ message ContextType {
   optional string version = 4;
   // An optional description about the type.
   optional string description = 5;
-  // The external id that come from the clients’ system. This field is optional.
-  // If set, it must be unique among all ContextTypes within a virtual database.
-  optional string external_id = 7;
   // The schema of the type, e.g., name: string, owner: string
   // Properties are always optional in the context.
   // Properties of an context type can be expanded but not contracted (i.e.,

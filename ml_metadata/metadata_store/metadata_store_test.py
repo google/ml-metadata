@@ -210,6 +210,7 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertEqual(artifact_type_result.properties["new_property"],
                      metadata_store_pb2.INT)
 
+
   @parameterized.parameters(
       (_create_example_artifact_type, mlmd.MetadataStore.put_artifact_type,
        mlmd.MetadataStore.get_artifact_type),
@@ -780,6 +781,7 @@ class MetadataStoreTest(parameterized.TestCase):
     empty_execution = store.get_execution_by_type_and_name(
         "random_name", "random_name")
     self.assertIsNone(empty_execution)
+
 
   def test_update_artifact_get_artifact(self):
     store = _get_metadata_store()
@@ -1558,6 +1560,7 @@ class MetadataStoreTest(parameterized.TestCase):
     empty_context = store.get_context_by_type_and_name("random_name",
                                                        "random_name")
     self.assertIsNone(empty_context)
+
 
   def test_put_contexts_get_contexts_by_type(self):
     store = _get_metadata_store()

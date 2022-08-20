@@ -33,7 +33,6 @@ from ml_metadata.proto import metadata_store_pb2
 from ml_metadata.proto import metadata_store_service_pb2
 from ml_metadata.proto import metadata_store_service_pb2_grpc
 
-
 # Max number of results for one call.
 MAX_NUM_RESULT = 100
 
@@ -57,17 +56,16 @@ class ListOptions(object):
   Attributes:
     limit: The maximum size of the result. If a value is not specified then all
       artifacts are returned.
-    order_by: The field to order the results. If the field is not provided,
-      then the order is up to the database backend implementation.
+    order_by: The field to order the results. If the field is not provided, then
+      the order is up to the database backend implementation.
     is_asc: Specifies `order_by` is ascending or descending. If `order_by` is
       not given, the field is ignored. If `order_by` is set, then by default
       descending order is used.
     filter_query: An optional boolean expression in SQL syntax to specify
       conditions on nodes' attributes and 1-hop neighborhood. See
-      https://github.com/google/ml-metadata/blob/master/ml_metadata/proto/metadata_store.proto#L705-L783
-      for the query capabilities and syntax.
-      Note in Windows, this is only supported when using grpc config via an mlmd
-      server instance.
+      https://github.com/google/ml-metadata/blob/master/ml_metadata/proto/metadata_store.proto#L705-L783 for the query capabilities and syntax. Note in
+      Windows, this is only supported when using grpc config via an mlmd server
+      instance.
   """
 
   limit: Optional[int] = None
@@ -121,8 +119,8 @@ class MetadataStore(object):
                        'connection client. Upgrade needs to be performed on '
                        'the server side.')
     channel = self._get_channel(config)
-    self._metadata_store_stub = (metadata_store_service_pb2_grpc.
-                                 MetadataStoreServiceStub(channel))
+    self._metadata_store_stub = (
+        metadata_store_service_pb2_grpc.MetadataStoreServiceStub(channel))
     logging.log(logging.INFO, 'MetadataStore with gRPC connection initialized')
     logging.log(logging.DEBUG, 'ConnectionConfig: %s', config)
 
@@ -234,8 +232,8 @@ class MetadataStore(object):
     Raises:
       Error: ml_metadata error returned by the method.
     """
-    [response_str, error_message, status_code] = method(
-        self._metadata_store, request.SerializeToString())
+    [response_str, error_message,
+     status_code] = method(self._metadata_store, request.SerializeToString())
     if status_code != 0:
       raise _make_exception(error_message.decode('utf-8'), status_code)
     response.ParseFromString(response_str)
@@ -308,14 +306,12 @@ class MetadataStore(object):
 
     Args:
       artifact_type: the request type to be inserted or updated.
-      can_add_fields:
-        when true, new properties can be added;
-        when false, returns ALREADY_EXISTS if the request type has properties
-        that are not in stored_type.
-      can_omit_fields:
-        when true, stored properties can be omitted in the request type;
-        when false, returns ALREADY_EXISTS if the stored_type has properties
-        not in the request type.
+      can_add_fields: when true, new properties can be added; when false,
+        returns ALREADY_EXISTS if the request type has properties that are not
+        in stored_type.
+      can_omit_fields: when true, stored properties can be omitted in the
+        request type; when false, returns ALREADY_EXISTS if the stored_type has
+        properties not in the request type.
 
     Returns:
       the type_id of the response.
@@ -401,14 +397,12 @@ class MetadataStore(object):
 
     Args:
       execution_type: the request type to be inserted or updated.
-      can_add_fields:
-        when true, new properties can be added;
-        when false, returns ALREADY_EXISTS if the request type has properties
-        that are not in stored_type.
-      can_omit_fields:
-        when true, stored properties can be omitted in the request type;
-        when false, returns ALREADY_EXISTS if the stored_type has properties
-        not in the request type.
+      can_add_fields: when true, new properties can be added; when false,
+        returns ALREADY_EXISTS if the request type has properties that are not
+        in stored_type.
+      can_omit_fields: when true, stored properties can be omitted in the
+        request type; when false, returns ALREADY_EXISTS if the stored_type has
+        properties not in the request type.
 
     Returns:
       the type_id of the response.
@@ -495,14 +489,12 @@ class MetadataStore(object):
 
     Args:
       context_type: the request type to be inserted or updated.
-      can_add_fields:
-        when true, new properties can be added;
-        when false, returns ALREADY_EXISTS if the request type has properties
-        that are not in stored_type.
-      can_omit_fields:
-        when true, stored properties can be omitted in the request type;
-        when false, returns ALREADY_EXISTS if the stored_type has properties
-        not in the request type.
+      can_add_fields: when true, new properties can be added; when false,
+        returns ALREADY_EXISTS if the request type has properties that are not
+        in stored_type.
+      can_omit_fields: when true, stored properties can be omitted in the
+        request type; when false, returns ALREADY_EXISTS if the stored_type has
+        properties not in the request type.
 
     Returns:
       the type_id of the response.
@@ -770,8 +762,8 @@ class MetadataStore(object):
 
     Args:
       type_name: the type with that name.
-      type_version: an optional version of the type, if not given, then only
-        the type_name is used to look for types with no versions.
+      type_version: an optional version of the type, if not given, then only the
+        type_name is used to look for types with no versions.
 
     Returns:
       The type with name type_name and version type version.
@@ -807,6 +799,7 @@ class MetadataStore(object):
       result.append(x)
     return result
 
+
   def get_execution_type(
       self,
       type_name: Text,
@@ -815,8 +808,8 @@ class MetadataStore(object):
 
     Args:
       type_name: the type with that name.
-      type_version: an optional version of the type, if not given, then only
-        the type_name is used to look for types with no versions.
+      type_version: an optional version of the type, if not given, then only the
+        type_name is used to look for types with no versions.
 
     Returns:
       The type with name type_name and version type_version.
@@ -852,6 +845,7 @@ class MetadataStore(object):
       result.append(x)
     return result
 
+
   def get_context_type(
       self,
       type_name: Text,
@@ -860,8 +854,8 @@ class MetadataStore(object):
 
     Args:
       type_name: the type with that name.
-      type_version: an optional version of the type, if not given, then only
-        the type_name is used to look for types with no versions.
+      type_version: an optional version of the type, if not given, then only the
+        type_name is used to look for types with no versions.
 
     Returns:
       The type with name type_name and version type_version.
@@ -896,6 +890,7 @@ class MetadataStore(object):
     for x in response.context_types:
       result.append(x)
     return result
+
 
   def get_executions_by_type(
       self,
@@ -977,14 +972,15 @@ class MetadataStore(object):
       result.append(x)
     return result
 
+
   def get_executions(
       self,
       list_options: Optional[ListOptions] = None) -> List[proto.Execution]:
     """Gets executions.
 
     Args:
-      list_options: A set of options to specify the conditions, limit the
-        size and adjust order of the returned executions.
+      list_options: A set of options to specify the conditions, limit the size
+        and adjust order of the returned executions.
 
     Returns:
       A list of executions.
@@ -1069,8 +1065,8 @@ class MetadataStore(object):
     """Gets artifacts.
 
     Args:
-      list_options: A set of options to specify the conditions, limit the
-        size and adjust order of the returned artifacts.
+      list_options: A set of options to specify the conditions, limit the size
+        and adjust order of the returned artifacts.
 
     Returns:
       A list of artifacts.
@@ -1089,8 +1085,8 @@ class MetadataStore(object):
     """Gets contexts.
 
     Args:
-      list_options: A set of options to specify the conditions, limit the
-        size and adjust order of the returned contexts.
+      list_options: A set of options to specify the conditions, limit the size
+        and adjust order of the returned contexts.
 
     Returns:
       A list of contexts.
@@ -1183,6 +1179,7 @@ class MetadataStore(object):
     if not response.HasField('context'):
       return None
     return response.context
+
 
   def get_artifact_types_by_id(
       self, type_ids: Iterable[int]) -> List[proto.ArtifactType]:

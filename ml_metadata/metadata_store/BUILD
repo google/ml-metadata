@@ -389,7 +389,6 @@ cc_library(
     srcs = ["metadata_store_test_suite.cc"],
     hdrs = ["metadata_store_test_suite.h"],
     deps = [
-        ":constants",
         ":metadata_store",
         ":test_util",
         "@com_google_googletest//:gtest",

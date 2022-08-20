@@ -171,6 +171,7 @@ class MetadataStore : public MetadataStoreServiceInterface {
       const GetContextTypesByIDRequest& request,
       GetContextTypesByIDResponse* response) override;
 
+
   // Inserts and updates artifacts in request into the database.
   // If artifact_id is specified, an existing artifact is updated.
   // If artifact_id is not specified, a new artifact is created.
@@ -348,6 +349,7 @@ class MetadataStore : public MetadataStoreServiceInterface {
       const GetExecutionByTypeAndNameRequest& request,
       GetExecutionByTypeAndNameResponse* response) override;
 
+
   // Gets a list of contexts by ID.
   // If no context with an ID exists, the context is skipped.
   // Sets the error field if any other internal errors are returned.
@@ -373,6 +375,7 @@ class MetadataStore : public MetadataStoreServiceInterface {
   absl::Status GetContextByTypeAndName(
       const GetContextByTypeAndNameRequest& request,
       GetContextByTypeAndNameResponse* response) override;
+
 
   // Inserts attribution and association relationships in the database.
   // The context_id, artifact_id, and execution_id must already exist.

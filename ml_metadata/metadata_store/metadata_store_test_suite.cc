@@ -26,7 +26,6 @@ limitations under the License.
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
-#include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 
@@ -343,6 +342,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypesGetArtifactTypes) {
   *want_response.add_artifact_types() = type_2;
   EXPECT_THAT(got_response, EqualsProto(want_response));
 }
+
 
 TEST_P(MetadataStoreTestSuite, GetArtifactTypesWhenNoneExist) {
   GetArtifactTypesRequest get_request;
@@ -815,6 +815,7 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypeGetExecutionTypesByID) {
   EXPECT_THAT(result, EqualsProto(expected_result))
       << "The type should be the same as the one given.";
 }
+
 
 TEST_P(MetadataStoreTestSuite, GetExecutionTypesByIDMissing) {
   // Returns an empty list.
@@ -2005,6 +2006,7 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionByID) {
   }
 }
 
+
 TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithEmptyExecution) {
   const PutExecutionTypeRequest put_execution_type_request =
       ParseTextProtoOrDie<PutExecutionTypeRequest>(
@@ -3158,6 +3160,7 @@ TEST_P(MetadataStoreTestSuite, PutContextTypesGetContextTypes) {
   EXPECT_THAT(got_response, EqualsProto(want_response));
 }
 
+
 TEST_P(MetadataStoreTestSuite, GetContextTypesWhenNoneExist) {
   GetContextTypesRequest get_request;
   GetContextTypesResponse got_response;
@@ -3384,6 +3387,7 @@ TEST_P(MetadataStoreTestSuite, PutContextTypeUpsert) {
             .ok());
   }
 }
+
 
 // Test creating a context and then updating one of its properties.
 TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {

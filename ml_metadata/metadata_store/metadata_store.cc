@@ -874,6 +874,7 @@ absl::Status MetadataStore::GetContextTypesByID(
       request.transaction_options());
 }
 
+
 absl::Status MetadataStore::GetArtifactsByID(
     const GetArtifactsByIDRequest& request,
     GetArtifactsByIDResponse* response) {
@@ -1627,6 +1628,7 @@ absl::Status MetadataStore::GetExecutionByTypeAndName(
       request.transaction_options());
 }
 
+
 absl::Status MetadataStore::GetContextsByType(
     const GetContextsByTypeRequest& request,
     GetContextsByTypeResponse* response) {
@@ -1701,6 +1703,7 @@ absl::Status MetadataStore::GetContextByTypeAndName(
       },
       request.transaction_options());
 }
+
 
 absl::Status MetadataStore::PutAttributionsAndAssociations(
     const PutAttributionsAndAssociationsRequest& request,
