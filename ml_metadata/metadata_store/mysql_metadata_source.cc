@@ -167,6 +167,15 @@ Status MySqlMetadataSource::ConnectImpl() {
           /*clientflag=*/0UL);
 
   if (!db_) {
+    LOG(ERROR)
+        << "MySQL database was not initialized. Please ensure your "
+           "MySQL server is running. Also, this error might be caused by "
+           "starting from MySQL 8.0, mysql_native_password used by MLMD is not "
+           "supported as a default for authentication plugin. Please follow "
+           "<https://dev.mysql.com/blog-archive/"
+           "upgrading-to-mysql-8-0-default-authentication-plugin-"
+           "considerations/>"
+           "to fix this issue.";
     return BuildErrorStatus(absl::StatusCode::kInternal,
                             "mysql_real_connect failed", mysql_errno(db_),
                             mysql_error(db_));
