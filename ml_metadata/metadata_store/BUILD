@@ -20,7 +20,7 @@ load(
     "ml_metadata_go_wrap_cc",
 )
 
-licenses(["notice"])  # Apache 2.0
+licenses(["notice"])
 
 package(default_visibility = ["//visibility:public"])
 

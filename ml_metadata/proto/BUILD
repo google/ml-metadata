@@ -16,7 +16,7 @@ load("//ml_metadata:ml_metadata.bzl", "ml_metadata_proto_library", "ml_metadata_
 
 package(default_visibility = ["//visibility:public"])
 
-licenses(["notice"])  # Apache 2.0
+licenses(["notice"])
 
 ml_metadata_proto_library(
     name = "metadata_store_proto",
