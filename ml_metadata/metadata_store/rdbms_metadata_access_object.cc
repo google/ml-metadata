@@ -379,21 +379,21 @@ absl::Status CheckCyClicDependency(int64 child_id, int64 parent_id,
 
 // Creates an Artifact (without properties).
 absl::Status RDBMSMetadataAccessObject::CreateBasicNode(
-    const Artifact& artifact, int64* node_id) {
-  const absl::Time now = absl::Now();
+    const Artifact& artifact, const absl::Time create_timestamp,
+    int64* node_id) {
   return executor_->InsertArtifact(
       artifact.type_id(), artifact.uri(),
       artifact.has_state() ? absl::make_optional(artifact.state())
                            : absl::nullopt,
       artifact.has_name() ? absl::make_optional(artifact.name())
                           : absl::nullopt,
-      now, now, node_id);
+      create_timestamp, create_timestamp, node_id);
 }
 
 // Creates an Execution (without properties).
 absl::Status RDBMSMetadataAccessObject::CreateBasicNode(
-    const Execution& execution, int64* node_id) {
-  const absl::Time now = absl::Now();
+    const Execution& execution, const absl::Time create_timestamp,
+    int64* node_id) {
   return executor_->InsertExecution(
       execution.type_id(),
       execution.has_last_known_state()
@@ -401,19 +401,18 @@ absl::Status RDBMSMetadataAccessObject::CreateBasicNode(
           : absl::nullopt,
       execution.has_name() ? absl::make_optional(execution.name())
                            : absl::nullopt,
-      now, now, node_id);
+      create_timestamp, create_timestamp, node_id);
 }
 
 // Creates a Context (without properties).
-absl::Status RDBMSMetadataAccessObject::CreateBasicNode(const Context& context,
-                                                        int64* node_id) {
-  const absl::Time now = absl::Now();
+absl::Status RDBMSMetadataAccessObject::CreateBasicNode(
+    const Context& context, const absl::Time create_timestamp, int64* node_id) {
   if (!context.has_name() || context.name().empty()) {
     return absl::InvalidArgumentError("Context name should not be empty");
   }
   return executor_->InsertContext(
       context.type_id(), context.name(),
-      now, now, node_id);
+      create_timestamp, create_timestamp, node_id);
 }
 
 template <>
@@ -454,33 +453,34 @@ absl::Status RDBMSMetadataAccessObject::RetrieveNodesById(
 
 // Update an Artifact's type_id, URI, external_id and last_update_time.
 absl::Status RDBMSMetadataAccessObject::RunNodeUpdate(
-    const Artifact& artifact) {
+    const Artifact& artifact, const absl::Time update_timestamp) {
   return executor_->UpdateArtifactDirect(
       artifact.id(), artifact.type_id(), artifact.uri(),
       artifact.has_state() ? absl::make_optional(artifact.state())
                            : absl::nullopt,
-      absl::Now());
+      update_timestamp);
 }
 
 // Update an Execution's type_id, external_id and last_update_time.
 absl::Status RDBMSMetadataAccessObject::RunNodeUpdate(
-    const Execution& execution) {
+    const Execution& execution, const absl::Time update_timestamp) {
   return executor_->UpdateExecutionDirect(
       execution.id(), execution.type_id(),
       execution.has_last_known_state()
           ? absl::make_optional(execution.last_known_state())
           : absl::nullopt,
-      absl::Now());
+      update_timestamp);
 }
 
 // Update a Context's type id, external_id and name.
-absl::Status RDBMSMetadataAccessObject::RunNodeUpdate(const Context& context) {
+absl::Status RDBMSMetadataAccessObject::RunNodeUpdate(
+    const Context& context, const absl::Time update_timestamp) {
   if (!context.has_name() || context.name().empty()) {
     return absl::InvalidArgumentError("Context name should not be empty");
   }
   return executor_->UpdateContextDirect(
       context.id(), context.type_id(), context.name(),
-      absl::Now());
+      update_timestamp);
 }
 
 // Runs a property insertion query for a NodeType.
@@ -908,7 +908,7 @@ absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeIdImpl(
 template <typename Node, typename NodeType>
 absl::Status RDBMSMetadataAccessObject::CreateNodeImpl(
     const Node& node, const bool skip_type_and_property_validation,
-    int64* node_id) {
+    const absl::Time create_timestamp, int64* node_id) {
   // clear node id
   *node_id = 0;
   if (!skip_type_and_property_validation) {
@@ -928,9 +928,9 @@ absl::Status RDBMSMetadataAccessObject::CreateNodeImpl(
   }
 
   // insert a node and get the assigned id
-  MLMD_RETURN_WITH_CONTEXT_IF_ERROR(CreateBasicNode(node, node_id),
-                                    "Cannot create node for ",
-                                    node.ShortDebugString());
+  MLMD_RETURN_WITH_CONTEXT_IF_ERROR(
+      CreateBasicNode(node, create_timestamp, node_id),
+      "Cannot create node for ", node.ShortDebugString());
 
   // insert properties
   const google::protobuf::Map<std::string, Value> prev_properties;
@@ -1018,11 +1018,13 @@ absl::Status RDBMSMetadataAccessObject::FindNodeImpl(const int64 node_id,
 }
 
 // Updates a `Node` which is one of {`Artifact`, `Execution`, `Context`}.
+// `update_timestamp` should be used as the update time of the Node.
 // Returns INVALID_ARGUMENT error, if the node cannot be found
 // Returns INVALID_ARGUMENT error, if the node does not match with its type
 // Returns detailed INTERNAL error, if query execution fails.
 template <typename Node, typename NodeType>
-absl::Status RDBMSMetadataAccessObject::UpdateNodeImpl(const Node& node) {
+absl::Status RDBMSMetadataAccessObject::UpdateNodeImpl(
+    const Node& node, const absl::Time update_timestamp) {
   // validate node
   if (!node.has_id()) return absl::InvalidArgumentError("No id is given.");
 
@@ -1066,7 +1068,7 @@ absl::Status RDBMSMetadataAccessObject::UpdateNodeImpl(const Node& node) {
       Node::descriptor()->FindFieldByName("last_update_time_since_epoch"));
   if (!diff.Compare(node, stored_node) ||
       num_changed_properties + num_changed_custom_properties > 0) {
-    MLMD_RETURN_IF_ERROR(RunNodeUpdate(node));
+    MLMD_RETURN_IF_ERROR(RunNodeUpdate(node, update_timestamp));
   }
   return absl::OkStatus();
 }
@@ -1318,7 +1320,21 @@ absl::Status RDBMSMetadataAccessObject::CreateArtifact(
     const Artifact& artifact, const bool skip_type_and_property_validation,
     int64* artifact_id) {
   const absl::Status& status = CreateNodeImpl<Artifact, ArtifactType>(
-      artifact, skip_type_and_property_validation, artifact_id);
+      artifact, skip_type_and_property_validation, absl::Now(), artifact_id);
+  if (IsUniqueConstraintViolated(status)) {
+    return absl::AlreadyExistsError(
+        absl::StrCat("Given node already exists: ", artifact.DebugString(),
+                     status.ToString()));
+  }
+  return status;
+}
+
+absl::Status RDBMSMetadataAccessObject::CreateArtifact(
+    const Artifact& artifact, const bool skip_type_and_property_validation,
+    const absl::Time create_timestamp, int64* artifact_id) {
+  const absl::Status& status = CreateNodeImpl<Artifact, ArtifactType>(
+      artifact, skip_type_and_property_validation, create_timestamp,
+      artifact_id);
   if (IsUniqueConstraintViolated(status)) {
     return absl::AlreadyExistsError(
         absl::StrCat("Given node already exists: ", artifact.DebugString(),
@@ -1337,7 +1353,21 @@ absl::Status RDBMSMetadataAccessObject::CreateExecution(
     const Execution& execution, const bool skip_type_and_property_validation,
     int64* execution_id) {
   const absl::Status& status = CreateNodeImpl<Execution, ExecutionType>(
-      execution, skip_type_and_property_validation, execution_id);
+      execution, skip_type_and_property_validation, absl::Now(), execution_id);
+  if (IsUniqueConstraintViolated(status)) {
+    return absl::AlreadyExistsError(
+        absl::StrCat("Given node already exists: ", execution.DebugString(),
+                     status.ToString()));
+  }
+  return status;
+}
+
+absl::Status RDBMSMetadataAccessObject::CreateExecution(
+    const Execution& execution, const bool skip_type_and_property_validation,
+    const absl::Time create_timestamp, int64* execution_id) {
+  const absl::Status& status = CreateNodeImpl<Execution, ExecutionType>(
+      execution, skip_type_and_property_validation, create_timestamp,
+      execution_id);
   if (IsUniqueConstraintViolated(status)) {
     return absl::AlreadyExistsError(
         absl::StrCat("Given node already exists: ", execution.DebugString(),
@@ -1356,7 +1386,20 @@ absl::Status RDBMSMetadataAccessObject::CreateContext(
     const Context& context, const bool skip_type_and_property_validation,
     int64* context_id) {
   const absl::Status& status = CreateNodeImpl<Context, ContextType>(
-      context, skip_type_and_property_validation, context_id);
+      context, skip_type_and_property_validation, absl::Now(), context_id);
+  if (IsUniqueConstraintViolated(status)) {
+    return absl::AlreadyExistsError(
+        absl::StrCat("Given node already exists: ", context.DebugString(),
+                     status.ToString()));
+  }
+  return status;
+}
+
+absl::Status RDBMSMetadataAccessObject::CreateContext(
+    const Context& context, const bool skip_type_and_property_validation,
+    const absl::Time create_timestamp, int64* context_id) {
+  const absl::Status& status = CreateNodeImpl<Context, ContextType>(
+      context, skip_type_and_property_validation, create_timestamp, context_id);
   if (IsUniqueConstraintViolated(status)) {
     return absl::AlreadyExistsError(
         absl::StrCat("Given node already exists: ", context.DebugString(),
@@ -1403,16 +1446,31 @@ absl::Status RDBMSMetadataAccessObject::FindContextsById(
 
 absl::Status RDBMSMetadataAccessObject::UpdateArtifact(
     const Artifact& artifact) {
-  return UpdateNodeImpl<Artifact, ArtifactType>(artifact);
+  return UpdateArtifact(artifact, absl::Now());
 }
 
 absl::Status RDBMSMetadataAccessObject::UpdateExecution(
     const Execution& execution) {
-  return UpdateNodeImpl<Execution, ExecutionType>(execution);
+  return UpdateExecution(execution, absl::Now());
 }
 
 absl::Status RDBMSMetadataAccessObject::UpdateContext(const Context& context) {
-  return UpdateNodeImpl<Context, ContextType>(context);
+  return UpdateContext(context, absl::Now());
+}
+
+absl::Status RDBMSMetadataAccessObject::UpdateArtifact(
+    const Artifact& artifact, const absl::Time update_timestamp) {
+  return UpdateNodeImpl<Artifact, ArtifactType>(artifact, update_timestamp);
+}
+
+absl::Status RDBMSMetadataAccessObject::UpdateExecution(
+    const Execution& execution, const absl::Time update_timestamp) {
+  return UpdateNodeImpl<Execution, ExecutionType>(execution, update_timestamp);
+}
+
+absl::Status RDBMSMetadataAccessObject::UpdateContext(
+    const Context& context, const absl::Time update_timestamp) {
+  return UpdateNodeImpl<Context, ContextType>(context, update_timestamp);
 }
 
 absl::Status RDBMSMetadataAccessObject::CreateEvent(const Event& event,

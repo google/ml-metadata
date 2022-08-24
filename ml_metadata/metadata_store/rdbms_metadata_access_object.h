@@ -203,6 +203,11 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
                               int64* artifact_id) final;
 
   absl::Status CreateArtifact(const Artifact& artifact,
+                              bool skip_type_and_property_validation,
+                              absl::Time create_timestamp,
+                              int64* artifact_id) final;
+
+  absl::Status CreateArtifact(const Artifact& artifact,
                               int64* artifact_id) final;
 
   absl::Status FindArtifactsById(absl::Span<const int64> artifact_ids,
@@ -236,8 +241,16 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   absl::Status UpdateArtifact(const Artifact& artifact) final;
 
+  absl::Status UpdateArtifact(const Artifact& artifact,
+                              const absl::Time update_timestamp) final;
+
   absl::Status CreateExecution(const Execution& execution,
                                bool skip_type_and_property_validation,
+                               int64* execution_id) final;
+
+  absl::Status CreateExecution(const Execution& execution,
+                               bool skip_type_and_property_validation,
+                               const absl::Time create_timestamp,
                                int64* execution_id) final;
 
   absl::Status CreateExecution(const Execution& execution,
@@ -259,8 +272,16 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   absl::Status UpdateExecution(const Execution& execution) final;
 
+  absl::Status UpdateExecution(const Execution& execution,
+                               const absl::Time update_timestamp) final;
+
   absl::Status CreateContext(const Context& context,
                              bool skip_type_and_property_validation,
+                             int64* context_id) final;
+
+  absl::Status CreateContext(const Context& context,
+                             bool skip_type_and_property_validation,
+                             const absl::Time create_timestamp,
                              int64* context_id) final;
 
   absl::Status CreateContext(const Context& context, int64* context_id) final;
@@ -279,6 +300,9 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
                                                  Context* context) final;
 
   absl::Status UpdateContext(const Context& context) final;
+
+  absl::Status UpdateContext(const Context& context,
+                             const absl::Time update_timestamp) final;
 
   absl::Status CreateEvent(const Event& event, int64* event_id) final;
 
@@ -423,12 +447,18 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   ///////// These methods are implementations details //////////////////////////
 
   // Creates an Artifact (without properties).
-  absl::Status CreateBasicNode(const Artifact& artifact, int64* node_id);
+  absl::Status CreateBasicNode(const Artifact& artifact,
+                               const absl::Time create_timestamp,
+                               int64* node_id);
 
   // Creates an Execution (without properties).
-  absl::Status CreateBasicNode(const Execution& execution, int64* node_id);
+  absl::Status CreateBasicNode(const Execution& execution,
+                               const absl::Time create_timestamp,
+                               int64* node_id);
   // Creates a Context (without properties).
-  absl::Status CreateBasicNode(const Context& context, int64* node_id);
+  absl::Status CreateBasicNode(const Context& context,
+                               const absl::Time create_timestamp,
+                               int64* node_id);
 
   // Gets nodes (and their properties) based on the provided 'ids'.
   // 'header' contains the non-property information, and 'properties' contains
@@ -442,13 +472,16 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
       T* tag = nullptr /* used only for the template */);
 
   // Update an Artifact's type_id and URI.
-  absl::Status RunNodeUpdate(const Artifact& artifact);
+  absl::Status RunNodeUpdate(const Artifact& artifact,
+                             const absl::Time update_timestamp);
 
   // Update an Execution's type_id.
-  absl::Status RunNodeUpdate(const Execution& execution);
+  absl::Status RunNodeUpdate(const Execution& execution,
+                             const absl::Time update_timestamp);
 
   // Update a Context's type id and name.
-  absl::Status RunNodeUpdate(const Context& context);
+  absl::Status RunNodeUpdate(const Context& context,
+                             const absl::Time update_timestamp);
 
   // Runs a property insertion query for a NodeType.
   template <typename NodeType>
@@ -574,11 +607,13 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // `ContextType`}.
   // If `skip_type_verfication` is set to be true, the `FindTypeImpl()` and
   // `ValidatePropertiesWithType()` are skipped.
+  // `create_timestamp` should be used as the create time of the Node.
   // Returns INVALID_ARGUMENT error, if the node does not align with its type.
   // Returns detailed INTERNAL error, if query execution fails.
   template <typename Node, typename NodeType>
   absl::Status CreateNodeImpl(const Node& node,
                               bool skip_type_and_property_validation,
+                              const absl::Time create_timestamp,
                               int64* node_id);
 
   // Gets a `Node` which is one of {`Artifact`, `Execution`, `Context`} by
@@ -601,11 +636,13 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
                              bool skipped_ids_ok, std::vector<Node>& nodes);
 
   // Updates a `Node` which is one of {`Artifact`, `Execution`, `Context`}.
+  // `update_timestamp` should be used as the update time of the Node.
   // Returns INVALID_ARGUMENT error, if the node cannot be found
   // Returns INVALID_ARGUMENT error, if the node does not match with its type
   // Returns detailed INTERNAL error, if query execution fails.
   template <typename Node, typename NodeType>
-  absl::Status UpdateNodeImpl(const Node& node);
+  absl::Status UpdateNodeImpl(const Node& node,
+                              const absl::Time update_timestamp);
 
   // Takes a record set that has one record per event and for each record:
   //   parses it into an Event object

@@ -21,6 +21,7 @@ limitations under the License.
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
+#include "absl/time/time.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "ml_metadata/metadata_store/constants.h"
@@ -212,6 +213,8 @@ class MetadataAccessObject {
   // artifact is ignored.
   // `skip_type_and_property_validation` is set to be true if the `artifact`'s
   // type and properties have been validated.
+  // The `create_time_since_epoch` and `last_update_time_since_epoch` fields are
+  // determined under the hood with absl::Now().
   // Returns INVALID_ARGUMENT error, if the ArtifactType is not given.
   // Returns NOT_FOUND error, if the ArtifactType cannot be found.
   // Returns INVALID_ARGUMENT error, if the artifact contains any property
@@ -229,6 +232,30 @@ class MetadataAccessObject {
 
   // Creates an artifact, returns the assigned artifact id. The id field of the
   // artifact is ignored.
+  // `skip_type_and_property_validation` is set to be true if the `artifact`'s
+  // type and properties have been validated.
+  // `create_timestamp` is used as the value of Artifact.create_time_since_epoch
+  // and Artifact.last_update_time_since_epoch.
+  // Returns INVALID_ARGUMENT error, if the ArtifactType is not given.
+  // Returns NOT_FOUND error, if the ArtifactType cannot be found.
+  // Returns INVALID_ARGUMENT error, if the artifact contains any property
+  //  undefined in the type.
+  // Returns INVALID_ARGUMENT error, if given value of a property does not match
+  //   with its data type definition in the artifact type.
+  // Returns ALREADY_EXISTS error, if the ArtifactType has artifact with the
+  // same name.
+  // Returns ALREADY_EXISTS error, if there is artifact with the same
+  // external_id.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status CreateArtifact(const Artifact& artifact,
+                                      bool skip_type_and_property_validation,
+                                      const absl::Time create_timestamp,
+                                      int64* artifact_id) = 0;
+
+  // Creates an artifact, returns the assigned artifact id. The id field of the
+  // artifact is ignored.
+  // The `create_time_since_epoch` and `last_update_time_since_epoch` fields are
+  // determined under the hood with absl::Now().
   // Please refer to the docstring for CreateArtifact() with the
   // `skip_type_and_property_validation` flag for more details. This method
   // assumes the `artifact`'s type/property has not been validated yet and
@@ -321,6 +348,8 @@ class MetadataAccessObject {
                                           std::vector<Artifact>* artifacts) = 0;
 
   // Updates an artifact.
+  // The `last_update_time_since_epoch` field is determined under the hood
+  //  and set to absl::Now().
   // Returns INVALID_ARGUMENT error, if the id field is not given.
   // Returns INVALID_ARGUMENT error, if no artifact is found with the given id.
   // Returns INVALID_ARGUMENT error, if type_id is given and is different from
@@ -330,10 +359,25 @@ class MetadataAccessObject {
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status UpdateArtifact(const Artifact& artifact) = 0;
 
+  // Updates an artifact.
+  // `update_timestamp` is used as the value of
+  // Artifact.last_update_time_since_epoch.
+  // Returns INVALID_ARGUMENT error, if the id field is not given.
+  // Returns INVALID_ARGUMENT error, if no artifact is found with the given id.
+  // Returns INVALID_ARGUMENT error, if type_id is given and is different from
+  // the one stored.
+  // Returns INVALID_ARGUMENT error, if given property names and types do not
+  // align with the ArtifactType on file.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status UpdateArtifact(const Artifact& artifact,
+                                      const absl::Time update_timestamp) = 0;
+
   // Creates an execution, returns the assigned execution id. The id field of
   // the execution is ignored.
   // `skip_type_and_property_validation` is set to be true if the `execution`'s
   // type and properties have been validated.
+  // The `create_time_since_epoch` and `last_update_time_since_epoch` fields are
+  // determined under the hood with absl::Now().
   // Returns INVALID_ARGUMENT error, if the ExecutionType is not given.
   // Returns NOT_FOUND error, if the ExecutionType cannot be found.
   // Returns INVALID_ARGUMENT error, if the execution contains any property
@@ -351,6 +395,31 @@ class MetadataAccessObject {
 
   // Creates an execution, returns the assigned execution id. The id field of
   // the execution is ignored.
+  // `skip_type_and_property_validation` is set to be true if the `execution`'s
+  // type and properties have been validated.
+  // `create_timestamp` is used as the value of
+  // Execution.create_time_since_epoch and
+  // Execution.last_update_time_since_epoch.
+  // Returns INVALID_ARGUMENT error, if the ExecutionType is not given.
+  // Returns NOT_FOUND error, if the ExecutionType cannot be found.
+  // Returns INVALID_ARGUMENT error, if the execution contains any property
+  //   undefined in the type.
+  // Returns INVALID_ARGUMENT error, if given value of a property does not match
+  //   with its data type definition in the ExecutionType.
+  // Returns ALREADY_EXISTS error, if the ExecutionType has execution with the
+  // same name.
+  // Returns ALREADY_EXISTS error, if there is execution with the
+  // same external_id.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status CreateExecution(const Execution& execution,
+                                       bool skip_type_and_property_validation,
+                                       const absl::Time create_timestamp,
+                                       int64* execution_id) = 0;
+
+  // Creates an execution, returns the assigned execution id. The id field of
+  // the execution is ignored.
+  // The `create_time_since_epoch` and `last_update_time_since_epoch` fields are
+  // determined under the hood with absl::Now().
   // Please refer to the docstring for CreateExecution() with the
   // `skip_type_and_property_validation` flag for more details. This method
   // assumes the `execution`'s type/property has not been validated yet and
@@ -386,6 +455,8 @@ class MetadataAccessObject {
       std::vector<Execution>* executions, std::string* next_page_token) = 0;
 
   // Updates an execution.
+  // The `last_update_time_since_epoch` field is determined under the hood
+  //  and set to absl::Now().
   // Returns INVALID_ARGUMENT error, if the id field is not given.
   // Returns INVALID_ARGUMENT error, if no execution is found with the given id.
   // Returns INVALID_ARGUMENT error, if type_id is given and is different from
@@ -395,11 +466,26 @@ class MetadataAccessObject {
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status UpdateExecution(const Execution& execution) = 0;
 
+  // Updates an execution.
+  // `update_timestamp` is used as the value of
+  // Execution.last_update_time_since_epoch.
+  // Returns INVALID_ARGUMENT error, if the id field is not given.
+  // Returns INVALID_ARGUMENT error, if no execution is found with the given id.
+  // Returns INVALID_ARGUMENT error, if type_id is given and is different from
+  // the one stored.
+  // Returns INVALID_ARGUMENT error, if given property names and types do not
+  // align with the ExecutionType on file.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status UpdateExecution(const Execution& execution,
+                                       const absl::Time update_timestamp) = 0;
+
   // Creates a context, returns the assigned context id. The id field of the
   // context is ignored. The name field of the context must not be empty and it
   // should be unique in the same ContextType.
   // `skip_type_and_property_validation` is set to be true if the `context`'s
   // type and properties have been validated.
+  // The `create_time_since_epoch` and `last_update_time_since_epoch` fields are
+  // determined under the hood with absl::Now().
   // Returns INVALID_ARGUMENT error, if the ContextType is not given.
   // Returns NOT_FOUND error, if the ContextType cannot be found.
   // Returns INVALID_ARGUMENT error, if the context name is empty.
@@ -418,6 +504,31 @@ class MetadataAccessObject {
   // Creates a context, returns the assigned context id. The id field of the
   // context is ignored. The name field of the context must not be empty and it
   // should be unique in the same ContextType.
+  // `skip_type_and_property_validation` is set to be true if the `context`'s
+  // type and properties have been validated.
+  // `create_timestamp` is used as the value of Context.create_time_since_epoch
+  // and Context.last_update_time_since_epoch.
+  // Returns INVALID_ARGUMENT error, if the ContextType is not given.
+  // Returns NOT_FOUND error, if the ContextType cannot be found.
+  // Returns INVALID_ARGUMENT error, if the context name is empty.
+  // Returns INVALID_ARGUMENT error, if the context contains any property
+  //  undefined in the type.
+  // Returns INVALID_ARGUMENT error, if given value of a property does not match
+  //   with its data type definition in the context type.
+  // Returns ALREADY_EXISTS error, if the ContextType has context with the name.
+  // Returns ALREADY_EXISTS error, if there is context with the
+  // same external_id.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status CreateContext(const Context& context,
+                                     bool skip_type_and_property_validation,
+                                     const absl::Time create_timestamp,
+                                     int64* context_id) = 0;
+
+  // Creates a context, returns the assigned context id. The id field of the
+  // context is ignored. The name field of the context must not be empty and it
+  // should be unique in the same ContextType.
+  // The `create_time_since_epoch` and `last_update_time_since_epoch` fields are
+  // determined under the hood with absl::Now().
   // Please refer to the docstring for CreateContext() with the
   // `skip_type_and_property_validation` flag for more details. This method
   // assumes the `context`'s type/property has not been validated yet and
@@ -453,6 +564,8 @@ class MetadataAccessObject {
                                                          Context* context) = 0;
 
   // Updates a context.
+  // The `last_update_time_since_epoch` field is determined under the hood
+  //  and set to absl::Now().
   // Returns INVALID_ARGUMENT error, if the id field is not given.
   // Returns INVALID_ARGUMENT error, if no context is found with the given id.
   // Returns INVALID_ARGUMENT error, if type_id is given and is different from
@@ -461,6 +574,19 @@ class MetadataAccessObject {
   // align with the ContextType on file.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status UpdateContext(const Context& context) = 0;
+
+  // Updates a context.
+  // `update_timestamp` is used as the value of
+  // Context.last_update_time_since_epoch.
+  // Returns INVALID_ARGUMENT error, if the id field is not given.
+  // Returns INVALID_ARGUMENT error, if no context is found with the given id.
+  // Returns INVALID_ARGUMENT error, if type_id is given and is different from
+  // the one stored.
+  // Returns INVALID_ARGUMENT error, if given property names and types do not
+  // align with the ContextType on file.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status UpdateContext(const Context& context,
+                                     const absl::Time update_timestamp) = 0;
 
   // Creates an event, and returns the assigned event id. Please refer to the
   // docstring for CreateEvent() with the `is_already_validated` flag for more

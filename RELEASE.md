@@ -1,7 +1,8 @@
 # Current Version (not yet released; still in development)
 
-## Major Features and Improvements
 
+## Major Features and Improvements
+*  Introduce methods to Create and Update Artifacts, Executions and Contexts with custom create and update timestamp.
 ## Bug Fixes and Other Changes
 
 ## Breaking Changes
