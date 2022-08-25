@@ -2478,10 +2478,12 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsFilterAttributeQuery) {
   std::vector<Artifact> want_artifacts(3);
   for (int i = 0; i < 3; i++) {
     absl::SleepFor(absl::Milliseconds(1));
-    CreateNodeFromTextProto(absl::Substitute(R"(
-      uri: 'uri_$0',
-      name: 'artifact_$0')",
-                                             i),
+    std::string base_text_proto_string;
+
+    base_text_proto_string =
+        R"( uri: 'uri_$0',
+            name: 'artifact_$0')";
+    CreateNodeFromTextProto(absl::Substitute(base_text_proto_string, i),
                             type.id(), *metadata_access_object_,
                             metadata_access_object_container_.get(),
                             want_artifacts[i]);
@@ -2681,14 +2683,16 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsFilterAttributeQuery) {
   std::vector<Execution> want_executions(3);
   for (int i = 0; i < 3; i++) {
     absl::SleepFor(absl::Milliseconds(1));
-    CreateNodeFromTextProto(absl::Substitute(R"(
-      name: 'execution_$0')",
-                                             i),
+    std::string base_text_proto_string;
+
+    base_text_proto_string =
+        R"(
+          name: 'execution_$0')";
+    CreateNodeFromTextProto(absl::Substitute(base_text_proto_string, i),
                             type.id(), *metadata_access_object_,
                             metadata_access_object_container_.get(),
                             want_executions[i]);
   }
-
   VerifyListOptions<Execution>(absl::Substitute(R"(
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
@@ -2794,9 +2798,15 @@ TEST_P(MetadataAccessObjectTest, ListContextsFilterAttributeQuery) {
   std::vector<Context> want_contexts(3);
   for (int i = 0; i < 3; i++) {
     absl::SleepFor(absl::Milliseconds(1));
-    CreateNodeFromTextProto(
-        absl::Substitute("name: 'c$0'", i), type.id(), *metadata_access_object_,
-        metadata_access_object_container_.get(), want_contexts[i]);
+    std::string base_text_proto_string;
+
+    base_text_proto_string =
+        R"(
+          name: 'c$0')";
+    CreateNodeFromTextProto(absl::Substitute(base_text_proto_string, i),
+                            type.id(), *metadata_access_object_,
+                            metadata_access_object_container_.get(),
+                            want_contexts[i]);
   }
 
   VerifyListOptions<Context>(

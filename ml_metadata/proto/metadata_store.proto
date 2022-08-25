@@ -764,7 +764,9 @@ message ListOperationOptions {
   // In the current implementation, filtering Artifact/Execution/Context with
   // the following attributes and neighborhood is supported:
   //
-  // Attributes: id:int64, type_id:int64, type:string, uri:string, name: string,
+  // Attributes:
+  //     id:int64, type_id:int64, type:string,
+  //     uri:string, name: string, external_id: string,
   //     create_time_since_epoch:int64, last_update_time_since_epoch:int64
   //     state:ENUM (Artifact only) last_known_state:ENUM (Execution only)
   //
@@ -801,6 +803,7 @@ message ListOperationOptions {
   //    - type = 'my_type_name'
   //    - name = 'foo'
   //    - type = 'bar' AND name LIKE 'foo%'
+  //    - external_id = 'my_external_id'
   //    - NOT(create_time_since_epoch < 1 OR last_update_time_since_epoch < 1)
   //
   // b) to filter artifacts' uri
