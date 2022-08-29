@@ -1989,6 +1989,8 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithCustomTimestamp) {
                 artifact, /*skip_type_and_property_validation=*/false,
                 create_time, &artifact_id));
 
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
   Artifact got_artifact;
   {
     std::vector<Artifact> artifacts;
@@ -2102,6 +2104,8 @@ TEST_P(MetadataAccessObjectTest, CreateExecutionWithCustomTimestamp) {
             metadata_access_object_->CreateExecution(
                 execution, /*skip_type_and_property_validation=*/false,
                 create_time, &execution_id));
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Execution got_execution;
   {
@@ -2219,6 +2223,8 @@ TEST_P(MetadataAccessObjectTest, CreateContextWithCustomTimestamp) {
             metadata_access_object_->CreateContext(
                 context, /*skip_type_and_property_validation=*/false,
                 create_time, &context_id));
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Context got_context;
   {
@@ -5731,6 +5737,9 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
     want_execution2.set_id(execution_id);
   }
 
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
+
   EXPECT_NE(want_execution1.id(), want_execution2.id());
 
   ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
@@ -6080,6 +6089,8 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateContext(context2, &context2_id));
   context2.set_id(context2_id);
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
 
   EXPECT_NE(context1_id, context2_id);
