@@ -377,6 +377,11 @@ absl::Status CheckCyClicDependency(int64 child_id, int64 parent_id,
 
 }  // namespace
 
+absl::Status ParseRecordSetToNodeArray(const RecordSet& record_set,
+                                       std::vector<Artifact>* artifacts) {
+  return ParseRecordSetToMessageArray(record_set, artifacts);
+}
+
 // Creates an Artifact (without properties).
 absl::Status RDBMSMetadataAccessObject::CreateBasicNode(
     const Artifact& artifact, const absl::Time create_timestamp,
