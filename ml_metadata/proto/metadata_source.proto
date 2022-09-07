@@ -17,6 +17,8 @@ syntax = "proto3";
 
 package ml_metadata;
 
+import "google/protobuf/any.proto";
+
 // A collection of returned records.
 message RecordSet {
   // An individual record (e.g., row) returned by a MetadataSource.
@@ -47,7 +49,7 @@ enum MetadataSourceType {
 
 // A config includes a set of SQL queries and the type of metadata source.
 // It is used by MetadataAccessObject to init backend and issue queries.
-// Next ID: 135
+// Next ID: 136
 message MetadataSourceQueryConfig {
   // the type of the metadata source
   MetadataSourceType metadata_source_type = 1;
@@ -681,7 +683,12 @@ message MetadataSourceQueryConfig {
   // Returns a list of properties(type_id, name, data_type).It has 1 parameter:
   // $0 is the type_ids
   TemplateQuery select_properties_by_type_id = 129;
+
+  // Allows different MetadataSourceTypes to configure its own options when
+  // creating MetadataAccessObject.
+  google.protobuf.Any metadata_source_type_specific_options = 135;
 }
+
 
 // A payload that can be optionally attached to absl::Status messages to
 // indicate failure specific information like error codes for MySQL based

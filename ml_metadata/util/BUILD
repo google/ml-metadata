@@ -11,7 +11,7 @@ cc_library(
     deps = [
         "@com_google_protobuf//:protobuf",
         "@com_google_absl//absl/strings",
-        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_source_cc_proto",
         "@com_google_glog//:glog",
     ],
 )

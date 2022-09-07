@@ -69,8 +69,19 @@ ml_metadata_proto_library_go(
     deps = [":metadata_store_service_proto"],
 )
 
-ml_metadata_proto_library(
+# Uses Bazel's native cc_proto_library rule to
+# avoid "no such target '@com_google_protobuf//:any_proto_genproto'" error.
+proto_library(
     name = "metadata_source_proto",
     srcs = ["metadata_source.proto"],
-    cc_api_version = 2,
+    deps = [
+        "@com_google_protobuf//:any_proto",
+    ],
+)
+
+cc_proto_library(
+    name = "metadata_source_cc_proto",
+    deps = [
+        ":metadata_source_proto",
+    ],
 )
