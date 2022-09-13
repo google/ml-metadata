@@ -1340,35 +1340,25 @@ class MetadataStore(object):
       result.append(x)
     return result
 
-  def get_artifacts_by_context(self, context_id: int) -> List[proto.Artifact]:
-    """Gets all direct artifacts that a context attributes to.
+  def get_artifacts_by_context(
+      self,
+      context_id: int,
+      list_options: Optional[ListOptions] = None) -> List[proto.Artifact]:
+    """Gets all direct artifacts that are attributed to the given context.
 
     Args:
       context_id: The id of the querying context
+      list_options: A set of options to specify the conditions, limit the size
+        and adjust order of the returned executions.
 
     Returns:
       Artifacts attributing to the context.
     """
     request = metadata_store_service_pb2.GetArtifactsByContextRequest()
     request.context_id = context_id
-    request.options.max_result_size = 100
-    request.options.order_by_field.field = (
-        metadata_store_pb2.ListOperationOptions.OrderByField.Field.CREATE_TIME)
-    request.options.order_by_field.is_asc = False
-
-    result = []
-    while True:
-      response = metadata_store_service_pb2.GetArtifactsByContextResponse()
-      self._call('GetArtifactsByContext', request, response)
-      for x in response.artifacts:
-        result.append(x)
-
-      if not response.next_page_token:
-        break
-
-      request.options.next_page_token = response.next_page_token
-
-    return result
+    return self._call_method_with_list_options('GetArtifactsByContext',
+                                               'artifacts', request,
+                                               list_options)
 
   def get_executions_by_context(
       self,
