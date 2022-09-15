@@ -20,6 +20,7 @@ limitations under the License.
 #include "absl/status/status.h"
 #include "ml_metadata/metadata_store/query_config_executor.h"
 #include "ml_metadata/metadata_store/rdbms_metadata_access_object.h"
+#include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/util/return_utils.h"
 
 namespace ml_metadata {
