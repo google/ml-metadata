@@ -857,6 +857,10 @@ service MetadataStoreService {
   // For new artifacts, type must be specified.
   // For old artifacts, type must be unchanged or unspecified.
   //
+  // It is not guaranteed that the created or updated artifacts will share the
+  // same `create_time_since_epoch` or `last_update_time_since_epoch`
+  // timestamps.
+  //
   // Args:
   //   artifacts: A list of artifacts to insert or update.
   //
@@ -870,6 +874,10 @@ service MetadataStoreService {
   // If an execution_id is unspecified, it will insert a new execution.
   // For new executions, type must be specified.
   // For old executions, type must be unchanged or unspecified.
+  //
+  // It is not guaranteed that the created or updated executions will share the
+  // same `create_time_since_epoch` or `last_update_time_since_epoch`
+  // timestamps.
   //
   // Args:
   //   executions: A list of executions to insert or update.
@@ -885,6 +893,9 @@ service MetadataStoreService {
   // Once created, events cannot be modified.
   // AlreadyExists error will be raised if duplicated events are found.
   //
+  // It is not guaranteed that the created or updated events will share the
+  // same `milliseconds_since_epoch` timestamps.
+  //
   // Args:
   //   events: A list of events to insert or update.
   rpc PutEvents(PutEventsRequest) returns (PutEventsResponse) {}
@@ -895,12 +906,16 @@ service MetadataStoreService {
   // input/output Event. The `contexts` describe the associations of the
   // execution and the attributions of the artifacts.
   //
-  // If an execution_id is specified, it is an update on
-  // corresponding execution, otherwise it does an insertion.
+  // If an execution_id is specified, it is an update on the corresponding
+  // execution, otherwise it does an insertion.
   // For insertion, type must be specified. Same rule applies to artifacts
   // and contexts in the request. Corresponding errors may raised. For example:
   // AlreadyExists error will be raised if duplicated executions, artifacts
   // or events are found.
+  //
+  // It is not guaranteed that the created or updated executions, artifacts,
+  // contexts and events will share the same `create_time_since_epoch`,
+  // `last_update_time_since_epoch`, or `milliseconds_since_epoch` timestamps.
   //
   // Args:
   //   execution: An execution to insert or update.
@@ -925,6 +940,10 @@ service MetadataStoreService {
   // Corresponding errors may be raised. For example: AlreadyExists error will
   // be raised if duplicated executions, artifacts, or events are found.
   //
+  // It is not guaranteed that the created or updated executions, artifacts,
+  // contexts and events will share the same `create_time_since_epoch`,
+  // `last_update_time_since_epoch`, or `milliseconds_since_epoch` timestamps.
+  //
   // Args:
   //   executions: A list of executions to insert or update.
   //   artifacts: A list of artifacts to insert or update.
@@ -946,6 +965,10 @@ service MetadataStoreService {
   // If an context_id is unspecified, it will insert a new context.
   // For new contexts, type must be specified.
   // For old contexts, type must be unchanged or unspecified.
+  //
+  // It is not guaranteed that the created or updated contexts will share the
+  // same `create_time_since_epoch` or `last_update_time_since_epoch`
+  // timestamps.
   //
   // Args:
   //   contexts: A list of contexts to insert or update.

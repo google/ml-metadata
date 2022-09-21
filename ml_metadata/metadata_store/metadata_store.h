@@ -175,8 +175,10 @@ class MetadataStore : public MetadataStoreServiceInterface {
   // Inserts and updates artifacts in request into the database.
   // If artifact_id is specified, an existing artifact is updated.
   // If artifact_id is not specified, a new artifact is created.
+  // It is not guaranteed that the created or updated artifacts will share the
+  // same `create_time_since_epoch` or `last_update_time_since_epoch` timestamp.
   //
-  // response is a list of artifact ids index-aligned with the input.
+  // Returns a list of artifact ids index-aligned with the input.
   // Returns INVALID_ARGUMENT error, if no artifact is found with the given id.
   // Returns INVALID_ARGUMENT error, if type_id is given and is different from
   // the one stored.
@@ -193,6 +195,9 @@ class MetadataStore : public MetadataStoreServiceInterface {
   // Inserts and updates executions in the request into the database.
   // If execution_id is specified, an existing execution is updated.
   // If execution_id is not specified, a new execution is created.
+  // It is not guaranteed that the created or updated executions will share the
+  // same `create_time_since_epoch` or `last_update_time_since_epoch`
+  // timestamps.
   //
   // Returns a list of execution ids index-aligned with the input.
   // Returns INVALID_ARGUMENT error, if no execution is found with a given id.
@@ -209,6 +214,9 @@ class MetadataStore : public MetadataStoreServiceInterface {
   // must have none empty name, and it should be unique of a ContextType.
   // If context_id is specified, an existing context is updated.
   // If context_id is not specified, a new execution is created.
+  // It is not guaranteed that the created or updated contexts will share the
+  // same `create_time_since_epoch` or `last_update_time_since_epoch`
+  // timestamps.
   //
   // Returns a list of context ids index-aligned with the input.
   // Returns INVALID_ARGUMENT error, if no context is found with a given id.
@@ -226,9 +234,12 @@ class MetadataStore : public MetadataStoreServiceInterface {
   //
   // The execution_id and artifact_id must already exist.
   // Once created, events cannot be modified.
-  // If timestamp is not set, it will be set to the current time.
+  // If the event timestamp is not set, it will be set to the current time.
   // request.events is a list of events to insert or update.
   // response is empty.
+  // It is not guaranteed that the created or updated events will share the
+  // same `milliseconds_since_epoch` timestamps.
+  //
   // Returns INVALID_ARGUMENT error, if no artifact matches the artifact_id.
   // Returns INVALID_ARGUMENT error, if no execution matches the execution_id.
   // Returns INVALID_ARGUMENT error, if the type field is UNKNOWN.
@@ -242,7 +253,10 @@ class MetadataStore : public MetadataStoreServiceInterface {
   //
   // If an execution_id, artifact_id or context_id is specified, it is an update
   // , otherwise it does an insertion. For insertion, type must be specified.
-  // If event.timestamp is not set, it will be set to the current time.
+  // If the event timestamp is not set, it will be set to the current time.
+  // It is not guaranteed that the created or updated executions, artifacts,
+  // contexts and events will share the same `create_time_since_epoch`,
+  // `last_update_time_since_epoch`, or `milliseconds_since_epoch` timestamps.
   //
   // Returns a list of execution, artifact, and context ids index-aligned with
   // the input.
@@ -259,6 +273,10 @@ class MetadataStore : public MetadataStoreServiceInterface {
   // and its executions, artifacts, and related contexts) atomically. All
   // contexts will be associated to every execution and attributed to every
   // artifact provided in the request.
+  //
+  // It is not guaranteed that the created or updated executions, artifacts,
+  // contexts and events will share the same `create_time_since_epoch`,
+  // `last_update_time_since_epoch`, or `milliseconds_since_epoch` timestamps.
   //
   // Returns a list of execution, artifact, and context ids index-aligned with
   // the input.

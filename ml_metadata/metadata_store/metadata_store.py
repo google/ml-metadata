@@ -248,6 +248,9 @@ class MetadataStore(object):
     When the name of an artifact is given, it should be unique among artifacts
     of the same ArtifactType.
 
+    It is not guaranteed that the created or updated artifacts will share the
+    same `create_time_since_epoch` or `last_update_time_since_epoch` timestamps.
+
     Args:
       artifacts: A list of artifacts to insert or update.
 
@@ -338,6 +341,9 @@ class MetadataStore(object):
     For old executions, type must be unchanged or unspecified.
     When the name of an execution is given, it should be unique among
     executions of the same ExecutionType.
+
+    It is not guaranteed that the created or updated executions will share the
+    same `create_time_since_epoch` or `last_update_time_since_epoch` timestamps.
 
     Args:
       executions: A list of executions to insert or update.
@@ -430,6 +436,9 @@ class MetadataStore(object):
     The name of a context cannot be empty, and it should be unique among
     contexts of the same ContextType.
 
+    It is not guaranteed that the created or updated contexts will share the
+    same `create_time_since_epoch` or `last_update_time_since_epoch` timestamps.
+
     Args:
       contexts: A list of contexts to insert or update.
 
@@ -518,6 +527,9 @@ class MetadataStore(object):
     The execution_id and artifact_id must already exist.
     Once created, events cannot be modified.
 
+    It is not guaranteed that the created or updated events will share the
+    same `milliseconds_since_epoch` timestamps.
+
     Args:
       events: A list of events to insert.
     """
@@ -544,6 +556,10 @@ class MetadataStore(object):
 
     If an execution_id, artifact_id or context_id is specified, it is an update,
     otherwise it does an insertion.
+
+    It is not guaranteed that the created or updated executions, artifacts,
+    contexts and events will share the same `create_time_since_epoch`,
+    `last_update_time_since_epoch`, or `milliseconds_since_epoch` timestamps.
 
     Args:
       execution: The execution to be created or updated.
@@ -598,6 +614,10 @@ class MetadataStore(object):
     This method atomically inserts or updates all specified executions,
     artifacts, and events and adds attributions and associations to related
     contexts.
+
+    It is not guaranteed that the created or updated executions, artifacts,
+    contexts and events will share the same `create_time_since_epoch`,
+    `last_update_time_since_epoch`, or `milliseconds_since_epoch` timestamps.
 
     Args:
       executions: List of executions to be created or updated.
