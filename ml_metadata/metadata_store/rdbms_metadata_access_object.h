@@ -256,7 +256,8 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status UpdateArtifact(const Artifact& artifact) final;
 
   absl::Status UpdateArtifact(const Artifact& artifact,
-                              const absl::Time update_timestamp) final;
+                              const absl::Time update_timestamp,
+                              bool force_update_time) final;
 
   absl::Status CreateExecution(const Execution& execution,
                                bool skip_type_and_property_validation,
@@ -287,7 +288,8 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status UpdateExecution(const Execution& execution) final;
 
   absl::Status UpdateExecution(const Execution& execution,
-                               const absl::Time update_timestamp) final;
+                               const absl::Time update_timestamp,
+                               bool force_update_time) final;
 
   absl::Status CreateContext(const Context& context,
                              bool skip_type_and_property_validation,
@@ -316,7 +318,8 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status UpdateContext(const Context& context) final;
 
   absl::Status UpdateContext(const Context& context,
-                             const absl::Time update_timestamp) final;
+                             const absl::Time update_timestamp,
+                             bool force_update_time) final;
 
   absl::Status CreateEvent(const Event& event, int64* event_id) final;
 
@@ -651,12 +654,15 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   // Updates a `Node` which is one of {`Artifact`, `Execution`, `Context`}.
   // `update_timestamp` should be used as the update time of the Node.
+  // When `force_update_time` is set to true, `last_update_time_since_epoch` is
+  // updated even if input node is the same as stored node.
   // Returns INVALID_ARGUMENT error, if the node cannot be found
   // Returns INVALID_ARGUMENT error, if the node does not match with its type
   // Returns detailed INTERNAL error, if query execution fails.
   template <typename Node, typename NodeType>
   absl::Status UpdateNodeImpl(const Node& node,
-                              const absl::Time update_timestamp);
+                              const absl::Time update_timestamp,
+                              bool force_update_time);
 
   // Takes a record set that has one record per event and for each record:
   //   parses it into an Event object

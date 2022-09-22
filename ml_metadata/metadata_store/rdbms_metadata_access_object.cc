@@ -1039,7 +1039,8 @@ absl::Status RDBMSMetadataAccessObject::FindNodeImpl(const int64 node_id,
 // Returns detailed INTERNAL error, if query execution fails.
 template <typename Node, typename NodeType>
 absl::Status RDBMSMetadataAccessObject::UpdateNodeImpl(
-    const Node& node, const absl::Time update_timestamp) {
+    const Node& node, const absl::Time update_timestamp,
+    bool force_update_time) {
   // validate node
   if (!node.has_id()) return absl::InvalidArgumentError("No id is given.");
 
@@ -1070,6 +1071,13 @@ absl::Status RDBMSMetadataAccessObject::UpdateNodeImpl(
   MLMD_RETURN_IF_ERROR(ModifyProperties<NodeType>(
       node.custom_properties(), stored_node.custom_properties(), node.id(),
       /*is_custom_property=*/true, num_changed_custom_properties));
+
+  // If `force_update_time` is set to True. Always update node regardless of
+  // whether input node is the same as stored node or not.
+  if (force_update_time) {
+    MLMD_RETURN_IF_ERROR(RunNodeUpdate(node, update_timestamp));
+    return absl::OkStatus();
+  }
   // Update node if attributes are different or properties are updated, so that
   // the last_update_time_since_epoch is updated properly.
   google::protobuf::util::MessageDifferencer diff;
@@ -1461,31 +1469,40 @@ absl::Status RDBMSMetadataAccessObject::FindContextsById(
 
 absl::Status RDBMSMetadataAccessObject::UpdateArtifact(
     const Artifact& artifact) {
-  return UpdateArtifact(artifact, absl::Now());
+  return UpdateArtifact(artifact, /*update_timestamp=*/absl::Now(),
+                        /*force_update_time=*/false);
 }
 
 absl::Status RDBMSMetadataAccessObject::UpdateExecution(
     const Execution& execution) {
-  return UpdateExecution(execution, absl::Now());
+  return UpdateExecution(execution, /*update_timestamp=*/absl::Now(),
+                         /*force_update_time=*/false);
 }
 
 absl::Status RDBMSMetadataAccessObject::UpdateContext(const Context& context) {
-  return UpdateContext(context, absl::Now());
+  return UpdateContext(context, /*update_timestamp=*/absl::Now(),
+                       /*force_update_time=*/false);
 }
 
 absl::Status RDBMSMetadataAccessObject::UpdateArtifact(
-    const Artifact& artifact, const absl::Time update_timestamp) {
-  return UpdateNodeImpl<Artifact, ArtifactType>(artifact, update_timestamp);
+    const Artifact& artifact, const absl::Time update_timestamp,
+    bool force_update_time) {
+  return UpdateNodeImpl<Artifact, ArtifactType>(artifact, update_timestamp,
+                                                force_update_time);
 }
 
 absl::Status RDBMSMetadataAccessObject::UpdateExecution(
-    const Execution& execution, const absl::Time update_timestamp) {
-  return UpdateNodeImpl<Execution, ExecutionType>(execution, update_timestamp);
+    const Execution& execution, const absl::Time update_timestamp,
+    bool force_update_time) {
+  return UpdateNodeImpl<Execution, ExecutionType>(execution, update_timestamp,
+                                                  force_update_time);
 }
 
 absl::Status RDBMSMetadataAccessObject::UpdateContext(
-    const Context& context, const absl::Time update_timestamp) {
-  return UpdateNodeImpl<Context, ContextType>(context, update_timestamp);
+    const Context& context, const absl::Time update_timestamp,
+    bool force_update_time) {
+  return UpdateNodeImpl<Context, ContextType>(context, update_timestamp,
+                                              force_update_time);
 }
 
 absl::Status RDBMSMetadataAccessObject::CreateEvent(const Event& event,

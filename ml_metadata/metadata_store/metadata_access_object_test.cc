@@ -5532,8 +5532,9 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactWithCustomUpdateTime) {
   updated_artifact.set_id(artifact_id);
   updated_artifact.set_type_id(type_id);
   absl::Time update_time = absl::InfiniteFuture();
-  ASSERT_EQ(absl::OkStatus(), metadata_access_object_->UpdateArtifact(
-                                  updated_artifact, update_time));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_->UpdateArtifact(
+                updated_artifact, update_time, /*force_update_time=*/false));
 
   ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
@@ -5551,6 +5552,97 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactWithCustomUpdateTime) {
   EXPECT_EQ(got_artifact_before_update.create_time_since_epoch(),
             got_artifact_after_update.create_time_since_epoch());
   EXPECT_EQ(got_artifact_after_update.last_update_time_since_epoch(),
+            absl::ToUnixMillis(update_time));
+}
+
+TEST_P(MetadataAccessObjectTest, UpdateArtifactWithForceUpdateTimeEnabled) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"pb(
+    name: 'test_type'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: DOUBLE }
+    properties { key: 'property_3' value: STRING }
+  )pb");
+  int64 type_id;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateType(type, &type_id));
+
+  Artifact stored_artifact = ParseTextProtoOrDie<Artifact>(R"pb(
+    uri: 'testuri://testing/uri'
+    properties {
+      key: 'property_1'
+      value: { int_value: 3 }
+    }
+    properties {
+      key: 'property_3'
+      value: { string_value: '3' }
+    }
+    custom_properties {
+      key: 'custom_property_1'
+      value: { string_value: '5' }
+    }
+    state: LIVE
+  )pb");
+  stored_artifact.set_type_id(type_id);
+  int64 artifact_id;
+  ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateArtifact(
+                                  stored_artifact, &artifact_id));
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
+  Artifact got_artifact_before_update;
+  {
+    std::vector<Artifact> artifacts;
+    ASSERT_EQ(absl::OkStatus(), metadata_access_object_->FindArtifactsById(
+                                    {artifact_id}, &artifacts));
+    got_artifact_before_update = artifacts.at(0);
+  }
+  EXPECT_THAT(got_artifact_before_update,
+              EqualsProto(stored_artifact,
+                          /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
+
+  // Update with no changes and force_update_time disabled.
+  absl::Time update_time = absl::InfiniteFuture();
+  ASSERT_EQ(absl::OkStatus(), metadata_access_object_->UpdateArtifact(
+                                  got_artifact_before_update, update_time,
+                                  /*force_update_time=*/false));
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
+  Artifact got_artifact_after_1st_update;
+  {
+    std::vector<Artifact> artifacts;
+    ASSERT_EQ(absl::OkStatus(), metadata_access_object_->FindArtifactsById(
+                                    {artifact_id}, &artifacts));
+    got_artifact_after_1st_update = artifacts.at(0);
+  }
+  // Expect no changes for the updated resource.
+  EXPECT_THAT(got_artifact_after_1st_update,
+              EqualsProto(got_artifact_before_update));
+
+  // Update with no changes again but with force_update_time set to true.
+  ASSERT_EQ(absl::OkStatus(), metadata_access_object_->UpdateArtifact(
+                                  got_artifact_after_1st_update, update_time,
+                                  /*force_update_time=*/true));
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
+  Artifact got_artifact_after_2nd_update;
+  {
+    std::vector<Artifact> artifacts;
+    ASSERT_EQ(absl::OkStatus(), metadata_access_object_->FindArtifactsById(
+                                    {artifact_id}, &artifacts));
+    got_artifact_after_2nd_update = artifacts.at(0);
+  }
+  // Expect no changes for the updated resource other than
+  // `last_update_time_since_epoch`.
+  EXPECT_THAT(got_artifact_after_2nd_update,
+              EqualsProto(got_artifact_after_1st_update,
+                          /*ignore_fields=*/{"last_update_time_since_epoch"}));
+  EXPECT_NE(got_artifact_after_2nd_update.last_update_time_since_epoch(),
+            got_artifact_after_1st_update.last_update_time_since_epoch());
+  EXPECT_EQ(got_artifact_after_2nd_update.last_update_time_since_epoch(),
             absl::ToUnixMillis(update_time));
 }
 
@@ -6026,8 +6118,9 @@ TEST_P(MetadataAccessObjectTest, UpdateExecutionWithCustomUpdateTime) {
   updated_execution.set_id(execution_id);
   updated_execution.set_type_id(type_id);
   absl::Time update_time = absl::InfiniteFuture();
-  ASSERT_EQ(absl::OkStatus(), metadata_access_object_->UpdateExecution(
-                                  updated_execution, update_time));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_->UpdateExecution(
+                updated_execution, update_time, /*force_update_time=*/false));
   ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Execution got_execution_after_update;
@@ -6044,6 +6137,87 @@ TEST_P(MetadataAccessObjectTest, UpdateExecutionWithCustomUpdateTime) {
   EXPECT_EQ(got_execution_before_update.create_time_since_epoch(),
             got_execution_after_update.create_time_since_epoch());
   EXPECT_EQ(got_execution_after_update.last_update_time_since_epoch(),
+            absl::ToUnixMillis(update_time));
+}
+
+TEST_P(MetadataAccessObjectTest, UpdateExecutionWithForceUpdateTimeEnabled) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+  ExecutionType type = ParseTextProtoOrDie<ExecutionType>(R"pb(
+    name: 'test_type'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: DOUBLE }
+    properties { key: 'property_3' value: STRING }
+  )pb");
+  int64 type_id;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateType(type, &type_id));
+
+  Execution stored_execution = ParseTextProtoOrDie<Execution>(R"pb(
+    properties {
+      key: 'property_3'
+      value: { string_value: '3' }
+    }
+    custom_properties {
+      key: 'custom_property_1'
+      value: { string_value: '5' }
+    }
+    last_known_state: RUNNING
+  )pb");
+  stored_execution.set_type_id(type_id);
+  int64 execution_id;
+  ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateExecution(
+                                  stored_execution, &execution_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
+  Execution got_execution_before_update;
+  {
+    std::vector<Execution> executions;
+    EXPECT_EQ(absl::OkStatus(), metadata_access_object_->FindExecutionsById(
+                                    {execution_id}, &executions));
+    got_execution_before_update = executions.at(0);
+  }
+  EXPECT_THAT(got_execution_before_update,
+              EqualsProto(stored_execution,
+                          /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
+  // Update with no changes and force_update_time disabled.
+  absl::Time update_time = absl::InfiniteFuture();
+  ASSERT_EQ(absl::OkStatus(), metadata_access_object_->UpdateExecution(
+                                  got_execution_before_update, update_time,
+                                  /*force_update_time=*/false));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
+  Execution got_execution_after_1st_update;
+  {
+    std::vector<Execution> executions;
+    EXPECT_EQ(absl::OkStatus(), metadata_access_object_->FindExecutionsById(
+                                    {execution_id}, &executions));
+    got_execution_after_1st_update = executions.at(0);
+  }
+  // Expect no changes for the updated resource.
+  EXPECT_THAT(got_execution_after_1st_update,
+              EqualsProto(got_execution_before_update));
+
+  // Update with no changes again but with force_update_time set to true.
+  ASSERT_EQ(absl::OkStatus(), metadata_access_object_->UpdateExecution(
+                                  got_execution_after_1st_update, update_time,
+                                  /*force_update_time=*/true));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
+  Execution got_execution_after_2nd_update;
+  {
+    std::vector<Execution> executions;
+    EXPECT_EQ(absl::OkStatus(), metadata_access_object_->FindExecutionsById(
+                                    {execution_id}, &executions));
+    got_execution_after_2nd_update = executions.at(0);
+  }
+  // Expect no changes for the updated resource other than
+  EXPECT_THAT(got_execution_after_2nd_update,
+              EqualsProto(got_execution_after_1st_update,
+                          /*ignore_fields=*/{"last_update_time_since_epoch"}));
+  EXPECT_NE(got_execution_after_2nd_update.last_update_time_since_epoch(),
+            got_execution_after_1st_update.last_update_time_since_epoch());
+  EXPECT_EQ(got_execution_after_2nd_update.last_update_time_since_epoch(),
             absl::ToUnixMillis(update_time));
 }
 
@@ -6676,8 +6850,9 @@ TEST_P(MetadataAccessObjectTest, UpdateContextWithCustomUpdatetime) {
   want_context.set_id(context_id);
   want_context.set_type_id(type_id);
   absl::Time update_time = absl::InfiniteFuture();
-  EXPECT_EQ(absl::OkStatus(),
-            metadata_access_object_->UpdateContext(want_context, update_time));
+  EXPECT_EQ(absl::OkStatus(), metadata_access_object_->UpdateContext(
+                                  want_context, update_time,
+                                  /*force_update_time=*/false));
 
   ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
@@ -6696,6 +6871,90 @@ TEST_P(MetadataAccessObjectTest, UpdateContextWithCustomUpdatetime) {
   EXPECT_EQ(got_context_before_update.create_time_since_epoch(),
             got_context_after_update.create_time_since_epoch());
   EXPECT_EQ(got_context_after_update.last_update_time_since_epoch(),
+            absl::ToUnixMillis(update_time));
+}
+
+TEST_P(MetadataAccessObjectTest, UpdateContextWithForceUpdateTimeEnabled) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+  ContextType type = ParseTextProtoOrDie<ContextType>(R"pb(
+    name: 'test_type'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: STRING }
+  )pb");
+  int64 type_id;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateType(type, &type_id));
+
+  Context context1 = ParseTextProtoOrDie<Context>(R"pb(
+    name: "before update name"
+    properties {
+      key: 'property_1'
+      value: { int_value: 2 }
+    }
+    custom_properties {
+      key: 'custom_property_1'
+      value: { string_value: '5' }
+    }
+  )pb");
+  context1.set_type_id(type_id);
+  int64 context_id;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateContext(context1, &context_id));
+  Context got_context_before_update;
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
+  {
+    std::vector<Context> contexts;
+    EXPECT_EQ(absl::OkStatus(), metadata_access_object_->FindContextsById(
+                                    {context_id}, &contexts));
+    ASSERT_THAT(contexts, SizeIs(1));
+    got_context_before_update = contexts[0];
+  }
+
+  // Update with no changes and force_update_time disabled.
+  absl::Time update_time = absl::InfiniteFuture();
+  ASSERT_EQ(absl::OkStatus(), metadata_access_object_->UpdateContext(
+                                  got_context_before_update, update_time,
+                                  /*force_update_time=*/false));
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
+  Context got_context_after_1st_update;
+  {
+    std::vector<Context> contexts;
+    EXPECT_EQ(absl::OkStatus(), metadata_access_object_->FindContextsById(
+                                    {context_id}, &contexts));
+    ASSERT_THAT(contexts, SizeIs(1));
+    got_context_after_1st_update = contexts[0];
+  }
+  // Expect no changes for the updated resource.
+  EXPECT_THAT(got_context_before_update,
+              EqualsProto(got_context_after_1st_update));
+
+  // Update with no changes again but with force_update_time set to true.
+  ASSERT_EQ(absl::OkStatus(), metadata_access_object_->UpdateContext(
+                                  got_context_after_1st_update, update_time,
+                                  /*force_update_time=*/true));
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
+  Context got_context_after_2nd_update;
+  {
+    std::vector<Context> contexts;
+    EXPECT_EQ(absl::OkStatus(), metadata_access_object_->FindContextsById(
+                                    {context_id}, &contexts));
+    ASSERT_THAT(contexts, SizeIs(1));
+    got_context_after_2nd_update = contexts[0];
+  }
+  // Expect no changes for the updated resource other than
+  // `last_update_time_since_epoch`.
+  EXPECT_THAT(got_context_after_2nd_update,
+              EqualsProto(got_context_after_1st_update,
+                          /*ignore_fields=*/{"last_update_time_since_epoch"}));
+  EXPECT_NE(got_context_after_2nd_update.last_update_time_since_epoch(),
+            got_context_after_1st_update.last_update_time_since_epoch());
+  EXPECT_EQ(got_context_after_2nd_update.last_update_time_since_epoch(),
             absl::ToUnixMillis(update_time));
 }
 

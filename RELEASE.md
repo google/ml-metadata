@@ -1,9 +1,11 @@
 # Current Version (not yet released; still in development)
 
-
 ## Major Features and Improvements
-*  Introduce methods to Create and Update Artifacts, Executions and Contexts with custom create and update timestamp.
-## Bug Fixes and Other Changes
+
+*   Introduce methods to Create and Update Artifacts, Executions and Contexts
+    with custom create and update timestamp.
+*   Introduce option to always update node's `last_update_time_since_epoch` even
+    if update request matches stored node. ## Bug Fixes and Other Changes
 
 ## Breaking Changes
 
