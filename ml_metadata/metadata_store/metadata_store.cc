@@ -27,6 +27,7 @@ limitations under the License.
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -395,13 +396,21 @@ absl::Status InsertAttributionIfNotExist(
   return absl::OkStatus();
 }
 
-// Updates or inserts a pair of {Artifact, Event}. If artifact is not given,
-// the event.artifact_id must exist, and it inserts the event, and returns the
-// artifact_id. Otherwise if artifact is given, event.artifact_id is optional,
-// if set, then artifact.id and event.artifact_id must align. The event is
-// assumed to have been populated with a valid execution_id.
+// Updates or inserts a pair of {Artifact, Event}.
+// If artifact is not given, the event.artifact_id must exist. It inserts the
+//   event, and returns the artifact_id.
+// If artifact is given, event.artifact_id is optional.
+//   If event.artifact_id is set,
+//     then artifact.id and event.artifact_id must align. The event is
+//     assumed to have been populated with a valid execution_id.
+//   If reuse_artifact_if_already_exist_by_external_id=true, it will first
+//     query with artifact.external_id to see if there is existing artifact.
+//     If there is artifact found, repopulate artifact.id as if it's provided in
+//       the input artifact_and_event.artifact to perform an update.
+//     If there is no artifact found, continue to insert.
 absl::Status UpsertArtifactAndEvent(
     const PutExecutionRequest::ArtifactAndEvent& artifact_and_event,
+    bool reuse_artifact_if_already_exist_by_external_id,
     MetadataAccessObject* metadata_access_object, int64* artifact_id) {
   CHECK(artifact_id) << "The output artifact_id pointer should not be null";
   if (!artifact_and_event.has_artifact() && !artifact_and_event.has_event()) {
@@ -419,13 +428,18 @@ absl::Status UpsertArtifactAndEvent(
         "If no artifact is present, given event must have an artifact_id: ",
         artifact_and_event.DebugString()));
   }
+
+  Artifact artifact_copy_to_be_upserted;
+  artifact_copy_to_be_upserted.CopyFrom(artifact_and_event.artifact());
+
   // if artifact and event.artifact_id is given, then artifact.id and
   // event.artifact_id must align.
   absl::optional<int64> maybe_artifact_id =
       artifact_and_event.has_artifact() &&
-              artifact_and_event.artifact().has_id()
-          ? absl::make_optional<int64>(artifact_and_event.artifact().id())
+              artifact_copy_to_be_upserted.has_id()
+          ? absl::make_optional<int64>(artifact_copy_to_be_upserted.id())
           : absl::nullopt;
+
   if (artifact_and_event.has_artifact() && maybe_event_artifact_id &&
       maybe_artifact_id != maybe_event_artifact_id) {
     return absl::InvalidArgumentError(absl::StrCat(
@@ -435,7 +449,7 @@ absl::Status UpsertArtifactAndEvent(
   // upsert artifact if present.
   if (artifact_and_event.has_artifact()) {
     MLMD_RETURN_IF_ERROR(UpsertArtifact(
-        artifact_and_event.artifact(), metadata_access_object,
+        artifact_copy_to_be_upserted, metadata_access_object,
         /*skip_type_and_property_validation=*/false, artifact_id));
   }
   // insert event if any.
@@ -453,6 +467,7 @@ absl::Status UpsertArtifactAndEvent(
                                              /*is_already_validated=*/true,
                                              &dummy_event_id);
 }
+
 
 // A util to handle type_version in type read/write API requests.
 template <typename T>
@@ -1096,7 +1111,9 @@ absl::Status MetadataStore::PutExecution(const PutExecutionRequest& request,
       }
       int64 artifact_id = -1;
       MLMD_RETURN_IF_ERROR(UpsertArtifactAndEvent(
-          artifact_and_event, metadata_access_object_.get(), &artifact_id));
+          artifact_and_event,
+          request.options().reuse_artifact_if_already_exist_by_external_id(),
+          metadata_access_object_.get(), &artifact_id));
       response->add_artifact_ids(artifact_id);
     }
     // 3. Upsert contexts and insert associations and attributions.
@@ -1169,9 +1186,11 @@ absl::Status MetadataStore::PutLineageSubgraph(
 
         // 3. Upsert artifacts and create attributions with contexts
         for (const Artifact& artifact : request.artifacts()) {
+          Artifact artifact_copy;
+          artifact_copy.CopyFrom(artifact);
           int64 artifact_id = -1;
           MLMD_RETURN_IF_ERROR(UpsertArtifact(
-              artifact, metadata_access_object_.get(),
+              artifact_copy, metadata_access_object_.get(),
               /*skip_type_and_property_validation=*/true, &artifact_id));
           response->add_artifact_ids(artifact_id);
 

@@ -180,9 +180,20 @@ message PutExecutionRequest {
   message Options {
     // When there's a race to publish executions with a new context with the
     // same context.name, by default there'll be one writer succeeds and
-    // the rest of the writers returning AlreadyExists errors. If set the field,
-    // the failed writer will reuse the stored context in the transaction.
+    // the rest of the writers returning AlreadyExists errors. If set to true,
+    // the API will reuse the stored context in the transaction and perform
+    // an update.
     optional bool reuse_context_if_already_exist = 1;
+
+    // TODO(b/226507742) : To implement for OSS backends.
+    // When there's a race to publish executions with a new artifact with the
+    // same artifact.external_id, by default there'll be one writer succeeds and
+    // the rest of the writers returning AlreadyExists errors.
+    // If set to true and an Artifact has non-empty external_id,
+    // the API will reuse the stored artifact in the transaction and
+    // perform an update. Otherwise, it will fall back to relying on `id` field
+    // to decide if it's update (if `id` exists) or insert (if `id` is empty).
+    optional bool reuse_artifact_if_already_exist_by_external_id = 2;
   }
   // The execution that produces many artifact and event pairs.
   optional Execution execution = 1;
@@ -230,9 +241,20 @@ message PutLineageSubgraphRequest {
   message Options {
     // When there's a race to publish executions with a new context with the
     // same context.name, by default there'll be one writer succeeds and
-    // the rest of the writers returning AlreadyExists errors. If set the field,
-    // the failed writer will reuse the stored context in the transaction.
+    // the rest of the writers returning AlreadyExists errors. If set to true,
+    // the API will reuse the stored context in the transaction and perform
+    // an update.
     optional bool reuse_context_if_already_exist = 1;
+
+    // TODO(b/226507742) : To implement for OSS backends.
+    // When there's a race to publish executions with a new artifact with the
+    // same artifact.external_id, by default there'll be one writer succeeds and
+    // the rest of the writers returning AlreadyExists errors.
+    // If set to true and an Artifact has non-empty external_id,
+    // the API will reuse the stored artifact in the transaction and
+    // perform an update. Otherwise, it will fall back to relying on `id` field
+    // to decide if it's update (if `id` exists) or insert (if `id` is empty).
+    optional bool reuse_artifact_if_already_exist_by_external_id = 2;
   }
   optional Options options = 5;
 

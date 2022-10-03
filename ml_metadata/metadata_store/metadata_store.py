@@ -546,7 +546,8 @@ class MetadataStore(object):
       artifact_and_events: Sequence[Tuple[proto.Artifact,
                                           Optional[proto.Event]]],
       contexts: Optional[Sequence[proto.Context]],
-      reuse_context_if_already_exist: bool = False
+      reuse_context_if_already_exist: bool = False,
+      reuse_artifact_if_already_exist_by_external_id: bool = False
   ) -> Tuple[int, List[int], List[int]]:
     """Inserts or updates an Execution with artifacts, events and contexts.
 
@@ -569,11 +570,19 @@ class MetadataStore(object):
         ids must match with the paired Artifact and the input execution.
       contexts: The Contexts that the execution should be associated with and
         the artifacts should be attributed to.
-      reuse_context_if_already_exist: when there's a race to publish executions
+      reuse_context_if_already_exist: When there's a race to publish executions
         with a new context (no id) with the same context.name, by default there
         will be one writer succeeds and the rest of the writers fail with
         AlreadyExists errors. If set is to True, failed writers will reuse the
         stored context.
+      reuse_artifact_if_already_exist_by_external_id: When there's a race to
+        publish executions with a new artifact with the same
+        artifact.external_id, by default there'll be one writer succeeds and
+        the rest of the writers returning AlreadyExists errors.
+        If set to true and an Artifact has non-empty external_id,
+        the API will reuse the stored artifact in the transaction and
+        perform an update. Otherwise, it will fall back to relying on `id` field
+        to decide if it's update (if `id` exists) or insert (if `id` is empty).
 
     Returns:
       the execution id, the list of artifact's id, and the list of context's id.
@@ -589,7 +598,10 @@ class MetadataStore(object):
         execution=execution,
         contexts=(context for context in contexts),
         options=metadata_store_service_pb2.PutExecutionRequest.Options(
-            reuse_context_if_already_exist=reuse_context_if_already_exist))
+            reuse_context_if_already_exist=reuse_context_if_already_exist,
+            reuse_artifact_if_already_exist_by_external_id=(
+                reuse_artifact_if_already_exist_by_external_id)
+        ))
     # Add artifact_and_event pairs to the request.
     for pair in artifact_and_events:
       if pair:
@@ -607,7 +619,8 @@ class MetadataStore(object):
       artifacts: Sequence[proto.Artifact],
       contexts: Sequence[proto.Context],
       event_edges: Sequence[Tuple[Optional[int], Optional[int], proto.Event]],
-      reuse_context_if_already_exist: bool = False
+      reuse_context_if_already_exist: bool = False,
+      reuse_artifact_if_already_exist_by_external_id: bool = False
   ) -> Tuple[List[int], List[int], List[int]]:
     """Inserts a collection of executions, artifacts, contexts, and events.
 
@@ -638,6 +651,14 @@ class MetadataStore(object):
         will be one writer that succeeds and the rest of the writers will fail
         with AlreadyExists errors. If set to True, failed writers will reuse the
         stored context.
+      reuse_artifact_if_already_exist_by_external_id: When there's a race to
+        publish executions with a new artifact with the same
+        artifact.external_id, by default there'll be one writer succeeds and
+        the rest of the writers returning AlreadyExists errors.
+        If set to true and an Artifact has non-empty external_id,
+        the API will reuse the stored artifact in the transaction and
+        perform an update. Otherwise, it will fall back to relying on `id` field
+        to decide if it's update (if `id` exists) or insert (if `id` is empty).
 
     Returns:
       The lists of execution ids, artifact ids, and context ids index aligned
@@ -657,7 +678,9 @@ class MetadataStore(object):
         artifacts=artifacts,
         contexts=contexts,
         options=metadata_store_service_pb2.PutLineageSubgraphRequest.Options(
-            reuse_context_if_already_exist=reuse_context_if_already_exist))
+            reuse_context_if_already_exist=reuse_context_if_already_exist,
+            reuse_artifact_if_already_exist_by_external_id=(
+                reuse_artifact_if_already_exist_by_external_id)))
 
     # Add event edges to the request
     for execution_index, artifact_index, event in event_edges:
