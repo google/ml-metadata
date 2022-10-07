@@ -34,6 +34,8 @@ using ::zetasql::types::StringType;
 
 // A regular expression that for mentioned contexts in query.
 constexpr char kContextRE[] = "\\b(contexts_[[:word:]]+)\\.";
+constexpr char kArtifactRE[] = "\\b(artifacts_[[:word:]]+)\\.";
+constexpr char kExecutionRE[] = "\\b(executions_[[:word:]]+)\\.";
 constexpr char kPropertyRE[] = "\\bproperties\\.(:?([[:word:]]+)|(`[^`]+`))\\.";
 constexpr char kCustomPropertyRE[] =
     "\\bcustom_properties\\.(:?([[:word:]]+)|(`[^`]+`))\\.";
@@ -49,13 +51,34 @@ constexpr char kEventTypePredicateRE[] =
     "\\b(events_[[:word:]]+\\.type)[[:space:]]*(=|!=)[[:space:]]*([[:word:]]+)"
     "\\b";
 
+// Map of Artifact state Enums to their corresponding int values.
+static inline absl::flat_hash_map<std::string, int>&
+    kArtifactStateValueMapping = *new absl::flat_hash_map<std::string, int>(
+        {{Artifact::State_Name(Artifact::UNKNOWN), Artifact::UNKNOWN},
+         {Artifact::State_Name(Artifact::PENDING), Artifact::PENDING},
+         {Artifact::State_Name(Artifact::LIVE), Artifact::LIVE},
+         {Artifact::State_Name(Artifact::MARKED_FOR_DELETION),
+          Artifact::MARKED_FOR_DELETION},
+         {Artifact::State_Name(Artifact::DELETED), Artifact::DELETED}});
+
+// Map of Execution state Enums to their corresponding int values.
+static inline absl::flat_hash_map<std::string, int>&
+    kExecutionStateValueMapping = *new absl::flat_hash_map<std::string, int>(
+        {{Execution::State_Name(Execution::UNKNOWN), Execution::UNKNOWN},
+         {Execution::State_Name(Execution::NEW), Execution::NEW},
+         {Execution::State_Name(Execution::RUNNING), Execution::RUNNING},
+         {Execution::State_Name(Execution::COMPLETE), Execution::COMPLETE},
+         {Execution::State_Name(Execution::FAILED), Execution::FAILED},
+         {Execution::State_Name(Execution::CACHED), Execution::CACHED},
+         {Execution::State_Name(Execution::CANCELED), Execution::CANCELED}});
+
 // Parses query for enum predicates e.g. state = LIVE and re-writes the query
 // into form state = <int> based on the `enum_value_mapping` provided by the
 // caller. The `enum_predicate_regex` provides the expected state predicate in
 // the query.
 absl::StatusOr<std::string> ParseEnumPredicateAndTransformQuery(
     absl::string_view query_string, absl::string_view enum_predicate_regex,
-    const absl::flat_hash_map<std::string, int>& enum_value_mapping) {
+    absl::flat_hash_map<std::string, int>& enum_value_mapping) {
   std::string rewritten_query = std::string(query_string);
   std::string state_string_literal, operator_literal, value_literal;
   while (RE2::FindAndConsume(&query_string, enum_predicate_regex,
@@ -93,35 +116,16 @@ absl::StatusOr<std::string> ParseEnumPredicateAndTransformQuery(
 absl::StatusOr<std::string> AddArtifactStateAndTransformQuery(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts) {
   MLMD_RETURN_IF_ERROR(analyzer_opts.AddExpressionColumn("state", Int64Type()));
-  static const auto& state_value_mapping =
-      *new absl::flat_hash_map<std::string, int>(
-          {{Artifact::State_Name(Artifact::UNKNOWN), Artifact::UNKNOWN},
-           {Artifact::State_Name(Artifact::PENDING), Artifact::PENDING},
-           {Artifact::State_Name(Artifact::LIVE), Artifact::LIVE},
-           {Artifact::State_Name(Artifact::MARKED_FOR_DELETION),
-            Artifact::MARKED_FOR_DELETION},
-           {Artifact::State_Name(Artifact::DELETED), Artifact::DELETED}});
-
   return ParseEnumPredicateAndTransformQuery(
-      query_string, kArtifactStatePredicateRE, state_value_mapping);
+      query_string, kArtifactStatePredicateRE, kArtifactStateValueMapping);
 }
 
 absl::StatusOr<std::string> AddExecutionLastKnownStateAndTransformQuery(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts) {
   MLMD_RETURN_IF_ERROR(
       analyzer_opts.AddExpressionColumn("last_known_state", Int64Type()));
-  static const auto& state_value_mapping =
-      *new absl::flat_hash_map<std::string, int>(
-          {{Execution::State_Name(Execution::UNKNOWN), Execution::UNKNOWN},
-           {Execution::State_Name(Execution::NEW), Execution::NEW},
-           {Execution::State_Name(Execution::RUNNING), Execution::RUNNING},
-           {Execution::State_Name(Execution::COMPLETE), Execution::COMPLETE},
-           {Execution::State_Name(Execution::FAILED), Execution::FAILED},
-           {Execution::State_Name(Execution::CACHED), Execution::CACHED},
-           {Execution::State_Name(Execution::CANCELED), Execution::CANCELED}});
-
   return ParseEnumPredicateAndTransformQuery(
-      query_string, kExecutionStatePredicateRE, state_value_mapping);
+      query_string, kExecutionStatePredicateRE, kExecutionStateValueMapping);
 }
 
 // Adds a list of columns corresponding to the node attributes which are
@@ -202,6 +206,67 @@ absl::Status AddContextsImpl(absl::string_view query_string,
   return absl::OkStatus();
 }
 
+// Adds the Artifacts used in the query to the analyzer as StructType column.
+absl::Status AddArtifactsImpl(absl::string_view query_string,
+                              absl::string_view artifact_prefix,
+                              zetasql::AnalyzerOptions& analyzer_opts,
+                              zetasql::TypeFactory& type_factory) {
+  RE2 artifact_re(artifact_prefix);
+  std::string matched_artifact;
+  absl::flat_hash_set<std::string> mentioned_artifacts;
+  while (RE2::FindAndConsume(&query_string, artifact_re, &matched_artifact)) {
+    // Each mentioned artifact is defined only once.
+    if (mentioned_artifacts.contains(matched_artifact)) {
+      continue;
+    }
+    mentioned_artifacts.insert(matched_artifact);
+    const zetasql::Type* artifact_struct_type;
+    MLMD_RETURN_IF_ERROR(type_factory.MakeStructType(
+        {{"id", Int64Type()},
+         {"name", StringType()},
+         {"type", StringType()},
+         {"state", Int64Type()},
+         {"uri", StringType()},
+         {"external_id", StringType()},
+         {"create_time_since_epoch", Int64Type()},
+         {"last_update_time_since_epoch", Int64Type()}},
+        &artifact_struct_type));
+    MLMD_RETURN_IF_ERROR(analyzer_opts.AddExpressionColumn(
+        matched_artifact, artifact_struct_type));
+  }
+  return absl::OkStatus();
+}
+
+// Adds the Executions used in the query to the analyzer as StructType column.
+absl::Status AddExecutionsImpl(absl::string_view query_string,
+                               absl::string_view execution_prefix,
+                               zetasql::AnalyzerOptions& analyzer_opts,
+                               zetasql::TypeFactory& type_factory) {
+  RE2 execution_re(execution_prefix);
+  std::string matched_execution;
+  absl::flat_hash_set<std::string> mentioned_executions;
+  while (RE2::FindAndConsume(&query_string, execution_re, &matched_execution)) {
+    // Each mentioned execution is defined only once.
+    if (mentioned_executions.contains(matched_execution)) {
+      continue;
+    }
+    mentioned_executions.insert(matched_execution);
+    const zetasql::Type* execution_struct_type;
+    MLMD_RETURN_IF_ERROR(type_factory.MakeStructType(
+        {{"id", Int64Type()},
+         {"name", StringType()},
+         {"type", StringType()},
+         {"last_known_state", Int64Type()},
+         {"external_id", StringType()},
+         {"create_time_since_epoch", Int64Type()},
+         {"last_update_time_since_epoch", Int64Type()}},
+        &execution_struct_type));
+    MLMD_RETURN_IF_ERROR(analyzer_opts.AddExpressionColumn(
+        matched_execution, execution_struct_type));
+  }
+  return absl::OkStatus();
+}
+
 absl::StatusOr<std::string> AddEvents(absl::string_view query_string,
                                       absl::string_view neighbor_node_id,
                                       zetasql::AnalyzerOptions& analyzer_opts,
@@ -227,15 +292,14 @@ absl::StatusOr<std::string> AddEvents(absl::string_view query_string,
         analyzer_opts.AddExpressionColumn(matched_event, event_struct_type));
   }
 
-  static const auto& event_type_mapping =
-      *new absl::flat_hash_map<std::string, int>({
-          {Event::Type_Name(Event::INPUT), Event::INPUT},
-          {Event::Type_Name(Event::OUTPUT), Event::OUTPUT},
-          {Event::Type_Name(Event::DECLARED_INPUT), Event::DECLARED_INPUT},
-          {Event::Type_Name(Event::DECLARED_OUTPUT), Event::DECLARED_OUTPUT},
-          {Event::Type_Name(Event::INTERNAL_INPUT), Event::INTERNAL_INPUT},
-          {Event::Type_Name(Event::INTERNAL_OUTPUT), Event::INTERNAL_OUTPUT},
-      });
+  static auto& event_type_mapping = *new absl::flat_hash_map<std::string, int>({
+      {Event::Type_Name(Event::INPUT), Event::INPUT},
+      {Event::Type_Name(Event::OUTPUT), Event::OUTPUT},
+      {Event::Type_Name(Event::DECLARED_INPUT), Event::DECLARED_INPUT},
+      {Event::Type_Name(Event::DECLARED_OUTPUT), Event::DECLARED_OUTPUT},
+      {Event::Type_Name(Event::INTERNAL_INPUT), Event::INTERNAL_INPUT},
+      {Event::Type_Name(Event::INTERNAL_OUTPUT), Event::INTERNAL_OUTPUT},
+  });
 
   return ParseEnumPredicateAndTransformQuery(
       original_query, kEventTypePredicateRE, event_type_mapping);
@@ -245,6 +309,20 @@ absl::Status AddContexts(absl::string_view query_string,
                          zetasql::AnalyzerOptions& analyzer_opts,
                          zetasql::TypeFactory& type_factory) {
   return AddContextsImpl(query_string, kContextRE, analyzer_opts, type_factory);
+}
+
+absl::Status AddExecutions(absl::string_view query_string,
+                           zetasql::AnalyzerOptions& analyzer_opts,
+                           zetasql::TypeFactory& type_factory) {
+  return AddExecutionsImpl(query_string, kExecutionRE, analyzer_opts,
+                           type_factory);
+}
+
+absl::Status AddArtifacts(absl::string_view query_string,
+                          zetasql::AnalyzerOptions& analyzer_opts,
+                          zetasql::TypeFactory& type_factory) {
+  return AddArtifactsImpl(query_string, kArtifactRE, analyzer_opts,
+                          type_factory);
 }
 
 absl::Status AddParentContexts(absl::string_view query_string,
@@ -285,7 +363,18 @@ absl::StatusOr<std::string> AddNeighborhoodNodes<Context>(
       AddChildContexts(query_string, analyzer_opts, type_factory));
   MLMD_RETURN_IF_ERROR(
       AddParentContexts(query_string, analyzer_opts, type_factory));
-  return std::string(query_string);
+  MLMD_RETURN_IF_ERROR(AddArtifacts(query_string, analyzer_opts, type_factory));
+  MLMD_RETURN_IF_ERROR(
+      AddExecutions(query_string, analyzer_opts, type_factory));
+  MLMD_ASSIGN_OR_RETURN(
+      std::string modified_query_string,
+      ParseEnumPredicateAndTransformQuery(
+          query_string, kArtifactStatePredicateRE, kArtifactStateValueMapping));
+  MLMD_ASSIGN_OR_RETURN(modified_query_string,
+                        ParseEnumPredicateAndTransformQuery(
+                            modified_query_string, kExecutionStatePredicateRE,
+                            kExecutionStateValueMapping));
+  return modified_query_string;
 }
 
 // Adds the (custom)properties used in the query to the analyzer as StructType

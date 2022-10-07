@@ -817,7 +817,7 @@ message ListOperationOptions {
   //    - last_known_state = RUNNING
   //    - last_known_state != RUNNING
   //
-  // d) to filter nodes having a specific context
+  // d) to filter nodes having a specific context, artifact, or execution
   //    - contexts_a.id = 5
   //    - contexts_a.type = 'RunContext'
   //    - contexts_a.name = 'my_run'
@@ -825,6 +825,27 @@ message ListOperationOptions {
   //    - contexts_a.last_update_time_since_epoch = 1626761453
   //    To filter nodes with conditions on multiple contexts:
   //    - contexts_a.name = 'my_run' AND contexts_b.name = 'my_pipeline'
+  //    To filter context with artifacts:
+  //    - artifacts_a.id = 5
+  //    - artifacts_a.type = 'Dataset'
+  //    - artifacts_a.name = 'my_dataset'
+  //    - artifacts_a.uri = 'exact_path_string'
+  //    - artifacts_a.state = LIVE
+  //    - artifacts_a.external_id = "my_external_id"
+  //    - artifacts_a.create_time_since_epoch = 1626761453
+  //    - artifacts_a.last_update_time_since_epoch = 1626761453
+  //    To filter contexts with conditions on multiple artifacts:
+  //    - artifacts_a.name = 'my_run' AND artifacts_b.name = 'my_pipeline'
+  //    To filter context with executions:
+  //    - executions_a.id = 5
+  //    - executions_a.type = 'Dataset'
+  //    - executions_a.name = 'my_dataset'
+  //    - executions_a.last_known_state = RUNNING
+  //    - executions_a.external_id = "my_external_id"
+  //    - executions_a.create_time_since_epoch = 1626761453
+  //    - executions_a.last_update_time_since_epoch = 1626761453
+  //    To filter contexts with conditions on multiple executions:
+  //    - executions_a.name = 'my_run' AND executions_b.name = 'my_pipeline'
   //
   // e) to filter nodes condition on their properties
   //    - properties.accuracy.double_value > 0.95
