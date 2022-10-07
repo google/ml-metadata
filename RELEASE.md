@@ -6,8 +6,6 @@
     with custom create and update timestamp.
 *   Introduce option to always update node's `last_update_time_since_epoch` even
     if update request matches stored node. ## Bug Fixes and Other Changes
-*   Filter support for list Context with Artifact alias `artifacts_0` and
-    Execution alias `executions_0`.
 
 ## Breaking Changes
 

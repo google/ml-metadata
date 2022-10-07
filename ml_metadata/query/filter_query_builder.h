@@ -70,12 +70,6 @@ class FilterQueryBuilder : public zetasql::SQLBuilder {
   static std::string GetEventJoinTable(absl::string_view base_alias,
                                        absl::string_view event_alias);
 
-  static std::string GetArtifactJoinTable(absl::string_view base_alias,
-                                          absl::string_view artifact_alias);
-
-  static std::string GetExecutionJoinTable(absl::string_view base_alias,
-                                           absl::string_view execution_alias);
-
  protected:
   // Implementation details. API users need not look below.
   //
@@ -128,9 +122,7 @@ class FilterQueryBuilder : public zetasql::SQLBuilder {
     CUSTOM_PROPERTY,
     PARENT_CONTEXT,
     CHILD_CONTEXT,
-    EVENT,
-    ARTIFACT,
-    EXECUTION,
+    EVENT
   };
 
   using JoinTableAlias =
