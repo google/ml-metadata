@@ -16,6 +16,7 @@ syntax = "proto2";
 
 package ml_metadata;
 
+import "google/protobuf/any.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/descriptor.proto";
 

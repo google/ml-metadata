@@ -43,6 +43,7 @@ limitations under the License.
 #endif
 // clang-format on
 #include "absl/types/optional.h"
+#include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/metadata_store/list_operation_util.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
@@ -87,7 +88,7 @@ absl::Status PopulateNodeProperties(const RecordSet::Record& record,
     double double_value;
     CHECK(absl::SimpleAtod(record.values(4), &double_value));
     property_value.set_double_value(double_value);
-  } else {
+  } else if (record.values(5) != kMetadataSourceNull) {
     const std::string& string_value = record.values(5);
     if (IsStructSerializedString(string_value)) {
       MLMD_RETURN_IF_ERROR(
@@ -95,6 +96,9 @@ absl::Status PopulateNodeProperties(const RecordSet::Record& record,
     } else {
       property_value.set_string_value(string_value);
     }
+  } else {
+    return absl::InternalError("Attempt to populate property with null value "
+                               "in every known *_value column.");
   }
 
   return absl::OkStatus();
@@ -990,7 +994,9 @@ absl::Status RDBMSMetadataAccessObject::FindNodesImpl(
       node_by_id.insert({i->id(), i});
     }
 
-    CHECK_EQ(properties_record_set.column_names_size(), 6);
+    // previous metadata source versions have fewer property types
+    CHECK_GE(properties_record_set.column_names_size(), 6);
+    CHECK_LE(properties_record_set.column_names_size(), kPropertyRecordSetSize);
     for (const RecordSet::Record& record : properties_record_set.records()) {
       // Match the record against a node in the hash map.
       int64 node_id;

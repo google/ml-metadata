@@ -65,6 +65,7 @@ cc_library(
         "rdbms_metadata_access_object.h",
     ],
     deps = [
+        ":constants",
         ":list_operation_util",
         ":metadata_access_object_base",
         ":metadata_source",
@@ -97,6 +98,7 @@ cc_library(
         "rdbms_metadata_access_object_test.h",
     ],
     deps = [
+        ":constants",
         ":rdbms_metadata_access_object",
         ":test_util",
         "@com_google_googletest//:gtest",

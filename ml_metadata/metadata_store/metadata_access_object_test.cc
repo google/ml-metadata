@@ -1694,18 +1694,18 @@ TEST_P(MetadataAccessObjectTest, FindAllContextTypes) {
 
 TEST_P(MetadataAccessObjectTest, CreateArtifact) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(absl::StrCat(R"(
     name: 'test_type_with_predefined_property'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
     properties { key: 'property_4' value: STRUCT }
-  )");
+  )",
+  ""));
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
-
-  Artifact artifact = ParseTextProtoOrDie<Artifact>(R"(
+  Artifact artifact = ParseTextProtoOrDie<Artifact>(absl::StrCat(R"(
     uri: 'testuri://testing/uri'
     properties {
       key: 'property_1'
@@ -1741,9 +1741,9 @@ TEST_P(MetadataAccessObjectTest, CreateArtifact) {
         }
       }
     }
-  )");
+  )",
+  ""));
   artifact.set_type_id(type_id);
-
   int64 artifact1_id = -1;
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateArtifact(artifact, &artifact1_id));
@@ -1756,7 +1756,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifact) {
 TEST_P(MetadataAccessObjectTest, CreateArtifactWithCustomProperty) {
   ASSERT_EQ(absl::OkStatus(), Init());
   int64 type_id = InsertType<ArtifactType>("test_type_with_custom_property");
-  Artifact artifact = ParseTextProtoOrDie<Artifact>(R"(
+  Artifact artifact = ParseTextProtoOrDie<Artifact>(absl::StrCat(R"(
     uri: 'testuri://testing/uri'
     custom_properties {
       key: 'custom_property_1'
@@ -1792,7 +1792,8 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithCustomProperty) {
         }
       }
     }
-  )");
+  )",
+  ""));
   artifact.set_type_id(type_id);
 
   int64 artifact1_id, artifact2_id;
@@ -2005,17 +2006,18 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithCustomTimestamp) {
 
 TEST_P(MetadataAccessObjectTest, CreateExecutionWithoutValidation) {
   MLMD_ASSERT_OK(Init());
-  ExecutionType type = ParseTextProtoOrDie<ExecutionType>(R"pb(
+  ExecutionType type = ParseTextProtoOrDie<ExecutionType>(absl::StrCat(R"pb(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: STRING }
-  )pb");
+  )pb",
+  ""));
   int64 type_id;
   MLMD_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
 
   // Inserts execution without validation since the type are known to exist and
   // the execution's properties are matched with its type.
-  Execution execution = ParseTextProtoOrDie<Execution>(R"pb(
+  Execution execution = ParseTextProtoOrDie<Execution>(absl::StrCat(R"pb(
     properties {
       key: 'property_1'
       value: { int_value: 3 }
@@ -2024,7 +2026,8 @@ TEST_P(MetadataAccessObjectTest, CreateExecutionWithoutValidation) {
       key: 'property_2'
       value: { string_value: '3' }
     }
-  )pb");
+  )pb",
+  ""));
   execution.set_type_id(type_id);
   int64 execution_id;
   EXPECT_EQ(
@@ -3742,16 +3745,17 @@ TEST_P(MetadataAccessObjectTest, QueryLineageGraphWithBoundaryConditions) {
 TEST_P(MetadataAccessObjectTest, DeleteArtifactsById) {
   ASSERT_EQ(absl::OkStatus(), Init());
 
-  const ArtifactType type = CreateTypeFromTextProto<ArtifactType>(
+  const ArtifactType type = CreateTypeFromTextProto<ArtifactType>(absl::StrCat(
       R"pb(
         name: 'test_type'
         properties { key: 'property_1' value: INT }
         properties { key: 'property_2' value: DOUBLE }
         properties { key: 'property_3' value: STRING }
       )pb",
+      ""),
       *metadata_access_object_);
   Artifact artifact;
-  CreateNodeFromTextProto(
+  CreateNodeFromTextProto(absl::StrCat(
       R"pb(
         name: 'delete_artifacts_by_id_test'
         properties {
@@ -3767,6 +3771,7 @@ TEST_P(MetadataAccessObjectTest, DeleteArtifactsById) {
           value: { string_value: '3' }
         }
       )pb",
+      ""),
       type.id(), *metadata_access_object_,
       metadata_access_object_container_.get(), artifact);
   // Test: empty ids
@@ -3802,15 +3807,17 @@ TEST_P(MetadataAccessObjectTest, DeleteExecutionsById) {
   ASSERT_EQ(absl::OkStatus(), Init());
 
   const ExecutionType type = CreateTypeFromTextProto<ExecutionType>(
+    absl::StrCat(
       R"pb(
         name: 'test_type'
         properties { key: 'property_1' value: INT }
         properties { key: 'property_2' value: DOUBLE }
         properties { key: 'property_3' value: STRING }
       )pb",
+      ""),
       *metadata_access_object_);
   Execution execution;
-  CreateNodeFromTextProto(
+  CreateNodeFromTextProto(absl::StrCat(
       R"pb(
         name: 'delete_executions_by_id_test'
         properties {
@@ -3826,6 +3833,7 @@ TEST_P(MetadataAccessObjectTest, DeleteExecutionsById) {
           value: { string_value: '3' }
         }
       )pb",
+      ""),
       type.id(), *metadata_access_object_,
       metadata_access_object_container_.get(), execution);
 
@@ -3861,13 +3869,14 @@ TEST_P(MetadataAccessObjectTest, DeleteExecutionsById) {
 TEST_P(MetadataAccessObjectTest, DeleteContextsById) {
   ASSERT_EQ(absl::OkStatus(), Init());
 
-  const ContextType type = CreateTypeFromTextProto<ContextType>(
+  const ContextType type = CreateTypeFromTextProto<ContextType>(absl::StrCat(
       R"pb(
         name: 'test_type'
         properties { key: 'property_1' value: INT }
         properties { key: 'property_2' value: DOUBLE }
         properties { key: 'property_3' value: STRING }
       )pb",
+      ""),
       *metadata_access_object_);
   Context context1, context2;
   CreateNodeFromTextProto("name: 'delete_contexts_by_id_test_1'", type.id(),
@@ -5376,12 +5385,13 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByURI) {
 
 TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(absl::StrCat(R"(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
-  )");
+  )",
+  ""));
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
@@ -5423,7 +5433,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
 
   // update `property_1`, add `property_2`, and drop `property_3`
   // change the value type of `custom_property_1`
-  Artifact updated_artifact = ParseTextProtoOrDie<Artifact>(R"(
+  Artifact updated_artifact = ParseTextProtoOrDie<Artifact>(absl::StrCat(R"(
     uri: 'testuri://changed/uri'
     properties {
       key: 'property_1'
@@ -5433,11 +5443,13 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
       key: 'property_2'
       value: { double_value: 3.0 }
     }
+  )",
+  R"(
     custom_properties {
       key: 'custom_property_1'
       value: { int_value: 3 }
     }
-  )");
+  )"));
   updated_artifact.set_id(artifact_id);
   updated_artifact.set_type_id(type_id);
   // sleep to verify the latest update time is updated.
@@ -5467,17 +5479,18 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
 
 TEST_P(MetadataAccessObjectTest, UpdateArtifactWithCustomUpdateTime) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"pb(
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(absl::StrCat(R"pb(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
-  )pb");
+  )pb",
+  ""));
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
 
-  Artifact stored_artifact = ParseTextProtoOrDie<Artifact>(R"pb(
+  Artifact stored_artifact = ParseTextProtoOrDie<Artifact>(absl::StrCat(R"pb(
     uri: 'testuri://testing/uri'
     properties {
       key: 'property_1'
@@ -5487,12 +5500,14 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactWithCustomUpdateTime) {
       key: 'property_3'
       value: { string_value: '3' }
     }
+  )pb",
+  R"pb(
     custom_properties {
       key: 'custom_property_1'
       value: { string_value: '5' }
     }
     state: LIVE
-  )pb");
+  )pb"));
   stored_artifact.set_type_id(type_id);
   int64 artifact_id;
   ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateArtifact(
@@ -5514,7 +5529,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactWithCustomUpdateTime) {
 
   // update `property_1`, add `property_2`, and drop `property_3`
   // change the value type of `custom_property_1`
-  Artifact updated_artifact = ParseTextProtoOrDie<Artifact>(R"pb(
+  Artifact updated_artifact = ParseTextProtoOrDie<Artifact>(absl::StrCat(R"pb(
     uri: 'testuri://changed/uri'
     properties {
       key: 'property_1'
@@ -5524,11 +5539,13 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactWithCustomUpdateTime) {
       key: 'property_2'
       value: { double_value: 3.0 }
     }
+  )pb",
+  R"pb(
     custom_properties {
       key: 'custom_property_1'
       value: { int_value: 3 }
     }
-  )pb");
+  )pb"));
   updated_artifact.set_id(artifact_id);
   updated_artifact.set_type_id(type_id);
   absl::Time update_time = absl::InfiniteFuture();
@@ -5783,17 +5800,18 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactError) {
 TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
   ASSERT_EQ(absl::OkStatus(), Init());
   // Creates execution 1 with type 1
-  ExecutionType type = ParseTextProtoOrDie<ExecutionType>(R"(
+  ExecutionType type = ParseTextProtoOrDie<ExecutionType>(absl::StrCat(R"(
     name: 'test_type_with_predefined_property'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
-  )");
+  )",
+  ""));
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
 
-  Execution want_execution1 = ParseTextProtoOrDie<Execution>(R"(
+  Execution want_execution1 = ParseTextProtoOrDie<Execution>(absl::StrCat(R"(
     name: "my_execution1"
     properties {
       key: 'property_1'
@@ -5803,11 +5821,13 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
       key: 'property_3'
       value: { string_value: '3' }
     }
+  )",
+  R"(
     custom_properties {
       key: 'custom_property_1'
       value: { int_value: 3 }
     }
-  )");
+  )"));
   want_execution1.set_type_id(type_id);
   {
     int64 execution_id = -1;
