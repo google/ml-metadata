@@ -37,6 +37,9 @@ message Value {
     double double_value = 2;
     string string_value = 3;
     google.protobuf.Struct struct_value = 4;
+    // proto_value NOT SUPPORTED in OSS version
+    // TODO(b/251025280): support proto_value for OSS version
+    google.protobuf.Any proto_value = 5;
   }
 }
 
@@ -90,6 +93,9 @@ enum PropertyType {
   DOUBLE = 2;
   STRING = 3;
   STRUCT = 4;
+  // proto_value NOT SUPPORTED in OSS version
+  // TODO(b/251025280): support proto_value for OSS version
+  PROTO = 5;
 }
 
 message ArtifactType {
