@@ -2956,6 +2956,73 @@ TEST_P(MetadataAccessObjectTest, ListNodesFilterContextNeighborQuery) {
   }
   ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
+  // TODO(b/251486486) Use R"pb(...)pb" for protos in the entire file.
+  VerifyListOptions<Context>(
+      absl::Substitute(R"pb(
+                         max_result_size: 10,
+                         order_by_field: { field: CREATE_TIME is_asc: true }
+                         filter_query: "artifacts_c.id = $0")pb",
+                       want_artifacts[1].id()),
+      *metadata_access_object_,
+      /*want_nodes=*/{contexts[0]});
+
+  VerifyListOptions<Context>(
+      absl::Substitute(R"pb(
+                         max_result_size: 10,
+                         order_by_field: { field: CREATE_TIME is_asc: true }
+                         filter_query: "artifacts_c.id = $0")pb",
+                       want_artifacts[0].id()),
+      *metadata_access_object_,
+      /*want_nodes=*/{contexts[0], contexts[1], contexts[2]});
+
+  VerifyListOptions<Context>(
+      absl::Substitute(
+          R"pb(
+            max_result_size: 10,
+            order_by_field: { field: CREATE_TIME is_asc: true }
+            filter_query: "artifacts_c.id = $0 and name = '$1'")pb",
+          want_artifacts[0].id(), contexts[0].name()),
+      *metadata_access_object_,
+      /*want_nodes=*/{contexts[0]});
+
+  VerifyListOptions<Context>(
+      absl::Substitute(R"pb(
+                         max_result_size: 10,
+                         order_by_field: { field: CREATE_TIME is_asc: true }
+                         filter_query: "executions_c.id = $0")pb",
+                       want_executions[2].id()),
+      *metadata_access_object_,
+      /*want_nodes=*/{contexts[0]});
+
+  VerifyListOptions<Context>(
+      absl::Substitute(R"pb(
+                         max_result_size: 10,
+                         order_by_field: { field: CREATE_TIME is_asc: true }
+                         filter_query: "executions_c.id = $0")pb",
+                       want_executions[0].id()),
+      *metadata_access_object_,
+      /*want_nodes=*/{contexts[0], contexts[1], contexts[2]});
+
+  VerifyListOptions<Context>(
+      absl::Substitute(
+          R"pb(
+            max_result_size: 10,
+            order_by_field: { field: CREATE_TIME is_asc: true }
+            filter_query: "executions_c.id = $0 and name = '$1'")pb",
+          want_executions[0].id(), contexts[0].name()),
+      *metadata_access_object_,
+      /*want_nodes=*/{contexts[0]});
+
+  VerifyListOptions<Context>(
+      absl::Substitute(
+          R"pb(
+            max_result_size: 10,
+            order_by_field: { field: CREATE_TIME is_asc: true }
+            filter_query: "executions_c.id = $0 and artifacts_a.id = $1")pb",
+          want_executions[0].id(), want_artifacts[1].id()),
+      *metadata_access_object_,
+      /*want_nodes=*/{contexts[0]});
+
   VerifyListOptions<Artifact>(
       absl::Substitute(R"(
       max_result_size: 10,
@@ -3394,6 +3461,60 @@ TEST_P(MetadataAccessObjectTest, ListNodesFilterWithErrors) {
     const absl::Status status = metadata_access_object_->ListContexts(
         list_options, &got_contexts, &next_page_token);
     EXPECT_TRUE(absl::IsInvalidArgument(status));
+  }
+  // testing filter query type mistmatch
+  {
+    list_options = ParseTextProtoOrDie<ListOperationOptions>(R"pb(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "executions_c.id = 123"
+    )pb");
+    std::vector<Artifact> got_artifacts;
+    const absl::Status status = metadata_access_object_->ListArtifacts(
+        list_options, &got_artifacts, &next_page_token);
+    EXPECT_TRUE(absl::IsInvalidArgument(status))
+        << " status is: " << status.code()
+        << " status Error is:" << status.message();
+  }
+
+  {
+    list_options = ParseTextProtoOrDie<ListOperationOptions>(R"pb(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "artifacts_c.id = 123"
+    )pb");
+    std::vector<Artifact> got_artifacts;
+    const absl::Status status = metadata_access_object_->ListArtifacts(
+        list_options, &got_artifacts, &next_page_token);
+    EXPECT_TRUE(absl::IsInvalidArgument(status))
+        << " status is: " << status.code()
+        << " status Error is:" << status.message();
+  }
+  {
+    list_options = ParseTextProtoOrDie<ListOperationOptions>(R"pb(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "executions_c.id = 123"
+    )pb");
+    std::vector<Execution> got_executions;
+    const absl::Status status = metadata_access_object_->ListExecutions(
+        list_options, &got_executions, &next_page_token);
+    EXPECT_TRUE(absl::IsInvalidArgument(status))
+        << " status is: " << status.code()
+        << " status Error is:" << status.message();
+  }
+  {
+    list_options = ParseTextProtoOrDie<ListOperationOptions>(R"pb(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "artifacts_c.id = 123"
+    )pb");
+    std::vector<Execution> got_executions;
+    const absl::Status status = metadata_access_object_->ListExecutions(
+        list_options, &got_executions, &next_page_token);
+    EXPECT_TRUE(absl::IsInvalidArgument(status))
+        << " status is: " << status.code()
+        << " status Error is:" << status.message();
   }
 }
 

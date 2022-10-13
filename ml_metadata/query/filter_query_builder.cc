@@ -41,6 +41,35 @@ JOIN (
   FROM Type
   WHERE Type.type_kind = $2
 ) AS $1 ON $0.type_id = $1.type_id )sql";
+// TODO(b/226507742) Add support for external_id once it is rolled out to OSS.
+//  $0 is the base node table, $1 is the artifact related neighborhood table.
+constexpr absl::string_view kArtifactJoinTableViaAttribution = R"sql(
+JOIN (
+  SELECT Artifact.id, Artifact.name,
+         Type.name as type,
+         Attribution.context_id,
+         Artifact.create_time_since_epoch,
+         Artifact.last_update_time_since_epoch,
+         Artifact.uri, Artifact.state
+  FROM Artifact
+       JOIN Type ON Artifact.type_id = Type.id
+       JOIN Attribution ON Artifact.id = Attribution.artifact_id
+) AS $1 ON $0.id = $1.context_id )sql";
+
+// TODO(b/226507742) Add support for external_id once it is rolled out to OSS.
+//  $0 is the base node table, $1 is the execution related neighborhood table.
+constexpr absl::string_view kExecutionJoinTableViaAssociation = R"sql(
+JOIN (
+  SELECT Execution.id, Execution.name,
+         Type.name as type,
+         Association.context_id,
+         Execution.create_time_since_epoch,
+         Execution.last_update_time_since_epoch,
+         Execution.last_known_state
+  FROM Execution
+       JOIN Type ON Execution.type_id = Type.id
+       JOIN Association ON Execution.id = Association.execution_id
+) AS $1 ON $0.id = $1.context_id )sql";
 
 // $0 is the base node table, $1 is the context related neighborhood table.
 constexpr absl::string_view kContextJoinTableViaAttribution = R"sql(
@@ -144,6 +173,26 @@ absl::string_view GetContextJoinTemplate() {
   }
 }
 
+// Returns the artifact join clause for context node type.
+template <typename T>
+absl::string_view GetArtifactJoinToContextTemplate() {
+  if constexpr (std::is_same<T, Context>::value) {
+    return kArtifactJoinTableViaAttribution;
+  }
+  LOG(ERROR) << "Artifact Join does not apply to T = Artifact or Execution.";
+  return "";
+}
+
+// Returns the execution join clause for context node type.
+template <typename T>
+absl::string_view GetExecutionJoinToContextTemplate() {
+  if constexpr (std::is_same<T, Context>::value) {
+    return kExecutionJoinTableViaAssociation;
+  }
+  LOG(ERROR) << "Execution Join does not apply to T = Artifact or Execution.";
+  return "";
+}
+
 template <typename T>
 absl::string_view GetEventJoinTemplate() {
   if constexpr (std::is_same<T, Artifact>::value) {
@@ -199,6 +248,20 @@ std::string FilterQueryBuilder<T>::GetContextJoinTable(
     absl::string_view base_alias, absl::string_view context_alias) {
   return absl::Substitute(GetContextJoinTemplate<T>(), base_alias,
                           context_alias);
+}
+
+template <typename T>
+std::string FilterQueryBuilder<T>::GetArtifactJoinTable(
+    absl::string_view base_alias, absl::string_view artifact_alias) {
+  return absl::Substitute(GetArtifactJoinToContextTemplate<T>(), base_alias,
+                          artifact_alias);
+}
+
+template <typename T>
+std::string FilterQueryBuilder<T>::GetExecutionJoinTable(
+    absl::string_view base_alias, absl::string_view execution_alias) {
+  return absl::Substitute(GetExecutionJoinToContextTemplate<T>(), base_alias,
+                          execution_alias);
 }
 
 template <typename T>
@@ -262,6 +325,16 @@ std::string FilterQueryBuilder<T>::GetFromClause() {
     const std::string& context_alias = mentioned_context.second;
     absl::StrAppend(&result, GetContextJoinTable(base_alias, context_alias));
   }
+  for (const auto& mentioned_artifact : mentioned_alias_[AtomType::ARTIFACT]) {
+    const std::string& artifact_alias = mentioned_artifact.second;
+    absl::StrAppend(&result, GetArtifactJoinTable(base_alias, artifact_alias));
+  }
+  for (const auto& mentioned_execution :
+       mentioned_alias_[AtomType::EXECUTION]) {
+    const std::string& execution_alias = mentioned_execution.second;
+    absl::StrAppend(&result,
+                    GetExecutionJoinTable(base_alias, execution_alias));
+  }
   for (const auto& mentioned_property : mentioned_alias_[AtomType::PROPERTY]) {
     const std::string& property_alias = mentioned_property.second;
     // property's name starts after prefix 'properties_'
@@ -322,6 +395,11 @@ absl::Status FilterQueryBuilder<T>::VisitResolvedExpressionColumn(
     if (absl::StartsWith(neighbor_name, "contexts_")) {
       // example output: table_i.name, table_i.type
       PushQueryFragment(node, GetTableAlias(AtomType::CONTEXT, neighbor_name));
+    } else if (absl::StartsWith(neighbor_name, "artifacts_")) {
+      PushQueryFragment(node, GetTableAlias(AtomType::ARTIFACT, neighbor_name));
+    } else if (absl::StartsWith(neighbor_name, "executions_")) {
+      PushQueryFragment(node,
+                        GetTableAlias(AtomType::EXECUTION, neighbor_name));
     } else if (absl::StartsWith(neighbor_name, "properties_")) {
       PushQueryFragment(node, GetTableAlias(AtomType::PROPERTY, neighbor_name));
     } else if (absl::StartsWith(neighbor_name, "custom_properties_")) {

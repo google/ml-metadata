@@ -85,6 +85,18 @@ constexpr QueryTestCase kInValidTestQueriesWithErrors[] = {
     {"contexts_0.foo", "Field name foo does not exist", exclude_context},
     {"contexts_0.id.", "Unexpected end of expression", exclude_context},
     {"contexts_0.id.bar", "Cannot access field bar", exclude_context},
+    // invalid artifact expressions
+    {"artifacts", "Unrecognized name"},
+    {"artifacts_0", "Unrecognized name"},
+    {"artifacts_0.foo", "Field name foo does not exist", context_only},
+    {"artifacts_0.id.", "Unexpected end of expression", context_only},
+    {"artifacts_0.id.bar", "Cannot access field bar", context_only},
+    // invalid execution expressions
+    {"executions", "Unrecognized name"},
+    {"executions_0", "Unrecognized name"},
+    {"executions_0.foo", "Field name foo does not exist", context_only},
+    {"executions_0.id.", "Unexpected end of expression", context_only},
+    {"executions_0.id.bar", "Cannot access field bar", context_only},
     // invalid property expressions
     {"properties", "Unrecognized name"},
     {"properties.foo", "Unrecognized name"},
@@ -162,6 +174,18 @@ constexpr QueryTestCase kValidTestQueries[] = {
     {"contexts_abc.type = 'foo'", "", exclude_context},
     {"contexts_abc.create_time_since_epoch = 1", "", exclude_context},
     {"contexts_abc.last_update_time_since_epoch = 1", "", exclude_context},
+    // artifact related expressions
+    {"artifacts_0.id = 1", "", context_only},
+    {"artifacts_2.name = '1'", "", context_only},
+    {"artifacts_abc.type = 'foo'", "", context_only},
+    {"artifacts_abc.create_time_since_epoch = 1", "", context_only},
+    {"artifacts_abc.last_update_time_since_epoch = 1", "", context_only},
+    // context related expressions
+    {"executions_0.id = 1", "", context_only},
+    {"executions_2.name = '1'", "", context_only},
+    {"executions_abc.type = 'foo'", "", context_only},
+    {"executions_abc.create_time_since_epoch = 1", "", context_only},
+    {"executions_abc.last_update_time_since_epoch = 1", "", context_only},
     // logical operators
     {"type_id = 1 AND uri != 'abc'", "", artifact_only},
     {"type_id = 1 OR uri != 'abc'", "", artifact_only},

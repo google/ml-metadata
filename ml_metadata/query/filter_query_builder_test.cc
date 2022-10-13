@@ -45,6 +45,8 @@ struct QueryTupleTestCase {
     std::vector<absl::string_view> parent_contexts;
     std::vector<absl::string_view> child_contexts;
     std::vector<absl::string_view> events;
+    std::vector<absl::string_view> artifacts;
+    std::vector<absl::string_view> executions;
   };
   const MentionedNeighbors join_mentions;
   const std::string where_clause;
@@ -76,6 +78,14 @@ struct QueryTupleTestCase {
     for (absl::string_view context_alias : join_mentions.contexts) {
       from_clause += FilterQueryBuilder<Node>::GetContextJoinTable(
           base_alias, context_alias);
+    }
+    for (absl::string_view artifact_alias : join_mentions.artifacts) {
+      from_clause += FilterQueryBuilder<Node>::GetArtifactJoinTable(
+          base_alias, artifact_alias);
+    }
+    for (absl::string_view execution_alias : join_mentions.executions) {
+      from_clause += FilterQueryBuilder<Node>::GetExecutionJoinTable(
+          base_alias, execution_alias);
     }
     for (const PropertyMention& property_mention : join_mentions.properties) {
       from_clause += FilterQueryBuilder<Node>::GetPropertyJoinTable(
@@ -120,9 +130,13 @@ QueryTupleTestCase::MentionedNeighbors JoinWith(
     std::vector<PropertyMention> custom_properties = {},
     std::vector<absl::string_view> parent_contexts = {},
     std::vector<absl::string_view> child_contexts = {},
-    std::vector<absl::string_view> events = {}) {
-  return {types,           contexts,       properties, custom_properties,
-          parent_contexts, child_contexts, events};
+    std::vector<absl::string_view> events = {},
+    std::vector<absl::string_view> artifacts = {},
+    std::vector<absl::string_view> executions = {}) {
+  return {
+      types,          contexts, properties, custom_properties, parent_contexts,
+      child_contexts, events,   artifacts,  executions,
+  };
 }
 
 QueryTupleTestCase::MentionedNeighbors JoinWithType(
@@ -174,6 +188,21 @@ QueryTupleTestCase::MentionedNeighbors JoinWithEvents(
                   /*child_contexts=*/{}, events_alias);
 }
 
+QueryTupleTestCase::MentionedNeighbors JoinWithArtifacts(
+    std::vector<absl::string_view> artifacts_alias) {
+  return JoinWith(/*types=*/{}, /*contexts=*/{}, /*properties=*/{},
+                  /*custom_properties=*/{}, /*parent_contexts=*/{},
+                  /*child_contexts=*/{}, /*events=*/{}, artifacts_alias);
+}
+
+QueryTupleTestCase::MentionedNeighbors JoinWithExecutions(
+    std::vector<absl::string_view> executions_alias) {
+  return JoinWith(/*types=*/{}, /*contexts=*/{}, /*properties=*/{},
+                  /*custom_properties=*/{}, /*parent_contexts=*/{},
+                  /*child_contexts=*/{}, /*events=*/{}, /*artifacts=*/{},
+                  executions_alias);
+}
+
 std::vector<QueryTupleTestCase> GetTestQueryTuples() {
   return {
       // basic type attributes conditions
@@ -222,6 +251,80 @@ std::vector<QueryTupleTestCase> GetTestQueryTuples() {
        "(((table_0.type_id) = 1) OR ((table_1.type) != (\"foo\"))) AND "
        "((table_2.id) = 1)",
        exclude_context},
+      // mention artifact (the neighbor only applies to context)
+      {"artifacts_0.id = 1", JoinWithArtifacts({"table_1"}), "(table_1.id) = 1",
+       context_only},
+      {"artifacts_0.uri like 'ab_c%'", JoinWithArtifacts({"table_1"}),
+       "(table_1.uri) LIKE (\"ab_c%\")", context_only},
+      {"artifacts_0.state = LIVE", JoinWithArtifacts({"table_1"}),
+       "(table_1.state) = 2", context_only},
+      // use multiple conditions on the same artifact
+      {"artifacts_0.id = 1 AND artifacts_0.name LIKE 'foo%'",
+       JoinWithArtifacts({"table_1"}),
+       "((table_1.id) = 1) AND ((table_1.name) LIKE (\"foo%\"))", context_only},
+      // use multiple conditions(including date fields) on the same artifact
+      {"artifacts_0.id = 1 AND artifacts_0.create_time_since_epoch > 1",
+       JoinWithArtifacts({"table_1"}),
+       "((table_1.id) = 1) AND ((table_1.create_time_since_epoch) > 1)",
+       context_only},
+      // use multiple conditions on different artifacts
+      {"artifacts_0.id = 1 AND artifacts_1.id != 2",
+       JoinWithArtifacts({"table_1", "table_2"}),
+       "((table_1.id) = 1) AND ((table_2.id) != 2)", context_only},
+      // use multiple conditions on different artifacts
+      {"artifacts_0.id = 1 AND artifacts_0.last_update_time_since_epoch < 1 "
+       "AND artifacts_1.id != 2",
+       JoinWithArtifacts({"table_1", "table_2"}),
+       "((table_1.id) = 1) AND ((table_1.last_update_time_since_epoch) < 1) "
+       "AND ((table_2.id) != 2)",
+       context_only},
+      // mix attributes and artifact together
+      {"type_id = 1 AND artifacts_0.id = 1", JoinWithArtifacts({"table_1"}),
+       "((table_0.type_id) = 1) AND ((table_1.id) = 1)", context_only},
+      // mix attributes (including type) and artifact together
+      {"(type_id = 1 OR type != 'foo') AND artifacts_0.id = 1",
+       JoinWith(/*types=*/{"table_1"}, {}, {}, {}, {}, {}, {},
+                /*artifacts=*/{"table_2"}),
+       "(((table_0.type_id) = 1) OR ((table_1.type) != (\"foo\"))) AND "
+       "((table_2.id) = 1)",
+       context_only},
+      // mention execution (the neighbor only applies to context)
+      {"executions_0.id = 1", JoinWithExecutions({"table_1"}),
+       "(table_1.id) = 1", context_only},
+      // use multiple conditions on the same execution
+      {"executions_0.id = 1 AND executions_0.name LIKE 'foo%'",
+       JoinWithExecutions({"table_1"}),
+       "((table_1.id) = 1) AND ((table_1.name) LIKE (\"foo%\"))", context_only},
+      // use multiple conditions(including date fields) on the same execution
+      {"executions_0.id = 1 AND executions_0.create_time_since_epoch > 1",
+       JoinWithExecutions({"table_1"}),
+       "((table_1.id) = 1) AND ((table_1.create_time_since_epoch) > 1)",
+       context_only},
+      // use multiple conditions on different executions
+      {"executions_0.id = 1 AND executions_1.id != 2",
+       JoinWithExecutions({"table_1", "table_2"}),
+       "((table_1.id) = 1) AND ((table_2.id) != 2)", context_only},
+      // use multiple conditions on different executions
+      {"executions_0.id = 1 AND executions_0.last_update_time_since_epoch < 1 "
+       "AND "
+       "executions_1.id != 2",
+       JoinWithExecutions({"table_1", "table_2"}),
+       "((table_1.id) = 1) AND ((table_1.last_update_time_since_epoch) < 1) "
+       "AND ((table_2.id) != 2)",
+       context_only},
+      // mix attributes and execution together
+      {"type_id = 1 AND executions_0.id = 1", JoinWithExecutions({"table_1"}),
+       "((table_0.type_id) = 1) AND ((table_1.id) = 1)", context_only},
+      // mix attributes (including type) and execution together
+      {"(type_id = 1 OR type != 'foo') AND executions_0.id = 1",
+       JoinWith(/*types=*/{"table_1"}, {}, {}, {}, {}, {}, {}, {},
+                /*executions=*/{"table_2"}),
+       "(((table_0.type_id) = 1) OR ((table_1.type) != (\"foo\"))) AND "
+       "((table_2.id) = 1)",
+       context_only},
+      {"executions_0.last_known_state = COMPLETE",
+       JoinWithExecutions({"table_1"}), "(table_1.last_known_state) = 3",
+       context_only},
       // mention properties
       {"properties.p0.int_value = 1", JoinWithProperty("table_1", "p0"),
        "(table_1.int_value) = 1"},
