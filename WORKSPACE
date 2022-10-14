@@ -109,9 +109,9 @@ protobuf_deps()
 http_archive(
     name = "zlib",
     build_file = "@com_google_protobuf//:third_party/zlib.BUILD",
-    sha256 = "b3a24de97a8fdbc835b9833169501030b8977031bcb54b3b3ac13740f846ab30",
-    strip_prefix = "zlib-1.2.13",
-    urls = ["https://zlib.net/zlib-1.2.13.tar.gz"],
+    sha256 = "d8688496ea40fb61787500e863cc63c9afcbc524468cedeb478068924eb54932",
+    strip_prefix = "zlib-1.2.12",
+    urls = ["https://github.com/madler/zlib/archive/v1.2.12.tar.gz"],
 )
 
 # pybind11
