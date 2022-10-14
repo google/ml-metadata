@@ -36,8 +36,6 @@ message Value {
     int64 int_value = 1;
     double double_value = 2;
     string string_value = 3;
-    // Prefer to use `proto_value` to store structed data since this option has
-    // inefficient database storage usage.
     google.protobuf.Struct struct_value = 4;
     // proto_value NOT SUPPORTED in OSS version
     // TODO(b/251025280): support proto_value for OSS version
