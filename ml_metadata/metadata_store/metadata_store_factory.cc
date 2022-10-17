@@ -33,9 +33,9 @@ namespace {
 absl::Status CreateMySQLMetadataStore(const MySQLDatabaseConfig& config,
                                       const MigrationOptions& migration_options,
                                       std::unique_ptr<MetadataStore>* result) {
-  auto metadata_source = absl::make_unique<MySqlMetadataSource>(config);
+  auto metadata_source = std::make_unique<MySqlMetadataSource>(config);
   auto transaction_executor =
-      absl::make_unique<RdbmsTransactionExecutor>(metadata_source.get());
+      std::make_unique<RdbmsTransactionExecutor>(metadata_source.get());
   MLMD_RETURN_IF_ERROR(MetadataStore::Create(
       util::GetMySqlMetadataSourceQueryConfig(), migration_options,
       std::move(metadata_source), std::move(transaction_executor), result));
@@ -56,9 +56,9 @@ absl::Status CreateSqliteMetadataStore(
     const SqliteMetadataSourceConfig& config,
     const MigrationOptions& migration_options,
     std::unique_ptr<MetadataStore>* result) {
-  auto metadata_source = absl::make_unique<SqliteMetadataSource>(config);
+  auto metadata_source = std::make_unique<SqliteMetadataSource>(config);
   auto transaction_executor =
-      absl::make_unique<RdbmsTransactionExecutor>(metadata_source.get());
+      std::make_unique<RdbmsTransactionExecutor>(metadata_source.get());
   MLMD_RETURN_IF_ERROR(MetadataStore::Create(
       util::GetSqliteMetadataSourceQueryConfig(), migration_options,
       std::move(metadata_source), std::move(transaction_executor), result));

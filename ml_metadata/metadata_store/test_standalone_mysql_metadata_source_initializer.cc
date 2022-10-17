@@ -63,7 +63,7 @@ class TestStandaloneMySqlMetadataSourceInitializer
                      << static_cast<int>(connection_type);
     }
 
-    metadata_source_ = absl::make_unique<MySqlMetadataSource>(config);
+    metadata_source_ = std::make_unique<MySqlMetadataSource>(config);
     CHECK_EQ(absl::OkStatus(), metadata_source_->Connect());
     CHECK_EQ(absl::OkStatus(), metadata_source_->Begin());
     CHECK_EQ(absl::OkStatus(),
@@ -82,7 +82,7 @@ class TestStandaloneMySqlMetadataSourceInitializer
 
 std::unique_ptr<TestMySqlMetadataSourceInitializer>
 GetTestMySqlMetadataSourceInitializer() {
-  return absl::make_unique<TestStandaloneMySqlMetadataSourceInitializer>();
+  return std::make_unique<TestStandaloneMySqlMetadataSourceInitializer>();
 }
 
 }  // namespace testing

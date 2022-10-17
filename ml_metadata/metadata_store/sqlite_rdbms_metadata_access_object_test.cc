@@ -56,7 +56,7 @@ class SqliteRDBMSMetadataAccessObjectContainer
       : QueryConfigRDBMSMetadataAccessObjectContainer(
             util::GetSqliteMetadataSourceQueryConfig()) {
     SqliteMetadataSourceConfig config;
-    metadata_source_ = absl::make_unique<SqliteMetadataSource>(config);
+    metadata_source_ = std::make_unique<SqliteMetadataSource>(config);
     CHECK_EQ(
         absl::OkStatus(),
         CreateRDBMSMetadataAccessObject(
@@ -83,7 +83,7 @@ class SqliteRDBMSMetadataAccessObjectContainer
 INSTANTIATE_TEST_SUITE_P(
     SqliteRDBMSMetadataAccessObjectTest, RDBMSMetadataAccessObjectTest,
     ::testing::Values([]() {
-      return absl::make_unique<SqliteRDBMSMetadataAccessObjectContainer>();
+      return std::make_unique<SqliteRDBMSMetadataAccessObjectContainer>();
     }));
 
 }  // namespace testing

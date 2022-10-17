@@ -121,7 +121,7 @@ TEST(MySqlMetadataSourceExtendedTest, TestEscapeString) {
 INSTANTIATE_TEST_SUITE_P(
     MysqlMetadataSourceCommonTest, MetadataSourceTestSuite,
     ::testing::Values([]() {
-      return absl::make_unique<MysqlMetadataSourceContainer>();
+      return std::make_unique<MysqlMetadataSourceContainer>();
     }));
 
 }  // namespace testing

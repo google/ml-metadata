@@ -39,7 +39,7 @@ class SqliteQueryConfigExecutorContainer : public QueryConfigExecutorContainer {
       : QueryConfigExecutorContainer(
             util::GetSqliteMetadataSourceQueryConfig()) {
     SqliteMetadataSourceConfig config;
-    metadata_source_ = absl::make_unique<SqliteMetadataSource>(config);
+    metadata_source_ = std::make_unique<SqliteMetadataSource>(config);
     if (!metadata_source_->is_connected())
       CHECK_EQ(absl::OkStatus(), metadata_source_->Connect());
     query_executor_ = absl::WrapUnique(new QueryConfigExecutor(
@@ -62,7 +62,7 @@ class SqliteQueryConfigExecutorContainer : public QueryConfigExecutorContainer {
 
 INSTANTIATE_TEST_SUITE_P(
     SqliteQueryConfigExecutorTest, QueryExecutorTest, ::testing::Values([]() {
-      return absl::make_unique<SqliteQueryConfigExecutorContainer>();
+      return std::make_unique<SqliteQueryConfigExecutorContainer>();
     }));
 
 }  // namespace testing

@@ -33,12 +33,12 @@ class SqliteMetadataSourceContainer : public MetadataSourceContainer {
  public:
   SqliteMetadataSourceContainer() : MetadataSourceContainer() {
     SqliteMetadataSourceConfig config;
-    metadata_source_ = absl::make_unique<SqliteMetadataSource>(config);
+    metadata_source_ = std::make_unique<SqliteMetadataSource>(config);
   }
 
   explicit SqliteMetadataSourceContainer(SqliteMetadataSourceConfig config)
       : MetadataSourceContainer() {
-    metadata_source_ = absl::make_unique<SqliteMetadataSource>(config);
+    metadata_source_ = std::make_unique<SqliteMetadataSource>(config);
   }
 
   ~SqliteMetadataSourceContainer() override = default;
@@ -91,7 +91,7 @@ TEST(SqliteMetadataSourceExtendedTest, TestEscapeString) {
 INSTANTIATE_TEST_SUITE_P(
     SqliteMetadataSourceCommonTest, MetadataSourceTestSuite,
     ::testing::Values([]() {
-      return absl::make_unique<SqliteMetadataSourceContainer>();
+      return std::make_unique<SqliteMetadataSourceContainer>();
     }));
 
 }  // namespace testing

@@ -250,7 +250,7 @@ using MetadataAccessObjectContainerFactory =
 //   INSTANTIATE_TEST_CASE_P(
 //       FooMetadataAccessObjectTest, MetadataAccessObjectTest,
 //       ::testing::Values([]() {
-//         return absl::make_unique<FakeMetadataAccessObjectContainer>();
+//         return std::make_unique<FakeMetadataAccessObjectContainer>();
 //       }));
 //
 // See concrete metadata_access_object_test.cc for examples.

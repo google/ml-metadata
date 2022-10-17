@@ -41,9 +41,9 @@ using ::testing::UnorderedPointwise;
 
 std::unique_ptr<MetadataStore> CreateMetadataStore() {
   auto metadata_source =
-      absl::make_unique<SqliteMetadataSource>(SqliteMetadataSourceConfig());
+      std::make_unique<SqliteMetadataSource>(SqliteMetadataSourceConfig());
   auto transaction_executor =
-      absl::make_unique<RdbmsTransactionExecutor>(metadata_source.get());
+      std::make_unique<RdbmsTransactionExecutor>(metadata_source.get());
 
   std::unique_ptr<MetadataStore> metadata_store;
   CHECK_EQ(
@@ -537,7 +537,7 @@ TEST(MetadataStoreExtendedTest, GetLineageGraphErrors) {
 
 INSTANTIATE_TEST_SUITE_P(
     MetadataStoreTest, MetadataStoreTestSuite, ::testing::Values([]() {
-      return absl::make_unique<RDBMSMetadataStoreContainer>();
+      return std::make_unique<RDBMSMetadataStoreContainer>();
     }));
 
 }  // namespace testing

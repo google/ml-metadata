@@ -14,6 +14,8 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/metadata_access_object_factory.h"
 
+#include <memory>
+
 #include <glog/logging.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -32,7 +34,7 @@ namespace {
 TEST(MetadataAccessObjectFactory, CreateMetadataAccessObject) {
   SqliteMetadataSourceConfig config;
   std::unique_ptr<MetadataSource> metadata_source =
-      absl::make_unique<SqliteMetadataSource>(config);
+      std::make_unique<SqliteMetadataSource>(config);
   std::unique_ptr<MetadataAccessObject> metadata_access_object;
   ASSERT_EQ(absl::OkStatus(),
             CreateMetadataAccessObject(
@@ -60,7 +62,7 @@ TEST(MetadataAccessObjectFactory, CreateMetadataAccessObjectAtSchemaVersion7) {
   const int64 earlier_schema_version = kLibSchemaVersion - 1;
   SqliteMetadataSourceConfig config;
   std::unique_ptr<MetadataSource> metadata_source =
-      absl::make_unique<SqliteMetadataSource>(config);
+      std::make_unique<SqliteMetadataSource>(config);
 
   {
     std::unique_ptr<MetadataAccessObject> metadata_access_object;
