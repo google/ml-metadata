@@ -248,6 +248,5 @@ load("//ml_metadata:workspace.bzl", "ml_metadata_workspace")
 ml_metadata_workspace()
 
 # Specify the minimum required bazel version.
-load("//ml_metadata:version_check.bzl", "check_bazel_version_at_least")
-
-check_bazel_version_at_least("3.7.2")
+load("@bazel_skylib//lib:versions.bzl", "versions")
+versions.check("3.7.2")
