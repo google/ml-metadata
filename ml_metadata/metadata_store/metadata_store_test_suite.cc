@@ -4012,6 +4012,98 @@ TEST_P(MetadataStoreTestSuite,
   EXPECT_TRUE(get_nodes_response.next_page_token().empty());
 }
 
+TEST_P(MetadataStoreTestSuite, GetExecutionsByContextWithFilterStateQuery) {
+  // Insert context and execution types.
+  PutTypesRequest put_types_request = ParseTextProtoOrDie<PutTypesRequest>(R"pb(
+    context_types: { name: 'context_type' }
+    execution_types: { name: 'execution_type' }
+  )pb");
+  PutTypesResponse put_types_response;
+  ASSERT_EQ(metadata_store_->PutTypes(put_types_request, &put_types_response),
+            absl::OkStatus());
+  int64 context_type_id = put_types_response.context_type_ids(0);
+  int64 execution_type_id = put_types_response.execution_type_ids(0);
+
+  // Insert two contexts.
+  Context context1, context2;
+  context1.set_type_id(context_type_id);
+  context1.set_name("context1");
+  context2.set_type_id(context_type_id);
+  context2.set_name("context2");
+  PutContextsRequest put_context_request;
+  *put_context_request.add_contexts() = context1;
+  *put_context_request.add_contexts() = context2;
+  PutContextsResponse put_context_response;
+  ASSERT_EQ(
+      metadata_store_->PutContexts(put_context_request, &put_context_response),
+      absl::OkStatus());
+  context1.set_id(put_context_response.context_ids(0));
+  context2.set_id(put_context_response.context_ids(1));
+
+  // Insert two executions associated with each context.
+  Execution execution1, execution2;
+  execution1.set_type_id(execution_type_id);
+  execution1.set_last_known_state(Execution::NEW);
+  execution1.set_name("execution1");
+  execution2.set_type_id(execution_type_id);
+  execution2.set_last_known_state(Execution::RUNNING);
+  execution2.set_name("execution2");
+  PutExecutionRequest put_execution_request1;
+  *put_execution_request1.mutable_execution() = execution1;
+  *put_execution_request1.add_contexts() = context1;
+  PutExecutionResponse put_execution_response1;
+  ASSERT_EQ(metadata_store_->PutExecution(put_execution_request1,
+                                          &put_execution_response1),
+            absl::OkStatus());
+  execution1.set_id(put_execution_response1.execution_id());
+
+  PutExecutionRequest put_execution_request2;
+  *put_execution_request2.mutable_execution() = execution2;
+  *put_execution_request2.add_contexts() = context2;
+  PutExecutionResponse put_execution_response2;
+  ASSERT_EQ(metadata_store_->PutExecution(put_execution_request2,
+                                          &put_execution_response2),
+            absl::OkStatus());
+  execution2.set_id(put_execution_response2.execution_id());
+
+  // Test: GetExecutionsByContext for one context should only return the
+  // executions associated with that context even when filter query matches the
+  // executions for another context.
+  {
+    GetExecutionsByContextRequest get_executions_request;
+    GetExecutionsByContextResponse get_executions_response;
+    get_executions_request.mutable_options()->set_filter_query(
+        R"( last_known_state = NEW OR last_known_state = RUNNING )");
+    get_executions_request.set_context_id(context1.id());
+    ASSERT_EQ(metadata_store_->GetExecutionsByContext(get_executions_request,
+                                                      &get_executions_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_executions_response.executions(), SizeIs(1));
+    EXPECT_THAT(
+        get_executions_response.executions(0),
+        EqualsProto(execution1,
+                    /*ignore_fields=*/{"create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
+  }
+
+  {
+    GetExecutionsByContextRequest get_executions_request;
+    GetExecutionsByContextResponse get_executions_response;
+    get_executions_request.mutable_options()->set_filter_query(
+        R"( last_known_state = NEW OR last_known_state = RUNNING )");
+    get_executions_request.set_context_id(context2.id());
+    ASSERT_EQ(metadata_store_->GetExecutionsByContext(get_executions_request,
+                                                      &get_executions_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_executions_response.executions(), SizeIs(1));
+    EXPECT_THAT(
+        get_executions_response.executions(0),
+        EqualsProto(execution2,
+                    /*ignore_fields=*/{"create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
+  }
+}
+
 TEST_P(MetadataStoreTestSuite, GetExecutionFilterWithSpecialChars) {
   PutTypesRequest put_types_request = ParseTextProtoOrDie<PutTypesRequest>(R"pb(
     context_types: { name: 'context_type' }

@@ -5429,6 +5429,85 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIds) {
                                               "last_update_time_since_epoch"}));
 }
 
+TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIdsFilterPropertyQuery) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  int64 type1_id = InsertType<ArtifactType>("test_type1");
+  Artifact artifact1 = ParseTextProtoOrDie<Artifact>(R"pb(
+    uri: 'testuri://testing/uri1'
+    custom_properties {
+      key: 'custom_property_1'
+      value: { int_value: 1 }
+    }
+  )pb");
+  artifact1.set_type_id(type1_id);
+  int64 artifact1_id;
+  ASSERT_EQ(metadata_access_object_->CreateArtifact(artifact1, &artifact1_id),
+            absl::OkStatus());
+
+  Artifact artifact2 = ParseTextProtoOrDie<Artifact>(R"pb(
+    uri: 'testuri://testing/uri1'
+    custom_properties {
+      key: 'custom_property_1'
+      value: { int_value: 2 }
+    }
+  )pb");
+  artifact2.set_type_id(type1_id);
+  int64 artifact2_id;
+  ASSERT_EQ(metadata_access_object_->CreateArtifact(artifact2, &artifact2_id),
+            absl::OkStatus());
+
+  int64 type2_id = InsertType<ArtifactType>("test_type2");
+  Artifact artifact3 = ParseTextProtoOrDie<Artifact>(R"pb(
+    uri: 'testuri://testing/uri1'
+    custom_properties {
+      key: 'custom_property_1'
+      value: { int_value: 3 }
+    }
+  )pb");
+  artifact3.set_type_id(type2_id);
+  int64 artifact3_id;
+  ASSERT_EQ(metadata_access_object_->CreateArtifact(artifact3, &artifact3_id),
+            absl::OkStatus());
+
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  ListOperationOptions list_options =
+      ParseTextProtoOrDie<ListOperationOptions>(R"pb(
+        max_result_size: 10,
+        order_by_field: { field: CREATE_TIME is_asc: true }
+        filter_query: "custom_properties.custom_property_1.int_value = 1 OR "
+                      "custom_properties.custom_property_1.int_value = 2 OR "
+                      "custom_properties.custom_property_1.int_value = 3"
+      )pb");
+
+  std::vector<Artifact> got_artifacts;
+  std::string next_page_token;
+  ASSERT_EQ(metadata_access_object_->FindArtifactsByTypeId(
+                type1_id, absl::make_optional(list_options), &got_artifacts,
+                &next_page_token),
+            absl::OkStatus());
+  ASSERT_THAT(got_artifacts, SizeIs(2));
+  EXPECT_THAT(
+      got_artifacts,
+      UnorderedElementsAre(
+          EqualsProto(artifact1,
+                      /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                         "last_update_time_since_epoch"}),
+          EqualsProto(artifact2,
+                      /*ignore_fields=*/{"id", "create_time_since_epoch",
+                                         "last_update_time_since_epoch"})));
+
+  got_artifacts.clear();
+  ASSERT_EQ(metadata_access_object_->FindArtifactsByTypeId(
+                type2_id, absl::make_optional(list_options), &got_artifacts,
+                &next_page_token),
+            absl::OkStatus());
+  ASSERT_THAT(got_artifacts, SizeIs(1));
+  EXPECT_THAT(artifact3, EqualsProto(got_artifacts[0], /*ignore_fields=*/{
+                                         "id", "create_time_since_epoch",
+                                         "last_update_time_since_epoch"}));
+}
+
 TEST_P(MetadataAccessObjectTest, FindArtifactByTypeIdAndArtifactName) {
   ASSERT_EQ(absl::OkStatus(), Init());
   int64 type_id = InsertType<ArtifactType>("test_type");
@@ -7221,6 +7300,110 @@ TEST_P(MetadataAccessObjectTest, GetAssociationUsingPagination) {
                 context_id, list_options, &got_executions, &next_page_token));
   EXPECT_THAT(got_executions, SizeIs(1));
   EXPECT_THAT(execution1, EqualsProto(got_executions[0], /*ignore_fields=*/{
+                                          "create_time_since_epoch",
+                                          "last_update_time_since_epoch"}));
+  ASSERT_TRUE(next_page_token.empty());
+}
+
+TEST_P(MetadataAccessObjectTest, GetAssociationFilterStateQuery) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  int64 execution_type_id = InsertType<ExecutionType>("execution_type");
+  int64 context_type_id = InsertType<ContextType>("context_type");
+  Execution execution1;
+  execution1.set_type_id(execution_type_id);
+  execution1.set_last_known_state(Execution::NEW);
+  Execution execution2;
+  execution2.set_type_id(execution_type_id);
+  execution2.set_last_known_state(Execution::RUNNING);
+
+  Context context1 = ParseTextProtoOrDie<Context>("name: 'context_1'");
+  context1.set_type_id(context_type_id);
+  Context context2 = ParseTextProtoOrDie<Context>("name: 'context_2'");
+  context2.set_type_id(context_type_id);
+
+  int64 execution_id_1, execution_id_2, context_id_1, context_id_2;
+  ASSERT_EQ(
+      metadata_access_object_->CreateExecution(execution1, &execution_id_1),
+      absl::OkStatus());
+  execution1.set_id(execution_id_1);
+  ASSERT_EQ(
+      metadata_access_object_->CreateExecution(execution2, &execution_id_2),
+      absl::OkStatus());
+  execution2.set_id(execution_id_2);
+
+  ASSERT_EQ(metadata_access_object_->CreateContext(context1, &context_id_1),
+            absl::OkStatus());
+  context1.set_id(context_id_1);
+  ASSERT_EQ(metadata_access_object_->CreateContext(context2, &context_id_2),
+            absl::OkStatus());
+  context2.set_id(context_id_2);
+
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Association association1;
+  association1.set_execution_id(execution_id_1);
+  association1.set_context_id(context_id_1);
+
+  Association association2;
+  association2.set_execution_id(execution_id_2);
+  association2.set_context_id(context_id_2);
+
+  int64 association_id_1;
+  EXPECT_EQ(metadata_access_object_->CreateAssociation(association1,
+                                                       &association_id_1),
+            absl::OkStatus());
+  int64 association_id_2;
+  EXPECT_EQ(metadata_access_object_->CreateAssociation(association2,
+                                                       &association_id_2),
+            absl::OkStatus());
+
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  std::string next_page_token;
+  std::vector<Execution> got_executions;
+  got_executions.clear();
+  ASSERT_EQ(metadata_access_object_->FindExecutionsByContext(
+                context_id_1, absl::nullopt, &got_executions, &next_page_token),
+            absl::OkStatus());
+  ASSERT_THAT(got_executions, SizeIs(1));
+  EXPECT_THAT(execution1, EqualsProto(got_executions[0], /*ignore_fields=*/{
+                                          "create_time_since_epoch",
+                                          "last_update_time_since_epoch"}));
+  ASSERT_TRUE(next_page_token.empty());
+
+  got_executions.clear();
+  ASSERT_EQ(metadata_access_object_->FindExecutionsByContext(
+                context_id_2, absl::nullopt, &got_executions, &next_page_token),
+            absl::OkStatus());
+  ASSERT_THAT(got_executions, SizeIs(1));
+  EXPECT_THAT(execution2, EqualsProto(got_executions[0], /*ignore_fields=*/{
+                                          "create_time_since_epoch",
+                                          "last_update_time_since_epoch"}));
+  ASSERT_TRUE(next_page_token.empty());
+
+  ListOperationOptions list_options =
+      ParseTextProtoOrDie<ListOperationOptions>(R"pb(
+        max_result_size: 1,
+        order_by_field: { field: CREATE_TIME is_asc: false }
+        filter_query: "last_known_state = NEW OR last_known_state = RUNNING"
+      )pb");
+
+  got_executions.clear();
+  ASSERT_EQ(metadata_access_object_->FindExecutionsByContext(
+                context_id_1, list_options, &got_executions, &next_page_token),
+            absl::OkStatus());
+  ASSERT_THAT(got_executions, SizeIs(1));
+  EXPECT_THAT(execution1, EqualsProto(got_executions[0], /*ignore_fields=*/{
+                                          "create_time_since_epoch",
+                                          "last_update_time_since_epoch"}));
+  ASSERT_TRUE(next_page_token.empty());
+
+  got_executions.clear();
+  ASSERT_EQ(metadata_access_object_->FindExecutionsByContext(
+                context_id_2, list_options, &got_executions, &next_page_token),
+            absl::OkStatus());
+  ASSERT_THAT(got_executions, SizeIs(1));
+  EXPECT_THAT(execution2, EqualsProto(got_executions[0], /*ignore_fields=*/{
                                           "create_time_since_epoch",
                                           "last_update_time_since_epoch"}));
   ASSERT_TRUE(next_page_token.empty());

@@ -206,151 +206,153 @@ QueryTupleTestCase::MentionedNeighbors JoinWithExecutions(
 std::vector<QueryTupleTestCase> GetTestQueryTuples() {
   return {
       // basic type attributes conditions
-      {"type_id = 1", NoJoin(), "(table_0.type_id) = 1"},
-      {"NOT(type_id = 1)", NoJoin(), "NOT ((table_0.type_id) = 1)"},
-      {"type = 'foo'", JoinWithType("table_1"), "(table_1.type) = (\"foo\")"},
+      {"type_id = 1", NoJoin(), "((table_0.type_id) = 1)"},
+      {"NOT(type_id = 1)", NoJoin(), "(NOT ((table_0.type_id) = 1))"},
+      {"type = 'foo'", JoinWithType("table_1"), "((table_1.type) = (\"foo\"))"},
       // artifact-only attributes
-      {"uri like 'abc'", NoJoin(), "(table_0.uri) LIKE (\"abc\")",
+      {"uri like 'abc'", NoJoin(), "((table_0.uri) LIKE (\"abc\"))",
        artifact_only},
       {"state = LIVE AND state = DELETED", NoJoin(),
-       "((table_0.state) = 2) AND ((table_0.state) = 4)", artifact_only},
+       "(((table_0.state) = 2) AND ((table_0.state) = 4))", artifact_only},
       // execution-only attributes
       {"last_known_state = NEW OR last_known_state = COMPLETE", NoJoin(),
-       "((table_0.last_known_state) = 1) OR ((table_0.last_known_state) = 3)",
+       "(((table_0.last_known_state) = 1) OR ((table_0.last_known_state) = 3))",
        execution_only},
       // mention context (the neighbor only applies to artifact/execution)
-      {"contexts_0.id = 1", JoinWithContexts({"table_1"}), "(table_1.id) = 1",
+      {"contexts_0.id = 1", JoinWithContexts({"table_1"}), "((table_1.id) = 1)",
        exclude_context},
       // use multiple conditions on the same context
       {"contexts_0.id = 1 AND contexts_0.name LIKE 'foo%'",
        JoinWithContexts({"table_1"}),
-       "((table_1.id) = 1) AND ((table_1.name) LIKE (\"foo%\"))",
+       "(((table_1.id) = 1) AND ((table_1.name) LIKE (\"foo%\")))",
        exclude_context},
       // use multiple conditions(including date fields) on the same context
       {"contexts_0.id = 1 AND contexts_0.create_time_since_epoch > 1",
        JoinWithContexts({"table_1"}),
-       "((table_1.id) = 1) AND ((table_1.create_time_since_epoch) > 1)",
+       "(((table_1.id) = 1) AND ((table_1.create_time_since_epoch) > 1))",
        exclude_context},
       // use multiple conditions on different contexts
       {"contexts_0.id = 1 AND contexts_1.id != 2",
        JoinWithContexts({"table_1", "table_2"}),
-       "((table_1.id) = 1) AND ((table_2.id) != 2)", exclude_context},
+       "(((table_1.id) = 1) AND ((table_2.id) != 2))", exclude_context},
       // use multiple conditions on different contexts
       {"contexts_0.id = 1 AND contexts_0.last_update_time_since_epoch < 1 AND "
        "contexts_1.id != 2",
        JoinWithContexts({"table_1", "table_2"}),
-       "((table_1.id) = 1) AND ((table_1.last_update_time_since_epoch) < 1) "
-       "AND ((table_2.id) != 2)",
+       "(((table_1.id) = 1) AND ((table_1.last_update_time_since_epoch) < 1) "
+       "AND ((table_2.id) != 2))",
        exclude_context},
       // mix attributes and context together
       {"type_id = 1 AND contexts_0.id = 1", JoinWithContexts({"table_1"}),
-       "((table_0.type_id) = 1) AND ((table_1.id) = 1)", exclude_context},
+       "(((table_0.type_id) = 1) AND ((table_1.id) = 1))", exclude_context},
       // mix attributes (including type) and context together
       {"(type_id = 1 OR type != 'foo') AND contexts_0.id = 1",
        JoinWith(/*types=*/{"table_1"}, /*contexts=*/{"table_2"}),
-       "(((table_0.type_id) = 1) OR ((table_1.type) != (\"foo\"))) AND "
-       "((table_2.id) = 1)",
+       "((((table_0.type_id) = 1) OR ((table_1.type) != (\"foo\"))) AND "
+       "((table_2.id) = 1))",
        exclude_context},
       // mention artifact (the neighbor only applies to context)
-      {"artifacts_0.id = 1", JoinWithArtifacts({"table_1"}), "(table_1.id) = 1",
-       context_only},
+      {"artifacts_0.id = 1", JoinWithArtifacts({"table_1"}),
+       "((table_1.id) = 1)", context_only},
       {"artifacts_0.uri like 'ab_c%'", JoinWithArtifacts({"table_1"}),
-       "(table_1.uri) LIKE (\"ab_c%\")", context_only},
+       "((table_1.uri) LIKE (\"ab_c%\"))", context_only},
       {"artifacts_0.state = LIVE", JoinWithArtifacts({"table_1"}),
-       "(table_1.state) = 2", context_only},
+       "((table_1.state) = 2)", context_only},
       // use multiple conditions on the same artifact
       {"artifacts_0.id = 1 AND artifacts_0.name LIKE 'foo%'",
        JoinWithArtifacts({"table_1"}),
-       "((table_1.id) = 1) AND ((table_1.name) LIKE (\"foo%\"))", context_only},
+       "(((table_1.id) = 1) AND ((table_1.name) LIKE (\"foo%\")))",
+       context_only},
       // use multiple conditions(including date fields) on the same artifact
       {"artifacts_0.id = 1 AND artifacts_0.create_time_since_epoch > 1",
        JoinWithArtifacts({"table_1"}),
-       "((table_1.id) = 1) AND ((table_1.create_time_since_epoch) > 1)",
+       "(((table_1.id) = 1) AND ((table_1.create_time_since_epoch) > 1))",
        context_only},
       // use multiple conditions on different artifacts
       {"artifacts_0.id = 1 AND artifacts_1.id != 2",
        JoinWithArtifacts({"table_1", "table_2"}),
-       "((table_1.id) = 1) AND ((table_2.id) != 2)", context_only},
+       "(((table_1.id) = 1) AND ((table_2.id) != 2))", context_only},
       // use multiple conditions on different artifacts
       {"artifacts_0.id = 1 AND artifacts_0.last_update_time_since_epoch < 1 "
        "AND artifacts_1.id != 2",
        JoinWithArtifacts({"table_1", "table_2"}),
-       "((table_1.id) = 1) AND ((table_1.last_update_time_since_epoch) < 1) "
-       "AND ((table_2.id) != 2)",
+       "(((table_1.id) = 1) AND ((table_1.last_update_time_since_epoch) < 1) "
+       "AND ((table_2.id) != 2))",
        context_only},
       // mix attributes and artifact together
       {"type_id = 1 AND artifacts_0.id = 1", JoinWithArtifacts({"table_1"}),
-       "((table_0.type_id) = 1) AND ((table_1.id) = 1)", context_only},
+       "(((table_0.type_id) = 1) AND ((table_1.id) = 1))", context_only},
       // mix attributes (including type) and artifact together
       {"(type_id = 1 OR type != 'foo') AND artifacts_0.id = 1",
        JoinWith(/*types=*/{"table_1"}, {}, {}, {}, {}, {}, {},
                 /*artifacts=*/{"table_2"}),
-       "(((table_0.type_id) = 1) OR ((table_1.type) != (\"foo\"))) AND "
-       "((table_2.id) = 1)",
+       "((((table_0.type_id) = 1) OR ((table_1.type) != (\"foo\"))) AND "
+       "((table_2.id) = 1))",
        context_only},
       // mention execution (the neighbor only applies to context)
       {"executions_0.id = 1", JoinWithExecutions({"table_1"}),
-       "(table_1.id) = 1", context_only},
+       "((table_1.id) = 1)", context_only},
       // use multiple conditions on the same execution
       {"executions_0.id = 1 AND executions_0.name LIKE 'foo%'",
        JoinWithExecutions({"table_1"}),
-       "((table_1.id) = 1) AND ((table_1.name) LIKE (\"foo%\"))", context_only},
+       "(((table_1.id) = 1) AND ((table_1.name) LIKE (\"foo%\")))",
+       context_only},
       // use multiple conditions(including date fields) on the same execution
       {"executions_0.id = 1 AND executions_0.create_time_since_epoch > 1",
        JoinWithExecutions({"table_1"}),
-       "((table_1.id) = 1) AND ((table_1.create_time_since_epoch) > 1)",
+       "(((table_1.id) = 1) AND ((table_1.create_time_since_epoch) > 1))",
        context_only},
       // use multiple conditions on different executions
       {"executions_0.id = 1 AND executions_1.id != 2",
        JoinWithExecutions({"table_1", "table_2"}),
-       "((table_1.id) = 1) AND ((table_2.id) != 2)", context_only},
+       "(((table_1.id) = 1) AND ((table_2.id) != 2))", context_only},
       // use multiple conditions on different executions
       {"executions_0.id = 1 AND executions_0.last_update_time_since_epoch < 1 "
        "AND "
        "executions_1.id != 2",
        JoinWithExecutions({"table_1", "table_2"}),
-       "((table_1.id) = 1) AND ((table_1.last_update_time_since_epoch) < 1) "
-       "AND ((table_2.id) != 2)",
+       "(((table_1.id) = 1) AND ((table_1.last_update_time_since_epoch) < 1) "
+       "AND ((table_2.id) != 2))",
        context_only},
       // mix attributes and execution together
       {"type_id = 1 AND executions_0.id = 1", JoinWithExecutions({"table_1"}),
-       "((table_0.type_id) = 1) AND ((table_1.id) = 1)", context_only},
+       "(((table_0.type_id) = 1) AND ((table_1.id) = 1))", context_only},
       // mix attributes (including type) and execution together
       {"(type_id = 1 OR type != 'foo') AND executions_0.id = 1",
        JoinWith(/*types=*/{"table_1"}, {}, {}, {}, {}, {}, {}, {},
                 /*executions=*/{"table_2"}),
-       "(((table_0.type_id) = 1) OR ((table_1.type) != (\"foo\"))) AND "
-       "((table_2.id) = 1)",
+       "((((table_0.type_id) = 1) OR ((table_1.type) != (\"foo\"))) AND "
+       "((table_2.id) = 1))",
        context_only},
       {"executions_0.last_known_state = COMPLETE",
-       JoinWithExecutions({"table_1"}), "(table_1.last_known_state) = 3",
+       JoinWithExecutions({"table_1"}), "((table_1.last_known_state) = 3)",
        context_only},
       // mention properties
       {"properties.p0.int_value = 1", JoinWithProperty("table_1", "p0"),
-       "(table_1.int_value) = 1"},
+       "((table_1.int_value) = 1)"},
       // properties with backquoted names
       {"properties.`0:b`.int_value = 1", JoinWithProperty("table_1", "0:b"),
-       "(table_1.int_value) = 1"},
+       "((table_1.int_value) = 1)"},
       {"custom_properties.`0 b`.string_value != '1'",
        JoinWithCustomProperty("table_1", "0 b"),
-       "(table_1.string_value) != (\"1\")"},
+       "((table_1.string_value) != (\"1\"))"},
       {"properties.`0:b`.int_value = 1 AND "
        "properties.foo.double_value > 1 AND "
        "custom_properties.`0 b`.string_value != '1'",
        JoinWithProperties(
            /*properties=*/{{"table_1", "0:b"}, {"table_2", "foo"}},
            /*custom_properties=*/{{"table_3", "0 b"}}),
-       "((table_1.int_value) = 1) AND ((table_2.double_value) > (1.0)) AND "
-       "((table_3.string_value) != (\"1\"))"},
+       "(((table_1.int_value) = 1) AND ((table_2.double_value) > (1.0)) AND "
+       "((table_3.string_value) != (\"1\")))"},
       // use multiple conditions on the same property
       {"properties.p0.int_value = 1 OR properties.p0.string_value = '1' ",
        JoinWithProperty("table_1", "p0"),
-       "((table_1.int_value) = 1) OR ((table_1.string_value) = (\"1\"))"},
+       "(((table_1.int_value) = 1) OR ((table_1.string_value) = (\"1\")))"},
       // mention property and custom property with the same property name
       {"properties.p0.int_value > 1 OR custom_properties.p0.int_value > 1",
        JoinWithProperties(/*properties=*/{{"table_1", "p0"}},
                           /*custom_properties=*/{{"table_2", "p0"}}),
-       "((table_1.int_value) > 1) OR ((table_2.int_value) > 1)"},
+       "(((table_1.int_value) > 1) OR ((table_2.int_value) > 1))"},
       // use multiple properties and custom properties
       {"(properties.p0.int_value > 1 OR custom_properties.p0.int_value > 1) "
        "AND "
@@ -359,9 +361,9 @@ std::vector<QueryTupleTestCase> GetTestQueryTuples() {
        JoinWithProperties(
            /*properties=*/{{"table_1", "p0"}, {"table_3", "p1"}},
            /*custom_properties=*/{{"table_2", "p0"}, {"table_4", "p2"}}),
-       "(((table_1.int_value) > 1) OR ((table_2.int_value) > 1)) AND "
+       "((((table_1.int_value) > 1) OR ((table_2.int_value) > 1)) AND "
        "((table_3.double_value) > (0.95)) AND "
-       "((table_4.string_value) = (\"name\"))"},
+       "((table_4.string_value) = (\"name\")))"},
       // use attributes, contexts, properties and custom properties
       {"type = 'dataset' AND "
        "(contexts_0.name = 'my_run' AND contexts_0.type = 'exp') AND "
@@ -371,33 +373,34 @@ std::vector<QueryTupleTestCase> GetTestQueryTuples() {
                 /*contexts=*/{"table_2"},
                 /*properties=*/{{"table_3", "p0"}},
                 /*custom_properties=*/{{"table_4", "p1"}}),
-       "((table_1.type) = (\"dataset\")) AND (((table_2.name) = (\"my_run\")) "
+       "(((table_1.type) = (\"dataset\")) AND (((table_2.name) = (\"my_run\")) "
        "AND ((table_2.type) = (\"exp\"))) AND (((table_3.int_value) > 1) OR "
-       "((table_4.double_value) > (0.9)))",
+       "((table_4.double_value) > (0.9))))",
        exclude_context},
       // Parent context queries.
       // mention context (the neighbor only applies to contexts)
       {"parent_contexts_0.id = 1", JoinWithParentContexts({"table_1"}),
-       "(table_1.id) = 1", context_only},
+       "((table_1.id) = 1)", context_only},
       // use multiple conditions on the same parent context
       {"parent_contexts_0.id = 1 AND parent_contexts_0.name LIKE 'foo%'",
        JoinWithParentContexts({"table_1"}),
-       "((table_1.id) = 1) AND ((table_1.name) LIKE (\"foo%\"))", context_only},
+       "(((table_1.id) = 1) AND ((table_1.name) LIKE (\"foo%\")))",
+       context_only},
       // use multiple conditions on different parent contexts
       {"parent_contexts_0.id = 1 AND parent_contexts_1.id != 2",
        JoinWithParentContexts({"table_1", "table_2"}),
-       "((table_1.id) = 1) AND ((table_2.id) != 2)", context_only},
+       "(((table_1.id) = 1) AND ((table_2.id) != 2))", context_only},
       // // mix attributes and parent context together
       {"type_id = 1 AND parent_contexts_0.id = 1",
        JoinWithParentContexts({"table_1"}),
-       "((table_0.type_id) = 1) AND ((table_1.id) = 1)", context_only},
+       "(((table_0.type_id) = 1) AND ((table_1.id) = 1))", context_only},
       // mix attributes (including type) and parent context together
       {"(type_id = 1 OR type != 'foo') AND parent_contexts_0.id = 1",
        JoinWith(/*types=*/{"table_1"}, /*contexts=*/{}, /*properties=*/{},
                 /*custom_properties=*/{},
                 /*parent_contexts=*/{"table_2"}),
-       "(((table_0.type_id) = 1) OR ((table_1.type) != (\"foo\"))) AND "
-       "((table_2.id) = 1)",
+       "((((table_0.type_id) = 1) OR ((table_1.type) != (\"foo\"))) AND "
+       "((table_2.id) = 1))",
        context_only},
       // use attributes, parent contexts, properties and custom properties
       {"type = 'pipeline_run' AND (properties.p0.int_value > 1 OR "
@@ -408,33 +411,34 @@ std::vector<QueryTupleTestCase> GetTestQueryTuples() {
                 /*properties=*/{{"table_2", "p0"}},
                 /*custom_properties=*/{{"table_3", "p1"}},
                 /*parent_contexts=*/{"table_4"}),
-       "((table_1.type) = (\"pipeline_run\")) AND (((table_2.int_value) > 1) "
+       "(((table_1.type) = (\"pipeline_run\")) AND (((table_2.int_value) > 1) "
        "OR ((table_3.double_value) > (0.9))) AND (((table_4.name) = "
-       "(\"pipeline_context\")) AND ((table_4.type) = (\"pipeline\")))",
+       "(\"pipeline_context\")) AND ((table_4.type) = (\"pipeline\"))))",
        context_only},
       // Child context queries.
       // mention context (the neighbor only applies to contexts)
       {"child_contexts_0.id = 1", JoinWithChildContexts({"table_1"}),
-       "(table_1.id) = 1", context_only},
+       "((table_1.id) = 1)", context_only},
       // use multiple conditions on the same child context
       {"child_contexts_0.id = 1 AND child_contexts_0.name LIKE 'foo%'",
        JoinWithChildContexts({"table_1"}),
-       "((table_1.id) = 1) AND ((table_1.name) LIKE (\"foo%\"))", context_only},
+       "(((table_1.id) = 1) AND ((table_1.name) LIKE (\"foo%\")))",
+       context_only},
       // use multiple conditions on different child contexts
       {"child_contexts_0.id = 1 AND child_contexts_1.id != 2",
        JoinWithChildContexts({"table_1", "table_2"}),
-       "((table_1.id) = 1) AND ((table_2.id) != 2)", context_only},
+       "(((table_1.id) = 1) AND ((table_2.id) != 2))", context_only},
       // // mix attributes and child context together
       {"type_id = 1 AND child_contexts_0.id = 1",
        JoinWithChildContexts({"table_1"}),
-       "((table_0.type_id) = 1) AND ((table_1.id) = 1)", context_only},
+       "(((table_0.type_id) = 1) AND ((table_1.id) = 1))", context_only},
       // mix attributes (including type) and child context together
       {"(type_id = 1 OR type != 'foo') AND child_contexts_0.id = 1",
        JoinWith(/*types=*/{"table_1"}, /*contexts=*/{}, /*properties=*/{},
                 /*custom_properties=*/{}, /*parent_contexts=*/{},
                 /*child_contexts=*/{"table_2"}),
-       "(((table_0.type_id) = 1) OR ((table_1.type) != (\"foo\"))) AND "
-       "((table_2.id) = 1)",
+       "((((table_0.type_id) = 1) OR ((table_1.type) != (\"foo\"))) AND "
+       "((table_2.id) = 1))",
        context_only},
       // use attributes, child contexts, properties and custom properties
       {"type = 'pipeline' AND (properties.p0.int_value > 1 OR "
@@ -446,9 +450,9 @@ std::vector<QueryTupleTestCase> GetTestQueryTuples() {
                 /*custom_properties=*/{{"table_3", "p1"}},
                 /*parent_contexts=*/{},
                 /*child_contexts=*/{"table_4"}),
-       "((table_1.type) = (\"pipeline\")) AND (((table_2.int_value) > 1) "
+       "(((table_1.type) = (\"pipeline\")) AND (((table_2.int_value) > 1) "
        "OR ((table_3.double_value) > (0.9))) AND (((table_4.name) = "
-       "(\"pipeline_run\")) AND ((table_4.type) = (\"runs\")))",
+       "(\"pipeline_run\")) AND ((table_4.type) = (\"runs\"))))",
        context_only},
       // use attributes, parent context, child contexts, properties and custom
       // properties
@@ -463,22 +467,22 @@ std::vector<QueryTupleTestCase> GetTestQueryTuples() {
                 /*custom_properties=*/{{"table_3", "p1"}},
                 /*parent_contexts=*/{"table_4"},
                 /*child_contexts=*/{"table_5"}),
-       "((table_1.type) = (\"pipeline\")) AND (((table_2.int_value) > 1) "
+       "(((table_1.type) = (\"pipeline\")) AND (((table_2.int_value) > 1) "
        "OR ((table_3.double_value) > (0.9))) AND (((table_4.name) = "
        "(\"parent_context1\")) AND ((table_4.type) = "
        "(\"parent_context_type\"))) AND (((table_5.name) = (\"pipeline_run\")) "
-       "AND ((table_5.type) = (\"runs\")))",
+       "AND ((table_5.type) = (\"runs\"))))",
        context_only},
       {"events_0.execution_id = 1", JoinWithEvents({"table_1"}),
-       "(table_1.execution_id) = 1", artifact_only},
+       "((table_1.execution_id) = 1)", artifact_only},
       {"events_0.type = INPUT", JoinWithEvents({"table_1"}),
-       "(table_1.type) = 3", exclude_context},
+       "((table_1.type) = 3)", exclude_context},
       {"events_0.type = INPUT OR events_0.type = OUTPUT",
        JoinWithEvents({"table_1"}),
-       "((table_1.type) = 3) OR ((table_1.type) = 4)", exclude_context},
+       "(((table_1.type) = 3) OR ((table_1.type) = 4))", exclude_context},
       {"uri = 'http://some_path' AND events_0.type = INPUT",
        JoinWithEvents({"table_1"}),
-       "((table_0.uri) = (\"http://some_path\")) AND ((table_1.type) = 3)",
+       "(((table_0.uri) = (\"http://some_path\")) AND ((table_1.type) = 3))",
        artifact_only}};
 }
 

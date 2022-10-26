@@ -18,6 +18,7 @@ limitations under the License.
 #include "zetasql/public/strings.h"
 #include "zetasql/resolved_ast/sql_builder.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/substitute.h"
 #include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
@@ -308,7 +309,7 @@ FilterQueryBuilder<T>::FilterQueryBuilder() {
 
 template <typename T>
 std::string FilterQueryBuilder<T>::GetWhereClause() {
-  return sql();
+  return absl::StrCat("(", sql(), ")");
 }
 
 template <typename T>

@@ -8,6 +8,8 @@
     if update request matches stored node. ## Bug Fixes and Other Changes
 *   Filter support for list Context with Artifact alias `artifacts_0` and
     Execution alias `executions_0`.
+*   Enclose `FilterQueryBuilder::GetWhereClause()` return value in parentheses
+    to ensure filter query will be evaluated in the correct order.
 
 ## Breaking Changes
 
