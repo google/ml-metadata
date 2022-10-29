@@ -10,6 +10,8 @@
     Execution alias `executions_0`.
 *   Enclose `FilterQueryBuilder::GetWhereClause()` return value in parentheses
     to ensure filter query will be evaluated in the correct order.
+*   Upgrade SQLite version to 3.39.2 to support more advanced SQL statements,
+    e.g. using tuples with IN operator.
 
 ## Breaking Changes
 

@@ -40,12 +40,12 @@ mlmd_http_archive(
 mlmd_http_archive(
     name = "org_sqlite",
     build_file = clean_dep("//ml_metadata/third_party:sqlite.BUILD"),
-    sha256 = "adf051d4c10781ea5cfabbbc4a2577b6ceca68590d23b58b8260a8e24cc5f081",
-    strip_prefix = "sqlite-amalgamation-3300100",
+    sha256 = "87775784f8b22d0d0f1d7811870d39feaa7896319c7c20b849a4181c5a50609b",
+    strip_prefix = "sqlite-amalgamation-3390200",
     system_build_file = clean_dep("//ml_metadata/third_party/systemlibs:sqlite.BUILD"),
     urls = [
-        "https://storage.googleapis.com/mirror.tensorflow.org/www.sqlite.org/2019/sqlite-amalgamation-3300100.zip",
-        "https://www.sqlite.org/2019/sqlite-amalgamation-3300100.zip",
+        "https://storage.googleapis.com/mirror.tensorflow.org/www.sqlite.org/2022/sqlite-amalgamation-3390200.zip",
+        "https://www.sqlite.org/2022/sqlite-amalgamation-3390200.zip",
     ],
 )
 
