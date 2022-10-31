@@ -71,7 +71,7 @@ cc_library(
         ":metadata_access_object_base",
         ":query_executor",
         "@com_google_protobuf//:protobuf",
-        
+
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",

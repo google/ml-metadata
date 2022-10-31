@@ -115,6 +115,8 @@ class _BazelBuildCommand(setuptools.Command):
         # file, which is the root directory.
         cwd=os.path.dirname(os.path.realpath(__file__)),)
 
+    # explicitly call shutdown to free up resources.
+    subprocess.check_call([self._bazel_cmd, "shutdown"])
 
 # Get version from version module.
 with open('ml_metadata/version.py') as fp:

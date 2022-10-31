@@ -34,8 +34,10 @@ genrule(
 )
 
 config_setting(
-    name = "darwin",
-    values = {"cpu": "darwin"},
+    name = "macos",
+    constraint_values = [
+        "@bazel_tools//platforms:osx",
+    ],
     visibility = ["//visibility:public"],
 )
 
@@ -45,13 +47,14 @@ cc_library(
         # plugins.
         "plugins/auth/my_auth.c",
         "plugins/auth/old_password.c",
+        "plugins/compress/c_zlib.c",
         "plugins/pvio/pvio_socket.c",
         # ssl.
         "libmariadb/secure/openssl.c",
         # core libmariadb
         "libmariadb/ma_array.c",
         "libmariadb/ma_charset.c",
-        "libmariadb/ma_hash.c",
+        "libmariadb/ma_hashtbl.c",
         "libmariadb/ma_net.c",
         "libmariadb/mariadb_charset.c",
         "libmariadb/ma_time.c",
@@ -91,7 +94,10 @@ cc_library(
         "-DLIBICONV_PLUG",
         "-DHAVE_OPENSSL",
         "-DHAVE_TLS",
-    ],
+    ] + select({
+        ":macos": ["-D_XOPEN_SOURCE"],
+        "//conditions:default": [],
+    }),
     includes = [
         "build/include/",
         "include/",
@@ -102,7 +108,7 @@ cc_library(
         "-ldl",
         "-lm",
     ] + select({
-        ":darwin": ["-liconv"],
+        ":macos": ["-liconv"],
         "//conditions:default": [],
     }),
     visibility = ["//visibility:public"],

@@ -37,6 +37,7 @@ ml_metadata_pybind_extension(
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/simple_types/proto:simple_types_proto",
         "@pybind11",
+        "@local_config_python//:python_headers",
     ],
 )
 

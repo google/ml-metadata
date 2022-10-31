@@ -262,6 +262,7 @@ def ml_metadata_pybind_extension(
                 "-Wl,-exported_symbols_list,$(location %s)" % exported_symbols_file,
             ],
             "//conditions:default": [
+                "-Wl,-Bsymbolic",
                 "-Wl,--version-script",
                 "$(location %s)" % version_script_file,
             ],
@@ -270,7 +271,7 @@ def ml_metadata_pybind_extension(
             exported_symbols_file,
             version_script_file,
         ],
-        features = ["-use_header_modules"],
+        features = ["-use_header_modules", "-parse_headers"],
         linkshared = 1,
         visibility = visibility,
     )
