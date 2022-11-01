@@ -49,7 +49,7 @@ enum MetadataSourceType {
 
 // A config includes a set of SQL queries and the type of metadata source.
 // It is used by MetadataAccessObject to init backend and issue queries.
-// Next ID: 136
+// Next ID: 138
 message MetadataSourceQueryConfig {
   // the type of the metadata source
   MetadataSourceType metadata_source_type = 1;
@@ -117,6 +117,18 @@ message MetadataSourceQueryConfig {
   // $1 is the type version
   // $2 is the type_kind
   TemplateQuery select_type_by_name_and_version = 111;
+
+  // Queries types by a list of type names.
+  // It has 2 parameters.
+  // $0 is the type names
+  // $1 is the type kind
+  TemplateQuery select_types_by_names = 136;
+
+  // Queries types by a list of type name and version pairs.
+  // It has 2 parameters.
+  // $0 is the type name and version pairs
+  // $1 is the type kind
+  TemplateQuery select_types_by_names_and_versions = 137;
 
   // Queries for all type instances. It has 1 parameter.
   // $0 is the is_artifact_type

@@ -169,6 +169,28 @@ class MetadataAccessObject {
       absl::string_view name, absl::optional<absl::string_view> version,
       TypeKind type_kind, int64* type_id) = 0;
 
+  // Gets a list of types using their name and version pairs in
+  // `names_and_versions` and appends the types to `artifact_types`/
+  // `execution_types`/`context_types`.
+  // This method assumes the version is set to an empty string if it is not
+  // available. In this case, the type with (name, version = NULL) is fetched.
+  // Note: The returned types does not guaranteed to have the same order as
+  // `names_and_versions`.
+  // Returns absl::OkStatus() if types are fetched successfully.
+  // Returns whatever found when a part of `names_and_versions` is non-existing.
+  // Returns INVALID_ARGUMENT if `names_and_versions` is empty or
+  // `artifact_types`/`execution_types`/`context_types` is not empty.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status FindTypesByNamesAndVersions(
+      absl::Span<std::pair<std::string, std::string>> names_and_versions,
+      std::vector<ArtifactType>& artifact_types) = 0;
+  virtual absl::Status FindTypesByNamesAndVersions(
+      absl::Span<std::pair<std::string, std::string>> names_and_versions,
+      std::vector<ExecutionType>& execution_types) = 0;
+  virtual absl::Status FindTypesByNamesAndVersions(
+      absl::Span<std::pair<std::string, std::string>> names_and_versions,
+      std::vector<ContextType>& context_types) = 0;
+
   // Returns a list of all known type instances. A type is one of
   // {ArtifactType, ExecutionType, ContextType}
   // Returns NOT_FOUND error, if no types can be found.

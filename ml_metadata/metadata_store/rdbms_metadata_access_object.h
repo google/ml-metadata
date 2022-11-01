@@ -191,6 +191,16 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
       absl::string_view name, absl::optional<absl::string_view> version,
       TypeKind type_kind, int64* type_id) final;
 
+  absl::Status FindTypesByNamesAndVersions(
+      absl::Span<std::pair<std::string, std::string>> names_and_versions,
+      std::vector<ArtifactType>& artifact_types) final;
+  absl::Status FindTypesByNamesAndVersions(
+      absl::Span<std::pair<std::string, std::string>> names_and_versions,
+      std::vector<ExecutionType>& execution_types) final;
+  absl::Status FindTypesByNamesAndVersions(
+      absl::Span<std::pair<std::string, std::string>> names_and_versions,
+      std::vector<ContextType>& context_types) final;
+
   absl::Status FindTypes(std::vector<ArtifactType>* artifact_types) final;
   absl::Status FindTypes(std::vector<ExecutionType>* execution_types) final;
   absl::Status FindTypes(std::vector<ContextType>* context_types) final;
@@ -592,6 +602,17 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status FindTypeImpl(absl::string_view name,
                             absl::optional<absl::string_view> version,
                             MessageType* type);
+
+  // Finds types by the given `names_and_versions`.
+  // Acceptable types are {ArtifactType, ExecutionType, ContextType}
+  // (`MessageType`).
+  // Returns whatever found when a part of `names_and_versions` is non-existing.
+  // Returns INVALID_ARGUMENT if `types` is not empty.
+  // Returns detailed INTERNAL error if query execution fails.
+  template <typename MessageType>
+  absl::Status FindTypesImpl(
+      absl::Span<std::pair<std::string, std::string>> names_and_versions,
+      std::vector<MessageType>& types);
 
   // Finds all type instances of the type `MessageType`.
   // Returns detailed INTERNAL error, if query execution fails.

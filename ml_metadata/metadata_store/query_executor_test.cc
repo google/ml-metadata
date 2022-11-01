@@ -83,6 +83,70 @@ constexpr absl::string_view kContextTypeRecordSet =
            values: "__MLMD_NULL__"
          }
     )pb";
+constexpr absl::string_view kArtifactTypeRecordSet2 =
+    R"pb(column_names: "id"
+         column_names: "name"
+         column_names: "version"
+         column_names: "description"
+         column_names: "input_type"
+         column_names: "output_type"
+         records {
+           values: "1"
+           values: "artifact_type_1"
+           values: "version_1"
+           values: "__MLMD_NULL__"
+           values: "__MLMD_NULL__"
+           values: "__MLMD_NULL__"
+         }
+         records {
+           values: "2"
+           values: "artifact_type_2"
+           values: "__MLMD_NULL__"
+           values: "__MLMD_NULL__"
+           values: "__MLMD_NULL__"
+           values: "__MLMD_NULL__"
+         }
+    )pb";
+constexpr absl::string_view kExecutionTypeRecordSet2 =
+    R"pb(column_names: "id"
+         column_names: "name"
+         column_names: "version"
+         column_names: "description"
+         column_names: "input_type"
+         column_names: "output_type"
+         records {
+           values: "3"
+           values: "execution_type_1"
+           values: "version_1"
+           values: "__MLMD_NULL__"
+           values: "{\"any\":{}}"
+           values: "{\"none\":{}}"
+         }
+         records {
+           values: "4"
+           values: "execution_type_2"
+           values: "__MLMD_NULL__"
+           values: "__MLMD_NULL__"
+           values: "{\"any\":{}}"
+           values: "{\"none\":{}}"
+         }
+    )pb";
+constexpr absl::string_view kContextTypeRecordSet2 =
+    R"pb(column_names: "id"
+         column_names: "name"
+         column_names: "version"
+         column_names: "description"
+         column_names: "input_type"
+         column_names: "output_type"
+         records {
+           values: "5"
+           values: "context_type_1"
+           values: "__MLMD_NULL__"
+           values: "__MLMD_NULL__"
+           values: "__MLMD_NULL__"
+           values: "__MLMD_NULL__"
+         }
+    )pb";
 
 int GetColumnIndex(const RecordSet& record_set, const std::string column_name) {
   int id_column_index = -1;
@@ -258,14 +322,6 @@ TEST_P(QueryExecutorTest, DeleteContextsById) {
 
   ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
-  // Test: empty ids
-  {
-    ASSERT_EQ(absl::OkStatus(), query_executor_->DeleteContextsById({}));
-    RecordSet record_set;
-    ASSERT_EQ(absl::OkStatus(), query_executor_->SelectContextsByID(
-                                    {context_id_1, context_id_2}, &record_set));
-    EXPECT_EQ(record_set.records_size(), 2);
-  }
   // Test: actual deletion on context1
   {
     ASSERT_EQ(absl::OkStatus(),
@@ -363,16 +419,6 @@ TEST_P(QueryExecutorTest, DeleteParentContextsByParentIdAndChildIds) {
   MLMD_ASSERT_OK(query_executor_->InsertParentContext(parent_id_1, child_id_2));
   MLMD_ASSERT_OK(query_executor_->InsertParentContext(parent_id_1, child_id_3));
   MLMD_ASSERT_OK(query_executor_->InsertParentContext(parent_id_2, child_id_1));
-
-  // Test: empty child IDs
-  {
-    MLMD_ASSERT_OK(query_executor_->
-        DeleteParentContextsByParentIdAndChildIds(parent_id_1, {}));
-    RecordSet record_set;
-    MLMD_ASSERT_OK(query_executor_->
-        SelectChildContextsByContextID(parent_id_1, &record_set));
-    EXPECT_THAT(record_set.records(), SizeIs(3));
-  }
 
   // Test: independent context
   {
@@ -482,13 +528,6 @@ TEST_P(QueryExecutorTest, SelectParentTypesByTypeID) {
   ASSERT_EQ(absl::OkStatus(), query_executor_->InsertParentType(
                                   execution_type_id, non_exist_parent_type_id));
 
-  // Test: empty ids
-  {
-    RecordSet record_set;
-    ASSERT_EQ(absl::OkStatus(),
-              query_executor_->SelectParentTypesByTypeID({}, &record_set));
-    EXPECT_EQ(record_set.records_size(), 0);
-  }
   // Test: select parent type ids for a type without parent types.
   {
     RecordSet record_set;
@@ -568,13 +607,6 @@ TEST_P(QueryExecutorTest, SelectPropertiesByTypeID) {
                 "artifact_type_2", absl::nullopt, absl::nullopt,
                 &artifact_type_id_2));
 
-  // Test: empty ids
-  {
-    RecordSet record_set;
-    ASSERT_EQ(absl::OkStatus(),
-              query_executor_->SelectPropertiesByTypeID({}, &record_set));
-    EXPECT_EQ(record_set.records_size(), 0);
-  }
   // Test: select a type with no type properties.
   {
     RecordSet record_set;
@@ -630,6 +662,101 @@ TEST_P(QueryExecutorTest, SelectPropertiesByTypeID) {
     EXPECT_EQ(record_set.records(2).values(2),
               std::to_string(PropertyType::STRING));
   }
+}
+
+TEST_P(QueryExecutorTest, SelectTypesByNamesAndVersions) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  // Artifact type insertion.
+  int64 type_id_1, type_id_2;
+  ASSERT_EQ(query_executor_->InsertArtifactType(
+                "artifact_type_1", "version_1", absl::nullopt,
+                &type_id_1),
+            absl::OkStatus());
+  ASSERT_EQ(query_executor_->InsertArtifactType(
+                "artifact_type_2", absl::nullopt, absl::nullopt,
+                &type_id_2),
+            absl::OkStatus());
+  // Exectuion type insertion.
+  int64 type_id_3, type_id_4;
+  ArtifactStructType input_type;
+  AnyArtifactStructType any_input_type;
+  *input_type.mutable_any() = any_input_type;
+  ArtifactStructType output_type;
+  NoneArtifactStructType none_input_type;
+  *output_type.mutable_none() = none_input_type;
+  ASSERT_EQ(query_executor_->InsertExecutionType(
+                "execution_type_1", "version_1", absl::nullopt, &input_type,
+                &output_type,
+                &type_id_3),
+            absl::OkStatus());
+  ASSERT_EQ(query_executor_->InsertExecutionType(
+                "execution_type_2", absl::nullopt, absl::nullopt, &input_type,
+                &output_type,
+                &type_id_4),
+            absl::OkStatus());
+  // Context type insertion.
+  int64 type_id_5;
+  ASSERT_EQ(query_executor_->InsertContextType(
+                "context_type_1", absl::nullopt, absl::nullopt,
+                &type_id_5),
+            absl::OkStatus());
+
+  auto verify_record_set_with_unordered_records =
+      [](RecordSet got_record_set, RecordSet expected_record_set) {
+        ASSERT_THAT(got_record_set.column_names(),
+                    SizeIs(expected_record_set.column_names().size()));
+        EXPECT_THAT(got_record_set.column_names(),
+                    ::testing::Pointwise(::testing::Eq(),
+                                         got_record_set.column_names()));
+        ASSERT_THAT(got_record_set.records(),
+                    SizeIs(expected_record_set.records().size()));
+        EXPECT_THAT(got_record_set.records(),
+                    ::testing::UnorderedPointwise(
+                        testing::EqualsProto<RecordSet::Record>(),
+                        got_record_set.records()));
+      };
+
+  // Test select artifact types by ids.
+  TypeKind type_kind = TypeKind::ARTIFACT_TYPE;
+  std::vector<std::pair<std::string, std::string>> names_and_versions = {
+      {"artifact_type_1", "version_1"}, {"artifact_type_2", ""}};
+
+  RecordSet expected_record_set = testing::ParseTextProtoOrDie<RecordSet>(
+      std::string(kArtifactTypeRecordSet2));
+  RecordSet artifact_record_set;
+  ASSERT_EQ(
+      query_executor_->SelectTypesByNamesAndVersions(
+          absl::MakeSpan(names_and_versions), type_kind, &artifact_record_set),
+      absl::OkStatus());
+  verify_record_set_with_unordered_records(artifact_record_set,
+                                           expected_record_set);
+
+  // Test select execution types by ids.
+  type_kind = TypeKind::EXECUTION_TYPE;
+  names_and_versions = {{"execution_type_1", "version_1"},
+                        {"execution_type_2", ""}};
+  RecordSet execution_record_set;
+  ASSERT_EQ(
+      query_executor_->SelectTypesByNamesAndVersions(
+          absl::MakeSpan(names_and_versions), type_kind, &execution_record_set),
+      absl::OkStatus());
+  expected_record_set = testing::ParseTextProtoOrDie<RecordSet>(
+      std::string(kExecutionTypeRecordSet2));
+  verify_record_set_with_unordered_records(execution_record_set,
+                                           expected_record_set);
+
+  // Test select context types by ids.
+  type_kind = TypeKind::CONTEXT_TYPE;
+  names_and_versions = {{"context_type_1", ""}};
+  RecordSet context_record_set;
+  ASSERT_EQ(
+      query_executor_->SelectTypesByNamesAndVersions(
+          absl::MakeSpan(names_and_versions), type_kind, &context_record_set),
+      absl::OkStatus());
+  expected_record_set = testing::ParseTextProtoOrDie<RecordSet>(
+      std::string(kContextTypeRecordSet2));
+  verify_record_set_with_unordered_records(context_record_set,
+                                           expected_record_set);
 }
 
 }  // namespace testing

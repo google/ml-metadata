@@ -199,6 +199,50 @@ ml_metadata_cc_test(
 )
 
 cc_library(
+    name = "mysql_query_config_executor_test",
+    testonly = 1,
+    srcs = [
+        "mysql_query_config_executor_test.cc",
+    ],
+    deps = [
+        ":metadata_source",
+        ":mysql_metadata_source",
+        ":query_config_executor",
+        ":query_executor",
+        ":query_executor_test",
+        ":test_mysql_metadata_source_initializer",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/memory",
+        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/util:metadata_source_query_config",
+        "@com_google_glog//:glog",
+    ],
+)
+
+# This test does not run on a Bazel sandbox because it requires a MYSQL server
+# that is separately spawned. Details of the MYSQL server are specified by
+# flags passed to the test. For e.g.,
+#
+# bazel run :standalone_mysql_query_config_executor_test -- \
+#     --db_name="foo" \
+#     --user_name="me" \
+#     --host_name="localhost"
+#
+# See test_standalone_mysql_metadata_source_initializer.cc for the full flag
+# list.
+cc_test(
+    name = "standalone_mysql_query_config_executor_test",
+    tags = [
+        "local",
+        "manual",
+    ],
+    deps = [
+        ":test_standalone_mysql_metadata_source_initializer",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
     name = "query_config_executor",
     srcs = [
         "query_config_executor.cc",

@@ -111,6 +111,10 @@ class QueryConfigExecutor : public QueryExecutor {
       absl::optional<absl::string_view> type_version, TypeKind type_kind,
       RecordSet* record_set) final;
 
+  absl::Status SelectTypesByNamesAndVersions(
+      absl::Span<std::pair<std::string, std::string>> names_and_versions,
+      TypeKind type_kind, RecordSet* record_set) final;
+
   absl::Status SelectAllTypes(TypeKind type_kind, RecordSet* record_set) final;
 
 
@@ -624,6 +628,15 @@ class QueryConfigExecutor : public QueryExecutor {
   // Utility method to bind an in64 vector to a string joined with "," that can
   // fit into SQL IN(...) clause.
   std::string Bind(absl::Span<const int64> value);
+
+  // Utility method to bind a string_view vector to a string joined with ","
+  // that can fit into SQL IN(...) clause.
+  std::string Bind(absl::Span<absl::string_view> value);
+
+  // Utility method to bind a pair<string_view, string_view> vector to a string
+  // joined with "," that can fit into SQL IN(...) clause.
+  std::string Bind(
+      absl::Span<std::pair<absl::string_view, absl::string_view>> value);
 
   #if (!defined(__APPLE__) && !defined(_WIN32))
   std::string Bind(const google::protobuf::int64 value);

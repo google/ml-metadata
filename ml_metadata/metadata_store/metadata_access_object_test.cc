@@ -1456,6 +1456,7 @@ TEST_P(MetadataAccessObjectTest, FindTypesByIdsExecutionNotFound) {
   EXPECT_TRUE(absl::IsNotFound(metadata_access_object_->FindTypesByIds(
       {want_type_1.id(), want_type_2.id() + 123}, got_types)));
 }
+
 TEST_P(MetadataAccessObjectTest, FindTypesByIdsExecutionInvalidTypeKind) {
   MLMD_ASSERT_OK(Init());
   ExecutionType want_type_1;
@@ -1570,6 +1571,181 @@ TEST_P(MetadataAccessObjectTest, FindTypeByNameNoSignature) {
   EXPECT_TRUE(
       absl::IsNotFound(metadata_access_object_->FindTypeByNameAndVersion(
           "test_type", /*version=*/absl::nullopt, &context_type)));
+}
+
+TEST_P(MetadataAccessObjectTest, FindArtifactTypesByNamesAndVersions) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  ArtifactType want_type_1 = CreateTypeFromTextProto<ArtifactType>(R"(
+    name: 'artifact_type_1'
+  )", *metadata_access_object_);
+  ArtifactType want_type_2 = CreateTypeFromTextProto<ArtifactType>(R"(
+    name: 'artifact_type_2'
+    version: 'test_version'
+  )", *metadata_access_object_);
+
+  // Test 1: artifact types can be retrieved by names_and_versions.
+  std::vector<std::pair<std::string, std::string>> names_and_versions = {
+      {"artifact_type_1", ""}, {"artifact_type_2", "test_version"}};
+  std::vector<ArtifactType> got_types;
+  ASSERT_EQ(metadata_access_object_->FindTypesByNamesAndVersions(
+                absl::MakeSpan(names_and_versions), got_types),
+            absl::OkStatus());
+  EXPECT_THAT(
+      got_types,
+      UnorderedElementsAre(EqualsProto(want_type_1), EqualsProto(want_type_2)));
+
+  // Test 2: The types in the names and versions are artifact types, not
+  // execution/context types.
+  std::vector<ExecutionType> got_execution_types;
+  ASSERT_EQ(metadata_access_object_->FindTypesByNamesAndVersions(
+                absl::MakeSpan(names_and_versions), got_execution_types),
+            absl::OkStatus());
+  EXPECT_THAT(got_execution_types, IsEmpty());
+  std::vector<ContextType> got_context_types;
+  ASSERT_EQ(metadata_access_object_->FindTypesByNamesAndVersions(
+                absl::MakeSpan(names_and_versions), got_context_types),
+            absl::OkStatus());
+  EXPECT_THAT(got_context_types, IsEmpty());
+
+  // Test 3: return whatever found when a part of names and versions is
+  // non-existing.
+  names_and_versions.emplace_back("artifact_type_absent", "");
+  std::vector<ArtifactType> got_types_absent;
+  ASSERT_EQ(metadata_access_object_->FindTypesByNamesAndVersions(
+                absl::MakeSpan(names_and_versions), got_types_absent),
+            absl::OkStatus());
+  EXPECT_THAT(got_types, UnorderedElementsAre(EqualsProto(want_type_1),
+                                              EqualsProto(want_type_2)));
+
+  // Test 4: return INVALID_ARGUMENT error if `a/e/c_types` is not empty or
+  // `names_and_versions` is empty.
+  EXPECT_TRUE(absl::IsInvalidArgument(
+      metadata_access_object_->FindTypesByNamesAndVersions(
+          absl::MakeSpan(names_and_versions), got_types)));
+
+  names_and_versions.clear();
+  got_types.clear();
+  EXPECT_TRUE(absl::IsInvalidArgument(
+      metadata_access_object_->FindTypesByNamesAndVersions({}, got_types)));
+}
+
+TEST_P(MetadataAccessObjectTest, FindExecutionTypesByNamesAndVersions) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  ExecutionType want_type_1 =
+      CreateTypeFromTextProto<ExecutionType>(R"(
+    name: 'execution_type_1'
+  )",
+                                             *metadata_access_object_);
+  ExecutionType want_type_2 =
+      CreateTypeFromTextProto<ExecutionType>(R"(
+    name: 'execution_type_2'
+    version: 'test_version'
+  )",
+                                             *metadata_access_object_);
+
+  // Test 1: artifact types can be retrieved by names_and_versions.
+  std::vector<std::pair<std::string, std::string>> names_and_versions = {
+      {"execution_type_1", ""}, {"execution_type_2", "test_version"}};
+  std::vector<ExecutionType> got_types;
+  ASSERT_EQ(metadata_access_object_->FindTypesByNamesAndVersions(
+                absl::MakeSpan(names_and_versions), got_types),
+            absl::OkStatus());
+  EXPECT_THAT(got_types, UnorderedElementsAre(EqualsProto(want_type_1),
+                                              EqualsProto(want_type_2)));
+
+  // Test 2: The types in the names and versions are execution types, not
+  // artifact/context types.
+  std::vector<ArtifactType> got_execution_types;
+  ASSERT_EQ(metadata_access_object_->FindTypesByNamesAndVersions(
+                absl::MakeSpan(names_and_versions), got_execution_types),
+            absl::OkStatus());
+  EXPECT_THAT(got_execution_types, IsEmpty());
+  std::vector<ContextType> got_context_types;
+  EXPECT_EQ(metadata_access_object_->FindTypesByNamesAndVersions(
+                absl::MakeSpan(names_and_versions), got_context_types),
+            absl::OkStatus());
+  EXPECT_THAT(got_context_types, IsEmpty());
+
+  // Test 3: return whatever found when a part of names and versions is
+  // non-existing.
+  names_and_versions.emplace_back("execution_type_absent", "");
+  std::vector<ArtifactType> got_types_absent;
+  ASSERT_EQ(metadata_access_object_->FindTypesByNamesAndVersions(
+                absl::MakeSpan(names_and_versions), got_types_absent),
+            absl::OkStatus());
+  EXPECT_THAT(got_types, UnorderedElementsAre(EqualsProto(want_type_1),
+                                              EqualsProto(want_type_2)));
+
+  // Test 4: return INVALID_ARGUMENT error if `a/e/c_types` is not empty or
+  // `names_and_versions` is empty.
+  EXPECT_TRUE(absl::IsInvalidArgument(
+      metadata_access_object_->FindTypesByNamesAndVersions(
+          absl::MakeSpan(names_and_versions), got_types)));
+
+  names_and_versions.clear();
+  got_types.clear();
+  EXPECT_TRUE(absl::IsInvalidArgument(
+      metadata_access_object_->FindTypesByNamesAndVersions({}, got_types)));
+}
+
+TEST_P(MetadataAccessObjectTest, FindContextTypesByNamesAndVersions) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  ContextType want_type_1 =
+      CreateTypeFromTextProto<ContextType>(R"(
+    name: 'context_type_1'
+  )",
+                                           *metadata_access_object_);
+  ContextType want_type_2 =
+      CreateTypeFromTextProto<ContextType>(R"(
+    name: 'context_type_2'
+    version: 'test_version'
+  )",
+                                           *metadata_access_object_);
+
+  // Test 1: artifact types can be retrieved by names_and_versions.
+  std::vector<std::pair<std::string, std::string>> names_and_versions = {
+      {"context_type_1", ""}, {"context_type_2", "test_version"}};
+  std::vector<ContextType> got_types;
+  ASSERT_EQ(metadata_access_object_->FindTypesByNamesAndVersions(
+                absl::MakeSpan(names_and_versions), got_types),
+            absl::OkStatus());
+  EXPECT_THAT(got_types, UnorderedElementsAre(EqualsProto(want_type_1),
+                                              EqualsProto(want_type_2)));
+
+  // Test 2: The types in the names and versions are context types, not
+  // artifact/execution types.
+  std::vector<ArtifactType> got_execution_types;
+  ASSERT_EQ(metadata_access_object_->FindTypesByNamesAndVersions(
+                absl::MakeSpan(names_and_versions), got_execution_types),
+            absl::OkStatus());
+  EXPECT_THAT(got_execution_types, IsEmpty());
+  std::vector<ExecutionType> got_context_types;
+  ASSERT_EQ(metadata_access_object_->FindTypesByNamesAndVersions(
+                absl::MakeSpan(names_and_versions), got_context_types),
+            absl::OkStatus());
+  EXPECT_THAT(got_context_types, IsEmpty());
+
+  // Test 3: return whatever found when a part of names and versions is
+  // non-existing.
+  names_and_versions.emplace_back("context_type_absent", "");
+  std::vector<ContextType> got_types_absent;
+  ASSERT_EQ(metadata_access_object_->FindTypesByNamesAndVersions(
+                absl::MakeSpan(names_and_versions), got_types_absent),
+            absl::OkStatus());
+  EXPECT_THAT(
+      got_types,
+      UnorderedElementsAre(EqualsProto(want_type_1), EqualsProto(want_type_2)));
+
+  // Test 4: return INVALID_ARGUMENT error if `a/e/c_types` is not empty or
+  // `names_and_versions` is empty.
+  EXPECT_TRUE(absl::IsInvalidArgument(
+      metadata_access_object_->FindTypesByNamesAndVersions(
+          absl::MakeSpan(names_and_versions), got_types)));
+
+  names_and_versions.clear();
+  got_types.clear();
+  EXPECT_TRUE(absl::IsInvalidArgument(
+      metadata_access_object_->FindTypesByNamesAndVersions({}, got_types)));
 }
 
 TEST_P(MetadataAccessObjectTest, FindAllArtifactTypes) {

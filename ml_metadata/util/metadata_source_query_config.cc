@@ -89,6 +89,18 @@ R"pb(
            " WHERE name = $0 AND version = $1 AND type_kind = $2; "
     parameter_num: 3
   }
+  select_types_by_names {
+    query: " SELECT `id`, `name`, `version`, `description`, "
+           "        `input_type`, `output_type` FROM `Type` "
+           " WHERE name IN ($0) AND version IS NULL AND type_kind = $1; "
+    parameter_num: 2
+  }
+  select_types_by_names_and_versions {
+    query: " SELECT `id`, `name`, `version`, `description`, "
+           "        `input_type`, `output_type` FROM `Type` "
+           " WHERE (name, version) IN ($0) AND type_kind = $1; "
+    parameter_num: 2
+  }
   select_all_types {
     query: " SELECT `id`, `name`, `version`, `description`, "
            "        `input_type`, `output_type` FROM `Type` "
@@ -2100,6 +2112,20 @@ R"pb(
            " WHERE name = $0 AND version = $1 AND type_kind = $2 "
            " LOCK IN SHARE MODE; "
     parameter_num: 3
+  }
+  select_types_by_names {
+    query: " SELECT `id`, `name`, `version`, `description`, "
+           "        `input_type`, `output_type` FROM `Type` "
+           " WHERE name IN ($0) AND version IS NULL AND type_kind = $1 "
+           " LOCK IN SHARE MODE; "
+    parameter_num: 2
+  }
+  select_types_by_names_and_versions {
+    query: " SELECT `id`, `name`, `version`, `description`, "
+           "        `input_type`, `output_type` FROM `Type` "
+           " WHERE (name, version) IN ($0) AND type_kind = $1 "
+           " LOCK IN SHARE MODE; "
+    parameter_num: 2
   }
   select_context_by_id {
     query: " SELECT `id`, `type_id`, `name`, `create_time_since_epoch`, "

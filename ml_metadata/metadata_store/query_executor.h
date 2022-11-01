@@ -215,6 +215,18 @@ class QueryExecutor {
       absl::optional<absl::string_view> type_version, TypeKind type_kind,
       RecordSet* record_set) = 0;
 
+  // Gets types from the database by their name and version pairs. Not found
+  // pairs are skipped. If the version of a type is not available, then an empty
+  // string should be used. Internally (type_name, version = NULL) is used to
+  // retrieve types when the version is an empty string.
+  // Note: The returned types does not guaranteed to have the same order as
+  // `names_and_versions`.
+  // Returned messages can be converted to ArtifactType, ContextType, or
+  // ExecutionType.
+  virtual absl::Status SelectTypesByNamesAndVersions(
+      absl::Span<std::pair<std::string, std::string>> names_and_versions,
+      TypeKind type_kind, RecordSet* record_set) = 0;
+
   // Gets all type instances.
   // Returns a message that can be converted to an ArtifactType,
   // ContextType, or ExecutionType.

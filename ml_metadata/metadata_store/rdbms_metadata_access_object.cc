@@ -815,6 +815,25 @@ absl::Status RDBMSMetadataAccessObject::FindTypeImpl(
   return absl::OkStatus();
 }
 
+template <typename MessageType>
+absl::Status RDBMSMetadataAccessObject::FindTypesImpl(
+    absl::Span<std::pair<std::string, std::string>> names_and_versions,
+    std::vector<MessageType>& types) {
+  if (names_and_versions.empty()) {
+    return absl::InvalidArgumentError("names_and_versions cannot be empty");
+  }
+  if (!types.empty()) {
+    return absl::InvalidArgumentError("types parameter is not empty");
+  }
+  MessageType dummy_type;
+  const TypeKind type_kind = ResolveTypeKind(&dummy_type);
+  RecordSet record_set;
+  MLMD_RETURN_IF_ERROR(executor_->SelectTypesByNamesAndVersions(
+      names_and_versions, type_kind, &record_set));
+
+  return FindTypesFromRecordSet(record_set, &types);
+}
+
 // Finds all type instances of the type `MessageType`.
 // Returns detailed INTERNAL error, if query execution fails.
 template <typename MessageType>
@@ -1256,6 +1275,24 @@ absl::Status RDBMSMetadataAccessObject::FindTypeIdByNameAndVersion(
   return absl::NotFoundError(
       absl::StrCat("No type_id found from RecordSet for type name: `", name,
                    "`, version: `", version ? *version : "nullopt", "`"));
+}
+
+absl::Status RDBMSMetadataAccessObject::FindTypesByNamesAndVersions(
+    absl::Span<std::pair<std::string, std::string>> names_and_versions,
+    std::vector<ArtifactType>& artifact_types) {
+  return FindTypesImpl(names_and_versions, artifact_types);
+}
+
+absl::Status RDBMSMetadataAccessObject::FindTypesByNamesAndVersions(
+    absl::Span<std::pair<std::string, std::string>> names_and_versions,
+    std::vector<ExecutionType>& execution_types) {
+  return FindTypesImpl(names_and_versions, execution_types);
+}
+
+absl::Status RDBMSMetadataAccessObject::FindTypesByNamesAndVersions(
+    absl::Span<std::pair<std::string, std::string>> names_and_versions,
+    std::vector<ContextType>& context_types) {
+  return FindTypesImpl(names_and_versions, context_types);
 }
 
 absl::Status RDBMSMetadataAccessObject::UpdateType(const ArtifactType& type) {

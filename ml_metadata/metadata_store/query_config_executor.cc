@@ -335,6 +335,27 @@ std::string QueryConfigExecutor::Bind(absl::Span<const int64> value) {
   return absl::StrJoin(value, ", ");
 }
 
+std::string QueryConfigExecutor::Bind(
+    absl::Span<absl::string_view> value) {
+  std::vector<std::string> escape_string_value;
+  escape_string_value.reserve(value.size());
+  for (const auto& v : value) {
+    escape_string_value.push_back(Bind(v));
+  }
+  return absl::StrJoin(escape_string_value, ", ");
+}
+
+std::string QueryConfigExecutor::Bind(
+    absl::Span<std::pair<absl::string_view, absl::string_view>> value) {
+  std::vector<std::string> escape_string_value;
+  escape_string_value.reserve(value.size());
+  for (const auto& v : value) {
+    escape_string_value.push_back(
+        absl::StrCat("(", Bind(v.first), ",", Bind(v.second), ")"));
+  }
+  return absl::StrJoin(escape_string_value, ", ");
+}
+
 std::string QueryConfigExecutor::BindValue(const Value& value) {
   switch (value.value_case()) {
     case PropertyType::INT:
@@ -600,6 +621,45 @@ absl::Status QueryConfigExecutor::SelectTypeByNameAndVersion(
     return ExecuteQuery(query_config_.select_type_by_name(),
                         {Bind(type_name), Bind(type_kind)}, record_set);
   }
+}
+
+absl::Status QueryConfigExecutor::SelectTypesByNamesAndVersions(
+    absl::Span<std::pair<std::string, std::string>> names_and_versions,
+    TypeKind type_kind, RecordSet* record_set) {
+  auto partition = std::partition(
+      names_and_versions.begin(), names_and_versions.end(),
+      [](std::pair<absl::string_view, absl::string_view> name_and_version) {
+        return !name_and_version.second.empty();
+      });
+  // find types with both name and version
+  if (names_and_versions.begin() != partition) {
+    std::vector<std::pair<absl::string_view, absl::string_view>>
+        names_with_versions = {names_and_versions.begin(), partition};
+    MLMD_RETURN_IF_ERROR(ExecuteQuery(
+        query_config_.select_types_by_names_and_versions(),
+        {Bind(absl::MakeSpan(names_with_versions)), Bind(type_kind)},
+        record_set));
+  }
+  // find types with names only
+  if (partition != names_and_versions.end()) {
+    std::vector<absl::string_view> names;
+    std::transform(
+        partition, names_and_versions.end(), std::back_inserter(names),
+        [](const auto& pair) { return absl::string_view(pair.first); });
+    RecordSet record_set_for_types_with_names_only;
+    MLMD_RETURN_IF_ERROR(
+        ExecuteQuery(query_config_.select_types_by_names(),
+                     {Bind(absl::MakeSpan(names)), Bind(type_kind)},
+                     &record_set_for_types_with_names_only));
+    if (record_set->records_size() > 0) {
+      record_set->mutable_records()->MergeFrom(
+          record_set_for_types_with_names_only.records());
+    } else {
+      *record_set = std::move(record_set_for_types_with_names_only);
+    }
+  }
+
+  return absl::OkStatus();
 }
 
 absl::Status QueryConfigExecutor::SelectAllTypes(TypeKind type_kind,
