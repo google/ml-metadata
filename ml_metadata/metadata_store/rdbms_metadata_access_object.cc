@@ -396,6 +396,11 @@ absl::Status ParseRecordSetToNodeArray(const RecordSet& record_set,
   return ParseRecordSetToMessageArray(record_set, contexts);
 }
 
+absl::Status ParseRecordSetToNodeArray(const RecordSet& record_set,
+                                       std::vector<Event>* events) {
+  return ParseRecordSetToMessageArray(record_set, events);
+}
+
 // Creates an Artifact (without properties).
 absl::Status RDBMSMetadataAccessObject::CreateBasicNode(
     const Artifact& artifact, const absl::Time create_timestamp,

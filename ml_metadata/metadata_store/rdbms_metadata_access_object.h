@@ -77,7 +77,7 @@ absl::Status ValidatePropertiesWithType(const Node& node, const Type& type) {
   return absl::OkStatus();
 }
 
-// Converts `record_set` to an Artifact/Execution/Context array.
+// Converts `record_set` to an Artifact/Execution/Context/Event array.
 // ParseRecordSetToMessageArray is a template function. If we want to expose it
 // to other binaries, the definition should also be in the header file
 // (go/totw/12#what-do-i-need-to-know-about-templates) or a wrapper can be
@@ -90,6 +90,9 @@ absl::Status ParseRecordSetToNodeArray(const RecordSet& record_set,
 
 absl::Status ParseRecordSetToNodeArray(const RecordSet& record_set,
                                        std::vector<Context>* contexts);
+
+absl::Status ParseRecordSetToNodeArray(const RecordSet& record_set,
+                                       std::vector<Event>* events);
 
 // Declare a parameterized abstract test fixture to run tests on private methods
 // of RDBMSMetadataAccessObject created with different MetadataSource types.
