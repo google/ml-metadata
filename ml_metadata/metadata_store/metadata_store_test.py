@@ -210,6 +210,73 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertEqual(artifact_type_result.properties["new_property"],
                      metadata_store_pb2.INT)
 
+  def test_put_artifact_types_and_get_artifact_types_by_external_ids(self):
+    store = _get_metadata_store()
+    artifact_type_0 = _create_example_artifact_type(self._get_test_type_name())
+    artifact_type_1 = _create_example_artifact_type(self._get_test_type_name())
+
+    store.put_artifact_type(artifact_type_0)
+    store.put_artifact_type(artifact_type_1)
+
+    artifact_type_0.external_id = "artifact_type_0"
+    artifact_type_1.external_id = "artifact_type_1"
+    store.put_artifact_type(artifact_type_0, can_add_fields=True)
+    store.put_artifact_type(artifact_type_1, can_add_fields=True)
+
+    artifact_type_results = store.get_artifact_types_by_external_ids(
+        ["artifact_type_0", "artifact_type_1"])
+    external_ids = [
+        artifact_type.external_id for artifact_type in artifact_type_results
+    ]
+    self.assertLen(external_ids, 2)
+    self.assertIn("artifact_type_0", external_ids)
+    self.assertIn("artifact_type_1", external_ids)
+
+  def test_put_execution_types_and_get_execution_types_by_external_ids(self):
+    store = _get_metadata_store()
+    execution_type_0 = _create_example_execution_type(
+        self._get_test_type_name())
+    execution_type_1 = _create_example_execution_type(
+        self._get_test_type_name())
+
+    store.put_execution_type(execution_type_0)
+    store.put_execution_type(execution_type_1)
+
+    execution_type_0.external_id = "execution_type_0"
+    execution_type_1.external_id = "execution_type_1"
+
+    store.put_execution_type(execution_type_0, can_add_fields=True)
+    store.put_execution_type(execution_type_1, can_add_fields=True)
+    execution_type_results = store.get_execution_types_by_external_ids(
+        ["execution_type_0", "execution_type_1"])
+    external_ids = [
+        execution_type.external_id for execution_type in execution_type_results
+    ]
+    self.assertLen(external_ids, 2)
+    self.assertIn("execution_type_0", external_ids)
+    self.assertIn("execution_type_1", external_ids)
+
+  def test_put_context_types_and_get_context_types_by_external_ids(self):
+    store = _get_metadata_store()
+    context_type_0 = _create_example_context_type(self._get_test_type_name())
+    context_type_1 = _create_example_context_type(self._get_test_type_name())
+
+    store.put_context_type(context_type_0)
+    store.put_context_type(context_type_1)
+
+    context_type_0.external_id = "context_type_0"
+    context_type_1.external_id = "context_type_1"
+
+    store.put_context_type(context_type_0, can_add_fields=True)
+    store.put_context_type(context_type_1, can_add_fields=True)
+    context_type_results = store.get_context_types_by_external_ids(
+        ["context_type_0", "context_type_1"])
+    external_ids = [
+        context_type.external_id for context_type in context_type_results
+    ]
+    self.assertLen(external_ids, 2)
+    self.assertIn("context_type_0", external_ids)
+    self.assertIn("context_type_1", external_ids)
 
   @parameterized.parameters(
       (_create_example_artifact_type, mlmd.MetadataStore.put_artifact_type,
@@ -721,6 +788,24 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertLen(artifact_result, 1)
     self.assertEqual(artifact_result[0].id, want_artifact_id)
 
+  def test_put_artifacts_get_artifacts_by_external_ids(self):
+    store = _get_metadata_store()
+    artifact_type = _create_example_artifact_type(self._get_test_type_name())
+    type_id = store.put_artifact_type(artifact_type)
+
+    want_artifact_0 = metadata_store_pb2.Artifact(
+        type_id=type_id, external_id="want_artifact_0")
+
+    want_artifact_1 = metadata_store_pb2.Artifact(
+        type_id=type_id, external_id="want_artifact_1")
+
+    store.put_artifacts([want_artifact_0, want_artifact_1])
+    artifact_results = store.get_artifacts_by_external_ids(
+        [want_artifact_0.external_id, want_artifact_1.external_id])
+    external_ids = [artifact.external_id for artifact in artifact_results]
+    self.assertLen(external_ids, 2)
+    self.assertIn("want_artifact_0", external_ids)
+    self.assertIn("want_artifact_1", external_ids)
 
   def test_puts_artifacts_duplicated_name_with_the_same_type(self):
     store = _get_metadata_store()
@@ -782,6 +867,24 @@ class MetadataStoreTest(parameterized.TestCase):
         "random_name", "random_name")
     self.assertIsNone(empty_execution)
 
+  def test_put_executions_get_executions_by_external_ids(self):
+    store = _get_metadata_store()
+    execution_type = _create_example_execution_type(self._get_test_type_name())
+    type_id = store.put_execution_type(execution_type)
+
+    want_execution_0 = metadata_store_pb2.Execution(
+        type_id=type_id, external_id="want_execution_0")
+
+    want_execution_1 = metadata_store_pb2.Execution(
+        type_id=type_id, external_id="want_execution_1")
+
+    store.put_executions([want_execution_0, want_execution_1])
+    execution_results = store.get_executions_by_external_ids(
+        [want_execution_0.external_id, want_execution_1.external_id])
+    external_ids = [execution.external_id for execution in execution_results]
+    self.assertLen(external_ids, 2)
+    self.assertIn("want_execution_0", external_ids)
+    self.assertIn("want_execution_1", external_ids)
 
   def test_update_artifact_get_artifact(self):
     store = _get_metadata_store()
@@ -795,6 +898,7 @@ class MetadataStoreTest(parameterized.TestCase):
     artifact_2 = metadata_store_pb2.Artifact()
     artifact_2.CopyFrom(artifact)
     artifact_2.id = artifact_id
+    artifact_2.external_id = "artifact_2"
     artifact_2.properties["foo"].int_value = artifact_id
     artifact_2.properties["bar"].string_value = "Goodbye"
     [artifact_id_2] = store.put_artifacts([artifact_2])
@@ -803,6 +907,7 @@ class MetadataStoreTest(parameterized.TestCase):
     [artifact_result] = store.get_artifacts_by_id([artifact_id])
     self.assertEqual(artifact_result.properties["bar"].string_value, "Goodbye")
     self.assertEqual(artifact_result.properties["foo"].int_value, artifact_id)
+    self.assertEqual(artifact_result.external_id, "artifact_2")
 
   def test_put_execution_type_get_execution_type(self):
     store = _get_metadata_store()
@@ -971,6 +1076,7 @@ class MetadataStoreTest(parameterized.TestCase):
     execution_2 = metadata_store_pb2.Execution()
     execution_2.id = execution_id
     execution_2.type_id = type_id
+    execution_2.external_id = "execution_2"
     execution_2.properties["foo"].int_value = 12
     execution_2.properties["bar"].string_value = "Goodbye"
     [execution_id_2] = store.put_executions([execution_2])
@@ -979,6 +1085,7 @@ class MetadataStoreTest(parameterized.TestCase):
     [execution_result] = store.get_executions_by_id([execution_id])
     self.assertEqual(execution_result.properties["bar"].string_value, "Goodbye")
     self.assertEqual(execution_result.properties["foo"].int_value, 12)
+    self.assertEqual(execution_result.external_id, "execution_2")
 
   def test_put_events_get_events(self):
     store = _get_metadata_store()
@@ -1561,6 +1668,24 @@ class MetadataStoreTest(parameterized.TestCase):
                                                        "random_name")
     self.assertIsNone(empty_context)
 
+  def test_put_contexts_get_contexts_by_external_ids(self):
+    store = _get_metadata_store()
+    context_type = _create_example_context_type(self._get_test_type_name())
+    type_id = store.put_context_type(context_type)
+
+    want_context_0 = metadata_store_pb2.Context(
+        type_id=type_id, name="want_context_0", external_id="want_context_0")
+
+    want_context_1 = metadata_store_pb2.Context(
+        type_id=type_id, name="want_context_1", external_id="want_context_1")
+
+    store.put_contexts([want_context_0, want_context_1])
+    context_results = store.get_contexts_by_external_ids(
+        [want_context_0.external_id, want_context_1.external_id])
+    external_ids = [context.external_id for context in context_results]
+    self.assertLen(external_ids, 2)
+    self.assertIn("want_context_0", external_ids)
+    self.assertIn("want_context_1", external_ids)
 
   def test_put_contexts_get_contexts_by_type(self):
     store = _get_metadata_store()
@@ -1614,6 +1739,7 @@ class MetadataStoreTest(parameterized.TestCase):
 
     context_2 = metadata_store_pb2.Context()
     context_2.id = context_id
+    context_2.external_id = "context_2"
     context_2.name = self._get_test_type_name()
     context_2.type_id = type_id
     context_2.properties["foo"].int_value = 12
@@ -1625,6 +1751,7 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertEqual(context_result.name, context_2.name)
     self.assertEqual(context_result.properties["bar"].string_value, "Goodbye")
     self.assertEqual(context_result.properties["foo"].int_value, 12)
+    self.assertEqual(context_result.external_id, "context_2")
 
   def test_put_lineage_subgraph(self):
     store = _get_metadata_store()

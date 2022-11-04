@@ -19,6 +19,7 @@ limitations under the License.
 #include <vector>
 
 #include <glog/logging.h>
+#include "google/protobuf/text_format.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
@@ -28,6 +29,173 @@ limitations under the License.
 #include "ml_metadata/util/return_utils.h"
 
 namespace ml_metadata {
+
+constexpr int64 kSchemaVersionNine = 9;
+
+// Prepares a template query used for earlier query schema version.
+inline absl::Status GetTemplateQueryOrDie(
+    const std::string& query,
+    MetadataSourceQueryConfig::TemplateQuery& output) {
+  if (!google::protobuf::TextFormat::ParseFromString(query, &output)) {
+    return absl::InternalError(absl::StrCat(
+        "query: `", query, "`, cannot be parsed to a TemplateQuery."));
+  }
+  return absl::OkStatus();
+}
+
+// TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
+// A set of utilities that is used in MLMD fat client where it is possible that
+// the lib is used to query different sources that are at different schema
+// versions (vj < vi = head).
+namespace query_version {
+namespace v7_and_v8 {
+
+static constexpr char kInsertArtifact[] = R"pb(
+  query: " INSERT INTO `Artifact`( "
+         "   `type_id`, `uri`, `state`, `name`, `create_time_since_epoch`, "
+         "   `last_update_time_since_epoch` "
+         ") VALUES($0, $1, $2, $3, $4, $5);"
+  parameter_num: 6
+)pb";
+
+static constexpr char kSelectArtifactByIdForMySQL[] = R"pb(
+  query: " SELECT `id`, `type_id`, `uri`, `state`, `name`, "
+         "        `create_time_since_epoch`, `last_update_time_since_epoch` "
+         " FROM `Artifact` "
+         " WHERE id IN ($0) LOCK IN SHARE MODE;  "
+  parameter_num: 1
+)pb";
+
+static constexpr char kSelectArtifactByIdForSQLite[] = R"pb(
+  query: " SELECT `id`, `type_id`, `uri`, `state`, `name`, "
+         "        `create_time_since_epoch`, `last_update_time_since_epoch` "
+         " FROM `Artifact` "
+         " WHERE id IN ($0);  "
+  parameter_num: 1
+)pb";
+
+static constexpr char kUpdateArtifact[] = R"pb(
+  query: " UPDATE `Artifact` "
+         " SET `type_id` = $1, `uri` = $2, `state` = $3, "
+         "     `last_update_time_since_epoch` = $4 "
+         " WHERE id = $0;"
+  parameter_num: 5
+)pb";
+
+static constexpr char kInsertExecution[] = R"pb(
+  query: " INSERT INTO `Execution`( "
+         "   `type_id`, `last_known_state`, `name`, "
+         "   `create_time_since_epoch`, `last_update_time_since_epoch` "
+         ") VALUES($0, $1, $2, $3, $4);"
+  parameter_num: 5
+)pb";
+
+static constexpr char kSelectExecutionByIdForMySQL[] = R"pb(
+  query: " SELECT `id`, `type_id`, `last_known_state`, `name`, "
+         "        `create_time_since_epoch`, `last_update_time_since_epoch` "
+         " FROM `Execution` "
+         " WHERE id IN ($0) LOCK IN SHARE MODE; "
+  parameter_num: 1
+)pb";
+
+static constexpr char kSelectExecutionByIdForSQLite[] = R"pb(
+  query: " SELECT `id`, `type_id`, `last_known_state`, `name`, "
+         "        `create_time_since_epoch`, `last_update_time_since_epoch` "
+         " FROM `Execution` "
+         " WHERE id IN ($0); "
+  parameter_num: 1
+)pb";
+
+static constexpr char kUpdateExecution[] = R"pb(
+  query: " UPDATE `Execution` "
+         " SET `type_id` = $1, `last_known_state` = $2, "
+         "     `last_update_time_since_epoch` = $3 "
+         " WHERE id = $0;"
+  parameter_num: 4
+)pb";
+
+static constexpr char kInsertContext[] = R"pb(
+  query: " INSERT INTO `Context`( "
+         "   `type_id`, `name`, "
+         "   `create_time_since_epoch`, `last_update_time_since_epoch` "
+         ") VALUES($0, $1, $2, $3);"
+  parameter_num: 4
+)pb";
+
+static constexpr char kSelectContextByIdForMySQL[] = R"pb(
+  query: " SELECT `id`, `type_id`, `name`, `create_time_since_epoch`, "
+         "        `last_update_time_since_epoch`"
+         " from `Context` WHERE id IN ($0) LOCK IN SHARE MODE; "
+  parameter_num: 1
+)pb";
+
+static constexpr char kSelectContextByIdForSQLite[] = R"pb(
+  query: " SELECT `id`, `type_id`, `name`, `create_time_since_epoch`, "
+         "        `last_update_time_since_epoch`"
+         " from `Context` WHERE id IN ($0); "
+  parameter_num: 1
+)pb";
+
+static constexpr char kUpdateContext[] = R"pb(
+  query: " UPDATE `Context` "
+         " SET `type_id` = $1, `name` = $2, "
+         "     `last_update_time_since_epoch` = $3 "
+         " WHERE id = $0;"
+  parameter_num: 4
+)pb";
+
+static constexpr char kInsertArtifactType[] = R"pb(
+  query: " INSERT INTO `Type`( "
+         "   `name`, `type_kind`, `version`, `description` "
+         ") VALUES($0, 1, $1, $2);"
+  parameter_num: 3
+)pb";
+
+static constexpr char kInsertExecutionType[] = R"pb(
+  query: " INSERT INTO `Type`( "
+         "   `name`, `type_kind`, `version`, `description`, "
+         "   `input_type`, `output_type` "
+         ") VALUES($0, 0, $1, $2, $3, $4);"
+  parameter_num: 5
+)pb";
+
+static constexpr char kInsertContextType[] = R"pb(
+  query: " INSERT INTO `Type`( "
+         "   `name`, `type_kind`, `version`, `description` "
+         ") VALUES($0, 2, $1, $2);"
+  parameter_num: 3
+)pb";
+
+static constexpr char kSelectTypesById[] = R"pb(
+  query: " SELECT `id`, `name`, `version`, `description` "
+         " FROM `Type` "
+         " WHERE id IN ($0) and type_kind = $1; "
+  parameter_num: 2
+)pb";
+
+static constexpr char kSelectTypeById[] = R"pb(
+  query: " SELECT `id`, `name`, `version`, `description`, "
+         "        `input_type`, `output_type` FROM `Type` "
+         " WHERE id = $0 and type_kind = $1; "
+  parameter_num: 2
+)pb";
+
+static constexpr char kSelectTypeByNameAndVersion[] = R"pb(
+  query: " SELECT `id`, `name`, `version`, `description`, "
+         "        `input_type`, `output_type` FROM `Type` "
+         " WHERE name = $0 AND version = $1 AND type_kind = $2; "
+  parameter_num: 3
+)pb";
+
+static constexpr char kSelectTypeByName[] = R"pb(
+  query: " SELECT `id`, `name`, `version`, `description`, "
+         "        `input_type`, `output_type` FROM `Type` "
+         " WHERE name = $0 AND version IS NULL AND type_kind = $1; "
+  parameter_num: 2
+)pb";
+
+}  // namespace v7_and_v8
+}  // namespace query_version
 
 // A SQL version of the QueryExecutor. The text of most queries are
 // encoded in MetadataSourceQueryConfig. This class binds the relevant arguments
@@ -85,6 +253,7 @@ class QueryConfigExecutor : public QueryExecutor {
   absl::Status InsertArtifactType(
       const std::string& name, absl::optional<absl::string_view> version,
       absl::optional<absl::string_view> description,
+      absl::optional<absl::string_view> external_id,
       int64* type_id) final;
 
   absl::Status InsertExecutionType(
@@ -92,16 +261,21 @@ class QueryConfigExecutor : public QueryExecutor {
       absl::optional<absl::string_view> description,
       const ArtifactStructType* input_type,
       const ArtifactStructType* output_type,
+      absl::optional<absl::string_view> external_id,
       int64* type_id) final;
 
   absl::Status InsertContextType(
       const std::string& name, absl::optional<absl::string_view> version,
       absl::optional<absl::string_view> description,
+      absl::optional<absl::string_view> external_id,
       int64* type_id) final;
 
   absl::Status SelectTypesByID(absl::Span<const int64> type_ids,
                                TypeKind type_kind, RecordSet* record_set) final;
 
+  absl::Status SelectTypesByExternalIds(
+      absl::Span<absl::string_view> external_ids, TypeKind type_kind,
+      RecordSet* record_set) final;
 
   absl::Status SelectTypeByID(int64 type_id, TypeKind type_kind,
                               RecordSet* record_set) final;
@@ -117,6 +291,13 @@ class QueryConfigExecutor : public QueryExecutor {
 
   absl::Status SelectAllTypes(TypeKind type_kind, RecordSet* record_set) final;
 
+  absl::Status UpdateTypeExternalIdDirect(
+      int64 type_id, absl::optional<absl::string_view> external_id) final {
+    MLMD_RETURN_IF_ERROR(
+        VerifyCurrentQueryVersionIsAtLeast(kSchemaVersionNine));
+    return ExecuteQuery(query_config_.update_type(),
+                        {Bind(type_id), Bind(external_id)});
+  }
 
   absl::Status CheckTypePropertyTable() final {
     return ExecuteQuery(query_config_.check_type_property_table());
@@ -157,22 +338,61 @@ class QueryConfigExecutor : public QueryExecutor {
       int64 type_id, const std::string& artifact_uri,
       const absl::optional<Artifact::State>& state,
       const absl::optional<std::string>& name,
+      absl::optional<absl::string_view> external_id,
       const absl::Time create_time, const absl::Time update_time,
       int64* artifact_id) final {
+    // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
+    if (query_schema_version().has_value() &&
+        query_schema_version().value() < kSchemaVersionNine) {
+      MetadataSourceQueryConfig::TemplateQuery insert_artifact;
+      MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
+          query_version::v7_and_v8::kInsertArtifact, insert_artifact));
+      return ExecuteQuerySelectLastInsertID(
+          insert_artifact,
+          {Bind(type_id), Bind(artifact_uri), Bind(state), Bind(name),
+           Bind(absl::ToUnixMillis(create_time)),
+           Bind(absl::ToUnixMillis(update_time))},
+          artifact_id);
+    }
+
     return ExecuteQuerySelectLastInsertID(
         query_config_.insert_artifact(),
         {Bind(type_id), Bind(artifact_uri), Bind(state), Bind(name),
-         Bind(absl::ToUnixMillis(create_time)),
+         Bind(external_id), Bind(absl::ToUnixMillis(create_time)),
          Bind(absl::ToUnixMillis(update_time))},
         artifact_id);
   }
 
   absl::Status SelectArtifactsByID(absl::Span<const int64> artifact_ids,
                                    RecordSet* record_set) final {
+    // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
+    if (query_schema_version().has_value() &&
+        query_schema_version().value() < kSchemaVersionNine) {
+      MetadataSourceQueryConfig::TemplateQuery select_artifact_by_id;
+      if (query_config_.metadata_source_type() ==
+          MetadataSourceType::MYSQL_METADATA_SOURCE) {
+        MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
+            query_version::v7_and_v8::kSelectArtifactByIdForMySQL,
+            select_artifact_by_id));
+      } else {
+        MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
+            query_version::v7_and_v8::kSelectArtifactByIdForSQLite,
+            select_artifact_by_id));
+      }
+      return ExecuteQuery(select_artifact_by_id, {Bind(artifact_ids)},
+                          record_set);
+    }
     return ExecuteQuery(query_config_.select_artifact_by_id(),
                         {Bind(artifact_ids)}, record_set);
   }
 
+  absl::Status SelectArtifactsByExternalIds(
+      absl::Span<absl::string_view> external_ids, RecordSet* record_set) {
+    MLMD_RETURN_IF_ERROR(
+        VerifyCurrentQueryVersionIsAtLeast(kSchemaVersionNine));
+    return ExecuteQuery(query_config_.select_artifacts_by_external_ids(),
+                        {Bind(external_ids)}, record_set);
+  }
 
   absl::Status SelectArtifactByTypeIDAndArtifactName(
       int64 artifact_type_id, absl::string_view name,
@@ -192,13 +412,26 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(query_config_.select_artifacts_by_uri(), {Bind(uri)},
                         record_set);
   }
+
   absl::Status UpdateArtifactDirect(
       int64 artifact_id, int64 type_id, const std::string& uri,
       const absl::optional<Artifact::State>& state,
+      absl::optional<absl::string_view> external_id,
       const absl::Time update_time) final {
-    return ExecuteQuery(query_config_.update_artifact(),
-                        {Bind(artifact_id), Bind(type_id), Bind(uri),
-                         Bind(state), Bind(absl::ToUnixMillis(update_time))});
+    // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
+    if (query_schema_version().has_value() &&
+        query_schema_version().value() < kSchemaVersionNine) {
+      MetadataSourceQueryConfig::TemplateQuery update_artifact;
+      MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
+          query_version::v7_and_v8::kUpdateArtifact, update_artifact));
+      return ExecuteQuery(update_artifact,
+                          {Bind(artifact_id), Bind(type_id), Bind(uri),
+                           Bind(state), Bind(absl::ToUnixMillis(update_time))});
+    }
+    return ExecuteQuery(
+        query_config_.update_artifact(),
+        {Bind(artifact_id), Bind(type_id), Bind(uri), Bind(state),
+         Bind(external_id), Bind(absl::ToUnixMillis(update_time))});
   }
 
   absl::Status CheckArtifactPropertyTable() final {
@@ -243,20 +476,60 @@ class QueryConfigExecutor : public QueryExecutor {
   absl::Status InsertExecution(
       int64 type_id, const absl::optional<Execution::State>& last_known_state,
       const absl::optional<std::string>& name,
+      absl::optional<absl::string_view> external_id,
       const absl::Time create_time, const absl::Time update_time,
       int64* execution_id) final {
+    // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
+    if (query_schema_version().has_value() &&
+        query_schema_version().value() < kSchemaVersionNine) {
+      MetadataSourceQueryConfig::TemplateQuery insert_execution;
+      MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
+          query_version::v7_and_v8::kInsertExecution, insert_execution));
+      return ExecuteQuerySelectLastInsertID(
+          insert_execution,
+          {Bind(type_id), Bind(last_known_state), Bind(name),
+           Bind(absl::ToUnixMillis(create_time)),
+           Bind(absl::ToUnixMillis(update_time))},
+          execution_id);
+    }
     return ExecuteQuerySelectLastInsertID(
         query_config_.insert_execution(),
-        {Bind(type_id), Bind(last_known_state), Bind(name),
+        {Bind(type_id), Bind(last_known_state), Bind(name), Bind(external_id),
          Bind(absl::ToUnixMillis(create_time)),
          Bind(absl::ToUnixMillis(update_time))},
         execution_id);
   }
 
-  absl::Status SelectExecutionsByID(absl::Span<const int64> ids,
+  absl::Status SelectExecutionsByID(absl::Span<const int64> execution_ids,
                                     RecordSet* record_set) final {
-    return ExecuteQuery(query_config_.select_execution_by_id(), {Bind(ids)},
-                        record_set);
+    // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
+    if (query_schema_version().has_value() &&
+        query_schema_version().value() < kSchemaVersionNine) {
+      MetadataSourceQueryConfig::TemplateQuery select_execution_by_id;
+      if (query_config_.metadata_source_type() ==
+          MetadataSourceType::MYSQL_METADATA_SOURCE) {
+        MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
+            query_version::v7_and_v8::kSelectExecutionByIdForMySQL,
+            select_execution_by_id));
+
+      } else {
+        MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
+            query_version::v7_and_v8::kSelectExecutionByIdForSQLite,
+            select_execution_by_id));
+      }
+      return ExecuteQuery(select_execution_by_id, {Bind(execution_ids)},
+                          record_set);
+    }
+    return ExecuteQuery(query_config_.select_execution_by_id(),
+                        {Bind(execution_ids)}, record_set);
+  }
+
+  absl::Status SelectExecutionsByExternalIds(absl::Span<absl::string_view> ids,
+                                             RecordSet* record_set) final {
+    MLMD_RETURN_IF_ERROR(
+        VerifyCurrentQueryVersionIsAtLeast(kSchemaVersionNine));
+    return ExecuteQuery(query_config_.select_executions_by_external_ids(),
+                        {Bind(ids)}, record_set);
   }
 
   absl::Status SelectExecutionByTypeIDAndExecutionName(
@@ -275,11 +548,24 @@ class QueryConfigExecutor : public QueryExecutor {
   absl::Status UpdateExecutionDirect(
       int64 execution_id, int64 type_id,
       const absl::optional<Execution::State>& last_known_state,
+      absl::optional<absl::string_view> external_id,
       const absl::Time update_time) final {
+    // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
+    if (query_schema_version().has_value() &&
+        query_schema_version().value() < kSchemaVersionNine) {
+      MetadataSourceQueryConfig::TemplateQuery update_execution;
+      MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
+          query_version::v7_and_v8::kUpdateExecution, update_execution));
+      absl::Status s = ExecuteQuery(
+          update_execution,
+          {Bind(execution_id), Bind(type_id), Bind(last_known_state),
+           Bind(absl::ToUnixMillis(update_time))});
+      return s;
+    }
     return ExecuteQuery(
         query_config_.update_execution(),
         {Bind(execution_id), Bind(type_id), Bind(last_known_state),
-         Bind(absl::ToUnixMillis(update_time))});
+         Bind(external_id), Bind(absl::ToUnixMillis(update_time))});
   }
 
   absl::Status CheckExecutionPropertyTable() final {
@@ -322,21 +608,59 @@ class QueryConfigExecutor : public QueryExecutor {
 
   absl::Status InsertContext(
       int64 type_id, const std::string& name,
+      absl::optional<absl::string_view> external_id,
       const absl::Time create_time, const absl::Time update_time,
       int64* context_id) final {
+    // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
+    if (query_schema_version().has_value() &&
+        query_schema_version().value() < kSchemaVersionNine) {
+      MetadataSourceQueryConfig::TemplateQuery insert_context;
+      MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
+          query_version::v7_and_v8::kInsertContext, insert_context));
+      return ExecuteQuerySelectLastInsertID(
+          insert_context,
+          {Bind(type_id), Bind(name), Bind(absl::ToUnixMillis(create_time)),
+           Bind(absl::ToUnixMillis(update_time))},
+          context_id);
+    }
     return ExecuteQuerySelectLastInsertID(
         query_config_.insert_context(),
-        {Bind(type_id), Bind(name), Bind(absl::ToUnixMillis(create_time)),
+        {Bind(type_id), Bind(name), Bind(external_id),
+         Bind(absl::ToUnixMillis(create_time)),
          Bind(absl::ToUnixMillis(update_time))},
         context_id);
   }
 
   absl::Status SelectContextsByID(absl::Span<const int64> context_ids,
                                   RecordSet* record_set) final {
+    // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
+    if (query_schema_version().has_value() &&
+        query_schema_version().value() < kSchemaVersionNine) {
+      MetadataSourceQueryConfig::TemplateQuery select_context_by_id;
+      if (query_config_.metadata_source_type() ==
+          MetadataSourceType::MYSQL_METADATA_SOURCE) {
+        MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
+            query_version::v7_and_v8::kSelectContextByIdForMySQL,
+            select_context_by_id));
+      } else {
+        MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
+            query_version::v7_and_v8::kSelectContextByIdForSQLite,
+            select_context_by_id));
+      }
+      return ExecuteQuery(select_context_by_id, {Bind(context_ids)},
+                          record_set);
+    }
     return ExecuteQuery(query_config_.select_context_by_id(),
                         {Bind(context_ids)}, record_set);
   }
 
+  absl::Status SelectContextsByExternalIds(
+      absl::Span<absl::string_view> external_ids, RecordSet* record_set) final {
+    MLMD_RETURN_IF_ERROR(
+        VerifyCurrentQueryVersionIsAtLeast(kSchemaVersionNine));
+    return ExecuteQuery(query_config_.select_contexts_by_external_ids(),
+                        {Bind(external_ids)}, record_set);
+  }
 
   absl::Status SelectContextsByTypeID(int64 context_type_id,
                                       RecordSet* record_set) final {
@@ -353,11 +677,23 @@ class QueryConfigExecutor : public QueryExecutor {
 
   absl::Status UpdateContextDirect(
       int64 existing_context_id, int64 type_id, const std::string& context_name,
+      absl::optional<absl::string_view> external_id,
       const absl::Time update_time) final {
+    // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
+    if (query_schema_version().has_value() &&
+        query_schema_version().value() < kSchemaVersionNine) {
+      MetadataSourceQueryConfig::TemplateQuery update_context;
+      MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
+          query_version::v7_and_v8::kUpdateContext, update_context));
+      return ExecuteQuery(
+          update_context,
+          {Bind(existing_context_id), Bind(type_id), Bind(context_name),
+           Bind(absl::ToUnixMillis(update_time))});
+    }
     return ExecuteQuery(
         query_config_.update_context(),
         {Bind(existing_context_id), Bind(type_id), Bind(context_name),
-         Bind(absl::ToUnixMillis(update_time))});
+         Bind(external_id), Bind(absl::ToUnixMillis(update_time))});
   }
 
   absl::Status CheckContextPropertyTable() final {

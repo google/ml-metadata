@@ -79,6 +79,9 @@ constexpr QueryTestCase kInValidTestQueriesWithErrors[] = {
     {"last_update_time_since_epoch = a", "Unrecognized name"},
     {"name = 1", "No matching signature for operator = for argument types"},
     {"name = a", "Unrecognized name"},
+    {"external_id = 1",
+     "No matching signature for operator = for argument types"},
+    {"external_id = a", "Unrecognized name"},
     // invalid context expressions
     {"contexts", "Unrecognized name"},
     {"contexts_0", "Unrecognized name"},
@@ -162,6 +165,7 @@ constexpr QueryTestCase kValidTestQueries[] = {
     {"uri LIKE 'abc'", "", artifact_only},
     {"uri IS NOT NULL", "", artifact_only},
     {"name = 'a'", ""},
+    {"external_id = 'a'", ""},
     {"create_time_since_epoch = 1", ""},
     {"create_time_since_epoch > 1", ""},
     {"create_time_since_epoch + 1 > 1", ""},

@@ -127,6 +127,35 @@ class MetadataStoreServiceImpl final
                               const GetArtifactsRequest* request,
                               GetArtifactsResponse* response) override;
 
+  ::grpc::Status GetArtifactsByExternalIds(
+      ::grpc::ServerContext* context,
+      const GetArtifactsByExternalIdsRequest* request,
+      GetArtifactsByExternalIdsResponse* response) override;
+
+  ::grpc::Status GetExecutionsByExternalIds(
+      ::grpc::ServerContext* context,
+      const GetExecutionsByExternalIdsRequest* request,
+      GetExecutionsByExternalIdsResponse* response) override;
+
+  ::grpc::Status GetContextsByExternalIds(
+      ::grpc::ServerContext* context,
+      const GetContextsByExternalIdsRequest* request,
+      GetContextsByExternalIdsResponse* response) override;
+
+  ::grpc::Status GetArtifactTypesByExternalIds(
+      ::grpc::ServerContext* context,
+      const GetArtifactTypesByExternalIdsRequest* request,
+      GetArtifactTypesByExternalIdsResponse* response) override;
+
+  ::grpc::Status GetExecutionTypesByExternalIds(
+      ::grpc::ServerContext* context,
+      const GetExecutionTypesByExternalIdsRequest* request,
+      GetExecutionTypesByExternalIdsResponse* response) override;
+
+  ::grpc::Status GetContextTypesByExternalIds(
+      ::grpc::ServerContext* context,
+      const GetContextTypesByExternalIdsRequest* request,
+      GetContextTypesByExternalIdsResponse* response) override;
 
   ::grpc::Status GetArtifactsByType(
       ::grpc::ServerContext* context, const GetArtifactsByTypeRequest* request,

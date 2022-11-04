@@ -12,6 +12,9 @@
     to ensure filter query will be evaluated in the correct order.
 *   Upgrade SQLite version to 3.39.2 to support more advanced SQL statements,
     e.g. using tuples with IN operator.
+*   Adds `external_id` for Type, Artifact, Execution and Context to store unique
+    string ids from other systems.
+*   Implements a fat client that supports v7, v8 and v9 schema for MLMD.
 
 ## Breaking Changes
 

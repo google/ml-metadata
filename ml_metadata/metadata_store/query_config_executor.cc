@@ -40,21 +40,6 @@ limitations under the License.
 
 namespace ml_metadata {
 
-namespace {
-
-// Prepares a template query used for earlier query schema version.
-absl::Status GetTemplateQueryOrDie(
-    const std::string& query,
-    MetadataSourceQueryConfig::TemplateQuery& output) {
-  if (!google::protobuf::TextFormat::ParseFromString(query, &output)) {
-    return absl::InternalError(absl::StrCat(
-        "query: `", query, "`, cannot be parsed to a TemplateQuery."));
-  }
-  return absl::OkStatus();
-}
-
-}  // namespace
-
 QueryConfigExecutor::QueryConfigExecutor(
     const MetadataSourceQueryConfig& query_config, MetadataSource* source,
     int64 query_version)
@@ -431,7 +416,9 @@ absl::Status QueryConfigExecutor::ExecuteQuery(
         "Template query has too many parameters (at most 10 is supported).");
   }
   if (template_query.parameter_num() != parameters.size()) {
-    LOG(FATAL) << "Template query parameter_num does not match with given "
+    LOG(FATAL) << "Template query parameter_num ("
+               << template_query.parameter_num()
+               << ") does not match with given "
                << "parameters size (" << parameters.size()
                << "): " << template_query.DebugString();
   }
@@ -568,56 +555,178 @@ absl::Status QueryConfigExecutor::InitMetadataSourceIfNotExists(
 absl::Status QueryConfigExecutor::InsertArtifactType(
     const std::string& name, absl::optional<absl::string_view> version,
     absl::optional<absl::string_view> description,
+    absl::optional<absl::string_view> external_id,
     int64* type_id) {
+  // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
+  if (query_schema_version().has_value() &&
+      query_schema_version().value() < kSchemaVersionNine) {
+    MetadataSourceQueryConfig::TemplateQuery insert_artifact_type;
+    MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
+        query_version::v7_and_v8::kInsertArtifactType, insert_artifact_type));
+    return ExecuteQuerySelectLastInsertID(
+        insert_artifact_type, {Bind(name), Bind(version), Bind(description)},
+        type_id);
+  }
+
+  if (external_id.has_value()) {
+    RecordSet record;
+    MLMD_RETURN_IF_ERROR(
+        ExecuteQuery(query_config_.select_types_by_external_ids(),
+                     {Bind({external_id.value()}), Bind(1)}, &record));
+    if (record.records_size() > 0) {
+      return absl::AlreadyExistsError(absl::StrCat(
+          "Conflict of external_id: ", external_id.value(),
+          " Found already existing Artifact type with the same external_id: ",
+          record.DebugString()));
+    }
+  }
+
   return ExecuteQuerySelectLastInsertID(
       query_config_.insert_artifact_type(),
-      {Bind(name), Bind(version), Bind(description)}, type_id);
+      {Bind(name), Bind(version), Bind(description), Bind(external_id)},
+      type_id);
 }
 
 absl::Status QueryConfigExecutor::InsertExecutionType(
     const std::string& name, absl::optional<absl::string_view> version,
     absl::optional<absl::string_view> description,
     const ArtifactStructType* input_type, const ArtifactStructType* output_type,
+    absl::optional<absl::string_view> external_id,
     int64* type_id) {
+  // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
+  if (query_schema_version().has_value() &&
+      query_schema_version().value() < kSchemaVersionNine) {
+    MetadataSourceQueryConfig::TemplateQuery insert_execution_type;
+    MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
+        query_version::v7_and_v8::kInsertExecutionType, insert_execution_type));
+    return ExecuteQuerySelectLastInsertID(
+        insert_execution_type,
+        {Bind(name), Bind(version), Bind(description), Bind(input_type),
+         Bind(output_type)},
+        type_id);
+  }
+
+  if (external_id.has_value()) {
+    RecordSet record;
+    MLMD_RETURN_IF_ERROR(
+        ExecuteQuery(query_config_.select_types_by_external_ids(),
+                     {Bind({external_id.value()}), Bind(0)}, &record));
+    if (record.records_size() > 0) {
+      return absl::AlreadyExistsError(absl::StrCat(
+          "Conflict of external_id: ", external_id.value(),
+          " Found already existing Execution type with the same external_id: ",
+          record.DebugString()));
+    }
+  }
   return ExecuteQuerySelectLastInsertID(
       query_config_.insert_execution_type(),
       {Bind(name), Bind(version), Bind(description), Bind(input_type),
-       Bind(output_type)},
+       Bind(output_type), Bind(external_id)},
       type_id);
 }
 
 absl::Status QueryConfigExecutor::InsertContextType(
     const std::string& name, absl::optional<absl::string_view> version,
     absl::optional<absl::string_view> description,
+    absl::optional<absl::string_view> external_id,
     int64* type_id) {
+  // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
+  if (query_schema_version().has_value() &&
+      query_schema_version().value() < kSchemaVersionNine) {
+    MetadataSourceQueryConfig::TemplateQuery insert_context_type;
+    MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
+        query_version::v7_and_v8::kInsertContextType, insert_context_type));
+    return ExecuteQuerySelectLastInsertID(
+        insert_context_type, {Bind(name), Bind(version), Bind(description)},
+        type_id);
+  }
+
+  if (external_id.has_value()) {
+    RecordSet record;
+    MLMD_RETURN_IF_ERROR(
+        ExecuteQuery(query_config_.select_types_by_external_ids(),
+                     {Bind({external_id.value()}), Bind(2)}, &record));
+    if (record.records_size() > 0) {
+      return absl::AlreadyExistsError(absl::StrCat(
+          "Conflict of external_id: ", external_id.value(),
+          " Found already existing Context type with the same external_id: ",
+          record.DebugString()));
+    }
+  }
   return ExecuteQuerySelectLastInsertID(
       query_config_.insert_context_type(),
-      {Bind(name), Bind(version), Bind(description)}, type_id);
+      {Bind(name), Bind(version), Bind(description), Bind(external_id)},
+      type_id);
 }
 
 absl::Status QueryConfigExecutor::SelectTypesByID(
     absl::Span<const int64> type_ids, TypeKind type_kind,
     RecordSet* record_set) {
+  // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
+  if (query_schema_version().has_value() &&
+      query_schema_version().value() < kSchemaVersionNine) {
+    MetadataSourceQueryConfig::TemplateQuery select_types_by_id;
+    MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
+        query_version::v7_and_v8::kSelectTypesById, select_types_by_id));
+    return ExecuteQuery(select_types_by_id, {Bind(type_ids), Bind(type_kind)},
+                        record_set);
+  }
+
   return ExecuteQuery(query_config_.select_types_by_id(),
                       {Bind(type_ids), Bind(type_kind)}, record_set);
 }
 
-
 absl::Status QueryConfigExecutor::SelectTypeByID(int64 type_id,
                                                  TypeKind type_kind,
                                                  RecordSet* record_set) {
+  // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
+  if (query_schema_version().has_value() &&
+      query_schema_version().value() < kSchemaVersionNine) {
+    MetadataSourceQueryConfig::TemplateQuery select_type_by_id;
+    MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
+        query_version::v7_and_v8::kSelectTypeById, select_type_by_id));
+    return ExecuteQuery(select_type_by_id, {Bind(type_id), Bind(type_kind)},
+                        record_set);
+  }
   return ExecuteQuery(query_config_.select_type_by_id(),
                       {Bind(type_id), Bind(type_kind)}, record_set);
+}
+
+absl::Status QueryConfigExecutor::SelectTypesByExternalIds(
+    const absl::Span<absl::string_view> external_ids, TypeKind type_kind,
+    RecordSet* record_set) {
+  MLMD_RETURN_IF_ERROR(VerifyCurrentQueryVersionIsAtLeast(kSchemaVersionNine));
+  return ExecuteQuery(query_config_.select_types_by_external_ids(),
+                      {Bind(external_ids), Bind(type_kind)}, record_set);
 }
 
 absl::Status QueryConfigExecutor::SelectTypeByNameAndVersion(
     absl::string_view type_name, absl::optional<absl::string_view> type_version,
     TypeKind type_kind, RecordSet* record_set) {
+  // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
   if (type_version && !type_version->empty()) {
+    if (query_schema_version().has_value() &&
+        query_schema_version().value() < kSchemaVersionNine) {
+      MetadataSourceQueryConfig::TemplateQuery select_type_by_name_and_version;
+      MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
+          query_version::v7_and_v8::kSelectTypeByNameAndVersion,
+          select_type_by_name_and_version));
+      return ExecuteQuery(
+          select_type_by_name_and_version,
+          {Bind(type_name), Bind(*type_version), Bind(type_kind)}, record_set);
+    }
     return ExecuteQuery(query_config_.select_type_by_name_and_version(),
                         {Bind(type_name), Bind(*type_version), Bind(type_kind)},
                         record_set);
   } else {
+    if (query_schema_version().has_value() &&
+        query_schema_version().value() < kSchemaVersionNine) {
+      MetadataSourceQueryConfig::TemplateQuery select_type_by_name;
+      MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
+          query_version::v7_and_v8::kSelectTypeByName, select_type_by_name));
+      return ExecuteQuery(select_type_by_name,
+                          {Bind(type_name), Bind(type_kind)}, record_set);
+    }
     return ExecuteQuery(query_config_.select_type_by_name(),
                         {Bind(type_name), Bind(type_kind)}, record_set);
   }

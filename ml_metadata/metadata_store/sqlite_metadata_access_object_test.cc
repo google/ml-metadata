@@ -71,9 +71,18 @@ class SqliteMetadataAccessObjectContainer
 
 INSTANTIATE_TEST_SUITE_P(
     SqliteMetadataAccessObjectTest, MetadataAccessObjectTest,
-    ::testing::Values([]() {
-      return std::make_unique<SqliteMetadataAccessObjectContainer>();
-    }));
+    ::testing::Values(
+        []() {
+          return std::make_unique<SqliteMetadataAccessObjectContainer>();
+        },
+        []() {
+          return std::make_unique<SqliteMetadataAccessObjectContainer>(
+              /*earlier_schema_version=*/8);
+        },
+        []() {
+          return std::make_unique<SqliteMetadataAccessObjectContainer>(
+              /*earlier_schema_version=*/7);
+        }));
 
 }  // namespace testing
 }  // namespace ml_metadata

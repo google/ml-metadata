@@ -343,6 +343,127 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypesGetArtifactTypes) {
   EXPECT_THAT(got_response, EqualsProto(want_response));
 }
 
+TEST_P(MetadataStoreTestSuite, PutArtifactTypesGetArtifactTypesByExternalIds) {
+  constexpr absl::string_view kArtifactTypeTemplate = R"pb(
+    all_fields_match: true
+    artifact_type: {
+      name: '%s'
+      external_id: '%s'
+      properties { key: 'property' value: STRING }
+    }
+  )pb";
+  const PutArtifactTypeRequest put_artifact_type_1_request =
+      ParseTextProtoOrDie<PutArtifactTypeRequest>(
+          absl::StrFormat(kArtifactTypeTemplate, "test_artifact_type_1",
+                          "artifact_type_external_id_1"));
+  const PutArtifactTypeRequest put_artifact_type_2_request =
+      ParseTextProtoOrDie<PutArtifactTypeRequest>(
+          absl::StrFormat(kArtifactTypeTemplate, "test_artifact_type_2",
+                          "artifact_type_external_id_2"));
+
+  // Create the types
+
+  PutArtifactTypeResponse put_artifact_type_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifactType(put_artifact_type_1_request,
+                                             &put_artifact_type_response));
+  ASSERT_TRUE(put_artifact_type_response.has_type_id());
+  ArtifactType artifact_type1 =
+      ParseTextProtoOrDie<ArtifactType>(absl::StrFormat(
+          R"pb(
+            name: '%s'
+            external_id: '%s'
+            properties { key: 'property' value: STRING }
+          )pb",
+          "test_artifact_type_1", "artifact_type_external_id_1"));
+  artifact_type1.set_id(put_artifact_type_response.type_id());
+
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutArtifactType(put_artifact_type_2_request,
+                                             &put_artifact_type_response));
+  ASSERT_TRUE(put_artifact_type_response.has_type_id());
+  ArtifactType artifact_type2 =
+      ParseTextProtoOrDie<ArtifactType>(absl::StrFormat(
+          R"pb(
+            name: '%s'
+            external_id: '%s'
+            properties { key: 'property' value: STRING }
+          )pb",
+          "test_artifact_type_2", "artifact_type_external_id_2"));
+  artifact_type2.set_id(put_artifact_type_response.type_id());
+
+  // Test: retrieve by one external id
+  {
+    GetArtifactTypesByExternalIdsRequest
+        get_artifact_types_by_external_ids_request;
+    get_artifact_types_by_external_ids_request.add_external_ids(
+        artifact_type1.external_id());
+    GetArtifactTypesByExternalIdsResponse
+        get_artifact_types_by_external_ids_response;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_store_->GetArtifactTypesByExternalIds(
+                  get_artifact_types_by_external_ids_request,
+                  &get_artifact_types_by_external_ids_response));
+    EXPECT_THAT(get_artifact_types_by_external_ids_response.artifact_types(),
+                ElementsAre(EqualsProto(artifact_type1)));
+  }
+  // Test: retrieve by one non-existing external id
+  {
+    GetArtifactTypesByExternalIdsRequest
+        get_artifact_types_by_external_ids_request;
+    get_artifact_types_by_external_ids_request.add_external_ids(
+        "artifact_type_external_id_absent");
+    GetArtifactTypesByExternalIdsResponse
+        get_artifact_types_by_external_ids_response;
+    EXPECT_TRUE(absl::IsNotFound(metadata_store_->GetArtifactTypesByExternalIds(
+        get_artifact_types_by_external_ids_request,
+        &get_artifact_types_by_external_ids_response)));
+  }
+  // Test: retrieve by multiple external ids
+  {
+    GetArtifactTypesByExternalIdsRequest
+        get_artifact_types_by_external_ids_request;
+
+    // Can retrieve ArtifactTypes by multiple external ids
+    get_artifact_types_by_external_ids_request.add_external_ids(
+        artifact_type1.external_id());
+    get_artifact_types_by_external_ids_request.add_external_ids(
+        artifact_type2.external_id());
+    GetArtifactTypesByExternalIdsResponse
+        get_artifact_types_by_external_ids_response;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_store_->GetArtifactTypesByExternalIds(
+                  get_artifact_types_by_external_ids_request,
+                  &get_artifact_types_by_external_ids_response));
+    EXPECT_THAT(get_artifact_types_by_external_ids_response.artifact_types(),
+                UnorderedElementsAre(EqualsProto(artifact_type1),
+                                     EqualsProto(artifact_type2)));
+
+    // Will return whatever found if some of the external ids is absent
+    get_artifact_types_by_external_ids_request.add_external_ids(
+        "artifact_type_external_id_absent");
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_store_->GetArtifactTypesByExternalIds(
+                  get_artifact_types_by_external_ids_request,
+                  &get_artifact_types_by_external_ids_response));
+    EXPECT_THAT(get_artifact_types_by_external_ids_response.artifact_types(),
+                UnorderedElementsAre(EqualsProto(artifact_type1),
+                                     EqualsProto(artifact_type2)));
+  }
+
+  // Test retrieve by empty external id
+  {
+    GetArtifactTypesByExternalIdsRequest
+        get_artifact_types_by_external_ids_request;
+    get_artifact_types_by_external_ids_request.add_external_ids("");
+    GetArtifactTypesByExternalIdsResponse
+        get_artifact_types_by_external_ids_response;
+    EXPECT_TRUE(
+        absl::IsInvalidArgument(metadata_store_->GetArtifactTypesByExternalIds(
+            get_artifact_types_by_external_ids_request,
+            &get_artifact_types_by_external_ids_response)));
+  }
+}
 
 TEST_P(MetadataStoreTestSuite, GetArtifactTypesWhenNoneExist) {
   GetArtifactTypesRequest get_request;
@@ -816,6 +937,128 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypeGetExecutionTypesByID) {
       << "The type should be the same as the one given.";
 }
 
+TEST_P(MetadataStoreTestSuite,
+       PutExecutionTypesGetExecutionTypesByExternalIds) {
+  constexpr absl::string_view kExecutionTypeTemplate = R"pb(
+    all_fields_match: true
+    execution_type: {
+      name: '%s'
+      external_id: '%s'
+      properties { key: 'property' value: STRING }
+    }
+  )pb";
+  const PutExecutionTypeRequest put_execution_type_1_request =
+      ParseTextProtoOrDie<PutExecutionTypeRequest>(
+          absl::StrFormat(kExecutionTypeTemplate, "test_execution_type_1",
+                          "test_execution_type_external_id_1"));
+  const PutExecutionTypeRequest put_execution_type_2_request =
+      ParseTextProtoOrDie<PutExecutionTypeRequest>(
+          absl::StrFormat(kExecutionTypeTemplate, "test_execution_type_2",
+                          "test_execution_type_external_id_2"));
+
+  // Create the types
+  PutExecutionTypeResponse put_execution_type_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutionType(put_execution_type_1_request,
+                                              &put_execution_type_response));
+  ASSERT_TRUE(put_execution_type_response.has_type_id());
+  ExecutionType execution_type1 =
+      ParseTextProtoOrDie<ExecutionType>(absl::StrFormat(
+          R"pb(
+            name: '%s'
+            external_id: '%s'
+            properties { key: 'property' value: STRING }
+          )pb",
+          "test_execution_type_1", "test_execution_type_external_id_1"));
+  execution_type1.set_id(put_execution_type_response.type_id());
+
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecutionType(put_execution_type_2_request,
+                                              &put_execution_type_response));
+  ASSERT_TRUE(put_execution_type_response.has_type_id());
+  ExecutionType execution_type2 =
+      ParseTextProtoOrDie<ExecutionType>(absl::StrFormat(
+          R"pb(
+            name: '%s'
+            external_id: '%s'
+            properties { key: 'property' value: STRING }
+          )pb",
+          "test_execution_type_2", "test_execution_type_external_id_2"));
+  execution_type2.set_id(put_execution_type_response.type_id());
+
+  // Test: retrieve by one external id
+  {
+    GetExecutionTypesByExternalIdsRequest
+        get_execution_types_by_external_ids_request;
+    get_execution_types_by_external_ids_request.add_external_ids(
+        execution_type1.external_id());
+    GetExecutionTypesByExternalIdsResponse
+        get_execution_types_by_external_ids_response;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_store_->GetExecutionTypesByExternalIds(
+                  get_execution_types_by_external_ids_request,
+                  &get_execution_types_by_external_ids_response));
+    EXPECT_THAT(get_execution_types_by_external_ids_response.execution_types(),
+                ElementsAre(EqualsProto(execution_type1)));
+  }
+  // Test: retrieve by one non-existing external id
+  {
+    GetExecutionTypesByExternalIdsRequest
+        get_execution_types_by_external_ids_request;
+    get_execution_types_by_external_ids_request.add_external_ids(
+        "execution_type_external_id_absent");
+    GetExecutionTypesByExternalIdsResponse
+        get_execution_types_by_external_ids_response;
+    EXPECT_TRUE(
+        absl::IsNotFound(metadata_store_->GetExecutionTypesByExternalIds(
+            get_execution_types_by_external_ids_request,
+            &get_execution_types_by_external_ids_response)));
+  }
+  // Test: retrieve by multiple external ids
+  {
+    GetExecutionTypesByExternalIdsRequest
+        get_execution_types_by_external_ids_request;
+
+    // Can retrieve ExecutionTypes by multiple external ids
+    get_execution_types_by_external_ids_request.add_external_ids(
+        execution_type1.external_id());
+    get_execution_types_by_external_ids_request.add_external_ids(
+        execution_type2.external_id());
+    GetExecutionTypesByExternalIdsResponse
+        get_execution_types_by_external_ids_response;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_store_->GetExecutionTypesByExternalIds(
+                  get_execution_types_by_external_ids_request,
+                  &get_execution_types_by_external_ids_response));
+    EXPECT_THAT(get_execution_types_by_external_ids_response.execution_types(),
+                UnorderedElementsAre(EqualsProto(execution_type1),
+                                     EqualsProto(execution_type2)));
+
+    // Will return whatever found if some of the external ids is absent
+    get_execution_types_by_external_ids_request.add_external_ids(
+        "execution_type_external_id_absent");
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_store_->GetExecutionTypesByExternalIds(
+                  get_execution_types_by_external_ids_request,
+                  &get_execution_types_by_external_ids_response));
+    EXPECT_THAT(get_execution_types_by_external_ids_response.execution_types(),
+                UnorderedElementsAre(EqualsProto(execution_type1),
+                                     EqualsProto(execution_type2)));
+  }
+
+  // Test retrieve by empty external id
+  {
+    GetExecutionTypesByExternalIdsRequest
+        get_execution_types_by_external_ids_request;
+    get_execution_types_by_external_ids_request.add_external_ids("");
+    GetExecutionTypesByExternalIdsResponse
+        get_execution_types_by_external_ids_response;
+    EXPECT_TRUE(
+        absl::IsInvalidArgument(metadata_store_->GetExecutionTypesByExternalIds(
+            get_execution_types_by_external_ids_request,
+            &get_execution_types_by_external_ids_response)));
+  }
+}
 
 TEST_P(MetadataStoreTestSuite, GetExecutionTypesByIDMissing) {
   // Returns an empty list.
@@ -1415,6 +1658,130 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {
   }
 }
 
+TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByExternalIds) {
+  int64 type_id;
+  // Create the type
+  {
+    const PutArtifactTypeRequest put_artifact_type_request =
+        ParseTextProtoOrDie<PutArtifactTypeRequest>(
+            R"pb(
+              all_fields_match: true
+              artifact_type: {
+                name: 'test_type2'
+                properties { key: 'property' value: STRING }
+              }
+            )pb");
+    PutArtifactTypeResponse put_artifact_type_response;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->PutArtifactType(put_artifact_type_request,
+                                               &put_artifact_type_response));
+    ASSERT_TRUE(put_artifact_type_response.has_type_id());
+
+    type_id = put_artifact_type_response.type_id();
+  }
+
+  // Put in two artifacts
+  constexpr absl::string_view kArtifactTemplate = R"(
+          type_id: %d
+          uri: 'testuri://testing/uri'
+          properties {
+            key: 'property'
+            value: { string_value: '%s' }
+          }
+          external_id: '%s'
+      )";
+  Artifact artifact1 = ParseTextProtoOrDie<Artifact>(
+      absl::StrFormat(kArtifactTemplate, type_id, "1", "artifact_1"));
+  Artifact artifact2 = ParseTextProtoOrDie<Artifact>(
+      absl::StrFormat(kArtifactTemplate, type_id, "2", "artifact_2"));
+
+  {
+    PutArtifactsRequest put_artifacts_request;
+    *put_artifacts_request.mutable_artifacts()->Add() = artifact1;
+    *put_artifacts_request.mutable_artifacts()->Add() = artifact2;
+    PutArtifactsResponse put_artifacts_response;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->PutArtifacts(put_artifacts_request,
+                                            &put_artifacts_response));
+    ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(2));
+    artifact1.set_id(put_artifacts_response.artifact_ids(0));
+    artifact2.set_id(put_artifacts_response.artifact_ids(1));
+  }
+
+  // Test: retrieve by one external id
+  {
+    GetArtifactsByExternalIdsRequest get_artifacts_by_external_ids_request;
+    get_artifacts_by_external_ids_request.add_external_ids(
+        artifact1.external_id());
+    GetArtifactsByExternalIdsResponse get_artifacts_by_external_ids_response;
+    EXPECT_EQ(absl::OkStatus(), metadata_store_->GetArtifactsByExternalIds(
+                                    get_artifacts_by_external_ids_request,
+                                    &get_artifacts_by_external_ids_response));
+    EXPECT_THAT(get_artifacts_by_external_ids_response.artifacts(),
+                ElementsAre(EqualsProto(
+                    artifact1,
+                    /*ignore_fields=*/{"create_time_since_epoch",
+                                       "last_update_time_since_epoch"})));
+  }
+  // Test: retrieve by one non-existing external id
+  {
+    GetArtifactsByExternalIdsRequest get_artifacts_by_external_ids_request;
+    get_artifacts_by_external_ids_request.add_external_ids("artifact_absent");
+    GetArtifactsByExternalIdsResponse get_artifacts_by_external_ids_response;
+    EXPECT_TRUE(absl::IsNotFound(metadata_store_->GetArtifactsByExternalIds(
+        get_artifacts_by_external_ids_request,
+        &get_artifacts_by_external_ids_response)));
+  }
+  // Test: retrieve by multiple external ids
+  {
+    GetArtifactsByExternalIdsRequest get_artifacts_by_external_ids_request;
+
+    // Can retrieve Artifacts by multiple external ids
+    get_artifacts_by_external_ids_request.add_external_ids(
+        artifact1.external_id());
+    get_artifacts_by_external_ids_request.add_external_ids(
+        artifact2.external_id());
+    GetArtifactsByExternalIdsResponse get_artifacts_by_external_ids_response;
+    EXPECT_EQ(absl::OkStatus(), metadata_store_->GetArtifactsByExternalIds(
+                                    get_artifacts_by_external_ids_request,
+                                    &get_artifacts_by_external_ids_response));
+    EXPECT_THAT(
+        get_artifacts_by_external_ids_response.artifacts(),
+        UnorderedElementsAre(
+            EqualsProto(artifact1,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(artifact2,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+
+    // Will return whatever found if some of the external ids is absent
+    get_artifacts_by_external_ids_request.add_external_ids("artifact_absent");
+    EXPECT_EQ(absl::OkStatus(), metadata_store_->GetArtifactsByExternalIds(
+                                    get_artifacts_by_external_ids_request,
+                                    &get_artifacts_by_external_ids_response));
+    EXPECT_THAT(
+        get_artifacts_by_external_ids_response.artifacts(),
+        UnorderedElementsAre(
+            EqualsProto(artifact1,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(artifact2,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
+
+  // Test retrieve by empty external id
+  {
+    GetArtifactsByExternalIdsRequest get_artifacts_by_external_ids_request;
+    get_artifacts_by_external_ids_request.add_external_ids("");
+    GetArtifactsByExternalIdsResponse get_artifacts_by_external_ids_response;
+    EXPECT_TRUE(
+        absl::IsInvalidArgument(metadata_store_->GetArtifactsByExternalIds(
+            get_artifacts_by_external_ids_request,
+            &get_artifacts_by_external_ids_response)));
+  }
+}
 
 // Test creating an artifact and then updating one of its properties.
 TEST_P(MetadataStoreTestSuite, PutArtifactsUpdateGetArtifactsByID) {
@@ -2006,6 +2373,131 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionByID) {
   }
 }
 
+TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsByExternalIds) {
+  int64 type_id;
+  // Create the type
+  {
+    const PutExecutionTypeRequest put_execution_type_request =
+        ParseTextProtoOrDie<PutExecutionTypeRequest>(
+            R"pb(
+              all_fields_match: true
+              execution_type: {
+                name: 'test_execution_type'
+                properties { key: 'property' value: STRING }
+              }
+            )pb");
+    PutExecutionTypeResponse put_execution_type_response;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->PutExecutionType(put_execution_type_request,
+                                                &put_execution_type_response));
+    ASSERT_TRUE(put_execution_type_response.has_type_id());
+
+    type_id = put_execution_type_response.type_id();
+  }
+
+  // Put in two executions
+  constexpr absl::string_view kExecutionTemplate = R"(
+          type_id: %d
+          properties {
+            key: 'property'
+            value: { string_value: '%s' }
+          }
+          external_id: '%s'
+      )";
+  Execution execution1 = ParseTextProtoOrDie<Execution>(absl::StrFormat(
+      kExecutionTemplate, type_id, "1", "execution_external_id_1"));
+  Execution execution2 = ParseTextProtoOrDie<Execution>(absl::StrFormat(
+      kExecutionTemplate, type_id, "2", "execution_external_id_2"));
+
+  {
+    PutExecutionsRequest put_executions_request;
+    *put_executions_request.mutable_executions()->Add() = execution1;
+    *put_executions_request.mutable_executions()->Add() = execution2;
+    PutExecutionsResponse put_executions_response;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->PutExecutions(put_executions_request,
+                                             &put_executions_response));
+    ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(2));
+    execution1.set_id(put_executions_response.execution_ids(0));
+    execution2.set_id(put_executions_response.execution_ids(1));
+  }
+
+  // Test: retrieve by one external id
+  {
+    GetExecutionsByExternalIdsRequest get_executions_by_external_ids_request;
+    get_executions_by_external_ids_request.add_external_ids(
+        execution1.external_id());
+    GetExecutionsByExternalIdsResponse get_executions_by_external_ids_response;
+    EXPECT_EQ(absl::OkStatus(), metadata_store_->GetExecutionsByExternalIds(
+                                    get_executions_by_external_ids_request,
+                                    &get_executions_by_external_ids_response));
+    EXPECT_THAT(get_executions_by_external_ids_response.executions(),
+                ElementsAre(EqualsProto(
+                    execution1,
+                    /*ignore_fields=*/{"create_time_since_epoch",
+                                       "last_update_time_since_epoch"})));
+  }
+  // Test: retrieve by one non-existing external id
+  {
+    GetExecutionsByExternalIdsRequest get_executions_by_external_ids_request;
+    get_executions_by_external_ids_request.add_external_ids(
+        "execution_absent_external_id");
+    GetExecutionsByExternalIdsResponse get_executions_by_external_ids_response;
+    EXPECT_TRUE(absl::IsNotFound(metadata_store_->GetExecutionsByExternalIds(
+        get_executions_by_external_ids_request,
+        &get_executions_by_external_ids_response)));
+  }
+  // Test: retrieve by multiple external ids
+  {
+    GetExecutionsByExternalIdsRequest get_executions_by_external_ids_request;
+
+    // Can retrieve Executions by multiple external ids
+    get_executions_by_external_ids_request.add_external_ids(
+        execution1.external_id());
+    get_executions_by_external_ids_request.add_external_ids(
+        execution2.external_id());
+    GetExecutionsByExternalIdsResponse get_executions_by_external_ids_response;
+    EXPECT_EQ(absl::OkStatus(), metadata_store_->GetExecutionsByExternalIds(
+                                    get_executions_by_external_ids_request,
+                                    &get_executions_by_external_ids_response));
+    EXPECT_THAT(
+        get_executions_by_external_ids_response.executions(),
+        UnorderedElementsAre(
+            EqualsProto(execution1,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(execution2,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+
+    // Will return whatever found if some of the external ids is absent
+    get_executions_by_external_ids_request.add_external_ids(
+        "execution_absent_external_id");
+    EXPECT_EQ(absl::OkStatus(), metadata_store_->GetExecutionsByExternalIds(
+                                    get_executions_by_external_ids_request,
+                                    &get_executions_by_external_ids_response));
+    EXPECT_THAT(
+        get_executions_by_external_ids_response.executions(),
+        UnorderedElementsAre(
+            EqualsProto(execution1,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(execution2,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
+
+  // Test retrieve by empty external id
+  {
+    GetExecutionsByExternalIdsRequest get_executions_by_external_ids_request;
+    get_executions_by_external_ids_request.add_external_ids("");
+    GetExecutionsByExternalIdsResponse get_executions_by_external_ids_response;
+    EXPECT_TRUE(
+        absl::IsInvalidArgument(metadata_store_->GetExecutionsByExternalIds(
+            get_executions_by_external_ids_request,
+            &get_executions_by_external_ids_response)));
+  }
+}
 
 TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithEmptyExecution) {
   const PutExecutionTypeRequest put_execution_type_request =
@@ -3084,6 +3576,176 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContextReuseOption) {
                                          "last_update_time_since_epoch"})));
 }
 
+TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithArtifactReuseOption) {
+  // Setup: Prepares input that consists of 1 execution and 1 artifact,
+  PutTypesRequest put_types_request = ParseTextProtoOrDie<PutTypesRequest>(R"pb(
+    artifact_types: { name: 'artifact_type' }
+    execution_types: { name: 'execution_type' })pb");
+  PutTypesResponse put_types_response;
+  ASSERT_EQ(metadata_store_->PutTypes(put_types_request, &put_types_response),
+            absl::OkStatus());
+  Artifact artifact = ParseTextProtoOrDie<Artifact>(
+      R"pb(
+        external_id: 'artifact_reference_str'
+        name: 'artifact_name'
+      )pb");
+  artifact.set_type_id(put_types_response.artifact_type_ids(0));
+  PutExecutionRequest put_execution_request;
+  put_execution_request.mutable_execution()->set_type_id(
+      put_types_response.execution_type_ids(0));
+  *put_execution_request.add_artifact_event_pairs()->mutable_artifact() =
+      artifact;
+
+  // Test case 1: id not exists and option=false. Expect regular insertion
+  // behavior holds
+  // Test 1.1: The first call succeeds.
+  PutExecutionResponse put_execution_response;
+  ASSERT_EQ(metadata_store_->PutExecution(put_execution_request,
+                                          &put_execution_response),
+            absl::OkStatus());
+  ASSERT_EQ(put_execution_response.artifact_ids_size(), 1);
+  const int64 artifact_id = put_execution_response.artifact_ids(0);
+
+  // Test 1.2: Try to insert another artifact with the same external_id but a
+  // new uri fails as the artifact with the same external_id already exists.
+  const std::string kUriStr = "new_uri";
+  put_execution_request.mutable_artifact_event_pairs(0)
+      ->mutable_artifact()
+      ->set_uri(kUriStr);
+  EXPECT_TRUE(absl::IsAlreadyExists(metadata_store_->PutExecution(
+      put_execution_request, &put_execution_response)));
+
+  // Test case 2: id not exists and option=true. Expect update.
+  // Test 2.1: Same request succeeds if
+  // `set_reuse_artifact_if_already_exist_by_external_id=true`.
+  put_execution_request.mutable_options()
+      ->set_reuse_artifact_if_already_exist_by_external_id(true);
+  ASSERT_EQ(metadata_store_->PutExecution(put_execution_request,
+                                          &put_execution_response),
+            absl::OkStatus());
+  GetArtifactsByIDRequest get_artifact_request;
+  get_artifact_request.add_artifact_ids(artifact_id);
+  GetArtifactsByIDResponse get_artifact_response;
+  ASSERT_EQ(metadata_store_->GetArtifactsByID(get_artifact_request,
+                                              &get_artifact_response),
+            absl::OkStatus());
+  ASSERT_EQ(get_artifact_response.artifacts_size(), 1);
+  EXPECT_EQ(
+      get_artifact_response.artifacts(0).uri(), kUriStr);
+
+  // Test 2.2: Put input artifact which has the same <type_id, name> pair
+  // but no external_id with
+  // `set_reuse_artifact_if_already_exist_by_external_id=true`.
+  // Expect insert instead of updaate but failed with <type_id, name> unique
+  // index violation.
+  put_execution_request.mutable_artifact_event_pairs(0)
+      ->mutable_artifact()
+      ->clear_external_id();
+  EXPECT_TRUE(absl::IsAlreadyExists(metadata_store_->PutExecution(
+      put_execution_request, &put_execution_response)));
+
+  // Test case 3: id exists and option=true. Expect update applies to
+  // external_id as well.
+  // Test 3: external_id updated if external_id is changed and
+  // `set_reuse_artifact_if_already_exist_by_external_id=true`.
+  const std::string kNewExternalIdStr = "new_external_id";
+  put_execution_request.mutable_artifact_event_pairs(0)
+      ->mutable_artifact()
+      ->set_external_id(kNewExternalIdStr);
+  put_execution_request.mutable_artifact_event_pairs(0)
+      ->mutable_artifact()
+      ->set_id(artifact_id);
+  ASSERT_EQ(metadata_store_->PutExecution(put_execution_request,
+                                          &put_execution_response),
+            absl::OkStatus());
+  ASSERT_EQ(metadata_store_->GetArtifactsByID(get_artifact_request,
+                                              &get_artifact_response),
+            absl::OkStatus());
+  ASSERT_EQ(get_artifact_response.artifacts_size(), 1);
+  EXPECT_EQ(get_artifact_response.artifacts(0).external_id(),
+            kNewExternalIdStr);
+}
+
+TEST_P(MetadataStoreTestSuite,
+       PutAndGetLineageSubgraphWithArtifactReuseOption) {
+  // Setup: Prepares input that consists of 1 execution and 1 artifact,
+  PutTypesRequest put_types_request = ParseTextProtoOrDie<PutTypesRequest>(R"pb(
+    artifact_types: { name: 'artifact_type' }
+    execution_types: { name: 'execution_type' })pb");
+  PutTypesResponse put_types_response;
+  ASSERT_EQ(metadata_store_->PutTypes(put_types_request, &put_types_response),
+            absl::OkStatus());
+  Artifact artifact = ParseTextProtoOrDie<Artifact>(
+      R"pb(
+        external_id: 'artifact_reference_str'
+        name: 'artifact_name'
+      )pb");
+  artifact.set_type_id(put_types_response.artifact_type_ids(0));
+  PutLineageSubgraphRequest put_subgraph_request;
+  put_subgraph_request.add_executions()->set_type_id(
+      put_types_response.execution_type_ids(0));
+  *put_subgraph_request.add_artifacts() = artifact;
+
+  // Test case 1: id not exists and option=false. Expect regular insertion
+  // behavior holds
+  // Test 1.1: The first call succeeds.
+  PutLineageSubgraphResponse put_subgraph_response;
+  ASSERT_EQ(metadata_store_->PutLineageSubgraph(put_subgraph_request,
+                                                &put_subgraph_response),
+            absl::OkStatus());
+  ASSERT_EQ(put_subgraph_response.artifact_ids_size(), 1);
+  const int64 artifact_id = put_subgraph_response.artifact_ids(0);
+
+  // Test 1.2: Try to insert another artifact with the same external_id but a
+  // new uri fails as the artifact with the same external_id already exists.
+  const std::string kUriStr = "new_uri";
+  put_subgraph_request.mutable_artifacts(0)->set_uri(kUriStr);
+  EXPECT_TRUE(absl::IsAlreadyExists(metadata_store_->PutLineageSubgraph(
+      put_subgraph_request, &put_subgraph_response)));
+
+  // Test case 2: id not exists and option=true. Expect update.
+  // Test 2.1: Same request succeeds if
+  // `set_reuse_artifact_if_already_exist_by_external_id=true`.
+  put_subgraph_request.mutable_options()
+      ->set_reuse_artifact_if_already_exist_by_external_id(true);
+  ASSERT_EQ(metadata_store_->PutLineageSubgraph(put_subgraph_request,
+                                                &put_subgraph_response),
+            absl::OkStatus());
+  GetArtifactsByIDRequest get_artifact_request;
+  get_artifact_request.add_artifact_ids(artifact_id);
+  GetArtifactsByIDResponse get_artifact_response;
+  ASSERT_EQ(metadata_store_->GetArtifactsByID(get_artifact_request,
+                                              &get_artifact_response),
+            absl::OkStatus());
+  ASSERT_EQ(get_artifact_response.artifacts_size(), 1);
+  EXPECT_EQ(get_artifact_response.artifacts(0).uri(), kUriStr);
+
+  // Test 2.2: Put input artifact which has the same <type_id, name> pair
+  // but no external_id with
+  // `set_reuse_artifact_if_already_exist_by_external_id=true`.
+  // Expect insert instead of updaate but failed with <type_id, name> unique
+  // index violation.
+  put_subgraph_request.mutable_artifacts(0)->clear_external_id();
+  EXPECT_TRUE(absl::IsAlreadyExists(metadata_store_->PutLineageSubgraph(
+      put_subgraph_request, &put_subgraph_response)));
+
+  // Test case 3: id exists and option=true. Expect update applies to
+  // external_id as well.
+  // Test 3: external_id updated if external_id is changed and
+  // `set_reuse_artifact_if_already_exist_by_external_id=true`.
+  const std::string kNewExternalIdStr = "new_external_id";
+  put_subgraph_request.mutable_artifacts(0)->set_external_id(kNewExternalIdStr);
+  put_subgraph_request.mutable_artifacts(0)->set_id(artifact_id);
+  ASSERT_EQ(metadata_store_->PutLineageSubgraph(put_subgraph_request,
+                                                &put_subgraph_response),
+            absl::OkStatus());
+  ASSERT_EQ(metadata_store_->GetArtifactsByID(get_artifact_request,
+                                              &get_artifact_response),
+            absl::OkStatus());
+  ASSERT_EQ(get_artifact_response.artifacts_size(), 1);
+  EXPECT_EQ(get_artifact_response.artifacts(0).external_id(),
+            kNewExternalIdStr);
+}
 
 TEST_P(MetadataStoreTestSuite, PutContextTypeGetContextType) {
   const PutContextTypeRequest put_request =
@@ -3161,6 +3823,125 @@ TEST_P(MetadataStoreTestSuite, PutContextTypesGetContextTypes) {
   EXPECT_THAT(got_response, EqualsProto(want_response));
 }
 
+TEST_P(MetadataStoreTestSuite, PutContextTypesGetContextTypesByExternalIds) {
+  constexpr absl::string_view kContextTypeTemplate = R"pb(
+    all_fields_match: true
+    context_type: {
+      name: '%s'
+      external_id: '%s'
+      properties { key: 'property' value: STRING }
+    }
+  )pb";
+  const PutContextTypeRequest put_context_type_1_request =
+      ParseTextProtoOrDie<PutContextTypeRequest>(
+          absl::StrFormat(kContextTypeTemplate, "test_context_type_1",
+                          "test_context_type_external_id_1"));
+  const PutContextTypeRequest put_context_type_2_request =
+      ParseTextProtoOrDie<PutContextTypeRequest>(
+          absl::StrFormat(kContextTypeTemplate, "test_context_type_2",
+                          "test_context_type_external_id_2"));
+  ContextType context_type1, context_type2;
+  // Create the types
+  {
+    PutContextTypeResponse put_context_type_response;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->PutContextType(put_context_type_1_request,
+                                              &put_context_type_response));
+    ASSERT_TRUE(put_context_type_response.has_type_id());
+    context_type1 = ParseTextProtoOrDie<ContextType>(absl::StrFormat(
+        R"pb(
+          name: '%s'
+          external_id: '%s'
+          properties { key: 'property' value: STRING }
+        )pb",
+        "test_context_type_1", "test_context_type_external_id_1"));
+    context_type1.set_id(put_context_type_response.type_id());
+
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->PutContextType(put_context_type_2_request,
+                                              &put_context_type_response));
+    ASSERT_TRUE(put_context_type_response.has_type_id());
+    context_type2 = ParseTextProtoOrDie<ContextType>(absl::StrFormat(
+        R"pb(
+          name: '%s'
+          external_id: '%s'
+          properties { key: 'property' value: STRING }
+        )pb",
+        "test_context_type_2", "test_context_type_external_id_2"));
+    context_type2.set_id(put_context_type_response.type_id());
+  }
+  // Test: retrieve by one external id
+  {
+    GetContextTypesByExternalIdsRequest
+        get_context_types_by_external_ids_request;
+    get_context_types_by_external_ids_request.add_external_ids(
+        context_type1.external_id());
+    GetContextTypesByExternalIdsResponse
+        get_context_types_by_external_ids_response;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_store_->GetContextTypesByExternalIds(
+                  get_context_types_by_external_ids_request,
+                  &get_context_types_by_external_ids_response));
+    EXPECT_THAT(get_context_types_by_external_ids_response.context_types(),
+                ElementsAre(EqualsProto(context_type1)));
+  }
+  // Test: retrieve by one non-existing external id
+  {
+    GetContextTypesByExternalIdsRequest
+        get_context_types_by_external_ids_request;
+    get_context_types_by_external_ids_request.add_external_ids(
+        "context_type_absent_external_id");
+    GetContextTypesByExternalIdsResponse
+        get_context_types_by_external_ids_response;
+    EXPECT_TRUE(absl::IsNotFound(metadata_store_->GetContextTypesByExternalIds(
+        get_context_types_by_external_ids_request,
+        &get_context_types_by_external_ids_response)));
+  }
+  // Test: retrieve by multiple external ids
+  {
+    GetContextTypesByExternalIdsRequest
+        get_context_types_by_external_ids_request;
+
+    // Can retrieve ContextTypes by multiple external ids
+    get_context_types_by_external_ids_request.add_external_ids(
+        context_type1.external_id());
+    get_context_types_by_external_ids_request.add_external_ids(
+        context_type2.external_id());
+    GetContextTypesByExternalIdsResponse
+        get_context_types_by_external_ids_response;
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_store_->GetContextTypesByExternalIds(
+                  get_context_types_by_external_ids_request,
+                  &get_context_types_by_external_ids_response));
+    EXPECT_THAT(get_context_types_by_external_ids_response.context_types(),
+                UnorderedElementsAre(EqualsProto(context_type1),
+                                     EqualsProto(context_type2)));
+
+    // Will return whatever found if some of the external ids is absent
+    get_context_types_by_external_ids_request.add_external_ids(
+        "context_type_absent_external_id");
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_store_->GetContextTypesByExternalIds(
+                  get_context_types_by_external_ids_request,
+                  &get_context_types_by_external_ids_response));
+    EXPECT_THAT(get_context_types_by_external_ids_response.context_types(),
+                UnorderedElementsAre(EqualsProto(context_type1),
+                                     EqualsProto(context_type2)));
+  }
+
+  // Test retrieve by empty external id
+  {
+    GetContextTypesByExternalIdsRequest
+        get_context_types_by_external_ids_request;
+    get_context_types_by_external_ids_request.add_external_ids("");
+    GetContextTypesByExternalIdsResponse
+        get_context_types_by_external_ids_response;
+    EXPECT_TRUE(
+        absl::IsInvalidArgument(metadata_store_->GetContextTypesByExternalIds(
+            get_context_types_by_external_ids_request,
+            &get_context_types_by_external_ids_response)));
+  }
+}
 
 TEST_P(MetadataStoreTestSuite, GetContextTypesWhenNoneExist) {
   GetContextTypesRequest get_request;
@@ -3389,6 +4170,134 @@ TEST_P(MetadataStoreTestSuite, PutContextTypeUpsert) {
   }
 }
 
+TEST_P(MetadataStoreTestSuite, PutContextsGetContextsByExternalIds) {
+  int64 type_id;
+  // Create the type
+  {
+    const PutContextTypeRequest put_context_type_request =
+        ParseTextProtoOrDie<PutContextTypeRequest>(
+            R"pb(
+              all_fields_match: true
+              context_type: {
+                name: 'test_context_type'
+                properties { key: 'property' value: STRING }
+              }
+            )pb");
+    PutContextTypeResponse put_context_type_response;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->PutContextType(put_context_type_request,
+                                              &put_context_type_response));
+    ASSERT_TRUE(put_context_type_response.has_type_id());
+
+    type_id = put_context_type_response.type_id();
+  }
+
+  // Put in two contexts
+  constexpr absl::string_view kContextTemplate = R"(
+          type_id: %d
+          name: '%s'
+          properties {
+            key: 'property'
+            value: { string_value: '%s' }
+          }
+          external_id: '%s'
+      )";
+  Context context1 = ParseTextProtoOrDie<Context>(absl::StrFormat(
+      kContextTemplate, type_id, "context_1", "1", "context_external_id_1"));
+  Context context2 = ParseTextProtoOrDie<Context>(absl::StrFormat(
+      kContextTemplate, type_id, "context_2", "2", "context_external_id_2"));
+
+  {
+    PutContextsRequest put_contexts_request;
+    *put_contexts_request.mutable_contexts()->Add() = context1;
+    *put_contexts_request.mutable_contexts()->Add() = context2;
+    PutContextsResponse put_contexts_response;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->PutContexts(put_contexts_request,
+                                           &put_contexts_response));
+    ASSERT_THAT(put_contexts_response.context_ids(), SizeIs(2));
+    context1.set_id(put_contexts_response.context_ids(0));
+    context2.set_id(put_contexts_response.context_ids(1));
+    LOG(INFO) << context1.DebugString();
+    LOG(INFO) << context2.DebugString();
+  }
+
+  // Test: retrieve by one external id
+  {
+    GetContextsByExternalIdsRequest get_contexts_by_external_ids_request;
+    get_contexts_by_external_ids_request.add_external_ids(
+        context1.external_id());
+    GetContextsByExternalIdsResponse get_contexts_by_external_ids_response;
+    EXPECT_EQ(absl::OkStatus(), metadata_store_->GetContextsByExternalIds(
+                                    get_contexts_by_external_ids_request,
+                                    &get_contexts_by_external_ids_response));
+    EXPECT_THAT(get_contexts_by_external_ids_response.contexts(),
+                ElementsAre(EqualsProto(
+                    context1,
+                    /*ignore_fields=*/{"create_time_since_epoch",
+                                       "last_update_time_since_epoch"})));
+  }
+  // Test: retrieve by one non-existing external id
+  {
+    GetContextsByExternalIdsRequest get_contexts_by_external_ids_request;
+    get_contexts_by_external_ids_request.add_external_ids(
+        "context_absent_external_id");
+    GetContextsByExternalIdsResponse get_contexts_by_external_ids_response;
+    EXPECT_TRUE(absl::IsNotFound(metadata_store_->GetContextsByExternalIds(
+        get_contexts_by_external_ids_request,
+        &get_contexts_by_external_ids_response)));
+  }
+  // Test: retrieve by multiple external ids
+  {
+    GetContextsByExternalIdsRequest get_contexts_by_external_ids_request;
+
+    // Can retrieve Contexts by multiple external ids
+    get_contexts_by_external_ids_request.add_external_ids(
+        context1.external_id());
+    get_contexts_by_external_ids_request.add_external_ids(
+        context2.external_id());
+    GetContextsByExternalIdsResponse get_contexts_by_external_ids_response;
+    EXPECT_EQ(absl::OkStatus(), metadata_store_->GetContextsByExternalIds(
+                                    get_contexts_by_external_ids_request,
+                                    &get_contexts_by_external_ids_response));
+    EXPECT_THAT(
+        get_contexts_by_external_ids_response.contexts(),
+        UnorderedElementsAre(
+            EqualsProto(context1,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(context2,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+
+    // Will return whatever found if some of the external ids is absent
+    get_contexts_by_external_ids_request.add_external_ids(
+        "context_absent_external_id");
+    EXPECT_EQ(absl::OkStatus(), metadata_store_->GetContextsByExternalIds(
+                                    get_contexts_by_external_ids_request,
+                                    &get_contexts_by_external_ids_response));
+    EXPECT_THAT(
+        get_contexts_by_external_ids_response.contexts(),
+        UnorderedElementsAre(
+            EqualsProto(context1,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(context2,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
+
+  // Test retrieve by empty external id
+  {
+    GetContextsByExternalIdsRequest get_contexts_by_external_ids_request;
+    get_contexts_by_external_ids_request.add_external_ids("");
+    GetContextsByExternalIdsResponse get_contexts_by_external_ids_response;
+    EXPECT_TRUE(
+        absl::IsInvalidArgument(metadata_store_->GetContextsByExternalIds(
+            get_contexts_by_external_ids_request,
+            &get_contexts_by_external_ids_response)));
+  }
+}
 
 // Test creating a context and then updating one of its properties.
 TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {

@@ -58,6 +58,9 @@ message Artifact {
   // The uniform resource identifier of the physical artifact.
   // May be empty if there is no physical artifact.
   optional string uri = 3;
+  // The external id that come from the clients’ system. This field is optional.
+  // If set, it must be unique among all artifacts within a database instance.
+  optional string external_id = 11;
   // Properties of the artifact.
   // Properties must be specified in the ArtifactType.
   map<string, Value> properties = 4;
@@ -110,6 +113,10 @@ message ArtifactType {
   optional string version = 4;
   // An optional description about the type.
   optional string description = 5;
+  // The external id that come from the clients’ system. This field is optional.
+  // If set, it must be unique among all artifact types within a database
+  // instance.
+  optional string external_id = 7;
   // The schema of the type.
   // Properties are always optional in the artifact.
   // Properties of an artifact type can be expanded but not contracted (i.e.,
@@ -256,6 +263,9 @@ message Execution {
   optional int64 type_id = 2;
   // Output only. The name of an ExecutionType.
   optional string type = 7;
+  // The external id that come from the clients’ system. This field is optional.
+  // If set, it must be unique among all executions within a database instance.
+  optional string external_id = 10;
   // The state of the Execution. The state transitions are
   //   NEW -> RUNNING -> COMPLETE | CACHED | FAILED | CANCELED
   // CACHED means the execution is skipped due to cached results.
@@ -295,6 +305,10 @@ message ExecutionType {
   optional string version = 6;
   // An optional description about the type.
   optional string description = 7;
+  // The external id that come from the clients’ system. This field is optional.
+  // If set, it must be unique among all execution types within a database
+  // instance.
+  optional string external_id = 9;
   // The schema of the type.
   // Properties are always optional in the execution.
   map<string, PropertyType> properties = 3;
@@ -346,6 +360,10 @@ message ContextType {
   optional string version = 4;
   // An optional description about the type.
   optional string description = 5;
+  // The external id that come from the clients’ system. This field is optional.
+  // If set, it must be unique among all context types within a database
+  // instance.
+  optional string external_id = 7;
   // The schema of the type, e.g., name: string, owner: string
   // Properties are always optional in the context.
   // Properties of an context type can be expanded but not contracted (i.e.,
@@ -375,6 +393,9 @@ message Context {
   optional int64 type_id = 2;
   // Output only. The name of a ContextType.
   optional string type = 6;
+  // The external id that come from the clients’ system. This field is optional.
+  // If set, it must be unique among all contexts within a virtual database.
+  optional string external_id = 9;
   // Values of the properties, which must be specified in the ContextType.
   map<string, Value> properties = 4;
   // User provided custom properties which are not defined by its type.

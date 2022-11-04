@@ -16,6 +16,7 @@ limitations under the License.
 
 #include <algorithm>
 #include <iterator>
+#include <string>
 #include <vector>
 
 #include <glog/logging.h>
@@ -92,6 +93,9 @@ absl::Status CheckFieldsConsistent(const T& stored_type, const T& other_type,
   if (stored_type.properties_size() - omitted_fields_count ==
       other_type.properties_size()) {
     output_type = stored_type;
+    if (stored_type.external_id() != other_type.external_id()) {
+      output_type.set_external_id(other_type.external_id());
+    }
     return absl::OkStatus();
   }
   if (!can_add_fields) {
@@ -109,6 +113,9 @@ absl::Status CheckFieldsConsistent(const T& stored_type, const T& other_type,
         stored_type.properties().end()) {
       (*output_type.mutable_properties())[property_name] = value;
     }
+  }
+  if (stored_type.external_id() != other_type.external_id()) {
+    output_type.set_external_id(other_type.external_id());
   }
   return absl::OkStatus();
 }
@@ -431,6 +438,25 @@ absl::Status UpsertArtifactAndEvent(
 
   Artifact artifact_copy_to_be_upserted;
   artifact_copy_to_be_upserted.CopyFrom(artifact_and_event.artifact());
+  // Try to reuse existing artifact if the options is set to true and has
+  // non-empty external_id by querying and populating
+  // artifact_copy_to_be_upserted.id.
+  if (reuse_artifact_if_already_exist_by_external_id &&
+      !artifact_and_event.artifact().has_id() &&
+      artifact_and_event.artifact().has_external_id() &&
+      !artifact_and_event.artifact().external_id().empty()) {
+    std::vector<absl::string_view> artifact_external_ids = {
+        artifact_and_event.artifact().external_id()};
+    std::vector<Artifact> artifacts;
+    const absl::Status status =
+        metadata_access_object->FindArtifactsByExternalIds(
+            absl::MakeSpan(artifact_external_ids), &artifacts);
+    if (!absl::IsNotFound(status)) {
+      MLMD_RETURN_IF_ERROR(status);
+      // Found the artifact by external_id. Use it as artifact_id to return.
+      artifact_copy_to_be_upserted.set_id(artifacts[0].id());
+    }
+  }
 
   // if artifact and event.artifact_id is given, then artifact.id and
   // event.artifact_id must align.
@@ -468,6 +494,30 @@ absl::Status UpsertArtifactAndEvent(
                                              &dummy_event_id);
 }
 
+// Gets the <external_id, id> mapping from input artifacts by querying the db.
+absl::Status GetExternalIdToIdMapping(
+    absl::Span<const Artifact> artifacts,
+    MetadataAccessObject* metadata_access_object,
+    absl::flat_hash_map<std::string, int64>&
+        output_external_id_to_id_map) {
+  std::vector<absl::string_view> external_ids;
+  for (const Artifact& artifact : artifacts) {
+    if (artifact.has_external_id() && !artifact.external_id().empty()) {
+      external_ids.push_back(absl::string_view(artifact.external_id()));
+    }
+  }
+  std::vector<Artifact> artifacts_to_reuse;
+  absl::Status status = metadata_access_object->FindArtifactsByExternalIds(
+      absl::MakeSpan(external_ids), &artifacts_to_reuse);
+  if (!(status.ok() || absl::IsNotFound(status))) {
+    return status;
+  }
+  for (const Artifact& artifact : artifacts_to_reuse) {
+    output_external_id_to_id_map.insert(
+        {artifact.external_id(), artifact.id()});
+  }
+  return absl::OkStatus();
+}
 
 // A util to handle type_version in type read/write API requests.
 template <typename T>
@@ -889,6 +939,77 @@ absl::Status MetadataStore::GetContextTypesByID(
       request.transaction_options());
 }
 
+absl::Status MetadataStore::GetArtifactTypesByExternalIds(
+    const GetArtifactTypesByExternalIdsRequest& request,
+    GetArtifactTypesByExternalIdsResponse* response) {
+  return transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
+        response->Clear();
+        std::vector<absl::string_view> external_ids;
+        std::transform(request.external_ids().begin(),
+                       request.external_ids().end(),
+                       std::back_inserter(external_ids),
+                       [](const std::string& external_id) {
+                         return absl::string_view(external_id);
+                       });
+        std::vector<ArtifactType> artifact_types;
+        MLMD_RETURN_IF_ERROR(metadata_access_object_->FindTypesByExternalIds(
+            absl::MakeSpan(external_ids), artifact_types));
+        for (const ArtifactType& artifact_type : artifact_types) {
+          *response->mutable_artifact_types()->Add() = artifact_type;
+        }
+        return absl::OkStatus();
+      },
+      request.transaction_options());
+}
+
+absl::Status MetadataStore::GetExecutionTypesByExternalIds(
+    const GetExecutionTypesByExternalIdsRequest& request,
+    GetExecutionTypesByExternalIdsResponse* response) {
+  return transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
+        response->Clear();
+        std::vector<absl::string_view> external_ids;
+        std::transform(request.external_ids().begin(),
+                       request.external_ids().end(),
+                       std::back_inserter(external_ids),
+                       [](const std::string& external_id) {
+                         return absl::string_view(external_id);
+                       });
+        std::vector<ExecutionType> execution_types;
+        MLMD_RETURN_IF_ERROR(metadata_access_object_->FindTypesByExternalIds(
+            absl::MakeSpan(external_ids), execution_types));
+        for (const ExecutionType& execution_type : execution_types) {
+          *response->mutable_execution_types()->Add() = execution_type;
+        }
+        return absl::OkStatus();
+      },
+      request.transaction_options());
+}
+
+absl::Status MetadataStore::GetContextTypesByExternalIds(
+    const GetContextTypesByExternalIdsRequest& request,
+    GetContextTypesByExternalIdsResponse* response) {
+  return transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
+        response->Clear();
+        std::vector<absl::string_view> external_ids;
+        std::transform(request.external_ids().begin(),
+                       request.external_ids().end(),
+                       std::back_inserter(external_ids),
+                       [](const std::string& external_id) {
+                         return absl::string_view(external_id);
+                       });
+        std::vector<ContextType> context_types;
+        MLMD_RETURN_IF_ERROR(metadata_access_object_->FindTypesByExternalIds(
+            absl::MakeSpan(external_ids), context_types));
+        for (const ContextType& context_type : context_types) {
+          *response->mutable_context_types()->Add() = context_type;
+        }
+        return absl::OkStatus();
+      },
+      request.transaction_options());
+}
 
 absl::Status MetadataStore::GetArtifactsByID(
     const GetArtifactsByIDRequest& request,
@@ -1185,9 +1306,27 @@ absl::Status MetadataStore::PutLineageSubgraph(
         }
 
         // 3. Upsert artifacts and create attributions with contexts
+        // Select the list of external_ids from Artifacts.
+        // Search within the db to create a mapping from external_id to id.
+        absl::flat_hash_map<std::string, int64> external_id_to_id_map;
+        if (request.options()
+                .reuse_artifact_if_already_exist_by_external_id()) {
+          std::vector<Artifact> artifacts_to_build_mapping(
+              request.artifacts().begin(), request.artifacts().end());
+          MLMD_RETURN_IF_ERROR(GetExternalIdToIdMapping(
+              absl::MakeSpan(artifacts_to_build_mapping),
+              metadata_access_object_.get(), external_id_to_id_map));
+        }
         for (const Artifact& artifact : request.artifacts()) {
           Artifact artifact_copy;
           artifact_copy.CopyFrom(artifact);
+          if (request.options()
+                  .reuse_artifact_if_already_exist_by_external_id() &&
+              artifact.has_external_id() && !artifact.external_id().empty() &&
+              !artifact.has_id()) {
+            artifact_copy.set_id(
+                external_id_to_id_map.find(artifact.external_id())->second);
+          }
           int64 artifact_id = -1;
           MLMD_RETURN_IF_ERROR(UpsertArtifact(
               artifact_copy, metadata_access_object_.get(),
@@ -1577,6 +1716,30 @@ absl::Status MetadataStore::GetArtifactByTypeAndName(
       request.transaction_options());
 }
 
+absl::Status MetadataStore::GetArtifactsByExternalIds(
+    const GetArtifactsByExternalIdsRequest& request,
+    GetArtifactsByExternalIdsResponse* response) {
+  return transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
+        response->Clear();
+        std::vector<absl::string_view> external_ids;
+        std::transform(request.external_ids().begin(),
+                       request.external_ids().end(),
+                       std::back_inserter(external_ids),
+                       [](const std::string& external_id) {
+                         return absl::string_view(external_id);
+                       });
+        std::vector<Artifact> artifacts;
+        MLMD_RETURN_IF_ERROR(
+            metadata_access_object_->FindArtifactsByExternalIds(
+                absl::MakeSpan(external_ids), &artifacts));
+        for (const Artifact& artifact : artifacts) {
+          *response->mutable_artifacts()->Add() = artifact;
+        }
+        return absl::OkStatus();
+      },
+      request.transaction_options());
+}
 
 absl::Status MetadataStore::GetExecutionsByType(
     const GetExecutionsByTypeRequest& request,
@@ -1647,6 +1810,30 @@ absl::Status MetadataStore::GetExecutionByTypeAndName(
       request.transaction_options());
 }
 
+absl::Status MetadataStore::GetExecutionsByExternalIds(
+    const GetExecutionsByExternalIdsRequest& request,
+    GetExecutionsByExternalIdsResponse* response) {
+  return transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
+        response->Clear();
+        std::vector<absl::string_view> external_ids;
+        std::transform(request.external_ids().begin(),
+                       request.external_ids().end(),
+                       std::back_inserter(external_ids),
+                       [](const std::string& external_id) {
+                         return absl::string_view(external_id);
+                       });
+        std::vector<Execution> executions;
+        MLMD_RETURN_IF_ERROR(
+            metadata_access_object_->FindExecutionsByExternalIds(
+                absl::MakeSpan(external_ids), &executions));
+        for (const Execution& execution : executions) {
+          *response->mutable_executions()->Add() = execution;
+        }
+        return absl::OkStatus();
+      },
+      request.transaction_options());
+}
 
 absl::Status MetadataStore::GetContextsByType(
     const GetContextsByTypeRequest& request,
@@ -1723,6 +1910,29 @@ absl::Status MetadataStore::GetContextByTypeAndName(
       request.transaction_options());
 }
 
+absl::Status MetadataStore::GetContextsByExternalIds(
+    const GetContextsByExternalIdsRequest& request,
+    GetContextsByExternalIdsResponse* response) {
+  return transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
+        response->Clear();
+        std::vector<absl::string_view> external_ids;
+        std::transform(request.external_ids().begin(),
+                       request.external_ids().end(),
+                       std::back_inserter(external_ids),
+                       [](const std::string& external_id) {
+                         return absl::string_view(external_id);
+                       });
+        std::vector<Context> contexts;
+        MLMD_RETURN_IF_ERROR(metadata_access_object_->FindContextsByExternalIds(
+            absl::MakeSpan(external_ids), &contexts));
+        for (const Context& context : contexts) {
+          *response->mutable_contexts()->Add() = context;
+        }
+        return absl::OkStatus();
+      },
+      request.transaction_options());
+}
 
 absl::Status MetadataStore::PutAttributionsAndAssociations(
     const PutAttributionsAndAssociationsRequest& request,

@@ -171,6 +171,26 @@ class MetadataStore : public MetadataStoreServiceInterface {
       const GetContextTypesByIDRequest& request,
       GetContextTypesByIDResponse* response) override;
 
+  // Gets a list of types using their external ids in `external_ids` and
+  // appends the types to `artifact_types`/`execution_types`/`context_types`.
+  // Returns absl::OkStatus() if types are fetched successfully.
+  // Note: The `types` has been deduped.
+  // Returns whatever found when a part of `external_ids` is non-existing.
+  // Returns NOT_FOUND error if all the given `external_ids` are not found.
+  // Returns INVALID_ARGUMENT if `external_ids` is empty or
+  // `artifact_types`/`execution_types`/`context_types` is not empty.
+  // Returns detailed INTERNAL error, if query execution fails.
+  absl::Status GetArtifactTypesByExternalIds(
+      const GetArtifactTypesByExternalIdsRequest& request,
+      GetArtifactTypesByExternalIdsResponse* response) override;
+
+  absl::Status GetExecutionTypesByExternalIds(
+      const GetExecutionTypesByExternalIdsRequest& request,
+      GetExecutionTypesByExternalIdsResponse* response) override;
+
+  absl::Status GetContextTypesByExternalIds(
+      const GetContextTypesByExternalIdsRequest& request,
+      GetContextTypesByExternalIdsResponse* response) override;
 
   // Inserts and updates artifacts in request into the database.
   // If artifact_id is specified, an existing artifact is updated.
@@ -319,6 +339,14 @@ class MetadataStore : public MetadataStoreServiceInterface {
   absl::Status GetArtifacts(const GetArtifactsRequest& request,
                             GetArtifactsResponse* response) override;
 
+  // Gets a list of artifacts using external_ids.
+  // |external_ids| is a list of non-null strings for the given external ids.
+  // Returns INVALID_ARGUMENT error, if any of the |external_ids| is empty.
+  // Returns NOT_FOUND error, if the given external_ids are not found.
+  // Returns detailed INTERNAL error, if query execution fails.
+  absl::Status GetArtifactsByExternalIds(
+      const GetArtifactsByExternalIdsRequest& request,
+      GetArtifactsByExternalIdsResponse* response) override;
 
   // Gets all the artifacts of a given type. If no artifacts found, it returns
   // OK and empty response.
@@ -367,6 +395,14 @@ class MetadataStore : public MetadataStoreServiceInterface {
       const GetExecutionByTypeAndNameRequest& request,
       GetExecutionByTypeAndNameResponse* response) override;
 
+  // Gets a list of executions using external_ids.
+  // |external_ids| is a list of non-null strings for the given external ids.
+  // Returns INVALID_ARGUMENT error, if any of the |external_ids| is empty.
+  // Returns NOT_FOUND error, if the given external_ids are not found.
+  // Returns detailed INTERNAL error, if query execution fails.
+  absl::Status GetExecutionsByExternalIds(
+      const GetExecutionsByExternalIdsRequest& request,
+      GetExecutionsByExternalIdsResponse* response) override;
 
   // Gets a list of contexts by ID.
   // If no context with an ID exists, the context is skipped.
@@ -394,6 +430,14 @@ class MetadataStore : public MetadataStoreServiceInterface {
       const GetContextByTypeAndNameRequest& request,
       GetContextByTypeAndNameResponse* response) override;
 
+  // Gets a list of contexts using external_ids.
+  // |external_ids| is a list of non-null strings for the given external ids.
+  // Returns INVALID_ARGUMENT error, if any of the |external_ids| is empty.
+  // Returns NOT_FOUND error, if the given external_ids are not found.
+  // Returns detailed INTERNAL error, if query execution fails.
+  absl::Status GetContextsByExternalIds(
+      const GetContextsByExternalIdsRequest& request,
+      GetContextsByExternalIdsResponse* response) override;
 
   // Inserts attribution and association relationships in the database.
   // The context_id, artifact_id, and execution_id must already exist.

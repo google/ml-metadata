@@ -23,12 +23,16 @@ namespace ml_metadata {
 namespace util {
 namespace {
 
+// clang-format off
+
 // A set of common template queries used by the MetadataAccessObject for SQLite
 // based MetadataSource.
 // no-lint to support vc (C2026) 16380 max length for char[].
+// TODO(b/257370493) Use ALTER TABLE instead of copying most of the data inside
+// a datastore as current approach for schema upgrade/downgrade.
 const std::string kBaseQueryConfig = absl::StrCat(  // NOLINT
 R"pb(
-  schema_version: 8
+  schema_version: 9
   drop_type_table { query: " DROP TABLE IF EXISTS `Type`; " }
   create_type_table {
     query: " CREATE TABLE IF NOT EXISTS `Type` ( "
@@ -38,7 +42,8 @@ R"pb(
            "   `type_kind` TINYINT(1) NOT NULL, "
            "   `description` TEXT, "
            "   `input_type` TEXT, "
-           "   `output_type` TEXT"
+           "   `output_type` TEXT, "
+           "   `external_id` VARCHAR(255) UNIQUE"
            " ); "
   }
   check_type_table {
@@ -48,46 +53,52 @@ R"pb(
   }
   insert_artifact_type {
     query: " INSERT INTO `Type`( "
-           "   `name`, `type_kind`, `version`, `description` "
-           ") VALUES($0, 1, $1, $2);"
-    parameter_num: 3
+           "   `name`, `type_kind`, `version`, `description`, `external_id` "
+           ") VALUES($0, 1, $1, $2, $3);"
+    parameter_num: 4
   }
   insert_execution_type {
     query: " INSERT INTO `Type`( "
            "   `name`, `type_kind`, `version`, `description`, "
-           "   `input_type`, `output_type` "
-           ") VALUES($0, 0, $1, $2, $3, $4);"
-    parameter_num: 5
+           "   `input_type`, `output_type`, `external_id`  "
+           ") VALUES($0, 0, $1, $2, $3, $4, $5);"
+    parameter_num: 6
   }
   insert_context_type {
     query: " INSERT INTO `Type`( "
-           "   `name`, `type_kind`, `version`, `description` "
-           ") VALUES($0, 2, $1, $2);"
-    parameter_num: 3
+           "   `name`, `type_kind`, `version`, `description`, `external_id` "
+           ") VALUES($0, 2, $1, $2, $3);"
+    parameter_num: 4
   }
   select_types_by_id {
-    query: " SELECT `id`, `name`, `version`, `description` "
+    query: " SELECT `id`, `name`, `version`, `description`, `external_id` "
            " FROM `Type` "
            " WHERE id IN ($0) and type_kind = $1; "
     parameter_num: 2
   }
   select_type_by_id {
-    query: " SELECT `id`, `name`, `version`, `description`, "
+    query: " SELECT `id`, `name`, `version`, `description`, `external_id`, "
            "        `input_type`, `output_type` FROM `Type` "
            " WHERE id = $0 and type_kind = $1; "
     parameter_num: 2
   }
   select_type_by_name {
-    query: " SELECT `id`, `name`, `version`, `description`, "
+    query: " SELECT `id`, `name`, `version`, `description`, `external_id`, "
            "        `input_type`, `output_type` FROM `Type` "
            " WHERE name = $0 AND version IS NULL AND type_kind = $1; "
     parameter_num: 2
   }
   select_type_by_name_and_version {
-    query: " SELECT `id`, `name`, `version`, `description`, "
+    query: " SELECT `id`, `name`, `version`, `description`, `external_id`, "
            "        `input_type`, `output_type` FROM `Type` "
            " WHERE name = $0 AND version = $1 AND type_kind = $2; "
     parameter_num: 3
+  }
+  select_types_by_external_ids {
+    query: " SELECT `id`, `name`, `version`, `description`, `external_id` "
+           " FROM `Type` "
+           " WHERE external_id IN ($0) and type_kind = $1; "
+    parameter_num: 2
   }
   select_types_by_names {
     query: " SELECT `id`, `name`, `version`, `description`, "
@@ -106,6 +117,12 @@ R"pb(
            "        `input_type`, `output_type` FROM `Type` "
            " WHERE type_kind = $0; "
     parameter_num: 1
+  }
+  update_type {
+    query: " UPDATE `Type` "
+           " SET `external_id` = $1 "
+           " WHERE id = $0;"
+    parameter_num: 2
   }
   drop_parent_type_table { query: " DROP TABLE IF EXISTS `ParentType`; " }
   create_parent_type_table {
@@ -175,6 +192,7 @@ R"pb(
            "   `uri` TEXT, "
            "   `state` INT, "
            "   `name` VARCHAR(255), "
+           "   `external_id` VARCHAR(255) UNIQUE, "
            "   `create_time_since_epoch` INT NOT NULL DEFAULT 0, "
            "   `last_update_time_since_epoch` INT NOT NULL DEFAULT 0, "
            "   UNIQUE(`type_id`, `name`) "
@@ -187,13 +205,13 @@ R"pb(
   }
   insert_artifact {
     query: " INSERT INTO `Artifact`( "
-           "   `type_id`, `uri`, `state`, `name`, `create_time_since_epoch`, "
-           "   `last_update_time_since_epoch` "
-           ") VALUES($0, $1, $2, $3, $4, $5);"
-    parameter_num: 6
+           "   `type_id`, `uri`, `state`, `name`, `external_id`, "
+           "   `create_time_since_epoch`, `last_update_time_since_epoch` "
+           ") VALUES($0, $1, $2, $3, $4, $5, $6);"
+    parameter_num: 7
   }
   select_artifact_by_id {
-    query: " SELECT `id`, `type_id`, `uri`, `state`, `name`, "
+    query: " SELECT `id`, `type_id`, `uri`, `state`, `name`, `external_id`, "
            "        `create_time_since_epoch`, `last_update_time_since_epoch` "
            " from `Artifact` "
            " WHERE id IN ($0); "
@@ -211,12 +229,16 @@ R"pb(
     query: " SELECT `id` from `Artifact` WHERE `uri` = $0; "
     parameter_num: 1
   }
+  select_artifacts_by_external_ids {
+    query: " SELECT `id` from `Artifact` WHERE `external_id` IN ($0); "
+    parameter_num: 1
+  }
   update_artifact {
     query: " UPDATE `Artifact` "
-           " SET `type_id` = $1, `uri` = $2, `state` = $3, "
-           "     `last_update_time_since_epoch` = $4 "
+           " SET `type_id` = $1, `uri` = $2, `state` = $3, `external_id` = $4, "
+           "     `last_update_time_since_epoch` = $5 "
            " WHERE id = $0;"
-    parameter_num: 5
+    parameter_num: 6
   }
   drop_artifact_property_table {
     query: " DROP TABLE IF EXISTS `ArtifactProperty`; "
@@ -279,6 +301,7 @@ R"pb(
            "   `type_id` INT NOT NULL, "
            "   `last_known_state` INT, "
            "   `name` VARCHAR(255), "
+           "   `external_id` VARCHAR(255) UNIQUE, "
            "   `create_time_since_epoch` INT NOT NULL DEFAULT 0, "
            "   `last_update_time_since_epoch` INT NOT NULL DEFAULT 0, "
            "   UNIQUE(`type_id`, `name`) "
@@ -291,13 +314,13 @@ R"pb(
   }
   insert_execution {
     query: " INSERT INTO `Execution`( "
-           "   `type_id`, `last_known_state`, `name`, "
+           "   `type_id`, `last_known_state`, `name`, `external_id`, "
            "   `create_time_since_epoch`, `last_update_time_since_epoch` "
-           ") VALUES($0, $1, $2, $3, $4);"
-    parameter_num: 5
+           ") VALUES($0, $1, $2, $3, $4, $5);"
+    parameter_num: 6
   }
   select_execution_by_id {
-    query: " SELECT `id`, `type_id`, `last_known_state`, `name`, "
+    query: " SELECT `id`, `type_id`, `last_known_state`, `name`, `external_id`,"
            "        `create_time_since_epoch`, `last_update_time_since_epoch` "
            " from `Execution` "
            " WHERE id IN ($0); "
@@ -311,12 +334,17 @@ R"pb(
     query: " SELECT `id` from `Execution` WHERE `type_id` = $0; "
     parameter_num: 1
   }
+  select_executions_by_external_ids {
+    query: " SELECT `id` from `Execution` WHERE `external_id` IN ($0);"
+    parameter_num: 1
+  }
   update_execution {
     query: " UPDATE `Execution` "
            " SET `type_id` = $1, `last_known_state` = $2, "
-           "     `last_update_time_since_epoch` = $3 "
+           "     `external_id` = $3, "
+           "     `last_update_time_since_epoch` = $4 "
            " WHERE id = $0;"
-    parameter_num: 4
+    parameter_num: 5
   }
   drop_execution_property_table {
     query: " DROP TABLE IF EXISTS `ExecutionProperty`; "
@@ -378,6 +406,7 @@ R"pb(
            "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
            "   `type_id` INT NOT NULL, "
            "   `name` VARCHAR(255) NOT NULL, "
+           "   `external_id` VARCHAR(255) UNIQUE, "
            "   `create_time_since_epoch` INT NOT NULL DEFAULT 0, "
            "   `last_update_time_since_epoch` INT NOT NULL DEFAULT 0, "
            "   UNIQUE(`type_id`, `name`) "
@@ -390,14 +419,14 @@ R"pb(
   }
   insert_context {
     query: " INSERT INTO `Context`( "
-           "   `type_id`, `name`, "
+           "   `type_id`, `name`, `external_id`, "
            "   `create_time_since_epoch`, `last_update_time_since_epoch` "
-           ") VALUES($0, $1, $2, $3);"
-    parameter_num: 4
+           ") VALUES($0, $1, $2, $3, $4);"
+    parameter_num: 5
   }
   select_context_by_id {
-    query: " SELECT `id`, `type_id`, `name`, `create_time_since_epoch`, "
-           "        `last_update_time_since_epoch`"
+    query: " SELECT `id`, `type_id`, `name`, `external_id`, "
+           "        `create_time_since_epoch`, `last_update_time_since_epoch`"
            " from `Context` WHERE id IN ($0); "
     parameter_num: 1
   }
@@ -409,12 +438,16 @@ R"pb(
     query: " SELECT `id` from `Context` WHERE `type_id` = $0 and `name` = $1; "
     parameter_num: 2
   }
+  select_contexts_by_external_ids {
+    query: " SELECT `id` from `Context` WHERE `external_id` IN ($0); "
+    parameter_num: 1
+  }
   update_context {
     query: " UPDATE `Context` "
-           " SET `type_id` = $1, `name` = $2, "
-           "     `last_update_time_since_epoch` = $3 "
+           " SET `type_id` = $1, `name` = $2, `external_id` = $3, "
+           "     `last_update_time_since_epoch` = $4 "
            " WHERE id = $0;"
-    parameter_num: 4
+    parameter_num: 5
   }
   drop_context_property_table {
     query: " DROP TABLE IF EXISTS `ContextProperty`; "
@@ -789,6 +822,22 @@ R"pb(
     query: " CREATE INDEX IF NOT EXISTS `idx_context_property_string` "
            " ON `ContextProperty`(`name`, `is_custom_property`, `string_value`) "
            " WHERE `string_value` IS NOT NULL; "
+  }
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS `idx_type_external_id` "
+           " ON `Type`(`external_id`); "
+  }
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS `idx_artifact_external_id` "
+           " ON `Artifact`(`external_id`); "
+  }
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS `idx_execution_external_id` "
+           " ON `Execution`(`external_id`); "
+  }
+  secondary_indices {
+    query: " CREATE INDEX IF NOT EXISTS `idx_context_external_id` "
+           " ON `Context`(`external_id`); "
   }
 )pb",
 R"pb(
@@ -2089,6 +2138,445 @@ R"pb(
         }
       }
       db_verification { total_num_indexes: 32 total_num_tables: 15 }
+)pb",
+R"pb(
+  # downgrade queries from version 9
+      downgrade_queries { query: " DROP INDEX `idx_type_external_id`; " }
+      downgrade_queries {
+        query: " DROP INDEX `idx_artifact_external_id`; "
+      }
+      downgrade_queries {
+        query: " DROP INDEX `idx_execution_external_id`; "
+      }
+      downgrade_queries { query: " DROP INDEX `idx_context_external_id`; " }
+      downgrade_queries {
+        query: " CREATE TABLE `TypeTemp` ( "
+               "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+               "   `name` VARCHAR(255) NOT NULL, "
+               "   `version` VARCHAR(255), "
+               "   `type_kind` TINYINT(1) NOT NULL, "
+               "   `description` TEXT, "
+               "   `input_type` TEXT, "
+               "   `output_type` TEXT"
+               " ); "
+      }
+      downgrade_queries {
+        query: " INSERT INTO `TypeTemp` "
+               " SELECT `id`, `name`, `version`, `type_kind`, `description`,"
+               "        `input_type`, `output_type` "
+               " FROM `Type`; "
+      }
+      downgrade_queries { query: " DROP TABLE `Type`; " }
+      downgrade_queries {
+        query: " ALTER TABLE `TypeTemp` rename to `Type`; "
+      }
+      downgrade_queries {
+        query: " CREATE TABLE `ArtifactTemp` ( "
+               "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+               "   `type_id` INT NOT NULL, "
+               "   `uri` TEXT, "
+               "   `state` INT, "
+               "   `name` VARCHAR(255), "
+               "   `create_time_since_epoch` INT NOT NULL DEFAULT 0, "
+               "   `last_update_time_since_epoch` INT NOT NULL DEFAULT 0, "
+               "   UNIQUE(`type_id`, `name`) "
+               " ); "
+      }
+      downgrade_queries {
+        query: " INSERT INTO `ArtifactTemp` "
+               " SELECT `id`, `type_id`, `uri`, `state`, `name`, "
+               "        `create_time_since_epoch`, "
+               "        `last_update_time_since_epoch` "
+               "FROM `Artifact`; "
+      }
+      downgrade_queries { query: " DROP TABLE `Artifact`; " }
+      downgrade_queries {
+        query: " ALTER TABLE `ArtifactTemp` RENAME TO `Artifact`; "
+      }
+      downgrade_queries {
+        query: " CREATE TABLE `ExecutionTemp` ( "
+               "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+               "   `type_id` INT NOT NULL, "
+               "   `last_known_state` INT, "
+               "   `name` VARCHAR(255), "
+               "   `create_time_since_epoch` INT NOT NULL DEFAULT 0, "
+               "   `last_update_time_since_epoch` INT NOT NULL DEFAULT 0, "
+               "   UNIQUE(`type_id`, `name`) "
+               " ); "
+      }
+      downgrade_queries {
+        query: " INSERT INTO `ExecutionTemp` "
+               " SELECT `id`, `type_id`, `last_known_state`, `name`, "
+               "        `create_time_since_epoch`, "
+               "        `last_update_time_since_epoch` "
+               " FROM `Execution`; "
+      }
+      downgrade_queries { query: " DROP TABLE `Execution`; " }
+      downgrade_queries {
+        query: " ALTER TABLE `ExecutionTemp` RENAME TO `Execution`; "
+      }
+      downgrade_queries {
+        query: " CREATE TABLE `ContextTemp` ( "
+               "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+               "   `type_id` INT NOT NULL, "
+               "   `name` VARCHAR(255) NOT NULL, "
+               "   `create_time_since_epoch` INT NOT NULL DEFAULT 0, "
+               "   `last_update_time_since_epoch` INT NOT NULL DEFAULT 0, "
+               "   UNIQUE(`type_id`, `name`) "
+               " ); "
+      }
+      downgrade_queries {
+        query: " INSERT INTO `ContextTemp` "
+               " SELECT `id`, `type_id`, `name`, "
+               "        `create_time_since_epoch`, "
+               "        `last_update_time_since_epoch` "
+               " FROM `Context`; "
+      }
+      downgrade_queries { query: " DROP TABLE `Context`; " }
+      downgrade_queries {
+        query: " ALTER TABLE `ContextTemp` RENAME TO `Context`; "
+      }
+      downgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_artifact_uri` "
+               " ON `Artifact`(`uri`); "
+      }
+      downgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS "
+               "   `idx_artifact_create_time_since_epoch` "
+               " ON `Artifact`(`create_time_since_epoch`); "
+      }
+      downgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS "
+               "   `idx_artifact_last_update_time_since_epoch` "
+               " ON `Artifact`(`last_update_time_since_epoch`); "
+      }
+      downgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_type_name` "
+               " ON `Type`(`name`); "
+      }
+      downgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS "
+               "   `idx_execution_create_time_since_epoch` "
+               " ON `Execution`(`create_time_since_epoch`); "
+      }
+      downgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS "
+               "   `idx_execution_last_update_time_since_epoch` "
+               " ON `Execution`(`last_update_time_since_epoch`); "
+      }
+      downgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS "
+               "   `idx_context_create_time_since_epoch` "
+               " ON `Context`(`create_time_since_epoch`); "
+      }
+      downgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS "
+               "   `idx_context_last_update_time_since_epoch` "
+               " ON `Context`(`last_update_time_since_epoch`); "
+      }
+      # verify if the downgrading keeps the existing columns
+      downgrade_verification {
+        previous_version_setup_queries { query: "DELETE FROM `Type`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Type` "
+                 " (`id`, `name`, `version`, `type_kind`, "
+                 "  `description`, `input_type`, `output_type`, `external_id`) "
+                 " VALUES (1, 't1', 'v1', 1, 'desc1', 'input1', 'output1', "
+                 "           'type_1'); "
+        }
+        previous_version_setup_queries { query: "DELETE FROM `Artifact`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Artifact` "
+                 " (`id`, `type_id`, `uri`, `state`, `name`, `external_id`,"
+                 "  `create_time_since_epoch`, `last_update_time_since_epoch`) "
+                 " VALUES (1, 2, 'uri1', 1, NULL, 'artifact_1', 0, 1); "
+        }
+        previous_version_setup_queries { query: "DELETE FROM `Execution`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Execution` "
+                 " (`id`, `type_id`, `last_known_state`, `name`, `external_id`,"
+                 "  `create_time_since_epoch`, `last_update_time_since_epoch`) "
+                 " VALUES (1, 2, 1, NULL, 'execution_1', 0, 1); "
+        }
+        previous_version_setup_queries { query: "DELETE FROM `Context`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Context` "
+                 " (`id`, `type_id`, `name`, `external_id`,"
+                 "  `create_time_since_epoch`, `last_update_time_since_epoch`) "
+                 " VALUES (1, 2, 'name1', 'context_1', 1, 0); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `Type`; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM ( "
+                 "   SELECT * FROM `Type` "
+                 "   WHERE `id` = 1 AND `name` = 't1' AND type_kind = 1 "
+                 "   AND `input_type` = 'input1' AND `output_type` = 'output1'"
+                 " ); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `Artifact`; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM ( "
+                 "   SELECT * FROM `Artifact` "
+                 "   WHERE `id` = 1 and `type_id` = 2 and `uri` = 'uri1' "
+                 " ); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `Execution`; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM ( "
+                 "   SELECT * FROM `Execution` "
+                 "   WHERE `id` = 1 and `type_id` = 2 "
+                 " ); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT COUNT(*) = 1 FROM `Context`; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM ( "
+                 "   SELECT * FROM `Context` "
+                 "   WHERE `id` = 1 and `type_id` = 2 "
+                 " ); "
+        }
+      }
+    }
+            }
+)pb",
+R"pb(
+  # In v9, to store the ids that come from the clients' system (like Vertex
+  # Metadata), we added a new column `external_id` in the `Type` \
+  # `Artifacrt` \ `Execution` \ `Context` tables. We introduce unique and
+  # null-filtered indices on Type.external_id, Artifact.external_id,
+  # Execution's external_id and Context's external_id.
+  migration_schemes {
+    key: 9
+    value: {
+      upgrade_queries {
+        query: " CREATE TABLE `TypeTemp` ( "
+               "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+               "   `name` VARCHAR(255) NOT NULL, "
+               "   `version` VARCHAR(255), "
+               "   `type_kind` TINYINT(1) NOT NULL, "
+               "   `description` TEXT, "
+               "   `input_type` TEXT, "
+               "   `output_type` TEXT, "
+               "   `external_id` VARCHAR(255) UNIQUE"
+               " ); "
+      }
+      upgrade_queries {
+        query: " INSERT INTO `TypeTemp` (`id`, `name`, `version`, `type_kind`, "
+               "        `description`, `input_type`, `output_type`) "
+               " SELECT `id`, `name`, `version`, `type_kind`, `description`,"
+               "        `input_type`, `output_type` "
+               " FROM `Type`; "
+      }
+      upgrade_queries { query: " DROP TABLE `Type`; " }
+      upgrade_queries {
+        query: " ALTER TABLE `TypeTemp` rename to `Type`; "
+      }
+      upgrade_queries {
+        query: " CREATE TABLE `ArtifactTemp` ( "
+               "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+               "   `type_id` INT NOT NULL, "
+               "   `uri` TEXT, "
+               "   `state` INT, "
+               "   `name` VARCHAR(255), "
+               "   `external_id` VARCHAR(255) UNIQUE, "
+               "   `create_time_since_epoch` INT NOT NULL DEFAULT 0, "
+               "   `last_update_time_since_epoch` INT NOT NULL DEFAULT 0, "
+               "   UNIQUE(`type_id`, `name`) "
+               " ); "
+      }
+      upgrade_queries {
+        query: " INSERT INTO `ArtifactTemp` (`id`, `type_id`, `uri`, `state`, "
+               "        `name`, `create_time_since_epoch`, "
+               "        `last_update_time_since_epoch`) "
+               " SELECT `id`, `type_id`, `uri`, `state`, `name`, "
+               "        `create_time_since_epoch`, "
+               "        `last_update_time_since_epoch` "
+               "FROM `Artifact`; "
+      }
+      upgrade_queries { query: " DROP TABLE `Artifact`; " }
+      upgrade_queries {
+        query: " ALTER TABLE `ArtifactTemp` RENAME TO `Artifact`; "
+      }
+      upgrade_queries {
+        query: " CREATE TABLE `ExecutionTemp` ( "
+               "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+               "   `type_id` INT NOT NULL, "
+               "   `last_known_state` INT, "
+               "   `name` VARCHAR(255), "
+               "   `external_id` VARCHAR(255) UNIQUE, "
+               "   `create_time_since_epoch` INT NOT NULL DEFAULT 0, "
+               "   `last_update_time_since_epoch` INT NOT NULL DEFAULT 0, "
+               "   UNIQUE(`type_id`, `name`) "
+               " ); "
+      }
+      upgrade_queries {
+        query: " INSERT INTO `ExecutionTemp` (`id`, `type_id`, "
+               "        `last_known_state`, `name`, "
+               "        `create_time_since_epoch`, "
+               "        `last_update_time_since_epoch`) "
+               " SELECT `id`, `type_id`, `last_known_state`, `name`, "
+               "        `create_time_since_epoch`, "
+               "        `last_update_time_since_epoch` "
+               " FROM `Execution`; "
+      }
+      upgrade_queries { query: " DROP TABLE `Execution`; " }
+      upgrade_queries {
+        query: " ALTER TABLE `ExecutionTemp` RENAME TO `Execution`; "
+      }
+      upgrade_queries {
+        query: " CREATE TABLE `ContextTemp` ( "
+               "   `id` INTEGER PRIMARY KEY AUTOINCREMENT, "
+               "   `type_id` INT NOT NULL, "
+               "   `name` VARCHAR(255) NOT NULL, "
+               "   `external_id` VARCHAR(255) UNIQUE, "
+               "   `create_time_since_epoch` INT NOT NULL DEFAULT 0, "
+               "   `last_update_time_since_epoch` INT NOT NULL DEFAULT 0, "
+               "   UNIQUE(`type_id`, `name`) "
+               " ); "
+      }
+      upgrade_queries {
+        query: " INSERT INTO `ContextTemp` (`id`, `type_id`, `name`, "
+               "        `create_time_since_epoch`, "
+               "        `last_update_time_since_epoch`) "
+               " SELECT `id`, `type_id`, `name`, "
+               "        `create_time_since_epoch`, "
+               "        `last_update_time_since_epoch` "
+               " FROM `Context`; "
+      }
+      upgrade_queries { query: " DROP TABLE `Context`; " }
+      upgrade_queries {
+        query: " ALTER TABLE `ContextTemp` RENAME TO `Context`; "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_artifact_uri` "
+               " ON `Artifact`(`uri`); "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS "
+               "   `idx_artifact_create_time_since_epoch` "
+               " ON `Artifact`(`create_time_since_epoch`); "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS "
+               "   `idx_artifact_last_update_time_since_epoch` "
+               " ON `Artifact`(`last_update_time_since_epoch`); "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_type_name` "
+               " ON `Type`(`name`); "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS "
+               "   `idx_execution_create_time_since_epoch` "
+               " ON `Execution`(`create_time_since_epoch`); "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS "
+               "   `idx_execution_last_update_time_since_epoch` "
+               " ON `Execution`(`last_update_time_since_epoch`); "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS "
+               "   `idx_context_create_time_since_epoch` "
+               " ON `Context`(`create_time_since_epoch`); "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS "
+               "   `idx_context_last_update_time_since_epoch` "
+               " ON `Context`(`last_update_time_since_epoch`); "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_type_external_id` "
+               " ON `Type`(`external_id`); "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_artifact_external_id` "
+               " ON `Artifact`(`external_id`); "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_execution_external_id` "
+               " ON `Execution`(`external_id`); "
+      }
+      upgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_context_external_id` "
+               " ON `Context`(`external_id`); "
+      }
+      # check the expected table columns are created properly.
+      # table type is using the old schema for upgrade verification, which
+      # contains `is_artifact_type` column
+      upgrade_verification {
+        previous_version_setup_queries { query: "DELETE FROM `Type`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Type` (`name`, `is_artifact_type`) VALUES "
+                 " ('artifact_type', 1); "
+        }
+        previous_version_setup_queries { query: "DELETE FROM `Artifact`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Artifact` "
+                 " (`id`, `type_id`) "
+                 " VALUES (1, 2); "
+        }
+        previous_version_setup_queries { query: "DELETE FROM `Execution`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Execution` "
+                 " (`id`, `type_id`) "
+                 " VALUES (1, 2); "
+        }
+        previous_version_setup_queries { query: "DELETE FROM `Context`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Context` "
+                 " (`id`, `type_id`, `name`) "
+                 " VALUES (1, 2, 'name1'); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT COUNT(*) = 1 FROM `Type`; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT COUNT(*) = 1 FROM ( "
+                 "   SELECT * FROM `Type` "
+                 "   WHERE `name` = 'artifact_type' AND "
+                 "         `external_id` IS NULL "
+                 " ) AS T1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT COUNT(*) = 1 FROM `Artifact`; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT COUNT(*) = 1 FROM ( "
+                 "   SELECT * FROM `Artifact` "
+                 "   WHERE `id` = 1 AND `type_id` = 2 AND "
+                 "         `external_id` IS NULL "
+                 " ) AS T1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT COUNT(*) = 1 FROM `Execution`; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT COUNT(*) = 1 FROM ( "
+                 "   SELECT * FROM `Execution` "
+                 "   WHERE `id` = 1 AND `type_id` = 2 AND "
+                 "          `external_id` IS NULL "
+                 " ) AS T1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT COUNT(*) = 1 FROM `Context`; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT COUNT(*) = 1 FROM ( "
+                 "   SELECT * FROM `Context` "
+                 "   WHERE `id` = 1 AND `type_id` = 2 AND `name` = 'name1' AND "
+                 "         `external_id` IS NULL "
+                 " ) as T1; "
+        }
+      }
+      db_verification { total_num_indexes: 40 total_num_tables: 15 }
     }
   }
 )pb");
@@ -2119,23 +2607,23 @@ R"pb(
            " WHERE name IN ($0) AND version IS NULL AND type_kind = $1 "
            " LOCK IN SHARE MODE; "
     parameter_num: 2
-  }
-  select_types_by_names_and_versions {
+    }
+    select_types_by_names_and_versions {
     query: " SELECT `id`, `name`, `version`, `description`, "
            "        `input_type`, `output_type` FROM `Type` "
            " WHERE (name, version) IN ($0) AND type_kind = $1 "
            " LOCK IN SHARE MODE; "
     parameter_num: 2
-  }
+    }
   select_context_by_id {
-    query: " SELECT `id`, `type_id`, `name`, `create_time_since_epoch`, "
-           "        `last_update_time_since_epoch`"
+    query: " SELECT `id`, `type_id`, `name`, `external_id`, "
+           "        `create_time_since_epoch`, `last_update_time_since_epoch`"
            " from `Context` WHERE id IN ($0) "
            " LOCK IN SHARE MODE; "
     parameter_num: 1
   }
   select_execution_by_id {
-    query: " SELECT `id`, `type_id`, `last_known_state`, `name`, "
+    query: " SELECT `id`, `type_id`, `last_known_state`, `name`, `external_id`,"
            "        `create_time_since_epoch`, `last_update_time_since_epoch` "
            " from `Execution` "
            " WHERE id IN ($0) "
@@ -2143,7 +2631,7 @@ R"pb(
     parameter_num: 1
   }
   select_artifact_by_id {
-    query: " SELECT `id`, `type_id`, `uri`, `state`, `name`, "
+    query: " SELECT `id`, `type_id`, `uri`, `state`, `name`, `external_id`, "
            "        `create_time_since_epoch`, `last_update_time_since_epoch` "
            " from `Artifact` "
            " WHERE id IN ($0) "
@@ -2164,7 +2652,8 @@ R"pb(
            "   `type_kind` TINYINT(1) NOT NULL, "
            "   `description` TEXT, "
            "   `input_type` TEXT, "
-           "   `output_type` TEXT"
+           "   `output_type` TEXT, "
+           "   `external_id` VARCHAR(255) UNIQUE "
            " ); "
   }
   create_artifact_table {
@@ -2174,6 +2663,7 @@ R"pb(
            "   `uri` TEXT, "
            "   `state` INT, "
            "   `name` VARCHAR(255), "
+           "   `external_id` VARCHAR(255) UNIQUE, "
            "   `create_time_since_epoch` BIGINT NOT NULL DEFAULT 0, "
            "   `last_update_time_since_epoch` BIGINT NOT NULL DEFAULT 0, "
            "   CONSTRAINT UniqueArtifactTypeName UNIQUE(`type_id`, `name`) "
@@ -2196,6 +2686,7 @@ R"pb(
            "   `type_id` INT NOT NULL, "
            "   `last_known_state` INT, "
            "   `name` VARCHAR(255), "
+           "   `external_id` VARCHAR(255) UNIQUE, "
            "   `create_time_since_epoch` BIGINT NOT NULL DEFAULT 0, "
            "   `last_update_time_since_epoch` BIGINT NOT NULL DEFAULT 0, "
            "   CONSTRAINT UniqueExecutionTypeName UNIQUE(`type_id`, `name`) "
@@ -2217,6 +2708,7 @@ R"pb(
            "   `id` INTEGER PRIMARY KEY AUTO_INCREMENT, "
            "   `type_id` INT NOT NULL, "
            "   `name` VARCHAR(255) NOT NULL, "
+           "   `external_id` VARCHAR(255) UNIQUE, "
            "   `create_time_since_epoch` BIGINT NOT NULL DEFAULT 0, "
            "   `last_update_time_since_epoch` BIGINT NOT NULL DEFAULT 0, "
            "   UNIQUE(`type_id`, `name`) "
@@ -2347,6 +2839,22 @@ R"pb(
     query: " ALTER TABLE `ContextProperty` "
            "  ADD INDEX `idx_context_property_string`( "
            "    `name`, `is_custom_property`, `string_value`(255)); "
+  }
+  secondary_indices {
+    query: " ALTER TABLE `Type` "
+           " ADD INDEX `idx_type_external_id` (`external_id`);"
+  }
+  secondary_indices {
+    query: " ALTER TABLE `Artifact` "
+           " ADD INDEX `idx_artifact_external_id` (`external_id`);"
+  }
+  secondary_indices {
+    query: " ALTER TABLE `Execution` "
+           " ADD INDEX `idx_execution_external_id` (`external_id`);"
+  }
+  secondary_indices {
+    query: " ALTER TABLE `Context` "
+           " ADD INDEX `idx_context_external_id` (`external_id`);"
   }
   # downgrade to 0.13.2 (i.e., v0), and drops the MLMDEnv table.
   migration_schemes {
@@ -3544,6 +4052,225 @@ R"pb(
         }
       }
       db_verification { total_num_indexes: 74 total_num_tables: 15 }
+      # downgrade queries from version 9
+      downgrade_queries {
+        query: " ALTER TABLE `Type` DROP INDEX `idx_type_external_id`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `Artifact` DROP INDEX `idx_artifact_external_id`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `Execution` DROP INDEX `idx_execution_external_id`;"
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `Context` DROP INDEX `idx_context_external_id`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `Type` DROP COLUMN `external_id`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `Artifact` DROP COLUMN `external_id`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `Execution` DROP COLUMN `external_id`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `Context` DROP COLUMN `external_id`; "
+      }
+      # verify if the downgrading keeps the existing columns
+      downgrade_verification {
+        previous_version_setup_queries { query: "DELETE FROM `Type`; " }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Type` "
+                 " (`id`, `name`, `type_kind`, "
+                 "  `description`, `input_type`, `output_type`, `external_id`) "
+                 " VALUES (1, 't1', 1, 'desc1', 'input1', 'output1', "
+                 "         'type_1'); "
+        }
+        previous_version_setup_queries { query: "DELETE FROM `Artifact`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Artifact` "
+                 " (`id`, `type_id`, `uri`, `state`, `name`, `external_id`, "
+                 "  `create_time_since_epoch`, `last_update_time_since_epoch`) "
+                 " VALUES (1, 2, 'uri1', 1, NULL, 'artifact_1', 0, 1); "
+        }
+        previous_version_setup_queries { query: "DELETE FROM `Execution`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Execution` "
+                 " (`id`, `type_id`, `last_known_state`, `name`, `external_id`,"
+                 "  `create_time_since_epoch`, `last_update_time_since_epoch`) "
+                 " VALUES (1, 2, 1, NULL, 'execution_1', 0, 1); "
+        }
+        previous_version_setup_queries { query: "DELETE FROM `Context`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Context` "
+                 " (`id`, `type_id`, `name`, `external_id`, "
+                 "  `create_time_since_epoch`, `last_update_time_since_epoch`) "
+                 " VALUES (1, 2, 'name1', 'context_1', 1, 0); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `Type`; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM ( "
+                 "   SELECT * FROM `Type` "
+                 "   WHERE `id` = 1 AND `name` = 't1' AND type_kind = 1 AND "
+                 "         `input_type` = 'input1' AND "
+                 "         `output_type` = 'output1') AS T1;  "
+        }
+        post_migration_verification_queries {
+          query: " SELECT COUNT(*) = 1 FROM `Artifact`; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT COUNT(*) = 1 FROM ( "
+                 "   SELECT * FROM `Artifact` "
+                 "   WHERE `id` = 1 AND `type_id` = 2 AND `uri` = 'uri1' AND "
+                 "         `state` = 1 "
+                 " ) AS T1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT COUNT(*) = 1 FROM `Execution`; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT COUNT(*) = 1 FROM ( "
+                 "   SELECT * FROM `Execution` "
+                 "   WHERE `id` = 1 AND `type_id` = 2 "
+                 " ) AS T1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT COUNT(*) = 1 FROM `Context`; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT COUNT(*) = 1 FROM ( "
+                 "   SELECT * FROM `Context` "
+                 "   WHERE `id` = 1 AND `type_id` = 2 AND `name` = 'name1' "
+                 " ) as T1; "
+        }
+      }
+    }
+  }
+)pb",
+R"pb(
+  # In v9, to store the ids that come from the clients' system (like Vertex
+  # Metadata), we added a new column `external_id` in the `Type`,
+  # `Artifacrt`, `Execution`, `Context` tables. We introduce unique and
+  # null-filtered indices on Type.external_id, Artifact.external_id,
+  # Execution's external_id and Context's external_id.
+  migration_schemes {
+    key: 9
+    value: {
+      upgrade_queries {
+        query: " ALTER TABLE `Type` ADD ( "
+               "   `external_id` VARCHAR(255) "
+               " ), "
+               " ADD CONSTRAINT UniqueTypeExternalId "
+               " UNIQUE(`external_id`); "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `Artifact` ADD ( "
+               "   `external_id` VARCHAR(255) "
+               " ), "
+               " ADD CONSTRAINT UniqueArtifactExternalId "
+               " UNIQUE(`external_id`); "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `Execution` ADD ( "
+               "   `external_id` VARCHAR(255) "
+               " ), "
+               " ADD CONSTRAINT UniqueExecutionExternalId "
+               " UNIQUE(`external_id`); "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `Context` ADD ( "
+               "   `external_id` VARCHAR(255) "
+               " ), "
+               " ADD CONSTRAINT UniqueContextExternalId "
+               " UNIQUE(`external_id`); "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `Type` "
+               " ADD INDEX `idx_type_external_id` (`external_id`); "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `Artifact` "
+               " ADD INDEX `idx_artifact_external_id` (`external_id`); "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `Execution` "
+               " ADD INDEX `idx_execution_external_id` (`external_id`); "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `Context` "
+               " ADD INDEX `idx_context_external_id` (`external_id`); "
+      }
+      # check the expected table columns are created properly.
+      upgrade_verification {
+        previous_version_setup_queries { query: "DELETE FROM `Type`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Type` "
+                 " (`id`, `name`) "
+                 " VALUES (1, 't1'); "
+        }
+        previous_version_setup_queries { query: "DELETE FROM `Artifact`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Artifact` "
+                 " (`id`, `type_id`) "
+                 " VALUES (1, 2); "
+        }
+        previous_version_setup_queries { query: "DELETE FROM `Execution`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Execution` "
+                 " (`id`, `type_id`) "
+                 " VALUES (1, 2); "
+        }
+        previous_version_setup_queries { query: "DELETE FROM `Context`;" }
+        previous_version_setup_queries {
+          query: " INSERT INTO `Context` "
+                 " (`id`, `type_id`, `name`) "
+                 " VALUES (1, 2, 'name1'); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `Type`; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM ( "
+                 "   SELECT * FROM `Type` "
+                 "   WHERE `id` = 1 AND `name` = 't1' AND "
+                 "         `external_id` IS NULL "
+                 " ) as T1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT COUNT(*) = 1 FROM `Artifact`; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT COUNT(*) = 1 FROM ( "
+                 "   SELECT * FROM `Artifact` "
+                 "   WHERE `id` = 1 AND `type_id` = 2 AND "
+                 "         `external_id` IS NULL "
+                 " ) AS T1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT COUNT(*) = 1 FROM `Execution`; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT COUNT(*) = 1 FROM ( "
+                 "   SELECT * FROM `Execution` "
+                 "   WHERE `id` = 1 AND `type_id` = 2 AND "
+                 "         `external_id` IS NULL "
+                 " ) AS T1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT COUNT(*) = 1 FROM `Context`; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT COUNT(*) = 1 FROM ( "
+                 "   SELECT * FROM `Context` "
+                 "   WHERE `id` = 1 AND `type_id` = 2 AND `name` = 'name1' AND "
+                 "         `external_id` IS NULL "
+                 " ) as T1; "
+        }
+      }
+      db_verification { total_num_indexes: 82 total_num_tables: 15 }
     }
   }
 )pb");

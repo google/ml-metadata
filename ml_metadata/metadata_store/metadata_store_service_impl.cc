@@ -543,11 +543,131 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   return transaction_status;
 }
 
+::grpc::Status MetadataStoreServiceImpl::GetArtifactsByExternalIds(
+    ::grpc::ServerContext* context,
+    const GetArtifactsByExternalIdsRequest* request,
+    GetArtifactsByExternalIdsResponse* response) {
+  std::unique_ptr<MetadataStore> metadata_store;
+  const ::grpc::Status connection_status =
+      ConnectMetadataStore(connection_config_, &metadata_store);
+  if (!connection_status.ok()) {
+    LOG(WARNING) << "Failed to connect to the database: "
+                 << connection_status.error_message();
+    return connection_status;
+  }
+  const ::grpc::Status transaction_status = ToGRPCStatus(
+      metadata_store->GetArtifactsByExternalIds(*request, response));
+  if (!transaction_status.ok()) {
+    LOG(WARNING) << "GetArtifactsByExternalIds failed: "
+                 << transaction_status.error_message();
+  }
+  return transaction_status;
+}
 
+::grpc::Status MetadataStoreServiceImpl::GetExecutionsByExternalIds(
+    ::grpc::ServerContext* context,
+    const GetExecutionsByExternalIdsRequest* request,
+    GetExecutionsByExternalIdsResponse* response) {
+  std::unique_ptr<MetadataStore> metadata_store;
+  const ::grpc::Status connection_status =
+      ConnectMetadataStore(connection_config_, &metadata_store);
+  if (!connection_status.ok()) {
+    LOG(WARNING) << "Failed to connect to the database: "
+                 << connection_status.error_message();
+    return connection_status;
+  }
+  const ::grpc::Status transaction_status = ToGRPCStatus(
+      metadata_store->GetExecutionsByExternalIds(*request, response));
+  if (!transaction_status.ok()) {
+    LOG(WARNING) << "GetExecutionsByExternalIds failed: "
+                 << transaction_status.error_message();
+  }
+  return transaction_status;
+}
 
+::grpc::Status MetadataStoreServiceImpl::GetContextsByExternalIds(
+    ::grpc::ServerContext* context,
+    const GetContextsByExternalIdsRequest* request,
+    GetContextsByExternalIdsResponse* response) {
+  std::unique_ptr<MetadataStore> metadata_store;
+  const ::grpc::Status connection_status =
+      ConnectMetadataStore(connection_config_, &metadata_store);
+  if (!connection_status.ok()) {
+    LOG(WARNING) << "Failed to connect to the database: "
+                 << connection_status.error_message();
+    return connection_status;
+  }
+  const ::grpc::Status transaction_status = ToGRPCStatus(
+      metadata_store->GetContextsByExternalIds(*request, response));
+  if (!transaction_status.ok()) {
+    LOG(WARNING) << "GetContextsByExternalIds failed: "
+                 << transaction_status.error_message();
+  }
+  return transaction_status;
+}
 
+::grpc::Status MetadataStoreServiceImpl::GetArtifactTypesByExternalIds(
+    ::grpc::ServerContext* context,
+    const GetArtifactTypesByExternalIdsRequest* request,
+    GetArtifactTypesByExternalIdsResponse* response) {
+  std::unique_ptr<MetadataStore> metadata_store;
+  const ::grpc::Status connection_status =
+      ConnectMetadataStore(connection_config_, &metadata_store);
+  if (!connection_status.ok()) {
+    LOG(WARNING) << "Failed to connect to the database: "
+                 << connection_status.error_message();
+    return connection_status;
+  }
+  const ::grpc::Status transaction_status = ToGRPCStatus(
+      metadata_store->GetArtifactTypesByExternalIds(*request, response));
+  if (!transaction_status.ok()) {
+    LOG(WARNING) << "GetArtifactTypesByExternalIds failed: "
+                 << transaction_status.error_message();
+  }
+  return transaction_status;
+}
 
+::grpc::Status MetadataStoreServiceImpl::GetExecutionTypesByExternalIds(
+    ::grpc::ServerContext* context,
+    const GetExecutionTypesByExternalIdsRequest* request,
+    GetExecutionTypesByExternalIdsResponse* response) {
+  std::unique_ptr<MetadataStore> metadata_store;
+  const ::grpc::Status connection_status =
+      ConnectMetadataStore(connection_config_, &metadata_store);
+  if (!connection_status.ok()) {
+    LOG(WARNING) << "Failed to connect to the database: "
+                 << connection_status.error_message();
+    return connection_status;
+  }
+  const ::grpc::Status transaction_status = ToGRPCStatus(
+      metadata_store->GetExecutionTypesByExternalIds(*request, response));
+  if (!transaction_status.ok()) {
+    LOG(WARNING) << "GetExecutionTypesByExternalIds failed: "
+                 << transaction_status.error_message();
+  }
+  return transaction_status;
+}
 
+::grpc::Status MetadataStoreServiceImpl::GetContextTypesByExternalIds(
+    ::grpc::ServerContext* context,
+    const GetContextTypesByExternalIdsRequest* request,
+    GetContextTypesByExternalIdsResponse* response) {
+  std::unique_ptr<MetadataStore> metadata_store;
+  const ::grpc::Status connection_status =
+      ConnectMetadataStore(connection_config_, &metadata_store);
+  if (!connection_status.ok()) {
+    LOG(WARNING) << "Failed to connect to the database: "
+                 << connection_status.error_message();
+    return connection_status;
+  }
+  const ::grpc::Status transaction_status = ToGRPCStatus(
+      metadata_store->GetContextTypesByExternalIds(*request, response));
+  if (!transaction_status.ok()) {
+    LOG(WARNING) << "GetContextTypesByExternalIds failed: "
+                 << transaction_status.error_message();
+  }
+  return transaction_status;
+}
 
 ::grpc::Status MetadataStoreServiceImpl::GetExecutions(
     ::grpc::ServerContext* context, const GetExecutionsRequest* request,

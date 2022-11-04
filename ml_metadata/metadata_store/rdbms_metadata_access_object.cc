@@ -411,6 +411,8 @@ absl::Status RDBMSMetadataAccessObject::CreateBasicNode(
                            : absl::nullopt,
       artifact.has_name() ? absl::make_optional(artifact.name())
                           : absl::nullopt,
+      artifact.has_external_id() ? absl::make_optional(artifact.external_id())
+                                 : absl::nullopt,
       create_timestamp, create_timestamp, node_id);
 }
 
@@ -425,6 +427,8 @@ absl::Status RDBMSMetadataAccessObject::CreateBasicNode(
           : absl::nullopt,
       execution.has_name() ? absl::make_optional(execution.name())
                            : absl::nullopt,
+      execution.has_external_id() ? absl::make_optional(execution.external_id())
+                                  : absl::nullopt,
       create_timestamp, create_timestamp, node_id);
 }
 
@@ -436,6 +440,8 @@ absl::Status RDBMSMetadataAccessObject::CreateBasicNode(
   }
   return executor_->InsertContext(
       context.type_id(), context.name(),
+      context.has_external_id() ? absl::make_optional(context.external_id())
+                                : absl::nullopt,
       create_timestamp, create_timestamp, node_id);
 }
 
@@ -482,6 +488,8 @@ absl::Status RDBMSMetadataAccessObject::RunNodeUpdate(
       artifact.id(), artifact.type_id(), artifact.uri(),
       artifact.has_state() ? absl::make_optional(artifact.state())
                            : absl::nullopt,
+      artifact.has_external_id() ? absl::make_optional(artifact.external_id())
+                                 : absl::nullopt,
       update_timestamp);
 }
 
@@ -493,6 +501,8 @@ absl::Status RDBMSMetadataAccessObject::RunNodeUpdate(
       execution.has_last_known_state()
           ? absl::make_optional(execution.last_known_state())
           : absl::nullopt,
+      execution.has_external_id() ? absl::make_optional(execution.external_id())
+                                  : absl::nullopt,
       update_timestamp);
 }
 
@@ -504,6 +514,8 @@ absl::Status RDBMSMetadataAccessObject::RunNodeUpdate(
   }
   return executor_->UpdateContextDirect(
       context.id(), context.type_id(), context.name(),
+      context.has_external_id() ? absl::make_optional(context.external_id())
+                                : absl::nullopt,
       update_timestamp);
 }
 
@@ -629,6 +641,8 @@ absl::Status RDBMSMetadataAccessObject::InsertTypeID(const ArtifactType& type,
       type.name(), GetTypeVersion(type),
       type.has_description() ? absl::make_optional(type.description())
                              : absl::nullopt,
+      type.has_external_id() ? absl::make_optional(type.external_id())
+                             : absl::nullopt,
       type_id);
 }
 
@@ -641,6 +655,8 @@ absl::Status RDBMSMetadataAccessObject::InsertTypeID(const ExecutionType& type,
                              : absl::nullopt,
       type.has_input_type() ? &type.input_type() : nullptr,
       type.has_output_type() ? &type.output_type() : nullptr,
+      type.has_external_id() ? absl::make_optional(type.external_id())
+                             : absl::nullopt,
       type_id);
 }
 
@@ -650,6 +666,8 @@ absl::Status RDBMSMetadataAccessObject::InsertTypeID(const ContextType& type,
   return executor_->InsertContextType(
       type.name(), GetTypeVersion(type),
       type.has_description() ? absl::make_optional(type.description())
+                             : absl::nullopt,
+      type.has_external_id() ? absl::make_optional(type.external_id())
                              : absl::nullopt,
       type_id);
 }
@@ -800,6 +818,47 @@ absl::Status RDBMSMetadataAccessObject::FindTypeImpl(int64 type_id,
   return absl::OkStatus();
 }
 
+template <typename MessageType>
+absl::Status RDBMSMetadataAccessObject::FindTypesByExternalIdsImpl(
+    absl::Span<absl::string_view> external_ids, const bool get_properties,
+    std::vector<MessageType>& types) {
+  if (external_ids.empty()) {
+    return absl::OkStatus();
+  }
+  if (!types.empty()) {
+    return absl::InvalidArgumentError("types parameter is not empty");
+  }
+  MessageType dummy_type;
+  const TypeKind type_kind = ResolveTypeKind(&dummy_type);
+
+  absl::flat_hash_set<absl::string_view> deduped_external_id_set;
+  for (const auto& external_id : external_ids) {
+    if (external_id.empty())
+      return absl::InvalidArgumentError(
+          "Invalid argument because at least one empty external_id exists.");
+    deduped_external_id_set.insert(external_id);
+  }
+  std::vector<absl::string_view> deduped_external_ids;
+  absl::c_transform(deduped_external_id_set,
+                    std::back_inserter(deduped_external_ids),
+                    [](absl::string_view external_id) { return external_id; });
+
+  RecordSet record_set;
+  MLMD_RETURN_IF_ERROR(executor_->SelectTypesByExternalIds(
+      deduped_external_ids.empty()
+          ? absl::Span<absl::string_view>()
+          : absl::MakeSpan(&deduped_external_ids[0],
+                           deduped_external_ids.size()),
+      type_kind, &record_set));
+  MLMD_RETURN_IF_ERROR(
+      FindTypesFromRecordSet(record_set, &types, get_properties));
+
+  if (types.empty()) {
+    return absl::NotFoundError(
+        absl::StrCat("No types found for external_ids."));
+  }
+  return absl::OkStatus();
+}
 
 template <typename MessageType>
 absl::Status RDBMSMetadataAccessObject::FindTypeImpl(
@@ -898,6 +957,11 @@ absl::Status RDBMSMetadataAccessObject::UpdateTypeImpl(const Type& type) {
         stored_type.id(), property_name, property_type));
   }
 
+  // Update the external_id.
+  if (type.has_id() && type.has_external_id()) {
+    MLMD_RETURN_IF_ERROR(
+        executor_->UpdateTypeExternalIdDirect(type.id(), type.external_id()));
+  }
   return absl::OkStatus();
 }
 
@@ -1225,8 +1289,26 @@ absl::Status RDBMSMetadataAccessObject::FindTypesByIds(
   return FindTypesImpl(type_ids, /*get_properties=*/true, context_types);
 }
 
+absl::Status RDBMSMetadataAccessObject::FindTypesByExternalIds(
+    absl::Span<absl::string_view> external_ids,
+    std::vector<ArtifactType>& artifact_types) {
+  return FindTypesByExternalIdsImpl(external_ids, /*get_properties=*/true,
+                                    artifact_types);
+}
 
+absl::Status RDBMSMetadataAccessObject::FindTypesByExternalIds(
+    absl::Span<absl::string_view> external_ids,
+    std::vector<ExecutionType>& execution_types) {
+  return FindTypesByExternalIdsImpl(external_ids, /*get_properties=*/true,
+                                    execution_types);
+}
 
+absl::Status RDBMSMetadataAccessObject::FindTypesByExternalIds(
+    absl::Span<absl::string_view> external_ids,
+    std::vector<ContextType>& context_types) {
+  return FindTypesByExternalIdsImpl(external_ids, /*get_properties=*/true,
+                                    context_types);
+}
 
 absl::Status RDBMSMetadataAccessObject::FindTypes(
     std::vector<ExecutionType>* execution_types) {
@@ -1512,8 +1594,74 @@ absl::Status RDBMSMetadataAccessObject::FindContextsById(
   return FindNodesImpl(context_ids, /*skipped_ids_ok=*/true, *contexts);
 }
 
+absl::Status RDBMSMetadataAccessObject::FindArtifactsByExternalIds(
+    absl::Span<absl::string_view> external_ids,
+    std::vector<Artifact>* artifacts) {
+  if (external_ids.empty()) {
+    return absl::OkStatus();
+  }
+  for (absl::string_view external_id : external_ids) {
+    if (external_id.empty()) {
+      return absl::InvalidArgumentError(
+          "Invalid argument because at least one empty external_id exists.");
+    }
+  }
+  RecordSet record_set;
+  MLMD_RETURN_IF_ERROR(
+      executor_->SelectArtifactsByExternalIds(external_ids, &record_set));
+  const std::vector<int64> ids = ConvertToIds(record_set);
+  if (ids.empty()) {
+    return absl::NotFoundError(
+        absl::StrCat("No artifacts found for external_ids."));
+  }
+  return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *artifacts);
+}
 
+absl::Status RDBMSMetadataAccessObject::FindExecutionsByExternalIds(
+    absl::Span<absl::string_view> external_ids,
+    std::vector<Execution>* executions) {
+  if (external_ids.empty()) {
+    return absl::OkStatus();
+  }
+  for (absl::string_view external_id : external_ids) {
+    if (external_id.empty()) {
+      return absl::InvalidArgumentError(
+          "Invalid argument because at least one empty external_id exists.");
+    }
+  }
+  RecordSet record_set;
+  MLMD_RETURN_IF_ERROR(
+      executor_->SelectExecutionsByExternalIds(external_ids, &record_set));
+  const std::vector<int64> ids = ConvertToIds(record_set);
+  if (ids.empty()) {
+    return absl::NotFoundError(
+        absl::StrCat("No executions found for external_ids."));
+  }
+  return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *executions);
+}
 
+absl::Status RDBMSMetadataAccessObject::FindContextsByExternalIds(
+    absl::Span<absl::string_view> external_ids,
+    std::vector<Context>* contexts) {
+  if (external_ids.empty()) {
+    return absl::OkStatus();
+  }
+  for (absl::string_view external_id : external_ids) {
+    if (external_id.empty()) {
+      return absl::InvalidArgumentError(
+          "Invalid argument because at least one empty external_id exists.");
+    }
+  }
+  RecordSet record_set;
+  MLMD_RETURN_IF_ERROR(
+      executor_->SelectContextsByExternalIds(external_ids, &record_set));
+  const std::vector<int64> ids = ConvertToIds(record_set);
+  if (ids.empty()) {
+    return absl::NotFoundError(
+        absl::StrCat("No contexts found for external_ids."));
+  }
+  return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *contexts);
+}
 
 absl::Status RDBMSMetadataAccessObject::UpdateArtifact(
     const Artifact& artifact) {

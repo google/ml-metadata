@@ -87,9 +87,16 @@ class MySqlMetadataAccessObjectContainer
 
 INSTANTIATE_TEST_SUITE_P(
     MySqlMetadataAccessObjectTest, MetadataAccessObjectTest,
-    ::testing::Values([]() {
-      return std::make_unique<MySqlMetadataAccessObjectContainer>();
-    }));
+    ::testing::Values(
+        []() { return std::make_unique<MySqlMetadataAccessObjectContainer>(); },
+        []() {
+          return std::make_unique<MySqlMetadataAccessObjectContainer>(
+              /*earlier_schema_version=*/8);
+        },
+        []() {
+          return std::make_unique<MySqlMetadataAccessObjectContainer>(
+              /*earlier_schema_version=*/7);
+        }));
 
 }  // namespace testing
 }  // namespace ml_metadata

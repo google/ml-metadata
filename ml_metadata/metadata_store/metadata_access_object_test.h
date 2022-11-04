@@ -289,7 +289,6 @@ class MetadataAccessObjectTest
   }
 
 
-
   // Uses to indicate the minimum expected schema version to run a test.
   bool SkipIfEarlierSchemaLessThan(int64 min_schema_version) {
     const bool is_skip =
@@ -301,6 +300,15 @@ class MetadataAccessObjectTest
                 << min_schema_version;
     }
     return is_skip;
+  }
+
+  // Uses as a condition for diverging different test behaviors for different
+  // schema versions.
+  bool IfSchemaLessThan(int64 schema_version) {
+    const bool is_true =
+        EarlierSchemaEnabled() &&
+        *metadata_access_object_container_->GetSchemaVersion() < schema_version;
+    return is_true;
   }
 
   // Uses to a add commit point if needed in the tests.

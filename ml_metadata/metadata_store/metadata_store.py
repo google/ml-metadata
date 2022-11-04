@@ -796,6 +796,22 @@ class MetadataStore(object):
       result.append(x)
     return result
 
+  def get_artifacts_by_external_ids(
+      self, external_ids: Iterable[Text]) -> List[proto.Artifact]:
+    """Gets all artifacts with matching external ids.
+
+    Args:
+      external_ids: A list of external_ids for retrieving the Artifacts.
+
+    Returns:
+      Artifacts with matching external_ids.
+    """
+    request = metadata_store_service_pb2.GetArtifactsByExternalIdsRequest(
+        external_ids=external_ids)
+    response = metadata_store_service_pb2.GetArtifactsByExternalIdsResponse()
+
+    self._call('GetArtifactsByExternalIds', request, response)
+    return response.artifacts[:]
 
   def get_artifact_type(
       self,
@@ -842,6 +858,23 @@ class MetadataStore(object):
       result.append(x)
     return result
 
+  def get_artifact_types_by_external_ids(
+      self, external_ids: Iterable[Text]) -> List[proto.ArtifactType]:
+    """Gets all artifact types with matching external ids.
+
+    Args:
+      external_ids: A list of external_ids for retrieving the ArtifactTypes.
+
+    Returns:
+      ArtifactTypes with matching external_ids.
+    """
+    request = metadata_store_service_pb2.GetArtifactTypesByExternalIdsRequest(
+        external_ids=external_ids)
+    response = (
+        metadata_store_service_pb2.GetArtifactTypesByExternalIdsResponse())
+
+    self._call('GetArtifactTypesByExternalIds', request, response)
+    return response.artifact_types[:]
 
   def get_execution_type(
       self,
@@ -888,6 +921,23 @@ class MetadataStore(object):
       result.append(x)
     return result
 
+  def get_execution_types_by_external_ids(
+      self, external_ids: Iterable[Text]) -> List[proto.ExecutionType]:
+    """Gets all execution types with matching external ids.
+
+    Args:
+      external_ids: A list of external_ids for retrieving the ExecutionTypes.
+
+    Returns:
+      ExecutionTypes with matching external_ids.
+    """
+    request = metadata_store_service_pb2.GetExecutionTypesByExternalIdsRequest(
+        external_ids=external_ids)
+    response = (
+        metadata_store_service_pb2.GetExecutionTypesByExternalIdsResponse())
+
+    self._call('GetExecutionTypesByExternalIds', request, response)
+    return response.execution_types[:]
 
   def get_context_type(
       self,
@@ -934,6 +984,22 @@ class MetadataStore(object):
       result.append(x)
     return result
 
+  def get_context_types_by_external_ids(
+      self, external_ids: Iterable[Text]) -> List[proto.ContextType]:
+    """Gets all context types with matching external ids.
+
+    Args:
+      external_ids: A list of external_ids for retrieving the ContextTypes.
+
+    Returns:
+      ContextTypes with matching external_ids.
+    """
+    request = metadata_store_service_pb2.GetContextTypesByExternalIdsRequest(
+        external_ids=external_ids)
+    response = metadata_store_service_pb2.GetContextTypesByExternalIdsResponse()
+
+    self._call('GetContextTypesByExternalIds', request, response)
+    return response.context_types[:]
 
   def get_executions_by_type(
       self,
@@ -1015,6 +1081,22 @@ class MetadataStore(object):
       result.append(x)
     return result
 
+  def get_executions_by_external_ids(
+      self, external_ids: Iterable[Text]) -> List[proto.Execution]:
+    """Gets all executions with matching external ids.
+
+    Args:
+      external_ids: A list of external_ids for retrieving the Executions.
+
+    Returns:
+      Executions with matching external_ids.
+    """
+    request = metadata_store_service_pb2.GetExecutionsByExternalIdsRequest(
+        external_ids=external_ids)
+    response = metadata_store_service_pb2.GetExecutionsByExternalIdsResponse()
+
+    self._call('GetExecutionsByExternalIds', request, response)
+    return response.executions[:]
 
   def get_executions(
       self,
@@ -1223,6 +1305,22 @@ class MetadataStore(object):
       return None
     return response.context
 
+  def get_contexts_by_external_ids(
+      self, external_ids: Iterable[Text]) -> List[proto.Context]:
+    """Gets all contexts with matching external ids.
+
+    Args:
+      external_ids: A list of external_ids for retrieving the Contexts.
+
+    Returns:
+      Contexts with matching external_ids.
+    """
+    request = metadata_store_service_pb2.GetContextsByExternalIdsRequest(
+        external_ids=external_ids)
+    response = metadata_store_service_pb2.GetContextsByExternalIdsResponse()
+
+    self._call('GetContextsByExternalIds', request, response)
+    return response.contexts[:]
 
   def get_artifact_types_by_id(
       self, type_ids: Iterable[int]) -> List[proto.ArtifactType]:

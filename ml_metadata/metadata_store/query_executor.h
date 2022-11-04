@@ -166,6 +166,7 @@ class QueryExecutor {
   virtual absl::Status InsertArtifactType(
       const std::string& name, absl::optional<absl::string_view> version,
       absl::optional<absl::string_view> description,
+      absl::optional<absl::string_view> external_id,
       int64* type_id) = 0;
 
   // Inserts an ExecutionType into the database.
@@ -178,6 +179,7 @@ class QueryExecutor {
       absl::optional<absl::string_view> description,
       const ArtifactStructType* input_type,
       const ArtifactStructType* output_type,
+      absl::optional<absl::string_view> external_id,
       int64* type_id) = 0;
 
   // Inserts a ContextType into the database.
@@ -186,9 +188,10 @@ class QueryExecutor {
   virtual absl::Status InsertContextType(
       const std::string& name, absl::optional<absl::string_view> version,
       absl::optional<absl::string_view> description,
+      absl::optional<absl::string_view> external_id,
       int64* type_id) = 0;
 
-  // Gets types from the database by their ids. Not found ids are
+  // Retrieves types from the database by their ids. Not found ids are
   // skipped.
   // Returned messages can be converted to ArtifactType, ContextType, or
   // ExecutionType.
@@ -196,6 +199,13 @@ class QueryExecutor {
                                        TypeKind type_kind,
                                        RecordSet* record_set) = 0;
 
+  // Gets types from the database by their external_ids. Not found ids are
+  // skipped.
+  // Returned messages can be converted to ArtifactType, ContextType, or
+  // ExecutionType.
+  virtual absl::Status SelectTypesByExternalIds(
+      absl::Span<absl::string_view> external_ids, TypeKind type_kind,
+      RecordSet* record_set) = 0;
 
   // Gets a type by its type id.
   // Returns a message that can be converted to an ArtifactType,
@@ -233,6 +243,9 @@ class QueryExecutor {
   virtual absl::Status SelectAllTypes(TypeKind type_kind,
                                       RecordSet* record_set) = 0;
 
+  // Updates a type's `external_id` in the database.
+  virtual absl::Status UpdateTypeExternalIdDirect(
+      int64 type_id, absl::optional<absl::string_view> external_id) = 0;
 
   // Checks the existence of the TypeProperty table.
   virtual absl::Status CheckTypePropertyTable() = 0;
@@ -276,6 +289,7 @@ class QueryExecutor {
       int64 type_id, const std::string& artifact_uri,
       const absl::optional<Artifact::State>& state,
       const absl::optional<std::string>& name,
+      absl::optional<absl::string_view> external_id,
       absl::Time create_time, absl::Time update_time, int64* artifact_id) = 0;
 
   // Gets artifacts from the database by their ids. Not found ids are
@@ -291,6 +305,10 @@ class QueryExecutor {
   virtual absl::Status SelectArtifactsByID(absl::Span<const int64> ids,
                                            RecordSet* record_set) = 0;
 
+  // Gets artifacts from the database by their external_ids. Not found
+  // external_ids are skipped.
+  virtual absl::Status SelectArtifactsByExternalIds(
+      absl::Span<absl::string_view> external_ids, RecordSet* record_set) = 0;
 
   // Gets an artifact from the Artifact table by its type_id and name.
   // Returns the artifact ID.
@@ -312,6 +330,7 @@ class QueryExecutor {
   virtual absl::Status UpdateArtifactDirect(
       int64 artifact_id, int64 type_id, const std::string& uri,
       const absl::optional<Artifact::State>& state,
+      absl::optional<absl::string_view> external_id,
       absl::Time update_time) = 0;
 
   // Checks the existence of the ArtifactProperty table.
@@ -344,6 +363,7 @@ class QueryExecutor {
   virtual absl::Status InsertExecution(
       int64 type_id, const absl::optional<Execution::State>& last_known_state,
       const absl::optional<std::string>& name,
+      absl::optional<absl::string_view> external_id,
       absl::Time create_time, absl::Time update_time, int64* execution_id) = 0;
 
   // Gets Executions based on the given ids. Not found ids are skipped.
@@ -358,6 +378,10 @@ class QueryExecutor {
   virtual absl::Status SelectExecutionsByID(
       absl::Span<const int64> execution_ids, RecordSet* record_set) = 0;
 
+  // Gets executions based on the given external_ids. Not found
+  // external_ids are skipped.
+  virtual absl::Status SelectExecutionsByExternalIds(
+      absl::Span<absl::string_view> external_ids, RecordSet* record_set) = 0;
 
   // Gets an execution from the database by its type_id and name.
   virtual absl::Status SelectExecutionByTypeIDAndExecutionName(
@@ -372,6 +396,7 @@ class QueryExecutor {
   virtual absl::Status UpdateExecutionDirect(
       int64 execution_id, int64 type_id,
       const absl::optional<Execution::State>& last_known_state,
+      absl::optional<absl::string_view> external_id,
       absl::Time update_time) = 0;
 
   // Checks the existence of the ExecutionProperty table.
@@ -404,6 +429,7 @@ class QueryExecutor {
   // Inserts a context into the database.
   virtual absl::Status InsertContext(
       int64 type_id, const std::string& name,
+      absl::optional<absl::string_view> external_id,
       const absl::Time create_time, const absl::Time update_time,
       int64* context_id) = 0;
 
@@ -417,6 +443,10 @@ class QueryExecutor {
   virtual absl::Status SelectContextsByID(absl::Span<const int64> context_ids,
                                           RecordSet* record_set) = 0;
 
+  // Gets contexts from the database by their external_ids. Not found
+  // external_ids are skipped.
+  virtual absl::Status SelectContextsByExternalIds(
+      absl::Span<absl::string_view> external_ids, RecordSet* record_set) = 0;
 
   // Returns ids of contexts matching the given context_type_id.
   virtual absl::Status SelectContextsByTypeID(int64 context_type_id,
@@ -430,6 +460,7 @@ class QueryExecutor {
   // Updates a context in the Context table.
   virtual absl::Status UpdateContextDirect(
       int64 existing_context_id, int64 type_id, const std::string& context_name,
+      absl::optional<absl::string_view> external_id,
       const absl::Time update_time) = 0;
 
   // Checks the existence of the ContextProperty table.

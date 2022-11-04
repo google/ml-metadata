@@ -200,6 +200,8 @@ absl::StatusOr<std::string> AddAttributesAndTransformQuery(
   MLMD_RETURN_IF_ERROR(analyzer_opts.AddExpressionColumn(
       "last_update_time_since_epoch", Int64Type()));
   MLMD_RETURN_IF_ERROR(analyzer_opts.AddExpressionColumn("name", StringType()));
+  MLMD_RETURN_IF_ERROR(
+      analyzer_opts.AddExpressionColumn("external_id", StringType()));
   return AddSpecificAttributesAndTransformQuery<T>(query_string, analyzer_opts);
 }
 

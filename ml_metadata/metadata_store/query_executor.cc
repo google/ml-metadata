@@ -22,14 +22,14 @@ limitations under the License.
 namespace ml_metadata {
 
 // The kSupportedEarlierQueryVersion can be the same with the current library
-// schema version or one schema version before hand. The latter is for
+// schema version or a schema version before hand. The latter is for
 // supporting migration for MLMD online services.
 static constexpr int64 kSupportedEarlierQueryVersion = 7;
 
 QueryExecutor::QueryExecutor(absl::optional<int64> query_schema_version)
     : query_schema_version_(query_schema_version) {
   if (query_schema_version_) {
-    CHECK_EQ(*query_schema_version_, kSupportedEarlierQueryVersion)
+    CHECK_GE(*query_schema_version_, kSupportedEarlierQueryVersion)
         << "The query config executor does not support other earlier query "
            "version other than "
         << kSupportedEarlierQueryVersion

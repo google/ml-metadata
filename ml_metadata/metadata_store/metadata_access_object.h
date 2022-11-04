@@ -148,6 +148,24 @@ class MetadataAccessObject {
       absl::Span<const int64> type_ids,
       std::vector<ContextType>& context_types) = 0;
 
+  // Gets a list of types using their external ids in `external_ids` and
+  // appends the types to `artifact_types`/`execution_types`/`context_types`.
+  // Returns absl::OkStatus() if types are fetched successfully.
+  // Note: The `types` has been deduped.
+  // Returns whatever found when a part of `external_ids` is non-existing.
+  // Returns NOT_FOUND error if all the given `external_ids` are not found.
+  // Returns INVALID_ARGUMENT if `external_ids` is empty or
+  // `artifact_types`/`execution_types`/`context_types` is not empty.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status FindTypesByExternalIds(
+      absl::Span<absl::string_view> external_ids,
+      std::vector<ArtifactType>& artifact_types) = 0;
+  virtual absl::Status FindTypesByExternalIds(
+      absl::Span<absl::string_view> external_ids,
+      std::vector<ExecutionType>& execution_types) = 0;
+  virtual absl::Status FindTypesByExternalIds(
+      absl::Span<absl::string_view> external_ids,
+      std::vector<ContextType>& context_types) = 0;
 
   // Gets a type by its name and version. A type is one of
   // {ArtifactType, ExecutionType, ContextType}. The type version is optional.
@@ -291,6 +309,15 @@ class MetadataAccessObject {
   virtual absl::Status FindArtifactsById(absl::Span<const int64> artifact_ids,
                                          std::vector<Artifact>* artifact) = 0;
 
+  // Gets Artifacts matching the given 'external_ids'.
+  // |external_ids| is a list of non-null strings for the given external ids.
+  // Returns whatever found when a part of |external_ids| is non-existing.
+  // Returns NOT_FOUND error, if all the given external_ids are not found.
+  // Returns INVALID_ARGUMENT error, if any of the |external_ids| is empty.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status FindArtifactsByExternalIds(
+      absl::Span<absl::string_view> external_ids,
+      std::vector<Artifact>* artifacts) = 0;
 
   // Gets artifacts stored in the metadata source
   // Returns detailed INTERNAL error, if query execution fails.
@@ -461,6 +488,15 @@ class MetadataAccessObject {
       absl::Span<const int64> execution_ids,
       std::vector<Execution>* executions) = 0;
 
+  // Gets executions matching the given 'external_ids'.
+  // |external_ids| is a list of non-null strings for the given external ids.
+  // Returns whatever found when a part of |external_ids| is non-existing.
+  // Returns NOT_FOUND error, if all the given external_ids are not found.
+  // Returns INVALID_ARGUMENT error, if any of the |external_ids| is empty.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status FindExecutionsByExternalIds(
+      absl::Span<absl::string_view> external_ids,
+      std::vector<Execution>* executions) = 0;
 
   // Gets executions stored in the metadata source
   // Returns detailed INTERNAL error, if query execution fails.
@@ -574,6 +610,15 @@ class MetadataAccessObject {
   virtual absl::Status FindContextsById(absl::Span<const int64> context_ids,
                                         std::vector<Context>* context) = 0;
 
+  // Gets contexts matching a collection of external_ids.
+  // |external_ids| is a list of non-null strings for the given external ids.
+  // Returns whatever found when a part of |external_ids| is non-existing.
+  // Returns NOT_FOUND error, if all the given external_ids are not found.
+  // Returns INVALID_ARGUMENT error, if any of the |external_ids| is empty.
+  // Returns detailed INTERNAL error if query execution fails.
+  virtual absl::Status FindContextsByExternalIds(
+      absl::Span<absl::string_view> external_ids,
+      std::vector<Context>* contexts) = 0;
 
   // Gets contexts stored in the metadata source
   // Returns detailed INTERNAL error, if query execution fails.

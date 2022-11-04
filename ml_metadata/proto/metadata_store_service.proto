@@ -185,7 +185,6 @@ message PutExecutionRequest {
     // an update.
     optional bool reuse_context_if_already_exist = 1;
 
-    // TODO(b/226507742) : To implement for OSS backends.
     // When there's a race to publish executions with a new artifact with the
     // same artifact.external_id, by default there'll be one writer succeeds and
     // the rest of the writers returning AlreadyExists errors.
@@ -246,7 +245,6 @@ message PutLineageSubgraphRequest {
     // an update.
     optional bool reuse_context_if_already_exist = 1;
 
-    // TODO(b/226507742) : To implement for OSS backends.
     // When there's a race to publish executions with a new artifact with the
     // same artifact.external_id, by default there'll be one writer succeeds and
     // the rest of the writers returning AlreadyExists errors.
@@ -507,6 +505,65 @@ message GetContextTypesResponse {
   repeated ContextType context_types = 1;
 }
 
+message GetArtifactsByExternalIdsRequest {
+  repeated string external_ids = 1;
+  // Options regarding transactions.
+  optional TransactionOptions transaction_options = 2;
+}
+
+message GetArtifactsByExternalIdsResponse {
+  repeated Artifact artifacts = 1;
+}
+
+message GetExecutionsByExternalIdsRequest {
+  repeated string external_ids = 1;
+  // Options regarding transactions.
+  optional TransactionOptions transaction_options = 2;
+}
+
+message GetExecutionsByExternalIdsResponse {
+  repeated Execution executions = 1;
+}
+
+message GetContextsByExternalIdsRequest {
+  repeated string external_ids = 1;
+  // Options regarding transactions.
+  optional TransactionOptions transaction_options = 2;
+}
+
+message GetContextsByExternalIdsResponse {
+  repeated Context contexts = 1;
+}
+
+message GetArtifactTypesByExternalIdsRequest {
+  repeated string external_ids = 1;
+  // Options regarding transactions.
+  optional TransactionOptions transaction_options = 2;
+}
+
+message GetArtifactTypesByExternalIdsResponse {
+  repeated ArtifactType artifact_types = 1;
+}
+
+message GetExecutionTypesByExternalIdsRequest {
+  repeated string external_ids = 1;
+  // Options regarding transactions.
+  optional TransactionOptions transaction_options = 2;
+}
+
+message GetExecutionTypesByExternalIdsResponse {
+  repeated ExecutionType execution_types = 1;
+}
+
+message GetContextTypesByExternalIdsRequest {
+  repeated string external_ids = 1;
+  // Options regarding transactions.
+  optional TransactionOptions transaction_options = 2;
+}
+
+message GetContextTypesByExternalIdsResponse {
+  repeated ContextType context_types = 1;
+}
 
 message GetExecutionsByTypeRequest {
   optional string type_name = 1;
@@ -1133,6 +1190,29 @@ service MetadataStoreService {
   rpc GetEventsByArtifactIDs(GetEventsByArtifactIDsRequest)
       returns (GetEventsByArtifactIDsResponse) {}
 
+  // Gets all the artifacts with matching external ids.
+  rpc GetArtifactsByExternalIds(GetArtifactsByExternalIdsRequest)
+      returns (GetArtifactsByExternalIdsResponse) {}
+
+  // Gets all the artifacts with matching external ids.
+  rpc GetExecutionsByExternalIds(GetExecutionsByExternalIdsRequest)
+      returns (GetExecutionsByExternalIdsResponse) {}
+
+  // Gets all the artifacts with matching external ids.
+  rpc GetContextsByExternalIds(GetContextsByExternalIdsRequest)
+      returns (GetContextsByExternalIdsResponse) {}
+
+  // Gets all the artifacts with matching external ids.
+  rpc GetArtifactTypesByExternalIds(GetArtifactTypesByExternalIdsRequest)
+      returns (GetArtifactTypesByExternalIdsResponse) {}
+
+  // Gets all the artifacts with matching external ids.
+  rpc GetExecutionTypesByExternalIds(GetExecutionTypesByExternalIdsRequest)
+      returns (GetExecutionTypesByExternalIdsResponse) {}
+
+  // Gets all the artifacts with matching external ids.
+  rpc GetContextTypesByExternalIds(GetContextTypesByExternalIdsRequest)
+      returns (GetContextTypesByExternalIdsResponse) {}
 
 
   // Gets all context that an artifact is attributed to.

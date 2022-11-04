@@ -1032,6 +1032,50 @@ TEST_P(MetadataAccessObjectTest, CreateTypeError) {
   }
 }
 
+TEST_P(MetadataAccessObjectTest, CreateTypeWithDuplicatedExternalIdError) {
+  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/9)) {
+    return;
+  }
+  MLMD_ASSERT_OK(Init());
+
+  ArtifactType type1 = ParseTextProtoOrDie<ArtifactType>(R"pb(
+    name: 'test_type1'
+    external_id: 'artifact_type1'
+  )pb");
+  int64 type1_id = -1;
+  MLMD_EXPECT_OK(metadata_access_object_->CreateType(type1, &type1_id));
+
+  ExecutionType type2 = ParseTextProtoOrDie<ExecutionType>(
+      R"pb(name: 'test_type' external_id: 'execution_type1'
+      )pb");
+  int64 type2_id = -1;
+  MLMD_EXPECT_OK(metadata_access_object_->CreateType(type2, &type2_id));
+
+  ContextType type3 = ParseTextProtoOrDie<ContextType>(R"pb(
+    name: 'test_type'
+    external_id: 'context_type1')pb");
+  int64 type3_id = -1;
+  MLMD_EXPECT_OK(metadata_access_object_->CreateType(type3, &type3_id));
+
+  MLMD_ASSERT_OK(AddCommitPointIfNeeded());
+
+  // Insert the same types again to check the unique constraint.
+  // TODO(b/227278729) Use CheckUniqueConstraintAndResetTransaction() here after
+  // enabling bufferwrite for inserting Types.
+  ASSERT_TRUE(absl::IsAlreadyExists(
+      metadata_access_object_->CreateType(type1, &type1_id)));
+
+  ASSERT_TRUE(absl::IsAlreadyExists(
+      metadata_access_object_->CreateType(type2, &type2_id)));
+
+  ASSERT_TRUE(absl::IsAlreadyExists(
+      metadata_access_object_->CreateType(type3, &type3_id)));
+
+  // Rollback transaction so that unique constraint violation does not
+  // cause test crash during teardown for Spanner.
+  MLMD_ASSERT_OK(metadata_source_->Rollback());
+  MLMD_ASSERT_OK(metadata_source_->Begin());
+}
 
 TEST_P(MetadataAccessObjectTest, UpdateType) {
   ASSERT_EQ(absl::OkStatus(), Init());
@@ -1298,6 +1342,183 @@ TEST_P(MetadataAccessObjectTest, FindTypeByName) {
           "test_type", /*version=*/absl::nullopt, &context_type)));
 }
 
+TEST_P(MetadataAccessObjectTest, FindArtifactTypesByExternalIds) {
+  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/9)) {
+    return;
+  }
+  MLMD_ASSERT_OK(Init());
+  ArtifactType want_artifact_type_1;
+  ArtifactType want_artifact_type_2;
+  MLMD_ASSERT_OK(FindTypesByIdsSetup(
+      *metadata_access_object_, want_artifact_type_1, want_artifact_type_2));
+
+  // Test: update external_id, which also prepares for retrieving by external_id
+  EXPECT_TRUE(want_artifact_type_1.external_id().empty());
+  EXPECT_TRUE(want_artifact_type_2.external_id().empty());
+
+  want_artifact_type_1.set_external_id("want_artifact_type_1");
+  want_artifact_type_2.set_external_id("want_artifact_type_2");
+  MLMD_ASSERT_OK(metadata_access_object_->UpdateType(want_artifact_type_1));
+  MLMD_ASSERT_OK(metadata_access_object_->UpdateType(want_artifact_type_2));
+
+  MLMD_ASSERT_OK(metadata_access_object_container_.get()->AddCommitPoint());
+
+  // Test 1: artifact types can be retrieved by external_ids.
+  std::vector<ArtifactType> got_types;
+  std::vector<absl::string_view> external_ids = {
+      want_artifact_type_1.external_id(), want_artifact_type_2.external_id()};
+  MLMD_ASSERT_OK(metadata_access_object_->FindTypesByExternalIds(
+      absl::MakeSpan(external_ids), got_types));
+  EXPECT_THAT(got_types,
+              UnorderedElementsAre(
+                  EqualsProto(want_artifact_type_1, /*ignore_fields=*/{"id"}),
+                  EqualsProto(want_artifact_type_2, /*ignore_fields=*/{"id"})));
+
+  // Test 2: will return NOT_FOUND error when finding artifact types by
+  // non-existing external_id.
+  std::vector<absl::string_view> external_ids_absent = {
+      "want_artifact_type_absent"};
+  std::vector<ArtifactType> got_artifact_types_absent;
+  EXPECT_TRUE(absl::IsNotFound(metadata_access_object_->FindTypesByExternalIds(
+      absl::MakeSpan(external_ids_absent), got_artifact_types_absent)));
+
+  // Test 3: will return whatever found when a part of external_ids is
+  // non-existing.
+  external_ids_absent.push_back(absl::string_view("want_artifact_type_1"));
+  MLMD_EXPECT_OK(metadata_access_object_->FindTypesByExternalIds(
+      absl::MakeSpan(external_ids_absent), got_artifact_types_absent));
+  EXPECT_THAT(got_artifact_types_absent,
+              UnorderedElementsAre(
+                  EqualsProto(want_artifact_type_1, /*ignore_fields=*/{"id"})));
+
+  // Test 4: will return INVALID_ARGUMENT error when any of the external_ids is
+  // empty.
+  std::vector<absl::string_view> external_ids_empty = {""};
+  std::vector<ArtifactType> got_artifact_types_from_empty_external_ids;
+  EXPECT_TRUE(
+      absl::IsInvalidArgument(metadata_access_object_->FindTypesByExternalIds(
+          absl::MakeSpan(external_ids_empty),
+          got_artifact_types_from_empty_external_ids)));
+}
+
+TEST_P(MetadataAccessObjectTest, FindExecutionTypesByExternalIds) {
+  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/9)) {
+    return;
+  }
+  MLMD_ASSERT_OK(Init());
+  ExecutionType want_execution_type_1;
+  ExecutionType want_execution_type_2;
+  MLMD_ASSERT_OK(FindTypesByIdsSetup(
+      *metadata_access_object_, want_execution_type_1, want_execution_type_2));
+
+  // Test: update external_id, which also prepares for retrieving by external_id
+  EXPECT_TRUE(want_execution_type_1.external_id().empty());
+  EXPECT_TRUE(want_execution_type_2.external_id().empty());
+
+  want_execution_type_1.set_external_id("want_execution_type_1");
+  want_execution_type_2.set_external_id("want_execution_type_2");
+  MLMD_ASSERT_OK(metadata_access_object_->UpdateType(want_execution_type_1));
+  MLMD_ASSERT_OK(metadata_access_object_->UpdateType(want_execution_type_2));
+
+  MLMD_ASSERT_OK(metadata_access_object_container_.get()->AddCommitPoint());
+
+  // Test 1: execution types can be retrieved by external_ids.
+  std::vector<ExecutionType> got_types;
+  std::vector<absl::string_view> external_ids = {
+      want_execution_type_1.external_id(), want_execution_type_2.external_id()};
+  MLMD_ASSERT_OK(metadata_access_object_->FindTypesByExternalIds(
+      absl::MakeSpan(external_ids), got_types));
+  EXPECT_THAT(
+      got_types,
+      UnorderedElementsAre(
+          EqualsProto(want_execution_type_1, /*ignore_fields=*/{"id"}),
+          EqualsProto(want_execution_type_2, /*ignore_fields=*/{"id"})));
+
+  // Test 2: will return NOT_FOUND error when finding execution types by
+  // non-existing external_id.
+  std::vector<absl::string_view> external_ids_absent = {
+      "want_execution_type_absent"};
+  std::vector<ExecutionType> got_execution_types_absent;
+  EXPECT_TRUE(absl::IsNotFound(metadata_access_object_->FindTypesByExternalIds(
+      absl::MakeSpan(external_ids_absent), got_execution_types_absent)));
+
+  // Test 3: will return whatever found when a part of external_ids is
+  // non-existing.
+  external_ids_absent.push_back(absl::string_view("want_execution_type_1"));
+  MLMD_EXPECT_OK(metadata_access_object_->FindTypesByExternalIds(
+      absl::MakeSpan(external_ids_absent), got_execution_types_absent));
+  EXPECT_THAT(got_execution_types_absent,
+              UnorderedElementsAre(EqualsProto(want_execution_type_1,
+                                               /*ignore_fields=*/{"id"})));
+
+  // Test 4: will return INVALID_ARGUMENT error when any of the external_ids is
+  // empty.
+  std::vector<absl::string_view> external_ids_empty = {""};
+  std::vector<ExecutionType> got_execution_types_from_empty_external_ids;
+  EXPECT_TRUE(
+      absl::IsInvalidArgument(metadata_access_object_->FindTypesByExternalIds(
+          absl::MakeSpan(external_ids_empty),
+          got_execution_types_from_empty_external_ids)));
+}
+
+TEST_P(MetadataAccessObjectTest, FindContextTypesByExternalIds) {
+  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/9)) {
+    return;
+  }
+  MLMD_ASSERT_OK(Init());
+  ContextType want_context_type_1;
+  ContextType want_context_type_2;
+  MLMD_ASSERT_OK(FindTypesByIdsSetup(*metadata_access_object_,
+                                     want_context_type_1, want_context_type_2));
+
+  // Test: update external_id, which also prepares for retrieving by external_id
+  EXPECT_TRUE(want_context_type_1.external_id().empty());
+  EXPECT_TRUE(want_context_type_2.external_id().empty());
+
+  want_context_type_1.set_external_id("want_context_type_1");
+  want_context_type_2.set_external_id("want_context_type_2");
+  MLMD_ASSERT_OK(metadata_access_object_->UpdateType(want_context_type_1));
+  MLMD_ASSERT_OK(metadata_access_object_->UpdateType(want_context_type_2));
+
+  MLMD_ASSERT_OK(metadata_access_object_container_.get()->AddCommitPoint());
+
+  // Test 1: context types can be retrieved by external_ids.
+  std::vector<ContextType> got_types;
+  std::vector<absl::string_view> external_ids = {
+      want_context_type_1.external_id(), want_context_type_2.external_id()};
+  MLMD_ASSERT_OK(metadata_access_object_->FindTypesByExternalIds(
+      absl::MakeSpan(external_ids), got_types));
+  EXPECT_THAT(got_types,
+              UnorderedElementsAre(
+                  EqualsProto(want_context_type_1, /*ignore_fields=*/{"id"}),
+                  EqualsProto(want_context_type_2, /*ignore_fields=*/{"id"})));
+
+  // Test 2: will return NOT_FOUND error when finding context types by
+  // non-existing external_id.
+  std::vector<absl::string_view> external_ids_absent = {
+      "want_context_type_absent"};
+  std::vector<ContextType> got_context_types_absent;
+  EXPECT_TRUE(absl::IsNotFound(metadata_access_object_->FindTypesByExternalIds(
+      absl::MakeSpan(external_ids_absent), got_context_types_absent)));
+
+  // Test 3: will return whatever found when a part of external_ids is
+  // non-existing.
+  external_ids_absent.push_back(absl::string_view("want_context_type_1"));
+  MLMD_EXPECT_OK(metadata_access_object_->FindTypesByExternalIds(
+      absl::MakeSpan(external_ids_absent), got_context_types_absent));
+  EXPECT_THAT(got_context_types_absent,
+              UnorderedElementsAre(
+                  EqualsProto(want_context_type_1, /*ignore_fields=*/{"id"})));
+
+  // Test 4: will return INVALID_ARGUMENT error when any of the external_ids is
+  // empty.
+  std::vector<absl::string_view> external_ids_empty = {""};
+  std::vector<ContextType> got_context_types_from_empty_external_ids;
+  EXPECT_TRUE(
+      absl::IsInvalidArgument(metadata_access_object_->FindTypesByExternalIds(
+          absl::MakeSpan(external_ids_empty),
+          got_context_types_from_empty_external_ids)));
+}
 
 TEST_P(MetadataAccessObjectTest, FindTypeIdByNameAndVersion) {
   ASSERT_EQ(absl::OkStatus(), Init());
@@ -2033,6 +2254,34 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithDuplicatedNameError) {
             absl::OkStatus());
 }
 
+TEST_P(MetadataAccessObjectTest, CreateArtifactWithDuplicatedExternalIdError) {
+  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/9)) {
+    return;
+  }
+  ASSERT_EQ(absl::OkStatus(), Init());
+  ArtifactType type;
+  type.set_name("test_type");
+  int64 type_id;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateType(type, &type_id));
+
+  Artifact artifact;
+  artifact.set_type_id(type_id);
+  artifact.set_external_id("artifact_1");
+  int64 artifact_id;
+  EXPECT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateArtifact(artifact, &artifact_id));
+
+  // Add a commit point here, because a read operation will be performed to
+  // check the uniqueness of external_id first when calling CreateArtifact().
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+  // Insert the same artifact again to check the unique constraint
+  absl::Status unique_constraint_violation_status =
+      metadata_access_object_->CreateArtifact(artifact, &artifact_id);
+  EXPECT_EQ(CheckUniqueConstraintAndResetTransaction(
+                unique_constraint_violation_status),
+            absl::OkStatus());
+}
 
 TEST_P(MetadataAccessObjectTest, CreateArtifactWithoutValidation) {
   MLMD_ASSERT_OK(Init());
@@ -2665,8 +2914,13 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsFilterAttributeQuery) {
     absl::SleepFor(absl::Milliseconds(1));
     std::string base_text_proto_string;
 
-    base_text_proto_string =
-        R"( uri: 'uri_$0',
+    base_text_proto_string = !IfSchemaLessThan(/*schema_version=*/9)
+                                 ?
+                                 R"( uri: 'uri_$0',
+            name: 'artifact_$0',
+            external_id: 'artifact_$0')"
+                                 :
+                                 R"( uri: 'uri_$0',
             name: 'artifact_$0')";
     CreateNodeFromTextProto(absl::Substitute(base_text_proto_string, i),
                             type.id(), *metadata_access_object_,
@@ -2765,6 +3019,17 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsFilterAttributeQuery) {
       filter_query: "uri LIKE 'uri_%' and type = '$0' and name = 'artifact_0'"
     )", type.name()), *metadata_access_object_,
       /*want_nodes=*/{want_artifacts[0]});
+  if (!IfSchemaLessThan(/*schema_version=*/9)) {
+    VerifyListOptions<Artifact>(
+        absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "external_id = '$0'"
+    )",
+                         want_artifacts[0].external_id()),
+        *metadata_access_object_,
+        /*want_nodes=*/{want_artifacts[0]});
+  }
 }
 
 TEST_P(MetadataAccessObjectTest, ListNodesFilterEventQuery) {
@@ -2870,9 +3135,13 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsFilterAttributeQuery) {
     absl::SleepFor(absl::Milliseconds(1));
     std::string base_text_proto_string;
 
-    base_text_proto_string =
-        R"(
+    base_text_proto_string = !IfSchemaLessThan(/*schema_version=*/9) ?
+                                                                     R"(
+          name: 'execution_$0', external_id: 'execution_$0')"
+                                                                     :
+                                                                     R"(
           name: 'execution_$0')";
+
     CreateNodeFromTextProto(absl::Substitute(base_text_proto_string, i),
                             type.id(), *metadata_access_object_,
                             metadata_access_object_container_.get(),
@@ -2971,6 +3240,17 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsFilterAttributeQuery) {
         " name = 'execution_0'"
     )", type.name(), type.id()), *metadata_access_object_,
       /*want_nodes=*/{want_executions[0]});
+  if (!IfSchemaLessThan(/*schema_version=*/9)) {
+    VerifyListOptions<Execution>(
+        absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "external_id = '$0'"
+    )",
+                         want_executions[0].external_id()),
+        *metadata_access_object_,
+        /*want_nodes=*/{want_executions[0]});
+  }
 }
 
 TEST_P(MetadataAccessObjectTest, ListContextsFilterAttributeQuery) {
@@ -2985,8 +3265,11 @@ TEST_P(MetadataAccessObjectTest, ListContextsFilterAttributeQuery) {
     absl::SleepFor(absl::Milliseconds(1));
     std::string base_text_proto_string;
 
-    base_text_proto_string =
-        R"(
+    base_text_proto_string = !IfSchemaLessThan(/*schema_version=*/9) ?
+                                                                     R"(
+          name: 'c$0', external_id: 'c$0')"
+                                                                     :
+                                                                     R"(
           name: 'c$0')";
     CreateNodeFromTextProto(absl::Substitute(base_text_proto_string, i),
                             type.id(), *metadata_access_object_,
@@ -3073,6 +3356,16 @@ TEST_P(MetadataAccessObjectTest, ListContextsFilterAttributeQuery) {
       " AND name = 'c0'"
     )", type.name(), type.id()), *metadata_access_object_,
       /*want_nodes=*/{want_contexts[0]});
+  if (!IfSchemaLessThan(/*schema_version=*/9)) {
+    VerifyListOptions<Context>(absl::Substitute(R"(
+      max_result_size: 10,
+      order_by_field: { field: CREATE_TIME is_asc: false }
+      filter_query: "external_id = '$0' "
+    )",
+                                                want_contexts[0].external_id()),
+                               *metadata_access_object_,
+                               /*want_nodes=*/{want_contexts[0]});
+  }
 }
 
 TEST_P(MetadataAccessObjectTest, ListNodesFilterContextNeighborQuery) {
@@ -5758,6 +6051,85 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByURI) {
                                               "last_update_time_since_epoch"}));
 }
 
+TEST_P(MetadataAccessObjectTest, FindArtifactsByExternalIds) {
+  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/9)) {
+    return;
+  }
+  MLMD_ASSERT_OK(Init());
+  // Setup: Create two arifacts with external_id.
+  int64 type_id = InsertType<ArtifactType>("test_type");
+  std::vector<absl::string_view> external_ids = {"artifact1", "artifact2"};
+  Artifact artifact1 = ParseTextProtoOrDie<Artifact>(R"pb(
+    uri: 'testuri://testing/uri1'
+    name: 'artifact1')pb");
+  artifact1.set_type_id(type_id);
+  artifact1.set_external_id("artifact1");
+  int64 artifact1_id;
+  MLMD_ASSERT_OK(
+      metadata_access_object_->CreateArtifact(artifact1, &artifact1_id));
+  artifact1.set_id(artifact1_id);
+
+  Artifact artifact2 = ParseTextProtoOrDie<Artifact>(R"pb(
+    uri: 'testuri://testing/uri2'
+    name: 'artifact2')pb");
+  artifact2.set_type_id(type_id);
+  artifact2.set_external_id("artifact2");
+  int64 artifact2_id;
+  MLMD_ASSERT_OK(
+      metadata_access_object_->CreateArtifact(artifact2, &artifact2_id));
+  artifact2.set_id(artifact2_id);
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
+  // Test 1: artifacts can be retrieved by external_ids.
+  std::vector<Artifact> got_artifacts_from_external_ids;
+  EXPECT_EQ(
+      absl::OkStatus(),
+      metadata_access_object_->FindArtifactsByExternalIds(
+          absl::MakeSpan(external_ids), &got_artifacts_from_external_ids));
+  ASSERT_EQ(got_artifacts_from_external_ids.size(), 2);
+  EXPECT_THAT(
+      got_artifacts_from_external_ids,
+      UnorderedElementsAre(
+          EqualsProto(artifact1,
+                      /*ignore_fields=*/{"create_time_since_epoch",
+                                         "last_update_time_since_epoch"}),
+          EqualsProto(artifact2,
+                      /*ignore_fields=*/{"create_time_since_epoch",
+                                         "last_update_time_since_epoch"})));
+
+  // Test 2: will return NOT_FOUND error when finding artifacts by non-exsiting
+  // external_id.
+  std::vector<absl::string_view> external_ids_absent = {"artifact_absent"};
+  std::vector<Artifact> got_artifacts_by_external_ids_absent;
+  EXPECT_TRUE(
+      absl::IsNotFound(metadata_access_object_->FindArtifactsByExternalIds(
+          absl::MakeSpan(external_ids_absent),
+          &got_artifacts_by_external_ids_absent)));
+
+  // Test 3: will return whatever found when a part of external_ids is
+  // non-existing, e.g., the input vector is {"artifact_absent", "artifact1"}.
+  external_ids_absent.push_back(absl::string_view("artifact1"));
+  EXPECT_EQ(absl::OkStatus(),
+            metadata_access_object_->FindArtifactsByExternalIds(
+                absl::MakeSpan(external_ids_absent),
+                &got_artifacts_by_external_ids_absent));
+  ASSERT_EQ(got_artifacts_by_external_ids_absent.size(), 1);
+  EXPECT_THAT(got_artifacts_by_external_ids_absent,
+              UnorderedElementsAre(EqualsProto(
+                  artifact1,
+                  /*ignore_fields=*/{"create_time_since_epoch",
+                                     "last_update_time_since_epoch"})));
+
+  // Test 4: will return INVALID_ARGUMENT error when any of the external_ids is
+  // empty.
+  std::vector<absl::string_view> external_ids_empty = {""};
+  std::vector<Artifact> got_artifacts_by_empty_external_id;
+  EXPECT_TRUE(absl::IsInvalidArgument(
+      metadata_access_object_->FindArtifactsByExternalIds(
+          absl::MakeSpan(external_ids_empty),
+          &got_artifacts_by_empty_external_id)));
+}
 
 TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
   ASSERT_EQ(absl::OkStatus(), Init());
@@ -5851,6 +6223,18 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
   EXPECT_LT(got_artifact_before_update.last_update_time_since_epoch(),
             got_artifact_after_update.last_update_time_since_epoch());
 
+  if (!IfSchemaLessThan(/*schema_version=*/9)) {
+    EXPECT_TRUE(got_artifact_before_update.external_id().empty());
+    updated_artifact.set_external_id("artifact_1");
+    EXPECT_EQ(absl::OkStatus(),
+              metadata_access_object_->UpdateArtifact(updated_artifact));
+    ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+    std::vector<Artifact> artifacts;
+    ASSERT_EQ(absl::OkStatus(), metadata_access_object_->FindArtifactsById(
+                                    {artifact_id}, &artifacts));
+    got_artifact_after_update = artifacts.at(0);
+    EXPECT_EQ(got_artifact_after_update.external_id(), "artifact_1");
+  }
 }
 
 TEST_P(MetadataAccessObjectTest, UpdateArtifactWithCustomUpdateTime) {
@@ -6227,6 +6611,27 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
 
   ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
+  // Test: update external_id, which also prepares for retrieving by external_id
+  if (!IfSchemaLessThan(/*schema_version=*/9)) {
+    ASSERT_TRUE(want_execution1.external_id().empty());
+    ASSERT_TRUE(want_execution2.external_id().empty());
+
+    want_execution1.set_external_id("my_execution1");
+    want_execution2.set_external_id("my_execution2");
+
+    Execution want_execution1_after_update, want_execution2_after_update;
+    UpdateAndReturnNode<Execution>(want_execution1, *metadata_access_object_,
+                                   metadata_access_object_container_.get(),
+                                   want_execution1_after_update);
+    UpdateAndReturnNode<Execution>(want_execution2, *metadata_access_object_,
+                                   metadata_access_object_container_.get(),
+                                   want_execution2_after_update);
+
+    EXPECT_EQ(want_execution1_after_update.external_id(),
+              want_execution1.external_id());
+    EXPECT_EQ(want_execution2_after_update.external_id(),
+              want_execution2.external_id());
+  }
 
   EXPECT_NE(want_execution1.id(), want_execution2.id());
 
@@ -6359,6 +6764,57 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
     EXPECT_THAT(got_empty_execution, EqualsProto(Execution()));
   }
 
+  if (!IfSchemaLessThan(/*schema_version=*/9)) {
+    // Test: retrieve by external_id
+    // Test 1: executions can be retrieved by external_ids.
+    std::vector<Execution> got_executions_from_external_ids;
+    std::vector<absl::string_view> external_ids = {"my_execution1",
+                                                   "my_execution2"};
+    MLMD_EXPECT_OK(metadata_access_object_->FindExecutionsByExternalIds(
+        absl::MakeSpan(external_ids), &got_executions_from_external_ids));
+    EXPECT_THAT(
+        got_executions_from_external_ids,
+        UnorderedElementsAre(
+            EqualsProto(want_execution1,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(want_execution2,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+
+    // Test 2: will return NOT_FOUND error when finding executions by
+    // non-exsiting external_id.
+    std::vector<absl::string_view> external_ids_absent = {
+        "my_execution_absent"};
+    std::vector<Execution> got_executions_from_external_ids_absent;
+    EXPECT_TRUE(
+        absl::IsNotFound(metadata_access_object_->FindExecutionsByExternalIds(
+            absl::MakeSpan(external_ids_absent),
+            &got_executions_from_external_ids_absent)));
+
+    // Test 3: will return whatever found when a part of external_ids is
+    // non-existing, e.g., the input error vector is {"my_execution1",
+    // "my_execution_absent"}.
+    external_ids_absent.push_back(absl::string_view("my_execution1"));
+    MLMD_EXPECT_OK(metadata_access_object_->FindExecutionsByExternalIds(
+        absl::MakeSpan(external_ids_absent),
+        &got_executions_from_external_ids_absent));
+    ASSERT_EQ(got_executions_from_external_ids_absent.size(), 1);
+    EXPECT_THAT(
+        got_executions_from_external_ids_absent,
+        UnorderedElementsAre(EqualsProto(
+            want_execution1, /*ignore_fields=*/{
+                "create_time_since_epoch", "last_update_time_since_epoch"})));
+
+    // Test 4: will return INVALID_ARGUMENT error when any of the external_ids
+    // is empty.
+    std::vector<absl::string_view> external_ids_empty = {""};
+    std::vector<Execution> got_executions_from_empty_external_ids;
+    EXPECT_TRUE(absl::IsInvalidArgument(
+        metadata_access_object_->FindExecutionsByExternalIds(
+            absl::MakeSpan(external_ids_empty),
+            &got_executions_from_empty_external_ids)));
+  }
 }
 
 TEST_P(MetadataAccessObjectTest, CreateExecutionWithDuplicatedNameError) {
@@ -6383,6 +6839,31 @@ TEST_P(MetadataAccessObjectTest, CreateExecutionWithDuplicatedNameError) {
             absl::OkStatus());
 }
 
+TEST_P(MetadataAccessObjectTest, CreateExecutionWithDuplicatedExternalIdError) {
+  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/9)) {
+    return;
+  }
+  MLMD_ASSERT_OK(Init());
+  ExecutionType type;
+  type.set_name("test_type");
+  int64 type_id;
+  MLMD_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
+
+  Execution execution;
+  execution.set_type_id(type_id);
+  execution.set_external_id("execution_1");
+  int64 execution_id;
+  MLMD_EXPECT_OK(
+      metadata_access_object_->CreateExecution(execution, &execution_id));
+
+  MLMD_ASSERT_OK(AddCommitPointIfNeeded());
+
+  // Insert the same execution again to check the unique constraint
+  absl::Status unique_constraint_violation_status =
+      metadata_access_object_->CreateExecution(execution, &execution_id);
+  MLMD_EXPECT_OK(CheckUniqueConstraintAndResetTransaction(
+      unique_constraint_violation_status));
+}
 
 TEST_P(MetadataAccessObjectTest, UpdateExecution) {
   ASSERT_EQ(absl::OkStatus(), Init());
@@ -6662,6 +7143,24 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
 
   ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
+  if (!IfSchemaLessThan(/*schema_version=*/9)) {
+    ASSERT_TRUE(context1.external_id().empty());
+    ASSERT_TRUE(context2.external_id().empty());
+
+    context1.set_external_id("my_context1");
+    context2.set_external_id("my_context2");
+
+    Context want_context1_after_update, want_context2_after_update;
+    UpdateAndReturnNode<Context>(context1, *metadata_access_object_,
+                                 metadata_access_object_container_.get(),
+                                 want_context1_after_update);
+    UpdateAndReturnNode<Context>(context2, *metadata_access_object_,
+                                 metadata_access_object_container_.get(),
+                                 want_context2_after_update);
+
+    EXPECT_EQ(want_context1_after_update.external_id(), context1.external_id());
+    EXPECT_EQ(want_context2_after_update.external_id(), context2.external_id());
+  }
 
   EXPECT_NE(context1_id, context2_id);
 
@@ -6733,6 +7232,56 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
                 &got_context_from_type_and_name_with_only_id));
   EXPECT_THAT(got_context_from_type_and_name_with_only_id,
               EqualsProto(expected_context_from_type_and_name_with_only_id));
+
+  if (!IfSchemaLessThan(/*schema_version=*/9)) {
+    // Test 1: contexts can be retrieved by external_ids.
+    std::vector<Context> got_contexts_from_external_ids;
+    std::vector<absl::string_view> external_ids = {"my_context1",
+                                                   "my_context2"};
+    MLMD_EXPECT_OK(metadata_access_object_->FindContextsByExternalIds(
+        absl::MakeSpan(external_ids), &got_contexts_from_external_ids));
+    EXPECT_THAT(
+        got_contexts_from_external_ids,
+        UnorderedElementsAre(
+            EqualsProto(context1,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(context2,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+
+    // Test 2: will return NOT_FOUND error when finding contexts by
+    // non-existing external_id.
+    std::vector<Context> got_contexts_from_external_ids_absent;
+    std::vector<absl::string_view> external_ids_absent = {"my_context_absent"};
+    EXPECT_TRUE(
+        absl::IsNotFound(metadata_access_object_->FindContextsByExternalIds(
+            absl::MakeSpan(external_ids_absent),
+            &got_contexts_from_external_ids_absent)));
+
+    // Test 3: will return whatever found when a part of external_ids is
+    // non-existing, e.g., the input error vector is {"my_context1",
+    // "my_context_absent"}.
+    external_ids_absent.push_back(absl::string_view("my_context1"));
+    MLMD_EXPECT_OK(metadata_access_object_->FindContextsByExternalIds(
+        absl::MakeSpan(external_ids_absent),
+        &got_contexts_from_external_ids_absent));
+    ASSERT_EQ(got_contexts_from_external_ids_absent.size(), 1);
+    EXPECT_THAT(
+        got_contexts_from_external_ids_absent,
+        UnorderedElementsAre(EqualsProto(
+            context1, /*ignore_fields=*/{"create_time_since_epoch",
+                                         "last_update_time_since_epoch"})));
+
+    // Test 4: will return INVALID_ARGUMENT error when any of the external_ids
+    // is empty.
+    std::vector<absl::string_view> external_ids_empty = {""};
+    std::vector<Context> got_contexts_from_empty_external_ids;
+    EXPECT_TRUE(absl::IsInvalidArgument(
+        metadata_access_object_->FindContextsByExternalIds(
+            absl::MakeSpan(external_ids_empty),
+            &got_contexts_from_empty_external_ids)));
+  }
 }
 
 TEST_P(MetadataAccessObjectTest, ListArtifactsByType) {
@@ -7115,6 +7664,32 @@ TEST_P(MetadataAccessObjectTest, CreateContextWithDuplicatedNameError) {
             absl::OkStatus());
 }
 
+TEST_P(MetadataAccessObjectTest, CreateContextWithDuplicatedExternalIdError) {
+  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/9)) {
+    return;
+  }
+  MLMD_ASSERT_OK(Init());
+  ContextType type;
+  type.set_name("test_type");
+  int64 type_id;
+  MLMD_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
+
+  Context context;
+  context.set_type_id(type_id);
+  context.set_external_id("context1");
+  context.set_name("test context name");
+  int64 context_id;
+
+  MLMD_EXPECT_OK(metadata_access_object_->CreateContext(context, &context_id));
+
+  MLMD_ASSERT_OK(AddCommitPointIfNeeded());
+
+  // Insert the same context again to check the unique constraint
+  absl::Status unique_constraint_violation_status =
+      metadata_access_object_->CreateContext(context, &context_id);
+  MLMD_EXPECT_OK(CheckUniqueConstraintAndResetTransaction(
+      unique_constraint_violation_status));
+}
 
 TEST_P(MetadataAccessObjectTest, UpdateContext) {
   ASSERT_EQ(absl::OkStatus(), Init());
@@ -8371,30 +8946,60 @@ TEST_P(MetadataAccessObjectTest, CreateDuplicatedEvents) {
   event3.set_artifact_id(input_artifact_id);
   event3.set_execution_id(execution_id);
   int64 unused_event3_id = -1;
-  EXPECT_TRUE(absl::IsAlreadyExists(
-      metadata_access_object_->CreateEvent(event3, &unused_event3_id)));
+  // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
+  // At schema version 7, the unique constraint on Event table on (artifact_id,
+  // execution_id, type) is not introduced.
+  if (metadata_access_object_container_->GetSchemaVersion() == 7) {
+    EXPECT_EQ(metadata_access_object_->CreateEvent(event3, &unused_event3_id),
+              absl::OkStatus());
+  } else {
+    EXPECT_TRUE(absl::IsAlreadyExists(
+        metadata_access_object_->CreateEvent(event3, &unused_event3_id)));
+  }
 
   // query the events
   std::vector<Event> events_with_artifacts;
   EXPECT_EQ(absl::OkStatus(), metadata_access_object_->FindEventsByArtifacts(
                                   {input_artifact_id},
                                   &events_with_artifacts));
-  EXPECT_EQ(events_with_artifacts.size(), 2);
-  EXPECT_THAT(
-      events_with_artifacts,
-      UnorderedElementsAre(
-          EqualsProto(event1),
-          EqualsProto(event2, /*ignore_fields=*/{"milliseconds_since_epoch"})));
+  if (metadata_access_object_container_->GetSchemaVersion() == 7) {
+    EXPECT_EQ(events_with_artifacts.size(), 3);
+    EXPECT_THAT(
+        events_with_artifacts,
+        UnorderedElementsAre(
+            EqualsProto(event1),
+            EqualsProto(event2, /*ignore_fields=*/{"milliseconds_since_epoch"}),
+            EqualsProto(event3,
+                        /*ignore_fields=*/{"milliseconds_since_epoch"})));
+  } else {
+    EXPECT_EQ(events_with_artifacts.size(), 2);
+    EXPECT_THAT(
+        events_with_artifacts,
+        UnorderedElementsAre(EqualsProto(event1),
+                             EqualsProto(event2, /*ignore_fields=*/{
+                                             "milliseconds_since_epoch"})));
+  }
 
   std::vector<Event> events_with_execution;
   EXPECT_EQ(absl::OkStatus(), metadata_access_object_->FindEventsByExecutions(
                                   {execution_id}, &events_with_execution));
-  EXPECT_EQ(events_with_execution.size(), 2);
-  EXPECT_THAT(
-      events_with_execution,
-      UnorderedElementsAre(
-          EqualsProto(event1),
-          EqualsProto(event2, /*ignore_fields=*/{"milliseconds_since_epoch"})));
+  if (metadata_access_object_container_->GetSchemaVersion() == 7) {
+    EXPECT_EQ(events_with_execution.size(), 3);
+    EXPECT_THAT(
+        events_with_execution,
+        UnorderedElementsAre(
+            EqualsProto(event1),
+            EqualsProto(event2, /*ignore_fields=*/{"milliseconds_since_epoch"}),
+            EqualsProto(event3,
+                        /*ignore_fields=*/{"milliseconds_since_epoch"})));
+  } else {
+    EXPECT_EQ(events_with_execution.size(), 2);
+    EXPECT_THAT(
+        events_with_execution,
+        UnorderedElementsAre(EqualsProto(event1),
+                             EqualsProto(event2, /*ignore_fields=*/{
+                                             "milliseconds_since_epoch"})));
+  }
 }
 
 TEST_P(MetadataAccessObjectTest, CreateParentContext) {

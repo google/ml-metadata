@@ -179,6 +179,15 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status FindTypesByIds(absl::Span<const int64> type_ids,
                               std::vector<ContextType>& context_types) final;
 
+  absl::Status FindTypesByExternalIds(
+      absl::Span<absl::string_view> external_ids,
+      std::vector<ArtifactType>& artifact_types) final;
+  absl::Status FindTypesByExternalIds(
+      absl::Span<absl::string_view> external_ids,
+      std::vector<ExecutionType>& execution_types) final;
+  absl::Status FindTypesByExternalIds(
+      absl::Span<absl::string_view> external_ids,
+      std::vector<ContextType>& context_types) final;
 
   absl::Status FindTypeByNameAndVersion(
       absl::string_view name, absl::optional<absl::string_view> version,
@@ -240,6 +249,9 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status FindArtifactsById(absl::Span<const int64> artifact_ids,
                                  std::vector<Artifact>* artifacts) final;
 
+  absl::Status FindArtifactsByExternalIds(
+      absl::Span<absl::string_view> external_ids,
+      std::vector<Artifact>* artifacts) final;
 
   absl::Status FindArtifacts(std::vector<Artifact>* artifacts) final;
 
@@ -287,6 +299,9 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status FindExecutionsById(absl::Span<const int64> execution_ids,
                                   std::vector<Execution>* executions) final;
 
+  absl::Status FindExecutionsByExternalIds(
+      absl::Span<absl::string_view> external_ids,
+      std::vector<Execution>* executions) final;
 
   absl::Status FindExecutions(std::vector<Execution>* executions) final;
 
@@ -317,6 +332,11 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   absl::Status FindContextsById(absl::Span<const int64> context_ids,
                                 std::vector<Context>* contexts) final;
+
+  absl::Status FindContextsByExternalIds(
+      absl::Span<absl::string_view> external_ids,
+      std::vector<Context>* contexts) final;
+
   absl::Status FindContexts(std::vector<Context>* contexts) final;
 
   absl::Status FindContextsByTypeId(
@@ -588,6 +608,19 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
                              bool get_properties,
                              std::vector<MessageType>& types);
 
+  // Finds types by the given `external_ids`.
+  // Acceptable types are {ArtifactType, ExecutionType, ContextType}
+  // (`MessageType`). `get_properties` flag is used to control whether the
+  // returned `types` should contain any properties.
+  // Returns whatever found when a part of `external_ids` is non-existing.
+  // Returns NOT_FOUND error if all the given `external_ids` are not found.
+  // Returns INVALID_ARGUMENT if `external_ids` is empty or `types` is not
+  // empty.
+  // Returns detailed INTERNAL error if query execution fails.
+  template <typename MessageType>
+  absl::Status FindTypesByExternalIdsImpl(
+      absl::Span<absl::string_view> external_ids, bool get_properties,
+      std::vector<MessageType>& types);
 
   // Finds a type by its type_id. Acceptable types are {ArtifactType,
   // ExecutionType, ContextType} (`MessageType`).

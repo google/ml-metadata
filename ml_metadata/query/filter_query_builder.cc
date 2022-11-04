@@ -42,7 +42,7 @@ JOIN (
   FROM Type
   WHERE Type.type_kind = $2
 ) AS $1 ON $0.type_id = $1.type_id )sql";
-// TODO(b/226507742) Add support for external_id once it is rolled out to OSS.
+
 //  $0 is the base node table, $1 is the artifact related neighborhood table.
 constexpr absl::string_view kArtifactJoinTableViaAttribution = R"sql(
 JOIN (
@@ -57,7 +57,6 @@ JOIN (
        JOIN Attribution ON Artifact.id = Attribution.artifact_id
 ) AS $1 ON $0.id = $1.context_id )sql";
 
-// TODO(b/226507742) Add support for external_id once it is rolled out to OSS.
 //  $0 is the base node table, $1 is the execution related neighborhood table.
 constexpr absl::string_view kExecutionJoinTableViaAssociation = R"sql(
 JOIN (
