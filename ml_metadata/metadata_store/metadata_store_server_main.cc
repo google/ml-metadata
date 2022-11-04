@@ -23,7 +23,6 @@ limitations under the License.
 
 #include "gflags/gflags.h"
 #include <glog/logging.h>
-#include "google/protobuf/io/zero_copy_stream_impl.h"
 #include "google/protobuf/text_format.h"
 
 #include "absl/status/status.h"
@@ -37,6 +36,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/metadata_store_factory.h"
 #include "ml_metadata/metadata_store/metadata_store_service_impl.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
+#include "google/protobuf/io/zero_copy_stream_impl.h"
 
 namespace {
 
