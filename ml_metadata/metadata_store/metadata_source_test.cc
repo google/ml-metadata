@@ -17,6 +17,7 @@ limitations under the License.
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 
 namespace ml_metadata {
@@ -32,6 +33,9 @@ class MockMetadataSource : public MetadataSource {
   MOCK_METHOD(absl::Status, RollbackImpl, (), (override));
   MOCK_METHOD(std::string, EscapeString, (absl::string_view value),
               (const, override));
+  MOCK_METHOD(std::string, EncodeBytes, (absl::string_view value), (const));
+  MOCK_METHOD(absl::StatusOr<std::string>, DecodeBytes,
+              (absl::string_view value), (const));
 };
 
 TEST(MetadataSourceTest, ConnectAgainWithoutClose) {

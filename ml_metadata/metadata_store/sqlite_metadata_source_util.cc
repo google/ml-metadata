@@ -13,10 +13,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/sqlite_metadata_source_util.h"
+#include <string>
 
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/metadata_store/constants.h"
 #include "sqlite3.h"
+#include "absl/strings/escaping.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 
 namespace ml_metadata {
 
@@ -24,7 +28,22 @@ std::string SqliteEscapeString(absl::string_view value) {
   char* buffer = sqlite3_mprintf("%q", value.data());  // NOLINT
   std::string result(buffer);
   sqlite3_free(buffer);
+
   return result;
+}
+
+// Encode bytes to workaround escaping difficulties.
+std::string SqliteEncodeBytes(absl::string_view value) {
+  return absl::Base64Escape(value);
+}
+
+absl::StatusOr<std::string> SqliteDecodeBytes(absl::string_view value) {
+  absl::StatusOr<std::string> decoded_or = std::string();
+  if (!absl::Base64Unescape(value, &decoded_or.value())) {
+    decoded_or = absl::InternalError(absl::StrCat(
+      "Failed to Base64Unescape value '", value, "'"));
+  }
+  return decoded_or;
 }
 
 int ConvertSqliteResultsToRecordSet(void* results, int column_num,

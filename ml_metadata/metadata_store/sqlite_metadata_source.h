@@ -16,6 +16,7 @@ limitations under the License.
 #define ML_METADATA_METADATA_STORE_SQLITE_METADATA_SOURCE_H_
 
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "sqlite3.h"
@@ -39,6 +40,13 @@ class SqliteMetadataSource : public MetadataSource {
 
   // Escape strings having single quotes using built-in printf in Sqlite3 C API.
   std::string EscapeString(absl::string_view value) const final;
+
+  // Sqlite doesn't escape certain bytes reliably; this is resolved by
+  // base64 encoding bytes for storage and decoding at access
+  std::string EncodeBytes(absl::string_view value) const final;
+
+  // DecodeBytes can return an absl::Status if decoding fails
+  absl::StatusOr<std::string> DecodeBytes(absl::string_view value) const final;
 
  private:
   // Creates an in memory db.

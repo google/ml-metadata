@@ -40,6 +40,7 @@ cc_library(
         ":metadata_source",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
@@ -260,6 +261,7 @@ cc_library(
         
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         # BEGIN IFNDEF_WIN
         "//ml_metadata/query:filter_query_ast_resolver",  # windows
         "//ml_metadata/query:filter_query_builder",  # windows
@@ -351,6 +353,8 @@ cc_library(
     deps = [
         ":types",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/util:return_utils",
     ],
@@ -364,6 +368,7 @@ ml_metadata_cc_test(
         ":metadata_source",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "//ml_metadata/proto:metadata_source_proto",
     ],
 )
@@ -388,6 +393,7 @@ ml_metadata_cc_test(
         ":transaction_executor",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_glog//:glog",
     ],
 )
@@ -486,6 +492,7 @@ cc_library(
         ":types",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
@@ -534,6 +541,7 @@ cc_library(
     hdrs = ["sqlite_metadata_source_util.h"],
     deps = [
         ":constants",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "//ml_metadata/proto:metadata_source_proto",
         "@org_sqlite",
@@ -548,6 +556,7 @@ cc_library(
         ":metadata_source",
         ":sqlite_metadata_source_util",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "//ml_metadata/proto:metadata_store_proto",
@@ -631,7 +640,9 @@ cc_library(
         ":metadata_source",
         ":types",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "//ml_metadata/metadata_store:sqlite_metadata_source_util",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/util:return_utils",

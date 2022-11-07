@@ -19,6 +19,7 @@ limitations under the License.
 
 #include <glog/logging.h>
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
@@ -26,6 +27,7 @@ limitations under the License.
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "ml_metadata/metadata_store/constants.h"
+#include "ml_metadata/metadata_store/sqlite_metadata_source_util.h"
 #include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/util/return_utils.h"
@@ -401,6 +403,14 @@ std::string MySqlMetadataSource::EscapeString(absl::string_view value) const {
   std::string result(buffer);
   delete[] buffer;
   return result;
+}
+
+std::string MySqlMetadataSource::EncodeBytes(absl::string_view value) const {
+  return SqliteEncodeBytes(value);
+}
+absl::StatusOr<std::string> MySqlMetadataSource::DecodeBytes(
+    absl::string_view value) const {
+  return SqliteDecodeBytes(value);
 }
 
 }  // namespace ml_metadata

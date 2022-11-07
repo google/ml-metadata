@@ -21,6 +21,7 @@ limitations under the License.
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 
 namespace ml_metadata {
@@ -39,6 +40,9 @@ class MockMetadataSource : public MetadataSource {
               (const std::string& query, RecordSet* results), (override));
   MOCK_METHOD(std::string, EscapeString, (absl::string_view value),
               (const, override));
+  MOCK_METHOD(std::string, EncodeBytes, (absl::string_view value), (const));
+  MOCK_METHOD(absl::StatusOr<std::string>, DecodeBytes,
+              (absl::string_view value), (const));
 };
 
 // Fake Errors.

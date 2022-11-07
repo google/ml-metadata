@@ -17,12 +17,19 @@ limitations under the License.
 
 #include <string>
 
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 
 namespace ml_metadata {
 
 // Escapes strings having single quotes using built-in printf in Sqlite3 C API.
 std::string SqliteEscapeString(absl::string_view value);
+
+// Encode bytes values before binding to queries.
+std::string SqliteEncodeBytes(absl::string_view value);
+
+// Decode bytes values that were encoded with SqliteEncodeBytes
+absl::StatusOr<std::string> SqliteDecodeBytes(absl::string_view value);
 
 // Converts the query results (`column_vals`) if any to a RecordSet (`results`).
 // It is used as a callback of sqlite3_exec. The `results` should be owned by

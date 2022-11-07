@@ -694,6 +694,19 @@ class QueryExecutor {
       int64 parent_context_id,
       absl::Span<const int64> child_context_ids) = 0;
 
+  // Utility methods which may be used to websafe encode bytes specific to a
+  // metadata source. For example, the MySQL and SQLite3 metadata sources do not
+  // handle serialized protocol buffer bytes, but can handle base64 encoded
+  // bytes.
+  // EncodeBytes defaults to the trivial encoding enc(x) = x
+  virtual std::string EncodeBytes(absl::string_view value) const = 0;
+
+  // Decodes value and writes the result to dest.
+  // The default implementation is the trivial decoding dec(x) = x
+  // Returns OkStatus on success, otherwise an informative error.
+  virtual absl::Status DecodeBytes(
+    absl::string_view value, string& dest) const = 0;
+
  protected:
   // Uses the method to document the min schema version of an API explicitly.
   // Returns FailedPrecondition, if the |query_schema_version_| is less than the

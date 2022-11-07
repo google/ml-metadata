@@ -18,6 +18,7 @@ limitations under the License.
 #include <string>
 
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
@@ -43,6 +44,12 @@ class MySqlMetadataSource : public MetadataSource {
   // implementation uses mysql_real_escape_string in MySql C API. It aborts if
   // the metadata source is not connected.
   std::string EscapeString(absl::string_view value) const final;
+
+  // SQL sources use base64 encoding.
+  std::string EncodeBytes(absl::string_view value) const final;
+
+  // SQL sources use base64 decoding. Returns absl::Status if decoding failed.
+  absl::StatusOr<std::string> DecodeBytes(absl::string_view value) const final;
 
  private:
   // Connects to the MYSQL backend specified in options_.

@@ -20,6 +20,8 @@ limitations under the License.
 #include <string>
 
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 
@@ -106,6 +108,32 @@ class MetadataSource {
   // returned string is used to bind text parameters for query composition. The
   // escaping characters and method depends on the metadata source backend.
   virtual std::string EscapeString(absl::string_view value) const = 0;
+
+  // Called by QueryExecutor:EncodeBytes to use a byte encoding routine that
+  // depends on the MetadataSource. Most MetadataSources would implement this as
+  // std::string that simply wraps and returns the incoming `value` string_view,
+  // but some SQL MetadataSources (e.g. MySQL and SQLite3) define a nontrivial
+  // base64 encoding and a corresponding decoding.
+  //
+  // In general, for a given MetadataSource ms and any absl::string_view sv,
+  //
+  //   ms.DecodeBytes(ms.EncodeBytes(sv)) == std::string(sv)
+  //
+  virtual std::string EncodeBytes(absl::string_view value) const = 0;
+  // Called by QueryExecutor:DecodeBytes to use a byte decoding routine that
+  // depends on the MetadataSource. Most MetadataSources would implement this as
+  // a StatusOr<std::string> that wraps the incoming value string_view, but some
+  // SQL MetadataSources (e.g. MySQL and SQLite3) would attempt to decode from a
+  // base64 scheme defined in EncodeBytes, and return either the decoded string
+  // or an informative absl::Status indicating why decoding failed
+  // (most likely absl::InvalidArgument).
+  //
+  // In general, for a given MetadataSource ms and any absl::string_view sv,
+  //
+  //   ms.DecodeBytes(ms.EncodeBytes(sv)) == std::string(sv)
+  //
+  virtual absl::StatusOr<std::string> DecodeBytes(
+    absl::string_view value) const = 0;
 
   bool is_connected() const { return is_connected_; }
 

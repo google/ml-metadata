@@ -18,6 +18,7 @@ limitations under the License.
 
 #include <glog/logging.h>
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/time/clock.h"
@@ -174,6 +175,14 @@ absl::Status SqliteMetadataSource::RollbackImpl() {
 
 std::string SqliteMetadataSource::EscapeString(absl::string_view value) const {
   return SqliteEscapeString(value);
+}
+
+std::string SqliteMetadataSource::EncodeBytes(absl::string_view value) const {
+  return SqliteEncodeBytes(value);
+}
+absl::StatusOr<std::string> SqliteMetadataSource::DecodeBytes(
+    absl::string_view value) const {
+  return SqliteDecodeBytes(value);
 }
 
 }  // namespace ml_metadata

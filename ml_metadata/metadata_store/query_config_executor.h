@@ -16,11 +16,13 @@ limitations under the License.
 #define ML_METADATA_METADATA_STORE_QUERY_CONFIG_EXECUTOR_H_
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include <glog/logging.h>
 #include "google/protobuf/text_format.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/metadata_store/query_executor.h"
@@ -201,6 +203,13 @@ static constexpr char kSelectTypeByName[] = R"pb(
 // encoded in MetadataSourceQueryConfig. This class binds the relevant arguments
 // for each query using the Bind() methods. See notes on constructor for various
 // ways to construct this object.
+//
+// QueryConfigExecutor delegates two QueryExecutor methods:
+//
+// 1. std::string EncodeBytes(absl::string_view value, std::string& dest) const
+// 2. absl::Status DecodeBytes(absl::string_view value, std::string& dest) const
+//
+// to the MetadataSource equivalent
 class QueryConfigExecutor : public QueryExecutor {
  public:
   // Note that the query config and the MetadataSource must be compatible.
@@ -1079,6 +1088,23 @@ class QueryConfigExecutor : public QueryExecutor {
 
   // This object does not own the MetadataSource.
   MetadataSource* metadata_source_;
+
+  // Delegate EncodeBytes to metadata_source_
+  // Encodes value and returns the result as a string
+  std::string EncodeBytes(absl::string_view value) const {
+    return metadata_source_->EncodeBytes(value);
+  }
+
+  // Delegate DecodeBytes to metadata_source_
+  // Decodes value and writes the result to dest
+  // Returns OkStatus if the process succeeded, otherwise an informative error
+  absl::Status DecodeBytes(absl::string_view value, std::string& dest) const {
+    absl::StatusOr<std::string> decoded_or
+      = metadata_source_->DecodeBytes(value);
+    if (!decoded_or.ok()) return decoded_or.status();
+    dest = decoded_or.value();
+    return absl::OkStatus();
+  }
 };
 
 }  // namespace ml_metadata
