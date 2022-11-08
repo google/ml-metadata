@@ -705,9 +705,11 @@ cc_library(
         "@com_google_absl//absl/types:span",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto/testing:mock_proto",
         "//ml_metadata/util:return_utils",
         "@com_github_gflags_gflags//:gflags_nothreads",
         "@com_google_glog//:glog",
+        "@com_google_protobuf//:cc_wkt_protos",
     ],
 )
 

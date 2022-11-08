@@ -38,6 +38,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
+#include "ml_metadata/proto/testing/mock.pb.h"
 #include "ml_metadata/util/return_utils.h"
 
 namespace ml_metadata {
