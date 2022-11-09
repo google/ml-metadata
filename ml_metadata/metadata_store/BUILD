@@ -445,6 +445,7 @@ cc_library(
     hdrs = ["metadata_store_test_suite.h"],
     deps = [
         ":metadata_store",
+        ":simple_types_util",
         ":test_util",
         "@com_google_googletest//:gtest",
         "@com_google_absl//absl/algorithm:container",
@@ -452,6 +453,8 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/simple_types:simple_types_constants",
+        "//ml_metadata/simple_types/proto:simple_types_proto",
         "@com_google_glog//:glog",
     ],
 )

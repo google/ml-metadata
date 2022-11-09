@@ -26,8 +26,10 @@ limitations under the License.
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "ml_metadata/metadata_store/simple_types_util.h"
 #include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
+#include "ml_metadata/simple_types/proto/simple_types.pb.h"
 
 namespace ml_metadata {
 namespace testing {
@@ -174,8 +176,36 @@ void PrepareTypesAndNodesForListNodeThroughType(MetadataStore* metadata_store,
   InsertNodeAndSetNodeID(metadata_store, nodes);
 }
 
+// The utility function to verify simple types creation after metadata store
+// initialization.
+void VerifySimpleTypesCreation(MetadataStore* metadata_store) {
+  SimpleTypes simple_types;
+  ASSERT_EQ(LoadSimpleTypes(simple_types), absl::OkStatus());
+
+  for (const ArtifactType& artifact_type : simple_types.artifact_types()) {
+    GetArtifactTypeRequest request;
+    request.set_type_name(artifact_type.name());
+    GetArtifactTypeResponse response;
+    ASSERT_EQ(metadata_store->GetArtifactType(request, &response),
+              absl::OkStatus());
+    EXPECT_THAT(artifact_type, EqualsProto(response.artifact_type(),
+                                           /*ignore_fields=*/{"id"}));
+  }
+
+  for (const ExecutionType& execution_type : simple_types.execution_types()) {
+    GetExecutionTypeRequest request;
+    request.set_type_name(execution_type.name());
+    GetExecutionTypeResponse response;
+    ASSERT_EQ(metadata_store->GetExecutionType(request, &response),
+              absl::OkStatus());
+    EXPECT_THAT(execution_type, EqualsProto(response.execution_type(),
+                                            /*ignore_fields=*/{"id"}));
+  }
+}
+
 TEST_P(MetadataStoreTestSuite, InitMetadataStoreIfNotExists) {
   ASSERT_EQ(absl::OkStatus(), metadata_store_->InitMetadataStoreIfNotExists());
+  VerifySimpleTypesCreation(metadata_store_);
   // This is just to check that the metadata store was initialized.
   const PutArtifactTypeRequest put_request =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(
@@ -191,6 +221,7 @@ TEST_P(MetadataStoreTestSuite, InitMetadataStoreIfNotExists) {
             metadata_store_->PutArtifactType(put_request, &put_response));
   ASSERT_TRUE(put_response.has_type_id());
   ASSERT_EQ(absl::OkStatus(), metadata_store_->InitMetadataStoreIfNotExists());
+  VerifySimpleTypesCreation(metadata_store_);
   const GetArtifactTypeRequest get_request =
       ParseTextProtoOrDie<GetArtifactTypeRequest>(
           R"(
@@ -3101,45 +3132,200 @@ TEST_P(MetadataStoreTestSuite, PutTypesInsertTypeLink) {
 }
 
 TEST_P(MetadataStoreTestSuite, PutTypesUpdateTypes) {
-  // Insert a type first, then update it.
+  // Insert types first, then update them.
   const PutTypesRequest put_request = ParseTextProtoOrDie<PutTypesRequest>(
-      R"(
+      R"pb(
         artifact_types: {
-          name: 'test_type1'
+          name: 'artifact_type'
           properties { key: 'property_1' value: STRING }
         }
-      )");
+        execution_types: {
+          name: 'execution_type'
+          properties { key: 'property_1' value: STRING }
+        }
+        context_types: {
+          name: 'context_type'
+          properties { key: 'property_1' value: STRING }
+        }
+      )pb");
   PutTypesResponse put_response;
-  ASSERT_EQ(absl::OkStatus(),
-            metadata_store_->PutTypes(put_request, &put_response));
+  ASSERT_EQ(metadata_store_->PutTypes(put_request, &put_response),
+            absl::OkStatus());
   ASSERT_THAT(put_response.artifact_type_ids(), SizeIs(1));
 
   const PutTypesRequest update_request = ParseTextProtoOrDie<PutTypesRequest>(
-      R"(
+      R"pb(
         artifact_types: {
-          name: 'test_type1'
+          name: 'artifact_type'
+          properties { key: 'property_1' value: STRING }
+          properties { key: 'property_2' value: STRING }
+        }
+        execution_types: {
+          name: 'execution_type'
+          properties { key: 'property_1' value: STRING }
+          properties { key: 'property_2' value: STRING }
+        }
+        context_types: {
+          name: 'context_type'
           properties { key: 'property_1' value: STRING }
           properties { key: 'property_2' value: STRING }
         }
         can_add_fields: true
-      )");
+      )pb");
   PutTypesResponse update_response;
-  ASSERT_EQ(absl::OkStatus(),
-            metadata_store_->PutTypes(update_request, &update_response));
+  ASSERT_EQ(metadata_store_->PutTypes(update_request, &update_response),
+            absl::OkStatus());
   ASSERT_THAT(update_response.artifact_type_ids(), SizeIs(1));
   EXPECT_EQ(update_response.artifact_type_ids(0),
             put_response.artifact_type_ids(0));
 
   const GetArtifactTypeRequest get_artifact_type_request =
-      ParseTextProtoOrDie<GetArtifactTypeRequest>("type_name: 'test_type1'");
+      ParseTextProtoOrDie<GetArtifactTypeRequest>("type_name: 'artifact_type'");
   GetArtifactTypeResponse get_artifact_type_response;
-  ASSERT_EQ(absl::OkStatus(),
-            metadata_store_->GetArtifactType(get_artifact_type_request,
-                                             &get_artifact_type_response));
+  ASSERT_EQ(metadata_store_->GetArtifactType(get_artifact_type_request,
+                                             &get_artifact_type_response),
+            absl::OkStatus());
   ArtifactType want_artifact_type = update_request.artifact_types(0);
   want_artifact_type.set_id(update_response.artifact_type_ids(0));
   EXPECT_THAT(get_artifact_type_response.artifact_type(),
               EqualsProto(want_artifact_type));
+
+  const GetExecutionTypeRequest get_execution_type_request =
+      ParseTextProtoOrDie<GetExecutionTypeRequest>(
+          "type_name: 'execution_type'");
+  GetExecutionTypeResponse get_execution_type_response;
+  ASSERT_EQ(metadata_store_->GetExecutionType(get_execution_type_request,
+                                              &get_execution_type_response),
+            absl::OkStatus());
+  ExecutionType want_execution_type = update_request.execution_types(0);
+  want_execution_type.set_id(update_response.execution_type_ids(0));
+  EXPECT_THAT(get_execution_type_response.execution_type(),
+              EqualsProto(want_execution_type));
+
+  const GetContextTypeRequest get_context_type_request =
+      ParseTextProtoOrDie<GetContextTypeRequest>("type_name: 'context_type'");
+  GetContextTypeResponse get_context_type_response;
+  ASSERT_EQ(metadata_store_->GetContextType(get_context_type_request,
+                                            &get_context_type_response),
+            absl::OkStatus());
+  ContextType want_context_type = update_request.context_types(0);
+  want_context_type.set_id(update_response.context_type_ids(0));
+  EXPECT_THAT(get_context_type_response.context_type(),
+              EqualsProto(want_context_type));
+}
+
+TEST_P(MetadataStoreTestSuite, PutTypesUpdateTypesAlreadyExistsError) {
+  // Insert types first, then update them.
+  const PutTypesRequest put_request = ParseTextProtoOrDie<PutTypesRequest>(
+      R"pb(
+        artifact_types: {
+          name: 'artifact_type'
+          properties { key: 'property_1' value: STRING }
+        }
+        execution_types: {
+          name: 'execution_type'
+          properties { key: 'property_1' value: STRING }
+        }
+        context_types: {
+          name: 'context_type'
+          properties { key: 'property_1' value: STRING }
+        }
+      )pb");
+  PutTypesResponse put_response;
+  ASSERT_EQ(metadata_store_->PutTypes(put_request, &put_response),
+            absl::OkStatus());
+  ASSERT_THAT(put_response.artifact_type_ids(), SizeIs(1));
+
+  // Return ALREADY_EXIST error if can_add_fields is false.
+  PutTypesRequest update_request = ParseTextProtoOrDie<PutTypesRequest>(
+      R"pb(
+        artifact_types: {
+          name: 'test_type1'
+          properties { key: 'property_1' value: STRING }
+          properties { key: 'property_2' value: STRING }
+        }
+        execution_types: {
+          name: 'execution_type'
+          properties { key: 'property_1' value: STRING }
+          properties { key: 'property_2' value: STRING }
+        }
+        context_types: {
+          name: 'context_type'
+          properties { key: 'property_1' value: STRING }
+          properties { key: 'property_2' value: STRING }
+        }
+        can_add_fields: false
+        can_omit_fields: false
+      )pb");
+  PutTypesResponse update_response;
+  EXPECT_TRUE(absl::IsAlreadyExists(
+      metadata_store_->PutTypes(update_request, &update_response)));
+
+  // Return ALREADY_EXIST error if can_omit_fields is false.
+  update_request.mutable_artifact_types(0)->mutable_properties()->erase(
+      "property_1");
+  update_request.mutable_execution_types(0)->mutable_properties()->erase(
+      "property_1");
+  update_request.mutable_context_types(0)->mutable_properties()->erase(
+      "property_1");
+  update_request.set_can_add_fields(true);
+  EXPECT_TRUE(absl::IsAlreadyExists(
+      metadata_store_->PutTypes(update_request, &update_response)));
+
+  // Return ALREADY_EXIST error if property value type changed.
+  update_request = ParseTextProtoOrDie<PutTypesRequest>(
+      R"pb(
+        artifact_types: {
+          name: 'test_type1'
+          properties { key: 'property_1' value: INT }
+        }
+        execution_types: {
+          name: 'execution_type'
+          properties { key: 'property_1' value: INT }
+        }
+        context_types: {
+          name: 'context_type'
+          properties { key: 'property_1' value: INT }
+        }
+        can_add_fields: true
+      )pb");
+  EXPECT_TRUE(absl::IsAlreadyExists(
+      metadata_store_->PutTypes(update_request, &update_response)));
+
+  // Verify the stored types are still the same as the initial put types.
+  const GetArtifactTypeRequest get_artifact_type_request =
+      ParseTextProtoOrDie<GetArtifactTypeRequest>("type_name: 'artifact_type'");
+  GetArtifactTypeResponse get_artifact_type_response;
+  ASSERT_EQ(metadata_store_->GetArtifactType(get_artifact_type_request,
+                                             &get_artifact_type_response),
+            absl::OkStatus());
+  ArtifactType want_artifact_type = put_request.artifact_types(0);
+  want_artifact_type.set_id(put_response.artifact_type_ids(0));
+  EXPECT_THAT(get_artifact_type_response.artifact_type(),
+              EqualsProto(want_artifact_type));
+
+  const GetExecutionTypeRequest get_execution_type_request =
+      ParseTextProtoOrDie<GetExecutionTypeRequest>(
+          "type_name: 'execution_type'");
+  GetExecutionTypeResponse get_execution_type_response;
+  ASSERT_EQ(metadata_store_->GetExecutionType(get_execution_type_request,
+                                              &get_execution_type_response),
+            absl::OkStatus());
+  ExecutionType want_execution_type = put_request.execution_types(0);
+  want_execution_type.set_id(put_response.execution_type_ids(0));
+  EXPECT_THAT(get_execution_type_response.execution_type(),
+              EqualsProto(want_execution_type));
+
+  const GetContextTypeRequest get_context_type_request =
+      ParseTextProtoOrDie<GetContextTypeRequest>("type_name: 'context_type'");
+  GetContextTypeResponse get_context_type_response;
+  ASSERT_EQ(metadata_store_->GetContextType(get_context_type_request,
+                                            &get_context_type_response),
+            absl::OkStatus());
+  ContextType want_context_type = put_request.context_types(0);
+  want_context_type.set_id(put_response.context_type_ids(0));
+  EXPECT_THAT(get_context_type_response.context_type(),
+              EqualsProto(want_context_type));
 }
 
 TEST_P(MetadataStoreTestSuite, PutAndGetExecution) {

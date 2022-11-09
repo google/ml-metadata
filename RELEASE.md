@@ -19,6 +19,7 @@
     -   Add `proto_value` and `bool_value` columns for `ArtifactProperty`,
         `ExecutionProperty`, `ContextProperty`. The `proto_value` columns store
         protocol buffer types (https://developers.google.com/protocol-buffers)
+*   Implement `UpsertTypes()` with batch queries in metadata store.
 
 ## Breaking Changes
 

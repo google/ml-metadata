@@ -22,6 +22,7 @@ limitations under the License.
 #include <glog/logging.h>
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/repeated_field.h"
+#include "google/protobuf/util/message_differencer.h"
 #include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -213,6 +214,87 @@ absl::Status UpsertType(const T& type, bool can_add_fields,
   return UpsertTypeInheritanceLink(type, *type_id, metadata_access_object);
 }
 
+// Batch version of the UpsertType function, which takes in a list of types.
+// For each type, if there is no type having the same name and version, then
+// inserts a new type. If a type with the same name and version already exists
+// (let's call it `old_type`), it checks the consistency of `type` and
+// `old_type` as described in CheckFieldsConsistent according to
+// can_add_fields and can_omit_fields.
+// It returns ALREADY_EXISTS if any `type` insides `types`:
+//  a) any property in `type` has different value from the one in `old_type`
+//  b) can_add_fields = false, `type` has more properties than `old_type`
+//  c) can_omit_fields = false, `type` has less properties than `old_type`
+// If `type` is a valid update, then new fields in `type` are added.
+// Returns INVALID_ARGUMENT error, if name field in `type` is not given.
+// Returns INVALID_ARGUMENT error, if any property type in `type` is unknown.
+// Returns detailed INTERNAL error, if query execution fails.
+template <typename T>
+absl::Status UpsertTypes(const google::protobuf::RepeatedPtrField<T>& types,
+                         const bool can_add_fields, const bool can_omit_fields,
+                         MetadataAccessObject* metadata_access_object,
+                         PutTypesResponse* response) {
+  if (types.empty()) return absl::OkStatus();
+  std::vector<T> stored_types;
+  std::vector<std::pair<std::string, std::string>> names_and_versions;
+  absl::c_transform(types, std::back_inserter(names_and_versions),
+                    [](const T& type) {
+                      return std::make_pair(type.name(), type.version());
+                    });
+  MLMD_RETURN_IF_ERROR(metadata_access_object->FindTypesByNamesAndVersions(
+      absl::MakeSpan(names_and_versions), stored_types));
+
+  absl::flat_hash_map<
+      std::pair<absl::string_view, absl::string_view>, T>
+      name_and_version_to_stored_type;
+  for (const T& type : stored_types) {
+    name_and_version_to_stored_type.insert(
+        {{type.name(), type.version()}, type});
+  }
+
+  for (const T& type : types) {
+    const std::pair<absl::string_view, absl::string_view> key{
+        type.name(), type.version()};
+    int64 type_id;
+    const auto iter = name_and_version_to_stored_type.find(key);
+    if (iter == name_and_version_to_stored_type.end()) {
+      // if not found, then it creates a type. `can_add_fields` is ignored.
+      MLMD_RETURN_IF_ERROR(
+          metadata_access_object->CreateType(type, &type_id));
+      T stored_type(type);
+      stored_type.set_id(type_id);
+      name_and_version_to_stored_type.insert({key, stored_type});
+    } else {
+      // otherwise it checks if fields are consistent.
+      T stored_type = iter->second;
+      type_id = stored_type.id();
+      T output_type;
+      const absl::Status check_status = CheckFieldsConsistent(
+          stored_type, type, can_add_fields, can_omit_fields, output_type);
+      if (!check_status.ok()) {
+        return absl::AlreadyExistsError(
+            absl::StrCat("Type already exists with different properties: ",
+                          std::string(check_status.message())));
+      }
+      // only update if the type is different from the stored type.
+      if (!google::protobuf::util::MessageDifferencer::Equals(output_type,
+                                                    stored_type)) {
+        MLMD_RETURN_IF_ERROR(metadata_access_object->UpdateType(output_type));
+      }
+    }
+    MLMD_RETURN_IF_ERROR(
+        UpsertTypeInheritanceLink(type, type_id, metadata_access_object));
+
+    if (std::is_same<T, ArtifactType>::value) {
+      response->add_artifact_type_ids(type_id);
+    } else if (std::is_same<T, ExecutionType>::value) {
+      response->add_execution_type_ids(type_id);
+    } else if (std::is_same<T, ContextType>::value) {
+      response->add_context_type_ids(type_id);
+    }
+  }
+  return absl::OkStatus();
+}
+
 // Inserts or updates all the types in the argument list. 'can_add_fields' and
 // 'can_omit_fields' are both enabled. Type ids are inserted into the
 // PutTypesResponse 'response'.
@@ -222,27 +304,15 @@ absl::Status UpsertTypes(
     const google::protobuf::RepeatedPtrField<ContextType>& context_types,
     const bool can_add_fields, const bool can_omit_fields,
     MetadataAccessObject* metadata_access_object, PutTypesResponse* response) {
-  for (const ArtifactType& artifact_type : artifact_types) {
-    int64 artifact_type_id;
-    MLMD_RETURN_IF_ERROR(UpsertType(artifact_type, can_add_fields,
-                                    can_omit_fields, metadata_access_object,
-                                    &artifact_type_id));
-    response->add_artifact_type_ids(artifact_type_id);
-  }
-  for (const ExecutionType& execution_type : execution_types) {
-    int64 execution_type_id;
-    MLMD_RETURN_IF_ERROR(UpsertType(execution_type, can_add_fields,
-                                    can_omit_fields, metadata_access_object,
-                                    &execution_type_id));
-    response->add_execution_type_ids(execution_type_id);
-  }
-  for (const ContextType& context_type : context_types) {
-    int64 context_type_id;
-    MLMD_RETURN_IF_ERROR(UpsertType(context_type, can_add_fields,
-                                    can_omit_fields, metadata_access_object,
-                                    &context_type_id));
-    response->add_context_type_ids(context_type_id);
-  }
+  MLMD_RETURN_IF_ERROR(UpsertTypes(artifact_types, can_add_fields,
+                                   can_omit_fields, metadata_access_object,
+                                   response));
+  MLMD_RETURN_IF_ERROR(UpsertTypes(execution_types, can_add_fields,
+                                   can_omit_fields, metadata_access_object,
+                                   response));
+  MLMD_RETURN_IF_ERROR(UpsertTypes(context_types, can_add_fields,
+                                   can_omit_fields, metadata_access_object,
+                                   response));
   return absl::OkStatus();
 }
 
