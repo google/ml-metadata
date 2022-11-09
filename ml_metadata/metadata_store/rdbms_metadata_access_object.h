@@ -65,6 +65,14 @@ absl::Status ValidatePropertiesWithType(const Node& node, const Type& type) {
         is_type_match = property_value.has_struct_value();
         break;
       }
+      case PropertyType::PROTO: {
+        is_type_match = property_value.has_proto_value();
+        break;
+      }
+      case PropertyType::BOOLEAN: {
+        is_type_match = property_value.has_bool_value();
+        break;
+      }
       default: {
         return absl::InternalError(absl::StrCat(
             "Unknown registered property type: ", type.DebugString()));

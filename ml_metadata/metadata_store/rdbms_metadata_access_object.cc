@@ -72,7 +72,7 @@ TypeKind ResolveTypeKind(const ContextType* const type) {
 // Context}.
 template <typename Node>
 absl::Status PopulateNodeProperties(const RecordSet::Record& record,
-                                    Node& node) {
+                                    const QueryExecutor& executor, Node& node) {
   // Populate the property of the node.
   const std::string& property_name = record.values(1);
   bool is_custom_property;
@@ -96,6 +96,20 @@ absl::Status PopulateNodeProperties(const RecordSet::Record& record,
     } else {
       property_value.set_string_value(string_value);
     }
+  } else if (record.values(6) != kMetadataSourceNull) {
+    std::string to_parse;
+    MLMD_RETURN_IF_ERROR(executor.DecodeBytes(record.values(6), to_parse));
+    google::protobuf::Any* proto_value = property_value.mutable_proto_value();
+    proto_value->ParseFromString(to_parse);
+    if (proto_value->type_url().empty()) {
+      return absl::InternalError(absl::StrCat(
+          "Retrieved proto_value should have a nonempty type_url. Got: ",
+          proto_value->DebugString()));
+    }
+  } else if (record.values(7) != kMetadataSourceNull) {
+    bool bool_value;
+    CHECK(absl::SimpleAtob(record.values(7), &bool_value));
+    property_value.set_bool_value(bool_value);
   } else {
     return absl::InternalError("Attempt to populate property with null value "
                                "in every known *_value column.");
@@ -1093,7 +1107,7 @@ absl::Status RDBMSMetadataAccessObject::FindNodesImpl(
       CHECK(iter != node_by_id.end());
       Node& node = *iter->second;
 
-      MLMD_RETURN_IF_ERROR(PopulateNodeProperties(record, node));
+      MLMD_RETURN_IF_ERROR(PopulateNodeProperties(record, *executor_, node));
     }
   }
 

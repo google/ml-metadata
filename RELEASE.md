@@ -15,6 +15,10 @@
 *   Adds `external_id` for Type, Artifact, Execution and Context to store unique
     string ids from other systems.
 *   Implements a fat client that supports v7, v8 and v9 schema for MLMD.
+*   Upgrades MLMD schema version to 10.
+    -   Add `proto_value` and `bool_value` columns for `ArtifactProperty`,
+        `ExecutionProperty`, `ContextProperty`. The `proto_value` columns store
+        protocol buffer types (https://developers.google.com/protocol-buffers)
 
 ## Breaking Changes
 

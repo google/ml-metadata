@@ -89,6 +89,11 @@ INSTANTIATE_TEST_SUITE_P(
     MySqlMetadataAccessObjectTest, MetadataAccessObjectTest,
     ::testing::Values(
         []() { return std::make_unique<MySqlMetadataAccessObjectContainer>(); },
+        // TODO(b/257334039) Cleanup after V10+ migration
+        []() {
+          return std::make_unique<MySqlMetadataAccessObjectContainer>(
+              /*earlier_schema_version=*/9);
+        },
         []() {
           return std::make_unique<MySqlMetadataAccessObjectContainer>(
               /*earlier_schema_version=*/8);

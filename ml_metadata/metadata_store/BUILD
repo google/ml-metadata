@@ -108,6 +108,7 @@ cc_library(
         "@com_google_absl//absl/strings",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto/testing:mock_proto",
         "//ml_metadata/util:return_utils",
         "@com_google_glog//:glog",
     ],
@@ -797,7 +798,6 @@ cc_test(
 
 ml_metadata_cc_test(
     name = "sqlite_metadata_access_object_test",
-    size = "small",
     srcs = ["sqlite_metadata_access_object_test.cc"],
     deps = [
         ":metadata_access_object_factory",

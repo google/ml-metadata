@@ -75,6 +75,11 @@ INSTANTIATE_TEST_SUITE_P(
         []() {
           return std::make_unique<SqliteMetadataAccessObjectContainer>();
         },
+        // TODO(b/257334039) Cleanup after V10+ migration
+        []() {
+          return std::make_unique<SqliteMetadataAccessObjectContainer>(
+              /*earlier_schema_version=*/9);
+        },
         []() {
           return std::make_unique<SqliteMetadataAccessObjectContainer>(
               /*earlier_schema_version=*/8);

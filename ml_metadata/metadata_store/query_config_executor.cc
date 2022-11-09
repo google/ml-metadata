@@ -292,6 +292,14 @@ std::string QueryConfigExecutor::Bind(double value) {
   return std::to_string(value);
 }
 
+std::string QueryConfigExecutor::Bind(const google::protobuf::Any& value) {
+  return absl::StrCat(
+      "'",
+      metadata_source_->EscapeString(
+          metadata_source_->EncodeBytes(value.SerializeAsString())),
+      "'");
+}
+
 std::string QueryConfigExecutor::Bind(bool value) { return value ? "1" : "0"; }
 
 // Utility method to bind an Event::Type enum value to a SQL clause.
@@ -320,8 +328,7 @@ std::string QueryConfigExecutor::Bind(absl::Span<const int64> value) {
   return absl::StrJoin(value, ", ");
 }
 
-std::string QueryConfigExecutor::Bind(
-    absl::Span<absl::string_view> value) {
+std::string QueryConfigExecutor::Bind(absl::Span<absl::string_view> value) {
   std::vector<std::string> escape_string_value;
   escape_string_value.reserve(value.size());
   for (const auto& v : value) {
@@ -351,6 +358,10 @@ std::string QueryConfigExecutor::BindValue(const Value& value) {
       return Bind(value.string_value());
     case PropertyType::STRUCT:
       return Bind(StructToString(value.struct_value()));
+    case PropertyType::PROTO:
+      return Bind(value.proto_value());
+    case PropertyType::BOOLEAN:
+      return Bind(value.bool_value());
     default:
       LOG(FATAL) << "Unknown registered property type: " << value.value_case()
                  << "This is an internal error: properties should have been "
@@ -372,6 +383,14 @@ std::string QueryConfigExecutor::BindDataType(const Value& value) {
     case PropertyType::STRING:
     case PropertyType::STRUCT: {
       return "string_value";
+      break;
+    }
+    case PropertyType::PROTO: {
+      return "proto_value";
+      break;
+    }
+    case PropertyType::BOOLEAN: {
+      return "bool_value";
       break;
     }
     default: {
@@ -555,14 +574,13 @@ absl::Status QueryConfigExecutor::InitMetadataSourceIfNotExists(
 absl::Status QueryConfigExecutor::InsertArtifactType(
     const std::string& name, absl::optional<absl::string_view> version,
     absl::optional<absl::string_view> description,
-    absl::optional<absl::string_view> external_id,
-    int64* type_id) {
+    absl::optional<absl::string_view> external_id, int64* type_id) {
   // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
   if (query_schema_version().has_value() &&
       query_schema_version().value() < kSchemaVersionNine) {
     MetadataSourceQueryConfig::TemplateQuery insert_artifact_type;
     MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-        query_version::v7_and_v8::kInsertArtifactType, insert_artifact_type));
+        entity_query::v7_and_v8::kInsertArtifactType, insert_artifact_type));
     return ExecuteQuerySelectLastInsertID(
         insert_artifact_type, {Bind(name), Bind(version), Bind(description)},
         type_id);
@@ -591,14 +609,13 @@ absl::Status QueryConfigExecutor::InsertExecutionType(
     const std::string& name, absl::optional<absl::string_view> version,
     absl::optional<absl::string_view> description,
     const ArtifactStructType* input_type, const ArtifactStructType* output_type,
-    absl::optional<absl::string_view> external_id,
-    int64* type_id) {
+    absl::optional<absl::string_view> external_id, int64* type_id) {
   // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
   if (query_schema_version().has_value() &&
       query_schema_version().value() < kSchemaVersionNine) {
     MetadataSourceQueryConfig::TemplateQuery insert_execution_type;
     MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-        query_version::v7_and_v8::kInsertExecutionType, insert_execution_type));
+        entity_query::v7_and_v8::kInsertExecutionType, insert_execution_type));
     return ExecuteQuerySelectLastInsertID(
         insert_execution_type,
         {Bind(name), Bind(version), Bind(description), Bind(input_type),
@@ -628,14 +645,13 @@ absl::Status QueryConfigExecutor::InsertExecutionType(
 absl::Status QueryConfigExecutor::InsertContextType(
     const std::string& name, absl::optional<absl::string_view> version,
     absl::optional<absl::string_view> description,
-    absl::optional<absl::string_view> external_id,
-    int64* type_id) {
+    absl::optional<absl::string_view> external_id, int64* type_id) {
   // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
   if (query_schema_version().has_value() &&
       query_schema_version().value() < kSchemaVersionNine) {
     MetadataSourceQueryConfig::TemplateQuery insert_context_type;
     MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-        query_version::v7_and_v8::kInsertContextType, insert_context_type));
+        entity_query::v7_and_v8::kInsertContextType, insert_context_type));
     return ExecuteQuerySelectLastInsertID(
         insert_context_type, {Bind(name), Bind(version), Bind(description)},
         type_id);
@@ -667,7 +683,7 @@ absl::Status QueryConfigExecutor::SelectTypesByID(
       query_schema_version().value() < kSchemaVersionNine) {
     MetadataSourceQueryConfig::TemplateQuery select_types_by_id;
     MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-        query_version::v7_and_v8::kSelectTypesById, select_types_by_id));
+        entity_query::v7_and_v8::kSelectTypesById, select_types_by_id));
     return ExecuteQuery(select_types_by_id, {Bind(type_ids), Bind(type_kind)},
                         record_set);
   }
@@ -684,7 +700,7 @@ absl::Status QueryConfigExecutor::SelectTypeByID(int64 type_id,
       query_schema_version().value() < kSchemaVersionNine) {
     MetadataSourceQueryConfig::TemplateQuery select_type_by_id;
     MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-        query_version::v7_and_v8::kSelectTypeById, select_type_by_id));
+        entity_query::v7_and_v8::kSelectTypeById, select_type_by_id));
     return ExecuteQuery(select_type_by_id, {Bind(type_id), Bind(type_kind)},
                         record_set);
   }
@@ -709,7 +725,7 @@ absl::Status QueryConfigExecutor::SelectTypeByNameAndVersion(
         query_schema_version().value() < kSchemaVersionNine) {
       MetadataSourceQueryConfig::TemplateQuery select_type_by_name_and_version;
       MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-          query_version::v7_and_v8::kSelectTypeByNameAndVersion,
+          entity_query::v7_and_v8::kSelectTypeByNameAndVersion,
           select_type_by_name_and_version));
       return ExecuteQuery(
           select_type_by_name_and_version,
@@ -723,7 +739,7 @@ absl::Status QueryConfigExecutor::SelectTypeByNameAndVersion(
         query_schema_version().value() < kSchemaVersionNine) {
       MetadataSourceQueryConfig::TemplateQuery select_type_by_name;
       MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-          query_version::v7_and_v8::kSelectTypeByName, select_type_by_name));
+          entity_query::v7_and_v8::kSelectTypeByName, select_type_by_name));
       return ExecuteQuery(select_type_by_name,
                           {Bind(type_name), Bind(type_kind)}, record_set);
     }
@@ -922,9 +938,8 @@ absl::Status QueryConfigExecutor::DeleteAttributionsByArtifactsId(
 
 absl::Status QueryConfigExecutor::DeleteAssociationsByContextsId(
     absl::Span<const int64> context_ids) {
-  MLMD_RETURN_IF_ERROR(
-      ExecuteQuery(query_config_.delete_associations_by_contexts_id(),
-                   {Bind(context_ids)}));
+  MLMD_RETURN_IF_ERROR(ExecuteQuery(
+      query_config_.delete_associations_by_contexts_id(), {Bind(context_ids)}));
   return absl::OkStatus();
 }
 
@@ -953,14 +968,11 @@ absl::Status QueryConfigExecutor::DeleteParentContextsByChildIds(
 }
 
 absl::Status QueryConfigExecutor::DeleteParentContextsByParentIdAndChildIds(
-    int64 parent_context_id,
-    absl::Span<const int64> child_context_ids) {
-  MLMD_RETURN_IF_ERROR(
-      ExecuteQuery(
-          query_config_.delete_parent_contexts_by_parent_id_and_child_ids(),
-          {Bind(parent_context_id), Bind(child_context_ids)}));
+    int64 parent_context_id, absl::Span<const int64> child_context_ids) {
+  MLMD_RETURN_IF_ERROR(ExecuteQuery(
+      query_config_.delete_parent_contexts_by_parent_id_and_child_ids(),
+      {Bind(parent_context_id), Bind(child_context_ids)}));
   return absl::OkStatus();
 }
-
 
 }  // namespace ml_metadata

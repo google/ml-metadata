@@ -19,6 +19,7 @@ limitations under the License.
 
 #include "gflags/gflags.h"
 #include <glog/logging.h>
+#include "google/protobuf/any.pb.h"
 #include "google/protobuf/repeated_field.h"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -461,9 +462,35 @@ absl::Status FindTypesByIdsSetup(MetadataAccessObject& metadata_access_object,
   return absl::OkStatus();
 }
 
+TEST_P(MetadataAccessObjectTest, ParsePackedMockProto) {
+  // Tests that explicitly parsing MockProto and packing it into a protobuf::Any
+  // yields the same result as parsing protobuf::Any from a dynamically resolved
+  // [MockProto]{...} definition.
+  //
+  // Note: The presence of this test is necessary to build and test on MacOS.
+  // On MacOS, this explicit reference to MockProto prevents the compiler from
+  // removing the definition that ParseTextProtoOrDie needs in order to
+  // dynamically resolve the MockProto type.
+  MockProto mock_proto = ParseTextProtoOrDie<MockProto>(R"pb(
+    string_value: '3'
+    double_value: 3.0
+  )pb");
+  google::protobuf::Any any_proto_1;
+  any_proto_1.PackFrom(mock_proto);
+  google::protobuf::Any any_proto_2
+    = ParseTextProtoOrDie<google::protobuf::Any>(R"pb(
+      [type.googleapis.com/ml_metadata.testing.MockProto]{
+        string_value: '3'
+        double_value: 3.0
+      })pb");
+  EXPECT_THAT(any_proto_1, EqualsProto(any_proto_2));
+}
+
 TEST_P(MetadataAccessObjectTest, InitMetadataSourceCheckSchemaVersion) {
   // Skip schema/library version consistency check for earlier schema version.
-  if (EarlierSchemaEnabled()) { return; }
+  if (EarlierSchemaEnabled()) {
+    return;
+  }
   ASSERT_EQ(absl::OkStatus(), Init());
   int64 schema_version;
   ASSERT_EQ(absl::OkStatus(),
@@ -474,7 +501,9 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceCheckSchemaVersion) {
 
 TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExists) {
   // Skip empty db init tests for earlier schema version.
-  if (EarlierSchemaEnabled()) { return; }
+  if (EarlierSchemaEnabled()) {
+    return;
+  }
   // creates the schema and insert some records
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->InitMetadataSourceIfNotExists());
@@ -594,7 +623,9 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceSchemaVersionMismatch2) {
 
 TEST_P(MetadataAccessObjectTest,
        EarlierSchemaInitMetadataSourceIfNotExistErrorEmptyDB) {
-  if (!EarlierSchemaEnabled()) { return; }
+  if (!EarlierSchemaEnabled()) {
+    return;
+  }
   const absl::Status status =
       metadata_access_object_->InitMetadataSourceIfNotExists();
   EXPECT_TRUE(absl::IsFailedPrecondition(status))
@@ -603,7 +634,9 @@ TEST_P(MetadataAccessObjectTest,
 
 TEST_P(MetadataAccessObjectTest,
        EarlierSchemaInitMetadataSourceIfNotExistErrorIncompatibleSchema) {
-  if (!EarlierSchemaEnabled()) { return; }
+  if (!EarlierSchemaEnabled()) {
+    return;
+  }
   // Populates an existing db at an incompatible schema_version.
   ASSERT_EQ(absl::OkStatus(), Init());
   ASSERT_EQ(
@@ -763,10 +796,12 @@ TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeId) {
   // ExecutionType: type4 -> type5
   // ContextType:   type6 -> type7
   //                type8
-  const ArtifactType type1 = CreateTypeFromTextProto<ArtifactType>(R"(
+  const ArtifactType type1 =
+      CreateTypeFromTextProto<ArtifactType>(R"(
           name: 't1'
           properties { key: 'property_1' value: STRING }
-      )", *metadata_access_object_);
+      )",
+                                            *metadata_access_object_);
   ArtifactType type2 =
       CreateTypeFromTextProto<ArtifactType>(R"(
           name: 't2'
@@ -786,22 +821,28 @@ TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeId) {
       absl::OkStatus(),
       metadata_access_object_->CreateParentTypeInheritanceLink(type3, type2));
 
-  const ExecutionType type4 = CreateTypeFromTextProto<ExecutionType>(R"(
+  const ExecutionType type4 =
+      CreateTypeFromTextProto<ExecutionType>(R"(
           name: 't4'
           properties { key: 'property_4' value: STRING }
-      )", *metadata_access_object_);
-  const ExecutionType type5 = CreateTypeFromTextProto<ExecutionType>(R"(
+      )",
+                                             *metadata_access_object_);
+  const ExecutionType type5 =
+      CreateTypeFromTextProto<ExecutionType>(R"(
             name: 't5'
-        )", *metadata_access_object_);
+        )",
+                                             *metadata_access_object_);
   ASSERT_EQ(
       absl::OkStatus(),
       metadata_access_object_->CreateParentTypeInheritanceLink(type4, type5));
 
-  const ContextType type6 = CreateTypeFromTextProto<ContextType>(R"(
+  const ContextType type6 =
+      CreateTypeFromTextProto<ContextType>(R"(
           name: 't6'
           properties { key: 'property_5' value: INT }
           properties { key: 'property_6' value: DOUBLE }
-      )", *metadata_access_object_);
+      )",
+                                           *metadata_access_object_);
   const ContextType type7 = CreateTypeFromTextProto<ContextType>(
       "name: 't7'", *metadata_access_object_);
   const ContextType type8 = CreateTypeFromTextProto<ContextType>(
@@ -893,29 +934,29 @@ TEST_P(MetadataAccessObjectTest, CreateType) {
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type1, &type1_id));
 
-  ArtifactType type2 = ParseTextProtoOrDie<ArtifactType>(R"(
+  ArtifactType type2 = ParseTextProtoOrDie<ArtifactType>(R"pb(
     name: 'test_type2'
-    properties { key: 'property_1' value: STRING })");
+    properties { key: 'property_1' value: STRING })pb");
   int64 type2_id = -1;
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type2, &type2_id));
   EXPECT_NE(type1_id, type2_id);
 
   ExecutionType type3 = ParseTextProtoOrDie<ExecutionType>(
-      R"(name: 'test_type'
-         properties { key: 'property_2' value: INT }
-         input_type: { any: {} }
-         output_type: { none: {} }
-      )");
+      R"pb(name: 'test_type'
+           properties { key: 'property_2' value: INT }
+           input_type: { any: {} }
+           output_type: { none: {} }
+      )pb");
   int64 type3_id = -1;
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type3, &type3_id));
   EXPECT_NE(type1_id, type3_id);
   EXPECT_NE(type2_id, type3_id);
 
-  ContextType type4 = ParseTextProtoOrDie<ContextType>(R"(
+  ContextType type4 = ParseTextProtoOrDie<ContextType>(R"pb(
     name: 'test_type'
-    properties { key: 'property_1' value: STRING })");
+    properties { key: 'property_1' value: STRING })pb");
   int64 type4_id = -1;
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type4, &type4_id));
@@ -1022,9 +1063,9 @@ TEST_P(MetadataAccessObjectTest, CreateTypeError) {
         metadata_access_object_->CreateType(wrong_type, &type_id)));
   }
   {
-    ArtifactType wrong_type = ParseTextProtoOrDie<ArtifactType>(R"(
+    ArtifactType wrong_type = ParseTextProtoOrDie<ArtifactType>(R"pb(
       name: 'test_type2'
-      properties { key: 'property_1' value: UNKNOWN })");
+      properties { key: 'property_1' value: UNKNOWN })pb");
     int64 type_id;
     // Properties must have type either STRING, DOUBLE, or INT. UNKNOWN
     // is not allowed.
@@ -1080,23 +1121,23 @@ TEST_P(MetadataAccessObjectTest, CreateTypeWithDuplicatedExternalIdError) {
 
 TEST_P(MetadataAccessObjectTest, UpdateType) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ArtifactType type1 = ParseTextProtoOrDie<ArtifactType>(R"(
+  ArtifactType type1 = ParseTextProtoOrDie<ArtifactType>(R"pb(
     name: 'type1'
-    properties { key: 'stored_property' value: STRING })");
+    properties { key: 'stored_property' value: STRING })pb");
   int64 type1_id = -1;
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type1, &type1_id));
 
-  ExecutionType type2 = ParseTextProtoOrDie<ExecutionType>(R"(
+  ExecutionType type2 = ParseTextProtoOrDie<ExecutionType>(R"pb(
     name: 'type2'
-    properties { key: 'stored_property' value: STRING })");
+    properties { key: 'stored_property' value: STRING })pb");
   int64 type2_id = -1;
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type2, &type2_id));
 
-  ContextType type3 = ParseTextProtoOrDie<ContextType>(R"(
+  ContextType type3 = ParseTextProtoOrDie<ContextType>(R"pb(
     name: 'type3'
-    properties { key: 'stored_property' value: STRING })");
+    properties { key: 'stored_property' value: STRING })pb");
   int64 type3_id = -1;
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type3, &type3_id));
@@ -1139,9 +1180,9 @@ TEST_P(MetadataAccessObjectTest, UpdateType) {
 
 TEST_P(MetadataAccessObjectTest, UpdateTypeError) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"pb(
     name: 'stored_type'
-    properties { key: 'stored_property' value: STRING })");
+    properties { key: 'stored_property' value: STRING })pb");
   int64 type_id;
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
@@ -1179,13 +1220,13 @@ TEST_P(MetadataAccessObjectTest, UpdateTypeError) {
 
 TEST_P(MetadataAccessObjectTest, FindTypeByIdArtifact) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ArtifactType want_type = ParseTextProtoOrDie<ArtifactType>(R"(
+  ArtifactType want_type = ParseTextProtoOrDie<ArtifactType>(R"pb(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
     properties { key: 'property_4' value: STRUCT }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type, &type_id));
@@ -1206,12 +1247,12 @@ TEST_P(MetadataAccessObjectTest, FindTypeByIdArtifact) {
 
 TEST_P(MetadataAccessObjectTest, FindTypeByIdContext) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ContextType want_type = ParseTextProtoOrDie<ContextType>(R"(
+  ContextType want_type = ParseTextProtoOrDie<ContextType>(R"pb(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type, &type_id));
@@ -1232,14 +1273,14 @@ TEST_P(MetadataAccessObjectTest, FindTypeByIdContext) {
 
 TEST_P(MetadataAccessObjectTest, FindTypeByIdExecution) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ExecutionType want_type = ParseTextProtoOrDie<ExecutionType>(R"(
+  ExecutionType want_type = ParseTextProtoOrDie<ExecutionType>(R"pb(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
     input_type: { any: {} }
     output_type: { none: {} }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type, &type_id));
@@ -1288,12 +1329,12 @@ TEST_P(MetadataAccessObjectTest, FindTypeByIdExecutionUnicode) {
 // Test if an execution type can be stored without input_type and output_type.
 TEST_P(MetadataAccessObjectTest, FindTypeByIdExecutionNoSignature) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ExecutionType want_type = ParseTextProtoOrDie<ExecutionType>(R"(
+  ExecutionType want_type = ParseTextProtoOrDie<ExecutionType>(R"pb(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type, &type_id));
@@ -1314,14 +1355,14 @@ TEST_P(MetadataAccessObjectTest, FindTypeByIdExecutionNoSignature) {
 
 TEST_P(MetadataAccessObjectTest, FindTypeByName) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ExecutionType want_type = ParseTextProtoOrDie<ExecutionType>(R"(
+  ExecutionType want_type = ParseTextProtoOrDie<ExecutionType>(R"pb(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
     input_type: { any: {} }
     output_type: { none: {} }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type, &type_id));
@@ -1523,10 +1564,10 @@ TEST_P(MetadataAccessObjectTest, FindContextTypesByExternalIds) {
 
 TEST_P(MetadataAccessObjectTest, FindTypeIdByNameAndVersion) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ExecutionType want_type = ParseTextProtoOrDie<ExecutionType>(R"(
+  ExecutionType want_type = ParseTextProtoOrDie<ExecutionType>(R"pb(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
-  )");
+  )pb");
   int64 v0_type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type, &v0_type_id));
@@ -1545,10 +1586,8 @@ TEST_P(MetadataAccessObjectTest, FindTypeIdByNameAndVersion) {
   int64 v1_got_type_id;
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->FindTypeIdByNameAndVersion(
-                "test_type", "v1",
-                TypeKind::EXECUTION_TYPE, &v1_got_type_id));
+                "test_type", "v1", TypeKind::EXECUTION_TYPE, &v1_got_type_id));
   EXPECT_EQ(v1_got_type_id, v1_type_id);
-
 
   // The type with this name is an execution type, not an artifact/context type.
   int64 got_type_id;
@@ -1767,12 +1806,12 @@ TEST_P(MetadataAccessObjectTest, FindTypesByIdsContextInvalidTypeKind) {
 // Test if an execution type can be stored without input_type and output_type.
 TEST_P(MetadataAccessObjectTest, FindTypeByNameNoSignature) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ExecutionType want_type = ParseTextProtoOrDie<ExecutionType>(R"(
+  ExecutionType want_type = ParseTextProtoOrDie<ExecutionType>(R"pb(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type, &type_id));
@@ -1797,13 +1836,17 @@ TEST_P(MetadataAccessObjectTest, FindTypeByNameNoSignature) {
 
 TEST_P(MetadataAccessObjectTest, FindArtifactTypesByNamesAndVersions) {
   ASSERT_EQ(Init(), absl::OkStatus());
-  ArtifactType want_type_1 = CreateTypeFromTextProto<ArtifactType>(R"(
+  ArtifactType want_type_1 =
+      CreateTypeFromTextProto<ArtifactType>(R"(
     name: 'artifact_type_1'
-  )", *metadata_access_object_);
-  ArtifactType want_type_2 = CreateTypeFromTextProto<ArtifactType>(R"(
+  )",
+                                            *metadata_access_object_);
+  ArtifactType want_type_2 =
+      CreateTypeFromTextProto<ArtifactType>(R"(
     name: 'artifact_type_2'
     version: 'test_version'
-  )", *metadata_access_object_);
+  )",
+                                            *metadata_access_object_);
 
   // Test 1: artifact types can be retrieved by names_and_versions.
   std::vector<std::pair<std::string, std::string>> names_and_versions = {
@@ -1812,9 +1855,8 @@ TEST_P(MetadataAccessObjectTest, FindArtifactTypesByNamesAndVersions) {
   ASSERT_EQ(metadata_access_object_->FindTypesByNamesAndVersions(
                 absl::MakeSpan(names_and_versions), got_types),
             absl::OkStatus());
-  EXPECT_THAT(
-      got_types,
-      UnorderedElementsAre(EqualsProto(want_type_1), EqualsProto(want_type_2)));
+  EXPECT_THAT(got_types, UnorderedElementsAre(EqualsProto(want_type_1),
+                                              EqualsProto(want_type_2)));
 
   // Test 2: The types in the names and versions are artifact types, not
   // execution/context types.
@@ -1954,9 +1996,8 @@ TEST_P(MetadataAccessObjectTest, FindContextTypesByNamesAndVersions) {
   ASSERT_EQ(metadata_access_object_->FindTypesByNamesAndVersions(
                 absl::MakeSpan(names_and_versions), got_types_absent),
             absl::OkStatus());
-  EXPECT_THAT(
-      got_types,
-      UnorderedElementsAre(EqualsProto(want_type_1), EqualsProto(want_type_2)));
+  EXPECT_THAT(got_types, UnorderedElementsAre(EqualsProto(want_type_1),
+                                              EqualsProto(want_type_2)));
 
   // Test 4: return INVALID_ARGUMENT error if `a/e/c_types` is not empty or
   // `names_and_versions` is empty.
@@ -1972,33 +2013,33 @@ TEST_P(MetadataAccessObjectTest, FindContextTypesByNamesAndVersions) {
 
 TEST_P(MetadataAccessObjectTest, FindAllArtifactTypes) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ArtifactType want_type_1 = ParseTextProtoOrDie<ArtifactType>(R"(
+  ArtifactType want_type_1 = ParseTextProtoOrDie<ArtifactType>(R"pb(
     name: 'test_type_1'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
     properties { key: 'property_4' value: STRING }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type_1, &type_id));
   want_type_1.set_id(type_id);
 
-  ArtifactType want_type_2 = ParseTextProtoOrDie<ArtifactType>(R"(
+  ArtifactType want_type_2 = ParseTextProtoOrDie<ArtifactType>(R"pb(
     name: 'test_type_2'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
     properties { key: 'property_5' value: STRING }
-  )");
+  )pb");
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type_2, &type_id));
   want_type_2.set_id(type_id);
 
   // No properties.
-  ArtifactType want_type_3 = ParseTextProtoOrDie<ArtifactType>(R"(
+  ArtifactType want_type_3 = ParseTextProtoOrDie<ArtifactType>(R"pb(
     name: 'no_properties_type'
-  )");
+  )pb");
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type_3, &type_id));
   want_type_3.set_id(type_id);
@@ -2012,33 +2053,33 @@ TEST_P(MetadataAccessObjectTest, FindAllArtifactTypes) {
 
 TEST_P(MetadataAccessObjectTest, FindAllExecutionTypes) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ExecutionType want_type_1 = ParseTextProtoOrDie<ExecutionType>(R"(
+  ExecutionType want_type_1 = ParseTextProtoOrDie<ExecutionType>(R"pb(
     name: 'test_type_1'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
     properties { key: 'property_4' value: STRING }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type_1, &type_id));
   want_type_1.set_id(type_id);
 
-  ExecutionType want_type_2 = ParseTextProtoOrDie<ExecutionType>(R"(
+  ExecutionType want_type_2 = ParseTextProtoOrDie<ExecutionType>(R"pb(
     name: 'test_type_2'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
     properties { key: 'property_5' value: STRING }
-  )");
+  )pb");
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type_2, &type_id));
   want_type_2.set_id(type_id);
 
   // No properties.
-  ExecutionType want_type_3 = ParseTextProtoOrDie<ExecutionType>(R"(
+  ExecutionType want_type_3 = ParseTextProtoOrDie<ExecutionType>(R"pb(
     name: 'no_properties_type'
-  )");
+  )pb");
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type_3, &type_id));
   want_type_3.set_id(type_id);
@@ -2052,33 +2093,33 @@ TEST_P(MetadataAccessObjectTest, FindAllExecutionTypes) {
 
 TEST_P(MetadataAccessObjectTest, FindAllContextTypes) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ContextType want_type_1 = ParseTextProtoOrDie<ContextType>(R"(
+  ContextType want_type_1 = ParseTextProtoOrDie<ContextType>(R"pb(
     name: 'test_type_1'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
     properties { key: 'property_4' value: STRING }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type_1, &type_id));
   want_type_1.set_id(type_id);
 
-  ContextType want_type_2 = ParseTextProtoOrDie<ContextType>(R"(
+  ContextType want_type_2 = ParseTextProtoOrDie<ContextType>(R"pb(
     name: 'test_type_2'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
     properties { key: 'property_5' value: STRING }
-  )");
+  )pb");
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type_2, &type_id));
   want_type_2.set_id(type_id);
 
   // No properties.
-  ContextType want_type_3 = ParseTextProtoOrDie<ContextType>(R"(
+  ContextType want_type_3 = ParseTextProtoOrDie<ContextType>(R"pb(
     name: 'no_properties_type'
-  )");
+  )pb");
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type_3, &type_id));
   want_type_3.set_id(type_id);
@@ -2092,18 +2133,26 @@ TEST_P(MetadataAccessObjectTest, FindAllContextTypes) {
 
 TEST_P(MetadataAccessObjectTest, CreateArtifact) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(absl::StrCat(R"(
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(
+      absl::StrCat(R"(
     name: 'test_type_with_predefined_property'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
     properties { key: 'property_4' value: STRUCT }
   )",
-  ""));
+                   // TODO(b/257334039): cleanup fat client
+                   IfSchemaLessThan(10) ? "" :
+                                        R"pb(
+                     properties { key: 'property_5' value: PROTO }
+                     properties { key: 'property_6' value: BOOLEAN }
+                                        )pb",
+                   ""));
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
-  Artifact artifact = ParseTextProtoOrDie<Artifact>(absl::StrCat(R"(
+  Artifact artifact = ParseTextProtoOrDie<Artifact>(
+      absl::StrCat(R"(
     uri: 'testuri://testing/uri'
     properties {
       key: 'property_1'
@@ -2140,7 +2189,26 @@ TEST_P(MetadataAccessObjectTest, CreateArtifact) {
       }
     }
   )",
-  ""));
+                   // TODO(b/257334039): cleanup fat client
+                   IfSchemaLessThan(10) ? "" :
+                                        R"pb(
+                     properties {
+                       key: 'property_5'
+                       value {
+                         proto_value {
+                           [type.googleapis.com/ml_metadata.testing.MockProto] {
+                             string_value: '3'
+                             double_value: 3.0
+                           }
+                         }
+                       }
+                     }
+                     properties {
+                       key: 'property_6'
+                       value { bool_value: true }
+                     }
+                                        )pb",
+                   ""));
   artifact.set_type_id(type_id);
   int64 artifact1_id = -1;
   EXPECT_EQ(absl::OkStatus(),
@@ -2154,7 +2222,8 @@ TEST_P(MetadataAccessObjectTest, CreateArtifact) {
 TEST_P(MetadataAccessObjectTest, CreateArtifactWithCustomProperty) {
   ASSERT_EQ(absl::OkStatus(), Init());
   int64 type_id = InsertType<ArtifactType>("test_type_with_custom_property");
-  Artifact artifact = ParseTextProtoOrDie<Artifact>(absl::StrCat(R"(
+  Artifact artifact = ParseTextProtoOrDie<Artifact>(
+      absl::StrCat(R"(
     uri: 'testuri://testing/uri'
     custom_properties {
       key: 'custom_property_1'
@@ -2191,7 +2260,26 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithCustomProperty) {
       }
     }
   )",
-  ""));
+                   // TODO(b/257334039): cleanup fat client
+                   IfSchemaLessThan(10) ? "" :
+                                        R"(
+    custom_properties {
+      key: 'custom_property_5'
+      value {
+        proto_value {
+          [type.googleapis.com/ml_metadata.testing.MockProto] {
+            string_value: '3'
+            double_value: 3.0
+          }
+        }
+      }
+    }
+    custom_properties {
+      key: 'custom_property_6'
+      value { bool_value: true }
+    }
+  )",
+                   ""));
   artifact.set_type_id(type_id);
 
   int64 artifact1_id, artifact2_id;
@@ -2216,10 +2304,10 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactError) {
   artifact.set_type_id(1);
   EXPECT_TRUE(absl::IsNotFound(
       metadata_access_object_->CreateArtifact(artifact, &artifact_id)));
-  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"pb(
     name: 'test_type_disallow_custom_property'
     properties { key: 'property_1' value: INT }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
@@ -2432,28 +2520,55 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithCustomTimestamp) {
 
 TEST_P(MetadataAccessObjectTest, CreateExecutionWithoutValidation) {
   MLMD_ASSERT_OK(Init());
-  ExecutionType type = ParseTextProtoOrDie<ExecutionType>(absl::StrCat(R"pb(
-    name: 'test_type'
-    properties { key: 'property_1' value: INT }
-    properties { key: 'property_2' value: STRING }
-  )pb",
-  ""));
+  ExecutionType type = ParseTextProtoOrDie<ExecutionType>(
+      absl::StrCat(R"pb(
+                     name: 'test_type'
+                     properties { key: 'property_1' value: INT }
+                     properties { key: 'property_2' value: STRING }
+                   )pb",
+                   // TODO(b/257334039): cleanup fat client
+                   IfSchemaLessThan(10) ? "" :
+                                        R"pb(
+                     properties { key: 'property_3' value: PROTO }
+                     properties { key: 'property_4' value: BOOLEAN }
+                                        )pb",
+                   ""));
   int64 type_id;
   MLMD_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
 
   // Inserts execution without validation since the type are known to exist and
   // the execution's properties are matched with its type.
-  Execution execution = ParseTextProtoOrDie<Execution>(absl::StrCat(R"pb(
-    properties {
-      key: 'property_1'
-      value: { int_value: 3 }
-    }
-    properties {
-      key: 'property_2'
-      value: { string_value: '3' }
-    }
-  )pb",
-  ""));
+  Execution execution = ParseTextProtoOrDie<Execution>(
+      absl::StrCat(R"pb(
+                     properties {
+                       key: 'property_1'
+                       value: { int_value: 3 }
+                     }
+                     properties {
+                       key: 'property_2'
+                       value: { string_value: '3' }
+                     }
+                   )pb",
+                   // TODO(b/257334039): cleanup fat client
+                   IfSchemaLessThan(10) ? "" :
+                                        R"pb(
+                     properties {
+                       key: 'property_3'
+                       value {
+                         proto_value {
+                           [type.googleapis.com/ml_metadata.testing.MockProto] {
+                             string_value: '3'
+                             double_value: 3.0
+                           }
+                         }
+                       }
+                     }
+                     properties {
+                       key: 'property_4'
+                       value { bool_value: true }
+                     }
+                                        )pb",
+                   ""));
   execution.set_type_id(type_id);
   int64 execution_id;
   EXPECT_EQ(
@@ -2669,17 +2784,17 @@ TEST_P(MetadataAccessObjectTest, CreateContextWithCustomTimestamp) {
 
 TEST_P(MetadataAccessObjectTest, FindArtifactById) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"pb(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
 
-  Artifact want_artifact = ParseTextProtoOrDie<Artifact>(R"(
+  Artifact want_artifact = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri'
     properties {
       key: 'property_1'
@@ -2697,7 +2812,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactById) {
       key: 'custom_property_1'
       value: { string_value: '5' }
     }
-  )");
+  )pb");
   want_artifact.set_type_id(type_id);
   int64 artifact_id;
   ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateArtifact(
@@ -2724,12 +2839,12 @@ TEST_P(MetadataAccessObjectTest, FindArtifactById) {
 
 TEST_P(MetadataAccessObjectTest, FindArtifacts) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"pb(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
@@ -2772,6 +2887,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifacts) {
                                     want_artifact2, &artifact2_id));
     want_artifact2.set_id(artifact2_id);
   }
+
   ASSERT_NE(want_artifact1.id(), want_artifact2.id());
 
   ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
@@ -2851,10 +2967,10 @@ TEST_P(MetadataAccessObjectTest, FindArtifacts) {
 TEST_P(MetadataAccessObjectTest, ListArtifactsInvalidPageSize) {
   ASSERT_EQ(absl::OkStatus(), Init());
   const ListOperationOptions list_options =
-      ParseTextProtoOrDie<ListOperationOptions>(R"(
+      ParseTextProtoOrDie<ListOperationOptions>(R"pb(
         max_result_size: -1,
         order_by_field: { field: CREATE_TIME is_asc: false }
-      )");
+      )pb");
 
   std::vector<Artifact> unused_artifacts;
   std::string unused_next_page_token;
@@ -2934,7 +3050,8 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsFilterAttributeQuery) {
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: " NOT(id = $0) "
-    )", want_artifacts[1].id()),
+    )",
+                       want_artifacts[1].id()),
       *metadata_access_object_,
       /*want_nodes=*/{want_artifacts[2], want_artifacts[0]});
 
@@ -2944,15 +3061,18 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsFilterAttributeQuery) {
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "uri = 'uri_1' and type_id = $0 and \n"
         " create_time_since_epoch = $1"
-    )", type.id(), want_artifacts[1].create_time_since_epoch()),
+    )",
+                       type.id(), want_artifacts[1].create_time_since_epoch()),
       *metadata_access_object_,
       /*want_nodes=*/{want_artifacts[1]});
 
-  VerifyListOptions<Artifact>(R"(
+  VerifyListOptions<Artifact>(
+      R"(
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "uri LIKE 'uri_%' OR state = LIVE"
-    )", *metadata_access_object_,
+    )",
+      *metadata_access_object_,
       /*want_nodes=*/{want_artifacts[2], want_artifacts[1], want_artifacts[0]});
 
   VerifyListOptions<Artifact>(
@@ -2960,7 +3080,8 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsFilterAttributeQuery) {
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "uri LIKE 'uri_%' and type_id = $0 AND state IS NULL"
-    )", type.id()),
+    )",
+                       type.id()),
       *metadata_access_object_,
       /*want_nodes=*/{want_artifacts[2], want_artifacts[1], want_artifacts[0]});
 
@@ -2969,7 +3090,9 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsFilterAttributeQuery) {
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "uri LIKE 'uri_%' and type = '$0'"
-    )", type.name()), *metadata_access_object_,
+    )",
+                       type.name()),
+      *metadata_access_object_,
       /*want_nodes=*/{want_artifacts[2], want_artifacts[1], want_artifacts[0]});
 
   const int64 old_update_time =
@@ -2987,39 +3110,49 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsFilterAttributeQuery) {
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "uri LIKE 'uri_%' and type = '$0' \n"
         " AND last_update_time_since_epoch > $1"
-    )", type.name(), old_update_time), *metadata_access_object_,
-      /*want_nodes=*/{updated_artifact});
+    )",
+                                               type.name(), old_update_time),
+                              *metadata_access_object_,
+                              /*want_nodes=*/{updated_artifact});
 
   VerifyListOptions<Artifact>(absl::Substitute(R"(
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "uri LIKE 'uri_%' and type = '$0' \n"
         " AND state = LIVE"
-    )", type.name()), *metadata_access_object_,
-      /*want_nodes=*/{updated_artifact});
+    )",
+                                               type.name()),
+                              *metadata_access_object_,
+                              /*want_nodes=*/{updated_artifact});
 
   VerifyListOptions<Artifact>(absl::Substitute(R"(
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "uri LIKE 'uri_%' and type = '$0' \n"
         " AND (state = LIVE OR state = DELETED) "
-    )", type.name()), *metadata_access_object_,
-      /*want_nodes=*/{updated_artifact});
+    )",
+                                               type.name()),
+                              *metadata_access_object_,
+                              /*want_nodes=*/{updated_artifact});
 
   VerifyListOptions<Artifact>(
       absl::Substitute(R"(
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "uri LIKE 'uri_%' and type = '$0' and state != LIVE"
-    )", type.name()), *metadata_access_object_,
+    )",
+                       type.name()),
+      *metadata_access_object_,
       /*want_nodes=*/{want_artifacts[1], want_artifacts[0]});
 
   VerifyListOptions<Artifact>(absl::Substitute(R"(
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "uri LIKE 'uri_%' and type = '$0' and name = 'artifact_0'"
-    )", type.name()), *metadata_access_object_,
-      /*want_nodes=*/{want_artifacts[0]});
+    )",
+                                               type.name()),
+                              *metadata_access_object_,
+                              /*want_nodes=*/{want_artifacts[0]});
   if (!IfSchemaLessThan(/*schema_version=*/9)) {
     VerifyListOptions<Artifact>(
         absl::Substitute(R"(
@@ -3076,55 +3209,70 @@ TEST_P(MetadataAccessObjectTest, ListNodesFilterEventQuery) {
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "events_0.type = INPUT"
-    )", *metadata_access_object_, /*want_nodes=*/{want_artifacts[0]});
+    )",
+                              *metadata_access_object_,
+                              /*want_nodes=*/{want_artifacts[0]});
 
   VerifyListOptions<Artifact>(R"(
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: true }
       filter_query: "events_0.type = INPUT OR events_0.type = OUTPUT"
-    )", *metadata_access_object_,
-      /*want_nodes=*/want_artifacts);
+    )",
+                              *metadata_access_object_,
+                              /*want_nodes=*/want_artifacts);
 
   VerifyListOptions<Artifact>(R"(
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "uri = 'uri_0' AND events_0.type = INPUT"
-    )", *metadata_access_object_, /*want_nodes=*/{want_artifacts[0]});
+    )",
+                              *metadata_access_object_,
+                              /*want_nodes=*/{want_artifacts[0]});
 
   VerifyListOptions<Artifact>(absl::Substitute(R"(
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "uri = 'uri_0' AND events_0.execution_id = $0"
-    )", want_execution.id()), *metadata_access_object_,
-      /*want_nodes=*/{want_artifacts[0]});
+    )",
+                                               want_execution.id()),
+                              *metadata_access_object_,
+                              /*want_nodes=*/{want_artifacts[0]});
 
   VerifyListOptions<Artifact>(R"(
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query:
         "events_0.type = OUTPUT AND events_0.milliseconds_since_epoch = 1"
-    )", *metadata_access_object_, /*want_nodes=*/{want_artifacts[2]});
+    )",
+                              *metadata_access_object_,
+                              /*want_nodes=*/{want_artifacts[2]});
 
   // Filter Executions based on Events
   VerifyListOptions<Execution>(absl::Substitute(R"(
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "events_0.artifact_id = $0"
-    )", want_artifacts[0].id()), *metadata_access_object_,
-      /*want_nodes=*/{want_execution});
+    )",
+                                                want_artifacts[0].id()),
+                               *metadata_access_object_,
+                               /*want_nodes=*/{want_execution});
 
   VerifyListOptions<Execution>(absl::Substitute(R"(
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "events_0.artifact_id = $0 AND events_0.type = OUTPUT"
-    )", want_artifacts[0].id()), *metadata_access_object_, /*want_nodes=*/{});
+    )",
+                                                want_artifacts[0].id()),
+                               *metadata_access_object_, /*want_nodes=*/{});
 
   VerifyListOptions<Execution>(absl::Substitute(R"(
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "events_0.artifact_id = $0 AND events_0.type = OUTPUT"
-    )", want_artifacts[1].id()), *metadata_access_object_,
-      /*want_nodes=*/{want_execution});
+    )",
+                                                want_artifacts[1].id()),
+                               *metadata_access_object_,
+                               /*want_nodes=*/{want_execution});
 }
 
 TEST_P(MetadataAccessObjectTest, ListExecutionsFilterAttributeQuery) {
@@ -3152,14 +3300,19 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsFilterAttributeQuery) {
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "id = $0"
-    )", want_executions[2].id()), *metadata_access_object_,
-      /*want_nodes=*/{want_executions[2]});
+    )",
+                                                want_executions[2].id()),
+                               *metadata_access_object_,
+                               /*want_nodes=*/{want_executions[2]});
 
-  VerifyListOptions<Execution>(absl::Substitute(R"(
+  VerifyListOptions<Execution>(
+      absl::Substitute(R"(
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "id != $0 OR last_known_state = COMPLETE"
-    )", want_executions[2].id()), *metadata_access_object_,
+    )",
+                       want_executions[2].id()),
+      *metadata_access_object_,
       /*want_nodes=*/{want_executions[1], want_executions[0]});
 
   VerifyListOptions<Execution>(
@@ -3167,7 +3320,8 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsFilterAttributeQuery) {
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "type_id = $0 AND last_known_state != COMPLETE"
-    )", type.id()),
+    )",
+                       type.id()),
       *metadata_access_object_,
       /*want_nodes=*/
       {want_executions[2], want_executions[1], want_executions[0]});
@@ -3177,7 +3331,8 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsFilterAttributeQuery) {
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "type_id = $0 AND create_time_since_epoch = $1"
-    )", type.id(), want_executions[2].create_time_since_epoch()),
+    )",
+                       type.id(), want_executions[2].create_time_since_epoch()),
       *metadata_access_object_,
       /*want_nodes=*/
       {want_executions[2]});
@@ -3187,7 +3342,9 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsFilterAttributeQuery) {
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "type = '$0' AND type_id = $1"
-    )", type.name(), type.id()), *metadata_access_object_,
+    )",
+                       type.name(), type.id()),
+      *metadata_access_object_,
       /*want_nodes=*/
       {want_executions[2], want_executions[1], want_executions[0]});
 
@@ -3207,7 +3364,9 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsFilterAttributeQuery) {
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "type = '$0' AND type_id = $1 AND \n"
         " last_update_time_since_epoch > $2"
-    )", type.name(), type.id(), old_update_time), *metadata_access_object_,
+    )",
+                       type.name(), type.id(), old_update_time),
+      *metadata_access_object_,
       /*want_nodes=*/{updated_execution});
 
   VerifyListOptions<Execution>(absl::Substitute(R"(
@@ -3215,23 +3374,30 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsFilterAttributeQuery) {
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "type = '$0' AND type_id = $1 AND \n"
         " last_known_state = COMPLETE"
-    )", type.name(), type.id()), *metadata_access_object_,
-      /*want_nodes=*/{updated_execution});
+    )",
+                                                type.name(), type.id()),
+                               *metadata_access_object_,
+                               /*want_nodes=*/{updated_execution});
 
   VerifyListOptions<Execution>(absl::Substitute(R"(
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "type = '$0' AND type_id = $1 AND \n"
         " (last_known_state = COMPLETE OR last_known_state = NEW) "
-    )", type.name(), type.id()), *metadata_access_object_,
-      /*want_nodes=*/{updated_execution});
+    )",
+                                                type.name(), type.id()),
+                               *metadata_access_object_,
+                               /*want_nodes=*/{updated_execution});
 
-  VerifyListOptions<Execution>(absl::Substitute(R"(
+  VerifyListOptions<Execution>(
+      absl::Substitute(R"(
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "type = '$0' AND type_id = $1 AND \n"
         " last_known_state != COMPLETE"
-    )", type.name(), type.id()), *metadata_access_object_,
+    )",
+                       type.name(), type.id()),
+      *metadata_access_object_,
       /*want_nodes=*/{want_executions[1], want_executions[0]});
 
   VerifyListOptions<Execution>(absl::Substitute(R"(
@@ -3239,8 +3405,10 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsFilterAttributeQuery) {
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "type = '$0' AND type_id = $1 AND \n"
         " name = 'execution_0'"
-    )", type.name(), type.id()), *metadata_access_object_,
-      /*want_nodes=*/{want_executions[0]});
+    )",
+                                                type.name(), type.id()),
+                               *metadata_access_object_,
+                               /*want_nodes=*/{want_executions[0]});
   if (!IfSchemaLessThan(/*schema_version=*/9)) {
     VerifyListOptions<Execution>(
         absl::Substitute(R"(
@@ -3278,20 +3446,23 @@ TEST_P(MetadataAccessObjectTest, ListContextsFilterAttributeQuery) {
                             want_contexts[i]);
   }
 
-  VerifyListOptions<Context>(
-      absl::Substitute(R"(
+  VerifyListOptions<Context>(absl::Substitute(R"(
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "id = $0 "
-    )", want_contexts[0].id()), *metadata_access_object_,
-      /*want_nodes=*/{want_contexts[0]});
+    )",
+                                              want_contexts[0].id()),
+                             *metadata_access_object_,
+                             /*want_nodes=*/{want_contexts[0]});
 
   VerifyListOptions<Context>(
       absl::Substitute(R"(
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "type_id = $0 AND name IS NOT NULL"
-    )", type.id()), *metadata_access_object_,
+    )",
+                       type.id()),
+      *metadata_access_object_,
       /*want_nodes=*/{want_contexts[2], want_contexts[1], want_contexts[0]});
 
   // The queries below require the `IN` operator support.
@@ -3310,17 +3481,20 @@ TEST_P(MetadataAccessObjectTest, ListContextsFilterAttributeQuery) {
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "type = '$0' AND type_id = $1"
-    )", type.name(), type.id()), *metadata_access_object_,
+    )",
+                       type.name(), type.id()),
+      *metadata_access_object_,
       /*want_nodes=*/
       {want_contexts[2], want_contexts[1], want_contexts[0]});
 
-  VerifyListOptions<Context>(
-      absl::Substitute(R"(
+  VerifyListOptions<Context>(absl::Substitute(R"(
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "type = '$0' AND type_id != $1"
-    )", type.name(), type.id()), *metadata_access_object_,
-      /*want_nodes=*/{});
+    )",
+                                              type.name(), type.id()),
+                             *metadata_access_object_,
+                             /*want_nodes=*/{});
 
   VerifyListOptions<Context>(
       absl::Substitute(R"(
@@ -3329,8 +3503,8 @@ TEST_P(MetadataAccessObjectTest, ListContextsFilterAttributeQuery) {
       filter_query: '(type = \'$0\' AND name = \'$1\') OR '
                     '(type = \'$2\' AND name = \'$3\')'
     )",
-        type.name(), want_contexts[2].name(),
-        type.name(), want_contexts[1].name()),
+                       type.name(), want_contexts[2].name(), type.name(),
+                       want_contexts[1].name()),
       *metadata_access_object_,
       /*want_nodes=*/{want_contexts[2], want_contexts[1]});
 
@@ -3347,7 +3521,9 @@ TEST_P(MetadataAccessObjectTest, ListContextsFilterAttributeQuery) {
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "type = '$0' AND type_id = $1 \n"
       " AND last_update_time_since_epoch > $2"
-    )", type.name(), type.id(), old_update_time), *metadata_access_object_,
+    )",
+                       type.name(), type.id(), old_update_time),
+      *metadata_access_object_,
       /*want_nodes=*/{updated_context});
 
   VerifyListOptions<Context>(absl::Substitute(R"(
@@ -3355,8 +3531,10 @@ TEST_P(MetadataAccessObjectTest, ListContextsFilterAttributeQuery) {
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "type = '$0' AND type_id = $1 \n"
       " AND name = 'c0'"
-    )", type.name(), type.id()), *metadata_access_object_,
-      /*want_nodes=*/{want_contexts[0]});
+    )",
+                                              type.name(), type.id()),
+                             *metadata_access_object_,
+                             /*want_nodes=*/{want_contexts[0]});
   if (!IfSchemaLessThan(/*schema_version=*/9)) {
     VerifyListOptions<Context>(absl::Substitute(R"(
       max_result_size: 10,
@@ -3510,9 +3688,10 @@ TEST_P(MetadataAccessObjectTest, ListNodesFilterContextNeighborQuery) {
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: "contexts_c.name LIKE '%' AND contexts_c.type = '$0' \n"
-    )", context_type.name()), *metadata_access_object_,
+    )",
+                       context_type.name()),
+      *metadata_access_object_,
       /*want_nodes=*/{want_artifacts[1], want_artifacts[0]});
-
 
   VerifyListOptions<Artifact>(
       absl::Substitute(R"(
@@ -3565,11 +3744,10 @@ TEST_P(MetadataAccessObjectTest, ListNodesFilterContextNeighborQuery) {
       max_result_size: 10,
       order_by_field: { field: CREATE_TIME is_asc: false }
       filter_query: " contexts_a.id = $0 OR contexts_a.id = $1")",
-                       contexts[0].id(),
-                       contexts[1].id()),
+                       contexts[0].id(), contexts[1].id()),
       *metadata_access_object_,
-      /*want_nodes=*/{want_executions[2], want_executions[1],
-                      want_executions[0]});
+      /*want_nodes=*/
+      {want_executions[2], want_executions[1], want_executions[0]});
 
   VerifyListOptions<Execution>(
       absl::Substitute(R"(
@@ -3578,8 +3756,8 @@ TEST_P(MetadataAccessObjectTest, ListNodesFilterContextNeighborQuery) {
       filter_query: '(contexts_1.type = \'$0\' AND contexts_1.name = \'$1\') OR '
                     '(contexts_2.type = \'$2\' AND contexts_2.name = \'$3\')'
     )",
-        context_type.name(), contexts[2].name(),
-        context_type.name(), contexts[1].name()),
+                       context_type.name(), contexts[2].name(),
+                       context_type.name(), contexts[1].name()),
       *metadata_access_object_,
       /*want_nodes=*/{want_executions[1], want_executions[0]});
 
@@ -3591,9 +3769,9 @@ TEST_P(MetadataAccessObjectTest, ListNodesFilterContextNeighborQuery) {
                     '(contexts_2.type=\'$2\' AND contexts_2.name=\'$3\') AND '
                     '(contexts_3.type=\'$4\' AND contexts_3.name=\'$5\') '
     )",
-        context_type.name(), contexts[2].name(),
-        context_type.name(), contexts[1].name(),
-        context_type.name(), contexts[0].name()),
+                       context_type.name(), contexts[2].name(),
+                       context_type.name(), contexts[1].name(),
+                       context_type.name(), contexts[0].name()),
       *metadata_access_object_,
       /*want_nodes=*/{want_executions[0]});
 }
@@ -3787,12 +3965,14 @@ template <class NodeType, class Node>
 void TestFilteringWithListOptionsImpl(
     MetadataAccessObject& metadata_access_object,
     MetadataAccessObjectContainer* metadata_access_object_container) {
-  const NodeType type = CreateTypeFromTextProto<NodeType>(R"(
+  const NodeType type =
+      CreateTypeFromTextProto<NodeType>(R"(
     name: 'test_type'
     properties { key: 'p1' value: INT }
     properties { key: 'p2' value: DOUBLE }
     properties { key: 'p3' value: STRING }
-  )", metadata_access_object);
+  )",
+                                        metadata_access_object);
 
   // Setup: 5 nodes of `test_type`
   // node_$i has a custom property custom_property_$i which is not NULL.
@@ -3833,8 +4013,7 @@ void TestFilteringWithListOptionsImpl(
       metadata_access_object, /*want_nodes=*/{want_nodes[0]});
 
   VerifyListOptions<Node>(
-      absl::Substitute(kListOption,
-                       "(properties.p1.int_value + 2) * 1 = 2"),
+      absl::Substitute(kListOption, "(properties.p1.int_value + 2) * 1 = 2"),
       metadata_access_object, /*want_nodes=*/{want_nodes[0]});
 
   VerifyListOptions<Node>(
@@ -3905,11 +4084,11 @@ TEST_P(MetadataAccessObjectTest, ListNodesFilterWithErrors) {
   ASSERT_EQ(absl::OkStatus(), Init());
 
   ListOperationOptions list_options =
-      ParseTextProtoOrDie<ListOperationOptions>(R"(
+      ParseTextProtoOrDie<ListOperationOptions>(R"pb(
         max_result_size: 10,
         order_by_field: { field: CREATE_TIME is_asc: false }
         filter_query: "unknown_field = 'uri_3' and type_id = 1"
-      )");
+      )pb");
 
   std::string next_page_token;
   {
@@ -4336,33 +4515,60 @@ TEST_P(MetadataAccessObjectTest, QueryLineageGraphWithBoundaryConditions) {
 TEST_P(MetadataAccessObjectTest, DeleteArtifactsById) {
   ASSERT_EQ(absl::OkStatus(), Init());
 
-  const ArtifactType type = CreateTypeFromTextProto<ArtifactType>(absl::StrCat(
-      R"pb(
-        name: 'test_type'
-        properties { key: 'property_1' value: INT }
-        properties { key: 'property_2' value: DOUBLE }
-        properties { key: 'property_3' value: STRING }
-      )pb",
-      ""),
+  const ArtifactType type = CreateTypeFromTextProto<ArtifactType>(
+      absl::StrCat(
+          R"pb(
+            name: 'test_type'
+            properties { key: 'property_1' value: INT }
+            properties { key: 'property_2' value: DOUBLE }
+            properties { key: 'property_3' value: STRING }
+          )pb",
+          // TODO(b/257334039): cleanup fat client
+          IfSchemaLessThan(10) ? "" :
+                               R"pb(
+            properties { key: 'property_4' value: PROTO }
+            properties { key: 'property_5' value: BOOLEAN }
+                               )pb",
+          ""),
       *metadata_access_object_);
   Artifact artifact;
-  CreateNodeFromTextProto(absl::StrCat(
-      R"pb(
-        name: 'delete_artifacts_by_id_test'
-        properties {
-          key: 'property_1'
-          value: { int_value: 3 }
-        }
-        properties {
-          key: 'property_2'
-          value: { double_value: 3.0 }
-        }
-        properties {
-          key: 'property_3'
-          value: { string_value: '3' }
-        }
-      )pb",
-      ""),
+  CreateNodeFromTextProto(
+      absl::StrCat(
+          R"pb(
+            name: 'delete_artifacts_by_id_test'
+            properties {
+              key: 'property_1'
+              value: { int_value: 3 }
+            }
+            properties {
+              key: 'property_2'
+              value: { double_value: 3.0 }
+            }
+            properties {
+              key: 'property_3'
+              value: { string_value: '3' }
+            }
+          )pb",
+          // TODO(b/257334039): cleanup fat client
+          IfSchemaLessThan(10) ? "" :
+                               R"pb(
+            properties {
+              key: 'property_4'
+              value {
+                proto_value {
+                  [type.googleapis.com/ml_metadata.testing.MockProto] {
+                    string_value: '3'
+                    double_value: 3.0
+                  }
+                }
+              }
+            }
+            properties {
+              key: 'property_5'
+              value { bool_value: true }
+            }
+                               )pb",
+          ""),
       type.id(), *metadata_access_object_,
       metadata_access_object_container_.get(), artifact);
   // Test: empty ids
@@ -4398,33 +4604,59 @@ TEST_P(MetadataAccessObjectTest, DeleteExecutionsById) {
   ASSERT_EQ(absl::OkStatus(), Init());
 
   const ExecutionType type = CreateTypeFromTextProto<ExecutionType>(
-    absl::StrCat(
-      R"pb(
-        name: 'test_type'
-        properties { key: 'property_1' value: INT }
-        properties { key: 'property_2' value: DOUBLE }
-        properties { key: 'property_3' value: STRING }
-      )pb",
-      ""),
+      absl::StrCat(
+          R"pb(
+            name: 'test_type'
+            properties { key: 'property_1' value: INT }
+            properties { key: 'property_2' value: DOUBLE }
+            properties { key: 'property_3' value: STRING }
+          )pb",
+          // TODO(b/257334039): cleanup fat client
+          IfSchemaLessThan(10) ? "" :
+                               R"pb(
+            properties { key: 'property_4' value: PROTO }
+            properties { key: 'property_5' value: BOOLEAN }
+                               )pb",
+          ""),
       *metadata_access_object_);
   Execution execution;
-  CreateNodeFromTextProto(absl::StrCat(
-      R"pb(
-        name: 'delete_executions_by_id_test'
-        properties {
-          key: 'property_1'
-          value: { int_value: 3 }
-        }
-        properties {
-          key: 'property_2'
-          value: { double_value: 3.0 }
-        }
-        properties {
-          key: 'property_3'
-          value: { string_value: '3' }
-        }
-      )pb",
-      ""),
+  CreateNodeFromTextProto(
+      absl::StrCat(
+          R"pb(
+            name: 'delete_executions_by_id_test'
+            properties {
+              key: 'property_1'
+              value: { int_value: 3 }
+            }
+            properties {
+              key: 'property_2'
+              value: { double_value: 3.0 }
+            }
+            properties {
+              key: 'property_3'
+              value: { string_value: '3' }
+            }
+          )pb",
+          // TODO(b/257334039): cleanup fat client
+          IfSchemaLessThan(10) ? "" :
+                               R"pb(
+            properties {
+              key: 'property_4'
+              value {
+                proto_value {
+                  [type.googleapis.com/ml_metadata.testing.MockProto] {
+                    string_value: '3'
+                    double_value: 3.0
+                  }
+                }
+              }
+            }
+            properties {
+              key: 'property_5'
+              value { bool_value: true }
+            }
+                               )pb",
+          ""),
       type.id(), *metadata_access_object_,
       metadata_access_object_container_.get(), execution);
 
@@ -4460,14 +4692,21 @@ TEST_P(MetadataAccessObjectTest, DeleteExecutionsById) {
 TEST_P(MetadataAccessObjectTest, DeleteContextsById) {
   ASSERT_EQ(absl::OkStatus(), Init());
 
-  const ContextType type = CreateTypeFromTextProto<ContextType>(absl::StrCat(
-      R"pb(
-        name: 'test_type'
-        properties { key: 'property_1' value: INT }
-        properties { key: 'property_2' value: DOUBLE }
-        properties { key: 'property_3' value: STRING }
-      )pb",
-      ""),
+  const ContextType type = CreateTypeFromTextProto<ContextType>(
+      absl::StrCat(
+          R"pb(
+            name: 'test_type'
+            properties { key: 'property_1' value: INT }
+            properties { key: 'property_2' value: DOUBLE }
+            properties { key: 'property_3' value: STRING }
+          )pb",
+          // TODO(b/257334039): cleanup fat client
+          IfSchemaLessThan(10) ? "" :
+                               R"pb(
+            properties { key: 'property_4' value: PROTO }
+            properties { key: 'property_5' value: BOOLEAN }
+                               )pb",
+          ""),
       *metadata_access_object_);
   Context context1, context2;
   CreateNodeFromTextProto("name: 'delete_contexts_by_id_test_1'", type.id(),
@@ -5027,47 +5266,48 @@ TEST_P(MetadataAccessObjectTest, DeleteParentContextsByParentIdAndChildIds) {
   // Test: independent parent id
   {
     std::vector<Context> result;
-    MLMD_EXPECT_OK(metadata_access_object_->
-                  DeleteParentContextsByParentIdAndChildIds(
-                     context3.id(), {context2.id()}));
+    MLMD_EXPECT_OK(
+        metadata_access_object_->DeleteParentContextsByParentIdAndChildIds(
+            context3.id(), {context2.id()}));
     MLMD_ASSERT_OK(metadata_access_object_->FindParentContextsByContextId(
-                  context2.id(), &result));
+        context2.id(), &result));
     EXPECT_THAT(result, SizeIs(1));
   }
   // Test: empty child ids
   {
     std::vector<Context> result;
-    MLMD_EXPECT_OK(metadata_access_object_->
-                  DeleteParentContextsByParentIdAndChildIds(context1.id(), {}));
+    MLMD_EXPECT_OK(
+        metadata_access_object_->DeleteParentContextsByParentIdAndChildIds(
+            context1.id(), {}));
     MLMD_ASSERT_OK(metadata_access_object_->FindParentContextsByContextId(
-                  context2.id(), &result));
+        context2.id(), &result));
     EXPECT_THAT(result, SizeIs(1));
   }
   // Test: delete parent context
   {
     std::vector<Context> result;
-    MLMD_EXPECT_OK(metadata_access_object_->
-                  DeleteParentContextsByParentIdAndChildIds(
-                      context1.id(), {context2.id()}));
+    MLMD_EXPECT_OK(
+        metadata_access_object_->DeleteParentContextsByParentIdAndChildIds(
+            context1.id(), {context2.id()}));
     MLMD_ASSERT_OK(metadata_access_object_->FindParentContextsByContextId(
-                  context2.id(), &result));
+        context2.id(), &result));
     EXPECT_THAT(result, IsEmpty());
   }
 }
 
 TEST_P(MetadataAccessObjectTest, ListArtifactsWithNonIdFieldOptions) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"pb(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
 
-  Artifact sample_artifact = ParseTextProtoOrDie<Artifact>(R"(
+  Artifact sample_artifact = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri'
     properties {
       key: 'property_1'
@@ -5085,7 +5325,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithNonIdFieldOptions) {
       key: 'custom_property_1'
       value: { string_value: '5' }
     }
-  )");
+  )pb");
   sample_artifact.set_type_id(type_id);
   const int total_stored_artifacts = 6;
   int64 last_stored_artifact_id;
@@ -5098,10 +5338,10 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithNonIdFieldOptions) {
 
   const int page_size = 2;
   ListOperationOptions list_options =
-      ParseTextProtoOrDie<ListOperationOptions>(R"(
+      ParseTextProtoOrDie<ListOperationOptions>(R"pb(
         max_result_size: 2,
         order_by_field: { field: CREATE_TIME is_asc: false }
-      )");
+      )pb");
 
   int64 expected_artifact_id = last_stored_artifact_id;
   std::string next_page_token;
@@ -5126,15 +5366,15 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithNonIdFieldOptions) {
 
 TEST_P(MetadataAccessObjectTest, ListArtifactsWithIdFieldOptions) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"pb(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
 
-  Artifact sample_artifact = ParseTextProtoOrDie<Artifact>(R"(
+  Artifact sample_artifact = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri'
     properties {
       key: 'property_1'
@@ -5144,7 +5384,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithIdFieldOptions) {
       key: 'custom_property_1'
       value: { string_value: '5' }
     }
-  )");
+  )pb");
 
   sample_artifact.set_type_id(type_id);
   int stored_artifacts_count = 0;
@@ -5163,10 +5403,10 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithIdFieldOptions) {
 
   const int page_size = 2;
   ListOperationOptions list_options =
-      ParseTextProtoOrDie<ListOperationOptions>(R"(
+      ParseTextProtoOrDie<ListOperationOptions>(R"pb(
         max_result_size: 2,
         order_by_field: { field: ID is_asc: true }
-      )");
+      )pb");
 
   std::string next_page_token;
   int64 expected_artifact_id = first_artifact_id;
@@ -5281,21 +5521,21 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsOnLastUpdateTime) {
 
 TEST_P(MetadataAccessObjectTest, ListArtifactsWithChangedOptions) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"pb(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
 
-  Artifact sample_artifact = ParseTextProtoOrDie<Artifact>(R"(
+  Artifact sample_artifact = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri'
     properties {
       key: 'property_1'
       value: { int_value: 3 }
     }
-  )");
+  )pb");
 
   sample_artifact.set_type_id(type_id);
   int64 last_stored_artifact_id;
@@ -5307,10 +5547,10 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithChangedOptions) {
   ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   ListOperationOptions list_options =
-      ParseTextProtoOrDie<ListOperationOptions>(R"(
+      ParseTextProtoOrDie<ListOperationOptions>(R"pb(
         max_result_size: 1,
         order_by_field: { field: CREATE_TIME is_asc: false }
-      )");
+      )pb");
 
   std::string next_page_token_string;
   std::vector<Artifact> got_artifacts;
@@ -5321,10 +5561,10 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithChangedOptions) {
   EXPECT_EQ(got_artifacts[0].id(), last_stored_artifact_id);
 
   ListOperationOptions updated_options =
-      ParseTextProtoOrDie<ListOperationOptions>(R"(
+      ParseTextProtoOrDie<ListOperationOptions>(R"pb(
         max_result_size: 1,
         order_by_field: { field: CREATE_TIME is_asc: true }
-      )");
+      )pb");
 
   updated_options.set_next_page_token(next_page_token_string);
   std::vector<Artifact> unused_artifacts;
@@ -5335,21 +5575,21 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithChangedOptions) {
 
 TEST_P(MetadataAccessObjectTest, ListArtifactsWithInvalidNextPageToken) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"pb(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
 
-  Artifact sample_artifact = ParseTextProtoOrDie<Artifact>(R"(
+  Artifact sample_artifact = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri'
     properties {
       key: 'property_1'
       value: { int_value: 3 }
     }
-  )");
+  )pb");
 
   sample_artifact.set_type_id(type_id);
   int64 last_stored_artifact_id;
@@ -5361,10 +5601,10 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithInvalidNextPageToken) {
   ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   ListOperationOptions list_options =
-      ParseTextProtoOrDie<ListOperationOptions>(R"(
+      ParseTextProtoOrDie<ListOperationOptions>(R"pb(
         max_result_size: 1,
         order_by_field: { field: CREATE_TIME is_asc: false }
-      )");
+      )pb");
 
   std::string next_page_token_string;
   std::vector<Artifact> got_artifacts;
@@ -5383,17 +5623,17 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithInvalidNextPageToken) {
 
 TEST_P(MetadataAccessObjectTest, ListExecutionsWithNonIdFieldOptions) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ExecutionType type = ParseTextProtoOrDie<ExecutionType>(R"(
+  ExecutionType type = ParseTextProtoOrDie<ExecutionType>(R"pb(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
 
-  Execution sample_execution = ParseTextProtoOrDie<Execution>(R"(
+  Execution sample_execution = ParseTextProtoOrDie<Execution>(R"pb(
     properties {
       key: 'property_1'
       value: { int_value: 3 }
@@ -5410,7 +5650,7 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsWithNonIdFieldOptions) {
       key: 'custom_property_1'
       value: { string_value: '5' }
     }
-  )");
+  )pb");
   sample_execution.set_type_id(type_id);
   const int total_stored_executions = 6;
   int64 last_stored_execution_id;
@@ -5424,10 +5664,10 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsWithNonIdFieldOptions) {
 
   const int page_size = 2;
   ListOperationOptions list_options =
-      ParseTextProtoOrDie<ListOperationOptions>(R"(
+      ParseTextProtoOrDie<ListOperationOptions>(R"pb(
         max_result_size: 2,
         order_by_field: { field: CREATE_TIME is_asc: false }
-      )");
+      )pb");
 
   int64 expected_execution_id = last_stored_execution_id;
   std::string next_page_token;
@@ -5453,15 +5693,15 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsWithNonIdFieldOptions) {
 
 TEST_P(MetadataAccessObjectTest, ListExecutionsWithIdFieldOptions) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ExecutionType type = ParseTextProtoOrDie<ExecutionType>(R"(
+  ExecutionType type = ParseTextProtoOrDie<ExecutionType>(R"pb(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
 
-  Execution sample_execution = ParseTextProtoOrDie<Execution>(R"(
+  Execution sample_execution = ParseTextProtoOrDie<Execution>(R"pb(
     properties {
       key: 'property_1'
       value: { int_value: 3 }
@@ -5470,7 +5710,7 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsWithIdFieldOptions) {
       key: 'custom_property_1'
       value: { string_value: '5' }
     }
-  )");
+  )pb");
 
   sample_execution.set_type_id(type_id);
   int stored_executions_count = 0;
@@ -5489,10 +5729,10 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsWithIdFieldOptions) {
 
   const int page_size = 2;
   ListOperationOptions list_options =
-      ParseTextProtoOrDie<ListOperationOptions>(R"(
+      ParseTextProtoOrDie<ListOperationOptions>(R"pb(
         max_result_size: 2,
         order_by_field: { field: ID is_asc: true }
-      )");
+      )pb");
 
   std::string next_page_token;
   int64 expected_execution_id = first_execution_id;
@@ -5519,17 +5759,17 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsWithIdFieldOptions) {
 
 TEST_P(MetadataAccessObjectTest, ListContextsWithNonIdFieldOptions) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ContextType type = ParseTextProtoOrDie<ContextType>(R"(
+  ContextType type = ParseTextProtoOrDie<ContextType>(R"pb(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
 
-  Context sample_context = ParseTextProtoOrDie<Context>(R"(
+  Context sample_context = ParseTextProtoOrDie<Context>(R"pb(
     properties {
       key: 'property_1'
       value: { int_value: 3 }
@@ -5546,7 +5786,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsWithNonIdFieldOptions) {
       key: 'custom_property_1'
       value: { string_value: '5' }
     }
-  )");
+  )pb");
   sample_context.set_type_id(type_id);
   int64 last_stored_context_id;
   int context_name_suffix = 0;
@@ -5567,10 +5807,10 @@ TEST_P(MetadataAccessObjectTest, ListContextsWithNonIdFieldOptions) {
 
   const int page_size = 2;
   ListOperationOptions list_options =
-      ParseTextProtoOrDie<ListOperationOptions>(R"(
+      ParseTextProtoOrDie<ListOperationOptions>(R"pb(
         max_result_size: 2,
         order_by_field: { field: CREATE_TIME is_asc: false }
-      )");
+      )pb");
 
   int64 expected_context_id = last_stored_context_id;
   std::string next_page_token;
@@ -5597,15 +5837,15 @@ TEST_P(MetadataAccessObjectTest, ListContextsWithNonIdFieldOptions) {
 
 TEST_P(MetadataAccessObjectTest, ListContextsWithIdFieldOptions) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ContextType type = ParseTextProtoOrDie<ContextType>(R"(
+  ContextType type = ParseTextProtoOrDie<ContextType>(R"pb(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
 
-  Context sample_context = ParseTextProtoOrDie<Context>(R"(
+  Context sample_context = ParseTextProtoOrDie<Context>(R"pb(
     properties {
       key: 'property_1'
       value: { int_value: 3 }
@@ -5614,7 +5854,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsWithIdFieldOptions) {
       key: 'custom_property_1'
       value: { string_value: '5' }
     }
-  )");
+  )pb");
 
   sample_context.set_type_id(type_id);
   int stored_contexts_count = 0;
@@ -5637,10 +5877,10 @@ TEST_P(MetadataAccessObjectTest, ListContextsWithIdFieldOptions) {
 
   const int page_size = 2;
   ListOperationOptions list_options =
-      ParseTextProtoOrDie<ListOperationOptions>(R"(
+      ParseTextProtoOrDie<ListOperationOptions>(R"pb(
         max_result_size: 2,
         order_by_field: { field: ID is_asc: true }
-      )");
+      )pb");
 
   std::string next_page_token;
   int64 expected_context_id = first_context_id;
@@ -5674,10 +5914,10 @@ TEST_P(MetadataAccessObjectTest, GetContextsById) {
   // Setup: create the type for the context
   int64 type_id;
   {
-    ContextType type = ParseTextProtoOrDie<ContextType>(R"(
+    ContextType type = ParseTextProtoOrDie<ContextType>(R"pb(
       name: 'test_type'
       properties { key: 'property_1' value: INT }
-    )");
+    )pb");
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->CreateType(type, &type_id));
   }
@@ -5685,7 +5925,7 @@ TEST_P(MetadataAccessObjectTest, GetContextsById) {
   // Setup: Add first context instance
   Context first_context;
   {
-    first_context = ParseTextProtoOrDie<Context>(R"(
+    first_context = ParseTextProtoOrDie<Context>(R"pb(
       properties {
         key: 'property_1'
         value: { int_value: 3 }
@@ -5694,7 +5934,7 @@ TEST_P(MetadataAccessObjectTest, GetContextsById) {
         key: 'custom_property_1'
         value: { string_value: 'foo' }
       }
-    )");
+    )pb");
     int64 first_context_id;
     first_context.set_type_id(type_id);
     first_context.set_name("get_contexts_by_id_test-1");
@@ -5706,7 +5946,7 @@ TEST_P(MetadataAccessObjectTest, GetContextsById) {
   // Setup: Add second context instance
   Context second_context;
   {
-    second_context = ParseTextProtoOrDie<Context>(R"(
+    second_context = ParseTextProtoOrDie<Context>(R"pb(
       properties {
         key: 'property_1'
         value: { int_value: 5 }
@@ -5715,7 +5955,7 @@ TEST_P(MetadataAccessObjectTest, GetContextsById) {
         key: 'custom_property_1'
         value: { string_value: 'bar' }
       }
-    )");
+    )pb");
     int64 second_context_id;
     second_context.set_type_id(type_id);
     second_context.set_name("get_contexts_by_id_test-2");
@@ -5981,9 +6221,9 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIdsFilterPropertyQuery) {
 TEST_P(MetadataAccessObjectTest, FindArtifactByTypeIdAndArtifactName) {
   ASSERT_EQ(absl::OkStatus(), Init());
   int64 type_id = InsertType<ArtifactType>("test_type");
-  Artifact want_artifact = ParseTextProtoOrDie<Artifact>(R"(
+  Artifact want_artifact = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri1'
-    name: 'artifact1')");
+    name: 'artifact1')pb");
   want_artifact.set_type_id(type_id);
   int64 artifact1_id;
   ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateArtifact(
@@ -6023,18 +6263,18 @@ TEST_P(MetadataAccessObjectTest, FindArtifactByTypeIdAndArtifactName) {
 TEST_P(MetadataAccessObjectTest, FindArtifactsByURI) {
   ASSERT_EQ(absl::OkStatus(), Init());
   int64 type_id = InsertType<ArtifactType>("test_type");
-  Artifact want_artifact1 = ParseTextProtoOrDie<Artifact>(R"(
+  Artifact want_artifact1 = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri1'
-    name: 'artifact1')");
+    name: 'artifact1')pb");
   want_artifact1.set_type_id(type_id);
   int64 artifact1_id;
   ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateArtifact(
                                   want_artifact1, &artifact1_id));
   want_artifact1.set_id(artifact1_id);
 
-  Artifact artifact2 = ParseTextProtoOrDie<Artifact>(R"(
+  Artifact artifact2 = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri2'
-    name: 'artifact2')");
+    name: 'artifact2')pb");
   artifact2.set_type_id(type_id);
   int64 artifact2_id;
   ASSERT_EQ(absl::OkStatus(),
@@ -6134,18 +6374,25 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByExternalIds) {
 
 TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(absl::StrCat(R"(
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(
+      absl::StrCat(R"(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
   )",
-  ""));
+                   // TODO(b/257334039): cleanup fat client
+                   IfSchemaLessThan(10) ? "" :
+                                        R"pb(
+                     properties { key: 'property_4' value: PROTO }
+                     properties { key: 'property_5' value: BOOLEAN }
+                                        )pb",
+                   ""));
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
 
-  Artifact stored_artifact = ParseTextProtoOrDie<Artifact>(R"(
+  Artifact stored_artifact = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri'
     properties {
       key: 'property_1'
@@ -6160,7 +6407,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
       value: { string_value: '5' }
     }
     state: LIVE
-  )");
+  )pb");
   stored_artifact.set_type_id(type_id);
   int64 artifact_id;
   ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateArtifact(
@@ -6182,7 +6429,8 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
 
   // update `property_1`, add `property_2`, and drop `property_3`
   // change the value type of `custom_property_1`
-  Artifact updated_artifact = ParseTextProtoOrDie<Artifact>(absl::StrCat(R"(
+  Artifact updated_artifact = ParseTextProtoOrDie<Artifact>(
+      absl::StrCat(R"(
     uri: 'testuri://changed/uri'
     properties {
       key: 'property_1'
@@ -6193,7 +6441,26 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
       value: { double_value: 3.0 }
     }
   )",
-  R"(
+                   // TODO(b/257334039): cleanup fat client
+                   IfSchemaLessThan(10) ? "" :
+                                        R"(
+    properties {
+      key: 'property_4'
+      value {
+        proto_value {
+          [type.googleapis.com/ml_metadata.testing.MockProto] {
+            string_value: '3'
+            double_value: 3.0
+          }
+        }
+      }
+    }
+    properties {
+      key: 'property_5'
+      value { bool_value: true }
+    }
+  )",
+                   R"(
     custom_properties {
       key: 'custom_property_1'
       value: { int_value: 3 }
@@ -6240,35 +6507,62 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
 
 TEST_P(MetadataAccessObjectTest, UpdateArtifactWithCustomUpdateTime) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(absl::StrCat(R"pb(
-    name: 'test_type'
-    properties { key: 'property_1' value: INT }
-    properties { key: 'property_2' value: DOUBLE }
-    properties { key: 'property_3' value: STRING }
-  )pb",
-  ""));
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(
+      absl::StrCat(R"pb(
+                     name: 'test_type'
+                     properties { key: 'property_1' value: INT }
+                     properties { key: 'property_2' value: DOUBLE }
+                     properties { key: 'property_3' value: STRING }
+                   )pb",
+                   // TODO(b/257334039): cleanup fat client
+                   IfSchemaLessThan(10) ? "" :
+                                        R"pb(
+                     properties { key: 'property_4' value: PROTO }
+                     properties { key: 'property_5' value: BOOLEAN }
+                                        )pb",
+                   ""));
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
 
-  Artifact stored_artifact = ParseTextProtoOrDie<Artifact>(absl::StrCat(R"pb(
-    uri: 'testuri://testing/uri'
-    properties {
-      key: 'property_1'
-      value: { int_value: 3 }
-    }
-    properties {
-      key: 'property_3'
-      value: { string_value: '3' }
-    }
-  )pb",
-  R"pb(
-    custom_properties {
-      key: 'custom_property_1'
-      value: { string_value: '5' }
-    }
-    state: LIVE
-  )pb"));
+  Artifact stored_artifact = ParseTextProtoOrDie<Artifact>(
+      absl::StrCat(R"pb(
+                     uri: 'testuri://testing/uri'
+                     properties {
+                       key: 'property_1'
+                       value: { int_value: 3 }
+                     }
+                     properties {
+                       key: 'property_3'
+                       value: { string_value: '3' }
+                     }
+                   )pb",
+                   // TODO(b/257334039): cleanup fat client
+                   IfSchemaLessThan(10) ? "" :
+                                        R"pb(
+                     properties {
+                       key: 'property_4'
+                       value {
+                         proto_value {
+                           [type.googleapis.com/ml_metadata.testing.MockProto] {
+                             string_value: '3'
+                             double_value: 3.0
+                           }
+                         }
+                       }
+                     }
+                     properties {
+                       key: 'property_5'
+                       value { bool_value: true }
+                     }
+                                        )pb",
+                   R"pb(
+                     custom_properties {
+                       key: 'custom_property_1'
+                       value: { string_value: '5' }
+                     }
+                     state: LIVE
+                   )pb"));
   stored_artifact.set_type_id(type_id);
   int64 artifact_id;
   ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateArtifact(
@@ -6290,23 +6584,43 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactWithCustomUpdateTime) {
 
   // update `property_1`, add `property_2`, and drop `property_3`
   // change the value type of `custom_property_1`
-  Artifact updated_artifact = ParseTextProtoOrDie<Artifact>(absl::StrCat(R"pb(
-    uri: 'testuri://changed/uri'
-    properties {
-      key: 'property_1'
-      value: { int_value: 5 }
-    }
-    properties {
-      key: 'property_2'
-      value: { double_value: 3.0 }
-    }
-  )pb",
-  R"pb(
-    custom_properties {
-      key: 'custom_property_1'
-      value: { int_value: 3 }
-    }
-  )pb"));
+  Artifact updated_artifact = ParseTextProtoOrDie<Artifact>(
+      absl::StrCat(R"pb(
+                     uri: 'testuri://changed/uri'
+                     properties {
+                       key: 'property_1'
+                       value: { int_value: 5 }
+                     }
+                     properties {
+                       key: 'property_2'
+                       value: { double_value: 3.0 }
+                     }
+                   )pb",
+                   // TODO(b/257334039): cleanup fat client
+                   IfSchemaLessThan(10) ? "" :
+                                        R"pb(
+                     properties {
+                       key: 'property_4'
+                       value {
+                         proto_value {
+                           [type.googleapis.com/ml_metadata.testing.MockProto] {
+                             string_value: '1'
+                             double_value: 1.0
+                           }
+                         }
+                       }
+                     }
+                     properties {
+                       key: 'property_5'
+                       value { bool_value: true }
+                     }
+                                        )pb",
+                   R"pb(
+                     custom_properties {
+                       key: 'custom_property_1'
+                       value: { int_value: 3 }
+                     }
+                   )pb"));
   updated_artifact.set_id(artifact_id);
   updated_artifact.set_type_id(type_id);
   absl::Time update_time = absl::InfiniteFuture();
@@ -6426,10 +6740,10 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactWithForceUpdateTimeEnabled) {
 
 TEST_P(MetadataAccessObjectTest, UpdateNodeLastUpdateTimeSinceEpoch) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"pb(
     name: 'test_type'
     properties { key: 'p1' value: INT }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
@@ -6511,21 +6825,21 @@ TEST_P(MetadataAccessObjectTest, UpdateNodeLastUpdateTimeSinceEpoch) {
 
 TEST_P(MetadataAccessObjectTest, UpdateArtifactError) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"(
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"pb(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
 
-  Artifact artifact = ParseTextProtoOrDie<Artifact>(R"(
+  Artifact artifact = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri'
     properties {
       key: 'property_1'
       value: { int_value: 3 }
     }
-  )");
+  )pb");
   artifact.set_type_id(type_id);
   int64 artifact_id;
   ASSERT_EQ(absl::OkStatus(),
@@ -6561,18 +6875,26 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactError) {
 TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
   ASSERT_EQ(absl::OkStatus(), Init());
   // Creates execution 1 with type 1
-  ExecutionType type = ParseTextProtoOrDie<ExecutionType>(absl::StrCat(R"(
+  ExecutionType type = ParseTextProtoOrDie<ExecutionType>(
+      absl::StrCat(R"(
     name: 'test_type_with_predefined_property'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
   )",
-  ""));
+                   // TODO(b/257334039): cleanup fat client
+                   IfSchemaLessThan(10) ? "" :
+                                        R"pb(
+                     properties { key: 'property_4' value: PROTO }
+                     properties { key: 'property_5' value: BOOLEAN }
+                                        )pb",
+                   ""));
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
 
-  Execution want_execution1 = ParseTextProtoOrDie<Execution>(absl::StrCat(R"(
+  Execution want_execution1 =
+      ParseTextProtoOrDie<Execution>(absl::StrCat(R"(
     name: "my_execution1"
     properties {
       key: 'property_1'
@@ -6582,8 +6904,26 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
       key: 'property_3'
       value: { string_value: '3' }
     }
+  )",  // TODO(b/257334039): cleanup fat client
+                                                  IfSchemaLessThan(10) ? "" :
+                                                                       R"(
+    properties {
+      key: 'property_4'
+      value {
+        proto_value {
+          [type.googleapis.com/ml_metadata.testing.MockProto] {
+            string_value: '3'
+            double_value: 3.0
+          }
+        }
+      }
+    }
+    properties {
+      key: 'property_5'
+      value { bool_value: true }
+    }
   )",
-  R"(
+                                                  R"(
     custom_properties {
       key: 'custom_property_1'
       value: { int_value: 3 }
@@ -6598,10 +6938,10 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
   }
   // Creates execution 2 with type 2
   int64 type2_id = InsertType<ExecutionType>("test_type_with_no_property");
-  Execution want_execution2 = ParseTextProtoOrDie<Execution>(R"(
+  Execution want_execution2 = ParseTextProtoOrDie<Execution>(R"pb(
     name: "my_execution2"
     last_known_state: RUNNING
-  )");
+  )pb");
   want_execution2.set_type_id(type2_id);
   {
     int64 execution_id = -1;
@@ -6868,17 +7208,17 @@ TEST_P(MetadataAccessObjectTest, CreateExecutionWithDuplicatedExternalIdError) {
 
 TEST_P(MetadataAccessObjectTest, UpdateExecution) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ExecutionType type = ParseTextProtoOrDie<ExecutionType>(R"(
+  ExecutionType type = ParseTextProtoOrDie<ExecutionType>(R"pb(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
 
-  Execution stored_execution = ParseTextProtoOrDie<Execution>(R"(
+  Execution stored_execution = ParseTextProtoOrDie<Execution>(R"pb(
     properties {
       key: 'property_3'
       value: { string_value: '3' }
@@ -6888,7 +7228,7 @@ TEST_P(MetadataAccessObjectTest, UpdateExecution) {
       value: { string_value: '5' }
     }
     last_known_state: RUNNING
-  )");
+  )pb");
   stored_execution.set_type_id(type_id);
   int64 execution_id;
   ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateExecution(
@@ -6907,7 +7247,7 @@ TEST_P(MetadataAccessObjectTest, UpdateExecution) {
                           /*ignore_fields=*/{"id", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
   // add `property_1` and update `property_3`, and drop `custom_property_1`
-  Execution updated_execution = ParseTextProtoOrDie<Execution>(R"(
+  Execution updated_execution = ParseTextProtoOrDie<Execution>(R"pb(
     properties {
       key: 'property_1'
       value: { int_value: 5 }
@@ -6916,7 +7256,7 @@ TEST_P(MetadataAccessObjectTest, UpdateExecution) {
       key: 'property_3'
       value: { string_value: '5' }
     }
-  )");
+  )pb");
   updated_execution.set_id(execution_id);
   updated_execution.set_type_id(type_id);
   // sleep to verify the latest update time is updated.
@@ -7101,23 +7441,23 @@ TEST_P(MetadataAccessObjectTest, UpdateExecutionWithForceUpdateTimeEnabled) {
 
 TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ContextType type1 = ParseTextProtoOrDie<ContextType>(R"(
+  ContextType type1 = ParseTextProtoOrDie<ContextType>(R"pb(
     name: 'test_type_with_predefined_property'
     properties { key: 'property_1' value: INT }
-  )");
+  )pb");
   int64 type1_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type1, &type1_id));
 
-  ContextType type2 = ParseTextProtoOrDie<ContextType>(R"(
+  ContextType type2 = ParseTextProtoOrDie<ContextType>(R"pb(
     name: 'test_type_with_no_property'
-  )");
+  )pb");
   int64 type2_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type2, &type2_id));
 
   // Creates two contexts of different types
-  Context context1 = ParseTextProtoOrDie<Context>(R"(
+  Context context1 = ParseTextProtoOrDie<Context>(R"pb(
     name: "my_context1"
     properties {
       key: 'property_1'
@@ -7127,15 +7467,15 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
       key: 'custom_property_1'
       value: { int_value: 3 }
     }
-  )");
+  )pb");
   context1.set_type_id(type1_id);
   int64 context1_id = -1;
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateContext(context1, &context1_id));
   context1.set_id(context1_id);
 
-  Context context2 = ParseTextProtoOrDie<Context>(R"(
-    name: "my_context2")");
+  Context context2 = ParseTextProtoOrDie<Context>(R"pb(
+    name: "my_context2")pb");
   context2.set_type_id(type2_id);
   int64 context2_id = -1;
   EXPECT_EQ(absl::OkStatus(),
@@ -7461,17 +7801,17 @@ TEST_P(MetadataAccessObjectTest, ListContextsByType) {
   // Setup: create a context type and insert two instances.
   int64 type_id;
   {
-    ContextType type = ParseTextProtoOrDie<ContextType>(R"(
+    ContextType type = ParseTextProtoOrDie<ContextType>(R"pb(
       name: 'test_type_with_predefined_property'
       properties { key: 'property_1' value: INT }
-    )");
+    )pb");
 
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->CreateType(type, &type_id));
   }
   Context context_1;
   {
-    context_1 = ParseTextProtoOrDie<Context>(R"(
+    context_1 = ParseTextProtoOrDie<Context>(R"pb(
       name: "context_1a"
       properties {
         key: 'property_1'
@@ -7481,7 +7821,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsByType) {
         key: 'custom_property_1'
         value: { int_value: 3 }
       }
-    )");
+    )pb");
     context_1.set_type_id(type_id);
     int64 context_id = -1;
     EXPECT_EQ(absl::OkStatus(),
@@ -7490,7 +7830,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsByType) {
   }
   Context context_2;
   {
-    context_2 = ParseTextProtoOrDie<Context>(R"(
+    context_2 = ParseTextProtoOrDie<Context>(R"pb(
       name: "context_1b"
       properties {
         key: 'property_1'
@@ -7500,7 +7840,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsByType) {
         key: 'custom_property_1'
         value: { int_value: 4 }
       }
-    )");
+    )pb");
     context_2.set_type_id(type_id);
     int64 context_id = -1;
     EXPECT_EQ(absl::OkStatus(),
@@ -7512,14 +7852,14 @@ TEST_P(MetadataAccessObjectTest, ListContextsByType) {
   // additional data that will not retrieved by the test queries.
   {
     int64 type2_id;
-    ContextType type2 = ParseTextProtoOrDie<ContextType>(R"(
+    ContextType type2 = ParseTextProtoOrDie<ContextType>(R"pb(
       name: 'test_type_with_no_property'
-    )");
+    )pb");
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->CreateType(type2, &type2_id));
 
-    Context context = ParseTextProtoOrDie<Context>(R"(
-      name: "my_context2")");
+    Context context = ParseTextProtoOrDie<Context>(R"pb(
+      name: "my_context2")pb");
     context.set_type_id(type2_id);
     int64 context_id = -1;
     EXPECT_EQ(absl::OkStatus(),
@@ -7550,12 +7890,11 @@ TEST_P(MetadataAccessObjectTest, ListContextsByType) {
                                     type_id, absl::make_optional(options),
                                     &contexts, &next_page_token));
     EXPECT_THAT(next_page_token, IsEmpty());
-    EXPECT_THAT(
-        contexts,
-        ElementsAre(
-            EqualsProto(context_2,
-                        /*ignore_fields=*/{"create_time_since_epoch",
-                                           "last_update_time_since_epoch"})));
+    EXPECT_THAT(contexts,
+                ElementsAre(EqualsProto(
+                    context_2,
+                    /*ignore_fields=*/{"create_time_since_epoch",
+                                       "last_update_time_since_epoch"})));
   }
   // Test: List contexts by reverse default ordering (ID)
   {
@@ -7580,12 +7919,11 @@ TEST_P(MetadataAccessObjectTest, ListContextsByType) {
                                     type_id, absl::make_optional(options),
                                     &contexts, &next_page_token));
     EXPECT_THAT(next_page_token, IsEmpty());
-    EXPECT_THAT(
-        contexts,
-        ElementsAre(
-            EqualsProto(context_1,
-                        /*ignore_fields=*/{"create_time_since_epoch",
-                                           "last_update_time_since_epoch"})));
+    EXPECT_THAT(contexts,
+                ElementsAre(EqualsProto(
+                    context_1,
+                    /*ignore_fields=*/{"create_time_since_epoch",
+                                       "last_update_time_since_epoch"})));
   }
   // Test: List contexts through a big max-result size.
   {
@@ -7623,10 +7961,10 @@ TEST_P(MetadataAccessObjectTest, CreateContextError) {
   EXPECT_TRUE(absl::IsNotFound(
       metadata_access_object_->CreateContext(context, &context_id)));
 
-  ContextType type = ParseTextProtoOrDie<ContextType>(R"(
+  ContextType type = ParseTextProtoOrDie<ContextType>(R"pb(
     name: 'test_type_disallow_custom_property'
     properties { key: 'property_1' value: INT }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
@@ -7694,16 +8032,16 @@ TEST_P(MetadataAccessObjectTest, CreateContextWithDuplicatedExternalIdError) {
 
 TEST_P(MetadataAccessObjectTest, UpdateContext) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  ContextType type = ParseTextProtoOrDie<ContextType>(R"(
+  ContextType type = ParseTextProtoOrDie<ContextType>(R"pb(
     name: 'test_type'
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: STRING }
-  )");
+  )pb");
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
 
-  Context context1 = ParseTextProtoOrDie<Context>(R"(
+  Context context1 = ParseTextProtoOrDie<Context>(R"pb(
     name: "before update name"
     properties {
       key: 'property_1'
@@ -7713,7 +8051,7 @@ TEST_P(MetadataAccessObjectTest, UpdateContext) {
       key: 'custom_property_1'
       value: { string_value: '5' }
     }
-  )");
+  )pb");
   context1.set_type_id(type_id);
   int64 context_id;
   ASSERT_EQ(absl::OkStatus(),
@@ -7731,7 +8069,7 @@ TEST_P(MetadataAccessObjectTest, UpdateContext) {
   }
 
   // add `property_2` and update `property_1`, and drop `custom_property_1`
-  Context want_context = ParseTextProtoOrDie<Context>(R"(
+  Context want_context = ParseTextProtoOrDie<Context>(R"pb(
     name: "after update name"
     properties {
       key: 'property_1'
@@ -7741,7 +8079,7 @@ TEST_P(MetadataAccessObjectTest, UpdateContext) {
       key: 'property_2'
       value: { string_value: 'test' }
     }
-  )");
+  )pb");
   want_context.set_id(context_id);
   want_context.set_type_id(type_id);
   // sleep to verify the latest update time is updated.
@@ -8029,10 +8367,10 @@ TEST_P(MetadataAccessObjectTest, GetAssociationUsingPagination) {
   ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   ListOperationOptions list_options =
-      ParseTextProtoOrDie<ListOperationOptions>(R"(
+      ParseTextProtoOrDie<ListOperationOptions>(R"pb(
         max_result_size: 1,
         order_by_field: { field: CREATE_TIME is_asc: false }
-      )");
+      )pb");
 
   std::string next_page_token;
   std::vector<Execution> got_executions;
@@ -8210,10 +8548,10 @@ TEST_P(MetadataAccessObjectTest, GetAttributionUsingPagination) {
   ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   ListOperationOptions list_options =
-      ParseTextProtoOrDie<ListOperationOptions>(R"(
+      ParseTextProtoOrDie<ListOperationOptions>(R"pb(
         max_result_size: 1,
         order_by_field: { field: CREATE_TIME is_asc: false }
-      )");
+      )pb");
 
   std::string next_page_token;
   std::vector<Artifact> got_artifacts;
@@ -8252,10 +8590,10 @@ TEST_P(MetadataAccessObjectTest, GetEmptyAttributionAssociationWithPagination) {
   ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   const ListOperationOptions list_options =
-      ParseTextProtoOrDie<ListOperationOptions>(R"(
+      ParseTextProtoOrDie<ListOperationOptions>(R"pb(
         max_result_size: 1,
         order_by_field: { field: CREATE_TIME is_asc: false }
-      )");
+      )pb");
   {
     std::vector<Artifact> got_artifacts;
     std::string next_page_token;
@@ -8293,8 +8631,8 @@ TEST_P(MetadataAccessObjectTest, CreateAssociationError) {
   Execution execution;
   execution.set_type_id(execution_type_id);
   int64 execution_id;
-  ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateExecution(
-                                  execution, &execution_id));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateExecution(execution, &execution_id));
 
   ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
@@ -8413,8 +8751,8 @@ TEST_P(MetadataAccessObjectTest, CreateAttributionError) {
   context.set_type_id(context_type_id);
   context.set_name("test_context");
   int64 context_id;
-  ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateContext(
-                                  context, &context_id));
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_access_object_->CreateContext(context, &context_id));
 
   int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
   Artifact artifact;
@@ -8961,8 +9299,7 @@ TEST_P(MetadataAccessObjectTest, CreateDuplicatedEvents) {
   // query the events
   std::vector<Event> events_with_artifacts;
   EXPECT_EQ(absl::OkStatus(), metadata_access_object_->FindEventsByArtifacts(
-                                  {input_artifact_id},
-                                  &events_with_artifacts));
+                                  {input_artifact_id}, &events_with_artifacts));
   if (metadata_access_object_container_->GetSchemaVersion() == 7) {
     EXPECT_EQ(events_with_artifacts.size(), 3);
     EXPECT_THAT(
@@ -9351,7 +9688,6 @@ TEST_P(MetadataAccessObjectTest, AutoMigrationTurnedOffByDefault) {
       metadata_access_object_->InitMetadataSourceIfNotExists();
   EXPECT_TRUE(absl::IsFailedPrecondition(status));
 }
-
 
 }  // namespace
 }  // namespace testing

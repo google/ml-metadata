@@ -32,7 +32,7 @@ namespace {
 // a datastore as current approach for schema upgrade/downgrade.
 const std::string kBaseQueryConfig = absl::StrCat(  // NOLINT
 R"pb(
-  schema_version: 9
+  schema_version: 10
   drop_type_table { query: " DROP TABLE IF EXISTS `Type`; " }
   create_type_table {
     query: " CREATE TABLE IF NOT EXISTS `Type` ( "
@@ -252,11 +252,14 @@ R"pb(
            "   `double_value` DOUBLE, "
            "   `string_value` TEXT, "
            "   `byte_value` BLOB, "
+           "   `proto_value` BLOB, "
+           "   `bool_value` BOOLEAN, "
            " PRIMARY KEY (`artifact_id`, `name`, `is_custom_property`)); "
   }
   check_artifact_property_table {
     query: " SELECT `artifact_id`, `name`, `is_custom_property`, "
-           "        `int_value`, `double_value`, `string_value`, `byte_value` "
+           "        `int_value`, `double_value`, `string_value`, `byte_value`, "
+           "        `proto_value`, `bool_value` "
            " FROM `ArtifactProperty` LIMIT 1; "
   }
   insert_artifact_property {
@@ -268,7 +271,8 @@ R"pb(
   select_artifact_property_by_artifact_id {
     query: " SELECT `artifact_id` as `id`, `name` as `key`, "
            "        `is_custom_property`, "
-           "        `int_value`, `double_value`, `string_value` "
+           "        `int_value`, `double_value`, `string_value`, `proto_value`,"
+           "        `bool_value` "
            " from `ArtifactProperty` "
            " WHERE `artifact_id` IN ($0); "
     parameter_num: 1
@@ -358,11 +362,14 @@ R"pb(
            "   `double_value` DOUBLE, "
            "   `string_value` TEXT, "
            "   `byte_value` BLOB, "
+           "   `proto_value` BLOB, "
+           "   `bool_value` BOOLEAN, "
            " PRIMARY KEY (`execution_id`, `name`, `is_custom_property`)); "
   }
   check_execution_property_table {
     query: " SELECT `execution_id`, `name`, `is_custom_property`, "
-           "        `int_value`, `double_value`, `string_value`, `byte_value` "
+           "        `int_value`, `double_value`, `string_value`, `byte_value`, "
+           "        `proto_value`, `bool_value` "
            " FROM `ExecutionProperty` LIMIT 1; "
   }
   insert_execution_property {
@@ -374,7 +381,8 @@ R"pb(
   select_execution_property_by_execution_id {
     query: " SELECT `execution_id` as `id`, `name` as `key`, "
            "        `is_custom_property`, "
-           "        `int_value`, `double_value`, `string_value` "
+           "        `int_value`, `double_value`, `string_value`, `proto_value`,"
+           "        `bool_value` "
            " from `ExecutionProperty` "
            " WHERE `execution_id` IN ($0); "
     parameter_num: 1
@@ -461,11 +469,14 @@ R"pb(
            "   `double_value` DOUBLE, "
            "   `string_value` TEXT, "
            "   `byte_value` BLOB, "
+           "   `proto_value` BLOB, "
+           "   `bool_value` BOOLEAN, "
            " PRIMARY KEY (`context_id`, `name`, `is_custom_property`)); "
   }
   check_context_property_table {
     query: " SELECT `context_id`, `name`, `is_custom_property`, "
-           "        `int_value`, `double_value`, `string_value`, `byte_value` "
+           "        `int_value`, `double_value`, `string_value`, `byte_value`, "
+           "        `proto_value`, `bool_value` "
            " FROM `ContextProperty` LIMIT 1; "
   }
   insert_context_property {
@@ -477,7 +488,8 @@ R"pb(
   select_context_property_by_context_id {
     query: " SELECT `context_id` as `id`, `name` as `key`, "
            "        `is_custom_property`, "
-           "        `int_value`, `double_value`, `string_value` "
+           "        `int_value`, `double_value`, `string_value`, `proto_value`,"
+           "        `bool_value` "
            " from `ContextProperty` "
            " WHERE `context_id` IN ($0); "
     parameter_num: 1
@@ -2344,7 +2356,7 @@ R"pb(
         }
       }
     }
-            }
+  }
 )pb",
 R"pb(
   # In v9, to store the ids that come from the clients' system (like Vertex
@@ -2577,6 +2589,238 @@ R"pb(
         }
       }
       db_verification { total_num_indexes: 40 total_num_tables: 15 }
+      # downgrade queries from version 10
+      downgrade_queries {
+        query: " CREATE TABLE IF NOT EXISTS `ArtifactPropertyTemp` ( "
+               "   `artifact_id` INT NOT NULL, "
+               "   `name` VARCHAR(255) NOT NULL, "
+               "   `is_custom_property` TINYINT(1) NOT NULL, "
+               "   `int_value` INT, "
+               "   `double_value` DOUBLE, "
+               "   `string_value` TEXT, "
+               "   `byte_value` BLOB, "
+               " PRIMARY KEY (`artifact_id`, `name`, `is_custom_property`)); "
+      }
+      downgrade_queries {
+        query: " INSERT INTO `ArtifactPropertyTemp`  "
+               " SELECT `artifact_id`, `name`,  `is_custom_property`, "
+               "        `int_value`, `double_value`, `string_value`, "
+               "        `byte_value` "
+               " FROM `ArtifactProperty`; "
+      }
+      downgrade_queries { query: " DROP TABLE `ArtifactProperty`; " }
+      downgrade_queries {
+        query: " ALTER TABLE `ArtifactPropertyTemp` "
+               "  RENAME TO `ArtifactProperty`; "
+      }
+      downgrade_queries {
+        query: " CREATE TABLE IF NOT EXISTS `ExecutionPropertyTemp` ( "
+               "   `execution_id` INT NOT NULL, "
+               "   `name` VARCHAR(255) NOT NULL, "
+               "   `is_custom_property` TINYINT(1) NOT NULL, "
+               "   `int_value` INT, "
+               "   `double_value` DOUBLE, "
+               "   `string_value` TEXT, "
+               "   `byte_value` BLOB, "
+               " PRIMARY KEY (`execution_id`, `name`, `is_custom_property`)); "
+      }
+      downgrade_queries {
+        query: " INSERT INTO `ExecutionPropertyTemp` "
+               " SELECT `execution_id`, `name`,  `is_custom_property`, "
+               "     `int_value`, `double_value`, `string_value`, "
+               "     `byte_value` "
+               " FROM `ExecutionProperty`; "
+      }
+      downgrade_queries { query: " DROP TABLE `ExecutionProperty`; " }
+      downgrade_queries {
+        query: " ALTER TABLE `ExecutionPropertyTemp` "
+               "  RENAME TO `ExecutionProperty`; "
+      }
+      downgrade_queries {
+        query: " CREATE TABLE IF NOT EXISTS `ContextPropertyTemp` ( "
+               "   `context_id` INT NOT NULL, "
+               "   `name` VARCHAR(255) NOT NULL, "
+               "   `is_custom_property` TINYINT(1) NOT NULL, "
+               "   `int_value` INT, "
+               "   `double_value` DOUBLE, "
+               "   `string_value` TEXT, "
+               "   `byte_value` BLOB, "
+               " PRIMARY KEY (`context_id`, `name`, `is_custom_property`)); "
+      }
+      downgrade_queries {
+        query: " INSERT INTO `ContextPropertyTemp` "
+               " SELECT `context_id`, `name`,  `is_custom_property`, "
+               "        `int_value`, `double_value`, `string_value`, "
+               "        `byte_value` "
+               " FROM `ContextProperty`; "
+      }
+      downgrade_queries { query: " DROP TABLE `ContextProperty`; " }
+      downgrade_queries {
+        query: " ALTER TABLE `ContextPropertyTemp` "
+               "  RENAME TO `ContextProperty`; "
+      }
+      # recreate the indices that were dropped along with the old tables
+      downgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_artifact_property_int` "
+               " ON `ArtifactProperty`(`name`, `is_custom_property`, "
+               " `int_value`) "
+               " WHERE `int_value` IS NOT NULL; "
+      }
+      downgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_artifact_property_double` "
+               " ON `ArtifactProperty`(`name`, `is_custom_property`, "
+               " `double_value`) "
+               " WHERE `double_value` IS NOT NULL; "
+      }
+      downgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_artifact_property_string` "
+               " ON `ArtifactProperty`(`name`, `is_custom_property`, "
+               " `string_value`) "
+               " WHERE `string_value` IS NOT NULL; "
+      }
+      downgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_execution_property_int` "
+               " ON `ExecutionProperty`(`name`, `is_custom_property`, "
+               " `int_value`) "
+               " WHERE `int_value` IS NOT NULL; "
+      }
+      downgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_execution_property_double` "
+               " ON `ExecutionProperty`(`name`, `is_custom_property`, "
+               " `double_value`) "
+               " WHERE `double_value` IS NOT NULL; "
+      }
+      downgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_execution_property_string` "
+               " ON `ExecutionProperty`(`name`, `is_custom_property`, "
+               " `string_value`) "
+               " WHERE `string_value` IS NOT NULL; "
+      }
+      downgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_context_property_int` "
+               " ON `ContextProperty`(`name`, `is_custom_property`, "
+               " `int_value`) "
+               " WHERE `int_value` IS NOT NULL; "
+      }
+      downgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_context_property_double` "
+               " ON `ContextProperty`(`name`, `is_custom_property`, "
+               " `double_value`) "
+               " WHERE `double_value` IS NOT NULL; "
+      }
+      downgrade_queries {
+        query: " CREATE INDEX IF NOT EXISTS `idx_context_property_string` "
+               " ON `ContextProperty`(`name`, `is_custom_property`, "
+               " `string_value`) "
+               " WHERE `string_value` IS NOT NULL; "
+      }
+)pb",
+R"pb(
+      # verify that downgrading keeps the existing columns
+      downgrade_verification {
+        previous_version_setup_queries {
+          query: "DELETE FROM `ArtifactProperty`;"
+        }
+        previous_version_setup_queries {
+          query: "DELETE FROM `ExecutionProperty`;"
+        }
+        previous_version_setup_queries {
+          query: "DELETE FROM `ContextProperty`;"
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `ArtifactProperty` (`artifact_id`, "
+                 "     `is_custom_property`, `name`, `string_value`) "
+                 " VALUES (1, 0, 'p1', 'abc'); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `ExecutionProperty` (`execution_id`, "
+                 "     `is_custom_property`, `name`, `int_value`) "
+                 " VALUES (1, 1, 'p1', 1); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `ContextProperty` (`context_id`, "
+                 "     `is_custom_property`, `name`, `double_value`) "
+                 " VALUES (1, 0, 'p1', 1.0); "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM "
+                 "        PRAGMA_TABLE_INFO('ArtifactProperty') "
+                 " WHERE `name` = 'proto_value'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM "
+                 "        PRAGMA_TABLE_INFO('ArtifactProperty') "
+                 " WHERE `name` = 'bool_value'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM "
+                 "        PRAGMA_TABLE_INFO('ExecutionProperty') "
+                 " WHERE `name` = 'proto_value'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM "
+                 "        PRAGMA_TABLE_INFO('ExecutionProperty') "
+                 " WHERE `name` = 'bool_value'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM "
+                 "        PRAGMA_TABLE_INFO('ContextProperty') "
+                 " WHERE `name` = 'proto_value'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM "
+                 "        PRAGMA_TABLE_INFO('ContextProperty') "
+                 " WHERE `name` = 'bool_value'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `ArtifactProperty` "
+                 " WHERE `artifact_id` = 1 AND `is_custom_property` = 0 AND "
+                 "       `name` = 'p1' AND `string_value` = 'abc'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `ExecutionProperty` "
+                 " WHERE `execution_id` = 1 AND `is_custom_property` = 1 AND "
+                 "        `name` = 'p1' AND `int_value` = 1; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 1 FROM `ContextProperty` "
+                 " WHERE `context_id` = 1  AND `is_custom_property` = 0 AND "
+                 "        `name` = 'p1' AND `double_value` = 1.0; "
+        }
+      }
+    }
+  }
+)pb",
+R"pb(
+  # In v10, we added proto_value and bool_value columns to {X}Property tables
+  migration_schemes {
+    key: 10
+    value: {
+      upgrade_queries {
+        query: " ALTER TABLE `ArtifactProperty` "
+               " ADD COLUMN `proto_value` BLOB; "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `ArtifactProperty` "
+               " ADD COLUMN `bool_value` BOOLEAN; "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `ExecutionProperty` "
+               " ADD COLUMN `proto_value` BLOB; "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `ExecutionProperty` "
+               " ADD COLUMN `bool_value` BOOLEAN; "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `ContextProperty` "
+               " ADD COLUMN `proto_value` BLOB;"
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `ContextProperty` "
+               " ADD COLUMN `bool_value` BOOLEAN; "
+      }
+      db_verification { total_num_indexes: 40 total_num_tables: 15 }
     }
   }
 )pb");
@@ -2678,6 +2922,8 @@ R"pb(
            "   `double_value` DOUBLE, "
            "   `string_value` MEDIUMTEXT, "
            "   `byte_value` MEDIUMBLOB, "
+           "   `proto_value` MEDIUMBLOB, "
+           "   `bool_value` BOOLEAN, "
            " PRIMARY KEY (`artifact_id`, `name`, `is_custom_property`)); "
   }
   create_execution_table {
@@ -2701,6 +2947,8 @@ R"pb(
            "   `double_value` DOUBLE, "
            "   `string_value` MEDIUMTEXT, "
            "   `byte_value` MEDIUMBLOB, "
+           "   `proto_value` MEDIUMBLOB, "
+           "   `bool_value` BOOLEAN, "
            " PRIMARY KEY (`execution_id`, `name`, `is_custom_property`)); "
   }
   create_context_table {
@@ -2723,6 +2971,8 @@ R"pb(
            "   `double_value` DOUBLE, "
            "   `string_value` MEDIUMTEXT, "
            "   `byte_value` MEDIUMBLOB, "
+           "   `proto_value` MEDIUMBLOB, "
+           "   `bool_value` BOOLEAN, "
            " PRIMARY KEY (`context_id`, `name`, `is_custom_property`)); "
   }
   create_event_table {
@@ -4153,7 +4403,7 @@ R"pb(
 R"pb(
   # In v9, to store the ids that come from the clients' system (like Vertex
   # Metadata), we added a new column `external_id` in the `Type`,
-  # `Artifacrt`, `Execution`, `Context` tables. We introduce unique and
+  # `Artifact`, `Execution`, `Context` tables. We introduce unique and
   # null-filtered indices on Type.external_id, Artifact.external_id,
   # Execution's external_id and Context's external_id.
   migration_schemes {
@@ -4268,6 +4518,139 @@ R"pb(
                  "   WHERE `id` = 1 AND `type_id` = 2 AND `name` = 'name1' AND "
                  "         `external_id` IS NULL "
                  " ) as T1; "
+        }
+      }
+      db_verification { total_num_indexes: 82 total_num_tables: 15 }
+      # downgrade queries from version 10
+      downgrade_queries {
+        query: " ALTER TABLE `ArtifactProperty` "
+               " DROP COLUMN `proto_value`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `ArtifactProperty` "
+               " DROP COLUMN `bool_value`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `ExecutionProperty` "
+               " DROP COLUMN `proto_value`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `ExecutionProperty` "
+               " DROP COLUMN `bool_value`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `ContextProperty` "
+               " DROP COLUMN `proto_value`; "
+      }
+      downgrade_queries {
+        query: " ALTER TABLE `ContextProperty` "
+               " DROP COLUMN `bool_value`; "
+      }
+      downgrade_verification {
+        previous_version_setup_queries {
+          query: " INSERT INTO `Artifact` "
+                 " (`id`, `name`) "
+                 " VALUES (1, 'artifact-name'); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `ArtifactProperty` (`artifact_id`, "
+                 "     `name`, `is_custom_property`, `string_value`) "
+                 " VALUES (1, 'p-0', false, 'string_property_value'); "
+        }
+
+        previous_version_setup_queries {
+          query: " INSERT INTO `Execution` "
+                 " (`id`, `name`) "
+                 " VALUES (1, 'execution-name'); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `ExecutionProperty` (`execution_id`, "
+                 "     `name`, `is_custom_property`, `string_value`) "
+                 " VALUES (1, 'p-0', false, 'string_property_value'); "
+        }
+
+        previous_version_setup_queries {
+          query: " INSERT INTO `Context` "
+                 " (`id`, `name`) "
+                 " VALUES (1, 'context-name'); "
+        }
+        previous_version_setup_queries {
+          query: " INSERT INTO `ContextProperty` (`context_id`, "
+                 "     `name`, `is_custom_property`, `string_value`) "
+                 " VALUES (1, 'p-0', false, 'string_property_value'); "
+        }
+
+        post_migration_verification_queries {
+          query: " SELECT COUNT(*) = 1 "
+                 " FROM ArtifactProperty AS AP "
+                 " WHERE AP.artifact_id = 1 "
+                 "   AND AP.name = 'p-0' "
+                 "   AND AP.is_custom_property = false "
+                 "   AND AP.string_value = 'string_property_value'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT COUNT(*) = 1 "
+                 " FROM ExecutionProperty AS EP "
+                 " WHERE EP.execution_id = 1 "
+                 "   AND EP.name = 'p-0' "
+                 "   AND EP.is_custom_property = false "
+                 "   AND EP.string_value = 'string_property_value'; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT COUNT(*) = 1 "
+                 " FROM ContextProperty AS CP "
+                 " WHERE CP.context_id = 1 "
+                 "   AND CP.name = 'p-0' "
+                 "   AND CP.is_custom_property = false "
+                 "   AND CP.string_value = 'string_property_value'; "
+        }
+      }
+    }
+  }
+)pb",
+R"pb(
+  # In v10, we added proto_value and bool_value for property tables.
+  migration_schemes {
+    key: 10
+    value: {
+      upgrade_queries {
+        query: " ALTER TABLE `ArtifactProperty` "
+               " ADD COLUMN `proto_value` MEDIUMBLOB, "
+               " ADD COLUMN `bool_value` BOOLEAN; "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `ExecutionProperty` "
+               " ADD COLUMN `proto_value` MEDIUMBLOB, "
+               " ADD COLUMN `bool_value` BOOLEAN; "
+      }
+      upgrade_queries {
+        query: " ALTER TABLE `ContextProperty` "
+               " ADD COLUMN `proto_value` MEDIUMBLOB, "
+               " ADD COLUMN `bool_value` BOOLEAN; "
+      }
+      # check the expected table columns are created properly.
+      upgrade_verification {
+        # check existing rows in previous Type table are migrated properly.
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `ArtifactProperty` WHERE "
+                 " `proto_value` IS NOT NULL; "
+        } post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `ArtifactProperty` WHERE "
+                 " `bool_value` IS NOT NULL; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `ExecutionProperty` WHERE "
+                 " `proto_value` IS NOT NULL; "
+        } post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `ExecutionProperty` WHERE "
+                 " `bool_value` IS NOT NULL; "
+        }
+        post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `ContextProperty` WHERE "
+                 " `proto_value` IS NOT NULL; "
+        } post_migration_verification_queries {
+          query: " SELECT count(*) = 0 FROM `ContextProperty` WHERE "
+                 " `bool_value` IS NOT NULL; "
         }
       }
       db_verification { total_num_indexes: 82 total_num_tables: 15 }
