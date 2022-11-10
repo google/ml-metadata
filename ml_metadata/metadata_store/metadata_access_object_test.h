@@ -333,6 +333,8 @@ class MetadataAccessObjectTest
     int64 type_id;
     CHECK_EQ(absl::OkStatus(),
              metadata_access_object_->CreateType(type, &type_id));
+    CHECK_EQ(absl::OkStatus(),
+             metadata_access_object_container_->AddCommitPoint());
     return type_id;
   }
 

@@ -283,11 +283,15 @@ using ::testing::UnorderedPointwise;
 // A utility method creates and stores a type based on the given text proto.
 // Returns stored type proto with id.
 template <class NodeType>
-NodeType CreateTypeFromTextProto(const std::string& type_text_proto,
-                                 MetadataAccessObject& metadata_access_object) {
+NodeType CreateTypeFromTextProto(
+    const std::string& type_text_proto,
+    MetadataAccessObject& metadata_access_object,
+    MetadataAccessObjectContainer* metadata_access_object_container) {
   NodeType type = ParseTextProtoOrDie<NodeType>(type_text_proto);
   int64 type_id;
   CHECK_EQ(absl::OkStatus(), metadata_access_object.CreateType(type, &type_id));
+  CHECK_EQ(absl::OkStatus(),
+           metadata_access_object_container->AddCommitPoint());
   type.set_id(type_id);
   return type;
 }
@@ -438,8 +442,10 @@ void UpdateAndReturnNode(
 // Set up for FindTypesByIds() related tests.
 // `type_1` and `type_2` are initilized, inserted into db and returned.
 template <class Type>
-absl::Status FindTypesByIdsSetup(MetadataAccessObject& metadata_access_object,
-                                 Type& type_1, Type& type_2) {
+absl::Status FindTypesByIdsSetup(
+    MetadataAccessObject& metadata_access_object,
+    MetadataAccessObjectContainer* metadata_access_object_container,
+    Type& type_1, Type& type_2) {
   type_1 = ParseTextProtoOrDie<Type>(R"pb(
     name: 'test_type_1'
     properties { key: 'property_1' value: INT }
@@ -456,6 +462,7 @@ absl::Status FindTypesByIdsSetup(MetadataAccessObject& metadata_access_object,
   int64 type_id_2;
   MLMD_RETURN_IF_ERROR(metadata_access_object.CreateType(type_1, &type_id_1));
   MLMD_RETURN_IF_ERROR(metadata_access_object.CreateType(type_2, &type_id_2));
+  MLMD_RETURN_IF_ERROR(metadata_access_object_container->AddCommitPoint());
   type_1.set_id(type_id_1);
   type_2.set_id(type_id_2);
 
@@ -514,6 +521,7 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExists) {
   int64 type_id = -1;
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   // all schema exists, the methods does nothing, check the stored type
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->InitMetadataSourceIfNotExists());
@@ -654,13 +662,16 @@ TEST_P(MetadataAccessObjectTest, CreateParentTypeInheritanceLink) {
   {
     // Test: create artifact parent type inheritance link
     const ArtifactType type1 = CreateTypeFromTextProto<ArtifactType>(
-        "name: 't1'", *metadata_access_object_);
+        "name: 't1'", *metadata_access_object_,
+        metadata_access_object_container_.get());
     const ArtifactType type2 = CreateTypeFromTextProto<ArtifactType>(
-        "name: 't2'", *metadata_access_object_);
+        "name: 't2'", *metadata_access_object_,
+        metadata_access_object_container_.get());
     // create parent type is ok.
     ASSERT_EQ(
         absl::OkStatus(),
         metadata_access_object_->CreateParentTypeInheritanceLink(type1, type2));
+    ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
     // recreate the same parent type returns AlreadyExists
     const absl::Status status =
         metadata_access_object_->CreateParentTypeInheritanceLink(type1, type2);
@@ -670,13 +681,16 @@ TEST_P(MetadataAccessObjectTest, CreateParentTypeInheritanceLink) {
   {
     // Test: create execution parent type inheritance link
     const ExecutionType type1 = CreateTypeFromTextProto<ExecutionType>(
-        "name: 't1'", *metadata_access_object_);
+        "name: 't1'", *metadata_access_object_,
+        metadata_access_object_container_.get());
     const ExecutionType type2 = CreateTypeFromTextProto<ExecutionType>(
-        "name: 't2'", *metadata_access_object_);
+        "name: 't2'", *metadata_access_object_,
+        metadata_access_object_container_.get());
     // create parent type is ok.
     ASSERT_EQ(
         absl::OkStatus(),
         metadata_access_object_->CreateParentTypeInheritanceLink(type1, type2));
+    ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
     // recreate the same parent type returns AlreadyExists
     const absl::Status status =
         metadata_access_object_->CreateParentTypeInheritanceLink(type1, type2);
@@ -686,13 +700,16 @@ TEST_P(MetadataAccessObjectTest, CreateParentTypeInheritanceLink) {
   {
     // Test: create context parent type inheritance link
     const ContextType type1 = CreateTypeFromTextProto<ContextType>(
-        "name: 't1'", *metadata_access_object_);
+        "name: 't1'", *metadata_access_object_,
+        metadata_access_object_container_.get());
     const ContextType type2 = CreateTypeFromTextProto<ContextType>(
-        "name: 't2'", *metadata_access_object_);
+        "name: 't2'", *metadata_access_object_,
+        metadata_access_object_container_.get());
     // create parent type is ok.
     ASSERT_EQ(
         absl::OkStatus(),
         metadata_access_object_->CreateParentTypeInheritanceLink(type1, type2));
+    ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
     // recreate the same parent type returns AlreadyExists
     const absl::Status status =
         metadata_access_object_->CreateParentTypeInheritanceLink(type1, type2);
@@ -704,7 +721,8 @@ TEST_P(MetadataAccessObjectTest,
        CreateParentTypeInheritanceLinkInvalidTypeIdError) {
   ASSERT_EQ(absl::OkStatus(), Init());
   const ArtifactType stored_type1 = CreateTypeFromTextProto<ArtifactType>(
-      "name: 't1'", *metadata_access_object_);
+      "name: 't1'", *metadata_access_object_,
+      metadata_access_object_container_.get());
   const ArtifactType no_id_type1, no_id_type2;
 
   {
@@ -732,20 +750,26 @@ TEST_P(MetadataAccessObjectTest,
 TEST_P(MetadataAccessObjectTest, CreateParentTypeInheritanceLinkWithCycle) {
   ASSERT_EQ(absl::OkStatus(), Init());
   const ArtifactType type1 = CreateTypeFromTextProto<ArtifactType>(
-      "name: 't1'", *metadata_access_object_);
+      "name: 't1'", *metadata_access_object_,
+      metadata_access_object_container_.get());
   const ArtifactType type2 = CreateTypeFromTextProto<ArtifactType>(
-      "name: 't2'", *metadata_access_object_);
+      "name: 't2'", *metadata_access_object_,
+      metadata_access_object_container_.get());
   const ArtifactType type3 = CreateTypeFromTextProto<ArtifactType>(
-      "name: 't3'", *metadata_access_object_);
+      "name: 't3'", *metadata_access_object_,
+      metadata_access_object_container_.get());
   const ArtifactType type4 = CreateTypeFromTextProto<ArtifactType>(
-      "name: 't4'", *metadata_access_object_);
+      "name: 't4'", *metadata_access_object_,
+      metadata_access_object_container_.get());
   const ArtifactType type5 = CreateTypeFromTextProto<ArtifactType>(
-      "name: 't4'", *metadata_access_object_);
+      "name: 't4'", *metadata_access_object_,
+      metadata_access_object_container_.get());
 
   {
     // cannot add self as parent.
     const absl::Status status =
         metadata_access_object_->CreateParentTypeInheritanceLink(type1, type1);
+    ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
     EXPECT_TRUE(absl::IsInvalidArgument(status));
   }
 
@@ -753,11 +777,13 @@ TEST_P(MetadataAccessObjectTest, CreateParentTypeInheritanceLinkWithCycle) {
   ASSERT_EQ(
       absl::OkStatus(),
       metadata_access_object_->CreateParentTypeInheritanceLink(type1, type2));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   {
     // cannot have bi-direction parent
     const absl::Status status =
         metadata_access_object_->CreateParentTypeInheritanceLink(type2, type1);
+    ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
     EXPECT_TRUE(absl::IsInvalidArgument(status));
   }
 
@@ -766,17 +792,21 @@ TEST_P(MetadataAccessObjectTest, CreateParentTypeInheritanceLinkWithCycle) {
   ASSERT_EQ(
       absl::OkStatus(),
       metadata_access_object_->CreateParentTypeInheritanceLink(type2, type3));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   ASSERT_EQ(
       absl::OkStatus(),
       metadata_access_object_->CreateParentTypeInheritanceLink(type1, type4));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   ASSERT_EQ(
       absl::OkStatus(),
       metadata_access_object_->CreateParentTypeInheritanceLink(type4, type5));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   {
     // cannot have transitive parent
     const absl::Status status =
         metadata_access_object_->CreateParentTypeInheritanceLink(type3, type1);
+    ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
     EXPECT_TRUE(absl::IsInvalidArgument(status));
   }
 
@@ -784,6 +814,7 @@ TEST_P(MetadataAccessObjectTest, CreateParentTypeInheritanceLinkWithCycle) {
     // cannot have transitive parent
     const absl::Status status =
         metadata_access_object_->CreateParentTypeInheritanceLink(type5, type1);
+    ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
     EXPECT_TRUE(absl::IsInvalidArgument(status));
   }
 }
@@ -796,24 +827,24 @@ TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeId) {
   // ExecutionType: type4 -> type5
   // ContextType:   type6 -> type7
   //                type8
-  const ArtifactType type1 =
-      CreateTypeFromTextProto<ArtifactType>(R"(
+  const ArtifactType type1 = CreateTypeFromTextProto<ArtifactType>(
+      R"(
           name: 't1'
           properties { key: 'property_1' value: STRING }
       )",
-                                            *metadata_access_object_);
-  ArtifactType type2 =
-      CreateTypeFromTextProto<ArtifactType>(R"(
+      *metadata_access_object_, metadata_access_object_container_.get());
+  ArtifactType type2 = CreateTypeFromTextProto<ArtifactType>(
+      R"(
           name: 't2'
           properties { key: 'property_2' value: INT }
       )",
-                                            *metadata_access_object_);
-  ArtifactType type3 =
-      CreateTypeFromTextProto<ArtifactType>(R"(
+      *metadata_access_object_, metadata_access_object_container_.get());
+  ArtifactType type3 = CreateTypeFromTextProto<ArtifactType>(
+      R"(
           name: 't3'
           properties { key: 'property_3' value: DOUBLE }
       )",
-                                            *metadata_access_object_);
+      *metadata_access_object_, metadata_access_object_container_.get());
   ASSERT_EQ(
       absl::OkStatus(),
       metadata_access_object_->CreateParentTypeInheritanceLink(type1, type2));
@@ -821,35 +852,39 @@ TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeId) {
       absl::OkStatus(),
       metadata_access_object_->CreateParentTypeInheritanceLink(type3, type2));
 
-  const ExecutionType type4 =
-      CreateTypeFromTextProto<ExecutionType>(R"(
+  const ExecutionType type4 = CreateTypeFromTextProto<ExecutionType>(
+      R"(
           name: 't4'
           properties { key: 'property_4' value: STRING }
       )",
-                                             *metadata_access_object_);
-  const ExecutionType type5 =
-      CreateTypeFromTextProto<ExecutionType>(R"(
+      *metadata_access_object_, metadata_access_object_container_.get());
+  const ExecutionType type5 = CreateTypeFromTextProto<ExecutionType>(
+      R"(
             name: 't5'
         )",
-                                             *metadata_access_object_);
+      *metadata_access_object_, metadata_access_object_container_.get());
   ASSERT_EQ(
       absl::OkStatus(),
       metadata_access_object_->CreateParentTypeInheritanceLink(type4, type5));
 
-  const ContextType type6 =
-      CreateTypeFromTextProto<ContextType>(R"(
+  const ContextType type6 = CreateTypeFromTextProto<ContextType>(
+      R"(
           name: 't6'
           properties { key: 'property_5' value: INT }
           properties { key: 'property_6' value: DOUBLE }
       )",
-                                           *metadata_access_object_);
+      *metadata_access_object_, metadata_access_object_container_.get());
   const ContextType type7 = CreateTypeFromTextProto<ContextType>(
-      "name: 't7'", *metadata_access_object_);
+      "name: 't7'", *metadata_access_object_,
+      metadata_access_object_container_.get());
   const ContextType type8 = CreateTypeFromTextProto<ContextType>(
-      "name: 't8'", *metadata_access_object_);
+      "name: 't8'", *metadata_access_object_,
+      metadata_access_object_container_.get());
   ASSERT_EQ(
       absl::OkStatus(),
       metadata_access_object_->CreateParentTypeInheritanceLink(type6, type7));
+
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // verify artifact types
   {
@@ -975,8 +1010,9 @@ TEST_P(MetadataAccessObjectTest, StoreTypeWithVersionAndDescriptions) {
 
   {
     const ArtifactType want_artifact_type =
-        CreateTypeFromTextProto<ArtifactType>(kTypeStr,
-                                              *metadata_access_object_);
+        CreateTypeFromTextProto<ArtifactType>(
+            kTypeStr, *metadata_access_object_,
+            metadata_access_object_container_.get());
     ArtifactType got_artifact_type;
     EXPECT_EQ(absl::OkStatus(),
               metadata_access_object_->FindTypeById(want_artifact_type.id(),
@@ -986,8 +1022,9 @@ TEST_P(MetadataAccessObjectTest, StoreTypeWithVersionAndDescriptions) {
 
   {
     const ExecutionType want_execution_type =
-        CreateTypeFromTextProto<ExecutionType>(kTypeStr,
-                                               *metadata_access_object_);
+        CreateTypeFromTextProto<ExecutionType>(
+            kTypeStr, *metadata_access_object_,
+            metadata_access_object_container_.get());
     ExecutionType got_execution_type;
     EXPECT_EQ(absl::OkStatus(),
               metadata_access_object_->FindTypeByNameAndVersion(
@@ -998,7 +1035,8 @@ TEST_P(MetadataAccessObjectTest, StoreTypeWithVersionAndDescriptions) {
 
   {
     const ContextType want_context_type = CreateTypeFromTextProto<ContextType>(
-        kTypeStr, *metadata_access_object_);
+        kTypeStr, *metadata_access_object_,
+        metadata_access_object_container_.get());
     std::vector<ContextType> got_context_types;
     EXPECT_EQ(absl::OkStatus(),
               metadata_access_object_->FindTypes(&got_context_types));
@@ -1015,8 +1053,9 @@ TEST_P(MetadataAccessObjectTest, StoreTypeWithEmptyVersion) {
 
   {
     const ArtifactType want_artifact_type =
-        CreateTypeFromTextProto<ArtifactType>(kEmptyStringVersionTypeStr,
-                                              *metadata_access_object_);
+        CreateTypeFromTextProto<ArtifactType>(
+            kEmptyStringVersionTypeStr, *metadata_access_object_,
+            metadata_access_object_container_.get());
     ArtifactType got_artifact_type;
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->FindTypeById(want_artifact_type.id(),
@@ -1028,8 +1067,9 @@ TEST_P(MetadataAccessObjectTest, StoreTypeWithEmptyVersion) {
 
   {
     const ExecutionType want_execution_type =
-        CreateTypeFromTextProto<ExecutionType>(kEmptyStringVersionTypeStr,
-                                               *metadata_access_object_);
+        CreateTypeFromTextProto<ExecutionType>(
+            kEmptyStringVersionTypeStr, *metadata_access_object_,
+            metadata_access_object_container_.get());
     ExecutionType got_execution_type;
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->FindTypeByNameAndVersion(
@@ -1042,7 +1082,8 @@ TEST_P(MetadataAccessObjectTest, StoreTypeWithEmptyVersion) {
 
   {
     const ContextType want_context_type = CreateTypeFromTextProto<ContextType>(
-        kEmptyStringVersionTypeStr, *metadata_access_object_);
+        kEmptyStringVersionTypeStr, *metadata_access_object_,
+        metadata_access_object_container_.get());
     std::vector<ContextType> got_context_types;
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->FindTypes(&got_context_types));
@@ -1074,49 +1115,75 @@ TEST_P(MetadataAccessObjectTest, CreateTypeError) {
   }
 }
 
-TEST_P(MetadataAccessObjectTest, CreateTypeWithDuplicatedExternalIdError) {
+TEST_P(MetadataAccessObjectTest,
+       CreateArtifactTypeWithDuplicatedExternalIdError) {
   if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/9)) {
     return;
   }
   MLMD_ASSERT_OK(Init());
 
-  ArtifactType type1 = ParseTextProtoOrDie<ArtifactType>(R"pb(
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"pb(
     name: 'test_type1'
     external_id: 'artifact_type1'
   )pb");
-  int64 type1_id = -1;
-  MLMD_EXPECT_OK(metadata_access_object_->CreateType(type1, &type1_id));
-
-  ExecutionType type2 = ParseTextProtoOrDie<ExecutionType>(
-      R"pb(name: 'test_type' external_id: 'execution_type1'
-      )pb");
-  int64 type2_id = -1;
-  MLMD_EXPECT_OK(metadata_access_object_->CreateType(type2, &type2_id));
-
-  ContextType type3 = ParseTextProtoOrDie<ContextType>(R"pb(
-    name: 'test_type'
-    external_id: 'context_type1')pb");
-  int64 type3_id = -1;
-  MLMD_EXPECT_OK(metadata_access_object_->CreateType(type3, &type3_id));
+  int64 type_id = -1;
+  MLMD_EXPECT_OK(metadata_access_object_->CreateType(type, &type_id));
 
   MLMD_ASSERT_OK(AddCommitPointIfNeeded());
 
-  // Insert the same types again to check the unique constraint.
-  // TODO(b/227278729) Use CheckUniqueConstraintAndResetTransaction() here after
-  // enabling bufferwrite for inserting Types.
-  ASSERT_TRUE(absl::IsAlreadyExists(
-      metadata_access_object_->CreateType(type1, &type1_id)));
+  // Insert the same type again to check the unique constraint.
+  absl::Status unique_constraint_violation_status =
+      metadata_access_object_->CreateType(type, &type_id);
+  EXPECT_EQ(CheckUniqueConstraintAndResetTransaction(
+                unique_constraint_violation_status),
+            absl::OkStatus());
+}
 
-  ASSERT_TRUE(absl::IsAlreadyExists(
-      metadata_access_object_->CreateType(type2, &type2_id)));
+TEST_P(MetadataAccessObjectTest,
+       CreateExecutionTypeWithDuplicatedExternalIdError) {
+  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/9)) {
+    return;
+  }
+  MLMD_ASSERT_OK(Init());
 
-  ASSERT_TRUE(absl::IsAlreadyExists(
-      metadata_access_object_->CreateType(type3, &type3_id)));
+  ExecutionType type = ParseTextProtoOrDie<ExecutionType>(R"pb(
+    name: 'test_type1'
+    external_id: 'execution_type1'
+  )pb");
+  int64 type_id = -1;
+  MLMD_EXPECT_OK(metadata_access_object_->CreateType(type, &type_id));
 
-  // Rollback transaction so that unique constraint violation does not
-  // cause test crash during teardown for Spanner.
-  MLMD_ASSERT_OK(metadata_source_->Rollback());
-  MLMD_ASSERT_OK(metadata_source_->Begin());
+  MLMD_ASSERT_OK(AddCommitPointIfNeeded());
+
+  // Insert the same type again to check the unique constraint.
+  absl::Status unique_constraint_violation_status =
+      metadata_access_object_->CreateType(type, &type_id);
+  EXPECT_EQ(CheckUniqueConstraintAndResetTransaction(
+                unique_constraint_violation_status),
+            absl::OkStatus());
+}
+
+TEST_P(MetadataAccessObjectTest,
+       CreateContextTypeWithDuplicatedExternalIdError) {
+  if (SkipIfEarlierSchemaLessThan(/*min_schema_version=*/9)) {
+    return;
+  }
+  MLMD_ASSERT_OK(Init());
+
+  ContextType type = ParseTextProtoOrDie<ContextType>(R"pb(
+    name: 'test_type1'
+    external_id: 'context_type1'
+  )pb");
+  int64 type_id = -1;
+  MLMD_EXPECT_OK(metadata_access_object_->CreateType(type, &type_id));
+
+  MLMD_ASSERT_OK(AddCommitPointIfNeeded());
+
+  absl::Status unique_constraint_violation_status =
+      metadata_access_object_->CreateType(type, &type_id);
+  EXPECT_EQ(CheckUniqueConstraintAndResetTransaction(
+                unique_constraint_violation_status),
+            absl::OkStatus());
 }
 
 TEST_P(MetadataAccessObjectTest, UpdateType) {
@@ -1127,6 +1194,7 @@ TEST_P(MetadataAccessObjectTest, UpdateType) {
   int64 type1_id = -1;
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type1, &type1_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   ExecutionType type2 = ParseTextProtoOrDie<ExecutionType>(R"pb(
     name: 'type2'
@@ -1134,6 +1202,7 @@ TEST_P(MetadataAccessObjectTest, UpdateType) {
   int64 type2_id = -1;
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type2, &type2_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   ContextType type3 = ParseTextProtoOrDie<ContextType>(R"pb(
     name: 'type3'
@@ -1141,6 +1210,7 @@ TEST_P(MetadataAccessObjectTest, UpdateType) {
   int64 type3_id = -1;
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type3, &type3_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   ArtifactType want_type1;
   want_type1.set_id(type1_id);
@@ -1148,6 +1218,7 @@ TEST_P(MetadataAccessObjectTest, UpdateType) {
   (*want_type1.mutable_properties())["stored_property"] = STRING;
   (*want_type1.mutable_properties())["new_property"] = INT;
   EXPECT_EQ(absl::OkStatus(), metadata_access_object_->UpdateType(want_type1));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   ArtifactType got_type1;
   EXPECT_EQ(absl::OkStatus(),
@@ -1159,6 +1230,7 @@ TEST_P(MetadataAccessObjectTest, UpdateType) {
   want_type2.set_name("type2");
   (*want_type2.mutable_properties())["new_property"] = DOUBLE;
   EXPECT_EQ(absl::OkStatus(), metadata_access_object_->UpdateType(want_type2));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   ExecutionType got_type2;
   EXPECT_EQ(absl::OkStatus(),
@@ -1171,6 +1243,7 @@ TEST_P(MetadataAccessObjectTest, UpdateType) {
   want_type3.set_name("type3");
   (*want_type3.mutable_properties())["new_property"] = STRING;
   EXPECT_EQ(absl::OkStatus(), metadata_access_object_->UpdateType(want_type3));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   ContextType got_type3;
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->FindTypeById(type3_id, &got_type3));
@@ -1186,11 +1259,13 @@ TEST_P(MetadataAccessObjectTest, UpdateTypeError) {
   int64 type_id;
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   {
     ArtifactType type_without_name;
     EXPECT_TRUE(absl::IsInvalidArgument(
         metadata_access_object_->UpdateType(type_without_name)));
   }
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   {
     ArtifactType type_with_wrong_id;
     type_with_wrong_id.set_name("stored_type");
@@ -1198,6 +1273,7 @@ TEST_P(MetadataAccessObjectTest, UpdateTypeError) {
     EXPECT_TRUE(absl::IsInvalidArgument(
         metadata_access_object_->UpdateType(type_with_wrong_id)));
   }
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   {
     ArtifactType type_with_modified_property_type;
     type_with_modified_property_type.set_id(type_id);
@@ -1207,6 +1283,7 @@ TEST_P(MetadataAccessObjectTest, UpdateTypeError) {
     EXPECT_TRUE(absl::IsAlreadyExists(
         metadata_access_object_->UpdateType(type_with_modified_property_type)));
   }
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   {
     ArtifactType type_with_unknown_type_property;
     type_with_unknown_type_property.set_id(type_id);
@@ -1230,6 +1307,7 @@ TEST_P(MetadataAccessObjectTest, FindTypeByIdArtifact) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   ArtifactType got_type;
   EXPECT_EQ(absl::OkStatus(),
@@ -1256,6 +1334,7 @@ TEST_P(MetadataAccessObjectTest, FindTypeByIdContext) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   ContextType got_type;
   EXPECT_EQ(absl::OkStatus(),
@@ -1284,6 +1363,7 @@ TEST_P(MetadataAccessObjectTest, FindTypeByIdExecution) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   ExecutionType got_type;
   EXPECT_EQ(absl::OkStatus(),
@@ -1311,6 +1391,7 @@ TEST_P(MetadataAccessObjectTest, FindTypeByIdExecutionUnicode) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   ExecutionType got_type;
   EXPECT_EQ(absl::OkStatus(),
@@ -1338,6 +1419,7 @@ TEST_P(MetadataAccessObjectTest, FindTypeByIdExecutionNoSignature) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   ExecutionType got_type;
   EXPECT_EQ(absl::OkStatus(),
@@ -1366,6 +1448,7 @@ TEST_P(MetadataAccessObjectTest, FindTypeByName) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   ExecutionType got_type;
   EXPECT_EQ(absl::OkStatus(),
@@ -1392,7 +1475,8 @@ TEST_P(MetadataAccessObjectTest, FindArtifactTypesByExternalIds) {
   ArtifactType want_artifact_type_1;
   ArtifactType want_artifact_type_2;
   MLMD_ASSERT_OK(FindTypesByIdsSetup(
-      *metadata_access_object_, want_artifact_type_1, want_artifact_type_2));
+      *metadata_access_object_, metadata_access_object_container_.get(),
+      want_artifact_type_1, want_artifact_type_2));
 
   // Test: update external_id, which also prepares for retrieving by external_id
   EXPECT_TRUE(want_artifact_type_1.external_id().empty());
@@ -1451,7 +1535,8 @@ TEST_P(MetadataAccessObjectTest, FindExecutionTypesByExternalIds) {
   ExecutionType want_execution_type_1;
   ExecutionType want_execution_type_2;
   MLMD_ASSERT_OK(FindTypesByIdsSetup(
-      *metadata_access_object_, want_execution_type_1, want_execution_type_2));
+      *metadata_access_object_, metadata_access_object_container_.get(),
+      want_execution_type_1, want_execution_type_2));
 
   // Test: update external_id, which also prepares for retrieving by external_id
   EXPECT_TRUE(want_execution_type_1.external_id().empty());
@@ -1511,6 +1596,7 @@ TEST_P(MetadataAccessObjectTest, FindContextTypesByExternalIds) {
   ContextType want_context_type_1;
   ContextType want_context_type_2;
   MLMD_ASSERT_OK(FindTypesByIdsSetup(*metadata_access_object_,
+                                     metadata_access_object_container_.get(),
                                      want_context_type_1, want_context_type_2));
 
   // Test: update external_id, which also prepares for retrieving by external_id
@@ -1571,6 +1657,7 @@ TEST_P(MetadataAccessObjectTest, FindTypeIdByNameAndVersion) {
   int64 v0_type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type, &v0_type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   int64 v0_got_type_id;
   EXPECT_EQ(absl::OkStatus(),
@@ -1583,6 +1670,7 @@ TEST_P(MetadataAccessObjectTest, FindTypeIdByNameAndVersion) {
   int64 v1_type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type, &v1_type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   int64 v1_got_type_id;
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->FindTypeIdByNameAndVersion(
@@ -1605,8 +1693,9 @@ TEST_P(MetadataAccessObjectTest, FindTypesByIdsArtifactSuccess) {
   MLMD_ASSERT_OK(Init());
   ArtifactType want_type_1;
   ArtifactType want_type_2;
-  MLMD_ASSERT_OK(
-      FindTypesByIdsSetup(*metadata_access_object_, want_type_1, want_type_2));
+  MLMD_ASSERT_OK(FindTypesByIdsSetup(*metadata_access_object_,
+                                     metadata_access_object_container_.get(),
+                                     want_type_1, want_type_2));
 
   std::vector<ArtifactType> got_types;
   MLMD_ASSERT_OK(metadata_access_object_->FindTypesByIds(
@@ -1620,8 +1709,9 @@ TEST_P(MetadataAccessObjectTest, FindTypesByIdsArtifactInvalidInput) {
   MLMD_ASSERT_OK(Init());
   ArtifactType want_type_1;
   ArtifactType want_type_2;
-  MLMD_ASSERT_OK(
-      FindTypesByIdsSetup(*metadata_access_object_, want_type_1, want_type_2));
+  MLMD_ASSERT_OK(FindTypesByIdsSetup(*metadata_access_object_,
+                                     metadata_access_object_container_.get(),
+                                     want_type_1, want_type_2));
   std::vector<ArtifactType> got_types;
 
   // Returns INVALID_ARGUMENT error if `type_ids` is empty or `a/e/c_types` is
@@ -1639,8 +1729,9 @@ TEST_P(MetadataAccessObjectTest, FindTypesByIdsArtifactNotFound) {
   MLMD_ASSERT_OK(Init());
   ArtifactType want_type_1;
   ArtifactType want_type_2;
-  MLMD_ASSERT_OK(
-      FindTypesByIdsSetup(*metadata_access_object_, want_type_1, want_type_2));
+  MLMD_ASSERT_OK(FindTypesByIdsSetup(*metadata_access_object_,
+                                     metadata_access_object_container_.get(),
+                                     want_type_1, want_type_2));
   std::vector<ArtifactType> got_types;
 
   // Returns NOT_FOUND error if any of the id cannot be found.
@@ -1654,8 +1745,9 @@ TEST_P(MetadataAccessObjectTest, FindTypesByIdsArtifactInvalidTypeKind) {
   MLMD_ASSERT_OK(Init());
   ArtifactType want_type_1;
   ArtifactType want_type_2;
-  MLMD_ASSERT_OK(
-      FindTypesByIdsSetup(*metadata_access_object_, want_type_1, want_type_2));
+  MLMD_ASSERT_OK(FindTypesByIdsSetup(*metadata_access_object_,
+                                     metadata_access_object_container_.get(),
+                                     want_type_1, want_type_2));
 
   // type_ids are for artifact types, not execution/context types.
   std::vector<ExecutionType> execution_types;
@@ -1672,8 +1764,9 @@ TEST_P(MetadataAccessObjectTest, FindTypesByIdsExecutionSuccess) {
   MLMD_ASSERT_OK(Init());
   ExecutionType want_type_1;
   ExecutionType want_type_2;
-  MLMD_ASSERT_OK(
-      FindTypesByIdsSetup(*metadata_access_object_, want_type_1, want_type_2));
+  MLMD_ASSERT_OK(FindTypesByIdsSetup(*metadata_access_object_,
+                                     metadata_access_object_container_.get(),
+                                     want_type_1, want_type_2));
 
   std::vector<ExecutionType> got_types;
   MLMD_ASSERT_OK(metadata_access_object_->FindTypesByIds(
@@ -1687,8 +1780,9 @@ TEST_P(MetadataAccessObjectTest, FindTypesByIdsExecutionInvalidInput) {
   MLMD_ASSERT_OK(Init());
   ExecutionType want_type_1;
   ExecutionType want_type_2;
-  MLMD_ASSERT_OK(
-      FindTypesByIdsSetup(*metadata_access_object_, want_type_1, want_type_2));
+  MLMD_ASSERT_OK(FindTypesByIdsSetup(*metadata_access_object_,
+                                     metadata_access_object_container_.get(),
+                                     want_type_1, want_type_2));
   std::vector<ExecutionType> got_types;
 
   // Returns INVALID_ARGUMENT error if `type_ids` is empty or `a/e/c_types` is
@@ -1706,8 +1800,9 @@ TEST_P(MetadataAccessObjectTest, FindTypesByIdsExecutionNotFound) {
   MLMD_ASSERT_OK(Init());
   ExecutionType want_type_1;
   ExecutionType want_type_2;
-  MLMD_ASSERT_OK(
-      FindTypesByIdsSetup(*metadata_access_object_, want_type_1, want_type_2));
+  MLMD_ASSERT_OK(FindTypesByIdsSetup(*metadata_access_object_,
+                                     metadata_access_object_container_.get(),
+                                     want_type_1, want_type_2));
   std::vector<ExecutionType> got_types;
 
   // Returns NOT_FOUND error if any of the id cannot be found.
@@ -1722,8 +1817,9 @@ TEST_P(MetadataAccessObjectTest, FindTypesByIdsExecutionInvalidTypeKind) {
   MLMD_ASSERT_OK(Init());
   ExecutionType want_type_1;
   ExecutionType want_type_2;
-  MLMD_ASSERT_OK(
-      FindTypesByIdsSetup(*metadata_access_object_, want_type_1, want_type_2));
+  MLMD_ASSERT_OK(FindTypesByIdsSetup(*metadata_access_object_,
+                                     metadata_access_object_container_.get(),
+                                     want_type_1, want_type_2));
 
   // type_ids are for execution types, not artifact/context types.
   std::vector<ArtifactType> artifact_types;
@@ -1740,8 +1836,9 @@ TEST_P(MetadataAccessObjectTest, FindTypesByIdsContextSuccess) {
   MLMD_ASSERT_OK(Init());
   ContextType want_type_1;
   ContextType want_type_2;
-  MLMD_ASSERT_OK(
-      FindTypesByIdsSetup(*metadata_access_object_, want_type_1, want_type_2));
+  MLMD_ASSERT_OK(FindTypesByIdsSetup(*metadata_access_object_,
+                                     metadata_access_object_container_.get(),
+                                     want_type_1, want_type_2));
 
   std::vector<ContextType> got_types;
   MLMD_ASSERT_OK(metadata_access_object_->FindTypesByIds(
@@ -1755,8 +1852,9 @@ TEST_P(MetadataAccessObjectTest, FindTypesByIdsContextInvalidInput) {
   MLMD_ASSERT_OK(Init());
   ContextType want_type_1;
   ContextType want_type_2;
-  MLMD_ASSERT_OK(
-      FindTypesByIdsSetup(*metadata_access_object_, want_type_1, want_type_2));
+  MLMD_ASSERT_OK(FindTypesByIdsSetup(*metadata_access_object_,
+                                     metadata_access_object_container_.get(),
+                                     want_type_1, want_type_2));
   std::vector<ContextType> got_types;
 
   // Returns INVALID_ARGUMENT error if `type_ids` is empty or `a/e/c_types` is
@@ -1774,8 +1872,9 @@ TEST_P(MetadataAccessObjectTest, FindTypesByIdsContextNotFound) {
   MLMD_ASSERT_OK(Init());
   ContextType want_type_1;
   ContextType want_type_2;
-  MLMD_ASSERT_OK(
-      FindTypesByIdsSetup(*metadata_access_object_, want_type_1, want_type_2));
+  MLMD_ASSERT_OK(FindTypesByIdsSetup(*metadata_access_object_,
+                                     metadata_access_object_container_.get(),
+                                     want_type_1, want_type_2));
   std::vector<ContextType> got_types;
 
   // Returns NOT_FOUND error if any of the id cannot be found.
@@ -1789,8 +1888,9 @@ TEST_P(MetadataAccessObjectTest, FindTypesByIdsContextInvalidTypeKind) {
   MLMD_ASSERT_OK(Init());
   ContextType want_type_1;
   ContextType want_type_2;
-  MLMD_ASSERT_OK(
-      FindTypesByIdsSetup(*metadata_access_object_, want_type_1, want_type_2));
+  MLMD_ASSERT_OK(FindTypesByIdsSetup(*metadata_access_object_,
+                                     metadata_access_object_container_.get(),
+                                     want_type_1, want_type_2));
 
   // type_ids are for context types, not artifact/execution types.
   std::vector<ArtifactType> artifact_types;
@@ -1815,6 +1915,7 @@ TEST_P(MetadataAccessObjectTest, FindTypeByNameNoSignature) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   want_type.set_id(type_id);
 
   ExecutionType got_type;
@@ -1836,18 +1937,17 @@ TEST_P(MetadataAccessObjectTest, FindTypeByNameNoSignature) {
 
 TEST_P(MetadataAccessObjectTest, FindArtifactTypesByNamesAndVersions) {
   ASSERT_EQ(Init(), absl::OkStatus());
-  ArtifactType want_type_1 =
-      CreateTypeFromTextProto<ArtifactType>(R"(
+  ArtifactType want_type_1 = CreateTypeFromTextProto<ArtifactType>(
+      R"(
     name: 'artifact_type_1'
   )",
-                                            *metadata_access_object_);
-  ArtifactType want_type_2 =
-      CreateTypeFromTextProto<ArtifactType>(R"(
+      *metadata_access_object_, metadata_access_object_container_.get());
+  ArtifactType want_type_2 = CreateTypeFromTextProto<ArtifactType>(
+      R"(
     name: 'artifact_type_2'
     version: 'test_version'
   )",
-                                            *metadata_access_object_);
-
+      *metadata_access_object_, metadata_access_object_container_.get());
   // Test 1: artifact types can be retrieved by names_and_versions.
   std::vector<std::pair<std::string, std::string>> names_and_versions = {
       {"artifact_type_1", ""}, {"artifact_type_2", "test_version"}};
@@ -1895,17 +1995,17 @@ TEST_P(MetadataAccessObjectTest, FindArtifactTypesByNamesAndVersions) {
 
 TEST_P(MetadataAccessObjectTest, FindExecutionTypesByNamesAndVersions) {
   ASSERT_EQ(Init(), absl::OkStatus());
-  ExecutionType want_type_1 =
-      CreateTypeFromTextProto<ExecutionType>(R"(
+  ExecutionType want_type_1 = CreateTypeFromTextProto<ExecutionType>(
+      R"(
     name: 'execution_type_1'
   )",
-                                             *metadata_access_object_);
-  ExecutionType want_type_2 =
-      CreateTypeFromTextProto<ExecutionType>(R"(
+      *metadata_access_object_, metadata_access_object_container_.get());
+  ExecutionType want_type_2 = CreateTypeFromTextProto<ExecutionType>(
+      R"(
     name: 'execution_type_2'
     version: 'test_version'
   )",
-                                             *metadata_access_object_);
+      *metadata_access_object_, metadata_access_object_container_.get());
 
   // Test 1: artifact types can be retrieved by names_and_versions.
   std::vector<std::pair<std::string, std::string>> names_and_versions = {
@@ -1954,17 +2054,17 @@ TEST_P(MetadataAccessObjectTest, FindExecutionTypesByNamesAndVersions) {
 
 TEST_P(MetadataAccessObjectTest, FindContextTypesByNamesAndVersions) {
   ASSERT_EQ(Init(), absl::OkStatus());
-  ContextType want_type_1 =
-      CreateTypeFromTextProto<ContextType>(R"(
+  ContextType want_type_1 = CreateTypeFromTextProto<ContextType>(
+      R"(
     name: 'context_type_1'
   )",
-                                           *metadata_access_object_);
-  ContextType want_type_2 =
-      CreateTypeFromTextProto<ContextType>(R"(
+      *metadata_access_object_, metadata_access_object_container_.get());
+  ContextType want_type_2 = CreateTypeFromTextProto<ContextType>(
+      R"(
     name: 'context_type_2'
     version: 'test_version'
   )",
-                                           *metadata_access_object_);
+      *metadata_access_object_, metadata_access_object_container_.get());
 
   // Test 1: artifact types can be retrieved by names_and_versions.
   std::vector<std::pair<std::string, std::string>> names_and_versions = {
@@ -2023,6 +2123,7 @@ TEST_P(MetadataAccessObjectTest, FindAllArtifactTypes) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type_1, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   want_type_1.set_id(type_id);
 
   ArtifactType want_type_2 = ParseTextProtoOrDie<ArtifactType>(R"pb(
@@ -2034,6 +2135,7 @@ TEST_P(MetadataAccessObjectTest, FindAllArtifactTypes) {
   )pb");
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type_2, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   want_type_2.set_id(type_id);
 
   // No properties.
@@ -2042,6 +2144,7 @@ TEST_P(MetadataAccessObjectTest, FindAllArtifactTypes) {
   )pb");
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type_3, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   want_type_3.set_id(type_id);
 
   std::vector<ArtifactType> got_types;
@@ -2063,6 +2166,7 @@ TEST_P(MetadataAccessObjectTest, FindAllExecutionTypes) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type_1, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   want_type_1.set_id(type_id);
 
   ExecutionType want_type_2 = ParseTextProtoOrDie<ExecutionType>(R"pb(
@@ -2074,6 +2178,7 @@ TEST_P(MetadataAccessObjectTest, FindAllExecutionTypes) {
   )pb");
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type_2, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   want_type_2.set_id(type_id);
 
   // No properties.
@@ -2082,6 +2187,7 @@ TEST_P(MetadataAccessObjectTest, FindAllExecutionTypes) {
   )pb");
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type_3, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   want_type_3.set_id(type_id);
 
   std::vector<ExecutionType> got_types;
@@ -2103,6 +2209,7 @@ TEST_P(MetadataAccessObjectTest, FindAllContextTypes) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type_1, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   want_type_1.set_id(type_id);
 
   ContextType want_type_2 = ParseTextProtoOrDie<ContextType>(R"pb(
@@ -2114,6 +2221,7 @@ TEST_P(MetadataAccessObjectTest, FindAllContextTypes) {
   )pb");
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type_2, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   want_type_2.set_id(type_id);
 
   // No properties.
@@ -2122,6 +2230,7 @@ TEST_P(MetadataAccessObjectTest, FindAllContextTypes) {
   )pb");
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(want_type_3, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   want_type_3.set_id(type_id);
 
   std::vector<ContextType> got_types;
@@ -2151,6 +2260,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifact) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   Artifact artifact = ParseTextProtoOrDie<Artifact>(
       absl::StrCat(R"(
     uri: 'testuri://testing/uri'
@@ -2311,6 +2421,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactError) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // type mismatch
   Artifact artifact3;
@@ -2328,6 +2439,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithDuplicatedNameError) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Artifact artifact;
   artifact.set_type_id(type_id);
@@ -2353,6 +2465,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithDuplicatedExternalIdError) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Artifact artifact;
   artifact.set_type_id(type_id);
@@ -2456,6 +2569,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithCustomTimestamp) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Artifact artifact = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri'
@@ -2628,6 +2742,7 @@ TEST_P(MetadataAccessObjectTest, CreateExecutionWithCustomTimestamp) {
   )pb");
   int64 type_id;
   MLMD_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Execution execution = ParseTextProtoOrDie<Execution>(R"pb(
     properties {
@@ -2746,7 +2861,7 @@ TEST_P(MetadataAccessObjectTest, CreateContextWithCustomTimestamp) {
   )pb");
   int64 type_id;
   MLMD_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
-
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   Context context = ParseTextProtoOrDie<Context>(R"pb(
     name: 'test_context_1'
     properties {
@@ -2793,6 +2908,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactById) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Artifact want_artifact = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri'
@@ -2848,6 +2964,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifacts) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   constexpr absl::string_view kArtifactTemplate = R"(
     uri: 'testuri://testing/uri'
@@ -3025,7 +3142,8 @@ void VerifyListOptions(const std::string& list_option_text_proto,
 TEST_P(MetadataAccessObjectTest, ListArtifactsFilterAttributeQuery) {
   ASSERT_EQ(absl::OkStatus(), Init());
   const ArtifactType type = CreateTypeFromTextProto<ArtifactType>(
-      "name: 't1'", *metadata_access_object_);
+      "name: 't1'", *metadata_access_object_,
+      metadata_access_object_container_.get());
   std::vector<Artifact> want_artifacts(3);
   for (int i = 0; i < 3; i++) {
     absl::SleepFor(absl::Milliseconds(1));
@@ -3169,7 +3287,8 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsFilterAttributeQuery) {
 TEST_P(MetadataAccessObjectTest, ListNodesFilterEventQuery) {
   ASSERT_EQ(absl::OkStatus(), Init());
   const ArtifactType artifact_type = CreateTypeFromTextProto<ArtifactType>(
-      "name: 'at1'", *metadata_access_object_);
+      "name: 'at1'", *metadata_access_object_,
+      metadata_access_object_container_.get());
   std::vector<Artifact> want_artifacts(3);
   for (int i = 0; i < 3; i++) {
     absl::SleepFor(absl::Milliseconds(1));
@@ -3180,7 +3299,8 @@ TEST_P(MetadataAccessObjectTest, ListNodesFilterEventQuery) {
   }
 
   const ExecutionType execution_type = CreateTypeFromTextProto<ExecutionType>(
-      "name: 'et1'", *metadata_access_object_);
+      "name: 'et1'", *metadata_access_object_,
+      metadata_access_object_container_.get());
   Execution want_execution;
   CreateNodeFromTextProto(
       "name: 'execution_0' ", execution_type.id(), *metadata_access_object_,
@@ -3278,7 +3398,8 @@ TEST_P(MetadataAccessObjectTest, ListNodesFilterEventQuery) {
 TEST_P(MetadataAccessObjectTest, ListExecutionsFilterAttributeQuery) {
   ASSERT_EQ(absl::OkStatus(), Init());
   const ExecutionType type = CreateTypeFromTextProto<ExecutionType>(
-      "name: 't1'", *metadata_access_object_);
+      "name: 't1'", *metadata_access_object_,
+      metadata_access_object_container_.get());
   std::vector<Execution> want_executions(3);
   for (int i = 0; i < 3; i++) {
     absl::SleepFor(absl::Milliseconds(1));
@@ -3424,11 +3545,11 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsFilterAttributeQuery) {
 
 TEST_P(MetadataAccessObjectTest, ListContextsFilterAttributeQuery) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  const ContextType type =
-      CreateTypeFromTextProto<ContextType>(R"(
+  const ContextType type = CreateTypeFromTextProto<ContextType>(
+      R"(
       name: 't1'
       properties { key: 'p1' value: INT })",
-                                           *metadata_access_object_);
+      *metadata_access_object_, metadata_access_object_container_.get());
   std::vector<Context> want_contexts(3);
   for (int i = 0; i < 3; i++) {
     absl::SleepFor(absl::Milliseconds(1));
@@ -3550,11 +3671,14 @@ TEST_P(MetadataAccessObjectTest, ListContextsFilterAttributeQuery) {
 TEST_P(MetadataAccessObjectTest, ListNodesFilterContextNeighborQuery) {
   ASSERT_EQ(absl::OkStatus(), Init());
   const ArtifactType artifact_type = CreateTypeFromTextProto<ArtifactType>(
-      "name: 'artifact_type'", *metadata_access_object_);
+      "name: 'artifact_type'", *metadata_access_object_,
+      metadata_access_object_container_.get());
   const ExecutionType execution_type = CreateTypeFromTextProto<ExecutionType>(
-      "name: 'execution_type'", *metadata_access_object_);
+      "name: 'execution_type'", *metadata_access_object_,
+      metadata_access_object_container_.get());
   const ContextType context_type = CreateTypeFromTextProto<ContextType>(
-      "name: 'context_type'", *metadata_access_object_);
+      "name: 'context_type'", *metadata_access_object_,
+      metadata_access_object_container_.get());
 
   // Test setup: creates 3 artifacts, 3 executions and 3 contexts, and attached:
   // [artifact_1, execution_2] to context_0,
@@ -3779,14 +3903,17 @@ TEST_P(MetadataAccessObjectTest, ListNodesFilterContextNeighborQuery) {
 TEST_P(MetadataAccessObjectTest, ListContextNodesWithParentChildQuery) {
   ASSERT_EQ(absl::OkStatus(), Init());
   const ContextType parent_context_type_1 =
-      CreateTypeFromTextProto<ContextType>("name: 'parent_context_type_1'",
-                                           *metadata_access_object_);
+      CreateTypeFromTextProto<ContextType>(
+          "name: 'parent_context_type_1'", *metadata_access_object_,
+          metadata_access_object_container_.get());
   const ContextType parent_context_type_2 =
-      CreateTypeFromTextProto<ContextType>("name: 'parent_context_type_2'",
-                                           *metadata_access_object_);
+      CreateTypeFromTextProto<ContextType>(
+          "name: 'parent_context_type_2'", *metadata_access_object_,
+          metadata_access_object_container_.get());
 
   const ContextType child_context_type = CreateTypeFromTextProto<ContextType>(
-      "name: 'child_context_type'", *metadata_access_object_);
+      "name: 'child_context_type'", *metadata_access_object_,
+      metadata_access_object_container_.get());
 
   // Test Setup: Creates 3 context nodes with same parent and 2 of the 3
   // context nodes with same different parent.
@@ -3894,11 +4021,13 @@ TEST_P(MetadataAccessObjectTest,
        ListContextNodesWithParentChildAndPropertiesQuery) {
   ASSERT_EQ(absl::OkStatus(), Init());
   const ContextType parent_context_type_1 =
-      CreateTypeFromTextProto<ContextType>("name: 'parent_context_type_1'",
-                                           *metadata_access_object_);
+      CreateTypeFromTextProto<ContextType>(
+          "name: 'parent_context_type_1'", *metadata_access_object_,
+          metadata_access_object_container_.get());
 
   const ContextType child_context_type = CreateTypeFromTextProto<ContextType>(
-      "name: 'child_context_type'", *metadata_access_object_);
+      "name: 'child_context_type'", *metadata_access_object_,
+      metadata_access_object_container_.get());
 
   Context parent_context_1;
   CreateNodeFromTextProto(
@@ -3965,14 +4094,14 @@ template <class NodeType, class Node>
 void TestFilteringWithListOptionsImpl(
     MetadataAccessObject& metadata_access_object,
     MetadataAccessObjectContainer* metadata_access_object_container) {
-  const NodeType type =
-      CreateTypeFromTextProto<NodeType>(R"(
+  const NodeType type = CreateTypeFromTextProto<NodeType>(
+      R"(
     name: 'test_type'
     properties { key: 'p1' value: INT }
     properties { key: 'p2' value: DOUBLE }
     properties { key: 'p3' value: STRING }
   )",
-                                        metadata_access_object);
+      metadata_access_object, metadata_access_object_container);
 
   // Setup: 5 nodes of `test_type`
   // node_$i has a custom property custom_property_$i which is not NULL.
@@ -4209,9 +4338,11 @@ TEST_P(MetadataAccessObjectTest, QueryLineageGraph) {
   //  \            \
   //   \------------> e2
   const ArtifactType artifact_type = CreateTypeFromTextProto<ArtifactType>(
-      "name: 'artifact_type'", *metadata_access_object_);
+      "name: 'artifact_type'", *metadata_access_object_,
+      metadata_access_object_container_.get());
   const ExecutionType execution_type = CreateTypeFromTextProto<ExecutionType>(
-      "name: 'execution_type'", *metadata_access_object_);
+      "name: 'execution_type'", *metadata_access_object_,
+      metadata_access_object_container_.get());
   std::vector<Artifact> want_artifacts(2);
   std::vector<Execution> want_executions(2);
   for (int i = 0; i < 2; i++) {
@@ -4362,7 +4493,8 @@ TEST_P(MetadataAccessObjectTest, QueryLineageGraphArtifactsOnly) {
   ASSERT_EQ(absl::OkStatus(), Init());
   // Test setup: only set up an artifact type and 2 artifacts.
   const ArtifactType artifact_type = CreateTypeFromTextProto<ArtifactType>(
-      "name: 'artifact_type'", *metadata_access_object_);
+      "name: 'artifact_type'", *metadata_access_object_,
+      metadata_access_object_container_.get());
   std::vector<Artifact> want_artifacts(2);
   for (int i = 0; i < 2; i++) {
     CreateNodeFromTextProto(absl::Substitute("uri: 'uri_$0'", i),
@@ -4389,9 +4521,11 @@ TEST_P(MetadataAccessObjectTest, QueryLineageGraphWithBoundaryConditions) {
   //   \-> ...
   //   \-> e250
   const ArtifactType artifact_type = CreateTypeFromTextProto<ArtifactType>(
-      "name: 'artifact_type'", *metadata_access_object_);
+      "name: 'artifact_type'", *metadata_access_object_,
+      metadata_access_object_container_.get());
   const ExecutionType execution_type = CreateTypeFromTextProto<ExecutionType>(
-      "name: 'execution_type'", *metadata_access_object_);
+      "name: 'execution_type'", *metadata_access_object_,
+      metadata_access_object_container_.get());
   std::vector<Artifact> want_artifacts(2);
   std::vector<Execution> want_executions(251);
   for (int i = 0; i < 2; i++) {
@@ -4530,7 +4664,7 @@ TEST_P(MetadataAccessObjectTest, DeleteArtifactsById) {
             properties { key: 'property_5' value: BOOLEAN }
                                )pb",
           ""),
-      *metadata_access_object_);
+      *metadata_access_object_, metadata_access_object_container_.get());
   Artifact artifact;
   CreateNodeFromTextProto(
       absl::StrCat(
@@ -4618,7 +4752,7 @@ TEST_P(MetadataAccessObjectTest, DeleteExecutionsById) {
             properties { key: 'property_5' value: BOOLEAN }
                                )pb",
           ""),
-      *metadata_access_object_);
+      *metadata_access_object_, metadata_access_object_container_.get());
   Execution execution;
   CreateNodeFromTextProto(
       absl::StrCat(
@@ -4707,7 +4841,7 @@ TEST_P(MetadataAccessObjectTest, DeleteContextsById) {
             properties { key: 'property_5' value: BOOLEAN }
                                )pb",
           ""),
-      *metadata_access_object_);
+      *metadata_access_object_, metadata_access_object_container_.get());
   Context context1, context2;
   CreateNodeFromTextProto("name: 'delete_contexts_by_id_test_1'", type.id(),
                           *metadata_access_object_,
@@ -4909,6 +5043,7 @@ TEST_P(MetadataAccessObjectTest, DeleteAssociationsByExecutionsId) {
 
   int64 execution_type_id = InsertType<ExecutionType>("execution_type");
   int64 context_type_id = InsertType<ContextType>("context_type");
+
   Execution execution;
   CreateNodeFromTextProto("name: 'execution'", execution_type_id,
                           *metadata_access_object_,
@@ -5049,19 +5184,24 @@ TEST_P(MetadataAccessObjectTest, DeleteParentType) {
   {
     // Test: create and delete artifact parent type inheritance link
     const ArtifactType type1 = CreateTypeFromTextProto<ArtifactType>(
-        "name: 't1'", *metadata_access_object_);
+        "name: 't1'", *metadata_access_object_,
+        metadata_access_object_container_.get());
     const ArtifactType type2 = CreateTypeFromTextProto<ArtifactType>(
-        "name: 't2'", *metadata_access_object_);
+        "name: 't2'", *metadata_access_object_,
+        metadata_access_object_container_.get());
     const ArtifactType type3 = CreateTypeFromTextProto<ArtifactType>(
-        "name: 't3'", *metadata_access_object_);
+        "name: 't3'", *metadata_access_object_,
+        metadata_access_object_container_.get());
 
     // create parent type links ok.
     ASSERT_EQ(
         absl::OkStatus(),
         metadata_access_object_->CreateParentTypeInheritanceLink(type1, type3));
+    ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
     ASSERT_EQ(
         absl::OkStatus(),
         metadata_access_object_->CreateParentTypeInheritanceLink(type2, type3));
+    ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
     absl::flat_hash_map<int64, ArtifactType> output_artifact_types;
     ASSERT_EQ(absl::OkStatus(),
@@ -5073,6 +5213,7 @@ TEST_P(MetadataAccessObjectTest, DeleteParentType) {
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->DeleteParentTypeInheritanceLink(
                   type1.id(), type3.id()));
+    ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
     output_artifact_types.clear();
     ASSERT_EQ(absl::OkStatus(),
@@ -5085,6 +5226,7 @@ TEST_P(MetadataAccessObjectTest, DeleteParentType) {
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->DeleteParentTypeInheritanceLink(
                   type2.id(), type3.id()));
+    ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
     output_artifact_types.clear();
     ASSERT_EQ(absl::OkStatus(),
@@ -5096,18 +5238,22 @@ TEST_P(MetadataAccessObjectTest, DeleteParentType) {
   {
     // Test: create and delete execution parent type inheritance link
     const ExecutionType type1 = CreateTypeFromTextProto<ExecutionType>(
-        "name: 't1'", *metadata_access_object_);
+        "name: 't1'", *metadata_access_object_,
+        metadata_access_object_container_.get());
     const ExecutionType type2 = CreateTypeFromTextProto<ExecutionType>(
-        "name: 't2'", *metadata_access_object_);
+        "name: 't2'", *metadata_access_object_,
+        metadata_access_object_container_.get());
     // create parent type link ok.
     ASSERT_EQ(
         absl::OkStatus(),
         metadata_access_object_->CreateParentTypeInheritanceLink(type1, type2));
+    ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
     // delete parent link (type1, type2)
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->DeleteParentTypeInheritanceLink(
                   type1.id(), type2.id()));
+    ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
     absl::flat_hash_map<int64, ExecutionType> output_execution_types;
     ASSERT_EQ(absl::OkStatus(),
@@ -5119,18 +5265,22 @@ TEST_P(MetadataAccessObjectTest, DeleteParentType) {
   {
     // Test: create and delete context parent type inheritance link
     const ContextType type1 = CreateTypeFromTextProto<ContextType>(
-        "name: 't1'", *metadata_access_object_);
+        "name: 't1'", *metadata_access_object_,
+        metadata_access_object_container_.get());
     const ContextType type2 = CreateTypeFromTextProto<ContextType>(
-        "name: 't2'", *metadata_access_object_);
+        "name: 't2'", *metadata_access_object_,
+        metadata_access_object_container_.get());
     // create parent type link ok.
     ASSERT_EQ(
         absl::OkStatus(),
         metadata_access_object_->CreateParentTypeInheritanceLink(type1, type2));
+    ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
     // delete parent link (type1, type2)
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->DeleteParentTypeInheritanceLink(
                   type1.id(), type2.id()));
+    ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
     absl::flat_hash_map<int64, ContextType> output_context_types;
     ASSERT_EQ(absl::OkStatus(),
@@ -5142,14 +5292,17 @@ TEST_P(MetadataAccessObjectTest, DeleteParentType) {
   {
     // Test: delete non-existing context parent type inheritance link
     const ContextType type1 = CreateTypeFromTextProto<ContextType>(
-        "name: 't1'", *metadata_access_object_);
+        "name: 't1'", *metadata_access_object_,
+        metadata_access_object_container_.get());
     const ContextType type2 = CreateTypeFromTextProto<ContextType>(
-        "name: 't2'", *metadata_access_object_);
+        "name: 't2'", *metadata_access_object_,
+        metadata_access_object_container_.get());
 
     // delete non-existing parent link (type1, type2) returns ok
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->DeleteParentTypeInheritanceLink(
                   type1.id(), type2.id()));
+    ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   }
 }
 
@@ -5306,6 +5459,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithNonIdFieldOptions) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Artifact sample_artifact = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri'
@@ -5373,6 +5527,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithIdFieldOptions) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Artifact sample_artifact = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri'
@@ -5445,6 +5600,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsOnLastUpdateTime) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Artifact sample_artifact = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri'
@@ -5528,6 +5684,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithChangedOptions) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Artifact sample_artifact = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri'
@@ -5582,7 +5739,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithInvalidNextPageToken) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
-
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   Artifact sample_artifact = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri'
     properties {
@@ -5632,6 +5789,7 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsWithNonIdFieldOptions) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Execution sample_execution = ParseTextProtoOrDie<Execution>(R"pb(
     properties {
@@ -5700,6 +5858,7 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsWithIdFieldOptions) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Execution sample_execution = ParseTextProtoOrDie<Execution>(R"pb(
     properties {
@@ -5768,6 +5927,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsWithNonIdFieldOptions) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Context sample_context = ParseTextProtoOrDie<Context>(R"pb(
     properties {
@@ -5844,6 +6004,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsWithIdFieldOptions) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Context sample_context = ParseTextProtoOrDie<Context>(R"pb(
     properties {
@@ -5920,6 +6081,7 @@ TEST_P(MetadataAccessObjectTest, GetContextsById) {
     )pb");
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->CreateType(type, &type_id));
+    ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   }
 
   // Setup: Add first context instance
@@ -6068,6 +6230,7 @@ TEST_P(MetadataAccessObjectTest, DefaultArtifactState) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // artifact 1 does not set the state
   Artifact want_artifact1;
@@ -6391,6 +6554,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Artifact stored_artifact = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri'
@@ -6524,6 +6688,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactWithCustomUpdateTime) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Artifact stored_artifact = ParseTextProtoOrDie<Artifact>(
       absl::StrCat(R"pb(
@@ -6658,6 +6823,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactWithForceUpdateTimeEnabled) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Artifact stored_artifact = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri'
@@ -6747,6 +6913,7 @@ TEST_P(MetadataAccessObjectTest, UpdateNodeLastUpdateTimeSinceEpoch) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   // Create the original artifact before update.
   Artifact artifact;
   artifact.set_uri("testuri://changed/uri");
@@ -6832,6 +6999,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactError) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Artifact artifact = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri'
@@ -6892,6 +7060,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Execution want_execution1 =
       ParseTextProtoOrDie<Execution>(absl::StrCat(R"(
@@ -7165,6 +7334,7 @@ TEST_P(MetadataAccessObjectTest, CreateExecutionWithDuplicatedNameError) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Execution execution;
   execution.set_type_id(type_id);
@@ -7189,6 +7359,7 @@ TEST_P(MetadataAccessObjectTest, CreateExecutionWithDuplicatedExternalIdError) {
   type.set_name("test_type");
   int64 type_id;
   MLMD_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Execution execution;
   execution.set_type_id(type_id);
@@ -7197,7 +7368,7 @@ TEST_P(MetadataAccessObjectTest, CreateExecutionWithDuplicatedExternalIdError) {
   MLMD_EXPECT_OK(
       metadata_access_object_->CreateExecution(execution, &execution_id));
 
-  MLMD_ASSERT_OK(AddCommitPointIfNeeded());
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // Insert the same execution again to check the unique constraint
   absl::Status unique_constraint_violation_status =
@@ -7217,6 +7388,7 @@ TEST_P(MetadataAccessObjectTest, UpdateExecution) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Execution stored_execution = ParseTextProtoOrDie<Execution>(R"pb(
     properties {
@@ -7293,6 +7465,7 @@ TEST_P(MetadataAccessObjectTest, UpdateExecutionWithCustomUpdateTime) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Execution stored_execution = ParseTextProtoOrDie<Execution>(R"pb(
     properties {
@@ -7369,6 +7542,7 @@ TEST_P(MetadataAccessObjectTest, UpdateExecutionWithForceUpdateTimeEnabled) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Execution stored_execution = ParseTextProtoOrDie<Execution>(R"pb(
     properties {
@@ -7448,6 +7622,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
   int64 type1_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type1, &type1_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   ContextType type2 = ParseTextProtoOrDie<ContextType>(R"pb(
     name: 'test_type_with_no_property'
@@ -7455,6 +7630,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
   int64 type2_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type2, &type2_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // Creates two contexts of different types
   Context context1 = ParseTextProtoOrDie<Context>(R"pb(
@@ -7639,6 +7815,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsByType) {
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->CreateType(type, &type_id));
   }
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   Artifact entity_1;
   {
     entity_1 = ParseTextProtoOrDie<Artifact>(R"pb(
@@ -7724,6 +7901,7 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsByType) {
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->CreateType(type, &type_id));
   }
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   Execution entity_1;
   {
     entity_1 = ParseTextProtoOrDie<Execution>(R"pb(
@@ -7808,6 +7986,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsByType) {
 
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->CreateType(type, &type_id));
+    ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   }
   Context context_1;
   {
@@ -7857,6 +8036,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsByType) {
     )pb");
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->CreateType(type2, &type2_id));
+    ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
     Context context = ParseTextProtoOrDie<Context>(R"pb(
       name: "my_context2")pb");
@@ -7968,6 +8148,7 @@ TEST_P(MetadataAccessObjectTest, CreateContextError) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // type mismatch
   context.set_type_id(type_id);
@@ -7988,6 +8169,7 @@ TEST_P(MetadataAccessObjectTest, CreateContextWithDuplicatedNameError) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Context context;
   context.set_type_id(type_id);
@@ -8012,6 +8194,7 @@ TEST_P(MetadataAccessObjectTest, CreateContextWithDuplicatedExternalIdError) {
   type.set_name("test_type");
   int64 type_id;
   MLMD_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Context context;
   context.set_type_id(type_id);
@@ -8021,7 +8204,7 @@ TEST_P(MetadataAccessObjectTest, CreateContextWithDuplicatedExternalIdError) {
 
   MLMD_EXPECT_OK(metadata_access_object_->CreateContext(context, &context_id));
 
-  MLMD_ASSERT_OK(AddCommitPointIfNeeded());
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // Insert the same context again to check the unique constraint
   absl::Status unique_constraint_violation_status =
@@ -8040,7 +8223,7 @@ TEST_P(MetadataAccessObjectTest, UpdateContext) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
-
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   Context context1 = ParseTextProtoOrDie<Context>(R"pb(
     name: "before update name"
     properties {
@@ -8117,6 +8300,7 @@ TEST_P(MetadataAccessObjectTest, UpdateContextWithCustomUpdatetime) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Context context1 = ParseTextProtoOrDie<Context>(R"pb(
     name: "before update name"
@@ -8194,6 +8378,7 @@ TEST_P(MetadataAccessObjectTest, UpdateContextWithForceUpdateTimeEnabled) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   Context context1 = ParseTextProtoOrDie<Context>(R"pb(
     name: "before update name"
@@ -8579,7 +8764,8 @@ TEST_P(MetadataAccessObjectTest, GetAttributionUsingPagination) {
 TEST_P(MetadataAccessObjectTest, GetEmptyAttributionAssociationWithPagination) {
   ASSERT_EQ(absl::OkStatus(), Init());
   const ContextType context_type = CreateTypeFromTextProto<ContextType>(
-      "name: 't1'", *metadata_access_object_);
+      "name: 't1'", *metadata_access_object_,
+      metadata_access_object_container_.get());
   Context context = ParseTextProtoOrDie<Context>("name: 'c1'");
   context.set_type_id(context_type.id());
   int64 context_id;
@@ -9347,6 +9533,7 @@ TEST_P(MetadataAccessObjectTest, CreateParentContext) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(context_type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   Context context1, context2;
   context1.set_name("parent_context");
   context1.set_type_id(type_id);
@@ -9366,6 +9553,7 @@ TEST_P(MetadataAccessObjectTest, CreateParentContext) {
   parent_context.set_child_id(context2_id);
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateParentContext(parent_context));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
   // recreate the same context returns AlreadyExists
   const absl::Status status =
@@ -9381,6 +9569,7 @@ TEST_P(MetadataAccessObjectTest, CreateParentContextInvalidArgumentError) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(context_type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   Context context;
   context.set_name("parent_context");
   context.set_type_id(type_id);
@@ -9433,6 +9622,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindParentContext) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(context_type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   // Create some contexts to insert parent context relationship.
   const int num_contexts = 5;
   std::vector<Context> contexts(num_contexts);
@@ -9496,6 +9686,7 @@ TEST_P(MetadataAccessObjectTest, CreateParentContextInheritanceLinkWithCycle) {
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(context_type, &type_id));
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
   // Creates some contexts for parent context relationship.
   const int num_contexts = 5;
   std::vector<Context> contexts(num_contexts);
