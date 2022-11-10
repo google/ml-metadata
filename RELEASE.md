@@ -2,6 +2,14 @@
 
 ## Major Features and Improvements
 
+## Breaking Changes
+
+## Deprecations
+
+# Version 1.11.0
+
+## Major Features and Improvements
+
 *   Introduce methods to Create and Update Artifacts, Executions and Contexts
     with custom create and update timestamp.
 *   Introduce option to always update node's `last_update_time_since_epoch` even
@@ -23,7 +31,12 @@
 
 ## Breaking Changes
 
+*   N/A
+
+
 ## Deprecations
+
+*   N/A
 
 # Version 1.10.0
 
