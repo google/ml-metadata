@@ -642,11 +642,11 @@ cc_library(
     deps = [
         ":constants",
         ":metadata_source",
+        ":sqlite_metadata_source_util",
         ":types",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        "//ml_metadata/metadata_store:sqlite_metadata_source_util",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/util:return_utils",
