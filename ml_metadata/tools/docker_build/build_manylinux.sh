@@ -47,7 +47,7 @@ function setup_environment() {
   ${PIP_BIN} install --upgrade wheel
   ${PIP_BIN} install numpy
   # Auditwheel does not have a python2 version and auditwheel is just a binary.
-  pip3 install auditwheel==5.2.0
+  ${PIP_BIN} install auditwheel
 }
 
 function build_wheel() {
