@@ -1349,7 +1349,7 @@ absl::Status MetadataStore::PutLineageSubgraph(
             BatchTypeAndPropertyValidation<ContextType, Context>(
                 request.contexts(), metadata_access_object_.get()));
 
-        // 1. Upsert contexts
+        // 1. Upsert contexts.
         for (const Context& context : request.contexts()) {
           int64 context_id = -1;
           absl::Status status = UpsertContextWithOptions(
@@ -1360,22 +1360,16 @@ absl::Status MetadataStore::PutLineageSubgraph(
           response->add_context_ids(context_id);
         }
 
-        // 2. Upsert executions and create associations with contexts
+        // 2. Upsert executions.
         for (const Execution& execution : request.executions()) {
           int64 execution_id = -1;
           MLMD_RETURN_IF_ERROR(UpsertExecution(
               execution, metadata_access_object_.get(),
               /*skip_type_and_property_validation=*/true, &execution_id));
           response->add_execution_ids(execution_id);
-
-          for (const int64 context_id : response->context_ids()) {
-            MLMD_RETURN_IF_ERROR(InsertAssociationIfNotExist(
-                context_id, execution_id, /*is_already_validated=*/true,
-                metadata_access_object_.get()));
-          }
         }
 
-        // 3. Upsert artifacts and create attributions with contexts
+        // 3. Upsert artifacts.
         // Select the list of external_ids from Artifacts.
         // Search within the db to create a mapping from external_id to id.
         absl::flat_hash_map<std::string, int64> external_id_to_id_map;
@@ -1402,15 +1396,31 @@ absl::Status MetadataStore::PutLineageSubgraph(
               artifact_copy, metadata_access_object_.get(),
               /*skip_type_and_property_validation=*/true, &artifact_id));
           response->add_artifact_ids(artifact_id);
+        }
 
-          for (const int64 context_id : response->context_ids()) {
+        // 4. Create associations and attributions.
+        absl::flat_hash_set<int64> artifact_ids(
+            response->artifact_ids().begin(), response->artifact_ids().end());
+        absl::flat_hash_set<int64> context_ids(response->context_ids().begin(),
+                                               response->context_ids().end());
+        absl::flat_hash_set<int64> execution_ids(
+            response->execution_ids().begin(), response->execution_ids().end());
+
+        for (const int64 context_id : context_ids) {
+          for (const int64 execution_id : execution_ids) {
+            MLMD_RETURN_IF_ERROR(InsertAssociationIfNotExist(
+                context_id, execution_id, /*is_already_validated=*/true,
+                metadata_access_object_.get()));
+          }
+
+          for (const int64 artifact_id : artifact_ids) {
             MLMD_RETURN_IF_ERROR(InsertAttributionIfNotExist(
                 context_id, artifact_id, /*is_already_validated=*/true,
                 metadata_access_object_.get()));
           }
         }
 
-        // 4. Add events with the upserted executions and artifacts
+        // 5. Add events with the upserted executions and artifacts.
         for (const PutLineageSubgraphRequest::EventEdge& event_edge :
              request.event_edges()) {
           Event event = event_edge.event();
