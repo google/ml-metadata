@@ -38,7 +38,8 @@ class FilterQueryBuilder : public zetasql::SQLBuilder {
   std::string GetWhereClause();
 
   // Returns the SQL string that can be used in MLMD node listing FROM clause.
-  std::string GetFromClause();
+  // TODO(b/257334039): remove query_version parameter
+  std::string GetFromClause(int64_t query_version);
 
   // The alias for the node table used in the query builder implementation.
   static constexpr absl::string_view kBaseTableAlias = "table_0";
@@ -53,9 +54,11 @@ class FilterQueryBuilder : public zetasql::SQLBuilder {
   static std::string GetContextJoinTable(absl::string_view base_alias,
                                          absl::string_view context_alias);
 
+  // TODO(b/257334039): remove query_version parameter
   static std::string GetPropertyJoinTable(absl::string_view base_alias,
                                           absl::string_view property_alias,
-                                          absl::string_view property_name);
+                                          absl::string_view property_name,
+                                          int64_t query_version);
 
   static std::string GetParentContextJoinTable(
       absl::string_view base_alias, absl::string_view parent_context_alias);
@@ -63,15 +66,18 @@ class FilterQueryBuilder : public zetasql::SQLBuilder {
   static std::string GetChildContextJoinTable(
       absl::string_view base_alias, absl::string_view child_context_alias);
 
+  // TODO(b/257334039): remove query_version parameter
   static std::string GetCustomPropertyJoinTable(
       absl::string_view base_alias, absl::string_view property_alias,
-      absl::string_view property_name);
+      absl::string_view property_name, int64_t query_version);
 
   static std::string GetEventJoinTable(absl::string_view base_alias,
                                        absl::string_view event_alias);
 
+  // TODO(b/248836219): remove query_version parameter
   static std::string GetArtifactJoinTable(absl::string_view base_alias,
-                                          absl::string_view artifact_alias);
+                                          absl::string_view artifact_alias,
+                                          int64_t query_version);
 
   static std::string GetExecutionJoinTable(absl::string_view base_alias,
                                            absl::string_view execution_alias);

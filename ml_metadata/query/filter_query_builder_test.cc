@@ -65,8 +65,9 @@ struct QueryTupleTestCase {
   const TestOnNodes test_case_nodes;
 
   // Utility method to test the resolved from clause with the testcase instance.
+  // TODO(b/257334039): remove query_version parameter
   template <typename Node>
-  std::string GetFromClause() const {
+  std::string GetFromClause(int64_t query_version) const {
     const absl::string_view base_alias =
         FilterQueryBuilder<Node>::kBaseTableAlias;
     std::string from_clause =
@@ -80,21 +81,26 @@ struct QueryTupleTestCase {
           base_alias, context_alias);
     }
     for (absl::string_view artifact_alias : join_mentions.artifacts) {
+      // TODO(b/248836219): remove query_version parameter
       from_clause += FilterQueryBuilder<Node>::GetArtifactJoinTable(
-          base_alias, artifact_alias);
+          base_alias, artifact_alias, query_version);
     }
     for (absl::string_view execution_alias : join_mentions.executions) {
       from_clause += FilterQueryBuilder<Node>::GetExecutionJoinTable(
           base_alias, execution_alias);
     }
     for (const PropertyMention& property_mention : join_mentions.properties) {
+      // TODO(b/257334039): remove query_version parameter
       from_clause += FilterQueryBuilder<Node>::GetPropertyJoinTable(
-          base_alias, property_mention.first, property_mention.second);
+          base_alias, property_mention.first, property_mention.second,
+          query_version);
     }
     for (const PropertyMention& property_mention :
          join_mentions.custom_properties) {
+      // TODO(b/257334039): remove query_version parameter
       from_clause += FilterQueryBuilder<Node>::GetCustomPropertyJoinTable(
-          base_alias, property_mention.first, property_mention.second);
+          base_alias, property_mention.first, property_mention.second,
+          query_version);
     }
     for (absl::string_view parent_context_alias :
          join_mentions.parent_contexts) {
@@ -489,7 +495,8 @@ std::vector<QueryTupleTestCase> GetTestQueryTuples() {
 class SQLGenerationTest : public ::testing::TestWithParam<QueryTupleTestCase> {
  protected:
   template <typename T>
-  void VerifyQueryTuple() {
+  // TODO(b/257334039): remove query_version parameter
+  void VerifyQueryTuple(int64_t query_version) {
     LOG(INFO) << "Testing valid query string: " << GetParam().user_query;
     FilterQueryAstResolver<T> ast_resolver(GetParam().user_query);
     ASSERT_EQ(absl::OkStatus(), ast_resolver.Resolve());
@@ -499,26 +506,78 @@ class SQLGenerationTest : public ::testing::TestWithParam<QueryTupleTestCase> {
     // Ensures the base table alias constant does not violate the test strings
     // used in the expected where clause.
     ASSERT_EQ(FilterQueryBuilder<T>::kBaseTableAlias, "table_0");
-    EXPECT_EQ(query_builder.GetFromClause(), GetParam().GetFromClause<T>());
+    EXPECT_EQ(query_builder.GetFromClause(query_version),
+              GetParam().GetFromClause<T>(query_version));
     EXPECT_EQ(query_builder.GetWhereClause(), GetParam().where_clause);
   }
 };
 
 TEST_P(SQLGenerationTest, Artifact) {
   if (GetParam().test_case_nodes.artifact) {
-    VerifyQueryTuple<Artifact>();
+    VerifyQueryTuple<Artifact>(/*query_version=*/10);
+  }
+}
+
+// TODO(b/257334039): cleanup after migration to v10+
+TEST_P(SQLGenerationTest, ArtifactV7) {
+  if (GetParam().test_case_nodes.artifact) {
+    VerifyQueryTuple<Artifact>(/*query_version=*/7);
+  }
+}
+TEST_P(SQLGenerationTest, ArtifactV8) {
+  if (GetParam().test_case_nodes.artifact) {
+    VerifyQueryTuple<Artifact>(/*query_version=*/8);
+  }
+}
+TEST_P(SQLGenerationTest, ArtifactV9) {
+  if (GetParam().test_case_nodes.artifact) {
+    VerifyQueryTuple<Artifact>(/*query_version=*/9);
   }
 }
 
 TEST_P(SQLGenerationTest, Execution) {
   if (GetParam().test_case_nodes.execution) {
-    VerifyQueryTuple<Execution>();
+    VerifyQueryTuple<Execution>(/*query_version=*/10);
+  }
+}
+
+// TODO(b/257334039): cleanup after migration to v10+
+TEST_P(SQLGenerationTest, ExecutionV7) {
+  if (GetParam().test_case_nodes.execution) {
+    VerifyQueryTuple<Execution>(/*query_version=*/7);
+  }
+}
+TEST_P(SQLGenerationTest, ExecutionV8) {
+  if (GetParam().test_case_nodes.execution) {
+    VerifyQueryTuple<Execution>(/*query_version=*/8);
+  }
+}
+TEST_P(SQLGenerationTest, ExecutionV9) {
+  if (GetParam().test_case_nodes.execution) {
+    VerifyQueryTuple<Execution>(/*query_version=*/9);
   }
 }
 
 TEST_P(SQLGenerationTest, Context) {
   if (GetParam().test_case_nodes.context) {
-    VerifyQueryTuple<Context>();
+    VerifyQueryTuple<Context>(/*query_version=*/10);
+  }
+}
+
+// TODO(b/257334039): cleanup after migration to v10+
+TEST_P(SQLGenerationTest, ContextV7) {
+  if (GetParam().test_case_nodes.context) {
+    VerifyQueryTuple<Context>(/*query_version=*/7);
+  }
+}
+TEST_P(SQLGenerationTest, ContextV8) {
+  if (GetParam().test_case_nodes.context) {
+    VerifyQueryTuple<Context>(/*query_version=*/8);
+  }
+}
+TEST_P(SQLGenerationTest, ContextV9) {
+  if (GetParam().test_case_nodes.context) {
+    VerifyQueryTuple<Context>(/*query_version=*/9);
   }
 }
 

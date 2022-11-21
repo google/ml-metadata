@@ -803,6 +803,9 @@ absl::Status QueryConfigExecutor::ListNodeIDsUsingOptions(
     return absl::OkStatus();
   }
   std::string sql_query;
+  int64 query_version = query_schema_version().has_value()
+                            ? query_schema_version().value()
+                            : kSchemaVersionTen;
   absl::optional<absl::string_view> node_table_alias;
   if (std::is_same<Node, Artifact>::value) {
     sql_query = "SELECT `id` FROM `Artifact` WHERE";
@@ -837,7 +840,9 @@ absl::Status QueryConfigExecutor::ListNodeIDsUsingOptions(
     }
     sql_query = absl::Substitute(
         "SELECT distinct $0.`id` FROM $1 WHERE $2 AND ", *node_table_alias,
-        query_builder.GetFromClause(), query_builder.GetWhereClause());
+        // TODO(b/257334039): remove query_version-conditional logic
+        query_builder.GetFromClause(query_version),
+        query_builder.GetWhereClause());
   }
 #endif
 

@@ -43,19 +43,50 @@ JOIN (
   WHERE Type.type_kind = $2
 ) AS $1 ON $0.type_id = $1.type_id )sql";
 
-//  $0 is the base node table, $1 is the artifact related neighborhood table.
-constexpr absl::string_view kArtifactJoinTableViaAttribution = R"sql(
-JOIN (
-  SELECT Artifact.id, Artifact.name,
-         Type.name as type,
-         Attribution.context_id,
-         Artifact.create_time_since_epoch,
-         Artifact.last_update_time_since_epoch,
-         Artifact.uri, Artifact.state
-  FROM Artifact
-       JOIN Type ON Artifact.type_id = Type.id
-       JOIN Attribution ON Artifact.id = Attribution.artifact_id
-) AS $1 ON $0.id = $1.context_id )sql";
+
+absl::string_view GetArtifactJoinTableViaAttribution(int64_t query_version) {
+  // The query_version determines the set of accessible artifact attributes.
+  // To allow filtering against all supported artifact attributes at a given
+  // query_version, the join_table query must also depend on the query_version.
+  // TODO(b/248836219): restore query_version-independent constexprs
+  switch (query_version) {
+    // Fat client support for v7 and v8 queries
+    case 7:
+    case 8:
+      //  $0 is the base node table.
+      //  $1 is the artifact related neighborhood table.
+      return R"sql(
+        JOIN (
+          SELECT Artifact.id, Artifact.name,
+                Type.name as type,
+                Attribution.context_id,
+                Artifact.create_time_since_epoch,
+                Artifact.last_update_time_since_epoch,
+                Artifact.uri, Artifact.state
+          FROM Artifact
+              JOIN Type ON Artifact.type_id = Type.id
+              JOIN Attribution ON Artifact.id = Attribution.artifact_id
+        ) AS $1 ON $0.id = $1.context_id )sql";
+    // Head version supports queries from v9+
+    // TODO(b/259976815): add external_id to v9+ queries
+    case 9:
+    default:
+      //  $0 is the base node table.
+      //  $1 is the artifact related neighborhood table.
+      return R"sql(
+        JOIN (
+          SELECT Artifact.id, Artifact.name,
+                Type.name as type,
+                Attribution.context_id,
+                Artifact.create_time_since_epoch,
+                Artifact.last_update_time_since_epoch,
+                Artifact.uri, Artifact.state
+          FROM Artifact
+              JOIN Type ON Artifact.type_id = Type.id
+              JOIN Attribution ON Artifact.id = Attribution.artifact_id
+        ) AS $1 ON $0.id = $1.context_id )sql";
+  }
+}
 
 //  $0 is the base node table, $1 is the execution related neighborhood table.
 constexpr absl::string_view kExecutionJoinTableViaAssociation = R"sql(
@@ -122,25 +153,98 @@ JOIN (
        JOIN ParentContext ON Context.id = ParentContext.context_id
 ) AS $1 ON $0.id = $1.parent_context_id )sql";
 
-// $0 is the base node table. $1 is the property related neighborhood table.
-// $2 is property name, $3 is a boolean for is_custom_property.
-constexpr absl::string_view kArtifactPropertyJoinTable = R"sql(
-JOIN (
-  SELECT artifact_id, int_value, double_value, string_value
-  FROM ArtifactProperty WHERE name = "$2" AND is_custom_property = $3
-) AS $1 ON $0.id = $1.artifact_id )sql";
+absl::string_view GetArtifactPropertyJoinTable(int64_t query_version) {
+  // The query_version determines the set of accessible properties `p \in P`.
+  // To allow filtering against all supported properties at a given
+  // query_version, the join_table query must also depend on the query_version.
+  // TODO(b/257334039): restore query_version-independent constexprs
+  switch (query_version) {
+    // Fat client support for v7, v8 and v9 queries
+    case 7:
+    case 8:
+    case 9:
+      // $0 is the base node table. $1 is the property related neighborhood
+      // table. $2 is property name. $3 is a boolean for is_custom_property.
+      return R"sql(
+        JOIN (
+          SELECT artifact_id, int_value, double_value, string_value
+          FROM ArtifactProperty WHERE name = "$2" AND is_custom_property = $3
+        ) AS $1 ON $0.id = $1.artifact_id )sql";
+    // Head version supports queries from v10+
+    // TODO(b/258307046): add bool_value to v10+ queries
+    case 10:
+    default:
+      // $0 is the base node table. $1 is the property related neighborhood
+      // table. $2 is property name. $3 is a boolean for is_custom_property.
+      return R"sql(
+        JOIN (
+          SELECT artifact_id, int_value, double_value, string_value
+          FROM ArtifactProperty WHERE name = "$2" AND is_custom_property = $3
+        ) AS $1 ON $0.id = $1.artifact_id )sql";
+  }
+}
 
-constexpr absl::string_view kExecutionPropertyJoinTable = R"sql(
-JOIN (
-  SELECT execution_id, int_value, double_value, string_value
-  FROM ExecutionProperty WHERE name = "$2" AND is_custom_property = $3
-) AS $1 ON $0.id = $1.execution_id )sql";
+absl::string_view GetExecutionPropertyJoinTable(int64_t query_version) {
+  // The query_version determines the set of accessible properties `p \in P`.
+  // To allow filtering against all supported properties at a given
+  // query_version, the join_table query must also depend on the query_version.
+  // TODO(b/257334039): restore query_version-independent constexprs
+  switch (query_version) {
+    // Fat client support for v7, v8 and v9 queries
+    case 7:
+    case 8:
+    case 9:
+      // $0 is the base node table. $1 is the property related neighborhood
+      // table. $2 is property name. $3 is a boolean for is_custom_property.
+      return R"sql(
+        JOIN (
+          SELECT execution_id, int_value, double_value, string_value
+          FROM ExecutionProperty WHERE name = "$2" AND is_custom_property = $3
+        ) AS $1 ON $0.id = $1.execution_id )sql";
+    // Head version supports queries from v10+
+    // TODO(b/258307046): add bool_value to v10+ queries
+    case 10:
+    default:
+      // $0 is the base node table. $1 is the property related neighborhood
+      // table. $2 is property name. $3 is a boolean for is_custom_property.
+      return R"sql(
+        JOIN (
+          SELECT execution_id, int_value, double_value, string_value
+          FROM ExecutionProperty WHERE name = "$2" AND is_custom_property = $3
+        ) AS $1 ON $0.id = $1.execution_id )sql";
+  }
+}
 
-constexpr absl::string_view kContextPropertyJoinTable = R"sql(
-JOIN (
-  SELECT context_id, int_value, double_value, string_value
-  FROM ContextProperty WHERE name = "$2" AND is_custom_property = $3
-) AS $1 ON $0.id = $1.context_id )sql";
+absl::string_view GetContextPropertyJoinTable(int64_t query_version) {
+  // The query_version determines the set of accessible properties `p \in P`.
+  // To allow filtering against all supported properties at a given
+  // query_version, the join_table query must also depend on the query_version.
+  // TODO(b/257334039): restore query_version-independent constexprs
+  switch (query_version) {
+    // Fat client support for v7, v8 and v9 queries
+    case 7:
+    case 8:
+    case 9:
+      // $0 is the base node table. $1 is the property related neighborhood
+      // table. $2 is property name. $3 is a boolean for is_custom_property.
+      return R"sql(
+        JOIN (
+          SELECT context_id, int_value, double_value, string_value
+          FROM ContextProperty WHERE name = "$2" AND is_custom_property = $3
+        ) AS $1 ON $0.id = $1.context_id )sql";
+    // Head version supports queries from v10+
+    // TODO(b/258307046): add bool_value to v10+ queries
+    case 10:
+    default:
+      // $0 is the base node table. $1 is the property related neighborhood
+      // table. $2 is property name. $3 is a boolean for is_custom_property.
+      return R"sql(
+        JOIN (
+          SELECT context_id, int_value, double_value, string_value
+          FROM ContextProperty WHERE name = "$2" AND is_custom_property = $3
+        ) AS $1 ON $0.id = $1.context_id )sql";
+  }
+}
 
 constexpr absl::string_view kArtifactEventJoinTable = R"sql(
 JOIN Event AS $1 ON $0.id = $1.artifact_id )sql";
@@ -174,10 +278,11 @@ absl::string_view GetContextJoinTemplate() {
 }
 
 // Returns the artifact join clause for context node type.
+// TODO(b/248836219): remove query_version parameter
 template <typename T>
-absl::string_view GetArtifactJoinToContextTemplate() {
+absl::string_view GetArtifactJoinToContextTemplate(int64_t query_version) {
   if constexpr (std::is_same<T, Context>::value) {
-    return kArtifactJoinTableViaAttribution;
+    return GetArtifactJoinTableViaAttribution(query_version);
   }
   LOG(ERROR) << "Artifact Join does not apply to T = Artifact or Execution.";
   return "";
@@ -205,23 +310,29 @@ absl::string_view GetEventJoinTemplate() {
   }
 }
 
-// Returns the property join clause depending on the node types.
+// Returns the property join clause depending on the node type and query version
+// TODO(b/257334039): remove query_version parameter
 template <typename T>
 std::string GetPropertyJoinTableImpl(absl::string_view base_alias,
                                      absl::string_view property_alias,
                                      absl::string_view property_name,
-                                     bool is_custom_property) {
+                                     bool is_custom_property,
+                                     int64_t query_version) {
   if constexpr (std::is_same<T, Artifact>::value) {
-    return absl::Substitute(kArtifactPropertyJoinTable, base_alias,
-                            property_alias, property_name, is_custom_property);
+    return absl::Substitute(GetArtifactPropertyJoinTable(query_version),
+                            base_alias, property_alias, property_name,
+                            is_custom_property);
   } else if constexpr (std::is_same<T, Execution>::value) {
-    return absl::Substitute(kExecutionPropertyJoinTable, base_alias,
-                            property_alias, property_name, is_custom_property);
+    return absl::Substitute(GetExecutionPropertyJoinTable(query_version),
+                            base_alias, property_alias, property_name,
+                            is_custom_property);
   } else if constexpr (std::is_same<T, Context>::value) {
-    return absl::Substitute(kContextPropertyJoinTable, base_alias,
-                            property_alias, property_name, is_custom_property);
+    return absl::Substitute(GetContextPropertyJoinTable(query_version),
+                            base_alias, property_alias, property_name,
+                            is_custom_property);
   }
 }
+
 }  // namespace
 
 template <typename T>
@@ -250,11 +361,13 @@ std::string FilterQueryBuilder<T>::GetContextJoinTable(
                           context_alias);
 }
 
+// TODO(b/248836219): remove query_version parameter
 template <typename T>
 std::string FilterQueryBuilder<T>::GetArtifactJoinTable(
-    absl::string_view base_alias, absl::string_view artifact_alias) {
-  return absl::Substitute(GetArtifactJoinToContextTemplate<T>(), base_alias,
-                          artifact_alias);
+    absl::string_view base_alias, absl::string_view artifact_alias,
+    int64_t query_version) {
+  return absl::Substitute(GetArtifactJoinToContextTemplate<T>(query_version),
+                          base_alias, artifact_alias);
 }
 
 template <typename T>
@@ -278,20 +391,23 @@ std::string FilterQueryBuilder<T>::GetChildContextJoinTable(
                           child_context_alias);
 }
 
+// TODO(b/257334039): remove query_version parameter
 template <typename T>
 std::string FilterQueryBuilder<T>::GetPropertyJoinTable(
     absl::string_view base_alias, absl::string_view property_alias,
-    absl::string_view property_name) {
+    absl::string_view property_name, int64_t query_version) {
   return GetPropertyJoinTableImpl<T>(base_alias, property_alias, property_name,
-                                     /*is_custom_property=*/false);
+                                     /*is_custom_property=*/false,
+                                     query_version);
 }
 
 template <typename T>
 std::string FilterQueryBuilder<T>::GetCustomPropertyJoinTable(
     absl::string_view base_alias, absl::string_view property_alias,
-    absl::string_view property_name) {
+    absl::string_view property_name, int64_t query_version) {
   return GetPropertyJoinTableImpl<T>(base_alias, property_alias, property_name,
-                                     /*is_custom_property=*/true);
+                                     /*is_custom_property=*/true,
+                                     query_version);
 }
 
 template <typename T>
@@ -311,8 +427,9 @@ std::string FilterQueryBuilder<T>::GetWhereClause() {
   return absl::StrCat("(", sql(), ")");
 }
 
+// TODO(b/257334039): remove query_version parameter
 template <typename T>
-std::string FilterQueryBuilder<T>::GetFromClause() {
+std::string FilterQueryBuilder<T>::GetFromClause(int64_t query_version) {
   const std::string& base_alias =
       mentioned_alias_[AtomType::ATTRIBUTE][kBaseTableRef];
   std::string result = GetBaseNodeTable(base_alias);
@@ -327,7 +444,9 @@ std::string FilterQueryBuilder<T>::GetFromClause() {
   }
   for (const auto& mentioned_artifact : mentioned_alias_[AtomType::ARTIFACT]) {
     const std::string& artifact_alias = mentioned_artifact.second;
-    absl::StrAppend(&result, GetArtifactJoinTable(base_alias, artifact_alias));
+    // TODO(b/248836219): remove query_version parameter
+    absl::StrAppend(&result, GetArtifactJoinTable(base_alias, artifact_alias,
+                                                  query_version));
   }
   for (const auto& mentioned_execution :
        mentioned_alias_[AtomType::EXECUTION]) {
@@ -341,8 +460,9 @@ std::string FilterQueryBuilder<T>::GetFromClause() {
     static constexpr absl::string_view kPropertyPrefix = "properties_";
     const std::string property_name =
         mentioned_property.first.substr(kPropertyPrefix.length());
-    absl::StrAppend(&result, GetPropertyJoinTable(base_alias, property_alias,
-                                                  property_name));
+    absl::StrAppend(
+        &result, GetPropertyJoinTable(base_alias, property_alias, property_name,
+                                      query_version));
   }
   for (const auto& mentioned_property :
        mentioned_alias_[AtomType::CUSTOM_PROPERTY]) {
@@ -351,8 +471,9 @@ std::string FilterQueryBuilder<T>::GetFromClause() {
     static constexpr absl::string_view kPropertyPrefix = "custom_properties_";
     const std::string property_name =
         mentioned_property.first.substr(kPropertyPrefix.length());
-    absl::StrAppend(&result, GetCustomPropertyJoinTable(
-                                 base_alias, property_alias, property_name));
+    absl::StrAppend(&result,
+                    GetCustomPropertyJoinTable(base_alias, property_alias,
+                                               property_name, query_version));
   }
   for (const auto& parent_contexts :
        mentioned_alias_[AtomType::PARENT_CONTEXT]) {
