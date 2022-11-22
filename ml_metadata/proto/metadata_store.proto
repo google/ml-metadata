@@ -77,6 +77,9 @@ message Artifact {
     MARKED_FOR_DELETION = 3;
     // A state indicating that the artifact has been deleted.
     DELETED = 4;
+    // A state indicating that the artifact has been abandoned, which may be
+    // due to a failed or cancelled execution.
+    ABANDONED = 5;
   }
 
   // The state of the artifact known to the system.
@@ -170,40 +173,55 @@ message ArtifactType {
 //       type:DECLARED_OUTPUT,
 //       path:{step:[{"key":"my_result"}]}
 //   }
-// Other event types include INPUT/OUTPUT and INTERNAL_INPUT/_OUTPUT.
+//
+// Other event types include INPUT/OUTPUT, INTERNAL_INPUT/_OUTPUT and
+// PENDING_OUTPUT:
+//
 // * The INPUT/OUTPUT is an event that actually reads/writes an artifact by an
 //   execution. The input/output artifacts may not declared in the signature,
 //   For example, the trainer may output multiple caches of the parameters
 //   (as an OUTPUT), then finally write the SavedModel as a DECLARED_OUTPUT.
+//
 // * The INTERNAL_INPUT/_OUTPUT are event types which are only meaningful to
 //   an orchestration system to keep track of the details for later debugging.
 //   For example, a fork happened conditioning on an artifact, then an execution
 //   is triggered, such fork implementating may need to log the read and write
 //   of artifacts and may not be worth displaying to the users.
 //
-// For instance, in the above example,
+//   For instance, in the above example,
 //
-//   my_result = my_execution({"data":[3,7],"schema":8})
+//     my_result = my_execution({"data":[3,7],"schema":8})
 //
-// there is another execution (id: 15), which represents a `garbage_collection`
-// step in an orchestration system
+//   there is another execution (id: 15), which represents a `garbage_collection`
+//   step in an orchestration system
 //
-//   gc_result = garbage_collection(my_result)
+//     gc_result = garbage_collection(my_result)
 //
-// that cleans `my_result` if needed. The details should be invisible to the
-// end users and lineage tracking. The orchestrator can emit following events:
+//   that cleans `my_result` if needed. The details should be invisible to the
+//   end users and lineage tracking. The orchestrator can emit following events:
 //
-//   {
-//       artifact_id: 15,
-//       execution_id: 15,
-//       type:INTERNAL_INPUT,
-//   }
-//   {
-//       artifact_id:16,  // New artifact containing the GC job result.
-//       execution_id: 15,
-//       type:INTERNAL_OUTPUT,
-//       path:{step:[{"key":"gc_result"}]}
-//   }
+//     {
+//         artifact_id: 15,
+//         execution_id: 15,
+//         type:INTERNAL_INPUT,
+//     }
+//     {
+//         artifact_id:16,  // New artifact containing the GC job result.
+//         execution_id: 15,
+//         type:INTERNAL_OUTPUT,
+//         path:{step:[{"key":"gc_result"}]}
+//     }
+//
+// * The PENDING_OUTPUT event is used to indicate that an artifact is
+//   tentatively associated with an active execution which has not yet been
+//   finalized. For example, an orchestration system can register output
+//   artifacts of a running execution with PENDING_OUTPUT events to indicate
+//   the output artifacts the execution is expected to produce. When the
+//   execution is finished, the final set of output artifacts can be associated
+//   with the exeution using OUTPUT events, and any unused artifacts which were
+//   previously registered with PENDING_OUTPUT events can be updated to set
+//   their Artifact.State to ABANDONED.
+//
 // Events are unique of the same
 // (artifact_id, execution_id, type) combination within a metadata store.
 message Event {
@@ -232,6 +250,7 @@ message Event {
     OUTPUT = 4;           // An output of the execution.
     INTERNAL_INPUT = 5;   // An internal input of the execution.
     INTERNAL_OUTPUT = 6;  // An internal output of the execution.
+    PENDING_OUTPUT = 7;   // A pending output of the execution.
   }
   // The artifact id is required for an event, and should refer to an
   // existing artifact.
