@@ -847,8 +847,14 @@ absl::Status QueryConfigExecutor::ListNodeIDsUsingOptions(
 #endif
 
   if (candidate_ids) {
-    absl::SubstituteAndAppend(&sql_query, " `id` IN ($0) AND ",
-                              Bind(*candidate_ids));
+    if (node_table_alias.has_value() && !node_table_alias->empty()) {
+      absl::SubstituteAndAppend(&sql_query, " $0.`id`", *node_table_alias);
+      absl::SubstituteAndAppend(&sql_query, " IN ($0) AND ",
+                                Bind(*candidate_ids));
+    } else {
+      absl::SubstituteAndAppend(&sql_query, " `id` IN ($0) AND ",
+                                Bind(*candidate_ids));
+    }
   }
   MLMD_RETURN_IF_ERROR(
       AppendOrderingThresholdClause(options, node_table_alias, sql_query));

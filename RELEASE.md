@@ -2,6 +2,9 @@
 
 ## Major Features and Improvements
 
+*   Fix filter query parsing for QueryLineageGraph when using queries with
+    aliases.
+
 ## Breaking Changes
 
 ## Deprecations

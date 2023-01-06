@@ -15,6 +15,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/metadata_access_object_test.h"
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "gflags/gflags.h"
@@ -484,12 +485,12 @@ TEST_P(MetadataAccessObjectTest, ParsePackedMockProto) {
   )pb");
   google::protobuf::Any any_proto_1;
   any_proto_1.PackFrom(mock_proto);
-  google::protobuf::Any any_proto_2
-    = ParseTextProtoOrDie<google::protobuf::Any>(R"pb(
-      [type.googleapis.com/ml_metadata.testing.MockProto]{
-        string_value: '3'
-        double_value: 3.0
-      })pb");
+  google::protobuf::Any any_proto_2 =
+      ParseTextProtoOrDie<google::protobuf::Any>(R"pb(
+        [type.googleapis.com/ml_metadata.testing.MockProto] {
+          string_value: '3'
+          double_value: 3.0
+        })pb");
   EXPECT_THAT(any_proto_1, EqualsProto(any_proto_2));
 }
 
@@ -4487,6 +4488,176 @@ TEST_P(MetadataAccessObjectTest, QueryLineageGraph) {
     VerifyLineageGraph(output_graph, want_artifacts, want_executions,
                        want_events, *metadata_access_object_);
   }
+}
+
+TEST_P(MetadataAccessObjectTest,
+       QueryLineageGrapWithContextAliasInBoundaryArtifacts) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  // Test setup: use a simple graph with multiple paths between (a1, e2). (a1,
+  // a2) are attributed to c1.
+  // c1(a1) -> e1 -> c1(a2)
+  //     \               \
+  //      \------------> e2
+  const ArtifactType artifact_type = CreateTypeFromTextProto<ArtifactType>(
+      "name: 'artifact_type'", *metadata_access_object_,
+      metadata_access_object_container_.get());
+  const ExecutionType execution_type = CreateTypeFromTextProto<ExecutionType>(
+      "name: 'execution_type'", *metadata_access_object_,
+      metadata_access_object_container_.get());
+  const ContextType context_type = CreateTypeFromTextProto<ContextType>(
+      "name: 'context_type'", *metadata_access_object_,
+      metadata_access_object_container_.get());
+  std::vector<Artifact> want_artifacts(2);
+  std::vector<Execution> want_executions(2);
+  std::vector<Context> want_contexts(1);
+  CreateNodeFromTextProto(
+      "name: 'context_1'", context_type.id(), *metadata_access_object_,
+      metadata_access_object_container_.get(), want_contexts[0]);
+  for (int i = 0; i < 2; i++) {
+    CreateNodeFromTextProto(absl::Substitute("uri: 'uri_$0'", i),
+                            artifact_type.id(), *metadata_access_object_,
+                            metadata_access_object_container_.get(),
+                            want_artifacts[i]);
+  }
+  for (int i = 0; i < 2; i++) {
+    CreateNodeFromTextProto("", execution_type.id(), *metadata_access_object_,
+                            metadata_access_object_container_.get(),
+                            want_executions[i]);
+  }
+  std::vector<Event> want_events(4);
+  CreateEventFromTextProto("type: INPUT", want_artifacts[0], want_executions[0],
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[0]);
+  CreateEventFromTextProto("type: INPUT", want_artifacts[0], want_executions[1],
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[1]);
+  CreateEventFromTextProto("type: OUTPUT", want_artifacts[1],
+                           want_executions[0], *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[2]);
+  CreateEventFromTextProto("type: INPUT", want_artifacts[1], want_executions[1],
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[3]);
+  Attribution attribution;
+  attribution.set_artifact_id(want_artifacts[0].id());
+  attribution.set_context_id(want_contexts[0].id());
+  int64 attribution_id;
+  // Note using ASSERT_EQ as *_OK is not well supported in OSS
+  ASSERT_EQ(
+      metadata_access_object_->CreateAttribution(attribution, &attribution_id),
+      absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  attribution.set_artifact_id(want_artifacts[1].id());
+  ASSERT_EQ(
+      metadata_access_object_->CreateAttribution(attribution, &attribution_id),
+      absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  // Query a1 with 2 hop, with artifacts boundary filter query using Context
+  // alias. It should return only a1 , e1, e2 and two event nodes connecting
+  // them. without the filter it would return all nodes with no duplicate,
+  // same as above.
+  LineageGraph output_graph;
+  const std::string boundary_artifacts =
+      absl::Substitute("NOT(contexts_0.id = $0)", want_contexts[0].id());
+  ASSERT_EQ(metadata_access_object_->QueryLineageGraph(
+                /*query_nodes=*/{want_artifacts[0]}, /*max_num_hops=*/2,
+                /*max_nodes=*/absl::nullopt,
+                /*boundary_artifacts=*/boundary_artifacts,
+                /*boundary_executions=*/absl::nullopt, output_graph),
+            absl::OkStatus());
+  VerifyLineageGraph(output_graph, {want_artifacts[0]}, want_executions,
+                     /*events=*/{want_events[0], want_events[1]},
+                     *metadata_access_object_);
+}
+
+TEST_P(MetadataAccessObjectTest,
+       QueryLineageGrapWithEventAliasInBoundaryArtifacts) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  // Test setup: use a simple graph with multiple paths between (a1, e2). (a1,
+  // a2) are attributed to c1.
+  // c1(a1) -> e1 -> c1(a2)
+  //     \               \
+  //      \------------> e2
+  const ArtifactType artifact_type = CreateTypeFromTextProto<ArtifactType>(
+      "name: 'artifact_type'", *metadata_access_object_,
+      metadata_access_object_container_.get());
+  const ExecutionType execution_type = CreateTypeFromTextProto<ExecutionType>(
+      "name: 'execution_type'", *metadata_access_object_,
+      metadata_access_object_container_.get());
+  const ContextType context_type = CreateTypeFromTextProto<ContextType>(
+      "name: 'context_type'", *metadata_access_object_,
+      metadata_access_object_container_.get());
+  std::vector<Artifact> want_artifacts(2);
+  std::vector<Execution> want_executions(2);
+  std::vector<Context> want_contexts(1);
+  CreateNodeFromTextProto(
+      "name: 'context_1'", context_type.id(), *metadata_access_object_,
+      metadata_access_object_container_.get(), want_contexts[0]);
+  for (int i = 0; i < 2; i++) {
+    CreateNodeFromTextProto(absl::Substitute("uri: 'uri_$0'", i),
+                            artifact_type.id(), *metadata_access_object_,
+                            metadata_access_object_container_.get(),
+                            want_artifacts[i]);
+  }
+  for (int i = 0; i < 2; i++) {
+    CreateNodeFromTextProto("", execution_type.id(), *metadata_access_object_,
+                            metadata_access_object_container_.get(),
+                            want_executions[i]);
+  }
+  std::vector<Event> want_events(4);
+  CreateEventFromTextProto("type: INPUT", want_artifacts[0], want_executions[0],
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[0]);
+  CreateEventFromTextProto("type: INPUT", want_artifacts[0], want_executions[1],
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[1]);
+  CreateEventFromTextProto("type: OUTPUT", want_artifacts[1],
+                           want_executions[0], *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[2]);
+  CreateEventFromTextProto("type: INPUT", want_artifacts[1], want_executions[1],
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[3]);
+  Attribution attribution;
+  attribution.set_artifact_id(want_artifacts[0].id());
+  attribution.set_context_id(want_contexts[0].id());
+  int64 attribution_id;
+  // Note using ASSERT_EQ as *_OK is not well supported in OSS
+  ASSERT_EQ(
+      metadata_access_object_->CreateAttribution(attribution, &attribution_id),
+      absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  attribution.set_artifact_id(want_artifacts[1].id());
+  ASSERT_EQ(
+      metadata_access_object_->CreateAttribution(attribution, &attribution_id),
+      absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  // Query a1 with 2 hop, with artifacts boundary filter query using Event
+  // alias. It should return only a1 , e1, e2 and two event nodes connecting
+  // them. without the filter it would return all nodes with no duplicate,
+  // same as above.
+  LineageGraph output_graph;
+  const std::string boundary_artifacts = absl::Substitute(
+      "NOT(events_0.execution_id = $0)", want_executions[0].id());
+  ASSERT_EQ(metadata_access_object_->QueryLineageGraph(
+                /*query_nodes=*/{want_artifacts[0]}, /*max_num_hops=*/2,
+                /*max_nodes=*/absl::nullopt,
+                /*boundary_artifacts=*/boundary_artifacts,
+                /*boundary_executions=*/absl::nullopt, output_graph),
+            absl::OkStatus());
+  VerifyLineageGraph(output_graph, {want_artifacts[0]}, want_executions,
+                     /*events=*/{want_events[0], want_events[1]},
+                     *metadata_access_object_);
 }
 
 TEST_P(MetadataAccessObjectTest, QueryLineageGraphArtifactsOnly) {
