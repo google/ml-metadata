@@ -185,7 +185,7 @@ message ArtifactType {
 // * The INTERNAL_INPUT/_OUTPUT are event types which are only meaningful to
 //   an orchestration system to keep track of the details for later debugging.
 //   For example, a fork happened conditioning on an artifact, then an execution
-//   is triggered, such fork implementating may need to log the read and write
+//   is triggered, such fork implementing may need to log the read and write
 //   of artifacts and may not be worth displaying to the users.
 //
 //   For instance, in the above example,
