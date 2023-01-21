@@ -80,6 +80,9 @@ message Artifact {
     // A state indicating that the artifact has been abandoned, which may be
     // due to a failed or cancelled execution.
     ABANDONED = 5;
+    // A state indicating that the artifact is a copy for referencing an
+    // external artifact.
+    REFERENCE = 6;
   }
 
   // The state of the artifact known to the system.
@@ -192,8 +195,8 @@ message ArtifactType {
 //
 //     my_result = my_execution({"data":[3,7],"schema":8})
 //
-//   there is another execution (id: 15), which represents a `garbage_collection`
-//   step in an orchestration system
+//   there is another execution (id: 15), which represents a
+//   `garbage_collection` step in an orchestration system
 //
 //     gc_result = garbage_collection(my_result)
 //
