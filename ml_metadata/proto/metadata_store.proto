@@ -43,7 +43,7 @@ message Value {
 }
 
 message Artifact {
-  // Output only. The globally unique server generated id of the artifact.
+  // Output only. The unique server generated id of the artifact.
   optional int64 id = 1;
   // The client provided name of the artifact. This field is optional. If set,
   // it must be unique among all the artifacts of the same artifact type within
@@ -271,7 +271,7 @@ message Event {
 }
 
 message Execution {
-  // Output only. The globally unique server generated id of the execution.
+  // Output only. The unique server generated id of the execution.
   optional int64 id = 1;
   // The client provided name of the execution. This field is optional. If set,
   // it must be unique among all the executions of the same execution type
@@ -403,7 +403,7 @@ message ContextType {
 }
 
 message Context {
-  // Output Only. The globally unique server generated id of the context.
+  // Output Only. The unique server generated id of the context.
   optional int64 id = 1;
   // The client provided name of the context. It must be unique within a
   // database instance.
