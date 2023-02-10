@@ -1002,6 +1002,10 @@ message LineageGraphQueryOptions {
   optional BoundaryConstraint stop_conditions = 2;
 
   // Maximum number of returned nodes.
-  // If set to 0 or below, all related nodes will be returned.
+  // If set to 0 or below, all related nodes will be returned without any
+  // number limitation.
+  // The number counts toward Artifacts and Executions. Nothing else considered.
+  //
+  // NOTE: There is no pagination supported.
   optional int64 max_node_size = 3 [default = 20];
 }
