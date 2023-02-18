@@ -371,6 +371,12 @@ message GetArtifactsByTypeRequest {
   // Currently supports:
   //   1. Field to order the results.
   //   2. Page size.
+  // If set, the request will
+  //   first fetch all artifacts with specified `type_name` and `type_version`,
+  //   then order by a specifield field
+  //   finally find the correct page and return #Artifacts of the page size.
+  // Higher-level APIs may only use the functionalies partially.
+  // Please reference the API documentation for the API behaviors.
   optional ListOperationOptions options = 3;
   // Options regarding transactions.
   optional TransactionOptions transaction_options = 4;
@@ -414,9 +420,8 @@ message GetArtifactsByIDResponse {
 // If option is not specified then all Artifacts are returned.
 message GetArtifactsRequest {
   // Specify options.
-  // Currently supports:
-  //   1. Field to order the results.
-  //   2. Page size.
+  // Please refer to the documentation of ListOperationOptions for the supported
+  // functionalities.
   optional ListOperationOptions options = 1;
   // Options regarding transactions.
   optional TransactionOptions transaction_options = 2;
@@ -448,9 +453,8 @@ message GetArtifactsByURIResponse {
 // If option is not specified then all Executions are returned.
 message GetExecutionsRequest {
   // Specify options.
-  // Currently supports:
-  //   1. Field to order the results.
-  //   2. Page size.
+  // Please refer to the documentation of ListOperationOptions for the supported
+  // functionalities.
   optional ListOperationOptions options = 1;
   // Options regarding transactions.
   optional TransactionOptions transaction_options = 2;
@@ -573,6 +577,12 @@ message GetExecutionsByTypeRequest {
   // Currently supports:
   //   1. Field to order the results.
   //   2. Page size.
+  // If set, the request will
+  //   first fetch all executions with specified `type_name` and `type_version`,
+  //   then order by a specifield field
+  //   finally find the correct page and return #Executions of the page size.
+  // Higher-level APIs may only use the functionalies partially.
+  // Please reference the API documentation for the API behaviors.
   optional ListOperationOptions options = 3;
   // Options regarding transactions.
   optional TransactionOptions transaction_options = 4;
@@ -700,9 +710,8 @@ message GetContextTypesByIDResponse {
 // If option is not specified then all Contexts are returned.
 message GetContextsRequest {
   // Specify options.
-  // Currently supports:
-  //   1. Field to order the results.
-  //   2. Page size.
+  // Please refer to the documentation of ListOperationOptions for the supported
+  // functionalities.
   optional ListOperationOptions options = 1;
   // Options regarding transactions.
   optional TransactionOptions transaction_options = 2;
@@ -723,6 +732,12 @@ message GetContextsByTypeRequest {
   // Currently supports:
   //   1. Field to order the results.
   //   2. Page size.
+  // If set, the request will
+  //   first fetch all contexts with specified `type_name` and `type_version`,
+  //   then order by a specifield field
+  //   finally find the correct page and return #Contexts of the page size.
+  // Higher-level APIs may only use the functionalies partially.
+  // Please reference the API documentation for the API behaviors.
   optional ListOperationOptions options = 2;
   // If not set, it looks for the type with type_name and options with default
   // type_version.
