@@ -82,6 +82,7 @@ message Artifact {
     ABANDONED = 5;
     // A state indicating that the artifact is a copy for referencing an
     // external artifact.
+    // TODO(b/261527306) This new state is currently not used.
     REFERENCE = 6;
   }
 
