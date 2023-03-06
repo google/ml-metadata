@@ -45,6 +45,7 @@ limitations under the License.
 #include "absl/types/optional.h"
 #include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/metadata_store/list_operation_util.h"
+#include "ml_metadata/metadata_store/record_parsing_utils.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/simple_types/simple_types_constants.h"
@@ -268,17 +269,6 @@ absl::Status ParseRecordSetToMessage(const RecordSet& record_set,
   return absl::OkStatus();
 }
 
-// Converts a RecordSet in the query result to a MessageType array.
-template <typename MessageType>
-absl::Status ParseRecordSetToMessageArray(const RecordSet& record_set,
-                                          std::vector<MessageType>* messages) {
-  for (int i = 0; i < record_set.records_size(); i++) {
-    messages->push_back(MessageType());
-    MLMD_RETURN_IF_ERROR(
-        ParseRecordSetToMessage(record_set, &messages->back(), i));
-  }
-  return absl::OkStatus();
-}
 
 // Converts a list of Records containing key-value pairs to a proto Map.
 // The field_name is the map field in the MessageType. The method fills the
@@ -395,25 +385,6 @@ absl::Status CheckCyClicDependency(int64 child_id, int64 parent_id,
 
 }  // namespace
 
-absl::Status ParseRecordSetToNodeArray(const RecordSet& record_set,
-                                       std::vector<Artifact>* artifacts) {
-  return ParseRecordSetToMessageArray(record_set, artifacts);
-}
-
-absl::Status ParseRecordSetToNodeArray(const RecordSet& record_set,
-                                       std::vector<Execution>* executions) {
-  return ParseRecordSetToMessageArray(record_set, executions);
-}
-
-absl::Status ParseRecordSetToNodeArray(const RecordSet& record_set,
-                                       std::vector<Context>* contexts) {
-  return ParseRecordSetToMessageArray(record_set, contexts);
-}
-
-absl::Status ParseRecordSetToNodeArray(const RecordSet& record_set,
-                                       std::vector<Event>* events) {
-  return ParseRecordSetToMessageArray(record_set, events);
-}
 
 // Creates an Artifact (without properties).
 absl::Status RDBMSMetadataAccessObject::CreateBasicNode(
@@ -1084,7 +1055,7 @@ absl::Status RDBMSMetadataAccessObject::FindNodesImpl(
   MLMD_RETURN_IF_ERROR(RetrieveNodesById<Node>(node_ids, &node_record_set,
                                                &properties_record_set));
 
-  MLMD_RETURN_IF_ERROR(ParseRecordSetToMessageArray(node_record_set, &nodes));
+  MLMD_RETURN_IF_ERROR(ParseRecordSetToNodeArray(node_record_set, nodes));
 
   // if there are properties associated with the nodes, parse the returned
   // values.
@@ -1214,7 +1185,7 @@ absl::Status RDBMSMetadataAccessObject::FindEventsFromRecordSet(
     return absl::InvalidArgumentError("Given events is NULL.");
 
   events->reserve(event_record_set.records_size());
-  MLMD_RETURN_IF_ERROR(ParseRecordSetToMessageArray(event_record_set, events));
+  MLMD_RETURN_IF_ERROR(ParseRecordSetToEdgeArray(event_record_set, *events));
 
   absl::flat_hash_map<int64, Event*> event_id_to_event_map;
   std::vector<int64> event_ids;

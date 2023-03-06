@@ -58,6 +58,34 @@ cc_library(
 )
 
 cc_library(
+    name = "record_parsing_utils",
+    srcs = ["record_parsing_utils.cc"],
+    hdrs = ["record_parsing_utils.h"],
+    deps = [
+        ":constants",
+        
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/util:return_utils",
+        "@com_google_glog//:glog",
+    ],
+)
+
+cc_test(
+    name = "record_parsing_utils_test",
+    srcs = ["record_parsing_utils_test.cc"],
+    deps = [
+        ":record_parsing_utils",
+        ":test_util",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/status",
+        "//ml_metadata/proto:metadata_store_proto",
+    ],
+)
+
+cc_library(
     name = "rdbms_metadata_access_object",
     srcs = [
         "rdbms_metadata_access_object.cc",
@@ -71,6 +99,7 @@ cc_library(
         ":metadata_access_object_base",
         ":metadata_source",
         ":query_executor",
+        ":record_parsing_utils",
         "@com_google_protobuf//:protobuf",
         
         "@com_google_absl//absl/container:flat_hash_map",
