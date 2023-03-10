@@ -2296,19 +2296,20 @@ absl::Status RDBMSMetadataAccessObject::SkipBoundaryNodesImpl(
   auto list_ids = absl::MakeConstSpan(candidate_ids);
   // Uses batched retrieval to bound query length and list query invariant.
   static constexpr int kBatchSize = 100;
+  unvisited_node_ids.clear();
   for (int i = 0; i * kBatchSize < candidate_ids.size(); i++) {
     ListOperationOptions boundary_options;
     boundary_options.set_max_result_size(kBatchSize);
-    boundary_options.set_filter_query(
-        absl::Substitute("NOT($0)", *boundary_condition));
+    boundary_options.set_filter_query(*boundary_condition);
     RecordSet record_set;
     MLMD_RETURN_IF_ERROR(ListNodeIds<Node>(
         boundary_options, list_ids.subspan(i * kBatchSize, kBatchSize),
         &record_set));
-    for (int64 skip_id : ConvertToIds(record_set)) {
-      unvisited_node_ids.erase(skip_id);
+    for (int64 keep_id : ConvertToIds(record_set)) {
+      unvisited_node_ids.insert(keep_id);
     }
   }
+
   return absl::OkStatus();
 }
 

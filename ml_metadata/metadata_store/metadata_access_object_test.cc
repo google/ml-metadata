@@ -21,7 +21,6 @@ limitations under the License.
 #include "gflags/gflags.h"
 #include <glog/logging.h>
 #include "google/protobuf/any.pb.h"
-#include "google/protobuf/repeated_field.h"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/container/flat_hash_map.h"
@@ -4582,7 +4581,7 @@ TEST_P(MetadataAccessObjectTest,
   // a2) are attributed to c1.
   // c1(a1) -> e1 -> c1(a2)
   //     \               \
-  //      \------------> e2
+  //      \------------> e2 -> a3
   const ArtifactType artifact_type = CreateTypeFromTextProto<ArtifactType>(
       "name: 'artifact_type'", *metadata_access_object_,
       metadata_access_object_container_.get());
@@ -4592,13 +4591,13 @@ TEST_P(MetadataAccessObjectTest,
   const ContextType context_type = CreateTypeFromTextProto<ContextType>(
       "name: 'context_type'", *metadata_access_object_,
       metadata_access_object_container_.get());
-  std::vector<Artifact> want_artifacts(2);
+  std::vector<Artifact> want_artifacts(3);
   std::vector<Execution> want_executions(2);
   std::vector<Context> want_contexts(1);
   CreateNodeFromTextProto(
       "name: 'context_1'", context_type.id(), *metadata_access_object_,
       metadata_access_object_container_.get(), want_contexts[0]);
-  for (int i = 0; i < 2; i++) {
+  for (int i = 0; i < 3; i++) {
     CreateNodeFromTextProto(absl::Substitute("uri: 'uri_$0'", i),
                             artifact_type.id(), *metadata_access_object_,
                             metadata_access_object_container_.get(),
@@ -4609,7 +4608,7 @@ TEST_P(MetadataAccessObjectTest,
                             metadata_access_object_container_.get(),
                             want_executions[i]);
   }
-  std::vector<Event> want_events(4);
+  std::vector<Event> want_events(5);
   CreateEventFromTextProto("type: INPUT", want_artifacts[0], want_executions[0],
                            *metadata_access_object_,
                            metadata_access_object_container_.get(),
@@ -4626,6 +4625,10 @@ TEST_P(MetadataAccessObjectTest,
                            *metadata_access_object_,
                            metadata_access_object_container_.get(),
                            want_events[3]);
+  CreateEventFromTextProto("type: OUTPUT", want_artifacts[2],
+                           want_executions[1], *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[4]);
   Attribution attribution;
   attribution.set_artifact_id(want_artifacts[0].id());
   attribution.set_context_id(want_contexts[0].id());
@@ -4643,21 +4646,81 @@ TEST_P(MetadataAccessObjectTest,
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
 
   // Query a1 with 2 hop, with artifacts boundary filter query using Event
-  // alias. It should return only a1 , e1, e2 and two event nodes connecting
-  // them. without the filter it would return all nodes with no duplicate,
+  // alias. It will return a1, e1, e2 and four events connecting
+  // them. Without the filter it would return all nodes with no duplicate,
   // same as above.
-  LineageGraph output_graph;
-  const std::string boundary_artifacts = absl::Substitute(
-      "NOT(events_0.execution_id = $0)", want_executions[0].id());
-  ASSERT_EQ(metadata_access_object_->QueryLineageGraph(
-                /*query_nodes=*/{want_artifacts[0]}, /*max_num_hops=*/2,
-                /*max_nodes=*/absl::nullopt,
-                /*boundary_artifacts=*/boundary_artifacts,
-                /*boundary_executions=*/absl::nullopt, output_graph),
-            absl::OkStatus());
-  VerifyLineageGraph(output_graph, {want_artifacts[0]}, want_executions,
-                     /*events=*/{want_events[0], want_events[1]},
-                     *metadata_access_object_);
+  {
+    LineageGraph output_graph;
+    const std::string boundary_artifacts = absl::Substitute(
+        "NOT(events_0.execution_id = $0)", want_executions[1].id());
+    ASSERT_EQ(metadata_access_object_->QueryLineageGraph(
+                  /*query_nodes=*/{want_artifacts[0]}, /*max_num_hops=*/2,
+                  /*max_nodes=*/absl::nullopt,
+                  /*boundary_artifacts=*/boundary_artifacts,
+                  /*boundary_executions=*/absl::nullopt, output_graph),
+              absl::OkStatus());
+    VerifyLineageGraph(
+        output_graph, {want_artifacts[0], want_artifacts[1]}, want_executions,
+        /*events=*/
+        {want_events[0], want_events[1], want_events[2], want_events[3]},
+        *metadata_access_object_);
+  }
+
+  // Query a1 with 1 hop, with executions boundary filter query on execution ID.
+  // It will return a1, e2 and 1 event connecting them; e1 is filtered out.
+  {
+    LineageGraph output_graph;
+    const std::string boundary_executions =
+        absl::Substitute("id != $0", want_executions[0].id());
+    ASSERT_EQ(metadata_access_object_->QueryLineageGraph(
+                  /*query_nodes=*/{want_artifacts[0]}, /*max_num_hops=*/1,
+                  /*max_nodes=*/absl::nullopt,
+                  /*boundary_artifacts=*/absl::nullopt,
+                  /*boundary_executions=*/boundary_executions, output_graph),
+              absl::OkStatus());
+    VerifyLineageGraph(output_graph, {want_artifacts[0]}, {want_executions[1]},
+                       {want_events[1]}, *metadata_access_object_);
+  }
+
+  // Query a1 with 1 hop, with executions boundary filter query using Event
+  // alias to check existance of an edge from the executions to artifact a2.
+  // It will return a1, e1, e2 and 2 events connecting them.
+  {
+    LineageGraph output_graph;
+    const std::string boundary_executions =
+        absl::Substitute("events_0.artifact_id = $0", want_artifacts[1].id());
+    ASSERT_EQ(metadata_access_object_->QueryLineageGraph(
+                  /*query_nodes=*/{want_artifacts[0]}, /*max_num_hops=*/1,
+                  /*max_nodes=*/absl::nullopt,
+                  /*boundary_artifacts=*/absl::nullopt,
+                  /*boundary_executions=*/boundary_executions, output_graph),
+              absl::OkStatus());
+    VerifyLineageGraph(output_graph, {want_artifacts[0]},
+                       {want_executions[0], want_executions[1]},
+                       {want_events[0], want_events[1]},
+                       *metadata_access_object_);
+  }
+
+  // Query a1 with 1 hop, with executions boundary filter query using Event
+  // alias and exeuction ID check. It will return a1, e1, e2 and 2 events
+  // connecting them because the OR condition and the given condition on events
+  // should return all executions.
+  {
+    LineageGraph output_graph;
+    const std::string boundary_executions =
+        absl::Substitute("id != $0 OR events_0.artifact_id = $1",
+                         want_executions[0].id(), want_artifacts[1].id());
+    ASSERT_EQ(metadata_access_object_->QueryLineageGraph(
+                  /*query_nodes=*/{want_artifacts[0]}, /*max_num_hops=*/1,
+                  /*max_nodes=*/absl::nullopt,
+                  /*boundary_artifacts=*/absl::nullopt,
+                  /*boundary_executions=*/boundary_executions, output_graph),
+              absl::OkStatus());
+    VerifyLineageGraph(output_graph, {want_artifacts[0]},
+                       {want_executions[0], want_executions[1]},
+                       {want_events[0], want_events[1]},
+                       *metadata_access_object_);
+  }
 }
 
 TEST_P(MetadataAccessObjectTest, QueryLineageGraphArtifactsOnly) {
