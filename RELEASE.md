@@ -4,6 +4,7 @@
 
 *   Fix filter query parsing for QueryLineageGraph when using queries with
     aliases.
+*   Depends on `numpy~=1.22.0`.
 
 ## Breaking Changes
 
