@@ -102,7 +102,8 @@ absl::Status ParseValueToField(const google::protobuf::FieldDescriptor* field_de
 template <typename MessageType>
 absl::Status ParseRecordSetToMessage(const RecordSet& record_set,
                                      const int record_index,
-                                     MessageType& output_message) {
+                                     MessageType& output_message,
+                                     const CustomColumnParser& parser) {
   CHECK_LT(record_index, record_set.records_size());
   const google::protobuf::Descriptor* descriptor = output_message.descriptor();
   for (int i = 0; i < record_set.column_names_size(); i++) {
@@ -113,6 +114,9 @@ absl::Status ParseRecordSetToMessage(const RecordSet& record_set,
     if (field_descriptor != nullptr) {
       MLMD_RETURN_IF_ERROR(
           ParseValueToField(field_descriptor, value, output_message));
+    } else {
+      MLMD_RETURN_IF_ERROR(
+          parser.ParseIntoMessage(column_name, value, &output_message));
     }
   }
   return absl::OkStatus();
@@ -120,41 +124,47 @@ absl::Status ParseRecordSetToMessage(const RecordSet& record_set,
 
 template <typename MessageType>
 absl::Status ParseRecordSetToMessageArray(
-    const RecordSet& record_set, std::vector<MessageType>& output_messages) {
+    const RecordSet& record_set, std::vector<MessageType>& output_messages,
+    const CustomColumnParser& parser) {
   for (int i = 0; i < record_set.records_size(); i++) {
     output_messages.push_back(MessageType());
     MLMD_RETURN_IF_ERROR(
-        ParseRecordSetToMessage(record_set, i, output_messages.back()));
+        ParseRecordSetToMessage(record_set, i, output_messages.back(), parser));
   }
   return absl::OkStatus();
 }
 
 }  // namespace
 
-absl::Status ParseRecordSetToNodeArray(
-    const RecordSet& record_set, std::vector<Artifact>& output_artifacts) {
-  return ParseRecordSetToMessageArray(record_set, output_artifacts);
+absl::Status ParseRecordSetToNodeArray(const RecordSet& record_set,
+                                       std::vector<Artifact>& output_artifacts,
+                                       const CustomColumnParser& parser) {
+  return ParseRecordSetToMessageArray(record_set, output_artifacts, parser);
 }
 
 absl::Status ParseRecordSetToNodeArray(
-    const RecordSet& record_set, std::vector<Execution>& output_executions) {
-  return ParseRecordSetToMessageArray(record_set, output_executions);
+    const RecordSet& record_set, std::vector<Execution>& output_executions,
+    const CustomColumnParser& parser) {
+  return ParseRecordSetToMessageArray(record_set, output_executions, parser);
 }
 
 absl::Status ParseRecordSetToNodeArray(const RecordSet& record_set,
-                                       std::vector<Context>& output_contexts) {
-  return ParseRecordSetToMessageArray(record_set, output_contexts);
+                                       std::vector<Context>& output_contexts,
+                                       const CustomColumnParser& parser) {
+  return ParseRecordSetToMessageArray(record_set, output_contexts, parser);
 }
 
 absl::Status ParseRecordSetToEdgeArray(const RecordSet& record_set,
                                        std::vector<Event>& output_events) {
-  return ParseRecordSetToMessageArray(record_set, output_events);
+  return ParseRecordSetToMessageArray(record_set, output_events,
+                                      CustomColumnParser());
 }
 
 absl::Status ParseRecordSetToEdgeArray(
     const RecordSet& record_set,
     std::vector<Association>& output_associations) {
-  return ParseRecordSetToMessageArray(record_set, output_associations);
+  return ParseRecordSetToMessageArray(record_set, output_associations,
+                                      CustomColumnParser());
 }
 
 }  // namespace ml_metadata

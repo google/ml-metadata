@@ -93,6 +93,9 @@ message Artifact {
   // Output only. Last update time of the artifact since epoch in millisecond
   // since epoch.
   optional int64 last_update_time_since_epoch = 10;
+
+  // Output only.
+  optional google.protobuf.Any system_metadata = 12;
 }
 
 // The list of supported property value types.

@@ -24,23 +24,40 @@ limitations under the License.
 
 namespace ml_metadata {
 
+// Customized column parser. Different database types can implement its own
+// parser to parse customized data into fields like `system_metadada`.
+class CustomColumnParser {
+ public:
+  CustomColumnParser() = default;
+  virtual ~CustomColumnParser() = default;
+
+  virtual absl::Status ParseIntoMessage(absl::string_view column_name,
+                                        absl::string_view value,
+                                        google::protobuf::Message* message) const {
+    return absl::OkStatus();
+  }
+};
+
 // Converts `record_set` to an Artifact array.
 // Returns OK and the parsed result is outputted by `output_artifacts`.
 // Returns error when internal error happens.
-absl::Status ParseRecordSetToNodeArray(const RecordSet& record_set,
-                                       std::vector<Artifact>& output_artifacts);
+absl::Status ParseRecordSetToNodeArray(
+    const RecordSet& record_set, std::vector<Artifact>& output_artifacts,
+    const CustomColumnParser& parser = CustomColumnParser());
 
 // Converts `record_set` to an Execution array.
 // Returns OK and the parsed result is outputted by `output_artifacts`.
 // Returns error when internal error happens.
 absl::Status ParseRecordSetToNodeArray(
-    const RecordSet& record_set, std::vector<Execution>& output_executions);
+    const RecordSet& record_set, std::vector<Execution>& output_executions,
+    const CustomColumnParser& parser = CustomColumnParser());
 
 // Converts `record_set` to a Context array.
 // Returns OK and the parsed result is outputted by `output_artifacts`.
 // Returns error when internal error happens.
-absl::Status ParseRecordSetToNodeArray(const RecordSet& record_set,
-                                       std::vector<Context>& output_contexts);
+absl::Status ParseRecordSetToNodeArray(
+    const RecordSet& record_set, std::vector<Context>& output_contexts,
+    const CustomColumnParser& parser = CustomColumnParser());
 
 // Converts `record_set` to an Event array.
 // Returns OK and the parsed result is outputted by `output_artifacts`.
