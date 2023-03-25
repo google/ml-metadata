@@ -368,7 +368,7 @@ Status MySqlMetadataSource::ConvertMySqlRowSetToRecordSet(
         return absl::InternalError(absl::StrCat(
             "Error in retrieving column description for index ", col));
       }
-      const std::string col_name(field->org_name);
+      const std::string col_name(field->name);
       if (record_set.column_names().empty()) {
         col_names.push_back(col_name);
       }
