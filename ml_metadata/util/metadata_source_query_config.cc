@@ -211,10 +211,13 @@ R"pb(
     parameter_num: 7
   }
   select_artifact_by_id {
-    query: " SELECT `id`, `type_id`, `uri`, `state`, `name`, `external_id`, "
-           "        `create_time_since_epoch`, `last_update_time_since_epoch` "
-           " from `Artifact` "
-           " WHERE id IN ($0); "
+    query: " SELECT A.id, A.type_id, A.uri, A.state, A.name, "
+           "        A.external_id, A.create_time_since_epoch, "
+           "        A.last_update_time_since_epoch, T.name AS `type` "
+           " FROM `Artifact` AS A "
+           " INNER JOIN `Type` AS T "
+           "   ON (T.id = A.type_id) "
+           " WHERE A.id IN ($0); "
     parameter_num: 1
   }
   select_artifact_by_type_id_and_name {
@@ -2875,11 +2878,13 @@ R"pb(
     parameter_num: 1
   }
   select_artifact_by_id {
-    query: " SELECT `id`, `type_id`, `uri`, `state`, `name`, `external_id`, "
-           "        `create_time_since_epoch`, `last_update_time_since_epoch` "
-           " from `Artifact` "
-           " WHERE id IN ($0) "
-           " LOCK IN SHARE MODE; "
+    query: " SELECT A.id, A.type_id, A.uri, A.state, A.name, "
+           "        A.external_id, A.create_time_since_epoch, "
+           "        A.last_update_time_since_epoch, T.name AS `type` "
+           " FROM `Artifact` AS A "
+           " INNER JOIN `Type` AS T "
+           "   ON (T.id = A.type_id) "
+           " WHERE A.id IN ($0) LOCK IN SHARE MODE; "
     parameter_num: 1
   }
   select_parent_type_by_type_id {

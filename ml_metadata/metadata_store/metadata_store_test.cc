@@ -171,7 +171,7 @@ void VerifySubgraph(const LineageGraph& subgraph,
   // Compare nodes and edges.
   EXPECT_THAT(subgraph.artifacts(),
               UnorderedPointwise(EqualsProto<Artifact>(/*ignore_fields=*/{
-                                     "id", "create_time_since_epoch",
+                                     "id", "type", "create_time_since_epoch",
                                      "last_update_time_since_epoch"}),
                                  want_artifacts));
 

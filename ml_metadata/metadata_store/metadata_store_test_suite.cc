@@ -1331,11 +1331,12 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndArtifactsGetArtifactsThroughType) {
         ASSERT_EQ(absl::OkStatus(),
                   metadata_store_->GetArtifactsByType(get_nodes_request,
                                                       &get_nodes_response));
-        EXPECT_THAT(get_nodes_response.artifacts(),
-                    UnorderedPointwise(EqualsProto<Artifact>(/*ignore_fields=*/{
-                                           "uri", "create_time_since_epoch",
-                                           "last_update_time_since_epoch"}),
-                                       want_artifacts));
+        EXPECT_THAT(
+            get_nodes_response.artifacts(),
+            UnorderedPointwise(EqualsProto<Artifact>(/*ignore_fields=*/{
+                                   "uri", "type", "create_time_since_epoch",
+                                   "last_update_time_since_epoch"}),
+                               want_artifacts));
       };
 
   auto verify_get_artifact_by_type_and_name =
@@ -1350,10 +1351,11 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndArtifactsGetArtifactsThroughType) {
         GetArtifactByTypeAndNameResponse get_node_response;
         ASSERT_EQ(absl::OkStatus(), metadata_store_->GetArtifactByTypeAndName(
                                         get_node_request, &get_node_response));
-        EXPECT_THAT(get_node_response.artifact(),
-                    EqualsProto<Artifact>(want_artifact, /*ignore_fields=*/{
-                                              "uri", "create_time_since_epoch",
-                                              "last_update_time_since_epoch"}));
+        EXPECT_THAT(
+            get_node_response.artifact(),
+            EqualsProto<Artifact>(want_artifact, /*ignore_fields=*/{
+                                      "uri", "type", "create_time_since_epoch",
+                                      "last_update_time_since_epoch"}));
       };
 
   // Fetches the node according through the types.
@@ -1406,11 +1408,12 @@ TEST_P(MetadataStoreTestSuite,
                   metadata_store_->GetArtifactsByType(get_nodes_request,
                                                       &get_nodes_response));
         ASSERT_EQ(want_artifacts.size(), get_nodes_response.artifacts_size());
-        EXPECT_THAT(get_nodes_response.artifacts(),
-                    UnorderedPointwise(EqualsProto<Artifact>(/*ignore_fields=*/{
-                                           "uri", "create_time_since_epoch",
-                                           "last_update_time_since_epoch"}),
-                                       want_artifacts));
+        EXPECT_THAT(
+            get_nodes_response.artifacts(),
+            UnorderedPointwise(EqualsProto<Artifact>(/*ignore_fields=*/{
+                                   "uri", "type", "create_time_since_epoch",
+                                   "last_update_time_since_epoch"}),
+                               want_artifacts));
       };
 
   GetArtifactsByTypeRequest get_nodes_request;
@@ -1640,6 +1643,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {
     ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(2));
     artifact1.set_id(put_artifacts_response.artifact_ids(0));
     artifact2.set_id(put_artifacts_response.artifact_ids(1));
+    artifact1.set_type("test_type2");
+    artifact2.set_type("test_type2");
   }
 
   // Test: retrieve by one id
@@ -1737,6 +1742,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByExternalIds) {
     ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(2));
     artifact1.set_id(put_artifacts_response.artifact_ids(0));
     artifact2.set_id(put_artifacts_response.artifact_ids(1));
+    artifact1.set_type("test_type2");
+    artifact2.set_type("test_type2");
   }
 
   // Test: retrieve by one external id
@@ -1879,7 +1886,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsUpdateGetArtifactsByID) {
   ASSERT_THAT(get_artifacts_by_id_response.artifacts(), SizeIs(1));
   EXPECT_THAT(get_artifacts_by_id_response.artifacts(0),
               EqualsProto(put_artifacts_request_2.artifacts(0),
-                          /*ignore_fields=*/{"create_time_since_epoch",
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
 }
 
@@ -1941,10 +1948,11 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithListOptions) {
   EXPECT_THAT(get_artifacts_response.next_page_token(), Not(IsEmpty()));
   EXPECT_EQ(get_artifacts_response.artifacts(0).id(), second_artifact_id);
 
-  EXPECT_THAT(get_artifacts_response.artifacts(0),
-              EqualsProto(put_artifacts_request.artifacts(1),
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      get_artifacts_response.artifacts(0),
+      EqualsProto(put_artifacts_request.artifacts(1),
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
 
   list_options.set_next_page_token(get_artifacts_response.next_page_token());
   *get_artifacts_request.mutable_options() = list_options;
@@ -1954,10 +1962,11 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithListOptions) {
   EXPECT_THAT(get_artifacts_response.artifacts(), SizeIs(1));
   EXPECT_THAT(get_artifacts_response.next_page_token(), IsEmpty());
   EXPECT_EQ(get_artifacts_response.artifacts(0).id(), first_artifact_id);
-  EXPECT_THAT(get_artifacts_response.artifacts(0),
-              EqualsProto(put_artifacts_request.artifacts(0),
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      get_artifacts_response.artifacts(0),
+      EqualsProto(put_artifacts_request.artifacts(0),
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
 }
 
 TEST_P(MetadataStoreTestSuite, PutArtifactsWhenLatestUpdatedTimeChanged) {
@@ -2066,7 +2075,7 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsUpdateGetExecutionsByID) {
 
   EXPECT_THAT(get_executions_by_id_response.executions(0),
               EqualsProto(put_executions_request_2.executions(0),
-                          /*ignore_fields=*/{"create_time_since_epoch",
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
 }
 
@@ -3419,11 +3428,11 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecution) {
   ASSERT_THAT(get_artifacts_response.artifacts(), SizeIs(2));
   EXPECT_THAT(get_artifacts_response.artifacts(0),
               EqualsProto(artifact_1,
-                          /*ignore_fields=*/{"create_time_since_epoch",
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
   EXPECT_THAT(get_artifacts_response.artifacts(1),
               EqualsProto(artifact_2,
-                          /*ignore_fields=*/{"create_time_since_epoch",
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
 
   GetExecutionsRequest get_executions_request;
@@ -4769,7 +4778,7 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   ASSERT_THAT(get_artifacts_by_context_response.artifacts(), SizeIs(1));
   EXPECT_THAT(get_artifacts_by_context_response.artifacts(0),
               EqualsProto(want_artifact,
-                          /*ignore_fields=*/{"create_time_since_epoch",
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
 
   // append the association and reinsert the existing attribution.
@@ -4835,10 +4844,10 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
       get_artifacts_by_context_response_2.artifacts(),
       UnorderedElementsAre(
           EqualsProto(want_artifact,
-                      /*ignore_fields=*/{"create_time_since_epoch",
+                      /*ignore_fields=*/{"type", "create_time_since_epoch",
                                          "last_update_time_since_epoch"}),
           EqualsProto(want_artifact_2,
-                      /*ignore_fields=*/{"create_time_since_epoch",
+                      /*ignore_fields=*/{"type", "create_time_since_epoch",
                                          "last_update_time_since_epoch"})));
 }
 
@@ -5428,7 +5437,7 @@ TEST_P(MetadataStoreTestSuite, PutLineageSubgraphAndVerifyLineageGraph) {
   EXPECT_THAT(get_artifacts_by_context_response.artifacts(),
               ElementsAre(EqualsProto(
                   artifact,
-                  /*ignore_fields=*/{"create_time_since_epoch",
+                  /*ignore_fields=*/{"type", "create_time_since_epoch",
                                      "last_update_time_since_epoch"})));
 
   GetContextsRequest get_contexts_request;
@@ -5559,7 +5568,7 @@ TEST_P(MetadataStoreTestSuite,
   EXPECT_THAT(get_artifacts_by_id_response.artifacts(),
               ElementsAre(EqualsProto(
                   artifact,
-                  /*ignore_fields=*/{"create_time_since_epoch",
+                  /*ignore_fields=*/{"type", "create_time_since_epoch",
                                      "last_update_time_since_epoch"})));
 }
 

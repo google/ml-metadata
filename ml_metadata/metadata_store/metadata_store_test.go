@@ -479,6 +479,7 @@ func TestPutAndGetArtifactsByID(t *testing.T) {
 
 	wantArtifacts := artifacts[0:1]
 	wantArtifacts[0].Id = proto.Int64(int64(artifactIDs[0]))
+	wantArtifacts[0].Type = proto.String("test_type_name")
 
 	gotArtifacts, err := store.GetArtifactsByID(artifactIDs[0:1])
 	if err != nil {
@@ -523,6 +524,7 @@ func TestGetArtifactsByURI(t *testing.T) {
 
 	wantArtifacts := artifacts[0:1]
 	wantArtifacts[0].Id = proto.Int64(int64(artifactIDs[0]))
+	wantArtifacts[0].Type = proto.String("test_type_name")
 
 	gotArtifactsOfURI, err := store.GetArtifactsByURI(uri1)
 	if err != nil {
@@ -636,6 +638,8 @@ func TestGetArtifactByTypeAndName(t *testing.T) {
 
 	waid := int64(artifactIDs[0])
 	wantArtifact.Id = &waid
+	wantArtifact.Type = &artifactTypeName
+
 	if !cmp.Equal(wantArtifact, gotStoredArtifact, artifactCmpOpts...) {
 		t.Errorf("store.GetArtifactByTypeAndName(%v, %v) = %v, want: %v", artifactTypeName, artifactName, gotStoredArtifact, wantArtifact)
 	}
@@ -1458,6 +1462,8 @@ func TestPutAndUseAttributionsAndAssociations(t *testing.T) {
 	// skip comparing create/update timestamps
 	wantArtifact.CreateTimeSinceEpoch = gotArtifacts[0].CreateTimeSinceEpoch
 	wantArtifact.LastUpdateTimeSinceEpoch = gotArtifacts[0].LastUpdateTimeSinceEpoch
+	wantArtifact.Type = proto.String("artifact_type_name")
+
 	if !proto.Equal(wantArtifact, gotArtifacts[0]) {
 		t.Errorf("GetArtifactsByContext returned result is incorrect. want: %v, got: %v", wantArtifact, gotArtifacts[0])
 	}
@@ -1537,6 +1543,8 @@ func TestPutDuplicatedAttributionsAndEmptyAssociations(t *testing.T) {
 	// skip comparing create/update timestamps
 	wantArtifact.CreateTimeSinceEpoch = gotArtifacts[0].CreateTimeSinceEpoch
 	wantArtifact.LastUpdateTimeSinceEpoch = gotArtifacts[0].LastUpdateTimeSinceEpoch
+	wantArtifact.Type = proto.String("artifact_type_name")
+
 	if !proto.Equal(wantArtifact, gotArtifacts[0]) {
 		t.Errorf("GetArtifactsByContext returned result is incorrect. want: %v, got: %v", wantArtifact, gotArtifacts[0])
 	}

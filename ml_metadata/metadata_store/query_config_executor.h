@@ -62,18 +62,24 @@ static constexpr char kInsertArtifact[] = R"pb(
 )pb";
 
 static constexpr char kSelectArtifactByIdForMySQL[] = R"pb(
-  query: " SELECT `id`, `type_id`, `uri`, `state`, `name`, "
-         "        `create_time_since_epoch`, `last_update_time_since_epoch` "
-         " FROM `Artifact` "
-         " WHERE id IN ($0) LOCK IN SHARE MODE;  "
+  query: " SELECT A.id, A.type_id, A.uri, A.state, A.name, "
+         "        A.create_time_since_epoch, "
+         "        A.last_update_time_since_epoch, T.name AS `type` "
+         " FROM `Artifact` AS A "
+         " INNER JOIN `Type` AS T "
+         "   ON (T.id = A.type_id) "
+         " WHERE A.id IN ($0) LOCK IN SHARE MODE;  "
   parameter_num: 1
 )pb";
 
 static constexpr char kSelectArtifactByIdForSQLite[] = R"pb(
-  query: " SELECT `id`, `type_id`, `uri`, `state`, `name`, "
-         "        `create_time_since_epoch`, `last_update_time_since_epoch` "
-         " FROM `Artifact` "
-         " WHERE id IN ($0);  "
+  query: " SELECT A.id, A.type_id, A.uri, A.state, A.name, "
+         "        A.create_time_since_epoch, "
+         "        A.last_update_time_since_epoch, T.name AS `type` "
+         " FROM `Artifact` AS A "
+         " INNER JOIN `Type` AS T "
+         "   ON (T.id = A.type_id) "
+         " WHERE A.id IN ($0);  "
   parameter_num: 1
 )pb";
 
@@ -1228,8 +1234,8 @@ class QueryConfigExecutor : public QueryExecutor {
   // Decodes value and writes the result to dest
   // Returns OkStatus if the process succeeded, otherwise an informative error
   absl::Status DecodeBytes(absl::string_view value, std::string& dest) const {
-    absl::StatusOr<std::string> decoded_or
-      = metadata_source_->DecodeBytes(value);
+    absl::StatusOr<std::string> decoded_or =
+        metadata_source_->DecodeBytes(value);
     if (!decoded_or.ok()) return decoded_or.status();
     dest = decoded_or.value();
     return absl::OkStatus();

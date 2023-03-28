@@ -2930,6 +2930,8 @@ TEST_P(MetadataAccessObjectTest, FindArtifactById) {
     }
   )pb");
   want_artifact.set_type_id(type_id);
+  want_artifact.set_type("test_type");
+
   int64 artifact_id;
   ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateArtifact(
                                   want_artifact, &artifact_id));
@@ -3008,6 +3010,9 @@ TEST_P(MetadataAccessObjectTest, FindArtifacts) {
   ASSERT_NE(want_artifact1.id(), want_artifact2.id());
 
   ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
+  want_artifact1.set_type(type.name());
+  want_artifact2.set_type(type.name());
 
   // Test: retrieve by empty ids
   {
@@ -5743,7 +5748,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithNonIdFieldOptions) {
     for (const Artifact& artifact : got_artifacts) {
       sample_artifact.set_id(expected_artifact_id--);
       EXPECT_THAT(artifact, EqualsProto(sample_artifact, /*ignore_fields=*/{
-                                            "create_time_since_epoch",
+                                            "type", "create_time_since_epoch",
                                             "last_update_time_since_epoch"}));
     }
     list_options.set_next_page_token(next_page_token);
@@ -5810,7 +5815,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithIdFieldOptions) {
       sample_artifact.set_id(expected_artifact_id++);
 
       EXPECT_THAT(artifact, EqualsProto(sample_artifact, /*ignore_fields=*/{
-                                            "create_time_since_epoch",
+                                            "type", "create_time_since_epoch",
                                             "last_update_time_since_epoch"}));
       seen_artifacts_count++;
     }
@@ -5898,9 +5903,10 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsOnLastUpdateTime) {
     EXPECT_LE(got_artifacts.size(), page_size);
     for (const Artifact& artifact : got_artifacts) {
       sample_artifact.set_id(expected_artifact_ids.front());
-      EXPECT_THAT(artifact, EqualsProto(sample_artifact, /*ignore_fields=*/{
-                                            "state", "create_time_since_epoch",
-                                            "last_update_time_since_epoch"}));
+      EXPECT_THAT(artifact,
+                  EqualsProto(sample_artifact, /*ignore_fields=*/{
+                                  "type", "state", "create_time_since_epoch",
+                                  "last_update_time_since_epoch"}));
       expected_artifact_ids.pop_front();
     }
     list_options.set_next_page_token(next_page_token);
@@ -6488,13 +6494,15 @@ TEST_P(MetadataAccessObjectTest, DefaultArtifactState) {
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->FindArtifacts(&artifacts));
   ASSERT_EQ(artifacts.size(), 2);
-  EXPECT_THAT(artifacts[0], EqualsProto(want_artifact1, /*ignore_fields=*/{
-                                            "id", "create_time_since_epoch",
-                                            "last_update_time_since_epoch"}));
-  EXPECT_THAT(artifacts[1],
-              EqualsProto(want_artifact2,
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  EXPECT_THAT(artifacts[0],
+              EqualsProto(want_artifact1, /*ignore_fields=*/{
+                              "id", "type", "create_time_since_epoch",
+                              "last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      artifacts[1],
+      EqualsProto(want_artifact2,
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
 }
 
 TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIds) {
@@ -6528,12 +6536,14 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIds) {
             metadata_access_object_->FindArtifactsByTypeId(
                 type_id, absl::nullopt, &got_artifacts, nullptr));
   EXPECT_EQ(got_artifacts.size(), 2);
-  EXPECT_THAT(want_artifact1, EqualsProto(got_artifacts[0], /*ignore_fields=*/{
-                                              "id", "create_time_since_epoch",
-                                              "last_update_time_since_epoch"}));
-  EXPECT_THAT(want_artifact2, EqualsProto(got_artifacts[1], /*ignore_fields=*/{
-                                              "id", "create_time_since_epoch",
-                                              "last_update_time_since_epoch"}));
+  EXPECT_THAT(want_artifact1,
+              EqualsProto(got_artifacts[0], /*ignore_fields=*/{
+                              "id", "type", "create_time_since_epoch",
+                              "last_update_time_since_epoch"}));
+  EXPECT_THAT(want_artifact2,
+              EqualsProto(got_artifacts[1], /*ignore_fields=*/{
+                              "id", "type", "create_time_since_epoch",
+                              "last_update_time_since_epoch"}));
 }
 
 TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIdsFilterPropertyQuery) {
@@ -6597,12 +6607,14 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIdsFilterPropertyQuery) {
   EXPECT_THAT(
       got_artifacts,
       UnorderedElementsAre(
-          EqualsProto(artifact1,
-                      /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                         "last_update_time_since_epoch"}),
-          EqualsProto(artifact2,
-                      /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                         "last_update_time_since_epoch"})));
+          EqualsProto(
+              artifact1,
+              /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                 "last_update_time_since_epoch"}),
+          EqualsProto(
+              artifact2,
+              /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                 "last_update_time_since_epoch"})));
 
   got_artifacts.clear();
   ASSERT_EQ(metadata_access_object_->FindArtifactsByTypeId(
@@ -6610,9 +6622,10 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIdsFilterPropertyQuery) {
                 &next_page_token),
             absl::OkStatus());
   ASSERT_THAT(got_artifacts, SizeIs(1));
-  EXPECT_THAT(artifact3, EqualsProto(got_artifacts[0], /*ignore_fields=*/{
-                                         "id", "create_time_since_epoch",
-                                         "last_update_time_since_epoch"}));
+  EXPECT_THAT(artifact3,
+              EqualsProto(got_artifacts[0], /*ignore_fields=*/{
+                              "id", "type", "create_time_since_epoch",
+                              "last_update_time_since_epoch"}));
 }
 
 TEST_P(MetadataAccessObjectTest, FindArtifactByTypeIdAndArtifactName) {
@@ -6648,7 +6661,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactByTypeIdAndArtifactName) {
             metadata_access_object_->FindArtifactByTypeIdAndArtifactName(
                 type_id, "artifact1", &got_artifact));
   EXPECT_THAT(want_artifact, EqualsProto(got_artifact, /*ignore_fields=*/{
-                                             "create_time_since_epoch",
+                                             "type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
   Artifact got_empty_artifact;
   EXPECT_TRUE(absl::IsNotFound(
@@ -6685,7 +6698,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByURI) {
                                   "testuri://testing/uri1", &got_artifacts));
   ASSERT_EQ(got_artifacts.size(), 1);
   EXPECT_THAT(want_artifact1, EqualsProto(got_artifacts[0], /*ignore_fields=*/{
-                                              "create_time_since_epoch",
+                                              "type", "create_time_since_epoch",
                                               "last_update_time_since_epoch"}));
 }
 
@@ -6695,7 +6708,8 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByExternalIds) {
   }
   MLMD_ASSERT_OK(Init());
   // Setup: Create two arifacts with external_id.
-  int64 type_id = InsertType<ArtifactType>("test_type");
+  const string test_type_name = "test_type";
+  int64_t type_id = InsertType<ArtifactType>(test_type_name);
   std::vector<absl::string_view> external_ids = {"artifact1", "artifact2"};
   Artifact artifact1 = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri1'
@@ -6719,6 +6733,9 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByExternalIds) {
 
   ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
+  artifact1.set_type(test_type_name);
+  artifact2.set_type(test_type_name);
+
   // Test 1: artifacts can be retrieved by external_ids.
   std::vector<Artifact> got_artifacts_from_external_ids;
   EXPECT_EQ(
@@ -6730,10 +6747,10 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByExternalIds) {
       got_artifacts_from_external_ids,
       UnorderedElementsAre(
           EqualsProto(artifact1,
-                      /*ignore_fields=*/{"create_time_since_epoch",
+                      /*ignore_fields=*/{"type", "create_time_since_epoch",
                                          "last_update_time_since_epoch"}),
           EqualsProto(artifact2,
-                      /*ignore_fields=*/{"create_time_since_epoch",
+                      /*ignore_fields=*/{"type", "create_time_since_epoch",
                                          "last_update_time_since_epoch"})));
 
   // Test 2: will return NOT_FOUND error when finding artifacts by non-exsiting
@@ -6756,7 +6773,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByExternalIds) {
   EXPECT_THAT(got_artifacts_by_external_ids_absent,
               UnorderedElementsAre(EqualsProto(
                   artifact1,
-                  /*ignore_fields=*/{"create_time_since_epoch",
+                  /*ignore_fields=*/{"type", "create_time_since_epoch",
                                      "last_update_time_since_epoch"})));
 
   // Test 4: will return INVALID_ARGUMENT error when any of the external_ids is
@@ -6820,10 +6837,11 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
                                     {artifact_id}, &artifacts));
     got_artifact_before_update = artifacts.at(0);
   }
-  EXPECT_THAT(got_artifact_before_update,
-              EqualsProto(stored_artifact,
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      got_artifact_before_update,
+      EqualsProto(stored_artifact,
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
 
   // update `property_1`, add `property_2`, and drop `property_3`
   // change the value type of `custom_property_1`
@@ -6882,7 +6900,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
   }
   EXPECT_THAT(got_artifact_after_update,
               EqualsProto(updated_artifact,
-                          /*ignore_fields=*/{"create_time_since_epoch",
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
   EXPECT_EQ(got_artifact_before_update.create_time_since_epoch(),
             got_artifact_after_update.create_time_since_epoch());
@@ -6976,10 +6994,11 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactWithCustomUpdateTime) {
                                     {artifact_id}, &artifacts));
     got_artifact_before_update = artifacts.at(0);
   }
-  EXPECT_THAT(got_artifact_before_update,
-              EqualsProto(stored_artifact,
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      got_artifact_before_update,
+      EqualsProto(stored_artifact,
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
 
   // update `property_1`, add `property_2`, and drop `property_3`
   // change the value type of `custom_property_1`
@@ -7038,7 +7057,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactWithCustomUpdateTime) {
   }
   EXPECT_THAT(got_artifact_after_update,
               EqualsProto(updated_artifact,
-                          /*ignore_fields=*/{"create_time_since_epoch",
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
   EXPECT_EQ(got_artifact_before_update.create_time_since_epoch(),
             got_artifact_after_update.create_time_since_epoch());
@@ -7089,10 +7108,11 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactWithForceUpdateTimeEnabled) {
                                     {artifact_id}, &artifacts));
     got_artifact_before_update = artifacts.at(0);
   }
-  EXPECT_THAT(got_artifact_before_update,
-              EqualsProto(stored_artifact,
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      got_artifact_before_update,
+      EqualsProto(stored_artifact,
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
 
   // Update with no changes and force_update_time disabled.
   absl::Time update_time = absl::InfiniteFuture();
@@ -7129,9 +7149,10 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactWithForceUpdateTimeEnabled) {
   }
   // Expect no changes for the updated resource other than
   // `last_update_time_since_epoch`.
-  EXPECT_THAT(got_artifact_after_2nd_update,
-              EqualsProto(got_artifact_after_1st_update,
-                          /*ignore_fields=*/{"last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      got_artifact_after_2nd_update,
+      EqualsProto(got_artifact_after_1st_update,
+                  /*ignore_fields=*/{"type", "last_update_time_since_epoch"}));
   EXPECT_NE(got_artifact_after_2nd_update.last_update_time_since_epoch(),
             got_artifact_after_1st_update.last_update_time_since_epoch());
   EXPECT_EQ(got_artifact_after_2nd_update.last_update_time_since_epoch(),
@@ -7183,7 +7204,7 @@ TEST_P(MetadataAccessObjectTest, UpdateNodeLastUpdateTimeSinceEpoch) {
         }
         EXPECT_THAT(got_artifact_after_update,
                     EqualsProto(artifact, /*ignore_fields=*/{
-                                    "last_update_time_since_epoch"}));
+                                    "type", "last_update_time_since_epoch"}));
         return got_artifact_after_update.last_update_time_since_epoch();
       };
 
@@ -8102,10 +8123,10 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsByType) {
                                     type_id, absl::make_optional(options),
                                     &entities, &next_page_token));
     EXPECT_THAT(next_page_token, Not(IsEmpty()));
-    EXPECT_THAT(entities,
-                ElementsAre(EqualsProto(entity_1, /*ignore_fields=*/{
-                                            "uri", "create_time_since_epoch",
-                                            "last_update_time_since_epoch"})));
+    EXPECT_THAT(entities, ElementsAre(EqualsProto(
+                              entity_1, /*ignore_fields=*/{
+                                  "uri", "type", "create_time_since_epoch",
+                                  "last_update_time_since_epoch"})));
 
     entities.clear();
     options.set_next_page_token(next_page_token);
@@ -8116,7 +8137,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsByType) {
     EXPECT_THAT(entities,
                 ElementsAre(EqualsProto(
                     entity_2,
-                    /*ignore_fields=*/{"uri", "create_time_since_epoch",
+                    /*ignore_fields=*/{"uri", "type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"})));
   }
 }
@@ -8979,7 +9000,7 @@ TEST_P(MetadataAccessObjectTest, GetAttributionUsingPagination) {
                 context_id, list_options, &got_artifacts, &next_page_token));
   EXPECT_THAT(got_artifacts, SizeIs(1));
   EXPECT_THAT(artifact2, EqualsProto(got_artifacts[0], /*ignore_fields=*/{
-                                         "create_time_since_epoch",
+                                         "type", "create_time_since_epoch",
                                          "last_update_time_since_epoch"}));
   ASSERT_FALSE(next_page_token.empty());
 
@@ -8991,7 +9012,7 @@ TEST_P(MetadataAccessObjectTest, GetAttributionUsingPagination) {
   EXPECT_THAT(got_artifacts, SizeIs(1));
   ASSERT_TRUE(next_page_token.empty());
   EXPECT_THAT(artifact1, EqualsProto(got_artifacts[0], /*ignore_fields=*/{
-                                         "create_time_since_epoch",
+                                         "type", "create_time_since_epoch",
                                          "last_update_time_since_epoch"}));
 }
 
@@ -9361,7 +9382,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndUseAttribution) {
                                   context_id, &got_artifacts));
   ASSERT_EQ(got_artifacts.size(), 1);
   EXPECT_THAT(artifact, EqualsProto(got_artifacts[0], /*ignore_fields=*/{
-                                        "create_time_since_epoch",
+                                        "type", "create_time_since_epoch",
                                         "last_update_time_since_epoch"}));
 
   std::vector<Execution> got_executions;
