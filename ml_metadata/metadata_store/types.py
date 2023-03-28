@@ -615,12 +615,12 @@ def _create_artifact_struct_from_json_helper(from_json) -> ArtifactStruct:
   if _is_serialized_artifact(from_json):
     return Artifact.from_json(from_json)
   elif isinstance(from_json, dict):
-    return {
+    return {  # pytype: disable=bad-return-type  # always-use-return-annotations
         k: _create_artifact_struct_from_json_helper(v)
         for k, v in from_json.items()
     }
   elif isinstance(from_json, list):
-    return [_create_artifact_struct_from_json_helper(x) for x in from_json]
+    return [_create_artifact_struct_from_json_helper(x) for x in from_json]  # pytype: disable=bad-return-type  # always-use-return-annotations
   else:
     raise ValueError("Not a serialized ArtifactStruct")
 
