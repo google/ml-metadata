@@ -917,6 +917,7 @@ func makeAndInsertContext(t *testing.T, store *Store, typeID int64, contextName 
 
 	wantedContextID := int64(contextIDs[0])
 	wantContext.Id = &wantedContextID
+	wantContext.Type = proto.String("test_type_name")
 
 	return wantContext
 }
@@ -1290,6 +1291,7 @@ func TestPutExecutionWithContext(t *testing.T) {
 	// skip comparing create/update timestamps
 	c.CreateTimeSinceEpoch = gotContexts[0].CreateTimeSinceEpoch
 	c.LastUpdateTimeSinceEpoch = gotContexts[0].LastUpdateTimeSinceEpoch
+	c.Type = proto.String("context_type_name")
 	if !proto.Equal(c, gotContexts[0]) {
 		t.Errorf("GetContextsByArtifact returned result is incorrect. want: %v, got: %v", c, gotContexts[0])
 	}
@@ -1304,6 +1306,7 @@ func TestPutExecutionWithContext(t *testing.T) {
 	// skip comparing create/update timestamps
 	c.CreateTimeSinceEpoch = gotContexts[0].CreateTimeSinceEpoch
 	c.LastUpdateTimeSinceEpoch = gotContexts[0].LastUpdateTimeSinceEpoch
+	c.Type = proto.String("context_type_name")
 	if !proto.Equal(c, gotContexts[0]) {
 		t.Errorf("GetContextsByExecution returned result is incorrect. want: %v, got: %v", c, gotContexts[0])
 	}
@@ -1436,6 +1439,7 @@ func TestPutAndUseAttributionsAndAssociations(t *testing.T) {
 	// skip comparing create/update timestamps
 	wantContext.CreateTimeSinceEpoch = gotContexts[0].CreateTimeSinceEpoch
 	wantContext.LastUpdateTimeSinceEpoch = gotContexts[0].LastUpdateTimeSinceEpoch
+	wantContext.Type = proto.String("context_type_name")
 	if !proto.Equal(wantContext, gotContexts[0]) {
 		t.Errorf("GetContextsByArtifact returned result is incorrect. want: %v, got: %v", wantContext, gotContexts[0])
 	}
@@ -1449,6 +1453,7 @@ func TestPutAndUseAttributionsAndAssociations(t *testing.T) {
 	// skip comparing create/update timestamps
 	wantContext.CreateTimeSinceEpoch = gotContexts[0].CreateTimeSinceEpoch
 	wantContext.LastUpdateTimeSinceEpoch = gotContexts[0].LastUpdateTimeSinceEpoch
+	wantContext.Type = proto.String("context_type_name")
 	if !proto.Equal(wantContext, gotContexts[0]) {
 		t.Errorf("GetContextsByExecution returned result is incorrect. want: %v, got: %v", wantContext, gotContexts[0])
 	}
@@ -1531,6 +1536,7 @@ func TestPutDuplicatedAttributionsAndEmptyAssociations(t *testing.T) {
 	// skip comparing create/update timestamps
 	wantContext.CreateTimeSinceEpoch = gotContexts[0].CreateTimeSinceEpoch
 	wantContext.LastUpdateTimeSinceEpoch = gotContexts[0].LastUpdateTimeSinceEpoch
+	wantContext.Type = proto.String("context_type_name")
 	if !proto.Equal(wantContext, gotContexts[0]) {
 		t.Errorf("GetContextsByArtifact returned result is incorrect. want: %v, got: %v", wantContext, gotContexts[0])
 	}

@@ -6226,7 +6226,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsWithNonIdFieldOptions) {
           absl::StrCat("list_contexts_test-", context_name_suffix--));
       sample_context.set_id(expected_context_id--);
       EXPECT_THAT(context, EqualsProto(sample_context, /*ignore_fields=*/{
-                                           "create_time_since_epoch",
+                                           "type", "create_time_since_epoch",
                                            "last_update_time_since_epoch"}));
     }
     list_options.set_next_page_token(next_page_token);
@@ -6299,7 +6299,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsWithIdFieldOptions) {
       sample_context.set_id(expected_context_id++);
 
       EXPECT_THAT(context, EqualsProto(sample_context, /*ignore_fields=*/{
-                                           "create_time_since_epoch",
+                                           "type", "create_time_since_epoch",
                                            "last_update_time_since_epoch"}));
       seen_contexts_count++;
     }
@@ -6314,11 +6314,14 @@ TEST_P(MetadataAccessObjectTest, GetContextsById) {
 
   // Setup: create the type for the context
   int64 type_id;
+  std::string test_type_name = "test_type";
   {
-    ContextType type = ParseTextProtoOrDie<ContextType>(R"pb(
-      name: 'test_type'
-      properties { key: 'property_1' value: INT }
-    )pb");
+    ContextType type = ParseTextProtoOrDie<ContextType>(
+        absl::StrFormat(R"pb(
+                          name: '%s'
+                          properties { key: 'property_1' value: INT }
+                        )pb",
+                        test_type_name));
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object_->CreateType(type, &type_id));
     ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
@@ -6343,6 +6346,7 @@ TEST_P(MetadataAccessObjectTest, GetContextsById) {
     ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateContext(
                                     first_context, &first_context_id));
     first_context.set_id(first_context_id);
+    first_context.set_type(test_type_name);
   }
 
   // Setup: Add second context instance
@@ -6364,6 +6368,7 @@ TEST_P(MetadataAccessObjectTest, GetContextsById) {
     ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateContext(
                                     second_context, &second_context_id));
     second_context.set_id(second_context_id);
+    second_context.set_type(test_type_name);
   }
 
   // Setup: Add third context instance that does not have *any* properties
@@ -6375,6 +6380,7 @@ TEST_P(MetadataAccessObjectTest, GetContextsById) {
     ASSERT_EQ(absl::OkStatus(), metadata_access_object_->CreateContext(
                                     third_context, &third_context_id));
     third_context.set_id(third_context_id);
+    third_context.set_type(test_type_name);
   }
 
   const int64 unknown_id =
@@ -7910,14 +7916,17 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateContext(context1, &context1_id));
   context1.set_id(context1_id);
+  context1.set_type("test_type_with_predefined_property");
 
   Context context2 = ParseTextProtoOrDie<Context>(R"pb(
     name: "my_context2")pb");
   context2.set_type_id(type2_id);
+
   int64 context2_id = -1;
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateContext(context2, &context2_id));
   context2.set_id(context2_id);
+  context2.set_type("test_type_with_no_property");
 
   ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
@@ -7953,9 +7962,9 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
     ASSERT_THAT(contexts, SizeIs(1));
     got_context1 = contexts[0];
   }
-  EXPECT_THAT(context1, EqualsProto(got_context1, /*ignore_fields=*/{
-                                        "create_time_since_epoch",
-                                        "last_update_time_since_epoch"}));
+  EXPECT_THAT(got_context1, EqualsProto(context1, /*ignore_fields=*/{
+                                            "create_time_since_epoch",
+                                            "last_update_time_since_epoch"}));
   EXPECT_GT(got_context1.create_time_since_epoch(), 0);
   EXPECT_GT(got_context1.last_update_time_since_epoch(), 0);
   EXPECT_LE(got_context1.last_update_time_since_epoch(),
@@ -7967,12 +7976,15 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->FindContexts(&got_contexts));
   EXPECT_EQ(got_contexts.size(), 2);
-  EXPECT_THAT(context1, EqualsProto(got_contexts[0], /*ignore_fields=*/{
-                                        "create_time_since_epoch",
-                                        "last_update_time_since_epoch"}));
-  EXPECT_THAT(context2, EqualsProto(got_contexts[1], /*ignore_fields=*/{
-                                        "create_time_since_epoch",
-                                        "last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      got_contexts,
+      UnorderedElementsAre(
+          EqualsProto(context1,
+                      /*ignore_fields=*/{"create_time_since_epoch",
+                                         "last_update_time_since_epoch"}),
+          EqualsProto(context2,
+                      /*ignore_fields=*/{"create_time_since_epoch",
+                                         "last_update_time_since_epoch"})));
 
   std::vector<Context> got_type2_contexts;
   EXPECT_EQ(absl::OkStatus(),
@@ -7980,21 +7992,30 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
                 type2_id, /*list_options=*/absl::nullopt, &got_type2_contexts,
                 /*next_page_token=*/nullptr));
   EXPECT_EQ(got_type2_contexts.size(), 1);
-  EXPECT_THAT(got_type2_contexts[0], EqualsProto(got_contexts[1]));
+  EXPECT_THAT(got_type2_contexts[0],
+              EqualsProto(context2,
+                          /*ignore_fields=*/{"create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
 
   Context got_context_from_type_and_name1;
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->FindContextByTypeIdAndContextName(
                 type1_id, "my_context1", /*id_only=*/false,
                 &got_context_from_type_and_name1));
-  EXPECT_THAT(got_context_from_type_and_name1, EqualsProto(got_contexts[0]));
+  EXPECT_THAT(got_context_from_type_and_name1,
+              EqualsProto(context1,
+                          /*ignore_fields=*/{"create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
 
   Context got_context_from_type_and_name2;
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->FindContextByTypeIdAndContextName(
                 type2_id, "my_context2", /*id_only=*/false,
                 &got_context_from_type_and_name2));
-  EXPECT_THAT(got_context_from_type_and_name2, EqualsProto(got_contexts[1]));
+  EXPECT_THAT(got_context_from_type_and_name2,
+              EqualsProto(context2,
+                          /*ignore_fields=*/{"create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
   Context got_empty_context;
   EXPECT_TRUE(absl::IsNotFound(
       metadata_access_object_->FindContextByTypeIdAndContextName(
@@ -8003,7 +8024,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
 
   Context got_context_from_type_and_name_with_only_id;
   Context expected_context_from_type_and_name_with_only_id;
-  expected_context_from_type_and_name_with_only_id.set_id(got_contexts[0].id());
+  expected_context_from_type_and_name_with_only_id.set_id(context1.id());
   EXPECT_EQ(absl::OkStatus(),
             metadata_access_object_->FindContextByTypeIdAndContextName(
                 type1_id, "my_context1", /*id_only=*/true,
@@ -8022,10 +8043,10 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
         got_contexts_from_external_ids,
         UnorderedElementsAre(
             EqualsProto(context1,
-                        /*ignore_fields=*/{"create_time_since_epoch",
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
                                            "last_update_time_since_epoch"}),
             EqualsProto(context2,
-                        /*ignore_fields=*/{"create_time_since_epoch",
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
                                            "last_update_time_since_epoch"})));
 
     // Test 2: will return NOT_FOUND error when finding contexts by
@@ -8048,7 +8069,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
     EXPECT_THAT(
         got_contexts_from_external_ids_absent,
         UnorderedElementsAre(EqualsProto(
-            context1, /*ignore_fields=*/{"create_time_since_epoch",
+            context1, /*ignore_fields=*/{"type", "create_time_since_epoch",
                                          "last_update_time_since_epoch"})));
 
     // Test 4: will return INVALID_ARGUMENT error when any of the external_ids
@@ -8322,7 +8343,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsByType) {
     EXPECT_THAT(next_page_token, Not(IsEmpty()));
     EXPECT_THAT(contexts,
                 ElementsAre(EqualsProto(context_1, /*ignore_fields=*/{
-                                            "create_time_since_epoch",
+                                            "type", "create_time_since_epoch",
                                             "last_update_time_since_epoch"})));
 
     contexts.clear();
@@ -8334,7 +8355,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsByType) {
     EXPECT_THAT(contexts,
                 ElementsAre(EqualsProto(
                     context_2,
-                    /*ignore_fields=*/{"create_time_since_epoch",
+                    /*ignore_fields=*/{"type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"})));
   }
   // Test: List contexts by reverse default ordering (ID)
@@ -8351,7 +8372,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsByType) {
     EXPECT_THAT(next_page_token, Not(IsEmpty()));
     EXPECT_THAT(contexts,
                 ElementsAre(EqualsProto(context_2, /*ignore_fields=*/{
-                                            "create_time_since_epoch",
+                                            "type", "create_time_since_epoch",
                                             "last_update_time_since_epoch"})));
 
     contexts.clear();
@@ -8363,7 +8384,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsByType) {
     EXPECT_THAT(contexts,
                 ElementsAre(EqualsProto(
                     context_1,
-                    /*ignore_fields=*/{"create_time_since_epoch",
+                    /*ignore_fields=*/{"type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"})));
   }
   // Test: List contexts through a big max-result size.
@@ -8381,10 +8402,10 @@ TEST_P(MetadataAccessObjectTest, ListContextsByType) {
         contexts,
         ElementsAre(
             EqualsProto(context_1,
-                        /*ignore_fields=*/{"create_time_since_epoch",
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
                                            "last_update_time_since_epoch"}),
             EqualsProto(context_2,
-                        /*ignore_fields=*/{"create_time_since_epoch",
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
                                            "last_update_time_since_epoch"})));
   }
 }
@@ -8543,7 +8564,7 @@ TEST_P(MetadataAccessObjectTest, UpdateContext) {
   }
   EXPECT_THAT(want_context,
               EqualsProto(got_context_after_update,
-                          /*ignore_fields=*/{"create_time_since_epoch",
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
   EXPECT_EQ(got_context_before_update.create_time_since_epoch(),
             got_context_after_update.create_time_since_epoch());
@@ -8621,7 +8642,7 @@ TEST_P(MetadataAccessObjectTest, UpdateContextWithCustomUpdatetime) {
   }
   EXPECT_THAT(want_context,
               EqualsProto(got_context_after_update,
-                          /*ignore_fields=*/{"create_time_since_epoch",
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
   EXPECT_EQ(got_context_before_update.create_time_since_epoch(),
             got_context_after_update.create_time_since_epoch());
@@ -8705,9 +8726,10 @@ TEST_P(MetadataAccessObjectTest, UpdateContextWithForceUpdateTimeEnabled) {
   }
   // Expect no changes for the updated resource other than
   // `last_update_time_since_epoch`.
-  EXPECT_THAT(got_context_after_2nd_update,
-              EqualsProto(got_context_after_1st_update,
-                          /*ignore_fields=*/{"last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      got_context_after_2nd_update,
+      EqualsProto(got_context_after_1st_update,
+                  /*ignore_fields=*/{"type", "last_update_time_since_epoch"}));
   EXPECT_NE(got_context_after_2nd_update.last_update_time_since_epoch(),
             got_context_after_1st_update.last_update_time_since_epoch());
   EXPECT_EQ(got_context_after_2nd_update.last_update_time_since_epoch(),
@@ -9380,7 +9402,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndUseAttribution) {
                                   artifact_id, &got_contexts));
   ASSERT_EQ(got_contexts.size(), 1);
   EXPECT_THAT(context, EqualsProto(got_contexts[0], /*ignore_fields=*/{
-                                       "create_time_since_epoch",
+                                       "type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"}));
 
   std::vector<Artifact> got_artifacts;
@@ -9934,7 +9956,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindParentContext) {
     EXPECT_THAT(got_children, SizeIs(want_children[i].size()));
     EXPECT_THAT(got_parents,
                 UnorderedPointwise(EqualsProto<Context>(/*ignore_fields=*/{
-                                       "create_time_since_epoch",
+                                       "type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"}),
                                    want_parents[i]));
   }

@@ -138,16 +138,20 @@ static constexpr char kInsertContext[] = R"pb(
 )pb";
 
 static constexpr char kSelectContextByIdForMySQL[] = R"pb(
-  query: " SELECT `id`, `type_id`, `name`, `create_time_since_epoch`, "
-         "        `last_update_time_since_epoch`"
-         " from `Context` WHERE id IN ($0) LOCK IN SHARE MODE; "
+  query: " SELECT C.id, C.type_id, C.name, C.create_time_since_epoch, "
+         "        C.last_update_time_since_epoch, T.name AS `type` "
+         " FROM `Context` AS C "
+         " INNER JOIN `Type` AS T ON (T.id = C.type_id) "
+         " WHERE C.id IN ($0) LOCK IN SHARE MODE; "
   parameter_num: 1
 )pb";
 
 static constexpr char kSelectContextByIdForSQLite[] = R"pb(
-  query: " SELECT `id`, `type_id`, `name`, `create_time_since_epoch`, "
-         "        `last_update_time_since_epoch`"
-         " from `Context` WHERE id IN ($0); "
+  query: " SELECT C.id, C.type_id, C.name, C.create_time_since_epoch, "
+         "        C.last_update_time_since_epoch, T.name AS `type` "
+         " FROM `Context` AS C "
+         " INNER JOIN `Type` AS T ON (T.id = C.type_id) "
+         " WHERE C.id IN ($0); "
   parameter_num: 1
 )pb";
 

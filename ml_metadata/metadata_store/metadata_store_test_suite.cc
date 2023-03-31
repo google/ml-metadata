@@ -1545,7 +1545,7 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndContextsGetContextsThroughType) {
                                                      &get_nodes_response));
         EXPECT_THAT(get_nodes_response.contexts(),
                     UnorderedPointwise(EqualsProto<Context>(/*ignore_fields=*/{
-                                           "create_time_since_epoch",
+                                           "type", "create_time_since_epoch",
                                            "last_update_time_since_epoch"}),
                                        want_contexts));
       };
@@ -1564,7 +1564,7 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndContextsGetContextsThroughType) {
                                         get_node_request, &get_node_response));
         EXPECT_THAT(get_node_response.context(),
                     EqualsProto<Context>(want_context, /*ignore_fields=*/{
-                                             "create_time_since_epoch",
+                                             "type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
       };
 
@@ -3509,10 +3509,10 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContext) {
       get_contexts_response.contexts(),
       ElementsAre(
           EqualsProto(context1,
-                      /*ignore_fields=*/{"create_time_since_epoch",
+                      /*ignore_fields=*/{"type", "create_time_since_epoch",
                                          "last_update_time_since_epoch"}),
           EqualsProto(context2,
-                      /*ignore_fields=*/{"create_time_since_epoch",
+                      /*ignore_fields=*/{"type", "create_time_since_epoch",
                                          "last_update_time_since_epoch"})));
 
   // check attributions and associations of each context.
@@ -3757,9 +3757,10 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContextReuseOption) {
             metadata_store_->GetContexts({}, &get_contexts_response));
   ASSERT_THAT(get_contexts_response.contexts(), SizeIs(1));
   const Context& stored_context = get_contexts_response.contexts(0);
-  EXPECT_THAT(stored_context, EqualsProto(context, /*ignore_fields=*/{
-                                              "id", "create_time_since_epoch",
-                                              "last_update_time_since_epoch"}));
+  EXPECT_THAT(stored_context,
+              EqualsProto(context, /*ignore_fields=*/{
+                              "id", "type", "create_time_since_epoch",
+                              "last_update_time_since_epoch"}));
   GetExecutionsByContextRequest get_executions_by_context_request;
   get_executions_by_context_request.set_context_id(stored_context.id());
   GetExecutionsByContextResponse get_executions_by_context_response;
@@ -4249,10 +4250,11 @@ TEST_P(MetadataStoreTestSuite, PutContextsGetContextsWithListOptions) {
   EXPECT_THAT(get_contexts_response.next_page_token(), Not(IsEmpty()));
   EXPECT_EQ(get_contexts_response.contexts(0).id(), context_id_1);
 
-  EXPECT_THAT(get_contexts_response.contexts(0),
-              EqualsProto(put_contexts_request.contexts(1),
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      get_contexts_response.contexts(0),
+      EqualsProto(put_contexts_request.contexts(1),
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
 
   list_options.set_next_page_token(get_contexts_response.next_page_token());
   *get_contexts_request.mutable_options() = list_options;
@@ -4262,10 +4264,11 @@ TEST_P(MetadataStoreTestSuite, PutContextsGetContextsWithListOptions) {
   EXPECT_THAT(get_contexts_response.contexts(), SizeIs(1));
   EXPECT_THAT(get_contexts_response.next_page_token(), IsEmpty());
   EXPECT_EQ(get_contexts_response.contexts(0).id(), context_id_0);
-  EXPECT_THAT(get_contexts_response.contexts(0),
-              EqualsProto(put_contexts_request.contexts(0),
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      get_contexts_response.contexts(0),
+      EqualsProto(put_contexts_request.contexts(0),
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
 }
 
 TEST_P(MetadataStoreTestSuite, PutContextTypeUpsert) {
@@ -4438,7 +4441,7 @@ TEST_P(MetadataStoreTestSuite, PutContextsGetContextsByExternalIds) {
     EXPECT_THAT(get_contexts_by_external_ids_response.contexts(),
                 ElementsAre(EqualsProto(
                     context1,
-                    /*ignore_fields=*/{"create_time_since_epoch",
+                    /*ignore_fields=*/{"type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"})));
   }
   // Test: retrieve by one non-existing external id
@@ -4468,10 +4471,10 @@ TEST_P(MetadataStoreTestSuite, PutContextsGetContextsByExternalIds) {
         get_contexts_by_external_ids_response.contexts(),
         UnorderedElementsAre(
             EqualsProto(context1,
-                        /*ignore_fields=*/{"create_time_since_epoch",
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
                                            "last_update_time_since_epoch"}),
             EqualsProto(context2,
-                        /*ignore_fields=*/{"create_time_since_epoch",
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
                                            "last_update_time_since_epoch"})));
 
     // Will return whatever found if some of the external ids is absent
@@ -4484,10 +4487,10 @@ TEST_P(MetadataStoreTestSuite, PutContextsGetContextsByExternalIds) {
         get_contexts_by_external_ids_response.contexts(),
         UnorderedElementsAre(
             EqualsProto(context1,
-                        /*ignore_fields=*/{"create_time_since_epoch",
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
                                            "last_update_time_since_epoch"}),
             EqualsProto(context2,
-                        /*ignore_fields=*/{"create_time_since_epoch",
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
                                            "last_update_time_since_epoch"})));
   }
 
@@ -4564,13 +4567,16 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
   // and context2's int value from 2 to 3, and add a new context with type2.
   Context want_context1 = *put_contexts_request.mutable_contexts(0);
   want_context1.set_id(id1);
+  want_context1.set_type(put_context_type_request.context_type().name());
   (*want_context1.mutable_properties())["property"].set_string_value("2");
   Context want_context2 = *put_contexts_request.mutable_contexts(1);
   want_context2.set_id(id2);
+  want_context2.set_type(put_context_type_request.context_type().name());
   (*want_context2.mutable_custom_properties())["custom"].set_int_value(2);
   Context want_context3;
   want_context3.set_type_id(type2_id);
   want_context3.set_name("context3");
+  want_context3.set_type(put_context_type_request2.context_type().name());
 
   PutContextsRequest put_contexts_request2;
   *put_contexts_request2.add_contexts() = want_context1;
@@ -4775,7 +4781,7 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   ASSERT_THAT(get_contexts_by_artifact_response.contexts(), SizeIs(1));
   EXPECT_THAT(get_contexts_by_artifact_response.contexts(0),
               EqualsProto(want_context,
-                          /*ignore_fields=*/{"create_time_since_epoch",
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
 
   GetArtifactsByContextRequest get_artifacts_by_context_request;
@@ -4806,7 +4812,7 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   ASSERT_THAT(get_contexts_by_execution_response.contexts(), SizeIs(1));
   EXPECT_THAT(get_contexts_by_execution_response.contexts(0),
               EqualsProto(want_context,
-                          /*ignore_fields=*/{"create_time_since_epoch",
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
 
   GetExecutionsByContextRequest get_executions_by_context_request;
@@ -5048,12 +5054,12 @@ TEST_P(MetadataStoreTestSuite, PutParentContextsAndGetLinkedContextByContext) {
                 SizeIs(want_children[i].size()));
     EXPECT_THAT(get_parents_response.contexts(),
                 UnorderedPointwise(EqualsProto<Context>(/*ignore_fields=*/{
-                                       "create_time_since_epoch",
+                                       "type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"}),
                                    want_parents[i]));
     EXPECT_THAT(get_children_response.contexts(),
                 UnorderedPointwise(EqualsProto<Context>(/*ignore_fields=*/{
-                                       "create_time_since_epoch",
+                                       "type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"}),
                                    want_children[i]));
   }
@@ -5085,7 +5091,7 @@ TEST_P(MetadataStoreTestSuite,
         ASSERT_EQ(want_contexts.size(), get_nodes_response.contexts_size());
         EXPECT_THAT(get_nodes_response.contexts(),
                     UnorderedPointwise(EqualsProto<Context>(/*ignore_fields=*/{
-                                           "create_time_since_epoch",
+                                           "type", "create_time_since_epoch",
                                            "last_update_time_since_epoch"}),
                                        want_contexts));
       };
@@ -5460,7 +5466,7 @@ TEST_P(MetadataStoreTestSuite, PutLineageSubgraphAndVerifyLineageGraph) {
   EXPECT_THAT(get_contexts_response.contexts(),
               ElementsAre(EqualsProto(context,
                                       /*ignore_fields=*/
-                                      {"id", "create_time_since_epoch",
+                                      {"id", "type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"})));
 
   GetEventsByExecutionIDsRequest get_events_by_execution_ids_request;
