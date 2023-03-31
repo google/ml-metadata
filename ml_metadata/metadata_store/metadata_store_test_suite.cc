@@ -1472,10 +1472,10 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndExecutionsGetExecutionsThroughType) {
                                                        &get_nodes_response));
         EXPECT_THAT(
             get_nodes_response.executions(),
-            UnorderedPointwise(
-                EqualsProto<Execution>(/*ignore_fields=*/{
-                    "create_time_since_epoch", "last_update_time_since_epoch"}),
-                want_executions));
+            UnorderedPointwise(EqualsProto<Execution>(/*ignore_fields=*/{
+                                   "type", "create_time_since_epoch",
+                                   "last_update_time_since_epoch"}),
+                               want_executions));
       };
 
   auto verify_get_execution_by_type_and_name =
@@ -1493,7 +1493,7 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndExecutionsGetExecutionsThroughType) {
         EXPECT_THAT(
             get_node_response.execution(),
             EqualsProto<Execution>(want_execution, /*ignore_fields=*/{
-                                       "create_time_since_epoch",
+                                       "type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"}));
       };
 
@@ -2365,6 +2365,8 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionByID) {
     execution1.set_id(put_executions_response.execution_ids(0));
     execution2 = put_executions_request.executions(1);
     execution2.set_id(put_executions_response.execution_ids(1));
+    execution1.set_type("test_type2");
+    execution2.set_type("test_type2");
   }
   // Test: Get by a single id
   {
@@ -2460,6 +2462,8 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsByExternalIds) {
     ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(2));
     execution1.set_id(put_executions_response.execution_ids(0));
     execution2.set_id(put_executions_response.execution_ids(1));
+    execution1.set_type("test_execution_type");
+    execution2.set_type("test_execution_type");
   }
 
   // Test: retrieve by one external id
@@ -2572,10 +2576,11 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithEmptyExecution) {
             metadata_store_->GetExecutions(get_executions_request,
                                            &get_executions_response));
   ASSERT_THAT(get_executions_response.executions(), SizeIs(1));
-  EXPECT_THAT(get_executions_response.executions(0),
-              EqualsProto(put_executions_request.executions(0),
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      get_executions_response.executions(0),
+      EqualsProto(put_executions_request.executions(0),
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
 
   GetExecutionsByTypeRequest get_executions_by_type_request;
   GetExecutionsByTypeResponse get_executions_by_type_response;
@@ -2654,10 +2659,11 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithListOptions) {
   EXPECT_THAT(get_executions_response.next_page_token(), Not(IsEmpty()));
   EXPECT_EQ(get_executions_response.executions(0).id(), execution_id_1);
 
-  EXPECT_THAT(get_executions_response.executions(0),
-              EqualsProto(put_executions_request.executions(1),
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      get_executions_response.executions(0),
+      EqualsProto(put_executions_request.executions(1),
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
 
   list_options.set_next_page_token(get_executions_response.next_page_token());
   *get_executions_request.mutable_options() = list_options;
@@ -2667,10 +2673,11 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithListOptions) {
   EXPECT_THAT(get_executions_response.executions(), SizeIs(1));
   EXPECT_THAT(get_executions_response.next_page_token(), IsEmpty());
   EXPECT_EQ(get_executions_response.executions(0).id(), execution_id_0);
-  EXPECT_THAT(get_executions_response.executions(0),
-              EqualsProto(put_executions_request.executions(0),
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      get_executions_response.executions(0),
+      EqualsProto(put_executions_request.executions(0),
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
 }
 
 TEST_P(MetadataStoreTestSuite,
@@ -3443,7 +3450,7 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecution) {
   ASSERT_THAT(get_executions_response.executions(), SizeIs(1));
   EXPECT_THAT(get_executions_response.executions(0),
               EqualsProto(execution,
-                          /*ignore_fields=*/{"create_time_since_epoch",
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
   GetEventsByExecutionIDsRequest get_events_request;
   get_events_request.add_execution_ids(execution.id());
@@ -3763,12 +3770,14 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContextReuseOption) {
   EXPECT_THAT(
       get_executions_by_context_response.executions(),
       ElementsAre(
-          EqualsProto(request.execution(),
-                      /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                         "last_update_time_since_epoch"}),
-          EqualsProto(request.execution(),
-                      /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                         "last_update_time_since_epoch"})));
+          EqualsProto(
+              request.execution(),
+              /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                 "last_update_time_since_epoch"}),
+          EqualsProto(
+              request.execution(),
+              /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                 "last_update_time_since_epoch"})));
 }
 
 TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithArtifactReuseOption) {
@@ -4809,7 +4818,7 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   ASSERT_THAT(get_executions_by_context_response.executions(), SizeIs(1));
   EXPECT_THAT(get_executions_by_context_response.executions(0),
               EqualsProto(want_execution,
-                          /*ignore_fields=*/{"create_time_since_epoch",
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
 
   // Add another artifact.
@@ -5187,7 +5196,7 @@ TEST_P(MetadataStoreTestSuite, GetExecutionsByContextWithFilterStateQuery) {
     EXPECT_THAT(
         get_executions_response.executions(0),
         EqualsProto(execution1,
-                    /*ignore_fields=*/{"create_time_since_epoch",
+                    /*ignore_fields=*/{"type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"}));
   }
 
@@ -5204,7 +5213,7 @@ TEST_P(MetadataStoreTestSuite, GetExecutionsByContextWithFilterStateQuery) {
     EXPECT_THAT(
         get_executions_response.executions(0),
         EqualsProto(execution2,
-                    /*ignore_fields=*/{"create_time_since_epoch",
+                    /*ignore_fields=*/{"type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"}));
   }
 }
@@ -5258,7 +5267,7 @@ TEST_P(MetadataStoreTestSuite, GetExecutionFilterWithSpecialChars) {
     EXPECT_THAT(
         get_executions_response.executions(0),
         EqualsProto(execution,
-                    /*ignore_fields=*/{"create_time_since_epoch",
+                    /*ignore_fields=*/{"type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"}));
   }
 
@@ -5276,7 +5285,7 @@ TEST_P(MetadataStoreTestSuite, GetExecutionFilterWithSpecialChars) {
     EXPECT_THAT(
         get_executions_response.executions(0),
         EqualsProto(execution,
-                    /*ignore_fields=*/{"create_time_since_epoch",
+                    /*ignore_fields=*/{"type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"}));
   }
 
@@ -5294,7 +5303,7 @@ TEST_P(MetadataStoreTestSuite, GetExecutionFilterWithSpecialChars) {
     EXPECT_THAT(
         get_executions_response.executions(0),
         EqualsProto(execution,
-                    /*ignore_fields=*/{"create_time_since_epoch",
+                    /*ignore_fields=*/{"type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"}));
   }
 
@@ -5423,7 +5432,7 @@ TEST_P(MetadataStoreTestSuite, PutLineageSubgraphAndVerifyLineageGraph) {
   EXPECT_THAT(get_executions_by_context_response.executions(),
               ElementsAre(EqualsProto(
                   execution,
-                  /*ignore_fields=*/{"create_time_since_epoch",
+                  /*ignore_fields=*/{"type", "create_time_since_epoch",
                                      "last_update_time_since_epoch"})));
 
   GetArtifactsByContextRequest get_artifacts_by_context_request;
@@ -5554,7 +5563,7 @@ TEST_P(MetadataStoreTestSuite,
   EXPECT_THAT(get_executions_by_id_response.executions(),
               ElementsAre(EqualsProto(
                   execution,
-                  /*ignore_fields=*/{"create_time_since_epoch",
+                  /*ignore_fields=*/{"type", "create_time_since_epoch",
                                      "last_update_time_since_epoch"})));
 
   GetArtifactsByIDRequest get_artifacts_by_id_request;

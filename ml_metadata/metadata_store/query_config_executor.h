@@ -100,18 +100,24 @@ static constexpr char kInsertExecution[] = R"pb(
 )pb";
 
 static constexpr char kSelectExecutionByIdForMySQL[] = R"pb(
-  query: " SELECT `id`, `type_id`, `last_known_state`, `name`, "
-         "        `create_time_since_epoch`, `last_update_time_since_epoch` "
-         " FROM `Execution` "
-         " WHERE id IN ($0) LOCK IN SHARE MODE; "
+  query: " SELECT E.id, E.type_id, E.last_known_state, E.name, "
+         "        E.create_time_since_epoch, "
+         "        E.last_update_time_since_epoch, T.name AS `type` "
+         " FROM `Execution` AS E "
+         " INNER JOIN `Type` AS T "
+         "   ON (T.id = E.type_id) "
+         " WHERE E.id IN ($0) LOCK IN SHARE MODE; "
   parameter_num: 1
 )pb";
 
 static constexpr char kSelectExecutionByIdForSQLite[] = R"pb(
-  query: " SELECT `id`, `type_id`, `last_known_state`, `name`, "
-         "        `create_time_since_epoch`, `last_update_time_since_epoch` "
-         " FROM `Execution` "
-         " WHERE id IN ($0); "
+  query: " SELECT E.id, E.type_id, E.last_known_state, E.name, "
+         "        E.create_time_since_epoch, "
+         "        E.last_update_time_since_epoch, T.name AS `type` "
+         " FROM `Execution` AS E "
+         " INNER JOIN `Type` AS T "
+         "   ON (T.id = E.type_id) "
+         " WHERE E.id IN ($0); "
   parameter_num: 1
 )pb";
 

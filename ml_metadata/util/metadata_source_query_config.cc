@@ -327,10 +327,13 @@ R"pb(
     parameter_num: 6
   }
   select_execution_by_id {
-    query: " SELECT `id`, `type_id`, `last_known_state`, `name`, `external_id`,"
-           "        `create_time_since_epoch`, `last_update_time_since_epoch` "
-           " from `Execution` "
-           " WHERE id IN ($0); "
+    query: " SELECT E.id, E.type_id, E.last_known_state, E.name, "
+          "         E.external_id, E.create_time_since_epoch, "
+          "         E.last_update_time_since_epoch, T.name AS `type` "
+          " FROM `Execution` AS E "
+          " INNER JOIN `Type` AS T "
+          "   ON (T.id = E.type_id) "
+          " WHERE E.id IN ($0); "
     parameter_num: 1
   }
   select_execution_by_type_id_and_name {
@@ -2870,11 +2873,13 @@ R"pb(
     parameter_num: 1
   }
   select_execution_by_id {
-    query: " SELECT `id`, `type_id`, `last_known_state`, `name`, `external_id`,"
-           "        `create_time_since_epoch`, `last_update_time_since_epoch` "
-           " from `Execution` "
-           " WHERE id IN ($0) "
-           " LOCK IN SHARE MODE; "
+    query: " SELECT E.id, E.type_id, E.last_known_state, E.name, "
+           "        E.external_id, E.create_time_since_epoch, "
+           "        E.last_update_time_since_epoch, T.name AS `type` "
+           " FROM `Execution` AS E "
+           " INNER JOIN `Type` AS T "
+           "   ON (T.id = E.type_id) "
+           " WHERE E.id IN ($0) LOCK IN SHARE MODE; "
     parameter_num: 1
   }
   select_artifact_by_id {

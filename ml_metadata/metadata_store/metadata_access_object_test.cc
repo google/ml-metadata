@@ -6080,7 +6080,7 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsWithNonIdFieldOptions) {
       sample_execution.set_id(expected_execution_id--);
 
       EXPECT_THAT(execution, EqualsProto(sample_execution, /*ignore_fields=*/{
-                                             "create_time_since_epoch",
+                                             "type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
     }
     list_options.set_next_page_token(next_page_token);
@@ -6146,7 +6146,7 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsWithIdFieldOptions) {
       sample_execution.set_id(expected_execution_id++);
 
       EXPECT_THAT(execution, EqualsProto(sample_execution, /*ignore_fields=*/{
-                                             "create_time_since_epoch",
+                                             "type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
       seen_executions_count++;
     }
@@ -7312,6 +7312,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
                      properties { key: 'property_5' value: BOOLEAN }
                                         )pb",
                    ""));
+  const string test_type_name_with_no_property = "test_type_with_no_property";
   int64 type_id;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->CreateType(type, &type_id));
@@ -7361,7 +7362,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
     want_execution1.set_id(execution_id);
   }
   // Creates execution 2 with type 2
-  int64 type2_id = InsertType<ExecutionType>("test_type_with_no_property");
+  int64_t type2_id = InsertType<ExecutionType>(test_type_name_with_no_property);
   Execution want_execution2 = ParseTextProtoOrDie<Execution>(R"pb(
     name: "my_execution2"
     last_known_state: RUNNING
@@ -7402,6 +7403,8 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
 
   ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
 
+  want_execution1.set_type(type.name());
+  want_execution2.set_type(test_type_name_with_no_property);
   // Test: retrieve one execution at a time
   Execution got_execution1;
   {
@@ -7669,10 +7672,11 @@ TEST_P(MetadataAccessObjectTest, UpdateExecution) {
                                     {execution_id}, &executions));
     got_execution_before_update = executions.at(0);
   }
-  EXPECT_THAT(got_execution_before_update,
-              EqualsProto(stored_execution,
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      got_execution_before_update,
+      EqualsProto(stored_execution,
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
   // add `property_1` and update `property_3`, and drop `custom_property_1`
   Execution updated_execution = ParseTextProtoOrDie<Execution>(R"pb(
     properties {
@@ -7701,7 +7705,7 @@ TEST_P(MetadataAccessObjectTest, UpdateExecution) {
   }
   EXPECT_THAT(got_execution_after_update,
               EqualsProto(updated_execution,
-                          /*ignore_fields=*/{"create_time_since_epoch",
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
   EXPECT_EQ(got_execution_before_update.create_time_since_epoch(),
             got_execution_after_update.create_time_since_epoch());
@@ -7746,10 +7750,11 @@ TEST_P(MetadataAccessObjectTest, UpdateExecutionWithCustomUpdateTime) {
                                     {execution_id}, &executions));
     got_execution_before_update = executions.at(0);
   }
-  EXPECT_THAT(got_execution_before_update,
-              EqualsProto(stored_execution,
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      got_execution_before_update,
+      EqualsProto(stored_execution,
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
   // add `property_1` and update `property_3`, and drop `custom_property_1`
   Execution updated_execution = ParseTextProtoOrDie<Execution>(R"pb(
     properties {
@@ -7778,7 +7783,7 @@ TEST_P(MetadataAccessObjectTest, UpdateExecutionWithCustomUpdateTime) {
   }
   EXPECT_THAT(got_execution_after_update,
               EqualsProto(updated_execution,
-                          /*ignore_fields=*/{"create_time_since_epoch",
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
   EXPECT_EQ(got_execution_before_update.create_time_since_epoch(),
             got_execution_after_update.create_time_since_epoch());
@@ -7823,10 +7828,11 @@ TEST_P(MetadataAccessObjectTest, UpdateExecutionWithForceUpdateTimeEnabled) {
                                     {execution_id}, &executions));
     got_execution_before_update = executions.at(0);
   }
-  EXPECT_THAT(got_execution_before_update,
-              EqualsProto(stored_execution,
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      got_execution_before_update,
+      EqualsProto(stored_execution,
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
   // Update with no changes and force_update_time disabled.
   absl::Time update_time = absl::InfiniteFuture();
   ASSERT_EQ(absl::OkStatus(), metadata_access_object_->UpdateExecution(
@@ -8211,7 +8217,7 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsByType) {
     EXPECT_THAT(next_page_token, Not(IsEmpty()));
     EXPECT_THAT(entities,
                 ElementsAre(EqualsProto(entity_1, /*ignore_fields=*/{
-                                            "create_time_since_epoch",
+                                            "type", "create_time_since_epoch",
                                             "last_update_time_since_epoch"})));
 
     entities.clear();
@@ -8223,7 +8229,7 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsByType) {
     EXPECT_THAT(entities,
                 ElementsAre(EqualsProto(
                     entity_2,
-                    /*ignore_fields=*/{"create_time_since_epoch",
+                    /*ignore_fields=*/{"type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"})));
   }
 }
@@ -8743,7 +8749,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndUseAssociation) {
                                   execution_id, &got_contexts));
   ASSERT_EQ(got_contexts.size(), 1);
   EXPECT_THAT(context, EqualsProto(got_contexts[0], /*ignore_fields=*/{
-                                       "create_time_since_epoch",
+                                       "type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"}));
 
   std::vector<Execution> got_executions;
@@ -8751,7 +8757,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndUseAssociation) {
                                   context_id, &got_executions));
   ASSERT_EQ(got_executions.size(), 1);
   EXPECT_THAT(execution, EqualsProto(got_executions[0], /*ignore_fields=*/{
-                                         "create_time_since_epoch",
+                                         "type", "create_time_since_epoch",
                                          "last_update_time_since_epoch"}));
 
   std::vector<Artifact> got_artifacts;
@@ -8819,7 +8825,7 @@ TEST_P(MetadataAccessObjectTest, GetAssociationUsingPagination) {
                 context_id, list_options, &got_executions, &next_page_token));
   EXPECT_THAT(got_executions, SizeIs(1));
   EXPECT_THAT(execution2, EqualsProto(got_executions[0], /*ignore_fields=*/{
-                                          "create_time_since_epoch",
+                                          "type", "create_time_since_epoch",
                                           "last_update_time_since_epoch"}));
   ASSERT_FALSE(next_page_token.empty());
 
@@ -8830,7 +8836,7 @@ TEST_P(MetadataAccessObjectTest, GetAssociationUsingPagination) {
                 context_id, list_options, &got_executions, &next_page_token));
   EXPECT_THAT(got_executions, SizeIs(1));
   EXPECT_THAT(execution1, EqualsProto(got_executions[0], /*ignore_fields=*/{
-                                          "create_time_since_epoch",
+                                          "type", "create_time_since_epoch",
                                           "last_update_time_since_epoch"}));
   ASSERT_TRUE(next_page_token.empty());
 }
@@ -8897,7 +8903,7 @@ TEST_P(MetadataAccessObjectTest, GetAssociationFilterStateQuery) {
             absl::OkStatus());
   ASSERT_THAT(got_executions, SizeIs(1));
   EXPECT_THAT(execution1, EqualsProto(got_executions[0], /*ignore_fields=*/{
-                                          "create_time_since_epoch",
+                                          "type", "create_time_since_epoch",
                                           "last_update_time_since_epoch"}));
   ASSERT_TRUE(next_page_token.empty());
 
@@ -8907,7 +8913,7 @@ TEST_P(MetadataAccessObjectTest, GetAssociationFilterStateQuery) {
             absl::OkStatus());
   ASSERT_THAT(got_executions, SizeIs(1));
   EXPECT_THAT(execution2, EqualsProto(got_executions[0], /*ignore_fields=*/{
-                                          "create_time_since_epoch",
+                                          "type", "create_time_since_epoch",
                                           "last_update_time_since_epoch"}));
   ASSERT_TRUE(next_page_token.empty());
 
@@ -8924,7 +8930,7 @@ TEST_P(MetadataAccessObjectTest, GetAssociationFilterStateQuery) {
             absl::OkStatus());
   ASSERT_THAT(got_executions, SizeIs(1));
   EXPECT_THAT(execution1, EqualsProto(got_executions[0], /*ignore_fields=*/{
-                                          "create_time_since_epoch",
+                                          "type", "create_time_since_epoch",
                                           "last_update_time_since_epoch"}));
   ASSERT_TRUE(next_page_token.empty());
 
@@ -8934,7 +8940,7 @@ TEST_P(MetadataAccessObjectTest, GetAssociationFilterStateQuery) {
             absl::OkStatus());
   ASSERT_THAT(got_executions, SizeIs(1));
   EXPECT_THAT(execution2, EqualsProto(got_executions[0], /*ignore_fields=*/{
-                                          "create_time_since_epoch",
+                                          "type", "create_time_since_epoch",
                                           "last_update_time_since_epoch"}));
   ASSERT_TRUE(next_page_token.empty());
 }

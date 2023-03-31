@@ -727,7 +727,7 @@ func makeAndInsertExecution(t *testing.T, store *Store, typeID int64, executionN
 	}
 
 	wantExecution.Id = proto.Int64(int64(executionIDs[0]))
-
+	wantExecution.Type = proto.String("test_type_name")
 	return wantExecution
 }
 
@@ -1317,6 +1317,7 @@ func TestPutExecutionWithContext(t *testing.T) {
 		t.Errorf("GetExecutionsByContext returned number of results is incorrect. want: %v, got: %v", 1, len(gotContexts))
 	}
 	// skip comparing create/update timestamps
+	e.Type = gotExecutions[0].Type
 	e.CreateTimeSinceEpoch = gotExecutions[0].CreateTimeSinceEpoch
 	e.LastUpdateTimeSinceEpoch = gotExecutions[0].LastUpdateTimeSinceEpoch
 	if !proto.Equal(e, gotExecutions[0]) {
@@ -1477,6 +1478,7 @@ func TestPutAndUseAttributionsAndAssociations(t *testing.T) {
 	// skip comparing create/update timestamps
 	wantExecution.CreateTimeSinceEpoch = gotExecutions[0].CreateTimeSinceEpoch
 	wantExecution.LastUpdateTimeSinceEpoch = gotExecutions[0].LastUpdateTimeSinceEpoch
+	wantExecution.Type = proto.String("execution_type_name")
 	if !proto.Equal(wantExecution, gotExecutions[0]) {
 		t.Errorf("GetExecutionsByContext returned result is incorrect. want: %v, got: %v", wantExecution, gotExecutions[0])
 	}

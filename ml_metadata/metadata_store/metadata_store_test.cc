@@ -177,7 +177,7 @@ void VerifySubgraph(const LineageGraph& subgraph,
 
   EXPECT_THAT(subgraph.executions(),
               UnorderedPointwise(EqualsProto<Execution>(/*ignore_fields=*/{
-                                     "id", "create_time_since_epoch",
+                                     "id", "type", "create_time_since_epoch",
                                      "last_update_time_since_epoch"}),
                                  want_executions));
   EXPECT_THAT(subgraph.events(), SizeIs(want_events.size()));
