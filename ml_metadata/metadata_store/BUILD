@@ -201,8 +201,10 @@ cc_library(
         ":test_util",
         "@com_google_googletest//:gtest",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
+        "@com_google_absl//absl/types:span",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/util:return_utils",
@@ -268,6 +270,7 @@ cc_test(
         "manual",
     ],
     deps = [
+        ":mysql_query_config_executor_test",
         ":test_standalone_mysql_metadata_source_initializer",
         "@com_google_googletest//:gtest_main",
     ],

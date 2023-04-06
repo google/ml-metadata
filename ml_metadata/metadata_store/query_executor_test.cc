@@ -21,8 +21,12 @@ limitations under the License.
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "absl/types/optional.h"
+#include "absl/types/span.h"
 #include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
@@ -31,6 +35,7 @@ limitations under the License.
 namespace ml_metadata {
 namespace testing {
 using ::testing::SizeIs;
+using ::testing::UnorderedElementsAreArray;
 
 // A utility macros for OSS files as ASSERT_OK is not available in OSS.
 #define MLMD_ASSERT_OK(expr) ASSERT_EQ(absl::OkStatus(), expr)
@@ -156,6 +161,39 @@ constexpr absl::string_view kContextTypeRecordSet2 =
          }
     )pb";
 
+constexpr absl::string_view kArtifactRecordSet =
+    R"pb(column_names: "id"
+         column_names: "type_id"
+         column_names: "uri"
+         column_names: "state"
+         column_names: "name"
+         column_names: "external_id"
+         column_names: "create_time_since_epoch"
+         column_names: "last_update_time_since_epoch"
+         column_names: "type"
+    )pb";
+
+constexpr absl::string_view kExecutionRecordSet =
+    R"pb(column_names: "id"
+         column_names: "type_id"
+         column_names: "last_known_state"
+         column_names: "name"
+         column_names: "external_id"
+         column_names: "create_time_since_epoch"
+         column_names: "last_update_time_since_epoch"
+         column_names: "type"
+    )pb";
+
+constexpr absl::string_view kContextRecordSet =
+    R"pb(column_names: "id"
+         column_names: "type_id"
+         column_names: "name"
+         column_names: "external_id"
+         column_names: "create_time_since_epoch"
+         column_names: "last_update_time_since_epoch"
+         column_names: "type"
+    )pb";
+
 int GetColumnIndex(const RecordSet& record_set, const std::string column_name) {
   int id_column_index = -1;
   for (int i = 0; i < record_set.column_names_size(); ++i) {
@@ -165,6 +203,15 @@ int GetColumnIndex(const RecordSet& record_set, const std::string column_name) {
     }
   }
   return id_column_index;
+}
+
+void ValidateNodeRecordSetByNodeIDs(const RecordSet& record_set,
+                                    absl::Span<int64> expected_ids) {
+  std::vector<int64> actual_ids;
+  for (const RecordSet::Record& record : record_set.records()) {
+    actual_ids.push_back(std::stoi(record.values(0)));
+  }
+  EXPECT_THAT(actual_ids, UnorderedElementsAreArray(expected_ids));
 }
 
 TEST_P(QueryExecutorTest, SelectTypesByID) {
@@ -804,5 +851,342 @@ TEST_P(QueryExecutorTest, SelectTypesByNamesAndVersions) {
                                            expected_record_set);
 }
 
+// TODO()
+TEST_P(QueryExecutorTest, SelectArtifacts) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+  // Setup: insert artifact type
+  int64 type_id;
+  {
+    ASSERT_EQ(absl::OkStatus(),
+              query_executor_->InsertArtifactType(
+                  /*name=*/"test_type", /*version=*/absl::nullopt,
+                  /*description=*/absl::nullopt, /*external_id=*/absl::nullopt,
+                  &type_id));
+  }
+  // Setup: insert two artifacts and create an expected record set
+  RecordSet expected_artifact_record_set;
+  int64 artifact_id_1;
+  int64 artifact_id_2;
+  const absl::Time test_create_time = absl::Now();
+  const std::string test_external_id_1 = "test_artifact_1";
+  {
+    ASSERT_EQ(absl::OkStatus(),
+              query_executor_->InsertArtifact(
+                  /*type_id=*/type_id, /*artifact_uri=*/"artifact_uri",
+                  /*state=*/absl::nullopt,
+                  /*name=*/"artifact_1", /*external_id=*/test_external_id_1,
+                  /*create_time=*/test_create_time,
+                  /*update_time=*/test_create_time, &artifact_id_1));
+    ASSERT_EQ(absl::OkStatus(),
+              query_executor_->InsertArtifact(
+                  /*type_id=*/type_id, /*artifact_uri=*/"artifact_uri",
+                  /*state=*/absl::nullopt,
+                  /*name=*/"artifact_2", /*external_id=*/"test_artifact_2",
+                  /*create_time=*/test_create_time,
+                  /*update_time=*/test_create_time, &artifact_id_2));
+    expected_artifact_record_set =
+        ParseTextProtoOrDie<RecordSet>(std::string(kArtifactRecordSet));
+    RecordSet::Record artifact_record_1 =
+        ParseTextProtoOrDie<RecordSet::Record>(absl::StrCat(
+            R"pb(
+              values: "1"
+              values: "1"
+              values: "artifact_uri"
+              values: "__MLMD_NULL__"
+              values: "artifact_1"
+              values: "test_artifact_1"
+              values: ")pb",
+            absl::ToUnixMillis(test_create_time), R"pb(" values: ")pb",
+            absl::ToUnixMillis(test_create_time),
+            R"pb(" 
+                 values: "test_type"
+            )pb"));
+    *expected_artifact_record_set.add_records() = artifact_record_1;
+    RecordSet::Record artifact_record_2 =
+        ParseTextProtoOrDie<RecordSet::Record>(absl::StrCat(
+            R"pb(
+              values: "2"
+              values: "1"
+              values: "artifact_uri"
+              values: "__MLMD_NULL__"
+              values: "artifact_2"
+              values: "test_artifact_2"
+              values: ")pb",
+            absl::ToUnixMillis(test_create_time), R"pb(" values: ")pb",
+            absl::ToUnixMillis(test_create_time),
+            R"pb(" 
+                 values: "test_type"
+            )pb"));
+    *expected_artifact_record_set.add_records() = artifact_record_2;
+  }
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
+  // Test select artifacts by ids
+  {
+    RecordSet got_artifact_record_set;
+    std::vector<int64> artifact_ids = {artifact_id_1, artifact_id_2};
+    ASSERT_EQ(absl::OkStatus(), query_executor_->SelectArtifactsByID(
+                                    artifact_ids, &got_artifact_record_set));
+    EXPECT_THAT(got_artifact_record_set,
+                EqualsProto(expected_artifact_record_set));
+  }
+  // Test select artifacts by external_ids
+  {
+    std::vector<absl::string_view> external_ids = {test_external_id_1};
+    RecordSet got_artifact_record_set;
+    ASSERT_EQ(absl::OkStatus(),
+              query_executor_->SelectArtifactsByExternalIds(
+                  absl::MakeSpan(external_ids), &got_artifact_record_set));
+    std::vector<int64> expected_artifact_ids = {artifact_id_1};
+    ValidateNodeRecordSetByNodeIDs(got_artifact_record_set,
+                                   absl::MakeSpan(expected_artifact_ids));
+  }
+  // Test select artifacts by type_id
+  {
+    RecordSet got_artifact_record_set;
+    ASSERT_EQ(absl::OkStatus(), query_executor_->SelectArtifactsByTypeID(
+                                    type_id, &got_artifact_record_set));
+    std::vector<int64> expected_artifact_ids = {artifact_id_1, artifact_id_2};
+    ValidateNodeRecordSetByNodeIDs(got_artifact_record_set,
+                                   absl::MakeSpan(expected_artifact_ids));
+  }
+  // Test select artifacts by type_id and artifact name
+  {
+    RecordSet got_artifact_record_set;
+    ASSERT_EQ(absl::OkStatus(),
+              query_executor_->SelectArtifactByTypeIDAndArtifactName(
+                  type_id, "artifact_1", &got_artifact_record_set));
+    std::vector<int64> expected_artifact_ids = {artifact_id_1};
+    ValidateNodeRecordSetByNodeIDs(got_artifact_record_set,
+                                   absl::MakeSpan(expected_artifact_ids));
+  }
+  // Test select artifacts by artifact_uri
+  {
+    RecordSet got_artifact_record_set;
+    ASSERT_EQ(absl::OkStatus(), query_executor_->SelectArtifactsByURI(
+                                    "artifact_uri", &got_artifact_record_set));
+    std::vector<int64> expected_artifact_ids = {artifact_id_1, artifact_id_2};
+    ValidateNodeRecordSetByNodeIDs(got_artifact_record_set,
+                                   absl::MakeSpan(expected_artifact_ids));
+  }
+}
+
+TEST_P(QueryExecutorTest, SelectContexts) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+  // Setup: insert context type
+  int64 type_id;
+  {
+    ASSERT_EQ(absl::OkStatus(),
+              query_executor_->InsertContextType(
+                  /*name=*/"test_type", /*version=*/absl::nullopt,
+                  /*description=*/absl::nullopt, /*external_id=*/absl::nullopt,
+                  &type_id));
+  }
+  // Setup: insert two contexts and create an expected record set
+  RecordSet expected_context_record_set;
+  int64 context_id_1;
+  int64 context_id_2;
+  const absl::Time test_create_time = absl::Now();
+  const std::string test_external_id_1 = "test_context_1";
+  {
+    ASSERT_EQ(absl::OkStatus(),
+              query_executor_->InsertContext(
+                  /*type_id=*/type_id,
+                  /*name=*/"context_1", /*external_id=*/test_external_id_1,
+                  /*create_time=*/test_create_time,
+                  /*update_time=*/test_create_time, &context_id_1));
+    ASSERT_EQ(absl::OkStatus(),
+              query_executor_->InsertContext(
+                  /*type_id=*/type_id,
+                  /*name=*/"context_2", /*external_id=*/"test_context_2",
+                  /*create_time=*/test_create_time,
+                  /*update_time=*/test_create_time, &context_id_2));
+    expected_context_record_set =
+        ParseTextProtoOrDie<RecordSet>(std::string(kContextRecordSet));
+    RecordSet::Record context_record_1 =
+        ParseTextProtoOrDie<RecordSet::Record>(absl::StrCat(
+            R"pb(
+              values: "1"
+              values: "1"
+              values: "context_1"
+              values: "test_context_1"
+              values: ")pb",
+            absl::ToUnixMillis(test_create_time), R"pb(" values: ")pb",
+            absl::ToUnixMillis(test_create_time),
+            R"pb(" 
+                 values: "test_type"
+            )pb"));
+    *expected_context_record_set.add_records() = context_record_1;
+    RecordSet::Record context_record_2 =
+        ParseTextProtoOrDie<RecordSet::Record>(absl::StrCat(
+            R"pb(
+              values: "2"
+              values: "1"
+              values: "context_2"
+              values: "test_context_2"
+              values: ")pb",
+            absl::ToUnixMillis(test_create_time), R"pb(" values: ")pb",
+            absl::ToUnixMillis(test_create_time),
+            R"pb(" 
+                 values: "test_type"
+            )pb"));
+    *expected_context_record_set.add_records() = context_record_2;
+  }
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
+  // Test select contexts by ids
+  {
+    RecordSet got_context_record_set;
+    std::vector<int64> context_ids = {context_id_1, context_id_2};
+    ASSERT_EQ(absl::OkStatus(), query_executor_->SelectContextsByID(
+                                    context_ids, &got_context_record_set));
+    EXPECT_THAT(got_context_record_set,
+                EqualsProto(expected_context_record_set));
+  }
+  // Test select contexts by external_ids
+  {
+    std::vector<absl::string_view> external_ids = {test_external_id_1};
+    RecordSet got_context_record_set;
+    ASSERT_EQ(absl::OkStatus(),
+              query_executor_->SelectContextsByExternalIds(
+                  absl::MakeSpan(external_ids), &got_context_record_set));
+    std::vector<int64> expected_context_ids = {context_id_1};
+    ValidateNodeRecordSetByNodeIDs(got_context_record_set,
+                                   absl::MakeSpan(expected_context_ids));
+  }
+  // Test select contexts by type_id
+  {
+    RecordSet got_context_record_set;
+    ASSERT_EQ(absl::OkStatus(), query_executor_->SelectContextsByTypeID(
+                                    type_id, &got_context_record_set));
+    std::vector<int64> expected_context_ids = {context_id_1, context_id_2};
+    ValidateNodeRecordSetByNodeIDs(got_context_record_set,
+                                   absl::MakeSpan(expected_context_ids));
+  }
+  // Test select contexts by type_id and context name
+  {
+    RecordSet got_context_record_set;
+    ASSERT_EQ(absl::OkStatus(),
+              query_executor_->SelectContextByTypeIDAndContextName(
+                  type_id, "context_1", &got_context_record_set));
+    std::vector<int64> expected_context_ids = {context_id_1};
+    ValidateNodeRecordSetByNodeIDs(got_context_record_set,
+                                   absl::MakeSpan(expected_context_ids));
+  }
+}
+
+TEST_P(QueryExecutorTest, SelectExecutions) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+  // Setup: insert execution type
+  int64 type_id;
+  {
+    ArtifactStructType input_type;
+    AnyArtifactStructType any_input_type;
+    *input_type.mutable_any() = any_input_type;
+    ArtifactStructType output_type;
+    NoneArtifactStructType none_input_type;
+    *output_type.mutable_none() = none_input_type;
+    ASSERT_EQ(absl::OkStatus(),
+              query_executor_->InsertExecutionType(
+                  /*name=*/"test_type", /*version=*/absl::nullopt,
+                  /*version=*/absl::nullopt, /*input_type=*/&input_type,
+                  /*output_type=*/&output_type,
+                  /*external_id=*/absl::nullopt, &type_id));
+  }
+  // Setup: insert two executions and create an expected record set
+  RecordSet expected_execution_record_set;
+  int64 execution_id_1;
+  int64 execution_id_2;
+  const absl::Time test_create_time = absl::Now();
+  const std::string test_external_id_1 = "test_execution_1";
+  {
+    ASSERT_EQ(absl::OkStatus(),
+              query_executor_->InsertExecution(
+                  /*type_id=*/type_id, /*last_known_state=*/absl::nullopt,
+                  /*name=*/"execution_1", /*external_id=*/test_external_id_1,
+                  /*create_time=*/test_create_time,
+                  /*update_time=*/test_create_time, &execution_id_1));
+    ASSERT_EQ(absl::OkStatus(),
+              query_executor_->InsertExecution(
+                  /*type_id=*/type_id, /*last_known_state=*/absl::nullopt,
+                  /*name=*/"execution_2", /*external_id=*/"test_execution_2",
+                  /*create_time=*/test_create_time,
+                  /*update_time=*/test_create_time, &execution_id_2));
+    expected_execution_record_set =
+        ParseTextProtoOrDie<RecordSet>(std::string(kExecutionRecordSet));
+    RecordSet::Record execution_record_1 =
+        ParseTextProtoOrDie<RecordSet::Record>(absl::StrCat(
+            R"pb(
+              values: "1"
+              values: "1"
+              values: "__MLMD_NULL__"
+              values: "execution_1"
+              values: "test_execution_1"
+              values: ")pb",
+            absl::ToUnixMillis(test_create_time), R"pb(" values: ")pb",
+            absl::ToUnixMillis(test_create_time),
+            R"pb(" 
+                 values: "test_type"
+            )pb"));
+    *expected_execution_record_set.add_records() = execution_record_1;
+    RecordSet::Record execution_record_2 =
+        ParseTextProtoOrDie<RecordSet::Record>(absl::StrCat(
+            R"pb(
+              values: "2"
+              values: "1"
+              values: "__MLMD_NULL__"
+              values: "execution_2"
+              values: "test_execution_2"
+              values: ")pb",
+            absl::ToUnixMillis(test_create_time), R"pb(" values: ")pb",
+            absl::ToUnixMillis(test_create_time),
+            R"pb(" 
+                 values: "test_type"
+            )pb"));
+    *expected_execution_record_set.add_records() = execution_record_2;
+  }
+  ASSERT_EQ(absl::OkStatus(), AddCommitPointIfNeeded());
+
+  // Test select executions by ids
+  {
+    RecordSet got_execution_record_set;
+    std::vector<int64> execution_ids = {execution_id_1, execution_id_2};
+    ASSERT_EQ(absl::OkStatus(), query_executor_->SelectExecutionsByID(
+                                    execution_ids, &got_execution_record_set));
+    EXPECT_THAT(got_execution_record_set,
+                EqualsProto(expected_execution_record_set));
+  }
+  // Test select executions by external_ids
+  {
+    std::vector<absl::string_view> external_ids = {test_external_id_1};
+    RecordSet got_execution_record_set;
+    ASSERT_EQ(absl::OkStatus(),
+              query_executor_->SelectExecutionsByExternalIds(
+                  absl::MakeSpan(external_ids), &got_execution_record_set));
+    std::vector<int64> expected_execution_ids = {execution_id_1};
+    ValidateNodeRecordSetByNodeIDs(got_execution_record_set,
+                                   absl::MakeSpan(expected_execution_ids));
+  }
+  // Test select executions by type_id
+  {
+    RecordSet got_execution_record_set;
+    ASSERT_EQ(absl::OkStatus(), query_executor_->SelectExecutionsByTypeID(
+                                    type_id, &got_execution_record_set));
+    std::vector<int64> expected_execution_ids = {execution_id_1,
+                                                   execution_id_2};
+    ValidateNodeRecordSetByNodeIDs(got_execution_record_set,
+                                   absl::MakeSpan(expected_execution_ids));
+  }
+  // Test select executions by type_id and execution name
+  {
+    RecordSet got_execution_record_set;
+    ASSERT_EQ(absl::OkStatus(),
+              query_executor_->SelectExecutionByTypeIDAndExecutionName(
+                  type_id, "execution_1", &got_execution_record_set));
+    std::vector<int64> expected_execution_ids = {execution_id_1};
+    ValidateNodeRecordSetByNodeIDs(got_execution_record_set,
+                                   absl::MakeSpan(expected_execution_ids));
+  }
+}
 }  // namespace testing
 }  // namespace ml_metadata
