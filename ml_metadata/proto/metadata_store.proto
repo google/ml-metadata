@@ -665,6 +665,71 @@ message SqliteMetadataSourceConfig {
   optional ConnectionMode connection_mode = 2;
 }
 
+// A config contains the parameters when using with PostgreSQLMetadatSource.
+// Next index: 10
+message PostgreSQLDatabaseConfig {
+  // Name of host to connect to. If the host name starts with @, it is taken as
+  // a Unix-domain socket in the abstract namespace.
+  optional string host = 1;
+
+  // Numeric IP address of host to connect to. If this field is provided, `host`
+  // field is ignored.
+  optional string hostaddr = 2;
+
+  // Port number to connect to at the server host, or socket file name extension
+  // for Unix-domain connections.
+  optional string port = 3;
+
+  // PostgreSQL user name to connect as. Defaults to be the same as the
+  // operating system name of the user running the application.
+  optional string user = 4;
+
+  // Password to be used if the server demands password authentication.
+  optional string password = 5;
+
+  // Specifies the name of the file used to store passwords.
+  optional string passfile = 6;
+
+  // The database name. Defaults to be the same as the user name.
+  optional string dbname = 7;
+
+  // A config to skip the database creation if not exist when connecting the
+  // db instance. It is useful when the db creation is handled by an admin
+  // process, while the lib user should not issue db creation clauses.
+  optional bool skip_db_creation = 8;
+
+  message SSLOptions {
+    // disable, allow, verify-ca, verify-full, etc. Reference:
+    // https://www.postgresql.org/docs/current/libpq-connect.html
+    optional string sslmode = 1;
+
+    // This parameter specifies the file name of the client SSL certificate,
+    // replacing the default ~/.postgresql/postgresql.crt. This parameter is
+    // ignored if an SSL connection is not made.
+    optional string sslcert = 2;
+
+    // This parameter specifies the location for the secret key used for the
+    // client certificate. It can either specify a file name that will be used
+    // instead of the default ~/.postgresql/postgresql.key, this parameter is
+    // ignored if an SSL connection is not made.
+    optional string sslkey = 3;
+
+    // This parameter specifies the password for the secret key specified in
+    // sslkey, allowing client certificate private keys to be stored in
+    // encrypted form on disk even when interactive passphrase input is not
+    // practical.
+    optional string sslpassword = 4;
+
+    // This parameter specifies the name of a file containing SSL certificate
+    // authority (CA) certificate(s). If the file exists, the server's
+    // certificate will be verified to be signed by one of these authorities.
+    // The default is ~/.postgresql/root.crt.
+    optional string sslrootcert = 5;
+  }
+
+  optional SSLOptions ssloption = 9;
+}
+
 
 message MigrationOptions {
   // If not set, by default the upgrade migration is disabled. MLMD only
@@ -703,6 +768,10 @@ message ConnectionConfig {
     FakeDatabaseConfig fake_database = 1;
     MySQLDatabaseConfig mysql = 2;
     SqliteMetadataSourceConfig sqlite = 3;
+
+    // PostgreSQL database connection config.
+    PostgreSQLDatabaseConfig postgresql = 5;
+
   }
 
   // Options for overwriting the default retry setting when MLMD transactions
