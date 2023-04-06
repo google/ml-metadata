@@ -60,7 +60,7 @@ class ListOptions(object):
       the order is up to the database backend implementation.
     is_asc: Specifies `order_by` is ascending or descending. If `order_by` is
       not given, the field is ignored. If `order_by` is set, then by default
-      descending order is used.
+      ascending order is used for performance benefit.
     filter_query: An optional boolean expression in SQL syntax to specify
       conditions on nodes' attributes and 1-hop neighborhood. See
       https://github.com/google/ml-metadata/blob/master/ml_metadata/proto/metadata_store.proto#L705-L783 for the query capabilities and syntax. Note in
@@ -70,7 +70,7 @@ class ListOptions(object):
 
   limit: Optional[int] = None
   order_by: Optional[OrderByField] = None
-  is_asc: bool = False
+  is_asc: bool = True
   filter_query: Optional[str] = None
 
 

@@ -583,7 +583,9 @@ class MetadataStoreTest(parameterized.TestCase):
     artifact = metadata_store_pb2.Artifact(type_id=type_id)
     artifact_ids = store.put_artifacts([artifact, artifact, artifact])
 
-    got_artifacts = store.get_artifacts(list_options=mlmd.ListOptions(limit=2))
+    got_artifacts = store.get_artifacts(
+        list_options=mlmd.ListOptions(limit=2, is_asc=False)
+    )
     self.assertLen(got_artifacts, 2)
     self.assertEqual(got_artifacts[0].id, artifact_ids[2])
     self.assertEqual(got_artifacts[1].id, artifact_ids[1])
@@ -597,7 +599,7 @@ class MetadataStoreTest(parameterized.TestCase):
         [metadata_store_pb2.Artifact(type_id=type_id) for i in range(200)])
 
     got_artifacts = store.get_artifacts(
-        list_options=mlmd.ListOptions(limit=103))
+        list_options=mlmd.ListOptions(limit=103, is_asc=False))
     self.assertLen(got_artifacts, 103)
     for i in range(103):
       self.assertEqual(got_artifacts[i].id, artifact_ids[199 - i])
@@ -614,7 +616,10 @@ class MetadataStoreTest(parameterized.TestCase):
     # does not support ascending ordering as it reuses MySQL instance across
     # tests.
     got_artifacts = store.get_artifacts(
-        list_options=mlmd.ListOptions(limit=103, order_by=mlmd.OrderByField.ID))
+        list_options=mlmd.ListOptions(
+            limit=103, order_by=mlmd.OrderByField.ID, is_asc=False
+        )
+    )
 
     self.assertLen(got_artifacts, 103)
     for i in range(103):
@@ -1013,7 +1018,7 @@ class MetadataStoreTest(parameterized.TestCase):
     execution_ids = store.put_executions([execution, execution, execution])
 
     got_executions = store.get_executions(
-        list_options=mlmd.ListOptions(limit=2))
+        list_options=mlmd.ListOptions(limit=2, is_asc=False))
     self.assertLen(got_executions, 2)
     self.assertEqual(got_executions[0].id, execution_ids[2])
     self.assertEqual(got_executions[1].id, execution_ids[1])
@@ -1027,7 +1032,7 @@ class MetadataStoreTest(parameterized.TestCase):
         [metadata_store_pb2.Execution(type_id=type_id) for i in range(200)])
 
     got_executions = store.get_executions(
-        list_options=mlmd.ListOptions(limit=103))
+        list_options=mlmd.ListOptions(limit=103, is_asc=False))
     self.assertLen(got_executions, 103)
     for i in range(103):
       self.assertEqual(got_executions[i].id, execution_ids[199 - i])
@@ -1041,7 +1046,10 @@ class MetadataStoreTest(parameterized.TestCase):
         [metadata_store_pb2.Execution(type_id=type_id) for i in range(200)])
 
     got_executions = store.get_executions(
-        list_options=mlmd.ListOptions(limit=103, order_by=mlmd.OrderByField.ID))
+        list_options=mlmd.ListOptions(
+            limit=103, order_by=mlmd.OrderByField.ID, is_asc=False
+        )
+    )
 
     self.assertLen(got_executions, 103)
     for i in range(103):
@@ -1552,7 +1560,9 @@ class MetadataStoreTest(parameterized.TestCase):
             name=self._get_test_type_name(), type_id=type_id)
     ])
 
-    got_contexts = store.get_contexts(list_options=mlmd.ListOptions(limit=2))
+    got_contexts = store.get_contexts(
+        list_options=mlmd.ListOptions(limit=2, is_asc=False)
+    )
     self.assertLen(got_contexts, 2)
     self.assertEqual(got_contexts[0].id, context_ids[2])
     self.assertEqual(got_contexts[1].id, context_ids[1])
@@ -1568,7 +1578,9 @@ class MetadataStoreTest(parameterized.TestCase):
         for i in range(200)
     ])
 
-    got_contexts = store.get_contexts(list_options=mlmd.ListOptions(limit=103))
+    got_contexts = store.get_contexts(
+        list_options=mlmd.ListOptions(limit=103, is_asc=False)
+    )
     self.assertLen(got_contexts, 103)
     for i in range(103):
       self.assertEqual(got_contexts[i].id, context_ids[199 - i])
@@ -1585,7 +1597,10 @@ class MetadataStoreTest(parameterized.TestCase):
     ])
 
     got_contexts = store.get_contexts(
-        list_options=mlmd.ListOptions(limit=103, order_by=mlmd.OrderByField.ID))
+        list_options=mlmd.ListOptions(
+            limit=103, order_by=mlmd.OrderByField.ID, is_asc=False
+        )
+    )
 
     self.assertLen(got_contexts, 103)
     for i in range(103):
