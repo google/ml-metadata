@@ -1026,6 +1026,7 @@ message ListOperationNextPageToken {
   // the same order_by field value.
   // This field is currently only set whe order_by field is LAST_UPDATE_TIME.
   repeated int64 listed_ids = 4;
+
 }
 
 // Options for transactions.
