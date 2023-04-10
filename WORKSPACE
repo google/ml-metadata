@@ -49,6 +49,17 @@ mlmd_http_archive(
     ],
 )
 
+# postgres
+http_archive(
+    name = "postgresql",
+    build_file = "//ml_metadata:postgres.BUILD",
+    sha256 = "9868c1149a04bae1131533c5cbd1c46f9c077f834f6147abaef8791a7c91b1a1",
+    strip_prefix = "postgresql-12.1",
+    urls = [
+        "https://ftp.postgresql.org/pub/source/v12.1/postgresql-12.1.tar.gz",
+    ],
+)
+
 mlmd_http_archive(
     name = "com_google_googletest",
     sha256 = "ff7a82736e158c077e76188232eac77913a15dac0b22508c390ab3f88e6d6d86",
