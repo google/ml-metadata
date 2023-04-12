@@ -20,7 +20,7 @@ types can be created on the fly.
 import enum
 import random
 import time
-from typing import Any, Iterable, List, Optional, Sequence, Text, Tuple, Union
+from typing import Any, Iterable, List, Optional, Sequence, Text, Tuple
 
 from absl import logging
 import attr
@@ -32,6 +32,7 @@ from ml_metadata.metadata_store.pywrap.metadata_store_extension import metadata_
 from ml_metadata.proto import metadata_store_pb2
 from ml_metadata.proto import metadata_store_service_pb2
 from ml_metadata.proto import metadata_store_service_pb2_grpc
+
 
 # Max number of results for one call.
 MAX_NUM_RESULT = 100
@@ -74,13 +75,17 @@ class ListOptions(object):
   filter_query: Optional[str] = None
 
 
+class ExtraOptions(object):
+  """Dummy Extra options to align with internal MetadataStore."""
+
+  def __init__(self, euc=None):
+    """Initialize ExtraOptions."""
+
+
 class MetadataStore(object):
   """A store for the metadata."""
 
-  def __init__(self,
-               config: Union[proto.ConnectionConfig,
-                             proto.MetadataStoreClientConfig],
-               enable_upgrade_migration: bool = False):
+  def __init__(self, config, enable_upgrade_migration: bool = False):
     """Initialize the MetadataStore.
 
     MetadataStore can directly connect to either the metadata database or
@@ -94,6 +99,7 @@ class MetadataStore(object):
         It is ignored when using gRPC `proto.MetadataStoreClientConfig`.
     """
     self._max_num_retries = 5
+    self._service_client_wrapper = None
     if isinstance(config, proto.ConnectionConfig):
       self._using_db_connection = True
       migration_options = metadata_store_pb2.MigrationOptions()
@@ -168,17 +174,19 @@ class MetadataStore(object):
                                                certificate_chain)
     return grpc.secure_channel(target, credentials, options=options)
 
-  def _call(self, method_name, request, response):
+  def _call(self, method_name, request, response, extra_options=None):
     """Calls method with retry when Aborted error is returned.
 
     Args:
       method_name: the method to call.
       request: the request protobuf message.
       response: the response protobuf message.
+      extra_options: ExtraOptions instance.
 
     Returns:
       Detailed errors if the method is failed.
     """
+    del extra_options
     num_retries = self._max_num_retries
     avg_delay_sec = 2
     while True:
@@ -213,7 +221,7 @@ class MetadataStore(object):
         # RpcError code uses a tuple to specify error code and short
         # description.
         # https://grpc.github.io/grpc/python/_modules/grpc.html#StatusCode
-        raise _make_exception(e.details(), e.code().value[0])  # pytype: disable=attribute-error
+        raise make_exception(e.details(), e.code().value[0]) from e  # pytype: disable=attribute-error
 
   def _pywrap_cc_call(self, method, request, response) -> None:
     """Calls method, serializing and deserializing inputs and outputs.
@@ -235,7 +243,7 @@ class MetadataStore(object):
     [response_str, error_message,
      status_code] = method(self._metadata_store, request.SerializeToString())
     if status_code != 0:
-      raise _make_exception(error_message.decode('utf-8'), status_code)
+      raise make_exception(error_message.decode('utf-8'), status_code)
     response.ParseFromString(response_str)
 
   def put_artifacts(self, artifacts: Sequence[proto.Artifact]) -> List[int]:
@@ -1123,7 +1131,9 @@ class MetadataStore(object):
       method_name: str,
       entity_field_name: str,
       request_without_list_options: Any,
-      list_options: Optional[ListOptions] = None) -> List[Any]:
+      list_options: Optional[ListOptions] = None,
+      extra_options: Optional[ExtraOptions] = None,
+  ) -> List[Any]:
     """Apply for loop for functions with list_options in request.
 
     Args:
@@ -1131,16 +1141,21 @@ class MetadataStore(object):
       entity_field_name: Field name to look for in response.
       request_without_list_options: A MLMD API request without setting options.
       list_options: optional list options.
+      extra_options: ExtraOptions instance.
 
     Returns:
       A list of entities.
     """
+    del extra_options
     if list_options is not None:
       if list_options.limit and list_options.limit < 1:
-        raise _make_exception(
-            'Invalid list_options.limit value passed. '
-            'list_options.limit is expected to be greater than 1',
-            errors.INVALID_ARGUMENT)
+        raise make_exception(
+            (
+                'Invalid list_options.limit value passed. '
+                'list_options.limit is expected to be greater than 1'
+            ),
+            errors.INVALID_ARGUMENT,
+        )
     request = request_without_list_options
     return_size = None
     if list_options is not None:
@@ -1204,14 +1219,17 @@ class MetadataStore(object):
     return self._call_method_with_list_options('GetArtifacts', 'artifacts',
                                                request, list_options)
 
-  def get_contexts(self,
-                   list_options: Optional[ListOptions] = None
-                  ) -> List[proto.Context]:
+  def get_contexts(
+      self,
+      list_options: Optional[ListOptions] = None,
+      extra_options: Optional[ExtraOptions] = None,
+  ) -> List[proto.Context]:
     """Gets contexts.
 
     Args:
       list_options: A set of options to specify the conditions, limit the size
         and adjust order of the returned contexts.
+      extra_options: ExtraOptions instance.
 
     Returns:
       A list of contexts.
@@ -1220,6 +1238,7 @@ class MetadataStore(object):
       errors.InternalError: if query execution fails.
       errors.InvalidArgument: if list_options is invalid.
     """
+    del extra_options
     request = metadata_store_service_pb2.GetContextsRequest()
     return self._call_method_with_list_options('GetContexts', 'contexts',
                                                request, list_options)
@@ -1644,8 +1663,9 @@ def downgrade_schema(config: proto.ConnectionConfig,
     RuntimeError: if the downgrade is not finished, return detailed error.
   """
   if downgrade_to_schema_version < 0:
-    raise _make_exception('downgrade_to_schema_version not specified',
-                          errors.INVALID_ARGUMENT)
+    raise make_exception(
+        'downgrade_to_schema_version not specified', errors.INVALID_ARGUMENT
+    )
 
   try:
     migration_options = metadata_store_pb2.MigrationOptions()
@@ -1654,14 +1674,14 @@ def downgrade_schema(config: proto.ConnectionConfig,
         config.SerializeToString(), migration_options.SerializeToString())
   except RuntimeError as e:
     if str(e).startswith('MLMD cannot be downgraded to schema_version'):
-      raise _make_exception(str(e), errors.INVALID_ARGUMENT)
+      raise make_exception(str(e), errors.INVALID_ARGUMENT) from e
     if not str(e).startswith('Downgrade migration was performed.'):
       raise e
     # downgrade is done.
     logging.log(logging.INFO, str(e))
 
 
-def _make_exception(msg, error_code):
+def make_exception(msg, error_code):
   """Makes an exception with MLMD error code.
 
   Args:
