@@ -272,6 +272,9 @@ message Event {
   // Time the event occurred
   // Epoch is Jan 1, 1970, UTC
   optional int64 milliseconds_since_epoch = 5;
+
+  // Output only.
+  optional google.protobuf.Any system_metadata = 6;
 }
 
 message Execution {
@@ -317,6 +320,9 @@ message Execution {
   optional int64 create_time_since_epoch = 8;
   // Output only. Last update time of the execution in millisecond since epoch.
   optional int64 last_update_time_since_epoch = 9;
+
+  // Output only.
+  optional google.protobuf.Any system_metadata = 11;
 }
 
 message ExecutionType {

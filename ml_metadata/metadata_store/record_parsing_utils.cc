@@ -155,9 +155,9 @@ absl::Status ParseRecordSetToNodeArray(const RecordSet& record_set,
 }
 
 absl::Status ParseRecordSetToEdgeArray(const RecordSet& record_set,
-                                       std::vector<Event>& output_events) {
-  return ParseRecordSetToMessageArray(record_set, output_events,
-                                      CustomColumnParser());
+                                       std::vector<Event>& output_events,
+                                       const CustomColumnParser& parser) {
+  return ParseRecordSetToMessageArray(record_set, output_events, parser);
 }
 
 absl::Status ParseRecordSetToEdgeArray(

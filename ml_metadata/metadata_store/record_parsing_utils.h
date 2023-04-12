@@ -62,8 +62,9 @@ absl::Status ParseRecordSetToNodeArray(
 // Converts `record_set` to an Event array.
 // Returns OK and the parsed result is outputted by `output_artifacts`.
 // Returns error when internal error happens.
-absl::Status ParseRecordSetToEdgeArray(const RecordSet& record_set,
-                                       std::vector<Event>& output_events);
+absl::Status ParseRecordSetToEdgeArray(
+    const RecordSet& record_set, std::vector<Event>& output_events,
+    const CustomColumnParser& parser = CustomColumnParser());
 
 // Converts `record_set` to an Association array.
 // Returns OK and the parsed result is outputted by `output_artifacts`.
