@@ -6,6 +6,20 @@
 
 ## Deprecations
 
+# Version 1.13.1
+
+## Major Features and Improvements
+
+*   N/A
+
+## Breaking Changes
+
+*   N/A
+
+## Deprecations
+
+*   N/A
+
 # Version 1.13.0
 
 ## Major Features and Improvements
