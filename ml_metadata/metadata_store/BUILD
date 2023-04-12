@@ -888,6 +888,36 @@ cc_test(
     ],
 )
 
+# PostgreSQL build and test targets.
+cc_library(
+    name = "postgresql_metadata_source",
+    srcs = ["postgresql_metadata_source.cc"],
+    hdrs = ["postgresql_metadata_source.h"],
+    deps = [
+        ":constants",
+        ":metadata_source",
+        ":sqlite_metadata_source_util",
+        ":types",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/util:return_utils",
+        "@com_google_glog//:glog",
+        "@postgresql",
+    ],
+)
+
+cc_library(
+    name = "test_postgresql_metadata_source_initializer",
+    testonly = 1,
+    hdrs = [
+        "test_postgresql_metadata_source_initializer.h",
+    ],
+    deps = [":postgresql_metadata_source"],
+)
+
 ml_metadata_cc_test(
     name = "metadata_access_object_factory_test",
     srcs = ["metadata_access_object_factory_test.cc"],

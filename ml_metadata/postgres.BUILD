@@ -4,6 +4,9 @@ licenses(["notice"])  # BSD license
 
 exports_files(["COPYRIGHT"])
 
+# This is OSS version of PostgreSQL bazel build target.
+# The build target is consistent with Tensorflow's dependency on PostgreSQL.
+# Reference: https://github.com/tensorflow/io/commit/6a2b9b3e94fd80f9a7f0b982089e8a69751bd059
 cc_library(
     name = "postgresql",
     srcs = glob([

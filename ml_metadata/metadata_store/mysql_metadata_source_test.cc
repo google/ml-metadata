@@ -71,7 +71,7 @@ class MysqlMetadataSourceContainer : public MetadataSourceContainer {
   }
 
  private:
-  // An unowned TestMySqlMetadataSourceInitializer from a call to
+  // A TestMySqlMetadataSourceInitializer from a call to
   // GetTestMySqlMetadataSourceInitializer().
   std::unique_ptr<TestMySqlMetadataSourceInitializer>
       metadata_source_initializer_;
