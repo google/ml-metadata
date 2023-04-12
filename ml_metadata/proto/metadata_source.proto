@@ -35,6 +35,7 @@ message RecordSet {
 }
 
 // Contains supported metadata sources types in MetadataAccessObject.
+// Next index: 7
 enum MetadataSourceType {
   UNKNOWN_METADATA_SOURCE = 0;
   // a fake in memory metadata_source for testing
@@ -44,6 +45,8 @@ enum MetadataSourceType {
   MYSQL_METADATA_SOURCE = 2;
   // A Sqlite metadata source.
   SQLITE_METADATA_SOURCE = 3;
+  // PostgreSQL, the index number is related to ConnectionConfig.
+  POSTGRESQL_METADATA_SOURCE = 6;
 
 }
 
