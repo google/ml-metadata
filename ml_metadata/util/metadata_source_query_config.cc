@@ -150,6 +150,16 @@ R"pb(
            " FROM `ParentType` WHERE `type_id` IN ($0); "
     parameter_num: 1
   }
+  select_parent_contexts_by_context_ids {
+    query: " SELECT `context_id`, `parent_context_id` From `ParentContext` "
+           " WHERE `context_id` IN ($0); "
+    parameter_num: 1
+  }
+  select_parent_contexts_by_parent_context_ids {
+    query: " SELECT `context_id`, `parent_context_id` From `ParentContext` "
+           " WHERE `parent_context_id` IN ($0); "
+    parameter_num: 1
+  }
   drop_type_property_table {
     query: " DROP TABLE IF EXISTS `TypeProperty`; "
   }

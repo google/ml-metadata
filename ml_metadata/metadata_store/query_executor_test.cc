@@ -15,7 +15,9 @@ limitations under the License.
 #include "ml_metadata/metadata_store/query_executor_test.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -212,6 +214,20 @@ void ValidateNodeRecordSetByNodeIDs(const RecordSet& record_set,
     actual_ids.push_back(std::stoi(record.values(0)));
   }
   EXPECT_THAT(actual_ids, UnorderedElementsAreArray(expected_ids));
+}
+
+void ValidateParentContextRecordSet(
+    const RecordSet& record_set,
+    std::vector<std::pair<int64, int64>> expected_parent_ids) {
+  RecordSet expected_record_set;
+  expected_record_set.add_column_names("context_id");
+  expected_record_set.add_column_names("parent_context_id");
+  for (const auto& [parent_context_id, context_id] : expected_parent_ids) {
+    RecordSet_Record* r = expected_record_set.mutable_records()->Add();
+    r->add_values(std::to_string(context_id));
+    r->add_values(std::to_string(parent_context_id));
+  }
+  EXPECT_THAT(record_set, EqualsProto(expected_record_set));
 }
 
 TEST_P(QueryExecutorTest, SelectTypesByID) {
@@ -1188,5 +1204,73 @@ TEST_P(QueryExecutorTest, SelectExecutions) {
                                    absl::MakeSpan(expected_execution_ids));
   }
 }
+
+TEST_P(QueryExecutorTest, SelectChildContextsByContextIDs) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  // ParentContext insertion:
+  // parent_id_1 --> child_id_1
+  //             \-> child_id_2
+  //
+  // parent_id_2 --> child_id_3
+  // parent_id_3 -/
+  int64 parent_id_1 = 1, parent_id_2 = 2, parent_id_3 = 3;
+  int64 child_id_1 = 4, child_id_2 = 5, child_id_3 = 6;
+  ASSERT_EQ(query_executor_->InsertParentContext(parent_id_1, child_id_1),
+            absl::OkStatus());
+  ASSERT_EQ(query_executor_->InsertParentContext(parent_id_1, child_id_2),
+            absl::OkStatus());
+  ASSERT_EQ(query_executor_->InsertParentContext(parent_id_2, child_id_3),
+            absl::OkStatus());
+  ASSERT_EQ(query_executor_->InsertParentContext(parent_id_3, child_id_3),
+            absl::OkStatus());
+
+  // Test select child contexts by ids.
+  RecordSet record_set;
+  std::vector<int64> parent_context_ids = {parent_id_1, parent_id_2,
+                                           parent_id_3};
+  ASSERT_EQ(query_executor_->SelectChildContextsByContextIDs(parent_context_ids,
+                                                             &record_set),
+            absl::OkStatus());
+  ASSERT_EQ(record_set.records_size(), 4);
+  ValidateParentContextRecordSet(record_set, {{parent_id_1, child_id_1},
+                                              {parent_id_1, child_id_2},
+                                              {parent_id_2, child_id_3},
+                                              {parent_id_3, child_id_3}});
+}
+
+TEST_P(QueryExecutorTest, SelectParentContextsByContextIDs) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  // ParentContext insertion:
+  // parent_id_1 --> child_id_1
+  //             \-> child_id_2
+  //
+  // parent_id_2 --> child_id_3
+  // parent_id_3 -/
+  //                 child_id_4
+  int64 parent_id_1 = 1, parent_id_2 = 2, parent_id_3 = 3;
+  int64 child_id_1 = 4, child_id_2 = 5, child_id_3 = 6, child_id_4 = 7;
+  ASSERT_EQ(query_executor_->InsertParentContext(parent_id_1, child_id_1),
+            absl::OkStatus());
+  ASSERT_EQ(query_executor_->InsertParentContext(parent_id_1, child_id_2),
+            absl::OkStatus());
+  ASSERT_EQ(query_executor_->InsertParentContext(parent_id_2, child_id_3),
+            absl::OkStatus());
+  ASSERT_EQ(query_executor_->InsertParentContext(parent_id_3, child_id_3),
+            absl::OkStatus());
+
+  // Test select parent contexts by ids.
+  RecordSet record_set;
+  std::vector<int64> context_ids = {child_id_1, child_id_2, child_id_3,
+                                    child_id_4};
+  ASSERT_EQ(query_executor_->SelectParentContextsByContextIDs(context_ids,
+                                                              &record_set),
+            absl::OkStatus());
+  ASSERT_EQ(record_set.records_size(), 4);
+  ValidateParentContextRecordSet(record_set, {{parent_id_1, child_id_1},
+                                              {parent_id_1, child_id_2},
+                                              {parent_id_2, child_id_3},
+                                              {parent_id_3, child_id_3}});
+}
+
 }  // namespace testing
 }  // namespace ml_metadata

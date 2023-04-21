@@ -577,6 +577,18 @@ class QueryExecutor {
   virtual absl::Status SelectChildContextsByContextID(
       int64 context_id, RecordSet* record_set) = 0;
 
+  // Returns parent contexts for the given context ids. Each record has:
+  // Column 0: int: context id (IN context_ids)
+  // Column 1: int: parent context id
+  virtual absl::Status SelectParentContextsByContextIDs(
+      absl::Span<const int64> context_ids, RecordSet* record_set) = 0;
+
+  // Returns child contexts for the given parent context ids. Each record has:
+  // Column 0: int: context id
+  // Column 1: int: parent context id (IN context_ids)
+  virtual absl::Status SelectChildContextsByContextIDs(
+      absl::Span<const int64> context_ids, RecordSet* record_set) = 0;
+
   // Checks the MLMDEnv table and query the schema version.
   // At MLMD release v0.13.2, by default it is v0.
   virtual absl::Status CheckMLMDEnvTable() = 0;

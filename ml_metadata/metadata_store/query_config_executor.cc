@@ -100,15 +100,25 @@ absl::Status QueryConfigExecutor::InsertParentContext(int64 parent_id,
 
 absl::Status QueryConfigExecutor::SelectParentContextsByContextID(
     int64 context_id, RecordSet* record_set) {
-  return ExecuteQuery(query_config_.select_parent_context_by_context_id(),
-                      {Bind(context_id)}, record_set);
+  return SelectParentContextsByContextIDs({context_id}, record_set);
 }
 
 absl::Status QueryConfigExecutor::SelectChildContextsByContextID(
     int64 context_id, RecordSet* record_set) {
+  return SelectChildContextsByContextIDs({context_id}, record_set);
+}
+
+absl::Status QueryConfigExecutor::SelectParentContextsByContextIDs(
+    absl::Span<const int64> context_ids, RecordSet* record_set) {
+  return ExecuteQuery(query_config_.select_parent_contexts_by_context_ids(),
+                      {Bind(context_ids)}, record_set);
+}
+
+absl::Status QueryConfigExecutor::SelectChildContextsByContextIDs(
+    absl::Span<const int64> context_ids, RecordSet* record_set) {
   return ExecuteQuery(
-      query_config_.select_parent_context_by_parent_context_id(),
-      {Bind(context_id)}, record_set);
+      query_config_.select_parent_contexts_by_parent_context_ids(),
+      {Bind(context_ids)}, record_set);
 }
 
 absl::Status QueryConfigExecutor::GetSchemaVersion(int64* db_version) {

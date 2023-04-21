@@ -15,6 +15,7 @@ limitations under the License.
 #ifndef ML_METADATA_METADATA_STORE_QUERY_CONFIG_EXECUTOR_H_
 #define ML_METADATA_METADATA_STORE_QUERY_CONFIG_EXECUTOR_H_
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -978,6 +979,12 @@ class QueryConfigExecutor : public QueryExecutor {
 
   absl::Status SelectChildContextsByContextID(int64 context_id,
                                               RecordSet* record_set) final;
+
+  absl::Status SelectParentContextsByContextIDs(
+      absl::Span<const int64> context_ids, RecordSet* record_set) final;
+
+  absl::Status SelectChildContextsByContextIDs(
+      absl::Span<const int64> context_ids, RecordSet* record_set) final;
 
   absl::Status CheckMLMDEnvTable() final {
     return ExecuteQuery(query_config_.check_mlmd_env_table());
