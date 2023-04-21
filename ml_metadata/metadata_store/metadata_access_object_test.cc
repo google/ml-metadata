@@ -1700,9 +1700,10 @@ TEST_P(MetadataAccessObjectTest, FindTypesByIdsArtifactSuccess) {
   std::vector<ArtifactType> got_types;
   MLMD_ASSERT_OK(metadata_access_object_->FindTypesByIds(
       {want_type_1.id(), want_type_2.id()}, got_types));
-  EXPECT_THAT(got_types,
-              ElementsAre(EqualsProto(want_type_1, /*ignore_fields=*/{"id"}),
-                          EqualsProto(want_type_2, /*ignore_fields=*/{"id"})));
+  EXPECT_THAT(
+      got_types,
+      UnorderedElementsAre(EqualsProto(want_type_1, /*ignore_fields=*/{"id"}),
+                           EqualsProto(want_type_2, /*ignore_fields=*/{"id"})));
 }
 
 TEST_P(MetadataAccessObjectTest, FindTypesByIdsArtifactInvalidInput) {
@@ -1771,9 +1772,10 @@ TEST_P(MetadataAccessObjectTest, FindTypesByIdsExecutionSuccess) {
   std::vector<ExecutionType> got_types;
   MLMD_ASSERT_OK(metadata_access_object_->FindTypesByIds(
       {want_type_1.id(), want_type_2.id()}, got_types));
-  EXPECT_THAT(got_types,
-              ElementsAre(EqualsProto(want_type_1, /*ignore_fields=*/{"id"}),
-                          EqualsProto(want_type_2, /*ignore_fields=*/{"id"})));
+  EXPECT_THAT(
+      got_types,
+      UnorderedElementsAre(EqualsProto(want_type_1, /*ignore_fields=*/{"id"}),
+                           EqualsProto(want_type_2, /*ignore_fields=*/{"id"})));
 }
 
 TEST_P(MetadataAccessObjectTest, FindTypesByIdsExecutionInvalidInput) {
@@ -1843,9 +1845,10 @@ TEST_P(MetadataAccessObjectTest, FindTypesByIdsContextSuccess) {
   std::vector<ContextType> got_types;
   MLMD_ASSERT_OK(metadata_access_object_->FindTypesByIds(
       {want_type_1.id(), want_type_2.id()}, got_types));
-  EXPECT_THAT(got_types,
-              ElementsAre(EqualsProto(want_type_1, /*ignore_fields=*/{"id"}),
-                          EqualsProto(want_type_2, /*ignore_fields=*/{"id"})));
+  EXPECT_THAT(
+      got_types,
+      UnorderedElementsAre(EqualsProto(want_type_1, /*ignore_fields=*/{"id"}),
+                           EqualsProto(want_type_2, /*ignore_fields=*/{"id"})));
 }
 
 TEST_P(MetadataAccessObjectTest, FindTypesByIdsContextInvalidInput) {
@@ -6500,15 +6503,16 @@ TEST_P(MetadataAccessObjectTest, DefaultArtifactState) {
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object_->FindArtifacts(&artifacts));
   ASSERT_EQ(artifacts.size(), 2);
-  EXPECT_THAT(artifacts[0],
-              EqualsProto(want_artifact1, /*ignore_fields=*/{
-                              "id", "type", "create_time_since_epoch",
-                              "last_update_time_since_epoch"}));
   EXPECT_THAT(
-      artifacts[1],
-      EqualsProto(want_artifact2,
-                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
-                                     "last_update_time_since_epoch"}));
+      artifacts,
+      UnorderedElementsAre(
+          EqualsProto(
+              want_artifact1,
+              /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                 "last_update_time_since_epoch"}),
+          EqualsProto(want_artifact2, /*ignore_fields=*/{
+                          "id", "type", "create_time_since_epoch",
+                          "last_update_time_since_epoch"})));
 }
 
 TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIds) {
@@ -6542,14 +6546,18 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIds) {
             metadata_access_object_->FindArtifactsByTypeId(
                 type_id, absl::nullopt, &got_artifacts, nullptr));
   EXPECT_EQ(got_artifacts.size(), 2);
-  EXPECT_THAT(want_artifact1,
-              EqualsProto(got_artifacts[0], /*ignore_fields=*/{
-                              "id", "type", "create_time_since_epoch",
-                              "last_update_time_since_epoch"}));
-  EXPECT_THAT(want_artifact2,
-              EqualsProto(got_artifacts[1], /*ignore_fields=*/{
-                              "id", "type", "create_time_since_epoch",
-                              "last_update_time_since_epoch"}));
+  // Should perform unordered elements check if list option is not specified and
+  // passed to `FindArtifactsByTypeId`
+  EXPECT_THAT(
+      got_artifacts,
+      UnorderedElementsAre(
+          EqualsProto(
+              want_artifact1,
+              /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                 "last_update_time_since_epoch"}),
+          EqualsProto(want_artifact2, /*ignore_fields=*/{
+                          "id", "type", "create_time_since_epoch",
+                          "last_update_time_since_epoch"})));
 }
 
 TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIdsFilterPropertyQuery) {
@@ -6610,9 +6618,11 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIdsFilterPropertyQuery) {
                 &next_page_token),
             absl::OkStatus());
   ASSERT_THAT(got_artifacts, SizeIs(2));
+  // Given `list_options`, the result artifacts should sorted in ascending order
+  // in terms of create_time.
   EXPECT_THAT(
       got_artifacts,
-      UnorderedElementsAre(
+      ElementsAre(
           EqualsProto(
               artifact1,
               /*ignore_fields=*/{"id", "type", "create_time_since_epoch",

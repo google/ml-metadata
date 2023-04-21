@@ -368,10 +368,9 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypesGetArtifactTypes) {
   GetArtifactTypesResponse got_response;
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->GetArtifactTypes(get_request, &got_response));
-  GetArtifactTypesResponse want_response;
-  *want_response.add_artifact_types() = type_1;
-  *want_response.add_artifact_types() = type_2;
-  EXPECT_THAT(got_response, EqualsProto(want_response));
+
+  EXPECT_THAT(got_response.artifact_types(),
+              UnorderedElementsAre(EqualsProto(type_1), EqualsProto(type_2)));
 }
 
 TEST_P(MetadataStoreTestSuite, PutArtifactTypesGetArtifactTypesByExternalIds) {
@@ -926,17 +925,15 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeGetArtifactTypesByIDTwo) {
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->GetArtifactTypesByID(get_request, &get_response));
   ASSERT_THAT(get_response.artifact_types(), SizeIs(2));
-  const ArtifactType& result_1 = get_response.artifact_types(0);
-  const ArtifactType& result_2 = get_response.artifact_types(1);
+
   ArtifactType expected_result_1 = put_request_1.artifact_type();
   ArtifactType expected_result_2 = put_request_2.artifact_type();
   expected_result_1.set_id(put_response_1.type_id());
   expected_result_2.set_id(put_response_2.type_id());
 
-  EXPECT_THAT(result_1, EqualsProto(expected_result_1))
-      << "Type ID should be the same as the type created.";
-  EXPECT_THAT(result_2, EqualsProto(expected_result_2))
-      << "The name should be the same as the one returned.";
+  EXPECT_THAT(get_response.artifact_types(),
+              UnorderedElementsAre(EqualsProto(expected_result_1),
+                                   EqualsProto(expected_result_2)));
 }
 
 TEST_P(MetadataStoreTestSuite, PutExecutionTypeGetExecutionTypesByID) {
@@ -1138,17 +1135,14 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypeGetExecutionTypesByIDTwo) {
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->GetExecutionTypesByID(get_request, &get_response));
   ASSERT_THAT(get_response.execution_types(), SizeIs(2));
-  const ExecutionType& result_1 = get_response.execution_types(0);
-  const ExecutionType& result_2 = get_response.execution_types(1);
   ExecutionType expected_result_1 = put_request_1.execution_type();
   ExecutionType expected_result_2 = put_request_2.execution_type();
   expected_result_1.set_id(put_response_1.type_id());
   expected_result_2.set_id(put_response_2.type_id());
 
-  EXPECT_THAT(result_1, EqualsProto(expected_result_1))
-      << "Type ID should be the same as the type created.";
-  EXPECT_THAT(result_2, EqualsProto(expected_result_2))
-      << "The name should be the same as the one returned.";
+  EXPECT_THAT(get_response.execution_types(),
+              UnorderedElementsAre(EqualsProto(expected_result_1),
+                                   EqualsProto(expected_result_2)));
 }
 
 TEST_P(MetadataStoreTestSuite, PutTypeWithVersionsGetType) {
@@ -1307,11 +1301,10 @@ TEST_P(MetadataStoreTestSuite, TypeWithNullAndEmptyStringVersionsGetType) {
   GetContextTypesResponse get_response;
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->GetContextTypes({}, &get_response));
-  EXPECT_THAT(get_response.context_types(), SizeIs(2));
-  EXPECT_THAT(get_response.context_types(0), EqualsProto(want_types[0]));
-  EXPECT_FALSE(get_response.context_types(1).has_version());
-  EXPECT_THAT(get_response.context_types(1),
-              EqualsProto(want_types[2], /*ignore_fields=*/{"version"}));
+
+  EXPECT_THAT(get_response.context_types(),
+              UnorderedElementsAre(EqualsProto(want_types[0]),
+                                   EqualsProto(want_types[3])));
 }
 
 TEST_P(MetadataStoreTestSuite, PutTypesAndArtifactsGetArtifactsThroughType) {
@@ -2203,10 +2196,9 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypesGetExecutionTypes) {
   GetExecutionTypesResponse got_response;
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->GetExecutionTypes(get_request, &got_response));
-  GetExecutionTypesResponse want_response;
-  *want_response.add_execution_types() = type_1;
-  *want_response.add_execution_types() = type_2;
-  EXPECT_THAT(got_response, EqualsProto(want_response));
+
+  EXPECT_THAT(got_response.execution_types(),
+              UnorderedElementsAre(EqualsProto(type_1), EqualsProto(type_2)));
 }
 
 TEST_P(MetadataStoreTestSuite, GetExecutionTypesWhenNoneExist) {
@@ -3433,14 +3425,15 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecution) {
             metadata_store_->GetArtifacts(get_artifacts_request,
                                           &get_artifacts_response));
   ASSERT_THAT(get_artifacts_response.artifacts(), SizeIs(2));
-  EXPECT_THAT(get_artifacts_response.artifacts(0),
-              EqualsProto(artifact_1,
-                          /*ignore_fields=*/{"type", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
-  EXPECT_THAT(get_artifacts_response.artifacts(1),
-              EqualsProto(artifact_2,
-                          /*ignore_fields=*/{"type", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      get_artifacts_response.artifacts(),
+      UnorderedElementsAre(
+          EqualsProto(artifact_1,
+                      /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                         "last_update_time_since_epoch"}),
+          EqualsProto(artifact_2,
+                      /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                         "last_update_time_since_epoch"})));
 
   GetExecutionsRequest get_executions_request;
   GetExecutionsResponse get_executions_response;
@@ -3458,8 +3451,11 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecution) {
   ASSERT_EQ(absl::OkStatus(), metadata_store_->GetEventsByExecutionIDs(
                                   get_events_request, &get_events_response));
   ASSERT_THAT(get_events_response.events(), SizeIs(2));
-  EXPECT_EQ(get_events_response.events(0).artifact_id(), artifact_1.id());
-  EXPECT_EQ(get_events_response.events(1).artifact_id(), artifact_2.id());
+  std::vector<int64_t> got_events_artifact_ids = {
+      get_events_response.events(0).artifact_id(),
+      get_events_response.events(1).artifact_id()};
+  EXPECT_THAT(got_events_artifact_ids,
+              UnorderedElementsAre(artifact_1.id(), artifact_2.id()));
 }
 
 // Put an execution with contexts.
@@ -3507,7 +3503,7 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContext) {
             metadata_store_->GetContexts({}, &get_contexts_response));
   EXPECT_THAT(
       get_contexts_response.contexts(),
-      ElementsAre(
+      UnorderedElementsAre(
           EqualsProto(context1,
                       /*ignore_fields=*/{"type", "create_time_since_epoch",
                                          "last_update_time_since_epoch"}),
@@ -3770,7 +3766,7 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContextReuseOption) {
   ASSERT_THAT(get_executions_by_context_response.executions(), SizeIs(2));
   EXPECT_THAT(
       get_executions_by_context_response.executions(),
-      ElementsAre(
+      UnorderedElementsAre(
           EqualsProto(
               request.execution(),
               /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
@@ -4684,20 +4680,18 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
                                            &get_contexts_response));
     ASSERT_THAT(get_contexts_response.contexts(), SizeIs(3));
     EXPECT_THAT(
-        get_contexts_response.contexts(0),
-        EqualsProto(want_context1,
-                    /*ignore_fields=*/{"create_time_since_epoch",
-                                       "last_update_time_since_epoch"}));
-    EXPECT_THAT(
-        get_contexts_response.contexts(1),
-        EqualsProto(want_context2,
-                    /*ignore_fields=*/{"create_time_since_epoch",
-                                       "last_update_time_since_epoch"}));
-    EXPECT_THAT(
-        get_contexts_response.contexts(2),
-        EqualsProto(want_context3,
-                    /*ignore_fields=*/{"create_time_since_epoch",
-                                       "last_update_time_since_epoch"}));
+        get_contexts_response.contexts(),
+        UnorderedElementsAre(
+
+            EqualsProto(want_context1,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(want_context2,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(want_context3,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
   }
 }
 
@@ -5481,9 +5475,9 @@ TEST_P(MetadataStoreTestSuite, PutLineageSubgraphAndVerifyLineageGraph) {
             put_lineage_subgraph_response.execution_ids(0));
   EXPECT_EQ(get_events_by_execution_ids_response.events(0).artifact_id(),
             put_lineage_subgraph_response.artifact_ids(0));
-  EXPECT_THAT(
-      get_events_by_execution_ids_response.events(),
-      ElementsAre(EqualsProto(event_1,
+  EXPECT_THAT(get_events_by_execution_ids_response.events(),
+              UnorderedElementsAre(
+                  EqualsProto(event_1,
                               /*ignore_fields=*/{"artifact_id", "execution_id",
                                                  "milliseconds_since_epoch"}),
                   EqualsProto(event_2,
