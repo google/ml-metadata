@@ -168,53 +168,6 @@ absl::Status UpsertTypeInheritanceLink(
   return absl::OkStatus();
 }
 
-// If there is no type having the same name and version, then inserts a new
-// type. If a type with the same name and version already exists
-// (let's call it `old_type`), it checks the consistency of `type` and
-// `old_type` as described in CheckFieldsConsistent according to
-// can_add_fields and can_omit_fields.
-// It returns ALREADY_EXISTS if:
-//  a) any property in `type` has different value from the one in `old_type`
-//  b) can_add_fields = false, `type` has more properties than `old_type`
-//  c) can_omit_fields = false, `type` has less properties than `old_type`
-// If `type` is a valid update, then new fields in `type` are added.
-// Returns INVALID_ARGUMENT error, if name field in `type` is not given.
-// Returns INVALID_ARGUMENT error, if any property type in `type` is unknown.
-// Returns detailed INTERNAL error, if query execution fails.
-template <typename T>
-absl::Status UpsertType(const T& type, bool can_add_fields,
-                        bool can_omit_fields,
-                        MetadataAccessObject* metadata_access_object,
-                        int64* type_id) {
-  T stored_type;
-  const absl::Status status = metadata_access_object->FindTypeByNameAndVersion(
-      type.name(), type.version(), &stored_type);
-  if (!status.ok() && !absl::IsNotFound(status)) {
-    return status;
-  }
-  // if not found, then it creates a type. `can_add_fields` is ignored.
-  if (absl::IsNotFound(status)) {
-    MLMD_RETURN_IF_ERROR(metadata_access_object->CreateType(type, type_id));
-    return UpsertTypeInheritanceLink(type, *type_id, metadata_access_object);
-  }
-  // otherwise it updates the type.
-  *type_id = stored_type.id();
-  // all properties in stored_type must match the given type.
-  // if `can_add_fields` is set, then new properties can be added
-  // if `can_omit_fields` is set, then existing properties can be missing.
-  T output_type;
-  const absl::Status check_status = CheckFieldsConsistent(
-      stored_type, type, can_add_fields, can_omit_fields, output_type);
-  if (!check_status.ok()) {
-    return absl::AlreadyExistsError(
-        absl::StrCat("Type already exists with different properties: ",
-                     std::string(check_status.message())));
-  }
-  MLMD_RETURN_IF_ERROR(metadata_access_object->UpdateType(output_type));
-  return UpsertTypeInheritanceLink(type, *type_id, metadata_access_object);
-}
-
-// Batch version of the UpsertType function, which takes in a list of types.
 // For each type, if there is no type having the same name and version, then
 // inserts a new type. If a type with the same name and version already exists
 // (let's call it `old_type`), it checks the consistency of `type` and
@@ -232,7 +185,7 @@ template <typename T>
 absl::Status UpsertTypes(const google::protobuf::RepeatedPtrField<T>& types,
                          const bool can_add_fields, const bool can_omit_fields,
                          MetadataAccessObject* metadata_access_object,
-                         PutTypesResponse* response) {
+                         std::vector<int64_t>& type_ids) {
   if (types.empty()) return absl::OkStatus();
   std::vector<T> stored_types;
   std::vector<std::pair<std::string, std::string>> names_and_versions;
@@ -283,14 +236,7 @@ absl::Status UpsertTypes(const google::protobuf::RepeatedPtrField<T>& types,
     }
     MLMD_RETURN_IF_ERROR(
         UpsertTypeInheritanceLink(type, type_id, metadata_access_object));
-
-    if (std::is_same<T, ArtifactType>::value) {
-      response->add_artifact_type_ids(type_id);
-    } else if (std::is_same<T, ExecutionType>::value) {
-      response->add_execution_type_ids(type_id);
-    } else if (std::is_same<T, ContextType>::value) {
-      response->add_context_type_ids(type_id);
-    }
+    type_ids.push_back(type_id);
   }
   return absl::OkStatus();
 }
@@ -304,15 +250,21 @@ absl::Status UpsertTypes(
     const google::protobuf::RepeatedPtrField<ContextType>& context_types,
     const bool can_add_fields, const bool can_omit_fields,
     MetadataAccessObject* metadata_access_object, PutTypesResponse* response) {
+  std::vector<int64_t> type_ids;
   MLMD_RETURN_IF_ERROR(UpsertTypes(artifact_types, can_add_fields,
                                    can_omit_fields, metadata_access_object,
-                                   response));
+                                   type_ids));
+  response->mutable_artifact_type_ids()->Add(type_ids.begin(), type_ids.end());
+  type_ids.clear();
   MLMD_RETURN_IF_ERROR(UpsertTypes(execution_types, can_add_fields,
                                    can_omit_fields, metadata_access_object,
-                                   response));
+                                   type_ids));
+  response->mutable_execution_type_ids()->Add(type_ids.begin(), type_ids.end());
+  type_ids.clear();
   MLMD_RETURN_IF_ERROR(UpsertTypes(context_types, can_add_fields,
                                    can_omit_fields, metadata_access_object,
-                                   response));
+                                   type_ids));
+  response->mutable_context_type_ids()->Add(type_ids.begin(), type_ids.end());
   return absl::OkStatus();
 }
 
@@ -834,12 +786,13 @@ absl::Status MetadataStore::PutArtifactType(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
-        int64 type_id;
-        MLMD_RETURN_IF_ERROR(
-            UpsertType(request.artifact_type(), request.can_add_fields(),
-                       request.can_omit_fields(), metadata_access_object_.get(),
-                       &type_id));
-        response->set_type_id(type_id);
+        std::vector<ArtifactType> types = {request.artifact_type()};
+        std::vector<int64_t> type_ids;
+        MLMD_RETURN_IF_ERROR(UpsertTypes<ArtifactType>(
+            {types.begin(), types.end()}, request.can_add_fields(),
+            request.can_omit_fields(), metadata_access_object_.get(),
+            type_ids));
+        response->set_type_id(type_ids.front());
         return absl::OkStatus();
       },
       request.transaction_options());
@@ -854,12 +807,13 @@ absl::Status MetadataStore::PutExecutionType(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
-        int64 type_id;
-        MLMD_RETURN_IF_ERROR(
-            UpsertType(request.execution_type(), request.can_add_fields(),
-                       request.can_omit_fields(), metadata_access_object_.get(),
-                       &type_id));
-        response->set_type_id(type_id);
+        std::vector<ExecutionType> types = {request.execution_type()};
+        std::vector<int64_t> type_ids;
+        MLMD_RETURN_IF_ERROR(UpsertTypes<ExecutionType>(
+            {types.begin(), types.end()}, request.can_add_fields(),
+            request.can_omit_fields(), metadata_access_object_.get(),
+            type_ids));
+        response->set_type_id(type_ids.front());
         return absl::OkStatus();
       },
       request.transaction_options());
@@ -873,12 +827,13 @@ absl::Status MetadataStore::PutContextType(const PutContextTypeRequest& request,
   return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
-        int64 type_id;
-        MLMD_RETURN_IF_ERROR(
-            UpsertType(request.context_type(), request.can_add_fields(),
-                       request.can_omit_fields(), metadata_access_object_.get(),
-                       &type_id));
-        response->set_type_id(type_id);
+        std::vector<ContextType> types = {request.context_type()};
+        std::vector<int64_t> type_ids;
+        MLMD_RETURN_IF_ERROR(UpsertTypes<ContextType>(
+            {types.begin(), types.end()}, request.can_add_fields(),
+            request.can_omit_fields(), metadata_access_object_.get(),
+            type_ids));
+        response->set_type_id(type_ids.front());
         return absl::OkStatus();
       },
       request.transaction_options());
