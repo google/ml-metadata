@@ -720,6 +720,15 @@ R"pb(
            "   `schema_version` INTEGER PRIMARY KEY "
            " ); "
   }
+  check_mlmd_env_table_existence {
+    query: " SELECT ("
+           "   SELECT COUNT(*)"
+           "   FROM   information_schema.columns"
+           "   WHERE  table_name = 'mlmdenv'"
+           "      AND column_name IN ('schema_version')"
+           "   ) = 1"
+           " ) AS table_exists;"
+  }
   check_mlmd_env_table {
     query: " SELECT `schema_version` FROM `MLMDEnv`; "
   }
@@ -758,6 +767,16 @@ R"pb(
 const std::string kSQLiteMetadataSourceQueryConfig = absl::StrCat(  // NOLINT
 R"pb(
   metadata_source_type: SQLITE_METADATA_SOURCE
+  check_mlmd_env_table_existence {
+    query: " SELECT ("
+           "   SELECT COUNT(*)"
+           "   FROM   sqlite_master"
+           "   WHERE  type='table'"
+           "      AND name = 'mlmdenv'"
+           "      AND sql LIKE '%schema_version%'"
+           "   ) = 1"
+           " ) AS table_exists;"
+  }
   # secondary indices in the current schema.
   secondary_indices {
     query: " CREATE INDEX IF NOT EXISTS `idx_artifact_uri` "
@@ -4683,6 +4702,833 @@ R"pb(
   }
 )pb");
 
+const std::string kPostgreSQLMetadataSourceQueryConfig = absl::StrCat(  // NOLINT
+R"pb(
+  metadata_source_type: POSTGRESQL_METADATA_SOURCE
+  drop_type_table { query: " DROP TABLE IF EXISTS Type; " }
+  create_type_table {
+    query: " CREATE TABLE IF NOT EXISTS Type( "
+           "   id SERIAL PRIMARY KEY, "
+           "   name VARCHAR(255) NOT NULL, "
+           "   version VARCHAR(255), "
+           "   type_kind SMALLINT NOT NULL, "
+           "   description TEXT, "
+           "   input_type TEXT, "
+           "   output_type TEXT, "
+           "   external_id VARCHAR(255) UNIQUE"
+           " ); "
+  }
+  check_type_table {
+    query: " SELECT (("
+           "   SELECT COUNT(*)"
+           "   FROM   information_schema.columns"
+           "   WHERE  table_name = 'type'"
+           "      AND column_name IN ('id', 'name', 'version', 'type_kind', "
+           "                      'description', 'input_type', 'output_type')"
+           "   ) = 7"
+           " )::int AS table_exists;"
+  }
+  # After insertion, return id for the new inserted Type.
+  insert_artifact_type {
+    query: " INSERT INTO Type( "
+           "   name, type_kind, version, description, external_id "
+           ") VALUES($0, 1, $1, $2, $3)"
+    parameter_num: 4
+  }
+  # After insertion, return id for the new inserted Type.
+  insert_execution_type {
+    query: " INSERT INTO Type( "
+           "   name, type_kind, version, description, "
+           "   input_type, output_type, external_id "
+           ") VALUES($0, 0, $1, $2, $3, $4, $5)"
+    parameter_num: 6
+  }
+  # After insertion, return id for the new inserted Type.
+  insert_context_type {
+    query: " INSERT INTO Type( "
+           "   name, type_kind, version, description, external_id "
+           ") VALUES($0, 2, $1, $2, $3)"
+    parameter_num: 4
+  }
+  select_types_by_id {
+    query: " SELECT id, name, version, description, external_id "
+           " FROM Type "
+           " WHERE id IN ($0) and type_kind = $1; "
+    parameter_num: 2
+  }
+  select_type_by_id {
+    query: " SELECT id, name, version, description, external_id, "
+           "        input_type, output_type"
+           " FROM Type "
+           " WHERE id = $0 and type_kind = $1; "
+    parameter_num: 2
+  }
+  select_type_by_name {
+    query: " SELECT id, name, version, description,"
+           "        external_id, input_type, output_type "
+           " FROM Type "
+           " WHERE name = $0 AND version IS NULL AND type_kind = $1; "
+    parameter_num: 2
+  }
+  select_type_by_name_and_version {
+    query: " SELECT id, name, version, description, external_id, "
+           "        input_type, output_type FROM Type "
+           " WHERE name = $0 AND version = $1 AND type_kind = $2; "
+    parameter_num: 3
+  }
+  select_types_by_external_ids {
+    query: " SELECT id, name, version, description, external_id "
+           " FROM Type "
+           " WHERE external_id IN ($0) and type_kind = $1; "
+    parameter_num: 2
+  }
+  select_types_by_names {
+    query: " SELECT id, name, version, description, "
+           "        input_type, output_type"
+           " FROM Type "
+           " WHERE name IN ($0) AND version IS NULL AND type_kind = $1; "
+    parameter_num: 2
+  }
+  select_types_by_names_and_versions {
+    query: " SELECT id, name, version, description, "
+           "        input_type, output_type"
+           " FROM Type "
+           " WHERE (name, version) IN ($0) AND type_kind = $1; "
+    parameter_num: 2
+  }
+  select_all_types {
+    query: " SELECT id, name, version, description, "
+           "        input_type, output_type FROM Type "
+           " WHERE type_kind = $0; "
+    parameter_num: 1
+  }
+  update_type {
+    query: " UPDATE Type "
+           " SET external_id = $1 "
+           " WHERE id = $0;"
+    parameter_num: 2
+  }
+  drop_parent_type_table { query: " DROP TABLE IF EXISTS ParentType; " }
+  create_parent_type_table {
+    query: " CREATE TABLE IF NOT EXISTS ParentType ( "
+           "   type_id INT NOT NULL, "
+           "   parent_type_id INT NOT NULL, "
+           " PRIMARY KEY (type_id, parent_type_id)); "
+  }
+  check_parent_type_table {
+    query: " SELECT (("
+           "   SELECT COUNT(*)"
+           "   FROM   information_schema.columns"
+           "   WHERE  table_name = 'parenttype'"
+           "      AND column_name IN ('type_id', 'parent_type_id')"
+           "   ) = 2"
+           " )::int AS table_exists;"
+  }
+  insert_parent_type {
+    query: " INSERT INTO ParentType(type_id, parent_type_id) "
+           " VALUES($0, $1);"
+    parameter_num: 2
+  }
+  delete_parent_type {
+    query: " DELETE FROM ParentType "
+           " WHERE type_id = $0 AND parent_type_id = $1;"
+    parameter_num: 2
+  }
+  select_parent_type_by_type_id {
+    query: " SELECT type_id, parent_type_id "
+           " FROM ParentType WHERE type_id IN ($0); "
+    parameter_num: 1
+  }
+  select_parent_contexts_by_context_ids {
+    query: " SELECT context_id, parent_context_id From ParentContext "
+           " WHERE context_id IN ($0); "
+    parameter_num: 1
+  }
+  select_parent_contexts_by_parent_context_ids {
+    query: " SELECT context_id, parent_context_id From ParentContext "
+           " WHERE parent_context_id IN ($0); "
+    parameter_num: 1
+  }
+  drop_type_property_table {
+    query: " DROP TABLE IF EXISTS TypeProperty; "
+  }
+  create_type_property_table {
+    query: " CREATE TABLE IF NOT EXISTS TypeProperty ( "
+           "   type_id INT NOT NULL, "
+           "   name VARCHAR(255) NOT NULL, "
+           "   data_type INT NULL, "
+           " PRIMARY KEY (type_id, name)); "
+  }
+  check_type_property_table {
+    query: " SELECT (("
+           "   SELECT COUNT(*)"
+           "   FROM   information_schema.columns"
+           "   WHERE  table_name = 'typeproperty'"
+           "      AND column_name IN ('type_id', 'name', 'data_type')"
+           "   ) = 3"
+           " )::int AS table_exists;"
+  }
+  # After insertion, return id for the new inserted TypeProperty.
+  insert_type_property {
+    query: " INSERT INTO TypeProperty( "
+           "   type_id, name, data_type "
+           ") VALUES($0, $1, $2)"
+    parameter_num: 3
+  }
+  select_properties_by_type_id {
+    query: " SELECT type_id, name as key, data_type as value "
+           " FROM TypeProperty WHERE type_id IN ($0); "
+    parameter_num: 1
+  }
+  select_property_by_type_id {
+    query: " SELECT name as key, data_type as value "
+           " FROM TypeProperty "
+           " WHERE type_id = $0; "
+    parameter_num: 1
+  }
+  select_last_insert_id { query: " SELECT LASTVAL(); " }
+)pb",
+R"pb(
+  drop_artifact_table { query: " DROP TABLE IF EXISTS Artifact; " }
+  create_artifact_table {
+    query: " CREATE TABLE IF NOT EXISTS Artifact ( "
+           "   id SERIAL PRIMARY KEY, "
+           "   type_id INT NOT NULL, "
+           "   uri TEXT, "
+           "   state INT, "
+           "   name VARCHAR(255), "
+           "   external_id VARCHAR(255) UNIQUE, "
+           "   create_time_since_epoch BIGINT NOT NULL DEFAULT 0, "
+           "   last_update_time_since_epoch BIGINT NOT NULL DEFAULT 0, "
+           "   CONSTRAINT UniqueArtifactTypeName UNIQUE(type_id, name) "
+           " ); "
+  }
+  check_artifact_table {
+    query: " SELECT (("
+           "   SELECT COUNT(*)"
+           "   FROM   information_schema.columns"
+           "   WHERE  table_name = 'artifact'"
+           "      AND column_name IN ('id', 'type_id', 'uri',"
+           "                'state', 'name', 'create_time_since_epoch',"
+           "                'last_update_time_since_epoch')"
+           "   ) = 7"
+           " )::int AS table_exists;"
+  }
+  # After insertion, return id for the new inserted Artifact.
+  insert_artifact {
+    query: " INSERT INTO Artifact( "
+           "   type_id, uri, state, name, external_id, "
+           "   create_time_since_epoch, last_update_time_since_epoch "
+           ") VALUES($0, $1, $2, $3, $4, $5, $6)"
+    parameter_num: 7
+  }
+  select_artifact_by_id {
+    query: " SELECT A.id, A.type_id, A.uri, A.state, A.name, "
+           " A.external_id, A.create_time_since_epoch, "
+           " A.last_update_time_since_epoch, T.name AS type "
+           " FROM Artifact AS A "
+           " INNER JOIN Type AS T "
+           "    ON (T.id = A.type_id) "
+           " WHERE A.id IN ($0); "
+    parameter_num: 1
+  }
+  select_artifact_by_type_id_and_name {
+    query: " SELECT id FROM Artifact WHERE type_id = $0 and name = $1; "
+    parameter_num: 2
+  }
+  select_artifacts_by_type_id {
+    query: " SELECT id FROM Artifact WHERE type_id = $0; "
+    parameter_num: 1
+  }
+  select_artifacts_by_uri {
+    query: " SELECT id FROM Artifact WHERE uri = $0; "
+    parameter_num: 1
+  }
+  select_artifacts_by_external_ids {
+    query: " SELECT id FROM Artifact WHERE external_id IN ($0); "
+    parameter_num: 1
+  }
+  update_artifact {
+    query: " UPDATE Artifact "
+           " SET type_id = $1, uri = $2, state = $3, external_id = $4, "
+           "     last_update_time_since_epoch = $5 "
+           " WHERE id = $0;"
+    parameter_num: 6
+  }
+  drop_artifact_property_table {
+    query: " DROP TABLE IF EXISTS ArtifactProperty; "
+  }
+  create_artifact_property_table {
+    query: " CREATE TABLE IF NOT EXISTS ArtifactProperty ( "
+           "   artifact_id INT NOT NULL, "
+           "   name VARCHAR(255) NOT NULL, "
+           "   is_custom_property BOOLEAN NOT NULL, "
+           "   int_value INT, "
+           "   double_value DOUBLE PRECISION, "
+           "   string_value TEXT, "
+           "   byte_value BYTEA, "
+           "   proto_value BYTEA, "
+           "   bool_value BOOLEAN, "
+           " PRIMARY KEY (artifact_id, name, is_custom_property)); "
+  }
+  check_artifact_property_table {
+    query: " SELECT (("
+           "   SELECT COUNT(*)"
+           "   FROM   information_schema.columns"
+           "   WHERE  table_name = 'artifactproperty'"
+           "      AND column_name IN ('artifact_id', 'name', "
+           "        'is_custom_property', 'int_value', 'double_value',"
+           "        'string_value', 'byte_value', 'proto_value', 'bool_value')"
+           "   ) = 9"
+           " )::int AS table_exists;"
+  }
+  # After insertion, return id for the new inserted ArtifactProperty.
+  insert_artifact_property {
+    query: " INSERT INTO ArtifactProperty( "
+           "   artifact_id, name, is_custom_property, $0 "
+           ") VALUES($1, $2, $3, $4)"
+    parameter_num: 5
+  }
+  select_artifact_property_by_artifact_id {
+    query: " SELECT artifact_id as id, name as key, "
+           "        is_custom_property, "
+           "        int_value, double_value, string_value, "
+           "        encode(proto_value, 'base64'), bool_value "
+           " FROM ArtifactProperty "
+           " WHERE artifact_id IN ($0); "
+    parameter_num: 1
+  }
+  update_artifact_property {
+    query: " UPDATE ArtifactProperty "
+           " SET $0 = $1 "
+           " WHERE artifact_id = $2 and name = $3;"
+    parameter_num: 4
+  }
+  delete_artifact_property {
+    query: " DELETE FROM ArtifactProperty "
+           " WHERE artifact_id = $0 and name = $1;"
+    parameter_num: 2
+  }
+  delete_artifacts_by_id {
+    query: "DELETE FROM Artifact WHERE id IN ($0); "
+    parameter_num: 1
+  }
+  delete_artifacts_properties_by_artifacts_id {
+    query: "DELETE FROM ArtifactProperty WHERE artifact_id IN ($0); "
+    parameter_num: 1
+  }
+)pb",
+R"pb(
+  drop_execution_table { query: " DROP TABLE IF EXISTS Execution; " }
+  create_execution_table {
+    query: " CREATE TABLE IF NOT EXISTS Execution ( "
+           "   id SERIAL PRIMARY KEY, "
+           "   type_id INT NOT NULL, "
+           "   last_known_state INT, "
+           "   name VARCHAR(255), "
+           "   external_id VARCHAR(255) UNIQUE, "
+           "   create_time_since_epoch BIGINT NOT NULL DEFAULT 0, "
+           "   last_update_time_since_epoch BIGINT NOT NULL DEFAULT 0, "
+           "   CONSTRAINT UniqueExecutionTypeName UNIQUE(type_id, name) "
+           " ); "
+  }
+  check_execution_table {
+    query: " SELECT (("
+           "   SELECT COUNT(*)"
+           "   FROM   information_schema.columns"
+           "   WHERE  table_name = 'execution'"
+           "      AND column_name IN ('id', 'type_id', "
+           "        'last_known_state', 'name', 'create_time_since_epoch',"
+           "        'last_update_time_since_epoch')"
+           "   ) = 6"
+           " )::int AS table_exists;"
+  }
+  insert_execution {
+    query: " INSERT INTO Execution( "
+           "   type_id, last_known_state, name, external_id, "
+           "   create_time_since_epoch, last_update_time_since_epoch "
+           ") VALUES($0, $1, $2, $3, $4, $5)"
+    parameter_num: 6
+  }
+  select_execution_by_id {
+    query: " SELECT E.id, E.type_id, E.last_known_state, E.name, "
+           "        E.external_id, E.create_time_since_epoch, "
+           "        E.last_update_time_since_epoch, T.name AS type "
+           " FROM Execution AS E "
+           " INNER JOIN Type AS T "
+           "        ON (T.id = E.type_id) "
+           " WHERE E.id IN ($0);"
+    parameter_num: 1
+  }
+  select_execution_by_type_id_and_name {
+    query: " SELECT id FROM Execution WHERE type_id = $0 and name = $1;"
+    parameter_num: 2
+  }
+  select_executions_by_type_id {
+    query: " SELECT id FROM Execution WHERE type_id = $0; "
+    parameter_num: 1
+  }
+  select_executions_by_external_ids {
+    query: " SELECT id FROM Execution WHERE external_id IN ($0);"
+    parameter_num: 1
+  }
+  update_execution {
+    query: " UPDATE Execution "
+           " SET type_id = $1, last_known_state = $2, "
+           "     external_id = $3, "
+           "     last_update_time_since_epoch = $4 "
+           " WHERE id = $0;"
+    parameter_num: 5
+  }
+  drop_execution_property_table {
+    query: " DROP TABLE IF EXISTS ExecutionProperty; "
+  }
+  create_execution_property_table {
+    query: " CREATE TABLE IF NOT EXISTS ExecutionProperty ( "
+           "   execution_id INT NOT NULL, "
+           "   name VARCHAR(255) NOT NULL, "
+           "   is_custom_property BOOLEAN NOT NULL, "
+           "   int_value INT, "
+           "   double_value DOUBLE PRECISION, "
+           "   string_value TEXT, "
+           "   byte_value BYTEA, "
+           "   proto_value BYTEA, "
+           "   bool_value BOOLEAN, "
+           " PRIMARY KEY (execution_id, name, is_custom_property)); "
+  }
+  check_execution_property_table {
+    query: " SELECT (("
+           "   SELECT COUNT(*)"
+           "   FROM   information_schema.columns"
+           "   WHERE  table_name = 'executionproperty'"
+           "      AND column_name IN ('execution_id', 'name', "
+           "        'is_custom_property', 'int_value', 'double_value',"
+           "        'string_value', 'byte_value', 'proto_value', 'bool_value')"
+           "   ) = 9"
+           " )::int AS table_exists;"
+  }
+  insert_execution_property {
+    query: " INSERT INTO ExecutionProperty( "
+           "   execution_id, name, is_custom_property, $0 "
+           ") VALUES($1, $2, $3, $4)"
+    parameter_num: 5
+  }
+  select_execution_property_by_execution_id {
+    query: " SELECT execution_id as id, name as key, "
+           "        is_custom_property, "
+           "        int_value, double_value, string_value, "
+           "        encode(proto_value, 'base64'),"
+           "        bool_value "
+           " FROM ExecutionProperty "
+           " WHERE execution_id IN ($0); "
+    parameter_num: 1
+  }
+  update_execution_property {
+    query: " UPDATE ExecutionProperty "
+           " SET $0 = $1 "
+           " WHERE execution_id = $2 and name = $3;"
+    parameter_num: 4
+  }
+  delete_execution_property {
+    query: " DELETE FROM ExecutionProperty "
+           " WHERE execution_id = $0 and name = $1;"
+    parameter_num: 2
+  }
+  delete_executions_by_id {
+    query: " DELETE FROM Execution WHERE id IN ($0); "
+    parameter_num: 1
+  }
+  delete_executions_properties_by_executions_id {
+    query: " DELETE FROM ExecutionProperty WHERE execution_id IN ($0); "
+    parameter_num: 1
+  }
+)pb",
+R"pb(
+  drop_context_table { query: " DROP TABLE IF EXISTS Context; " }
+  create_context_table {
+    query: " CREATE TABLE IF NOT EXISTS Context ( "
+           "   id SERIAL PRIMARY KEY, "
+           "   type_id INT NOT NULL, "
+           "   name VARCHAR(255) NOT NULL, "
+           "   external_id VARCHAR(255) UNIQUE, "
+           "   create_time_since_epoch BIGINT NOT NULL DEFAULT 0, "
+           "   last_update_time_since_epoch BIGINT NOT NULL DEFAULT 0, "
+           "   UNIQUE(type_id, name) "
+           " ); "
+  }
+  check_context_table {
+    query: " SELECT (("
+           "   SELECT COUNT(*)"
+           "   FROM   information_schema.columns"
+           "   WHERE  table_name = 'context'"
+           "      AND column_name IN ('id', 'type_id', "
+           "        'name', 'create_time_since_epoch', "
+           "        'last_update_time_since_epoch')"
+           "   ) = 5"
+           " )::int AS table_exists;"
+  }
+  insert_context {
+    query: " INSERT INTO Context( "
+           "   type_id, name, external_id, "
+           "   create_time_since_epoch, last_update_time_since_epoch "
+           ") VALUES($0, $1, $2, $3, $4);"
+    parameter_num: 5
+  }
+  select_context_by_id {
+    query: " SELECT C.id, C.type_id, C.name, C.external_id, "
+           " C.create_time_since_epoch, C.last_update_time_since_epoch, "
+           " T.name AS type "
+           " FROM Context AS C "
+           " INNER JOIN Type AS T ON (T.id = C.type_id) "
+           " WHERE C.id IN ($0); "
+    parameter_num: 1
+  }
+  select_contexts_by_type_id {
+    query: " SELECT id FROM Context WHERE type_id = $0; "
+    parameter_num: 1
+  }
+  select_context_by_type_id_and_name {
+    query: " SELECT id FROM Context WHERE type_id = $0 and name = $1; "
+    parameter_num: 2
+  }
+  select_contexts_by_external_ids {
+    query: " SELECT id FROM Context WHERE external_id IN ($0); "
+    parameter_num: 1
+  }
+  update_context {
+    query: " UPDATE Context "
+           " SET type_id = $1, name = $2, external_id = $3, "
+           "     last_update_time_since_epoch = $4 "
+           " WHERE id = $0;"
+    parameter_num: 5
+  }
+  drop_context_property_table {
+    query: " DROP TABLE IF EXISTS ContextProperty; "
+  }
+  create_context_property_table {
+    query: " CREATE TABLE IF NOT EXISTS ContextProperty ( "
+           "   context_id INT NOT NULL, "
+           "   name VARCHAR(255) NOT NULL, "
+           "   is_custom_property BOOLEAN NOT NULL, "
+           "   int_value INT, "
+           "   double_value DOUBLE PRECISION, "
+           "   string_value TEXT, "
+           "   byte_value BYTEA, "
+           "   proto_value BYTEA, "
+           "   bool_value BOOLEAN, "
+           " PRIMARY KEY (context_id, name, is_custom_property)); "
+  }
+  check_context_property_table {
+    query: " SELECT (("
+           "   SELECT COUNT(*)"
+           "   FROM   information_schema.columns"
+           "   WHERE  table_name = 'contextproperty'"
+           "      AND column_name IN ('context_id', 'name', "
+           "        'is_custom_property', 'int_value', 'double_value',"
+           "        'string_value', 'byte_value', 'proto_value', 'bool_value')"
+           "   ) = 9"
+           " )::int AS table_exists;"
+  }
+  insert_context_property {
+    query: " INSERT INTO ContextProperty( "
+           "   context_id, name, is_custom_property, $0 "
+           ") VALUES($1, $2, $3, $4)"
+    parameter_num: 5
+  }
+  select_context_property_by_context_id {
+    query: " SELECT context_id as id, name as key, "
+           "        is_custom_property, "
+           "        int_value, double_value, string_value, "
+           "        encode(proto_value, 'base64'),"
+           "        bool_value "
+           " FROM ContextProperty "
+           " WHERE context_id IN ($0); "
+    parameter_num: 1
+  }
+  update_context_property {
+    query: " UPDATE ContextProperty "
+           " SET $0 = $1 "
+           " WHERE context_id = $2 and name = $3;"
+    parameter_num: 4
+  }
+  delete_context_property {
+    query: " DELETE FROM ContextProperty "
+           " WHERE context_id = $0 and name = $1;"
+    parameter_num: 2
+  }
+  drop_parent_context_table {
+    query: " DROP TABLE IF EXISTS ParentContext;"
+  }
+  create_parent_context_table {
+    query: " CREATE TABLE IF NOT EXISTS ParentContext ( "
+           "   context_id INT NOT NULL, "
+           "   parent_context_id INT NOT NULL, "
+           " PRIMARY KEY (context_id, parent_context_id)); "
+  }
+  check_parent_context_table {
+    query: " SELECT (("
+           "   SELECT COUNT(*)"
+           "   FROM   information_schema.columns"
+           "   WHERE  table_name = 'parentcontext'"
+           "      AND column_name IN ('context_id', 'parent_context_id')"
+           "   ) = 2"
+           " )::int AS table_exists;"
+  }
+  insert_parent_context {
+    query: " INSERT INTO ParentContext( "
+           "   context_id, parent_context_id "
+           ") VALUES($0, $1)"
+    parameter_num: 2
+  }
+  select_parent_context_by_context_id {
+    query: " SELECT context_id, parent_context_id From ParentContext "
+           " WHERE context_id = $0; "
+    parameter_num: 1
+  }
+  select_parent_context_by_parent_context_id {
+    query: " SELECT context_id, parent_context_id From ParentContext "
+           " WHERE parent_context_id = $0; "
+    parameter_num: 1
+  }
+  delete_contexts_by_id {
+    query: " DELETE FROM Context WHERE id IN ($0); "
+    parameter_num: 1
+  }
+  delete_contexts_properties_by_contexts_id {
+    query: " DELETE FROM ContextProperty WHERE context_id IN ($0); "
+    parameter_num: 1
+  }
+  delete_parent_contexts_by_parent_ids {
+    query: " DELETE FROM ParentContext WHERE parent_context_id IN ($0); "
+    parameter_num: 1
+  }
+  delete_parent_contexts_by_child_ids {
+    query: " DELETE FROM ParentContext WHERE context_id IN ($0); "
+    parameter_num: 1
+  }
+  delete_parent_contexts_by_parent_id_and_child_ids {
+    query: " DELETE FROM ParentContext "
+           " WHERE parent_context_id = $0 AND context_id IN ($1); "
+    parameter_num: 2
+  }
+)pb",
+R"pb(
+  drop_event_table { query: " DROP TABLE IF EXISTS Event; " }
+  create_event_table {
+    query: " CREATE TABLE IF NOT EXISTS Event ( "
+           "   id SERIAL PRIMARY KEY, "
+           "   artifact_id INT NOT NULL, "
+           "   execution_id INT NOT NULL, "
+           "   type INT NOT NULL, "
+           "   milliseconds_since_epoch BIGINT, "
+           "   CONSTRAINT UniqueEvent UNIQUE( "
+           "     artifact_id, execution_id, type) "
+           " ); "
+  }
+  check_event_table {
+    query: " SELECT (("
+           "   SELECT COUNT(*)"
+           "   FROM   information_schema.columns"
+           "   WHERE  table_name = 'event'"
+           "      AND column_name IN ('id', 'artifact_id', "
+           "        'execution_id', 'type', 'milliseconds_since_epoch')"
+           "   ) = 5"
+           " )::int AS table_exists;"
+  }
+  insert_event {
+    query: " INSERT INTO Event( "
+           "   artifact_id, execution_id, type, "
+           "   milliseconds_since_epoch "
+           ") VALUES($0, $1, $2, $3);"
+    parameter_num: 4
+  }
+  select_event_by_artifact_ids {
+    query: " SELECT id, artifact_id, execution_id, "
+           "        type, milliseconds_since_epoch "
+           " FROM Event "
+           " WHERE artifact_id IN ($0); "
+    parameter_num: 1
+  }
+  select_event_by_execution_ids {
+    query: " SELECT id, artifact_id, execution_id, "
+           "        type, milliseconds_since_epoch "
+           " FROM Event "
+           " WHERE execution_id IN ($0); "
+    parameter_num: 1
+  }
+  drop_event_path_table { query: " DROP TABLE IF EXISTS EventPath; " }
+  create_event_path_table {
+    query: " CREATE TABLE IF NOT EXISTS EventPath ( "
+           "   event_id INT NOT NULL, "
+           "   is_index_step BOOLEAN NOT NULL, "
+           "   step_index INT, "
+           "   step_key TEXT "
+           " ); "
+  }
+  check_event_path_table {
+    query: " SELECT (("
+           "   SELECT COUNT(*)"
+           "   FROM   information_schema.columns"
+           "   WHERE  table_name = 'eventpath'"
+           "      AND column_name IN ('event_id', 'is_index_step', "
+           "        'step_index', 'step_key')"
+           "   ) = 4"
+           " )::int AS table_exists;"
+  }
+  insert_event_path {
+    query: " INSERT INTO EventPath( "
+           "   event_id, is_index_step, $1 "
+           ") VALUES($0, $2, $3);"
+    parameter_num: 4
+  }
+  select_event_path_by_event_ids {
+    query: " SELECT event_id, is_index_step, step_index, step_key "
+           " FROM EventPath "
+           " WHERE event_id IN ($0); "
+    parameter_num: 1
+  }
+  delete_events_by_artifacts_id {
+    query: " DELETE FROM Event WHERE artifact_id IN ($0); "
+    parameter_num: 1
+  }
+  delete_events_by_executions_id {
+    query: " DELETE FROM Event WHERE execution_id IN ($0); "
+    parameter_num: 1
+  }
+  delete_event_paths {
+    query: " DELETE FROM EventPath WHERE event_id NOT IN "
+           " (SELECT id FROM Event); "
+  }
+)pb",
+R"pb(
+  drop_association_table { query: " DROP TABLE IF EXISTS Association; " }
+  create_association_table {
+    query: " CREATE TABLE IF NOT EXISTS Association ( "
+           "   id SERIAL PRIMARY KEY, "
+           "   context_id INT NOT NULL, "
+           "   execution_id INT NOT NULL, "
+           "   UNIQUE(context_id, execution_id) "
+           " ); "
+  }
+  check_association_table {
+    query: " SELECT (("
+           "   SELECT COUNT(*)"
+           "   FROM   information_schema.columns"
+           "   WHERE  table_name = 'association'"
+           "      AND column_name IN ('id', 'context_id', 'execution_id')"
+           "   ) = 3"
+           " )::int AS table_exists;"
+  }
+  insert_association {
+    query: " INSERT INTO Association( "
+           "   context_id, execution_id "
+           ") VALUES($0, $1)"
+    parameter_num: 2
+  }
+  select_association_by_context_id {
+    query: " SELECT id, context_id, execution_id "
+           " FROM Association "
+           " WHERE context_id IN ($0); "
+    parameter_num: 1
+  }
+  select_association_by_execution_id {
+    query: " SELECT id, context_id, execution_id "
+           " FROM Association "
+           " WHERE execution_id = $0; "
+    parameter_num: 1
+  }
+  drop_attribution_table { query: " DROP TABLE IF EXISTS Attribution; " }
+  create_attribution_table {
+    query: " CREATE TABLE IF NOT EXISTS Attribution ( "
+           "   id SERIAL PRIMARY KEY, "
+           "   context_id INT NOT NULL, "
+           "   artifact_id INT NOT NULL, "
+           "   UNIQUE(context_id, artifact_id) "
+           " ); "
+  }
+  check_attribution_table {
+    query: " SELECT (("
+           "   SELECT COUNT(*)"
+           "   FROM   information_schema.columns"
+           "   WHERE  table_name = 'attribution'"
+           "      AND column_name IN ('id', 'context_id', 'artifact_id')"
+           "   ) = 3"
+           " )::int AS table_exists;"
+  }
+  insert_attribution {
+    query: " INSERT INTO Attribution( "
+           "   context_id, artifact_id "
+           ") VALUES($0, $1)"
+    parameter_num: 2
+  }
+  select_attribution_by_context_id {
+    query: " SELECT id, context_id, artifact_id "
+           " FROM Attribution "
+           " WHERE context_id = $0; "
+    parameter_num: 1
+  }
+  select_attribution_by_artifact_id {
+    query: " SELECT id, context_id, artifact_id "
+           " FROM Attribution "
+           " WHERE artifact_id = $0; "
+    parameter_num: 1
+  }
+  drop_mlmd_env_table { query: " DROP TABLE IF EXISTS MLMDEnv; " }
+  create_mlmd_env_table {
+    query: " CREATE TABLE IF NOT EXISTS MLMDEnv ( "
+           "   schema_version INT PRIMARY KEY "
+           " ); "
+  }
+  check_mlmd_env_table_existence {
+    query: " SELECT (("
+           "   SELECT COUNT(*)"
+           "   FROM   information_schema.columns"
+           "   WHERE  table_name = 'mlmdenv'"
+           "      AND column_name IN ('schema_version')"
+           "   ) = 1"
+           " )::int AS table_exists;"
+  }
+  check_mlmd_env_table {
+    query: "SELECT schema_version FROM MLMDEnv; "
+  }
+  # To avoid multiple rows in MLMDEnv, truncate table first.
+  insert_schema_version {
+    query: " TRUNCATE TABLE MLMDEnv; "
+           " INSERT INTO MLMDEnv(schema_version) VALUES($0);"
+    parameter_num: 1
+  }
+  # To avoid multiple rows in MLMDEnv, truncate table first.
+  # Instead of UPDATE, use INSERT to update the schema version.
+  update_schema_version {
+    query: "TRUNCATE TABLE MLMDEnv;"
+          " INSERT INTO MLMDEnv(schema_version) VALUES($0); "
+    parameter_num: 1
+  }
+  check_tables_in_v0_13_2 {
+    query: " SELECT COUNT(*) FROM information_schema.tables "
+           " WHERE table_name "
+           " IN ('Artifact', 'Event', 'Execution', 'Type', "
+           " 'ArtifactProperty', 'EventPath', 'ExecutionProperty', "
+           " 'TypeProperty');"
+  }
+  delete_associations_by_contexts_id {
+    query: "DELETE FROM Association WHERE context_id IN ($0); "
+    parameter_num: 1
+  }
+  delete_associations_by_executions_id {
+    query: "DELETE FROM Association WHERE execution_id IN ($0); "
+    parameter_num: 1
+  }
+  delete_attributions_by_contexts_id {
+    query: "DELETE FROM Attribution WHERE context_id IN ($0); "
+    parameter_num: 1
+  }
+  delete_attributions_by_artifacts_id {
+    query: "DELETE FROM Attribution WHERE artifact_id IN ($0); "
+    parameter_num: 1
+  }
+)pb");
+
 }  // namespace
 
 // The `MetadataSourceQueryConfig` protobuf messages are merged to the query
@@ -4706,6 +5552,16 @@ MetadataSourceQueryConfig GetSqliteMetadataSourceQueryConfig() {
   CHECK(google::protobuf::TextFormat::ParseFromString(kSQLiteMetadataSourceQueryConfig,
                                             &sqlite_config));
   config.MergeFrom(sqlite_config);
+  return config;
+}
+
+MetadataSourceQueryConfig GetPostgreSQLMetadataSourceQueryConfig() {
+  MetadataSourceQueryConfig config;
+  CHECK(google::protobuf::TextFormat::ParseFromString(kBaseQueryConfig, &config));
+  MetadataSourceQueryConfig postgres_config;
+  CHECK(google::protobuf::TextFormat::ParseFromString(
+    kPostgreSQLMetadataSourceQueryConfig, &postgres_config));
+  config.MergeFrom(postgres_config);
   return config;
 }
 

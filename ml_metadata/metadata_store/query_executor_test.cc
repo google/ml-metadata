@@ -943,8 +943,9 @@ TEST_P(QueryExecutorTest, SelectArtifacts) {
     std::vector<int64> artifact_ids = {artifact_id_1, artifact_id_2};
     ASSERT_EQ(absl::OkStatus(), query_executor_->SelectArtifactsByID(
                                     artifact_ids, &got_artifact_record_set));
-    EXPECT_THAT(got_artifact_record_set,
-                EqualsProto(expected_artifact_record_set));
+    EXPECT_THAT(got_artifact_record_set.records(),
+                UnorderedPointwise(EqualsProto<RecordSet::Record>(),
+                                   expected_artifact_record_set.records()));
   }
   // Test select artifacts by external_ids
   {
@@ -1056,8 +1057,9 @@ TEST_P(QueryExecutorTest, SelectContexts) {
     std::vector<int64> context_ids = {context_id_1, context_id_2};
     ASSERT_EQ(absl::OkStatus(), query_executor_->SelectContextsByID(
                                     context_ids, &got_context_record_set));
-    EXPECT_THAT(got_context_record_set,
-                EqualsProto(expected_context_record_set));
+    EXPECT_THAT(got_context_record_set.records(),
+                UnorderedPointwise(EqualsProto<RecordSet::Record>(),
+                                   expected_context_record_set.records()));
   }
   // Test select contexts by external_ids
   {
@@ -1169,8 +1171,9 @@ TEST_P(QueryExecutorTest, SelectExecutions) {
     std::vector<int64> execution_ids = {execution_id_1, execution_id_2};
     ASSERT_EQ(absl::OkStatus(), query_executor_->SelectExecutionsByID(
                                     execution_ids, &got_execution_record_set));
-    EXPECT_THAT(got_execution_record_set,
-                EqualsProto(expected_execution_record_set));
+    EXPECT_THAT(got_execution_record_set.records(),
+                UnorderedPointwise(EqualsProto<RecordSet::Record>(),
+                                   expected_execution_record_set.records()));
   }
   // Test select executions by external_ids
   {
