@@ -310,7 +310,7 @@ class QueryConfigExecutor : public QueryExecutor {
   // A `query_version` can be passed to the QueryConfigExecutor to work with
   // an existing db with an earlier schema version.
   QueryConfigExecutor(const MetadataSourceQueryConfig& query_config,
-                      MetadataSource* source, int64 query_version);
+                      MetadataSource* source, int64_t query_version);
 
   // default & copy constructors are disallowed.
   QueryConfigExecutor() = delete;
@@ -334,7 +334,7 @@ class QueryConfigExecutor : public QueryExecutor {
         "DeleteMetadataSource not supported for QueryConfigExecutor");
   }
 
-  absl::Status GetSchemaVersion(int64* db_version) final;
+  absl::Status GetSchemaVersion(int64_t* db_version) final;
 
   absl::Status CheckTypeTable() final {
     return ExecuteQuery(query_config_.check_type_table());
@@ -344,29 +344,29 @@ class QueryConfigExecutor : public QueryExecutor {
                                   absl::optional<absl::string_view> version,
                                   absl::optional<absl::string_view> description,
                                   absl::optional<absl::string_view> external_id,
-                                  int64* type_id) final;
+                                  int64_t* type_id) final;
 
   absl::Status InsertExecutionType(
       const std::string& name, absl::optional<absl::string_view> version,
       absl::optional<absl::string_view> description,
       const ArtifactStructType* input_type,
       const ArtifactStructType* output_type,
-      absl::optional<absl::string_view> external_id, int64* type_id) final;
+      absl::optional<absl::string_view> external_id, int64_t* type_id) final;
 
   absl::Status InsertContextType(const std::string& name,
                                  absl::optional<absl::string_view> version,
                                  absl::optional<absl::string_view> description,
                                  absl::optional<absl::string_view> external_id,
-                                 int64* type_id) final;
+                                 int64_t* type_id) final;
 
-  absl::Status SelectTypesByID(absl::Span<const int64> type_ids,
+  absl::Status SelectTypesByID(absl::Span<const int64_t> type_ids,
                                TypeKind type_kind, RecordSet* record_set) final;
 
   absl::Status SelectTypesByExternalIds(
       absl::Span<absl::string_view> external_ids, TypeKind type_kind,
       RecordSet* record_set) final;
 
-  absl::Status SelectTypeByID(int64 type_id, TypeKind type_kind,
+  absl::Status SelectTypeByID(int64_t type_id, TypeKind type_kind,
                               RecordSet* record_set) final;
 
   absl::Status SelectTypeByNameAndVersion(
@@ -381,7 +381,7 @@ class QueryConfigExecutor : public QueryExecutor {
   absl::Status SelectAllTypes(TypeKind type_kind, RecordSet* record_set) final;
 
   absl::Status UpdateTypeExternalIdDirect(
-      int64 type_id, absl::optional<absl::string_view> external_id) final {
+      int64_t type_id, absl::optional<absl::string_view> external_id) final {
     MLMD_RETURN_IF_ERROR(
         VerifyCurrentQueryVersionIsAtLeast(kSchemaVersionNine));
     return ExecuteQuery(query_config_.update_type(),
@@ -392,7 +392,7 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(query_config_.check_type_property_table());
   }
 
-  absl::Status InsertTypeProperty(int64 type_id,
+  absl::Status InsertTypeProperty(int64_t type_id,
                                   absl::string_view property_name,
                                   PropertyType property_type) final {
     return ExecuteQuery(
@@ -400,7 +400,7 @@ class QueryConfigExecutor : public QueryExecutor {
         {Bind(type_id), Bind(property_name), Bind(property_type)});
   }
 
-  absl::Status SelectPropertiesByTypeID(absl::Span<const int64> type_ids,
+  absl::Status SelectPropertiesByTypeID(absl::Span<const int64_t> type_ids,
                                         RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_properties_by_type_id(),
                         {Bind(type_ids)}, record_set);
@@ -408,27 +408,27 @@ class QueryConfigExecutor : public QueryExecutor {
 
   absl::Status CheckParentTypeTable() final;
 
-  absl::Status InsertParentType(int64 type_id, int64 parent_type_id) final;
+  absl::Status InsertParentType(int64_t type_id, int64_t parent_type_id) final;
 
-  absl::Status DeleteParentType(int64 type_id, int64 parent_type_id) final;
+  absl::Status DeleteParentType(int64_t type_id, int64_t parent_type_id) final;
 
-  absl::Status SelectParentTypesByTypeID(absl::Span<const int64> type_ids,
+  absl::Status SelectParentTypesByTypeID(absl::Span<const int64_t> type_ids,
                                          RecordSet* record_set) final;
 
   // Gets the last inserted id.
-  absl::Status SelectLastInsertID(int64* id);
+  absl::Status SelectLastInsertID(int64_t* id);
 
   absl::Status CheckArtifactTable() final {
     return ExecuteQuery(query_config_.check_artifact_table());
   }
 
-  absl::Status InsertArtifact(int64 type_id, const std::string& artifact_uri,
+  absl::Status InsertArtifact(int64_t type_id, const std::string& artifact_uri,
                               const absl::optional<Artifact::State>& state,
                               const absl::optional<std::string>& name,
                               absl::optional<absl::string_view> external_id,
                               const absl::Time create_time,
                               const absl::Time update_time,
-                              int64* artifact_id) final {
+                              int64_t* artifact_id) final {
     // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
     if (query_schema_version().has_value() &&
         query_schema_version().value() < kSchemaVersionNine) {
@@ -451,7 +451,7 @@ class QueryConfigExecutor : public QueryExecutor {
         artifact_id);
   }
 
-  absl::Status SelectArtifactsByID(absl::Span<const int64> artifact_ids,
+  absl::Status SelectArtifactsByID(absl::Span<const int64_t> artifact_ids,
                                    RecordSet* record_set) final {
     // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
     if (query_schema_version().has_value() &&
@@ -483,13 +483,13 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   absl::Status SelectArtifactByTypeIDAndArtifactName(
-      int64 artifact_type_id, absl::string_view name,
+      int64_t artifact_type_id, absl::string_view name,
       RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_artifact_by_type_id_and_name(),
                         {Bind(artifact_type_id), Bind(name)}, record_set);
   }
 
-  absl::Status SelectArtifactsByTypeID(int64 artifact_type_id,
+  absl::Status SelectArtifactsByTypeID(int64_t artifact_type_id,
                                        RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_artifacts_by_type_id(),
                         {Bind(artifact_type_id)}, record_set);
@@ -502,7 +502,7 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   absl::Status UpdateArtifactDirect(
-      int64 artifact_id, int64 type_id, const std::string& uri,
+      int64_t artifact_id, int64_t type_id, const std::string& uri,
       const absl::optional<Artifact::State>& state,
       absl::optional<absl::string_view> external_id,
       const absl::Time update_time) final {
@@ -537,7 +537,7 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(check_artifact_property_table);
   }
 
-  absl::Status InsertArtifactProperty(int64 artifact_id,
+  absl::Status InsertArtifactProperty(int64_t artifact_id,
                                       absl::string_view artifact_property_name,
                                       bool is_custom_property,
                                       const Value& property_value) final {
@@ -548,7 +548,7 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   absl::Status SelectArtifactPropertyByArtifactID(
-      absl::Span<const int64> artifact_ids, RecordSet* record_set) final {
+      absl::Span<const int64_t> artifact_ids, RecordSet* record_set) final {
     // TODO(b/257334039): Cleanup the fat-client after fully migrated to V10+.
     MetadataSourceQueryConfig::TemplateQuery
         select_artifact_property_by_artifact_id;
@@ -565,7 +565,7 @@ class QueryConfigExecutor : public QueryExecutor {
                         {Bind(artifact_ids)}, record_set);
   }
 
-  absl::Status UpdateArtifactProperty(int64 artifact_id,
+  absl::Status UpdateArtifactProperty(int64_t artifact_id,
                                       absl::string_view property_name,
                                       const Value& property_value) final {
     return ExecuteQuery(
@@ -574,7 +574,7 @@ class QueryConfigExecutor : public QueryExecutor {
          Bind(artifact_id), Bind(property_name)});
   }
 
-  absl::Status DeleteArtifactProperty(int64 artifact_id,
+  absl::Status DeleteArtifactProperty(int64_t artifact_id,
                                       absl::string_view property_name) final {
     return ExecuteQuery(query_config_.delete_artifact_property(),
                         {Bind(artifact_id), Bind(property_name)});
@@ -585,11 +585,11 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   absl::Status InsertExecution(
-      int64 type_id, const absl::optional<Execution::State>& last_known_state,
+      int64_t type_id, const absl::optional<Execution::State>& last_known_state,
       const absl::optional<std::string>& name,
       absl::optional<absl::string_view> external_id,
       const absl::Time create_time, const absl::Time update_time,
-      int64* execution_id) final {
+      int64_t* execution_id) final {
     // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
     if (query_schema_version().has_value() &&
         query_schema_version().value() < kSchemaVersionNine) {
@@ -611,7 +611,7 @@ class QueryConfigExecutor : public QueryExecutor {
         execution_id);
   }
 
-  absl::Status SelectExecutionsByID(absl::Span<const int64> execution_ids,
+  absl::Status SelectExecutionsByID(absl::Span<const int64_t> execution_ids,
                                     RecordSet* record_set) final {
     // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
     if (query_schema_version().has_value() &&
@@ -644,20 +644,20 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   absl::Status SelectExecutionByTypeIDAndExecutionName(
-      int64 execution_type_id, absl::string_view name,
+      int64_t execution_type_id, absl::string_view name,
       RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_execution_by_type_id_and_name(),
                         {Bind(execution_type_id), Bind(name)}, record_set);
   }
 
-  absl::Status SelectExecutionsByTypeID(int64 execution_type_id,
+  absl::Status SelectExecutionsByTypeID(int64_t execution_type_id,
                                         RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_executions_by_type_id(),
                         {Bind(execution_type_id)}, record_set);
   }
 
   absl::Status UpdateExecutionDirect(
-      int64 execution_id, int64 type_id,
+      int64_t execution_id, int64_t type_id,
       const absl::optional<Execution::State>& last_known_state,
       absl::optional<absl::string_view> external_id,
       const absl::Time update_time) final {
@@ -694,7 +694,7 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(check_execution_property_table);
   }
 
-  absl::Status InsertExecutionProperty(int64 execution_id,
+  absl::Status InsertExecutionProperty(int64_t execution_id,
                                        absl::string_view name,
                                        bool is_custom_property,
                                        const Value& value) final {
@@ -704,7 +704,7 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   absl::Status SelectExecutionPropertyByExecutionID(
-      absl::Span<const int64> execution_ids, RecordSet* record_set) final {
+      absl::Span<const int64_t> execution_ids, RecordSet* record_set) final {
     // TODO(b/257334039): Cleanup the fat-client after fully migrated to V10+.
     MetadataSourceQueryConfig::TemplateQuery
         select_execution_property_by_execution_id;
@@ -721,7 +721,7 @@ class QueryConfigExecutor : public QueryExecutor {
                         {Bind(execution_ids)}, record_set);
   }
 
-  absl::Status UpdateExecutionProperty(int64 execution_id,
+  absl::Status UpdateExecutionProperty(int64_t execution_id,
                                        absl::string_view name,
                                        const Value& value) final {
     return ExecuteQuery(query_config_.update_execution_property(),
@@ -729,7 +729,7 @@ class QueryConfigExecutor : public QueryExecutor {
                          Bind(execution_id), Bind(name)});
   }
 
-  absl::Status DeleteExecutionProperty(int64 execution_id,
+  absl::Status DeleteExecutionProperty(int64_t execution_id,
                                        absl::string_view name) final {
     return ExecuteQuery(query_config_.delete_execution_property(),
                         {Bind(execution_id), Bind(name)});
@@ -739,11 +739,11 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(query_config_.check_context_table());
   }
 
-  absl::Status InsertContext(int64 type_id, const std::string& name,
+  absl::Status InsertContext(int64_t type_id, const std::string& name,
                              absl::optional<absl::string_view> external_id,
                              const absl::Time create_time,
                              const absl::Time update_time,
-                             int64* context_id) final {
+                             int64_t* context_id) final {
     // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
     if (query_schema_version().has_value() &&
         query_schema_version().value() < kSchemaVersionNine) {
@@ -764,7 +764,7 @@ class QueryConfigExecutor : public QueryExecutor {
         context_id);
   }
 
-  absl::Status SelectContextsByID(absl::Span<const int64> context_ids,
+  absl::Status SelectContextsByID(absl::Span<const int64_t> context_ids,
                                   RecordSet* record_set) final {
     // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
     if (query_schema_version().has_value() &&
@@ -795,21 +795,22 @@ class QueryConfigExecutor : public QueryExecutor {
                         {Bind(external_ids)}, record_set);
   }
 
-  absl::Status SelectContextsByTypeID(int64 context_type_id,
+  absl::Status SelectContextsByTypeID(int64_t context_type_id,
                                       RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_contexts_by_type_id(),
                         {Bind(context_type_id)}, record_set);
   }
 
   absl::Status SelectContextByTypeIDAndContextName(
-      int64 context_type_id, absl::string_view name,
+      int64_t context_type_id, absl::string_view name,
       RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_context_by_type_id_and_name(),
                         {Bind(context_type_id), Bind(name)}, record_set);
   }
 
   absl::Status UpdateContextDirect(
-      int64 existing_context_id, int64 type_id, const std::string& context_name,
+      int64_t existing_context_id, int64_t type_id,
+      const std::string& context_name,
       absl::optional<absl::string_view> external_id,
       const absl::Time update_time) final {
     // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
@@ -844,7 +845,7 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(check_context_property_table);
   }
 
-  absl::Status InsertContextProperty(int64 context_id, absl::string_view name,
+  absl::Status InsertContextProperty(int64_t context_id, absl::string_view name,
                                      bool custom_property,
                                      const Value& value) final {
     return ExecuteQuery(query_config_.insert_context_property(),
@@ -853,7 +854,7 @@ class QueryConfigExecutor : public QueryExecutor {
   }
 
   absl::Status SelectContextPropertyByContextID(
-      absl::Span<const int64> context_ids, RecordSet* record_set) final {
+      absl::Span<const int64_t> context_ids, RecordSet* record_set) final {
     // TODO(b/257334039): Cleanup the fat-client after fully migrated to V10+.
     MetadataSourceQueryConfig::TemplateQuery
         select_context_property_by_context_id;
@@ -870,7 +871,7 @@ class QueryConfigExecutor : public QueryExecutor {
                         {Bind(context_ids)}, record_set);
   }
 
-  absl::Status UpdateContextProperty(int64 context_id,
+  absl::Status UpdateContextProperty(int64_t context_id,
                                      absl::string_view property_name,
                                      const Value& property_value) final {
     return ExecuteQuery(
@@ -879,7 +880,7 @@ class QueryConfigExecutor : public QueryExecutor {
          Bind(context_id), Bind(property_name)});
   }
 
-  absl::Status DeleteContextProperty(const int64 context_id,
+  absl::Status DeleteContextProperty(const int64_t context_id,
                                      absl::string_view property_name) final {
     return ExecuteQuery(query_config_.delete_context_property(),
                         {Bind(context_id), Bind(property_name)});
@@ -889,9 +890,9 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(query_config_.check_event_table());
   }
 
-  absl::Status InsertEvent(int64 artifact_id, int64 execution_id,
-                           int event_type, int64 event_time_milliseconds,
-                           int64* event_id) final {
+  absl::Status InsertEvent(int64_t artifact_id, int64_t execution_id,
+                           int event_type, int64_t event_time_milliseconds,
+                           int64_t* event_id) final {
     return ExecuteQuerySelectLastInsertID(
         query_config_.insert_event(),
         {Bind(artifact_id), Bind(execution_id), Bind(event_type),
@@ -899,14 +900,15 @@ class QueryConfigExecutor : public QueryExecutor {
         event_id);
   }
 
-  absl::Status SelectEventByArtifactIDs(absl::Span<const int64> artifact_ids,
+  absl::Status SelectEventByArtifactIDs(absl::Span<const int64_t> artifact_ids,
                                         RecordSet* event_record_set) final {
     return ExecuteQuery(query_config_.select_event_by_artifact_ids(),
                         {Bind(artifact_ids)}, event_record_set);
   }
 
-  absl::Status SelectEventByExecutionIDs(absl::Span<const int64> execution_ids,
-                                         RecordSet* event_record_set) final {
+  absl::Status SelectEventByExecutionIDs(
+      absl::Span<const int64_t> execution_ids,
+      RecordSet* event_record_set) final {
     return ExecuteQuery(query_config_.select_event_by_execution_ids(),
                         {Bind(execution_ids)}, event_record_set);
   }
@@ -915,10 +917,10 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(query_config_.check_event_path_table());
   }
 
-  absl::Status InsertEventPath(int64 event_id,
+  absl::Status InsertEventPath(int64_t event_id,
                                const Event::Path::Step& step) final;
 
-  absl::Status SelectEventPathByEventIDs(absl::Span<const int64> event_ids,
+  absl::Status SelectEventPathByEventIDs(absl::Span<const int64_t> event_ids,
                                          RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_event_path_by_event_ids(),
                         {Bind(event_ids)}, record_set);
@@ -928,20 +930,20 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(query_config_.check_association_table());
   }
 
-  absl::Status InsertAssociation(int64 context_id, int64 execution_id,
-                                 int64* association_id) final {
+  absl::Status InsertAssociation(int64_t context_id, int64_t execution_id,
+                                 int64_t* association_id) final {
     return ExecuteQuerySelectLastInsertID(
         query_config_.insert_association(),
         {Bind(context_id), Bind(execution_id)}, association_id);
   }
 
-  absl::Status SelectAssociationByContextIDs(absl::Span<const int64> context_id,
-                                             RecordSet* record_set) final {
+  absl::Status SelectAssociationByContextIDs(
+      absl::Span<const int64_t> context_id, RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_association_by_context_id(),
                         {Bind(context_id)}, record_set);
   }
 
-  absl::Status SelectAssociationByExecutionID(int64 execution_id,
+  absl::Status SelectAssociationByExecutionID(int64_t execution_id,
                                               RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_association_by_execution_id(),
                         {Bind(execution_id)}, record_set);
@@ -951,20 +953,20 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery(query_config_.check_attribution_table());
   }
 
-  absl::Status InsertAttributionDirect(int64 context_id, int64 artifact_id,
-                                       int64* attribution_id) final {
+  absl::Status InsertAttributionDirect(int64_t context_id, int64_t artifact_id,
+                                       int64_t* attribution_id) final {
     return ExecuteQuerySelectLastInsertID(query_config_.insert_attribution(),
                                           {Bind(context_id), Bind(artifact_id)},
                                           attribution_id);
   }
 
-  absl::Status SelectAttributionByContextID(int64 context_id,
+  absl::Status SelectAttributionByContextID(int64_t context_id,
                                             RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_attribution_by_context_id(),
                         {Bind(context_id)}, record_set);
   }
 
-  absl::Status SelectAttributionByArtifactID(int64 artifact_id,
+  absl::Status SelectAttributionByArtifactID(int64_t artifact_id,
                                              RecordSet* record_set) final {
     return ExecuteQuery(query_config_.select_attribution_by_artifact_id(),
                         {Bind(artifact_id)}, record_set);
@@ -972,32 +974,32 @@ class QueryConfigExecutor : public QueryExecutor {
 
   absl::Status CheckParentContextTable() final;
 
-  absl::Status InsertParentContext(int64 parent_id, int64 child_id) final;
+  absl::Status InsertParentContext(int64_t parent_id, int64_t child_id) final;
 
-  absl::Status SelectParentContextsByContextID(int64 context_id,
+  absl::Status SelectParentContextsByContextID(int64_t context_id,
                                                RecordSet* record_set) final;
 
-  absl::Status SelectChildContextsByContextID(int64 context_id,
+  absl::Status SelectChildContextsByContextID(int64_t context_id,
                                               RecordSet* record_set) final;
 
   absl::Status SelectParentContextsByContextIDs(
-      absl::Span<const int64> context_ids, RecordSet* record_set) final;
+      absl::Span<const int64_t> context_ids, RecordSet* record_set) final;
 
   absl::Status SelectChildContextsByContextIDs(
-      absl::Span<const int64> context_ids, RecordSet* record_set) final;
+      absl::Span<const int64_t> context_ids, RecordSet* record_set) final;
 
   absl::Status CheckMLMDEnvTable() final {
     return ExecuteQuery(query_config_.check_mlmd_env_table());
   }
 
   // Insert the schema version.
-  absl::Status InsertSchemaVersion(int64 schema_version) final {
+  absl::Status InsertSchemaVersion(int64_t schema_version) final {
     return ExecuteQuery(query_config_.insert_schema_version(),
                         {Bind(schema_version)});
   }
 
   // Update the schema version.
-  absl::Status UpdateSchemaVersion(int64 schema_version) final {
+  absl::Status UpdateSchemaVersion(int64_t schema_version) final {
     return ExecuteQuery(query_config_.update_schema_version(),
                         {Bind(schema_version)});
   }
@@ -1016,62 +1018,64 @@ class QueryConfigExecutor : public QueryExecutor {
     return ExecuteQuery("select `id` from `Context`;", set);
   }
 
-  int64 GetLibraryVersion() final {
+  int64_t GetLibraryVersion() final {
     CHECK_GT(query_config_.schema_version(), 0);
     return query_config_.schema_version();
   }
 
-  absl::Status DowngradeMetadataSource(const int64 to_schema_version) final;
+  absl::Status DowngradeMetadataSource(const int64_t to_schema_version) final;
 
   absl::Status ListArtifactIDsUsingOptions(
       const ListOperationOptions& options,
-      absl::optional<absl::Span<const int64>> candidate_ids,
+      absl::optional<absl::Span<const int64_t>> candidate_ids,
       RecordSet* record_set) final;
 
   absl::Status ListExecutionIDsUsingOptions(
       const ListOperationOptions& options,
-      absl::optional<absl::Span<const int64>> candidate_ids,
+      absl::optional<absl::Span<const int64_t>> candidate_ids,
       RecordSet* record_set) final;
 
   absl::Status ListContextIDsUsingOptions(
       const ListOperationOptions& options,
-      absl::optional<absl::Span<const int64>> candidate_ids,
+      absl::optional<absl::Span<const int64_t>> candidate_ids,
       RecordSet* record_set) final;
 
 
-  absl::Status DeleteArtifactsById(absl::Span<const int64> artifact_ids) final;
+  absl::Status DeleteArtifactsById(
+      absl::Span<const int64_t> artifact_ids) final;
 
-  absl::Status DeleteContextsById(absl::Span<const int64> context_ids) final;
+  absl::Status DeleteContextsById(absl::Span<const int64_t> context_ids) final;
 
   absl::Status DeleteExecutionsById(
-      absl::Span<const int64> execution_ids) final;
+      absl::Span<const int64_t> execution_ids) final;
 
   absl::Status DeleteEventsByArtifactsId(
-      absl::Span<const int64> artifact_ids) final;
+      absl::Span<const int64_t> artifact_ids) final;
 
   absl::Status DeleteEventsByExecutionsId(
-      absl::Span<const int64> execution_ids) final;
+      absl::Span<const int64_t> execution_ids) final;
 
   absl::Status DeleteAssociationsByContextsId(
-      absl::Span<const int64> context_ids) final;
+      absl::Span<const int64_t> context_ids) final;
 
   absl::Status DeleteAssociationsByExecutionsId(
-      absl::Span<const int64> execution_ids) final;
+      absl::Span<const int64_t> execution_ids) final;
 
   absl::Status DeleteAttributionsByContextsId(
-      absl::Span<const int64> context_ids) final;
+      absl::Span<const int64_t> context_ids) final;
 
   absl::Status DeleteAttributionsByArtifactsId(
-      absl::Span<const int64> artifact_ids) final;
+      absl::Span<const int64_t> artifact_ids) final;
 
   absl::Status DeleteParentContextsByParentIds(
-      absl::Span<const int64> parent_context_ids) final;
+      absl::Span<const int64_t> parent_context_ids) final;
 
   absl::Status DeleteParentContextsByChildIds(
-      absl::Span<const int64> child_context_ids) final;
+      absl::Span<const int64_t> child_context_ids) final;
 
   absl::Status DeleteParentContextsByParentIdAndChildIds(
-      int64 parent_context_id, absl::Span<const int64> child_context_ids) final;
+      int64_t parent_context_id,
+      absl::Span<const int64_t> child_context_ids) final;
 
  private:
   // Utility method to bind an nullable value.
@@ -1089,8 +1093,8 @@ class QueryConfigExecutor : public QueryExecutor {
   // Utility method to bind an int value to a SQL clause.
   std::string Bind(int value);
 
-  // Utility method to bind an int64 value to a SQL clause.
-  std::string Bind(int64 value);
+  // Utility method to bind an int64_t value to a SQL clause.
+  std::string Bind(int64_t value);
 
   // Utility method to bind a boolean value to a SQL clause.
   std::string Bind(bool value);
@@ -1124,7 +1128,7 @@ class QueryConfigExecutor : public QueryExecutor {
 
   // Utility method to bind an in64 vector to a string joined with "," that can
   // fit into SQL IN(...) clause.
-  std::string Bind(absl::Span<const int64> value);
+  std::string Bind(absl::Span<const int64_t> value);
 
   // Utility method to bind a string_view vector to a string joined with ","
   // that can fit into SQL IN(...) clause.
@@ -1134,10 +1138,6 @@ class QueryConfigExecutor : public QueryExecutor {
   // joined with "," that can fit into SQL IN(...) clause.
   std::string Bind(
       absl::Span<std::pair<absl::string_view, absl::string_view>> value);
-
-  #if (!defined(__APPLE__) && !defined(_WIN32))
-  std::string Bind(const google::protobuf::int64 value);
-  #endif
 
   // Execute a template query. All strings in parameters should already be
   // in a format appropriate for the SQL variant being used (at this point,
@@ -1179,7 +1179,7 @@ class QueryConfigExecutor : public QueryExecutor {
   // Returns INTERNAL error, if it cannot find the last insert ID.
   absl::Status ExecuteQuerySelectLastInsertID(
       const MetadataSourceQueryConfig::TemplateQuery& query,
-      absl::Span<const std::string> arguments, int64* last_insert_id) {
+      absl::Span<const std::string> arguments, int64_t* last_insert_id) {
     MLMD_RETURN_IF_ERROR(ExecuteQuery(query, arguments));
     return SelectLastInsertID(last_insert_id);
   }
@@ -1203,7 +1203,7 @@ class QueryConfigExecutor : public QueryExecutor {
   // database.
   //
   // Returns OK.
-  absl::Status IsCompatible(int64 db_version, int64 lib_version,
+  absl::Status IsCompatible(int64_t db_version, int64_t lib_version,
                             bool* is_compatible);
 
   // Upgrades the database schema version (db_v) to align with the library
@@ -1233,7 +1233,7 @@ class QueryConfigExecutor : public QueryExecutor {
   template <typename Node>
   absl::Status ListNodeIDsUsingOptions(
       const ListOperationOptions& options,
-      absl::optional<absl::Span<const int64>> candidate_ids,
+      absl::optional<absl::Span<const int64_t>> candidate_ids,
       RecordSet* record_set);
 
   MetadataSourceQueryConfig query_config_;

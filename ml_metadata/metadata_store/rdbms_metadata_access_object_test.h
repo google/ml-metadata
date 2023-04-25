@@ -109,7 +109,7 @@ class RDBMSMetadataAccessObjectTest
   }
 
   template <typename MessageType>
-  absl::Status FindTypesImpl(absl::Span<const int64> type_ids,
+  absl::Status FindTypesImpl(absl::Span<const int64_t> type_ids,
                              bool get_properties,
                              std::vector<MessageType>& types) {
     return rdbms_metadata_access_object_->FindTypesImpl(type_ids,
@@ -118,14 +118,14 @@ class RDBMSMetadataAccessObjectTest
 
   template <typename Type>
   absl::Status FindParentTypesByTypeIdImpl(
-      absl::Span<const int64> type_ids,
-      absl::flat_hash_map<int64, Type>& output_parent_types) {
+      absl::Span<const int64_t> type_ids,
+      absl::flat_hash_map<int64_t, Type>& output_parent_types) {
     return rdbms_metadata_access_object_->FindParentTypesByTypeIdImpl(
         type_ids, output_parent_types);
   }
 
   template <typename MessageType>
-  absl::Status CreateType(const MessageType& type, int64* type_id) {
+  absl::Status CreateType(const MessageType& type, int64_t* type_id) {
     return rdbms_metadata_access_object_->CreateType(type, type_id);
   }
 

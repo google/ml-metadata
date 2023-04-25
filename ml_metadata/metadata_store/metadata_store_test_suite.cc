@@ -634,7 +634,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeWithUpdateErrors) {
   PutArtifactTypeResponse response_1;
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->PutArtifactType(request_1, &response_1));
-  const int64 type_id = response_1.type_id();
+  const int64_t type_id = response_1.type_id();
 
   {
     // can_add_fields is not set to true
@@ -1590,7 +1590,7 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndContextsGetContextsThroughType) {
 }
 
 TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {
-  int64 type_id;
+  int64_t type_id;
   // Create the type
   {
     const PutArtifactTypeRequest put_artifact_type_request =
@@ -1655,7 +1655,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {
                                        "last_update_time_since_epoch"})));
   }
   // Test: retrieve by one id
-  const int64 unknown_id = artifact1.id() + artifact2.id() + 1;
+  const int64_t unknown_id = artifact1.id() + artifact2.id() + 1;
   {
     GetArtifactsByIDRequest get_artifacts_by_id_request;
     get_artifacts_by_id_request.add_artifact_ids(unknown_id);
@@ -1688,7 +1688,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {
 }
 
 TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByExternalIds) {
-  int64 type_id;
+  int64_t type_id;
   // Create the type
   {
     const PutArtifactTypeRequest put_artifact_type_request =
@@ -1831,7 +1831,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsUpdateGetArtifactsByID) {
                                              &put_artifact_type_response));
   ASSERT_TRUE(put_artifact_type_response.has_type_id());
 
-  const int64 type_id = put_artifact_type_response.type_id();
+  const int64_t type_id = put_artifact_type_response.type_id();
 
   PutArtifactsRequest put_artifacts_request =
       ParseTextProtoOrDie<PutArtifactsRequest>(R"(
@@ -1849,7 +1849,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsUpdateGetArtifactsByID) {
             metadata_store_->PutArtifacts(put_artifacts_request,
                                           &put_artifacts_response));
   ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(1));
-  const int64 artifact_id = put_artifacts_response.artifact_ids(0);
+  const int64_t artifact_id = put_artifacts_response.artifact_ids(0);
 
   // Now we change 3 to 2 and adds the state
   PutArtifactsRequest put_artifacts_request_2 =
@@ -1899,7 +1899,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithListOptions) {
                                              &put_artifact_type_response));
   ASSERT_TRUE(put_artifact_type_response.has_type_id());
 
-  const int64 type_id = put_artifact_type_response.type_id();
+  const int64_t type_id = put_artifact_type_response.type_id();
 
   Artifact artifact = ParseTextProtoOrDie<Artifact>(R"(
     uri: 'testuri://testing/uri'
@@ -1921,8 +1921,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithListOptions) {
             metadata_store_->PutArtifacts(put_artifacts_request,
                                           &put_artifacts_response));
   ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(2));
-  const int64 first_artifact_id = put_artifacts_response.artifact_ids(0);
-  const int64 second_artifact_id = put_artifacts_response.artifact_ids(1);
+  const int64_t first_artifact_id = put_artifacts_response.artifact_ids(0);
+  const int64_t second_artifact_id = put_artifacts_response.artifact_ids(1);
 
   ListOperationOptions list_options =
       ParseTextProtoOrDie<ListOperationOptions>(R"(
@@ -1968,7 +1968,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsWhenLatestUpdatedTimeChanged) {
   PutArtifactTypeResponse put_type_response;
   ASSERT_EQ(absl::OkStatus(), metadata_store_->PutArtifactType(
                                   put_type_request, &put_type_response));
-  const int64 type_id = put_type_response.type_id();
+  const int64_t type_id = put_type_response.type_id();
   PutArtifactsRequest put_artifacts_request;
   put_artifacts_request.add_artifacts()->set_type_id(type_id);
   PutArtifactsResponse put_artifacts_response;
@@ -2021,7 +2021,7 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsUpdateGetExecutionsByID) {
                                               &put_execution_type_response));
   ASSERT_TRUE(put_execution_type_response.has_type_id());
 
-  const int64 type_id = put_execution_type_response.type_id();
+  const int64_t type_id = put_execution_type_response.type_id();
 
   PutExecutionsRequest put_executions_request =
       ParseTextProtoOrDie<PutExecutionsRequest>(R"(
@@ -2039,7 +2039,7 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsUpdateGetExecutionsByID) {
             metadata_store_->PutExecutions(put_executions_request,
                                            &put_executions_response));
   ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(1));
-  const int64 execution_id = put_executions_response.execution_ids(0);
+  const int64_t execution_id = put_executions_response.execution_ids(0);
 
   // Now we change 3 to 2, and drop the state.
   PutExecutionsRequest put_executions_request_2 =
@@ -2322,7 +2322,7 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionByID) {
                                               &put_execution_type_response));
   ASSERT_TRUE(put_execution_type_response.has_type_id());
 
-  const int64 type_id = put_execution_type_response.type_id();
+  const int64_t type_id = put_execution_type_response.type_id();
 
   // Setup: Insert two executions
   Execution execution1;
@@ -2375,7 +2375,7 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionByID) {
                                        "last_update_time_since_epoch"})));
   }
   // Test: Get by a single unknown id
-  const int64 unknown_id = execution1.id() + execution2.id() + 1;
+  const int64_t unknown_id = execution1.id() + execution2.id() + 1;
   {
     GetExecutionsByIDRequest get_executions_by_id_request;
     get_executions_by_id_request.add_execution_ids(unknown_id);
@@ -2408,7 +2408,7 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionByID) {
 }
 
 TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsByExternalIds) {
-  int64 type_id;
+  int64_t type_id;
   // Create the type
   {
     const PutExecutionTypeRequest put_execution_type_request =
@@ -2548,7 +2548,7 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithEmptyExecution) {
                                               &put_execution_type_response));
   ASSERT_TRUE(put_execution_type_response.has_type_id());
 
-  const int64 type_id = put_execution_type_response.type_id();
+  const int64_t type_id = put_execution_type_response.type_id();
 
   PutExecutionsRequest put_executions_request =
       ParseTextProtoOrDie<PutExecutionsRequest>(R"(
@@ -2561,7 +2561,7 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithEmptyExecution) {
             metadata_store_->PutExecutions(put_executions_request,
                                            &put_executions_response));
   ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(1));
-  const int64 execution_id = put_executions_response.execution_ids(0);
+  const int64_t execution_id = put_executions_response.execution_ids(0);
   const GetExecutionsRequest get_executions_request;
   GetExecutionsResponse get_executions_response;
   ASSERT_EQ(absl::OkStatus(),
@@ -2609,7 +2609,7 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithListOptions) {
                                               &put_execution_type_response));
   ASSERT_TRUE(put_execution_type_response.has_type_id());
 
-  const int64 type_id = put_execution_type_response.type_id();
+  const int64_t type_id = put_execution_type_response.type_id();
 
   Execution execution = ParseTextProtoOrDie<Execution>(R"(
     properties {
@@ -2631,8 +2631,8 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithListOptions) {
             metadata_store_->PutExecutions(put_executions_request,
                                            &put_executions_response));
   ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(2));
-  const int64 execution_id_0 = put_executions_response.execution_ids(0);
-  const int64 execution_id_1 = put_executions_response.execution_ids(1);
+  const int64_t execution_id_0 = put_executions_response.execution_ids(0);
+  const int64_t execution_id_1 = put_executions_response.execution_ids(1);
 
   ListOperationOptions list_options =
       ParseTextProtoOrDie<ListOperationOptions>(R"(
@@ -2739,7 +2739,7 @@ TEST_P(MetadataStoreTestSuite, GetArtifactByURI) {
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->PutArtifactType(put_artifact_type_request,
                                              &put_artifact_type_response));
-  const int64 type_id = put_artifact_type_response.type_id();
+  const int64_t type_id = put_artifact_type_response.type_id();
 
   const GetArtifactsByURIRequest get_artifacts_by_uri_empty_db_request;
   GetArtifactsByURIResponse get_artifacts_by_uri_empty_db_response;
@@ -2853,7 +2853,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithEmptyArtifact) {
                                              &put_artifact_type_response));
   ASSERT_TRUE(put_artifact_type_response.has_type_id());
 
-  const int64 type_id = put_artifact_type_response.type_id();
+  const int64_t type_id = put_artifact_type_response.type_id();
 
   PutArtifactsRequest put_artifacts_request =
       ParseTextProtoOrDie<PutArtifactsRequest>(R"(
@@ -2866,7 +2866,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithEmptyArtifact) {
             metadata_store_->PutArtifacts(put_artifacts_request,
                                           &put_artifacts_response));
   ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(1));
-  const int64 artifact_id = put_artifacts_response.artifact_ids(0);
+  const int64_t artifact_id = put_artifacts_response.artifact_ids(0);
   GetArtifactsRequest get_artifacts_request;
   GetArtifactsResponse get_artifacts_response;
   ASSERT_EQ(absl::OkStatus(),
@@ -3346,8 +3346,8 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecution) {
   PutTypesResponse put_types_response;
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->PutTypes(put_types_request, &put_types_response));
-  int64 artifact_type_id = put_types_response.artifact_type_ids(0);
-  int64 execution_type_id = put_types_response.execution_type_ids(0);
+  int64_t artifact_type_id = put_types_response.artifact_type_ids(0);
+  int64_t execution_type_id = put_types_response.execution_type_ids(0);
 
   // 1. Insert an execution first time without any artifact and event pair.
   Execution execution;
@@ -3512,7 +3512,7 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContext) {
                                          "last_update_time_since_epoch"})));
 
   // check attributions and associations of each context.
-  for (const int64 context_id : put_execution_response.context_ids()) {
+  for (const int64_t context_id : put_execution_response.context_ids()) {
     GetArtifactsByContextRequest get_artifacts_by_context_request;
     get_artifacts_by_context_request.set_context_id(context_id);
     GetArtifactsByContextResponse get_artifacts_by_context_response;
@@ -3557,7 +3557,7 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionsWithContextUsingListOptions) {
                                          &put_contexts_response));
 
   ASSERT_EQ(put_contexts_response.context_ids().size(), 1);
-  int64 context_id = put_contexts_response.context_ids(0);
+  int64_t context_id = put_contexts_response.context_ids(0);
 
   PutExecutionRequest put_execution_request;
   put_execution_request.mutable_execution()->set_type_id(
@@ -3569,14 +3569,14 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionsWithContextUsingListOptions) {
                                           &put_execution_response));
   // check the nodes of the end state graph
   ASSERT_GE(put_execution_response.execution_id(), 0);
-  int64 execution_id_1 = put_execution_response.execution_id();
+  int64_t execution_id_1 = put_execution_response.execution_id();
 
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->PutExecution(put_execution_request,
                                           &put_execution_response));
   // check the nodes of the end state graph
   ASSERT_GE(put_execution_response.execution_id(), 1);
-  int64 execution_id_2 = put_execution_response.execution_id();
+  int64_t execution_id_2 = put_execution_response.execution_id();
 
   Association association1;
   association1.set_context_id(context_id);
@@ -3649,7 +3649,7 @@ TEST_P(MetadataStoreTestSuite, PutAndGetArtifactsWithContextUsingListOptions) {
                                          &put_contexts_response));
 
   ASSERT_EQ(put_contexts_response.context_ids().size(), 1);
-  int64 context_id = put_contexts_response.context_ids(0);
+  int64_t context_id = put_contexts_response.context_ids(0);
 
   PutArtifactsRequest put_artifacts_request_1;
   Artifact artifact1;
@@ -3664,8 +3664,8 @@ TEST_P(MetadataStoreTestSuite, PutAndGetArtifactsWithContextUsingListOptions) {
             metadata_store_->PutArtifacts(put_artifacts_request_1,
                                           &put_artifacts_response));
   ASSERT_EQ(put_artifacts_response.artifact_ids().size(), 2);
-  int64 artifact_id_1 = put_artifacts_response.artifact_ids(0);
-  int64 artifact_id_2 = put_artifacts_response.artifact_ids(1);
+  int64_t artifact_id_1 = put_artifacts_response.artifact_ids(0);
+  int64_t artifact_id_2 = put_artifacts_response.artifact_ids(1);
 
   Attribution attribution1;
   attribution1.set_context_id(context_id);
@@ -3805,7 +3805,7 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithArtifactReuseOption) {
                                           &put_execution_response),
             absl::OkStatus());
   ASSERT_EQ(put_execution_response.artifact_ids_size(), 1);
-  const int64 artifact_id = put_execution_response.artifact_ids(0);
+  const int64_t artifact_id = put_execution_response.artifact_ids(0);
 
   // Test 1.2: Try to insert another artifact with the same external_id but a
   // new uri fails as the artifact with the same external_id already exists.
@@ -3895,7 +3895,7 @@ TEST_P(MetadataStoreTestSuite,
                                                 &put_subgraph_response),
             absl::OkStatus());
   ASSERT_EQ(put_subgraph_response.artifact_ids_size(), 1);
-  const int64 artifact_id = put_subgraph_response.artifact_ids(0);
+  const int64_t artifact_id = put_subgraph_response.artifact_ids(0);
 
   // Test 1.2: Try to insert another artifact with the same external_id but a
   // new uri fails as the artifact with the same external_id already exists.
@@ -4203,7 +4203,7 @@ TEST_P(MetadataStoreTestSuite, PutContextsGetContextsWithListOptions) {
                                             &put_context_type_response));
   ASSERT_TRUE(put_context_type_response.has_type_id());
 
-  const int64 type_id = put_context_type_response.type_id();
+  const int64_t type_id = put_context_type_response.type_id();
 
   Context context = ParseTextProtoOrDie<Context>(R"(
     name: 'test_type_1'
@@ -4226,8 +4226,8 @@ TEST_P(MetadataStoreTestSuite, PutContextsGetContextsWithListOptions) {
             metadata_store_->PutContexts(put_contexts_request,
                                          &put_contexts_response));
   ASSERT_THAT(put_contexts_response.context_ids(), SizeIs(2));
-  const int64 context_id_0 = put_contexts_response.context_ids(0);
-  const int64 context_id_1 = put_contexts_response.context_ids(1);
+  const int64_t context_id_0 = put_contexts_response.context_ids(0);
+  const int64_t context_id_1 = put_contexts_response.context_ids(1);
 
   ListOperationOptions list_options =
       ParseTextProtoOrDie<ListOperationOptions>(R"(
@@ -4374,7 +4374,7 @@ TEST_P(MetadataStoreTestSuite, PutContextTypeUpsert) {
 }
 
 TEST_P(MetadataStoreTestSuite, PutContextsGetContextsByExternalIds) {
-  int64 type_id;
+  int64_t type_id;
   // Create the type
   {
     const PutContextTypeRequest put_context_type_request =
@@ -4518,7 +4518,7 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
             metadata_store_->PutContextType(put_context_type_request,
                                             &put_context_type_response));
   ASSERT_TRUE(put_context_type_response.has_type_id());
-  const int64 type_id = put_context_type_response.type_id();
+  const int64_t type_id = put_context_type_response.type_id();
 
   ContextType type2;
   type2.set_name("type2_name");
@@ -4530,7 +4530,7 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
             metadata_store_->PutContextType(put_context_type_request2,
                                             &put_context_type_response2));
   ASSERT_TRUE(put_context_type_response2.has_type_id());
-  const int64 type2_id = put_context_type_response2.type_id();
+  const int64_t type2_id = put_context_type_response2.type_id();
 
   PutContextsRequest put_contexts_request =
       ParseTextProtoOrDie<PutContextsRequest>(R"(
@@ -4556,8 +4556,8 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
             metadata_store_->PutContexts(put_contexts_request,
                                          &put_contexts_response));
   ASSERT_THAT(put_contexts_response.context_ids(), SizeIs(2));
-  const int64 id1 = put_contexts_response.context_ids(0);
-  const int64 id2 = put_contexts_response.context_ids(1);
+  const int64_t id1 = put_contexts_response.context_ids(0);
+  const int64_t id2 = put_contexts_response.context_ids(1);
 
   // Now we update context1's string value from 1 to 2.
   // and context2's int value from 2 to 3, and add a new context with type2.
@@ -4600,7 +4600,7 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
                                        "last_update_time_since_epoch"})));
   }
   // Test: GetContextsByID: many ids + unknown id
-  const int64 unknown_id =
+  const int64_t unknown_id =
       want_context1.id() + want_context2.id() + want_context3.id() + 1;
   {
     GetContextsByIDRequest get_contexts_by_id_request;
@@ -4706,8 +4706,8 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   PutTypesResponse put_types_response;
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->PutTypes(put_types_request, &put_types_response));
-  int64 artifact_type_id = put_types_response.artifact_type_ids(0);
-  int64 execution_type_id = put_types_response.execution_type_ids(0);
+  int64_t artifact_type_id = put_types_response.artifact_type_ids(0);
+  int64_t execution_type_id = put_types_response.execution_type_ids(0);
 
   const PutContextTypeRequest put_context_type_request =
       ParseTextProtoOrDie<PutContextTypeRequest>(R"(
@@ -4718,7 +4718,7 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->PutContextType(put_context_type_request,
                                             &put_context_type_response));
-  int64 context_type_id = put_context_type_response.type_id();
+  int64_t context_type_id = put_context_type_response.type_id();
 
   Execution want_execution;
   want_execution.set_type_id(execution_type_id);
@@ -4926,14 +4926,14 @@ TEST_P(MetadataStoreTestSuite, PutParentContextsInvalidArgumentError) {
             metadata_store_->PutContexts(put_contexts_request,
                                          &put_contexts_response));
   int stored_context_id = put_contexts_response.context_ids(0);
-  int64 not_exist_context_id = stored_context_id + 1;
-  int64 not_exist_context_id_2 = stored_context_id + 2;
+  int64_t not_exist_context_id = stored_context_id + 1;
+  int64_t not_exist_context_id_2 = stored_context_id + 2;
 
   // Enumerates the case of creating parent context with invalid argument
   // (context id cannot be found in the database).
   auto verify_is_invalid_argument = [this](absl::string_view case_name,
-                                           absl::optional<int64> parent_id,
-                                           absl::optional<int64> child_id) {
+                                           absl::optional<int64_t> parent_id,
+                                           absl::optional<int64_t> child_id) {
     ParentContext parent_context;
     if (parent_id) {
       parent_context.set_parent_id(parent_id.value());
@@ -5006,8 +5006,8 @@ TEST_P(MetadataStoreTestSuite, PutParentContextsAndGetLinkedContextByContext) {
   PutParentContextsRequest put_parent_contexts_request;
 
   auto put_parent_context = [&contexts, &want_parents, &want_children,
-                             &put_parent_contexts_request](int64 parent_idx,
-                                                           int64 child_idx) {
+                             &put_parent_contexts_request](int64_t parent_idx,
+                                                           int64_t child_idx) {
     ParentContext parent_context;
     parent_context.set_parent_id(contexts[parent_idx].id());
     parent_context.set_child_id(contexts[child_idx].id());
@@ -5135,8 +5135,8 @@ TEST_P(MetadataStoreTestSuite, GetExecutionsByContextWithFilterStateQuery) {
   PutTypesResponse put_types_response;
   ASSERT_EQ(metadata_store_->PutTypes(put_types_request, &put_types_response),
             absl::OkStatus());
-  int64 context_type_id = put_types_response.context_type_ids(0);
-  int64 execution_type_id = put_types_response.execution_type_ids(0);
+  int64_t context_type_id = put_types_response.context_type_ids(0);
+  int64_t execution_type_id = put_types_response.execution_type_ids(0);
 
   // Insert two contexts.
   Context context1, context2;
@@ -5226,8 +5226,8 @@ TEST_P(MetadataStoreTestSuite, GetExecutionFilterWithSpecialChars) {
   PutTypesResponse put_types_response;
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->PutTypes(put_types_request, &put_types_response));
-  int64 context_type_id = put_types_response.context_type_ids(0);
-  int64 execution_type_id = put_types_response.execution_type_ids(0);
+  int64_t context_type_id = put_types_response.context_type_ids(0);
+  int64_t execution_type_id = put_types_response.execution_type_ids(0);
 
   // Setup: Insert an execution, a context and an association.
   Context context;

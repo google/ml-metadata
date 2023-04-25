@@ -73,7 +73,7 @@ absl::Status GetCountQueryResult(const std::string& query,
 
 // Get a migration scheme, or return NOT_FOUND.
 absl::Status QueryConfigMetadataAccessObjectContainer::GetMigrationScheme(
-    int64 version,
+    int64_t version,
     MetadataSourceQueryConfig::MigrationScheme* migration_scheme) {
   if (config_.migration_schemes().find(version) ==
       config_.migration_schemes().end()) {
@@ -86,7 +86,7 @@ absl::Status QueryConfigMetadataAccessObjectContainer::GetMigrationScheme(
 }
 
 bool QueryConfigMetadataAccessObjectContainer::HasUpgradeVerification(
-    int64 version) {
+    int64_t version) {
   MetadataSourceQueryConfig::MigrationScheme migration_scheme;
   if (!GetMigrationScheme(version, &migration_scheme).ok()) {
     return false;
@@ -95,7 +95,7 @@ bool QueryConfigMetadataAccessObjectContainer::HasUpgradeVerification(
 }
 
 absl::Status QueryConfigMetadataAccessObjectContainer::VerifyDbSchema(
-    const int64 version) {
+    const int64_t version) {
   MetadataSourceQueryConfig::MigrationScheme migration_scheme;
   if (!GetMigrationScheme(version, &migration_scheme).ok()) {
     return absl::InternalError(
@@ -133,7 +133,7 @@ absl::Status QueryConfigMetadataAccessObjectContainer::VerifyDbSchema(
 }
 
 bool QueryConfigMetadataAccessObjectContainer::HasDowngradeVerification(
-    int64 version) {
+    int64_t version) {
   MetadataSourceQueryConfig::MigrationScheme migration_scheme;
   if (!GetMigrationScheme(version, &migration_scheme).ok()) {
     return false;
@@ -143,7 +143,7 @@ bool QueryConfigMetadataAccessObjectContainer::HasDowngradeVerification(
 
 absl::Status
 QueryConfigMetadataAccessObjectContainer::SetupPreviousVersionForUpgrade(
-    int64 version) {
+    int64_t version) {
   MetadataSourceQueryConfig::MigrationScheme migration_scheme;
   MLMD_RETURN_WITH_CONTEXT_IF_ERROR(
       GetMigrationScheme(version, &migration_scheme),
@@ -161,7 +161,7 @@ QueryConfigMetadataAccessObjectContainer::SetupPreviousVersionForUpgrade(
 
 absl::Status
 QueryConfigMetadataAccessObjectContainer::SetupPreviousVersionForDowngrade(
-    int64 version) {
+    int64_t version) {
   MetadataSourceQueryConfig::MigrationScheme migration_scheme;
   MLMD_RETURN_WITH_CONTEXT_IF_ERROR(
       GetMigrationScheme(version, &migration_scheme),
@@ -177,7 +177,7 @@ QueryConfigMetadataAccessObjectContainer::SetupPreviousVersionForDowngrade(
 }
 
 absl::Status QueryConfigMetadataAccessObjectContainer::DowngradeVerification(
-    int64 version) {
+    int64_t version) {
   MetadataSourceQueryConfig::MigrationScheme migration_scheme;
   MLMD_RETURN_IF_ERROR(GetMigrationScheme(version, &migration_scheme));
   return Verification(migration_scheme.downgrade_verification()
@@ -185,7 +185,7 @@ absl::Status QueryConfigMetadataAccessObjectContainer::DowngradeVerification(
 }
 
 absl::Status QueryConfigMetadataAccessObjectContainer::UpgradeVerification(
-    int64 version) {
+    int64_t version) {
   MetadataSourceQueryConfig::MigrationScheme migration_scheme;
   MLMD_RETURN_IF_ERROR(GetMigrationScheme(version, &migration_scheme));
   return Verification(migration_scheme.upgrade_verification()
@@ -219,7 +219,7 @@ absl::Status QueryConfigMetadataAccessObjectContainer::Verification(
   return absl::OkStatus();
 }
 
-int64 QueryConfigMetadataAccessObjectContainer::MinimumVersion() { return 1; }
+int64_t QueryConfigMetadataAccessObjectContainer::MinimumVersion() { return 1; }
 
 absl::Status QueryConfigMetadataAccessObjectContainer::DropTypeTable() {
   RecordSet record_set;
@@ -252,7 +252,7 @@ absl::StatusOr<bool> QueryConfigMetadataAccessObjectContainer::CheckTableEmpty(
                      " is empty when running query ", query));
   }
 
-  int64 result;
+  int64_t result;
   if (!absl::SimpleAtoi(record_set.records(0).values(0), &result)) {
     return absl::InternalError(
         absl::StrCat("Value incorrect: ", record_set.records(0).DebugString(),
@@ -288,7 +288,7 @@ NodeType CreateTypeFromTextProto(
     MetadataAccessObject& metadata_access_object,
     MetadataAccessObjectContainer* metadata_access_object_container) {
   NodeType type = ParseTextProtoOrDie<NodeType>(type_text_proto);
-  int64 type_id;
+  int64_t type_id;
   CHECK_EQ(metadata_access_object.CreateType(type, &type_id), absl::OkStatus());
   CHECK_EQ(metadata_access_object_container->AddCommitPoint(),
            absl::OkStatus());
@@ -300,20 +300,20 @@ NodeType CreateTypeFromTextProto(
 // Returns stored node proto with id and timestamps.
 template <class Node>
 void CreateNodeFromTextProto(
-    const std::string& node_text_proto, int64 type_id,
+    const std::string& node_text_proto, int64_t type_id,
     MetadataAccessObject& metadata_access_object,
     MetadataAccessObjectContainer* metadata_access_object_container,
     Node& output);
 
 template <>
 void CreateNodeFromTextProto(
-    const std::string& node_text_proto, int64 type_id,
+    const std::string& node_text_proto, int64_t type_id,
     MetadataAccessObject& metadata_access_object,
     MetadataAccessObjectContainer* metadata_access_object_container,
     Artifact& output) {
   Artifact node = ParseTextProtoOrDie<Artifact>(node_text_proto);
   node.set_type_id(type_id);
-  int64 node_id;
+  int64_t node_id;
   ASSERT_EQ(metadata_access_object.CreateArtifact(node, &node_id),
             absl::OkStatus());
   ASSERT_EQ(metadata_access_object_container->AddCommitPoint(),
@@ -327,13 +327,13 @@ void CreateNodeFromTextProto(
 
 template <>
 void CreateNodeFromTextProto(
-    const std::string& node_text_proto, int64 type_id,
+    const std::string& node_text_proto, int64_t type_id,
     MetadataAccessObject& metadata_access_object,
     MetadataAccessObjectContainer* metadata_access_object_container,
     Execution& output) {
   Execution node = ParseTextProtoOrDie<Execution>(node_text_proto);
   node.set_type_id(type_id);
-  int64 node_id;
+  int64_t node_id;
   ASSERT_EQ(metadata_access_object.CreateExecution(node, &node_id),
             absl::OkStatus());
   ASSERT_EQ(metadata_access_object_container->AddCommitPoint(),
@@ -347,13 +347,13 @@ void CreateNodeFromTextProto(
 
 template <>
 void CreateNodeFromTextProto(
-    const std::string& node_text_proto, int64 type_id,
+    const std::string& node_text_proto, int64_t type_id,
     MetadataAccessObject& metadata_access_object,
     MetadataAccessObjectContainer* metadata_access_object_container,
     Context& output) {
   Context node = ParseTextProtoOrDie<Context>(node_text_proto);
   node.set_type_id(type_id);
-  int64 node_id;
+  int64_t node_id;
   ASSERT_EQ(metadata_access_object.CreateContext(node, &node_id),
             absl::OkStatus());
   ASSERT_EQ(metadata_access_object_container->AddCommitPoint(),
@@ -373,7 +373,7 @@ void CreateEventFromTextProto(
   output_event = ParseTextProtoOrDie<Event>(event_text_proto);
   output_event.set_artifact_id(artifact.id());
   output_event.set_execution_id(execution.id());
-  int64 dummy_id;
+  int64_t dummy_id;
   ASSERT_EQ(metadata_access_object.CreateEvent(output_event, &dummy_id),
             absl::OkStatus());
   ASSERT_EQ(metadata_access_object_container->AddCommitPoint(),
@@ -461,8 +461,8 @@ absl::Status FindTypesByIdsSetup(
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: DOUBLE }
   )pb");
-  int64 type_id_1;
-  int64 type_id_2;
+  int64_t type_id_1;
+  int64_t type_id_2;
   MLMD_RETURN_IF_ERROR(metadata_access_object.CreateType(type_1, &type_id_1));
   MLMD_RETURN_IF_ERROR(metadata_access_object.CreateType(type_2, &type_id_2));
   MLMD_RETURN_IF_ERROR(metadata_access_object_container->AddCommitPoint());
@@ -502,10 +502,10 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceCheckSchemaVersion) {
     return;
   }
   ASSERT_EQ(Init(), absl::OkStatus());
-  int64 schema_version;
+  int64_t schema_version;
   ASSERT_EQ(metadata_access_object_->GetSchemaVersion(&schema_version),
             absl::OkStatus());
-  int64 local_schema_version = metadata_access_object_->GetLibraryVersion();
+  int64_t local_schema_version = metadata_access_object_->GetLibraryVersion();
   EXPECT_EQ(schema_version, local_schema_version);
 }
 
@@ -521,7 +521,7 @@ TEST_P(MetadataAccessObjectTest, InitMetadataSourceIfNotExists) {
   ASSERT_EQ(metadata_source_->Begin(), absl::OkStatus());
   ArtifactType want_type =
       ParseTextProtoOrDie<ArtifactType>("name: 'test_type'");
-  int64 type_id = -1;
+  int64_t type_id = -1;
   EXPECT_EQ(metadata_access_object_->CreateType(want_type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -891,7 +891,7 @@ TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeId) {
 
   // verify artifact types
   {
-    absl::flat_hash_map<int64, ArtifactType> parent_types;
+    absl::flat_hash_map<int64_t, ArtifactType> parent_types;
     ASSERT_EQ(metadata_access_object_->FindParentTypesByTypeId(
                   {type1.id(), type3.id()}, parent_types),
               absl::OkStatus());
@@ -904,7 +904,7 @@ TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeId) {
   }
 
   {
-    absl::flat_hash_map<int64, ArtifactType> parent_types;
+    absl::flat_hash_map<int64_t, ArtifactType> parent_types;
     ASSERT_EQ(metadata_access_object_->FindParentTypesByTypeId({type2.id()},
                                                                parent_types),
               absl::OkStatus());
@@ -913,7 +913,7 @@ TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeId) {
 
   // verify execution types
   {
-    absl::flat_hash_map<int64, ExecutionType> parent_types;
+    absl::flat_hash_map<int64_t, ExecutionType> parent_types;
     ASSERT_EQ(metadata_access_object_->FindParentTypesByTypeId({type4.id()},
                                                                parent_types),
               absl::OkStatus());
@@ -921,7 +921,7 @@ TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeId) {
   }
 
   {
-    absl::flat_hash_map<int64, ExecutionType> parent_types;
+    absl::flat_hash_map<int64_t, ExecutionType> parent_types;
     ASSERT_EQ(metadata_access_object_->FindParentTypesByTypeId({type5.id()},
                                                                parent_types),
               absl::OkStatus());
@@ -930,7 +930,7 @@ TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeId) {
 
   // verify context types
   {
-    absl::flat_hash_map<int64, ContextType> parent_types;
+    absl::flat_hash_map<int64_t, ContextType> parent_types;
     ASSERT_EQ(metadata_access_object_->FindParentTypesByTypeId({type6.id()},
                                                                parent_types),
               absl::OkStatus());
@@ -938,7 +938,7 @@ TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeId) {
   }
 
   {
-    absl::flat_hash_map<int64, ContextType> parent_types;
+    absl::flat_hash_map<int64_t, ContextType> parent_types;
     ASSERT_EQ(metadata_access_object_->FindParentTypesByTypeId({type7.id()},
                                                                parent_types),
               absl::OkStatus());
@@ -946,7 +946,7 @@ TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeId) {
   }
 
   {
-    absl::flat_hash_map<int64, ContextType> parent_types;
+    absl::flat_hash_map<int64_t, ContextType> parent_types;
     ASSERT_EQ(metadata_access_object_->FindParentTypesByTypeId({type8.id()},
                                                                parent_types),
               absl::OkStatus());
@@ -955,7 +955,7 @@ TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeId) {
 
   // verify mixed type ids
   {
-    absl::flat_hash_map<int64, ArtifactType> parent_types;
+    absl::flat_hash_map<int64_t, ArtifactType> parent_types;
     // A mixture of context, exectuion and artifact type ids.
     const auto status = metadata_access_object_->FindParentTypesByTypeId(
         {type1.id(), type4.id(), type6.id()}, parent_types);
@@ -968,14 +968,14 @@ TEST_P(MetadataAccessObjectTest, FindParentTypesByTypeId) {
 TEST_P(MetadataAccessObjectTest, CreateType) {
   ASSERT_EQ(Init(), absl::OkStatus());
   ArtifactType type1 = ParseTextProtoOrDie<ArtifactType>("name: 'test_type'");
-  int64 type1_id = -1;
+  int64_t type1_id = -1;
   EXPECT_EQ(metadata_access_object_->CreateType(type1, &type1_id),
             absl::OkStatus());
 
   ArtifactType type2 = ParseTextProtoOrDie<ArtifactType>(R"pb(
     name: 'test_type2'
     properties { key: 'property_1' value: STRING })pb");
-  int64 type2_id = -1;
+  int64_t type2_id = -1;
   EXPECT_EQ(metadata_access_object_->CreateType(type2, &type2_id),
             absl::OkStatus());
   EXPECT_NE(type1_id, type2_id);
@@ -986,7 +986,7 @@ TEST_P(MetadataAccessObjectTest, CreateType) {
            input_type: { any: {} }
            output_type: { none: {} }
       )pb");
-  int64 type3_id = -1;
+  int64_t type3_id = -1;
   EXPECT_EQ(metadata_access_object_->CreateType(type3, &type3_id),
             absl::OkStatus());
   EXPECT_NE(type1_id, type3_id);
@@ -995,7 +995,7 @@ TEST_P(MetadataAccessObjectTest, CreateType) {
   ContextType type4 = ParseTextProtoOrDie<ContextType>(R"pb(
     name: 'test_type'
     properties { key: 'property_1' value: STRING })pb");
-  int64 type4_id = -1;
+  int64_t type4_id = -1;
   EXPECT_EQ(metadata_access_object_->CreateType(type4, &type4_id),
             absl::OkStatus());
   EXPECT_NE(type1_id, type4_id);
@@ -1101,7 +1101,7 @@ TEST_P(MetadataAccessObjectTest, CreateTypeError) {
   ASSERT_EQ(Init(), absl::OkStatus());
   {
     ArtifactType wrong_type;
-    int64 type_id;
+    int64_t type_id;
     // Types must at least have a name.
     EXPECT_TRUE(absl::IsInvalidArgument(
         metadata_access_object_->CreateType(wrong_type, &type_id)));
@@ -1110,7 +1110,7 @@ TEST_P(MetadataAccessObjectTest, CreateTypeError) {
     ArtifactType wrong_type = ParseTextProtoOrDie<ArtifactType>(R"pb(
       name: 'test_type2'
       properties { key: 'property_1' value: UNKNOWN })pb");
-    int64 type_id;
+    int64_t type_id;
     // Properties must have type either STRING, DOUBLE, or INT. UNKNOWN
     // is not allowed.
     EXPECT_TRUE(absl::IsInvalidArgument(
@@ -1129,7 +1129,7 @@ TEST_P(MetadataAccessObjectTest,
     name: 'test_type1'
     external_id: 'artifact_type1'
   )pb");
-  int64 type_id = -1;
+  int64_t type_id = -1;
   MLMD_EXPECT_OK(metadata_access_object_->CreateType(type, &type_id));
 
   MLMD_ASSERT_OK(AddCommitPointIfNeeded());
@@ -1153,7 +1153,7 @@ TEST_P(MetadataAccessObjectTest,
     name: 'test_type1'
     external_id: 'execution_type1'
   )pb");
-  int64 type_id = -1;
+  int64_t type_id = -1;
   MLMD_EXPECT_OK(metadata_access_object_->CreateType(type, &type_id));
 
   MLMD_ASSERT_OK(AddCommitPointIfNeeded());
@@ -1177,7 +1177,7 @@ TEST_P(MetadataAccessObjectTest,
     name: 'test_type1'
     external_id: 'context_type1'
   )pb");
-  int64 type_id = -1;
+  int64_t type_id = -1;
   MLMD_EXPECT_OK(metadata_access_object_->CreateType(type, &type_id));
 
   MLMD_ASSERT_OK(AddCommitPointIfNeeded());
@@ -1194,7 +1194,7 @@ TEST_P(MetadataAccessObjectTest, UpdateType) {
   ArtifactType type1 = ParseTextProtoOrDie<ArtifactType>(R"pb(
     name: 'type1'
     properties { key: 'stored_property' value: STRING })pb");
-  int64 type1_id = -1;
+  int64_t type1_id = -1;
   EXPECT_EQ(metadata_access_object_->CreateType(type1, &type1_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -1202,7 +1202,7 @@ TEST_P(MetadataAccessObjectTest, UpdateType) {
   ExecutionType type2 = ParseTextProtoOrDie<ExecutionType>(R"pb(
     name: 'type2'
     properties { key: 'stored_property' value: STRING })pb");
-  int64 type2_id = -1;
+  int64_t type2_id = -1;
   EXPECT_EQ(metadata_access_object_->CreateType(type2, &type2_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -1210,7 +1210,7 @@ TEST_P(MetadataAccessObjectTest, UpdateType) {
   ContextType type3 = ParseTextProtoOrDie<ContextType>(R"pb(
     name: 'type3'
     properties { key: 'stored_property' value: STRING })pb");
-  int64 type3_id = -1;
+  int64_t type3_id = -1;
   EXPECT_EQ(metadata_access_object_->CreateType(type3, &type3_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -1259,7 +1259,7 @@ TEST_P(MetadataAccessObjectTest, UpdateTypeError) {
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"pb(
     name: 'stored_type'
     properties { key: 'stored_property' value: STRING })pb");
-  int64 type_id;
+  int64_t type_id;
   EXPECT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -1307,7 +1307,7 @@ TEST_P(MetadataAccessObjectTest, FindTypeByIdArtifact) {
     properties { key: 'property_3' value: STRING }
     properties { key: 'property_4' value: STRUCT }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(want_type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -1334,7 +1334,7 @@ TEST_P(MetadataAccessObjectTest, FindTypeByIdContext) {
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(want_type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -1363,7 +1363,7 @@ TEST_P(MetadataAccessObjectTest, FindTypeByIdExecution) {
     input_type: { any: {} }
     output_type: { none: {} }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(want_type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -1391,7 +1391,7 @@ TEST_P(MetadataAccessObjectTest, FindTypeByIdExecutionUnicode) {
         ->mutable_dict()
         ->mutable_properties())["пример"]
       .mutable_any();
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(want_type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -1419,7 +1419,7 @@ TEST_P(MetadataAccessObjectTest, FindTypeByIdExecutionNoSignature) {
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(want_type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -1448,7 +1448,7 @@ TEST_P(MetadataAccessObjectTest, FindTypeByName) {
     input_type: { any: {} }
     output_type: { none: {} }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(want_type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -1657,12 +1657,12 @@ TEST_P(MetadataAccessObjectTest, FindTypeIdByNameAndVersion) {
     name: 'test_type'
     properties { key: 'property_1' value: INT }
   )pb");
-  int64 v0_type_id;
+  int64_t v0_type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(want_type, &v0_type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
 
-  int64 v0_got_type_id;
+  int64_t v0_got_type_id;
   EXPECT_EQ(metadata_access_object_->FindTypeIdByNameAndVersion(
                 "test_type", /*version=*/absl::nullopt,
                 TypeKind::EXECUTION_TYPE, &v0_got_type_id),
@@ -1670,18 +1670,18 @@ TEST_P(MetadataAccessObjectTest, FindTypeIdByNameAndVersion) {
   EXPECT_EQ(v0_got_type_id, v0_type_id);
 
   want_type.set_version("v1");
-  int64 v1_type_id;
+  int64_t v1_type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(want_type, &v1_type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
-  int64 v1_got_type_id;
+  int64_t v1_got_type_id;
   EXPECT_EQ(metadata_access_object_->FindTypeIdByNameAndVersion(
                 "test_type", "v1", TypeKind::EXECUTION_TYPE, &v1_got_type_id),
             absl::OkStatus());
   EXPECT_EQ(v1_got_type_id, v1_type_id);
 
   // The type with this name is an execution type, not an artifact/context type.
-  int64 got_type_id;
+  int64_t got_type_id;
   EXPECT_TRUE(
       absl::IsNotFound(metadata_access_object_->FindTypeIdByNameAndVersion(
           "test_type", /*version=*/absl::nullopt, TypeKind::ARTIFACT_TYPE,
@@ -1918,7 +1918,7 @@ TEST_P(MetadataAccessObjectTest, FindTypeByNameNoSignature) {
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(want_type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -2126,7 +2126,7 @@ TEST_P(MetadataAccessObjectTest, FindAllArtifactTypes) {
     properties { key: 'property_3' value: STRING }
     properties { key: 'property_4' value: STRING }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(want_type_1, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -2169,7 +2169,7 @@ TEST_P(MetadataAccessObjectTest, FindAllExecutionTypes) {
     properties { key: 'property_3' value: STRING }
     properties { key: 'property_4' value: STRING }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(want_type_1, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -2212,7 +2212,7 @@ TEST_P(MetadataAccessObjectTest, FindAllContextTypes) {
     properties { key: 'property_3' value: STRING }
     properties { key: 'property_4' value: STRING }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(want_type_1, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -2263,7 +2263,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifact) {
                      properties { key: 'property_6' value: BOOLEAN }
                                         )pb",
                    ""));
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -2326,10 +2326,10 @@ TEST_P(MetadataAccessObjectTest, CreateArtifact) {
                                         )pb",
                    ""));
   artifact.set_type_id(type_id);
-  int64 artifact1_id = -1;
+  int64_t artifact1_id = -1;
   EXPECT_EQ(metadata_access_object_->CreateArtifact(artifact, &artifact1_id),
             absl::OkStatus());
-  int64 artifact2_id = -1;
+  int64_t artifact2_id = -1;
   EXPECT_EQ(metadata_access_object_->CreateArtifact(artifact, &artifact2_id),
             absl::OkStatus());
   EXPECT_NE(artifact1_id, artifact2_id);
@@ -2337,7 +2337,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifact) {
 
 TEST_P(MetadataAccessObjectTest, CreateArtifactWithCustomProperty) {
   ASSERT_EQ(Init(), absl::OkStatus());
-  int64 type_id = InsertType<ArtifactType>("test_type_with_custom_property");
+  int64_t type_id = InsertType<ArtifactType>("test_type_with_custom_property");
   Artifact artifact = ParseTextProtoOrDie<Artifact>(
       absl::StrCat(R"(
     uri: 'testuri://testing/uri'
@@ -2398,7 +2398,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithCustomProperty) {
                    ""));
   artifact.set_type_id(type_id);
 
-  int64 artifact1_id, artifact2_id;
+  int64_t artifact1_id, artifact2_id;
   EXPECT_EQ(metadata_access_object_->CreateArtifact(artifact, &artifact1_id),
             absl::OkStatus());
   EXPECT_EQ(artifact1_id, 1);
@@ -2412,7 +2412,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactError) {
 
   // unknown type specified
   Artifact artifact;
-  int64 artifact_id;
+  int64_t artifact_id;
   absl::Status s =
       metadata_access_object_->CreateArtifact(artifact, &artifact_id);
   EXPECT_TRUE(absl::IsInvalidArgument(s));
@@ -2424,7 +2424,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactError) {
     name: 'test_type_disallow_custom_property'
     properties { key: 'property_1' value: INT }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -2433,7 +2433,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactError) {
   Artifact artifact3;
   artifact3.set_type_id(type_id);
   (*artifact3.mutable_properties())["property_1"].set_string_value("3");
-  int64 artifact3_id;
+  int64_t artifact3_id;
   EXPECT_TRUE(absl::IsInvalidArgument(
       metadata_access_object_->CreateArtifact(artifact3, &artifact3_id)));
 }
@@ -2442,7 +2442,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithDuplicatedNameError) {
   ASSERT_EQ(Init(), absl::OkStatus());
   ArtifactType type;
   type.set_name("test_type");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -2450,7 +2450,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithDuplicatedNameError) {
   Artifact artifact;
   artifact.set_type_id(type_id);
   artifact.set_name("test artifact name");
-  int64 artifact_id;
+  int64_t artifact_id;
   EXPECT_EQ(metadata_access_object_->CreateArtifact(artifact, &artifact_id),
             absl::OkStatus());
   // insert the same artifact again to check the unique constraint
@@ -2468,7 +2468,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithDuplicatedExternalIdError) {
   ASSERT_EQ(Init(), absl::OkStatus());
   ArtifactType type;
   type.set_name("test_type");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -2476,7 +2476,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithDuplicatedExternalIdError) {
   Artifact artifact;
   artifact.set_type_id(type_id);
   artifact.set_external_id("artifact_1");
-  int64 artifact_id;
+  int64_t artifact_id;
   EXPECT_EQ(metadata_access_object_->CreateArtifact(artifact, &artifact_id),
             absl::OkStatus());
 
@@ -2498,7 +2498,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithoutValidation) {
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: STRING }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   MLMD_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
 
   // Inserts artifact without validation since the type are known to exist and
@@ -2514,7 +2514,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithoutValidation) {
     }
   )pb");
   artifact.set_type_id(type_id);
-  int64 artifact_id;
+  int64_t artifact_id;
   EXPECT_EQ(
       metadata_access_object_->CreateArtifact(
           artifact, /*skip_type_and_property_validation=*/true, &artifact_id),
@@ -2534,7 +2534,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithoutValidation) {
     }
   )pb");
   artifact_with_invalid_type.set_type_id(type_id + 123);
-  int64 artifact_id_with_invalid_type;
+  int64_t artifact_id_with_invalid_type;
   EXPECT_EQ(metadata_access_object_->CreateArtifact(
                 artifact_with_invalid_type,
                 /*skip_type_and_property_validation=*/true,
@@ -2555,7 +2555,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithoutValidation) {
         }
       )pb");
   artifact_with_unmatched_property.set_type_id(type_id);
-  int64 artifact_id_with_unmatched_property;
+  int64_t artifact_id_with_unmatched_property;
   EXPECT_EQ(metadata_access_object_->CreateArtifact(
                 artifact_with_unmatched_property,
                 /*skip_type_and_property_validation=*/true,
@@ -2572,7 +2572,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithCustomTimestamp) {
     properties { key: 'property_3' value: STRING }
     properties { key: 'property_4' value: STRUCT }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -2616,7 +2616,7 @@ TEST_P(MetadataAccessObjectTest, CreateArtifactWithCustomTimestamp) {
   )pb");
   artifact.set_type_id(type_id);
 
-  int64 artifact_id = -1;
+  int64_t artifact_id = -1;
   absl::Time create_time = absl::InfinitePast();
 
   ASSERT_EQ(metadata_access_object_->CreateArtifact(
@@ -2654,7 +2654,7 @@ TEST_P(MetadataAccessObjectTest, CreateExecutionWithoutValidation) {
                      properties { key: 'property_4' value: BOOLEAN }
                                         )pb",
                    ""));
-  int64 type_id;
+  int64_t type_id;
   MLMD_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
 
   // Inserts execution without validation since the type are known to exist and
@@ -2691,7 +2691,7 @@ TEST_P(MetadataAccessObjectTest, CreateExecutionWithoutValidation) {
                                         )pb",
                    ""));
   execution.set_type_id(type_id);
-  int64 execution_id;
+  int64_t execution_id;
   EXPECT_EQ(
       metadata_access_object_->CreateExecution(
           execution, /*skip_type_and_property_validation=*/true, &execution_id),
@@ -2711,7 +2711,7 @@ TEST_P(MetadataAccessObjectTest, CreateExecutionWithoutValidation) {
     }
   )pb");
   execution_with_invalid_type.set_type_id(type_id + 123);
-  int64 execution_id_with_invalid_type;
+  int64_t execution_id_with_invalid_type;
   EXPECT_EQ(metadata_access_object_->CreateExecution(
                 execution_with_invalid_type,
                 /*skip_type_and_property_validation=*/true,
@@ -2732,7 +2732,7 @@ TEST_P(MetadataAccessObjectTest, CreateExecutionWithoutValidation) {
         }
       )pb");
   execution_with_unmatched_property.set_type_id(type_id);
-  int64 execution_id_with_unmatched_property;
+  int64_t execution_id_with_unmatched_property;
   EXPECT_EQ(metadata_access_object_->CreateExecution(
                 execution_with_unmatched_property,
                 /*skip_type_and_property_validation=*/true,
@@ -2747,7 +2747,7 @@ TEST_P(MetadataAccessObjectTest, CreateExecutionWithCustomTimestamp) {
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: STRING }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   MLMD_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
 
@@ -2763,7 +2763,7 @@ TEST_P(MetadataAccessObjectTest, CreateExecutionWithCustomTimestamp) {
   )pb");
   execution.set_type_id(type_id);
 
-  int64 execution_id = -1;
+  int64_t execution_id = -1;
   absl::Time create_time = absl::InfinitePast();
 
   ASSERT_EQ(metadata_access_object_->CreateExecution(
@@ -2793,7 +2793,7 @@ TEST_P(MetadataAccessObjectTest, CreateContextWithoutValidation) {
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: STRING }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   MLMD_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
 
   // Inserts context without validation since the type are known to exist and
@@ -2810,7 +2810,7 @@ TEST_P(MetadataAccessObjectTest, CreateContextWithoutValidation) {
     }
   )pb");
   context.set_type_id(type_id);
-  int64 context_id;
+  int64_t context_id;
   EXPECT_EQ(
       metadata_access_object_->CreateContext(
           context, /*skip_type_and_property_validation=*/true, &context_id),
@@ -2831,7 +2831,7 @@ TEST_P(MetadataAccessObjectTest, CreateContextWithoutValidation) {
     }
   )pb");
   context_with_invalid_type.set_type_id(type_id + 123);
-  int64 context_id_with_invalid_type;
+  int64_t context_id_with_invalid_type;
   EXPECT_EQ(metadata_access_object_->CreateContext(
                 context_with_invalid_type,
                 /*skip_type_and_property_validation=*/true,
@@ -2852,7 +2852,7 @@ TEST_P(MetadataAccessObjectTest, CreateContextWithoutValidation) {
     }
   )pb");
   context_with_unmatched_property.set_type_id(type_id);
-  int64 context_id_with_unmatched_property;
+  int64_t context_id_with_unmatched_property;
   EXPECT_EQ(metadata_access_object_->CreateContext(
                 context_with_unmatched_property,
                 /*skip_type_and_property_validation=*/true,
@@ -2867,7 +2867,7 @@ TEST_P(MetadataAccessObjectTest, CreateContextWithCustomTimestamp) {
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: STRING }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   MLMD_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
   Context context = ParseTextProtoOrDie<Context>(R"pb(
@@ -2883,7 +2883,7 @@ TEST_P(MetadataAccessObjectTest, CreateContextWithCustomTimestamp) {
   )pb");
   context.set_type_id(type_id);
 
-  int64 context_id = -1;
+  int64_t context_id = -1;
   absl::Time create_time = absl::InfinitePast();
 
   ASSERT_EQ(metadata_access_object_->CreateContext(
@@ -2914,7 +2914,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactById) {
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -2941,7 +2941,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactById) {
   want_artifact.set_type_id(type_id);
   want_artifact.set_type("test_type");
 
-  int64 artifact_id;
+  int64_t artifact_id;
   ASSERT_EQ(
       metadata_access_object_->CreateArtifact(want_artifact, &artifact_id),
       absl::OkStatus());
@@ -2974,7 +2974,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifacts) {
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -3003,7 +3003,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifacts) {
   Artifact want_artifact1 = ParseTextProtoOrDie<Artifact>(
       absl::StrFormat(kArtifactTemplate, type_id, 1, 2.0, "3", "4"));
   {
-    int64 artifact1_id;
+    int64_t artifact1_id;
     ASSERT_EQ(
         metadata_access_object_->CreateArtifact(want_artifact1, &artifact1_id),
         absl::OkStatus());
@@ -3013,7 +3013,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifacts) {
   Artifact want_artifact2 = ParseTextProtoOrDie<Artifact>(
       absl::StrFormat(kArtifactTemplate, type_id, 11, 12.0, "13", "14"));
   {
-    int64 artifact2_id;
+    int64_t artifact2_id;
     ASSERT_EQ(
         metadata_access_object_->CreateArtifact(want_artifact2, &artifact2_id),
         absl::OkStatus());
@@ -3035,7 +3035,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifacts) {
     EXPECT_THAT(got_artifacts, IsEmpty());
   }
   // Test: retrieve by unknown id
-  const int64 unknown_id = want_artifact1.id() + want_artifact2.id() + 1;
+  const int64_t unknown_id = want_artifact1.id() + want_artifact2.id() + 1;
   {
     std::vector<Artifact> got_artifacts;
     EXPECT_TRUE(absl::IsNotFound(metadata_access_object_->FindArtifactsById(
@@ -3236,7 +3236,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsFilterAttributeQuery) {
       *metadata_access_object_,
       /*want_nodes=*/{want_artifacts[2], want_artifacts[1], want_artifacts[0]});
 
-  const int64 old_update_time =
+  const int64_t old_update_time =
       want_artifacts[2].last_update_time_since_epoch();
   Artifact old_artifact = want_artifacts[2];
 
@@ -3492,7 +3492,7 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsFilterAttributeQuery) {
       /*want_nodes=*/
       {want_executions[2], want_executions[1], want_executions[0]});
 
-  const int64 old_update_time =
+  const int64_t old_update_time =
       want_executions[2].last_update_time_since_epoch();
   Execution old_execution = want_executions[2];
 
@@ -3653,7 +3653,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsFilterAttributeQuery) {
       /*want_nodes=*/{want_contexts[2], want_contexts[1]});
 
   Context old_context = want_contexts[2];
-  const int64 old_update_time =
+  const int64_t old_update_time =
       want_contexts[2].last_update_time_since_epoch();
   (*old_context.mutable_properties())["p1"].set_int_value(1);
   Context updated_context;
@@ -3727,26 +3727,26 @@ TEST_P(MetadataAccessObjectTest, ListNodesFilterContextNeighborQuery) {
   Attribution attribution;
   attribution.set_artifact_id(want_artifacts[1].id());
   attribution.set_context_id(contexts[0].id());
-  int64 attid;
+  int64_t attid;
   ASSERT_EQ(metadata_access_object_->CreateAttribution(attribution, &attid),
             absl::OkStatus());
   Association association;
   association.set_execution_id(want_executions[2].id());
   association.set_context_id(contexts[0].id());
-  int64 assid;
+  int64_t assid;
   ASSERT_EQ(metadata_access_object_->CreateAssociation(association, &assid),
             absl::OkStatus());
   for (int i = 0; i < 3; i++) {
     Attribution attribution;
     attribution.set_artifact_id(want_artifacts[0].id());
     attribution.set_context_id(contexts[i].id());
-    int64 attid;
+    int64_t attid;
     ASSERT_EQ(metadata_access_object_->CreateAttribution(attribution, &attid),
               absl::OkStatus());
     Association association;
     association.set_execution_id(want_executions[0].id());
     association.set_context_id(contexts[i].id());
-    int64 assid;
+    int64_t assid;
     ASSERT_EQ(metadata_access_object_->CreateAssociation(association, &assid),
               absl::OkStatus());
   }
@@ -3882,7 +3882,7 @@ TEST_P(MetadataAccessObjectTest, ListNodesFilterContextNeighborQuery) {
   Association additional_association;
   additional_association.set_execution_id(want_executions[1].id());
   additional_association.set_context_id(contexts[1].id());
-  int64 dummy_assid;
+  int64_t dummy_assid;
   ASSERT_EQ(metadata_access_object_->CreateAssociation(additional_association,
                                                        &dummy_assid),
             absl::OkStatus());
@@ -4570,7 +4570,7 @@ TEST_P(MetadataAccessObjectTest,
   Attribution attribution;
   attribution.set_artifact_id(want_artifacts[0].id());
   attribution.set_context_id(want_contexts[0].id());
-  int64 attribution_id;
+  int64_t attribution_id;
   // Note using ASSERT_EQ as *_OK is not well supported in OSS
   ASSERT_EQ(
       metadata_access_object_->CreateAttribution(attribution, &attribution_id),
@@ -4659,7 +4659,7 @@ TEST_P(MetadataAccessObjectTest,
   Attribution attribution;
   attribution.set_artifact_id(want_artifacts[0].id());
   attribution.set_context_id(want_contexts[0].id());
-  int64 attribution_id;
+  int64_t attribution_id;
   // Note using ASSERT_EQ as *_OK is not well supported in OSS
   ASSERT_EQ(
       metadata_access_object_->CreateAttribution(attribution, &attribution_id),
@@ -5155,8 +5155,8 @@ TEST_P(MetadataAccessObjectTest, DeleteContextsById) {
 TEST_P(MetadataAccessObjectTest, DeleteEventsByArtifactsId) {
   ASSERT_EQ(Init(), absl::OkStatus());
 
-  int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
-  int64 execution_type_id = InsertType<ExecutionType>("test_execution_type");
+  int64_t artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
+  int64_t execution_type_id = InsertType<ExecutionType>("test_execution_type");
   Artifact input_artifact;
   CreateNodeFromTextProto(
       "name: 'input_artifact'", artifact_type_id, *metadata_access_object_,
@@ -5207,8 +5207,8 @@ TEST_P(MetadataAccessObjectTest, DeleteEventsByArtifactsId) {
 TEST_P(MetadataAccessObjectTest, DeleteEventsByExecutionsId) {
   ASSERT_EQ(Init(), absl::OkStatus());
 
-  int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
-  int64 execution_type_id = InsertType<ExecutionType>("test_execution_type");
+  int64_t artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
+  int64_t execution_type_id = InsertType<ExecutionType>("test_execution_type");
   Artifact input_artifact;
   CreateNodeFromTextProto(
       "name: 'input_artifact'", artifact_type_id, *metadata_access_object_,
@@ -5260,8 +5260,8 @@ TEST_P(MetadataAccessObjectTest, DeleteEventsByExecutionsId) {
 TEST_P(MetadataAccessObjectTest, DeleteAssociationsByContextsId) {
   ASSERT_EQ(Init(), absl::OkStatus());
 
-  int64 execution_type_id = InsertType<ExecutionType>("execution_type");
-  int64 context_type_id = InsertType<ContextType>("context_type");
+  int64_t execution_type_id = InsertType<ExecutionType>("execution_type");
+  int64_t context_type_id = InsertType<ContextType>("context_type");
   Execution execution;
   CreateNodeFromTextProto("name: 'execution'", execution_type_id,
                           *metadata_access_object_,
@@ -5275,7 +5275,7 @@ TEST_P(MetadataAccessObjectTest, DeleteAssociationsByContextsId) {
   association.set_execution_id(execution.id());
   association.set_context_id(context.id());
 
-  int64 association_id;
+  int64_t association_id;
   EXPECT_EQ(
       metadata_access_object_->CreateAssociation(association, &association_id),
       absl::OkStatus());
@@ -5307,8 +5307,8 @@ TEST_P(MetadataAccessObjectTest, DeleteAssociationsByContextsId) {
 TEST_P(MetadataAccessObjectTest, DeleteAssociationsByExecutionsId) {
   ASSERT_EQ(Init(), absl::OkStatus());
 
-  int64 execution_type_id = InsertType<ExecutionType>("execution_type");
-  int64 context_type_id = InsertType<ContextType>("context_type");
+  int64_t execution_type_id = InsertType<ExecutionType>("execution_type");
+  int64_t context_type_id = InsertType<ContextType>("context_type");
 
   Execution execution;
   CreateNodeFromTextProto("name: 'execution'", execution_type_id,
@@ -5323,7 +5323,7 @@ TEST_P(MetadataAccessObjectTest, DeleteAssociationsByExecutionsId) {
   association.set_execution_id(execution.id());
   association.set_context_id(context.id());
 
-  int64 association_id;
+  int64_t association_id;
   EXPECT_EQ(
       metadata_access_object_->CreateAssociation(association, &association_id),
       absl::OkStatus());
@@ -5357,8 +5357,8 @@ TEST_P(MetadataAccessObjectTest, DeleteAssociationsByExecutionsId) {
 TEST_P(MetadataAccessObjectTest, DeleteAttributionsByContextsId) {
   ASSERT_EQ(Init(), absl::OkStatus());
 
-  int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
-  int64 context_type_id = InsertType<ContextType>("test_context_type");
+  int64_t artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
+  int64_t context_type_id = InsertType<ContextType>("test_context_type");
   Artifact artifact;
   CreateNodeFromTextProto("name: 'artifact'", artifact_type_id,
                           *metadata_access_object_,
@@ -5372,7 +5372,7 @@ TEST_P(MetadataAccessObjectTest, DeleteAttributionsByContextsId) {
   attribution.set_artifact_id(artifact.id());
   attribution.set_context_id(context.id());
 
-  int64 attribution_id;
+  int64_t attribution_id;
   EXPECT_EQ(
       metadata_access_object_->CreateAttribution(attribution, &attribution_id),
       absl::OkStatus());
@@ -5404,8 +5404,8 @@ TEST_P(MetadataAccessObjectTest, DeleteAttributionsByContextsId) {
 TEST_P(MetadataAccessObjectTest, DeleteAttributionsByArtifactsId) {
   ASSERT_EQ(Init(), absl::OkStatus());
 
-  int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
-  int64 context_type_id = InsertType<ContextType>("test_context_type");
+  int64_t artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
+  int64_t context_type_id = InsertType<ContextType>("test_context_type");
   Artifact artifact;
   CreateNodeFromTextProto("name: 'artifact'", artifact_type_id,
                           *metadata_access_object_,
@@ -5419,7 +5419,7 @@ TEST_P(MetadataAccessObjectTest, DeleteAttributionsByArtifactsId) {
   attribution.set_artifact_id(artifact.id());
   attribution.set_context_id(context.id());
 
-  int64 attribution_id;
+  int64_t attribution_id;
   EXPECT_EQ(
       metadata_access_object_->CreateAttribution(attribution, &attribution_id),
       absl::OkStatus());
@@ -5475,7 +5475,7 @@ TEST_P(MetadataAccessObjectTest, DeleteParentType) {
         metadata_access_object_->CreateParentTypeInheritanceLink(type2, type3));
     ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
 
-    absl::flat_hash_map<int64, ArtifactType> output_artifact_types;
+    absl::flat_hash_map<int64_t, ArtifactType> output_artifact_types;
     ASSERT_EQ(metadata_access_object_->FindParentTypesByTypeId(
                   {type1.id(), type2.id()}, output_artifact_types),
               absl::OkStatus());
@@ -5527,7 +5527,7 @@ TEST_P(MetadataAccessObjectTest, DeleteParentType) {
               absl::OkStatus());
     ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
 
-    absl::flat_hash_map<int64, ExecutionType> output_execution_types;
+    absl::flat_hash_map<int64_t, ExecutionType> output_execution_types;
     ASSERT_EQ(metadata_access_object_->FindParentTypesByTypeId(
                   {type1.id()}, output_execution_types),
               absl::OkStatus());
@@ -5554,7 +5554,7 @@ TEST_P(MetadataAccessObjectTest, DeleteParentType) {
               absl::OkStatus());
     ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
 
-    absl::flat_hash_map<int64, ContextType> output_context_types;
+    absl::flat_hash_map<int64_t, ContextType> output_context_types;
     ASSERT_EQ(metadata_access_object_->FindParentTypesByTypeId(
                   {type1.id()}, output_context_types),
               absl::OkStatus());
@@ -5581,7 +5581,7 @@ TEST_P(MetadataAccessObjectTest, DeleteParentType) {
 TEST_P(MetadataAccessObjectTest, DeleteParentContextsByParentIds) {
   ASSERT_EQ(Init(), absl::OkStatus());
 
-  int64 context_type_id = InsertType<ContextType>("test_context_type");
+  int64_t context_type_id = InsertType<ContextType>("test_context_type");
 
   Context context1;
   CreateNodeFromTextProto("name: 'parent_context'", context_type_id,
@@ -5624,7 +5624,7 @@ TEST_P(MetadataAccessObjectTest, DeleteParentContextsByParentIds) {
 TEST_P(MetadataAccessObjectTest, DeleteParentContextsByChildIds) {
   ASSERT_EQ(Init(), absl::OkStatus());
 
-  int64 context_type_id = InsertType<ContextType>("test_context_type");
+  int64_t context_type_id = InsertType<ContextType>("test_context_type");
 
   Context context1;
   CreateNodeFromTextProto("name: 'parent_context'", context_type_id,
@@ -5667,7 +5667,7 @@ TEST_P(MetadataAccessObjectTest, DeleteParentContextsByChildIds) {
 TEST_P(MetadataAccessObjectTest, DeleteParentContextsByParentIdAndChildIds) {
   MLMD_ASSERT_OK(Init());
 
-  int64 context_type_id = InsertType<ContextType>("test_context_type");
+  int64_t context_type_id = InsertType<ContextType>("test_context_type");
 
   Context context1;
   CreateNodeFromTextProto("name: 'parent_context'", context_type_id,
@@ -5728,7 +5728,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithNonIdFieldOptions) {
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -5754,7 +5754,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithNonIdFieldOptions) {
   )pb");
   sample_artifact.set_type_id(type_id);
   const int total_stored_artifacts = 6;
-  int64 last_stored_artifact_id;
+  int64_t last_stored_artifact_id;
 
   for (int i = 0; i < total_stored_artifacts; i++) {
     ASSERT_EQ(metadata_access_object_->CreateArtifact(sample_artifact,
@@ -5770,7 +5770,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithNonIdFieldOptions) {
         order_by_field: { field: CREATE_TIME is_asc: false }
       )pb");
 
-  int64 expected_artifact_id = last_stored_artifact_id;
+  int64_t expected_artifact_id = last_stored_artifact_id;
   std::string next_page_token;
 
   do {
@@ -5797,7 +5797,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithIdFieldOptions) {
     name: 'test_type'
     properties { key: 'property_1' value: INT }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -5816,14 +5816,14 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithIdFieldOptions) {
 
   sample_artifact.set_type_id(type_id);
   int stored_artifacts_count = 0;
-  int64 first_artifact_id;
+  int64_t first_artifact_id;
   ASSERT_EQ(metadata_access_object_->CreateArtifact(sample_artifact,
                                                     &first_artifact_id),
             absl::OkStatus());
   stored_artifacts_count++;
 
   for (int i = 0; i < 6; i++) {
-    int64 unused_artifact_id;
+    int64_t unused_artifact_id;
     ASSERT_EQ(metadata_access_object_->CreateArtifact(sample_artifact,
                                                       &unused_artifact_id),
               absl::OkStatus());
@@ -5839,7 +5839,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithIdFieldOptions) {
       )pb");
 
   std::string next_page_token;
-  int64 expected_artifact_id = first_artifact_id;
+  int64_t expected_artifact_id = first_artifact_id;
   int seen_artifacts_count = 0;
   do {
     std::vector<Artifact> got_artifacts;
@@ -5872,7 +5872,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsOnLastUpdateTime) {
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -5898,9 +5898,9 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsOnLastUpdateTime) {
   )pb");
   sample_artifact.set_type_id(type_id);
   const int total_stored_artifacts = 6;
-  std::vector<int64> stored_artifact_ids;
+  std::vector<int64_t> stored_artifact_ids;
   for (int i = 0; i < total_stored_artifacts; i++) {
-    int64 created_artifact_id;
+    int64_t created_artifact_id;
     absl::SleepFor(absl::Milliseconds(1));
     ASSERT_EQ(metadata_access_object_->CreateArtifact(sample_artifact,
                                                       &created_artifact_id),
@@ -5909,7 +5909,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsOnLastUpdateTime) {
   }
 
   // Setting the expected list in the order [3, 2, 1, 6, 5, 4]
-  std::list<int64> expected_artifact_ids;
+  std::list<int64_t> expected_artifact_ids;
   for (int i = 3; i < total_stored_artifacts; i++) {
     expected_artifact_ids.push_front(stored_artifact_ids[i]);
   }
@@ -5958,7 +5958,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithChangedOptions) {
     name: 'test_type'
     properties { key: 'property_1' value: INT }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -5972,7 +5972,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithChangedOptions) {
   )pb");
 
   sample_artifact.set_type_id(type_id);
-  int64 last_stored_artifact_id;
+  int64_t last_stored_artifact_id;
 
   ASSERT_EQ(metadata_access_object_->CreateArtifact(sample_artifact,
                                                     &last_stored_artifact_id),
@@ -6015,7 +6015,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithInvalidNextPageToken) {
     name: 'test_type'
     properties { key: 'property_1' value: INT }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -6028,7 +6028,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsWithInvalidNextPageToken) {
   )pb");
 
   sample_artifact.set_type_id(type_id);
-  int64 last_stored_artifact_id;
+  int64_t last_stored_artifact_id;
 
   ASSERT_EQ(metadata_access_object_->CreateArtifact(sample_artifact,
                                                     &last_stored_artifact_id),
@@ -6067,7 +6067,7 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsWithNonIdFieldOptions) {
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -6092,7 +6092,7 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsWithNonIdFieldOptions) {
   )pb");
   sample_execution.set_type_id(type_id);
   const int total_stored_executions = 6;
-  int64 last_stored_execution_id;
+  int64_t last_stored_execution_id;
 
   for (int i = 0; i < total_stored_executions; i++) {
     ASSERT_EQ(metadata_access_object_->CreateExecution(
@@ -6108,7 +6108,7 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsWithNonIdFieldOptions) {
         order_by_field: { field: CREATE_TIME is_asc: false }
       )pb");
 
-  int64 expected_execution_id = last_stored_execution_id;
+  int64_t expected_execution_id = last_stored_execution_id;
   std::string next_page_token;
 
   do {
@@ -6136,7 +6136,7 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsWithIdFieldOptions) {
     name: 'test_type'
     properties { key: 'property_1' value: INT }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -6154,14 +6154,14 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsWithIdFieldOptions) {
 
   sample_execution.set_type_id(type_id);
   int stored_executions_count = 0;
-  int64 first_execution_id;
+  int64_t first_execution_id;
   ASSERT_EQ(metadata_access_object_->CreateExecution(sample_execution,
                                                      &first_execution_id),
             absl::OkStatus());
   stored_executions_count++;
 
   for (int i = 0; i < 6; i++) {
-    int64 unused_execution_id;
+    int64_t unused_execution_id;
     ASSERT_EQ(metadata_access_object_->CreateExecution(sample_execution,
                                                        &unused_execution_id),
               absl::OkStatus());
@@ -6177,7 +6177,7 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsWithIdFieldOptions) {
       )pb");
 
   std::string next_page_token;
-  int64 expected_execution_id = first_execution_id;
+  int64_t expected_execution_id = first_execution_id;
   int seen_executions_count = 0;
   do {
     std::vector<Execution> got_executions;
@@ -6207,7 +6207,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsWithNonIdFieldOptions) {
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -6231,7 +6231,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsWithNonIdFieldOptions) {
     }
   )pb");
   sample_context.set_type_id(type_id);
-  int64 last_stored_context_id;
+  int64_t last_stored_context_id;
   int context_name_suffix = 0;
   sample_context.set_name("list_contexts_test-1");
   ASSERT_EQ(metadata_access_object_->CreateContext(sample_context,
@@ -6258,7 +6258,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsWithNonIdFieldOptions) {
         order_by_field: { field: CREATE_TIME is_asc: false }
       )pb");
 
-  int64 expected_context_id = last_stored_context_id;
+  int64_t expected_context_id = last_stored_context_id;
   std::string next_page_token;
 
   do {
@@ -6287,7 +6287,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsWithIdFieldOptions) {
     name: 'test_type'
     properties { key: 'property_1' value: INT }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -6305,13 +6305,13 @@ TEST_P(MetadataAccessObjectTest, ListContextsWithIdFieldOptions) {
 
   sample_context.set_type_id(type_id);
   int stored_contexts_count = 0;
-  int64 first_context_id;
+  int64_t first_context_id;
   sample_context.set_name("list_contexts_test-1");
   ASSERT_EQ(
       metadata_access_object_->CreateContext(sample_context, &first_context_id),
       absl::OkStatus());
 
-  int64 unused_context_id;
+  int64_t unused_context_id;
   stored_contexts_count++;
   sample_context.set_name("list_contexts_test-2");
   ASSERT_EQ(metadata_access_object_->CreateContext(sample_context,
@@ -6333,7 +6333,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsWithIdFieldOptions) {
       )pb");
 
   std::string next_page_token;
-  int64 expected_context_id = first_context_id;
+  int64_t expected_context_id = first_context_id;
   int expected_context_name_suffix = 1;
   int seen_contexts_count = 0;
   do {
@@ -6362,7 +6362,7 @@ TEST_P(MetadataAccessObjectTest, GetContextsById) {
   ASSERT_EQ(Init(), absl::OkStatus());
 
   // Setup: create the type for the context
-  int64 type_id;
+  int64_t type_id;
   std::string test_type_name = "test_type";
   {
     ContextType type = ParseTextProtoOrDie<ContextType>(
@@ -6389,7 +6389,7 @@ TEST_P(MetadataAccessObjectTest, GetContextsById) {
         value: { string_value: 'foo' }
       }
     )pb");
-    int64 first_context_id;
+    int64_t first_context_id;
     first_context.set_type_id(type_id);
     first_context.set_name("get_contexts_by_id_test-1");
     ASSERT_EQ(metadata_access_object_->CreateContext(first_context,
@@ -6412,7 +6412,7 @@ TEST_P(MetadataAccessObjectTest, GetContextsById) {
         value: { string_value: 'bar' }
       }
     )pb");
-    int64 second_context_id;
+    int64_t second_context_id;
     second_context.set_type_id(type_id);
     second_context.set_name("get_contexts_by_id_test-2");
     ASSERT_EQ(metadata_access_object_->CreateContext(second_context,
@@ -6425,7 +6425,7 @@ TEST_P(MetadataAccessObjectTest, GetContextsById) {
   // Setup: Add third context instance that does not have *any* properties
   Context third_context;
   {
-    int64 third_context_id;
+    int64_t third_context_id;
     third_context.set_type_id(type_id);
     third_context.set_name("get_contexts_by_id_test-3");
     ASSERT_EQ(metadata_access_object_->CreateContext(third_context,
@@ -6435,7 +6435,7 @@ TEST_P(MetadataAccessObjectTest, GetContextsById) {
     third_context.set_type(test_type_name);
   }
 
-  const int64 unknown_id =
+  const int64_t unknown_id =
       first_context.id() + second_context.id() + third_context.id() + 1;
 
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -6489,7 +6489,7 @@ TEST_P(MetadataAccessObjectTest, GetContextsById) {
   // Test: retrieve multiple contexts at a time
   {
     std::vector<Context> result;
-    const std::vector<int64> ids = {first_context.id(), second_context.id(),
+    const std::vector<int64_t> ids = {first_context.id(), second_context.id(),
                                       unknown_id};
     absl::Status status =
         metadata_access_object_->FindContextsById(ids, &result);
@@ -6506,7 +6506,7 @@ TEST_P(MetadataAccessObjectTest, GetContextsById) {
   }
   {
     std::vector<Context> result;
-    const std::vector<int64> ids = {first_context.id(), second_context.id(),
+    const std::vector<int64_t> ids = {first_context.id(), second_context.id(),
                                       third_context.id()};
     ASSERT_EQ(metadata_access_object_->FindContextsById(ids, &result),
               absl::OkStatus());
@@ -6528,7 +6528,7 @@ TEST_P(MetadataAccessObjectTest, GetContextsById) {
 TEST_P(MetadataAccessObjectTest, DefaultArtifactState) {
   ASSERT_EQ(Init(), absl::OkStatus());
   ArtifactType type = ParseTextProtoOrDie<ArtifactType>("name: 'test_type'");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -6537,7 +6537,7 @@ TEST_P(MetadataAccessObjectTest, DefaultArtifactState) {
   Artifact want_artifact1;
   want_artifact1.set_uri("uri: 'testuri://testing/uri/1'");
   want_artifact1.set_type_id(type_id);
-  int64 id1;
+  int64_t id1;
   ASSERT_EQ(metadata_access_object_->CreateArtifact(want_artifact1, &id1),
             absl::OkStatus());
   // artifact 2 sets the state to default UNKNOWN
@@ -6545,7 +6545,7 @@ TEST_P(MetadataAccessObjectTest, DefaultArtifactState) {
   want_artifact2.set_type_id(type_id);
   want_artifact2.set_uri("uri: 'testuri://testing/uri/2'");
   want_artifact2.set_state(Artifact::UNKNOWN);
-  int64 id2;
+  int64_t id2;
   ASSERT_EQ(metadata_access_object_->CreateArtifact(want_artifact2, &id2),
             absl::OkStatus());
 
@@ -6569,11 +6569,11 @@ TEST_P(MetadataAccessObjectTest, DefaultArtifactState) {
 
 TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIds) {
   ASSERT_EQ(Init(), absl::OkStatus());
-  int64 type_id = InsertType<ArtifactType>("test_type");
+  int64_t type_id = InsertType<ArtifactType>("test_type");
   Artifact want_artifact1 =
       ParseTextProtoOrDie<Artifact>("uri: 'testuri://testing/uri1'");
   want_artifact1.set_type_id(type_id);
-  int64 artifact1_id;
+  int64_t artifact1_id;
   ASSERT_EQ(
       metadata_access_object_->CreateArtifact(want_artifact1, &artifact1_id),
       absl::OkStatus());
@@ -6581,15 +6581,15 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIds) {
   Artifact want_artifact2 =
       ParseTextProtoOrDie<Artifact>("uri: 'testuri://testing/uri2'");
   want_artifact2.set_type_id(type_id);
-  int64 artifact2_id;
+  int64_t artifact2_id;
   ASSERT_EQ(
       metadata_access_object_->CreateArtifact(want_artifact2, &artifact2_id),
       absl::OkStatus());
 
-  int64 type2_id = InsertType<ArtifactType>("test_type2");
+  int64_t type2_id = InsertType<ArtifactType>("test_type2");
   Artifact artifact3;
   artifact3.set_type_id(type2_id);
-  int64 artifact3_id;
+  int64_t artifact3_id;
   ASSERT_EQ(metadata_access_object_->CreateArtifact(artifact3, &artifact3_id),
             absl::OkStatus());
 
@@ -6616,7 +6616,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIds) {
 
 TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIdsFilterPropertyQuery) {
   ASSERT_EQ(Init(), absl::OkStatus());
-  int64 type1_id = InsertType<ArtifactType>("test_type1");
+  int64_t type1_id = InsertType<ArtifactType>("test_type1");
   Artifact artifact1 = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri1'
     custom_properties {
@@ -6625,7 +6625,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIdsFilterPropertyQuery) {
     }
   )pb");
   artifact1.set_type_id(type1_id);
-  int64 artifact1_id;
+  int64_t artifact1_id;
   ASSERT_EQ(metadata_access_object_->CreateArtifact(artifact1, &artifact1_id),
             absl::OkStatus());
 
@@ -6637,11 +6637,11 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIdsFilterPropertyQuery) {
     }
   )pb");
   artifact2.set_type_id(type1_id);
-  int64 artifact2_id;
+  int64_t artifact2_id;
   ASSERT_EQ(metadata_access_object_->CreateArtifact(artifact2, &artifact2_id),
             absl::OkStatus());
 
-  int64 type2_id = InsertType<ArtifactType>("test_type2");
+  int64_t type2_id = InsertType<ArtifactType>("test_type2");
   Artifact artifact3 = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri1'
     custom_properties {
@@ -6650,7 +6650,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIdsFilterPropertyQuery) {
     }
   )pb");
   artifact3.set_type_id(type2_id);
-  int64 artifact3_id;
+  int64_t artifact3_id;
   ASSERT_EQ(metadata_access_object_->CreateArtifact(artifact3, &artifact3_id),
             absl::OkStatus());
 
@@ -6700,12 +6700,12 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByTypeIdsFilterPropertyQuery) {
 
 TEST_P(MetadataAccessObjectTest, FindArtifactByTypeIdAndArtifactName) {
   ASSERT_EQ(Init(), absl::OkStatus());
-  int64 type_id = InsertType<ArtifactType>("test_type");
+  int64_t type_id = InsertType<ArtifactType>("test_type");
   Artifact want_artifact = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri1'
     name: 'artifact1')pb");
   want_artifact.set_type_id(type_id);
-  int64 artifact1_id;
+  int64_t artifact1_id;
   ASSERT_EQ(
       metadata_access_object_->CreateArtifact(want_artifact, &artifact1_id),
       absl::OkStatus());
@@ -6714,14 +6714,14 @@ TEST_P(MetadataAccessObjectTest, FindArtifactByTypeIdAndArtifactName) {
   Artifact artifact2 = ParseTextProtoOrDie<Artifact>(
       "uri: 'testuri://testing/uri2' name: 'artifact2'");
   artifact2.set_type_id(type_id);
-  int64 artifact2_id;
+  int64_t artifact2_id;
   ASSERT_EQ(metadata_access_object_->CreateArtifact(artifact2, &artifact2_id),
             absl::OkStatus());
 
-  int64 type2_id = InsertType<ArtifactType>("test_type2");
+  int64_t type2_id = InsertType<ArtifactType>("test_type2");
   Artifact artifact3;
   artifact3.set_type_id(type2_id);
-  int64 artifact3_id;
+  int64_t artifact3_id;
   ASSERT_EQ(metadata_access_object_->CreateArtifact(artifact3, &artifact3_id),
             absl::OkStatus());
 
@@ -6743,12 +6743,12 @@ TEST_P(MetadataAccessObjectTest, FindArtifactByTypeIdAndArtifactName) {
 
 TEST_P(MetadataAccessObjectTest, FindArtifactsByURI) {
   ASSERT_EQ(Init(), absl::OkStatus());
-  int64 type_id = InsertType<ArtifactType>("test_type");
+  int64_t type_id = InsertType<ArtifactType>("test_type");
   Artifact want_artifact1 = ParseTextProtoOrDie<Artifact>(R"pb(
     uri: 'testuri://testing/uri1'
     name: 'artifact1')pb");
   want_artifact1.set_type_id(type_id);
-  int64 artifact1_id;
+  int64_t artifact1_id;
   ASSERT_EQ(
       metadata_access_object_->CreateArtifact(want_artifact1, &artifact1_id),
       absl::OkStatus());
@@ -6758,7 +6758,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByURI) {
     uri: 'testuri://testing/uri2'
     name: 'artifact2')pb");
   artifact2.set_type_id(type_id);
-  int64 artifact2_id;
+  int64_t artifact2_id;
   ASSERT_EQ(metadata_access_object_->CreateArtifact(artifact2, &artifact2_id),
             absl::OkStatus());
   artifact2.set_id(artifact2_id);
@@ -6789,7 +6789,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByExternalIds) {
     name: 'artifact1')pb");
   artifact1.set_type_id(type_id);
   artifact1.set_external_id("artifact1");
-  int64 artifact1_id;
+  int64_t artifact1_id;
   MLMD_ASSERT_OK(
       metadata_access_object_->CreateArtifact(artifact1, &artifact1_id));
   artifact1.set_id(artifact1_id);
@@ -6799,7 +6799,7 @@ TEST_P(MetadataAccessObjectTest, FindArtifactsByExternalIds) {
     name: 'artifact2')pb");
   artifact2.set_type_id(type_id);
   artifact2.set_external_id("artifact2");
-  int64 artifact2_id;
+  int64_t artifact2_id;
   MLMD_ASSERT_OK(
       metadata_access_object_->CreateArtifact(artifact2, &artifact2_id));
   artifact2.set_id(artifact2_id);
@@ -6875,7 +6875,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
                      properties { key: 'property_5' value: BOOLEAN }
                                         )pb",
                    ""));
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -6897,7 +6897,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
     state: LIVE
   )pb");
   stored_artifact.set_type_id(type_id);
-  int64 artifact_id;
+  int64_t artifact_id;
   ASSERT_EQ(
       metadata_access_object_->CreateArtifact(stored_artifact, &artifact_id),
       absl::OkStatus());
@@ -7014,7 +7014,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactWithCustomUpdateTime) {
                      properties { key: 'property_5' value: BOOLEAN }
                                         )pb",
                    ""));
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -7058,7 +7058,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactWithCustomUpdateTime) {
                      state: LIVE
                    )pb"));
   stored_artifact.set_type_id(type_id);
-  int64 artifact_id;
+  int64_t artifact_id;
   ASSERT_EQ(
       metadata_access_object_->CreateArtifact(stored_artifact, &artifact_id),
       absl::OkStatus());
@@ -7153,7 +7153,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactWithForceUpdateTimeEnabled) {
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -7175,7 +7175,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactWithForceUpdateTimeEnabled) {
     state: LIVE
   )pb");
   stored_artifact.set_type_id(type_id);
-  int64 artifact_id;
+  int64_t artifact_id;
   ASSERT_EQ(
       metadata_access_object_->CreateArtifact(stored_artifact, &artifact_id),
       absl::OkStatus());
@@ -7251,7 +7251,7 @@ TEST_P(MetadataAccessObjectTest, UpdateNodeLastUpdateTimeSinceEpoch) {
     name: 'test_type'
     properties { key: 'p1' value: INT }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -7259,7 +7259,7 @@ TEST_P(MetadataAccessObjectTest, UpdateNodeLastUpdateTimeSinceEpoch) {
   Artifact artifact;
   artifact.set_uri("testuri://changed/uri");
   artifact.set_type_id(type_id);
-  int64 artifact_id;
+  int64_t artifact_id;
   ASSERT_EQ(metadata_access_object_->CreateArtifact(artifact, &artifact_id),
             absl::OkStatus());
 
@@ -7297,39 +7297,39 @@ TEST_P(MetadataAccessObjectTest, UpdateNodeLastUpdateTimeSinceEpoch) {
       };
 
   // no attribute or property change.
-  const int64 t0 = update_and_get_last_update_time_since_epoch(curr_artifact);
+  const int64_t t0 = update_and_get_last_update_time_since_epoch(curr_artifact);
   EXPECT_EQ(t0, curr_artifact.last_update_time_since_epoch());
   // update attributes
   curr_artifact.set_uri("new/uri");
-  const int64 t1 = update_and_get_last_update_time_since_epoch(curr_artifact);
+  const int64_t t1 = update_and_get_last_update_time_since_epoch(curr_artifact);
   EXPECT_GT(t1, t0);
   // set attributes
   curr_artifact.set_state(Artifact::LIVE);
-  const int64 t2 = update_and_get_last_update_time_since_epoch(curr_artifact);
+  const int64_t t2 = update_and_get_last_update_time_since_epoch(curr_artifact);
   EXPECT_GT(t2, t1);
   // add property
   (*curr_artifact.mutable_properties())["p1"].set_int_value(1);
-  const int64 t3 = update_and_get_last_update_time_since_epoch(curr_artifact);
+  const int64_t t3 = update_and_get_last_update_time_since_epoch(curr_artifact);
   EXPECT_GT(t3, t2);
   // modify property
   (*curr_artifact.mutable_properties())["p1"].set_int_value(2);
-  const int64 t4 = update_and_get_last_update_time_since_epoch(curr_artifact);
+  const int64_t t4 = update_and_get_last_update_time_since_epoch(curr_artifact);
   EXPECT_GT(t4, t3);
   // delete property
   curr_artifact.clear_properties();
-  const int64 t5 = update_and_get_last_update_time_since_epoch(curr_artifact);
+  const int64_t t5 = update_and_get_last_update_time_since_epoch(curr_artifact);
   EXPECT_GT(t5, t4);
   // set custom property
   (*curr_artifact.mutable_custom_properties())["custom"].set_string_value("1");
-  const int64 t6 = update_and_get_last_update_time_since_epoch(curr_artifact);
+  const int64_t t6 = update_and_get_last_update_time_since_epoch(curr_artifact);
   EXPECT_GT(t6, t5);
   // modify custom property
   (*curr_artifact.mutable_custom_properties())["custom"].set_string_value("2");
-  const int64 t7 = update_and_get_last_update_time_since_epoch(curr_artifact);
+  const int64_t t7 = update_and_get_last_update_time_since_epoch(curr_artifact);
   EXPECT_GT(t7, t6);
   // delete custom property
   curr_artifact.clear_custom_properties();
-  const int64 t8 = update_and_get_last_update_time_since_epoch(curr_artifact);
+  const int64_t t8 = update_and_get_last_update_time_since_epoch(curr_artifact);
   EXPECT_GT(t8, t7);
 }
 
@@ -7339,7 +7339,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactError) {
     name: 'test_type'
     properties { key: 'property_1' value: INT }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -7352,7 +7352,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactError) {
     }
   )pb");
   artifact.set_type_id(type_id);
-  int64 artifact_id;
+  int64_t artifact_id;
   ASSERT_EQ(metadata_access_object_->CreateArtifact(artifact, &artifact_id),
             absl::OkStatus());
   artifact.set_id(artifact_id);
@@ -7364,14 +7364,14 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactError) {
   EXPECT_TRUE(absl::IsInvalidArgument(s));
 
   // artifact id cannot be found
-  int64 different_id = artifact_id + 1;
+  int64_t different_id = artifact_id + 1;
   wrong_artifact.set_id(different_id);
   s = metadata_access_object_->UpdateArtifact(wrong_artifact);
   EXPECT_TRUE(absl::IsInvalidArgument(s));
 
   // type_id if given is not aligned with the stored one
   wrong_artifact.set_id(artifact_id);
-  int64 different_type_id = type_id + 1;
+  int64_t different_type_id = type_id + 1;
   wrong_artifact.set_type_id(different_type_id);
   s = metadata_access_object_->UpdateArtifact(wrong_artifact);
   EXPECT_TRUE(absl::IsInvalidArgument(s));
@@ -7401,7 +7401,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
                                         )pb",
                    ""));
   const string test_type_name_with_no_property = "test_type_with_no_property";
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -7444,7 +7444,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
   )"));
   want_execution1.set_type_id(type_id);
   {
-    int64 execution_id = -1;
+    int64_t execution_id = -1;
     ASSERT_EQ(metadata_access_object_->CreateExecution(want_execution1,
                                                        &execution_id),
               absl::OkStatus());
@@ -7458,7 +7458,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
   )pb");
   want_execution2.set_type_id(type2_id);
   {
-    int64 execution_id = -1;
+    int64_t execution_id = -1;
     ASSERT_EQ(metadata_access_object_->CreateExecution(want_execution2,
                                                        &execution_id),
               absl::OkStatus());
@@ -7545,7 +7545,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindExecution) {
   }
 
   // Test: unknown id
-  const int64 unknown_id = want_execution1.id() + want_execution2.id() + 1;
+  const int64_t unknown_id = want_execution1.id() + want_execution2.id() + 1;
   {
     std::vector<Execution> executions;
     EXPECT_TRUE(absl::IsNotFound(metadata_access_object_->FindExecutionsById(
@@ -7681,7 +7681,7 @@ TEST_P(MetadataAccessObjectTest, CreateExecutionWithDuplicatedNameError) {
   ASSERT_EQ(Init(), absl::OkStatus());
   ExecutionType type;
   type.set_name("test_type");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -7689,7 +7689,7 @@ TEST_P(MetadataAccessObjectTest, CreateExecutionWithDuplicatedNameError) {
   Execution execution;
   execution.set_type_id(type_id);
   execution.set_name("test execution name");
-  int64 execution_id;
+  int64_t execution_id;
   EXPECT_EQ(metadata_access_object_->CreateExecution(execution, &execution_id),
             absl::OkStatus());
   // insert the same execution again to check the unique constraint
@@ -7707,14 +7707,14 @@ TEST_P(MetadataAccessObjectTest, CreateExecutionWithDuplicatedExternalIdError) {
   MLMD_ASSERT_OK(Init());
   ExecutionType type;
   type.set_name("test_type");
-  int64 type_id;
+  int64_t type_id;
   MLMD_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
 
   Execution execution;
   execution.set_type_id(type_id);
   execution.set_external_id("execution_1");
-  int64 execution_id;
+  int64_t execution_id;
   MLMD_EXPECT_OK(
       metadata_access_object_->CreateExecution(execution, &execution_id));
 
@@ -7735,7 +7735,7 @@ TEST_P(MetadataAccessObjectTest, UpdateExecution) {
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -7752,7 +7752,7 @@ TEST_P(MetadataAccessObjectTest, UpdateExecution) {
     last_known_state: RUNNING
   )pb");
   stored_execution.set_type_id(type_id);
-  int64 execution_id;
+  int64_t execution_id;
   ASSERT_EQ(
       metadata_access_object_->CreateExecution(stored_execution, &execution_id),
       absl::OkStatus());
@@ -7816,7 +7816,7 @@ TEST_P(MetadataAccessObjectTest, UpdateExecutionWithCustomUpdateTime) {
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -7833,7 +7833,7 @@ TEST_P(MetadataAccessObjectTest, UpdateExecutionWithCustomUpdateTime) {
     last_known_state: RUNNING
   )pb");
   stored_execution.set_type_id(type_id);
-  int64 execution_id;
+  int64_t execution_id;
   ASSERT_EQ(
       metadata_access_object_->CreateExecution(stored_execution, &execution_id),
       absl::OkStatus());
@@ -7897,7 +7897,7 @@ TEST_P(MetadataAccessObjectTest, UpdateExecutionWithForceUpdateTimeEnabled) {
     properties { key: 'property_2' value: DOUBLE }
     properties { key: 'property_3' value: STRING }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -7914,7 +7914,7 @@ TEST_P(MetadataAccessObjectTest, UpdateExecutionWithForceUpdateTimeEnabled) {
     last_known_state: RUNNING
   )pb");
   stored_execution.set_type_id(type_id);
-  int64 execution_id;
+  int64_t execution_id;
   ASSERT_EQ(
       metadata_access_object_->CreateExecution(stored_execution, &execution_id),
       absl::OkStatus());
@@ -7984,7 +7984,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
     name: 'test_type_with_predefined_property'
     properties { key: 'property_1' value: INT }
   )pb");
-  int64 type1_id;
+  int64_t type1_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type1, &type1_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -7992,7 +7992,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
   ContextType type2 = ParseTextProtoOrDie<ContextType>(R"pb(
     name: 'test_type_with_no_property'
   )pb");
-  int64 type2_id;
+  int64_t type2_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type2, &type2_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -8010,7 +8010,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
     }
   )pb");
   context1.set_type_id(type1_id);
-  int64 context1_id = -1;
+  int64_t context1_id = -1;
   EXPECT_EQ(metadata_access_object_->CreateContext(context1, &context1_id),
             absl::OkStatus());
   context1.set_id(context1_id);
@@ -8020,7 +8020,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
     name: "my_context2")pb");
   context2.set_type_id(type2_id);
 
-  int64 context2_id = -1;
+  int64_t context2_id = -1;
   EXPECT_EQ(metadata_access_object_->CreateContext(context2, &context2_id),
             absl::OkStatus());
   context2.set_id(context2_id);
@@ -8186,7 +8186,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsByType) {
   ASSERT_EQ(Init(), absl::OkStatus());
 
   // Setup: create an artifact type and insert two instances.
-  int64 type_id;
+  int64_t type_id;
   {
     ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"pb(
       name: 'test_type_with_predefined_property'
@@ -8211,7 +8211,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsByType) {
       }
     )pb");
     entity_1.set_type_id(type_id);
-    int64 entity_id = -1;
+    int64_t entity_id = -1;
     EXPECT_EQ(metadata_access_object_->CreateArtifact(entity_1, &entity_id),
               absl::OkStatus());
     entity_1.set_id(entity_id);
@@ -8230,7 +8230,7 @@ TEST_P(MetadataAccessObjectTest, ListArtifactsByType) {
       }
     )pb");
     entity_2.set_type_id(type_id);
-    int64 entity_id = -1;
+    int64_t entity_id = -1;
     EXPECT_EQ(metadata_access_object_->CreateArtifact(entity_2, &entity_id),
               absl::OkStatus());
     entity_2.set_id(entity_id);
@@ -8274,7 +8274,7 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsByType) {
   ASSERT_EQ(Init(), absl::OkStatus());
 
   // Setup: create an excution type and insert two instances.
-  int64 type_id;
+  int64_t type_id;
   {
     ExecutionType type = ParseTextProtoOrDie<ExecutionType>(R"pb(
       name: 'test_type_with_predefined_property'
@@ -8299,7 +8299,7 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsByType) {
       }
     )pb");
     entity_1.set_type_id(type_id);
-    int64 entity_id = -1;
+    int64_t entity_id = -1;
     EXPECT_EQ(metadata_access_object_->CreateExecution(entity_1, &entity_id),
               absl::OkStatus());
     entity_1.set_id(entity_id);
@@ -8318,7 +8318,7 @@ TEST_P(MetadataAccessObjectTest, ListExecutionsByType) {
       }
     )pb");
     entity_2.set_type_id(type_id);
-    int64 entity_id = -1;
+    int64_t entity_id = -1;
     EXPECT_EQ(metadata_access_object_->CreateExecution(entity_2, &entity_id),
               absl::OkStatus());
     entity_2.set_id(entity_id);
@@ -8362,7 +8362,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsByType) {
   ASSERT_EQ(Init(), absl::OkStatus());
 
   // Setup: create a context type and insert two instances.
-  int64 type_id;
+  int64_t type_id;
   {
     ContextType type = ParseTextProtoOrDie<ContextType>(R"pb(
       name: 'test_type_with_predefined_property'
@@ -8387,7 +8387,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsByType) {
       }
     )pb");
     context_1.set_type_id(type_id);
-    int64 context_id = -1;
+    int64_t context_id = -1;
     EXPECT_EQ(metadata_access_object_->CreateContext(context_1, &context_id),
               absl::OkStatus());
     context_1.set_id(context_id);
@@ -8406,7 +8406,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsByType) {
       }
     )pb");
     context_2.set_type_id(type_id);
-    int64 context_id = -1;
+    int64_t context_id = -1;
     EXPECT_EQ(metadata_access_object_->CreateContext(context_2, &context_id),
               absl::OkStatus());
     context_2.set_id(context_id);
@@ -8415,7 +8415,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsByType) {
   // Setup: insert one more context type and an additional instance. This is
   // additional data that will not retrieved by the test queries.
   {
-    int64 type2_id;
+    int64_t type2_id;
     ContextType type2 = ParseTextProtoOrDie<ContextType>(R"pb(
       name: 'test_type_with_no_property'
     )pb");
@@ -8426,7 +8426,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsByType) {
     Context context = ParseTextProtoOrDie<Context>(R"pb(
       name: "my_context2")pb");
     context.set_type_id(type2_id);
-    int64 context_id = -1;
+    int64_t context_id = -1;
     EXPECT_EQ(metadata_access_object_->CreateContext(context, &context_id),
               absl::OkStatus());
   }
@@ -8521,7 +8521,7 @@ TEST_P(MetadataAccessObjectTest, ListContextsByType) {
 TEST_P(MetadataAccessObjectTest, CreateContextError) {
   ASSERT_EQ(Init(), absl::OkStatus());
   Context context;
-  int64 context_id;
+  int64_t context_id;
 
   // unknown type specified
   EXPECT_TRUE(absl::IsInvalidArgument(
@@ -8535,7 +8535,7 @@ TEST_P(MetadataAccessObjectTest, CreateContextError) {
     name: 'test_type_disallow_custom_property'
     properties { key: 'property_1' value: INT }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -8556,7 +8556,7 @@ TEST_P(MetadataAccessObjectTest, CreateContextWithDuplicatedNameError) {
   ASSERT_EQ(Init(), absl::OkStatus());
   ContextType type;
   type.set_name("test_type");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -8564,7 +8564,7 @@ TEST_P(MetadataAccessObjectTest, CreateContextWithDuplicatedNameError) {
   Context context;
   context.set_type_id(type_id);
   context.set_name("test context name");
-  int64 context_id;
+  int64_t context_id;
   EXPECT_EQ(metadata_access_object_->CreateContext(context, &context_id),
             absl::OkStatus());
   // insert the same context again to check the unique constraint
@@ -8582,7 +8582,7 @@ TEST_P(MetadataAccessObjectTest, CreateContextWithDuplicatedExternalIdError) {
   MLMD_ASSERT_OK(Init());
   ContextType type;
   type.set_name("test_type");
-  int64 type_id;
+  int64_t type_id;
   MLMD_ASSERT_OK(metadata_access_object_->CreateType(type, &type_id));
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
 
@@ -8590,7 +8590,7 @@ TEST_P(MetadataAccessObjectTest, CreateContextWithDuplicatedExternalIdError) {
   context.set_type_id(type_id);
   context.set_external_id("context1");
   context.set_name("test context name");
-  int64 context_id;
+  int64_t context_id;
 
   MLMD_EXPECT_OK(metadata_access_object_->CreateContext(context, &context_id));
 
@@ -8610,7 +8610,7 @@ TEST_P(MetadataAccessObjectTest, UpdateContext) {
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: STRING }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -8626,7 +8626,7 @@ TEST_P(MetadataAccessObjectTest, UpdateContext) {
     }
   )pb");
   context1.set_type_id(type_id);
-  int64 context_id;
+  int64_t context_id;
   ASSERT_EQ(metadata_access_object_->CreateContext(context1, &context_id),
             absl::OkStatus());
   Context got_context_before_update;
@@ -8689,7 +8689,7 @@ TEST_P(MetadataAccessObjectTest, UpdateContextWithCustomUpdatetime) {
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: STRING }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -8706,7 +8706,7 @@ TEST_P(MetadataAccessObjectTest, UpdateContextWithCustomUpdatetime) {
     }
   )pb");
   context1.set_type_id(type_id);
-  int64 context_id;
+  int64_t context_id;
   ASSERT_EQ(metadata_access_object_->CreateContext(context1, &context_id),
             absl::OkStatus());
   Context got_context_before_update;
@@ -8769,7 +8769,7 @@ TEST_P(MetadataAccessObjectTest, UpdateContextWithForceUpdateTimeEnabled) {
     properties { key: 'property_1' value: INT }
     properties { key: 'property_2' value: STRING }
   )pb");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -8786,7 +8786,7 @@ TEST_P(MetadataAccessObjectTest, UpdateContextWithForceUpdateTimeEnabled) {
     }
   )pb");
   context1.set_type_id(type_id);
-  int64 context_id;
+  int64_t context_id;
   ASSERT_EQ(metadata_access_object_->CreateContext(context1, &context_id),
             absl::OkStatus());
   Context got_context_before_update;
@@ -8855,15 +8855,15 @@ TEST_P(MetadataAccessObjectTest, UpdateContextWithForceUpdateTimeEnabled) {
 
 TEST_P(MetadataAccessObjectTest, CreateAndUseAssociation) {
   ASSERT_EQ(Init(), absl::OkStatus());
-  int64 execution_type_id = InsertType<ExecutionType>("execution_type");
-  int64 context_type_id = InsertType<ContextType>("context_type");
+  int64_t execution_type_id = InsertType<ExecutionType>("execution_type");
+  int64_t context_type_id = InsertType<ContextType>("context_type");
   Execution execution;
   execution.set_type_id(execution_type_id);
   (*execution.mutable_custom_properties())["custom"].set_int_value(3);
   Context context = ParseTextProtoOrDie<Context>("name: 'context_instance'");
   context.set_type_id(context_type_id);
 
-  int64 execution_id, context_id;
+  int64_t execution_id, context_id;
   ASSERT_EQ(metadata_access_object_->CreateExecution(execution, &execution_id),
             absl::OkStatus());
   execution.set_id(execution_id);
@@ -8877,7 +8877,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndUseAssociation) {
 
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
 
-  int64 association_id;
+  int64_t association_id;
   EXPECT_EQ(
       metadata_access_object_->CreateAssociation(association, &association_id),
       absl::OkStatus());
@@ -8912,8 +8912,8 @@ TEST_P(MetadataAccessObjectTest, CreateAndUseAssociation) {
 
 TEST_P(MetadataAccessObjectTest, GetAssociationUsingPagination) {
   ASSERT_EQ(Init(), absl::OkStatus());
-  int64 execution_type_id = InsertType<ExecutionType>("execution_type");
-  int64 context_type_id = InsertType<ContextType>("context_type");
+  int64_t execution_type_id = InsertType<ExecutionType>("execution_type");
+  int64_t context_type_id = InsertType<ContextType>("context_type");
   Execution execution1;
   execution1.set_type_id(execution_type_id);
   (*execution1.mutable_custom_properties())["custom"].set_int_value(3);
@@ -8924,7 +8924,7 @@ TEST_P(MetadataAccessObjectTest, GetAssociationUsingPagination) {
   Context context = ParseTextProtoOrDie<Context>("name: 'context_instance'");
   context.set_type_id(context_type_id);
 
-  int64 execution_id_1, execution_id_2, context_id;
+  int64_t execution_id_1, execution_id_2, context_id;
   ASSERT_EQ(
       metadata_access_object_->CreateExecution(execution1, &execution_id_1),
       absl::OkStatus());
@@ -8948,11 +8948,11 @@ TEST_P(MetadataAccessObjectTest, GetAssociationUsingPagination) {
   association2.set_execution_id(execution_id_2);
   association2.set_context_id(context_id);
 
-  int64 association_id_1;
+  int64_t association_id_1;
   EXPECT_EQ(metadata_access_object_->CreateAssociation(association1,
                                                        &association_id_1),
             absl::OkStatus());
-  int64 association_id_2;
+  int64_t association_id_2;
   EXPECT_EQ(metadata_access_object_->CreateAssociation(association2,
                                                        &association_id_2),
             absl::OkStatus());
@@ -8990,8 +8990,8 @@ TEST_P(MetadataAccessObjectTest, GetAssociationUsingPagination) {
 
 TEST_P(MetadataAccessObjectTest, GetAssociationFilterStateQuery) {
   ASSERT_EQ(Init(), absl::OkStatus());
-  int64 execution_type_id = InsertType<ExecutionType>("execution_type");
-  int64 context_type_id = InsertType<ContextType>("context_type");
+  int64_t execution_type_id = InsertType<ExecutionType>("execution_type");
+  int64_t context_type_id = InsertType<ContextType>("context_type");
   Execution execution1;
   execution1.set_type_id(execution_type_id);
   execution1.set_last_known_state(Execution::NEW);
@@ -9004,7 +9004,7 @@ TEST_P(MetadataAccessObjectTest, GetAssociationFilterStateQuery) {
   Context context2 = ParseTextProtoOrDie<Context>("name: 'context_2'");
   context2.set_type_id(context_type_id);
 
-  int64 execution_id_1, execution_id_2, context_id_1, context_id_2;
+  int64_t execution_id_1, execution_id_2, context_id_1, context_id_2;
   ASSERT_EQ(
       metadata_access_object_->CreateExecution(execution1, &execution_id_1),
       absl::OkStatus());
@@ -9031,11 +9031,11 @@ TEST_P(MetadataAccessObjectTest, GetAssociationFilterStateQuery) {
   association2.set_execution_id(execution_id_2);
   association2.set_context_id(context_id_2);
 
-  int64 association_id_1;
+  int64_t association_id_1;
   EXPECT_EQ(metadata_access_object_->CreateAssociation(association1,
                                                        &association_id_1),
             absl::OkStatus());
-  int64 association_id_2;
+  int64_t association_id_2;
   EXPECT_EQ(metadata_access_object_->CreateAssociation(association2,
                                                        &association_id_2),
             absl::OkStatus());
@@ -9094,8 +9094,8 @@ TEST_P(MetadataAccessObjectTest, GetAssociationFilterStateQuery) {
 
 TEST_P(MetadataAccessObjectTest, GetAttributionUsingPagination) {
   ASSERT_EQ(Init(), absl::OkStatus());
-  int64 artifact_type_id = InsertType<ArtifactType>("artifact_type");
-  int64 context_type_id = InsertType<ContextType>("context_type");
+  int64_t artifact_type_id = InsertType<ArtifactType>("artifact_type");
+  int64_t context_type_id = InsertType<ContextType>("context_type");
   Artifact artifact1;
   artifact1.set_uri("http://some_uri");
   artifact1.set_type_id(artifact_type_id);
@@ -9109,7 +9109,7 @@ TEST_P(MetadataAccessObjectTest, GetAttributionUsingPagination) {
   Context context = ParseTextProtoOrDie<Context>("name: 'context_instance'");
   context.set_type_id(context_type_id);
 
-  int64 artifact_id_1, artifact_id_2, context_id;
+  int64_t artifact_id_1, artifact_id_2, context_id;
   ASSERT_EQ(metadata_access_object_->CreateArtifact(artifact1, &artifact_id_1),
             absl::OkStatus());
   artifact1.set_id(artifact_id_1);
@@ -9131,11 +9131,11 @@ TEST_P(MetadataAccessObjectTest, GetAttributionUsingPagination) {
   attribution2.set_artifact_id(artifact_id_2);
   attribution2.set_context_id(context_id);
 
-  int64 attribution_id_1;
+  int64_t attribution_id_1;
   EXPECT_EQ(metadata_access_object_->CreateAttribution(attribution1,
                                                        &attribution_id_1),
             absl::OkStatus());
-  int64 attribution_id_2;
+  int64_t attribution_id_2;
   EXPECT_EQ(metadata_access_object_->CreateAttribution(attribution2,
                                                        &attribution_id_2),
             absl::OkStatus());
@@ -9178,7 +9178,7 @@ TEST_P(MetadataAccessObjectTest, GetEmptyAttributionAssociationWithPagination) {
       metadata_access_object_container_.get());
   Context context = ParseTextProtoOrDie<Context>("name: 'c1'");
   context.set_type_id(context_type.id());
-  int64 context_id;
+  int64_t context_id;
   ASSERT_EQ(metadata_access_object_->CreateContext(context, &context_id),
             absl::OkStatus());
   context.set_id(context_id);
@@ -9215,18 +9215,18 @@ TEST_P(MetadataAccessObjectTest, CreateAssociationError) {
   // Create base association with
   // * valid context id
   // * valid execution id
-  int64 context_type_id = InsertType<ContextType>("test_context_type");
+  int64_t context_type_id = InsertType<ContextType>("test_context_type");
   Context context;
   context.set_type_id(context_type_id);
   context.set_name("test_context");
-  int64 context_id;
+  int64_t context_id;
   ASSERT_EQ(metadata_access_object_->CreateContext(context, &context_id),
             absl::OkStatus());
 
-  int64 execution_type_id = InsertType<ExecutionType>("test_execution_type");
+  int64_t execution_type_id = InsertType<ExecutionType>("test_execution_type");
   Execution execution;
   execution.set_type_id(execution_type_id);
-  int64 execution_id;
+  int64_t execution_id;
   ASSERT_EQ(metadata_access_object_->CreateExecution(execution, &execution_id),
             absl::OkStatus());
 
@@ -9240,7 +9240,7 @@ TEST_P(MetadataAccessObjectTest, CreateAssociationError) {
   {
     Association association = base_association;
     association.clear_context_id();
-    int64 association_id;
+    int64_t association_id;
     EXPECT_TRUE(
         absl::IsInvalidArgument(metadata_access_object_->CreateAssociation(
             association, &association_id)));
@@ -9250,7 +9250,7 @@ TEST_P(MetadataAccessObjectTest, CreateAssociationError) {
   {
     Association association = base_association;
     association.clear_execution_id();
-    int64 association_id;
+    int64_t association_id;
     EXPECT_TRUE(
         absl::IsInvalidArgument(metadata_access_object_->CreateAssociation(
             association, &association_id)));
@@ -9259,9 +9259,9 @@ TEST_P(MetadataAccessObjectTest, CreateAssociationError) {
   // the context cannot be found
   {
     Association association = base_association;
-    int64 unknown_id = 12345;
+    int64_t unknown_id = 12345;
     association.set_context_id(unknown_id);
-    int64 association_id;
+    int64_t association_id;
     EXPECT_TRUE(
         absl::IsInvalidArgument(metadata_access_object_->CreateAssociation(
             association, &association_id)));
@@ -9271,9 +9271,9 @@ TEST_P(MetadataAccessObjectTest, CreateAssociationError) {
 
   {
     Association association = base_association;
-    int64 unknown_id = 12345;
+    int64_t unknown_id = 12345;
     association.set_execution_id(unknown_id);
-    int64 association_id;
+    int64_t association_id;
     EXPECT_TRUE(
         absl::IsInvalidArgument(metadata_access_object_->CreateAssociation(
             association, &association_id)));
@@ -9285,18 +9285,18 @@ TEST_P(MetadataAccessObjectTest, CreateAssociationError) {
 TEST_P(MetadataAccessObjectTest, CreateAssociationWithoutValidation) {
   ASSERT_EQ(Init(), absl::OkStatus());
 
-  int64 context_type_id = InsertType<ContextType>("test_context_type");
+  int64_t context_type_id = InsertType<ContextType>("test_context_type");
   Context context;
   context.set_type_id(context_type_id);
   context.set_name("test_context");
-  int64 context_id;
+  int64_t context_id;
   ASSERT_EQ(metadata_access_object_->CreateContext(context, &context_id),
             absl::OkStatus());
 
-  int64 execution_type_id = InsertType<ExecutionType>("test_execution_type");
+  int64_t execution_type_id = InsertType<ExecutionType>("test_execution_type");
   Execution execution;
   execution.set_type_id(execution_type_id);
-  int64 execution_id;
+  int64_t execution_id;
   ASSERT_EQ(metadata_access_object_->CreateExecution(execution, &execution_id),
             absl::OkStatus());
 
@@ -9304,7 +9304,7 @@ TEST_P(MetadataAccessObjectTest, CreateAssociationWithoutValidation) {
   Association association;
   association.set_context_id(context_id);
   association.set_execution_id(execution_id);
-  int64 association_id;
+  int64_t association_id;
   absl::Status create_new_association_without_validation_status =
       metadata_access_object_->CreateAssociation(
           association, /*is_already_validated=*/true, &association_id);
@@ -9313,7 +9313,7 @@ TEST_P(MetadataAccessObjectTest, CreateAssociationWithoutValidation) {
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
 
   // create duplicate association without validation
-  int64 duplicate_association_id;
+  int64_t duplicate_association_id;
   absl::Status create_duplicate_association_without_validation_status =
       metadata_access_object_->CreateAssociation(association,
                                                  /*is_already_validated=*/true,
@@ -9327,7 +9327,7 @@ TEST_P(MetadataAccessObjectTest, CreateAssociationWithoutValidation) {
   Association invalid_association;
   invalid_association.set_context_id(context_id + 1);
   invalid_association.set_execution_id(execution_id + 1);
-  int64 invalid_association_id;
+  int64_t invalid_association_id;
   absl::Status create_invalid_association_without_validation_status =
       metadata_access_object_->CreateAssociation(invalid_association,
                                                  /*is_already_validated=*/true,
@@ -9342,18 +9342,18 @@ TEST_P(MetadataAccessObjectTest, CreateAttributionError) {
   // Create base attribution with
   // * valid context id
   // * valid artifact id
-  int64 context_type_id = InsertType<ContextType>("test_context_type");
+  int64_t context_type_id = InsertType<ContextType>("test_context_type");
   Context context;
   context.set_type_id(context_type_id);
   context.set_name("test_context");
-  int64 context_id;
+  int64_t context_id;
   ASSERT_EQ(metadata_access_object_->CreateContext(context, &context_id),
             absl::OkStatus());
 
-  int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
+  int64_t artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
   Artifact artifact;
   artifact.set_type_id(artifact_type_id);
-  int64 artifact_id;
+  int64_t artifact_id;
   ASSERT_EQ(metadata_access_object_->CreateArtifact(artifact, &artifact_id),
             absl::OkStatus());
 
@@ -9365,7 +9365,7 @@ TEST_P(MetadataAccessObjectTest, CreateAttributionError) {
   {
     Attribution attribution = base_attribution;
     attribution.clear_context_id();
-    int64 attribution_id;
+    int64_t attribution_id;
     absl::Status s = metadata_access_object_->CreateAttribution(
         attribution, &attribution_id);
     EXPECT_TRUE(absl::IsInvalidArgument(s));
@@ -9375,7 +9375,7 @@ TEST_P(MetadataAccessObjectTest, CreateAttributionError) {
   {
     Attribution attribution = base_attribution;
     attribution.clear_artifact_id();
-    int64 attribution_id;
+    int64_t attribution_id;
     absl::Status s = metadata_access_object_->CreateAttribution(
         attribution, &attribution_id);
     EXPECT_TRUE(absl::IsInvalidArgument(s));
@@ -9384,9 +9384,9 @@ TEST_P(MetadataAccessObjectTest, CreateAttributionError) {
   // the context cannot be found
   {
     Attribution attribution = base_attribution;
-    int64 unknown_id = 12345;
+    int64_t unknown_id = 12345;
     attribution.set_context_id(unknown_id);
-    int64 attribution_id;
+    int64_t attribution_id;
     absl::Status s = metadata_access_object_->CreateAttribution(
         attribution, &attribution_id);
     EXPECT_TRUE(absl::IsInvalidArgument(s));
@@ -9395,9 +9395,9 @@ TEST_P(MetadataAccessObjectTest, CreateAttributionError) {
   // the artifact cannot be found
   {
     Attribution attribution = base_attribution;
-    int64 unknown_id = 12345;
+    int64_t unknown_id = 12345;
     attribution.set_artifact_id(unknown_id);
-    int64 attribution_id;
+    int64_t attribution_id;
     absl::Status s = metadata_access_object_->CreateAttribution(
         attribution, &attribution_id);
     EXPECT_TRUE(absl::IsInvalidArgument(s));
@@ -9409,18 +9409,18 @@ TEST_P(MetadataAccessObjectTest, CreateAttributionError) {
 TEST_P(MetadataAccessObjectTest, CreateAttributionWithoutValidation) {
   ASSERT_EQ(Init(), absl::OkStatus());
 
-  int64 context_type_id = InsertType<ContextType>("test_context_type");
+  int64_t context_type_id = InsertType<ContextType>("test_context_type");
   Context context;
   context.set_type_id(context_type_id);
   context.set_name("test_context");
-  int64 context_id;
+  int64_t context_id;
   ASSERT_EQ(metadata_access_object_->CreateContext(context, &context_id),
             absl::OkStatus());
 
-  int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
+  int64_t artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
   Artifact artifact;
   artifact.set_type_id(artifact_type_id);
-  int64 artifact_id;
+  int64_t artifact_id;
   ASSERT_EQ(metadata_access_object_->CreateArtifact(artifact, &artifact_id),
             absl::OkStatus());
 
@@ -9428,7 +9428,7 @@ TEST_P(MetadataAccessObjectTest, CreateAttributionWithoutValidation) {
   Attribution attribution;
   attribution.set_context_id(context_id);
   attribution.set_artifact_id(artifact_id);
-  int64 attribution_id;
+  int64_t attribution_id;
   absl::Status create_new_attribution_without_validation_status =
       metadata_access_object_->CreateAttribution(
           attribution, /*is_already_validated=*/true, &attribution_id);
@@ -9437,7 +9437,7 @@ TEST_P(MetadataAccessObjectTest, CreateAttributionWithoutValidation) {
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
 
   // create duplicate attribution without validation
-  int64 duplicate_attribution_id;
+  int64_t duplicate_attribution_id;
   absl::Status create_duplicate_attribution_without_validation_status =
       metadata_access_object_->CreateAttribution(attribution,
                                                  /*is_already_validated=*/true,
@@ -9451,7 +9451,7 @@ TEST_P(MetadataAccessObjectTest, CreateAttributionWithoutValidation) {
   Attribution invalid_attribution;
   invalid_attribution.set_context_id(context_id + 1);
   invalid_attribution.set_artifact_id(artifact_id + 1);
-  int64 invalid_attribution_id;
+  int64_t invalid_attribution_id;
   absl::Status create_invalid_attribution_without_validation_status =
       metadata_access_object_->CreateAttribution(invalid_attribution,
                                                  /*is_already_validated=*/true,
@@ -9463,15 +9463,15 @@ TEST_P(MetadataAccessObjectTest, CreateAttributionWithoutValidation) {
 TEST_P(MetadataAccessObjectTest, CreateAssociationError2) {
   ASSERT_EQ(Init(), absl::OkStatus());
   Association association;
-  int64 association_id;
+  int64_t association_id;
   // duplicated association
-  int64 execution_type_id = InsertType<ExecutionType>("execution_type");
-  int64 context_type_id = InsertType<ContextType>("context_type");
+  int64_t execution_type_id = InsertType<ExecutionType>("execution_type");
+  int64_t context_type_id = InsertType<ContextType>("context_type");
   Execution execution;
   execution.set_type_id(execution_type_id);
   Context context = ParseTextProtoOrDie<Context>("name: 'context_instance'");
   context.set_type_id(context_type_id);
-  int64 execution_id, context_id;
+  int64_t execution_id, context_id;
   ASSERT_EQ(metadata_access_object_->CreateExecution(execution, &execution_id),
             absl::OkStatus());
   ASSERT_EQ(metadata_access_object_->CreateContext(context, &context_id),
@@ -9495,8 +9495,8 @@ TEST_P(MetadataAccessObjectTest, CreateAssociationError2) {
 
 TEST_P(MetadataAccessObjectTest, CreateAndUseAttribution) {
   ASSERT_EQ(Init(), absl::OkStatus());
-  int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
-  int64 context_type_id = InsertType<ContextType>("test_context_type");
+  int64_t artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
+  int64_t context_type_id = InsertType<ContextType>("test_context_type");
 
   Artifact artifact;
   artifact.set_uri("testuri");
@@ -9505,7 +9505,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndUseAttribution) {
   Context context = ParseTextProtoOrDie<Context>("name: 'context_instance'");
   context.set_type_id(context_type_id);
 
-  int64 artifact_id, context_id;
+  int64_t artifact_id, context_id;
   ASSERT_EQ(metadata_access_object_->CreateArtifact(artifact, &artifact_id),
             absl::OkStatus());
   artifact.set_id(artifact_id);
@@ -9519,7 +9519,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndUseAttribution) {
   attribution.set_artifact_id(artifact_id);
   attribution.set_context_id(context_id);
 
-  int64 attribution_id;
+  int64_t attribution_id;
   EXPECT_EQ(
       metadata_access_object_->CreateAttribution(attribution, &attribution_id),
       absl::OkStatus());
@@ -9553,25 +9553,25 @@ TEST_P(MetadataAccessObjectTest, CreateAndUseAttribution) {
 
 TEST_P(MetadataAccessObjectTest, CreateAndFindEvent) {
   ASSERT_EQ(Init(), absl::OkStatus());
-  int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
-  int64 execution_type_id = InsertType<ExecutionType>("test_execution_type");
+  int64_t artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
+  int64_t execution_type_id = InsertType<ExecutionType>("test_execution_type");
   Artifact input_artifact;
   input_artifact.set_type_id(artifact_type_id);
-  int64 input_artifact_id;
+  int64_t input_artifact_id;
   ASSERT_EQ(metadata_access_object_->CreateArtifact(input_artifact,
                                                     &input_artifact_id),
             absl::OkStatus());
 
   Artifact output_artifact;
   output_artifact.set_type_id(artifact_type_id);
-  int64 output_artifact_id;
+  int64_t output_artifact_id;
   ASSERT_EQ(metadata_access_object_->CreateArtifact(output_artifact,
                                                     &output_artifact_id),
             absl::OkStatus());
 
   Execution execution;
   execution.set_type_id(execution_type_id);
-  int64 execution_id;
+  int64_t execution_id;
   ASSERT_EQ(metadata_access_object_->CreateExecution(execution, &execution_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -9583,7 +9583,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindEvent) {
   event1.set_milliseconds_since_epoch(12345);
   event1.mutable_path()->add_steps()->set_index(1);
   event1.mutable_path()->add_steps()->set_key("key");
-  int64 event1_id = -1;
+  int64_t event1_id = -1;
   EXPECT_EQ(metadata_access_object_->CreateEvent(event1, &event1_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -9592,7 +9592,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindEvent) {
   Event event2 = ParseTextProtoOrDie<Event>("type: OUTPUT");
   event2.set_artifact_id(output_artifact_id);
   event2.set_execution_id(execution_id);
-  int64 event2_id = -1;
+  int64_t event2_id = -1;
   EXPECT_EQ(metadata_access_object_->CreateEvent(event2, &event2_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -9656,17 +9656,17 @@ TEST_P(MetadataAccessObjectTest, CreateEventError) {
   // * valid artifact id
   // * valid execution id
   // * event_type
-  int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
+  int64_t artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
   Artifact artifact;
   artifact.set_type_id(artifact_type_id);
-  int64 artifact_id;
+  int64_t artifact_id;
   ASSERT_EQ(metadata_access_object_->CreateArtifact(artifact, &artifact_id),
             absl::OkStatus());
 
-  int64 execution_type_id = InsertType<ExecutionType>("test_execution_type");
+  int64_t execution_type_id = InsertType<ExecutionType>("test_execution_type");
   Execution execution;
   execution.set_type_id(execution_type_id);
-  int64 execution_id;
+  int64_t execution_id;
   ASSERT_EQ(metadata_access_object_->CreateExecution(execution, &execution_id),
             absl::OkStatus());
 
@@ -9679,7 +9679,7 @@ TEST_P(MetadataAccessObjectTest, CreateEventError) {
   {
     Event event = base_event;
     event.clear_artifact_id();
-    int64 event_id;
+    int64_t event_id;
     absl::Status s = metadata_access_object_->CreateEvent(event, &event_id);
     EXPECT_TRUE(absl::IsInvalidArgument(s));
   }
@@ -9688,7 +9688,7 @@ TEST_P(MetadataAccessObjectTest, CreateEventError) {
   {
     Event event = base_event;
     event.clear_execution_id();
-    int64 event_id;
+    int64_t event_id;
     absl::Status s = metadata_access_object_->CreateEvent(event, &event_id);
     EXPECT_TRUE(absl::IsInvalidArgument(s));
   }
@@ -9697,7 +9697,7 @@ TEST_P(MetadataAccessObjectTest, CreateEventError) {
   {
     Event event = base_event;
     event.clear_type();
-    int64 event_id;
+    int64_t event_id;
     absl::Status s = metadata_access_object_->CreateEvent(event, &event_id);
     EXPECT_TRUE(absl::IsInvalidArgument(s));
   }
@@ -9705,8 +9705,8 @@ TEST_P(MetadataAccessObjectTest, CreateEventError) {
   // artifact cannot be found
   {
     Event event = base_event;
-    int64 unknown_id = 12345;
-    int64 event_id;
+    int64_t unknown_id = 12345;
+    int64_t event_id;
     event.set_artifact_id(unknown_id);
     absl::Status s = metadata_access_object_->CreateEvent(event, &event_id);
     EXPECT_TRUE(absl::IsInvalidArgument(s));
@@ -9715,8 +9715,8 @@ TEST_P(MetadataAccessObjectTest, CreateEventError) {
   // execution cannot be found
   {
     Event event = base_event;
-    int64 unknown_id = 12345;
-    int64 event_id;
+    int64_t unknown_id = 12345;
+    int64_t event_id;
     event.set_execution_id(unknown_id);
     absl::Status s = metadata_access_object_->CreateEvent(event, &event_id);
     EXPECT_TRUE(absl::IsInvalidArgument(s));
@@ -9728,17 +9728,17 @@ TEST_P(MetadataAccessObjectTest, CreateEventError) {
 TEST_P(MetadataAccessObjectTest, CreateEventWithoutValidation) {
   ASSERT_EQ(Init(), absl::OkStatus());
 
-  int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
+  int64_t artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
   Artifact artifact;
   artifact.set_type_id(artifact_type_id);
-  int64 artifact_id;
+  int64_t artifact_id;
   ASSERT_EQ(metadata_access_object_->CreateArtifact(artifact, &artifact_id),
             absl::OkStatus());
 
-  int64 execution_type_id = InsertType<ExecutionType>("test_execution_type");
+  int64_t execution_type_id = InsertType<ExecutionType>("test_execution_type");
   Execution execution;
   execution.set_type_id(execution_type_id);
-  int64 execution_id;
+  int64_t execution_id;
   ASSERT_EQ(metadata_access_object_->CreateExecution(execution, &execution_id),
             absl::OkStatus());
 
@@ -9747,7 +9747,7 @@ TEST_P(MetadataAccessObjectTest, CreateEventWithoutValidation) {
   event.set_artifact_id(artifact_id);
   event.set_execution_id(execution_id);
   event.set_type(Event::INPUT);
-  int64 event_id;
+  int64_t event_id;
   absl::Status create_new_event_without_validation_status =
       metadata_access_object_->CreateEvent(event, /*is_already_validated=*/true,
                                            &event_id);
@@ -9757,7 +9757,7 @@ TEST_P(MetadataAccessObjectTest, CreateEventWithoutValidation) {
   // NOTE: This is an invalid use case, but is intended to break once foreign
   // key support is implemented in the schema.
   Event invalid_event;
-  int64 invalid_event_id;
+  int64_t invalid_event_id;
   invalid_event.set_artifact_id(artifact_id + 1);
   invalid_event.set_execution_id(execution_id + 1);
   invalid_event.set_type(Event::INPUT);
@@ -9769,25 +9769,25 @@ TEST_P(MetadataAccessObjectTest, CreateEventWithoutValidation) {
 
 TEST_P(MetadataAccessObjectTest, PutEventsWithPaths) {
   ASSERT_EQ(Init(), absl::OkStatus());
-  int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
-  int64 execution_type_id = InsertType<ExecutionType>("test_execution_type");
+  int64_t artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
+  int64_t execution_type_id = InsertType<ExecutionType>("test_execution_type");
   Artifact input_artifact;
   input_artifact.set_type_id(artifact_type_id);
-  int64 input_artifact_id;
+  int64_t input_artifact_id;
   ASSERT_EQ(metadata_access_object_->CreateArtifact(input_artifact,
                                                     &input_artifact_id),
             absl::OkStatus());
 
   Artifact output_artifact;
   output_artifact.set_type_id(artifact_type_id);
-  int64 output_artifact_id;
+  int64_t output_artifact_id;
   ASSERT_EQ(metadata_access_object_->CreateArtifact(output_artifact,
                                                     &output_artifact_id),
             absl::OkStatus());
 
   Execution execution;
   execution.set_type_id(execution_type_id);
-  int64 execution_id;
+  int64_t execution_id;
   ASSERT_EQ(metadata_access_object_->CreateExecution(execution, &execution_id),
             absl::OkStatus());
 
@@ -9800,7 +9800,7 @@ TEST_P(MetadataAccessObjectTest, PutEventsWithPaths) {
   event1.set_milliseconds_since_epoch(12345);
   event1.mutable_path()->add_steps()->set_index(1);
   event1.mutable_path()->add_steps()->set_key("key");
-  int64 event1_id = -1;
+  int64_t event1_id = -1;
   EXPECT_EQ(metadata_access_object_->CreateEvent(event1, &event1_id),
             absl::OkStatus());
 
@@ -9811,7 +9811,7 @@ TEST_P(MetadataAccessObjectTest, PutEventsWithPaths) {
   event2.mutable_path()->add_steps()->set_index(2);
   event2.mutable_path()->add_steps()->set_key("output_key");
 
-  int64 event2_id = -1;
+  int64_t event2_id = -1;
   EXPECT_EQ(metadata_access_object_->CreateEvent(event2, &event2_id),
             absl::OkStatus());
 
@@ -9847,25 +9847,25 @@ TEST_P(MetadataAccessObjectTest, CreateDuplicatedEvents) {
     return;
   }
   ASSERT_EQ(Init(), absl::OkStatus());
-  int64 artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
-  int64 execution_type_id = InsertType<ExecutionType>("test_execution_type");
+  int64_t artifact_type_id = InsertType<ArtifactType>("test_artifact_type");
+  int64_t execution_type_id = InsertType<ExecutionType>("test_execution_type");
   Artifact input_artifact;
   input_artifact.set_type_id(artifact_type_id);
-  int64 input_artifact_id;
+  int64_t input_artifact_id;
   ASSERT_EQ(metadata_access_object_->CreateArtifact(input_artifact,
                                                     &input_artifact_id),
             absl::OkStatus());
 
   Artifact output_artifact;
   output_artifact.set_type_id(artifact_type_id);
-  int64 output_artifact_id;
+  int64_t output_artifact_id;
   ASSERT_EQ(metadata_access_object_->CreateArtifact(output_artifact,
                                                     &output_artifact_id),
             absl::OkStatus());
 
   Execution execution;
   execution.set_type_id(execution_type_id);
-  int64 execution_id;
+  int64_t execution_id;
   ASSERT_EQ(metadata_access_object_->CreateExecution(execution, &execution_id),
             absl::OkStatus());
 
@@ -9876,7 +9876,7 @@ TEST_P(MetadataAccessObjectTest, CreateDuplicatedEvents) {
   event1.set_milliseconds_since_epoch(12345);
   event1.mutable_path()->add_steps()->set_index(1);
   event1.mutable_path()->add_steps()->set_key("key");
-  int64 event1_id = -1;
+  int64_t event1_id = -1;
   EXPECT_EQ(metadata_access_object_->CreateEvent(event1, &event1_id),
             absl::OkStatus());
   EXPECT_NE(event1_id, -1);
@@ -9885,7 +9885,7 @@ TEST_P(MetadataAccessObjectTest, CreateDuplicatedEvents) {
   Event event2 = ParseTextProtoOrDie<Event>("type: DECLARED_INPUT");
   event2.set_artifact_id(input_artifact_id);
   event2.set_execution_id(execution_id);
-  int64 event2_id = -1;
+  int64_t event2_id = -1;
   EXPECT_EQ(metadata_access_object_->CreateEvent(event2, &event2_id),
             absl::OkStatus());
   EXPECT_NE(event2_id, -1);
@@ -9895,7 +9895,7 @@ TEST_P(MetadataAccessObjectTest, CreateDuplicatedEvents) {
   Event event3 = ParseTextProtoOrDie<Event>("type: INPUT");
   event3.set_artifact_id(input_artifact_id);
   event3.set_execution_id(execution_id);
-  int64 unused_event3_id = -1;
+  int64_t unused_event3_id = -1;
   // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
   // At schema version 7, the unique constraint on Event table on (artifact_id,
   // execution_id, type) is not introduced.
@@ -9957,19 +9957,19 @@ TEST_P(MetadataAccessObjectTest, CreateParentContext) {
   ASSERT_EQ(Init(), absl::OkStatus());
   ContextType context_type;
   context_type.set_name("context_type_name");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(context_type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
   Context context1, context2;
   context1.set_name("parent_context");
   context1.set_type_id(type_id);
-  int64 context1_id;
+  int64_t context1_id;
   ASSERT_EQ(metadata_access_object_->CreateContext(context1, &context1_id),
             absl::OkStatus());
   context2.set_name("child_context");
   context2.set_type_id(type_id);
-  int64 context2_id;
+  int64_t context2_id;
   ASSERT_EQ(metadata_access_object_->CreateContext(context2, &context2_id),
             absl::OkStatus());
 
@@ -9993,23 +9993,23 @@ TEST_P(MetadataAccessObjectTest, CreateParentContextInvalidArgumentError) {
   ASSERT_EQ(Init(), absl::OkStatus());
   ContextType context_type;
   context_type.set_name("context_type_name");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(context_type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
   Context context;
   context.set_name("parent_context");
   context.set_type_id(type_id);
-  int64 stored_context_id;
+  int64_t stored_context_id;
   ASSERT_EQ(metadata_access_object_->CreateContext(context, &stored_context_id),
             absl::OkStatus());
-  int64 not_exist_context_id = stored_context_id + 1;
-  int64 not_exist_context_id_2 = stored_context_id + 2;
+  int64_t not_exist_context_id = stored_context_id + 1;
+  int64_t not_exist_context_id_2 = stored_context_id + 2;
 
   // Enumerate the case of parent context requests which are invalid
   auto verify_is_invalid_argument = [this](absl::string_view case_name,
-                                           absl::optional<int64> parent_id,
-                                           absl::optional<int64> child_id) {
+                                           absl::optional<int64_t> parent_id,
+                                           absl::optional<int64_t> child_id) {
     ParentContext parent_context;
     if (parent_id) {
       parent_context.set_parent_id(parent_id.value());
@@ -10046,7 +10046,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindParentContext) {
   ASSERT_EQ(Init(), absl::OkStatus());
   ContextType context_type;
   context_type.set_name("context_type_name");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(context_type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -10056,7 +10056,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindParentContext) {
   for (int i = 0; i < num_contexts; i++) {
     contexts[i].set_name(absl::StrCat("context", i));
     contexts[i].set_type_id(type_id);
-    int64 ctx_id;
+    int64_t ctx_id;
     ASSERT_EQ(metadata_access_object_->CreateContext(contexts[i], &ctx_id),
               absl::OkStatus());
     contexts[i].set_id(ctx_id);
@@ -10069,7 +10069,7 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindParentContext) {
   absl::node_hash_map<int, std::vector<Context>> want_parents;
   std::unordered_map<int, std::vector<Context>> want_children;
   auto put_parent_context = [this, &contexts, &want_parents, &want_children](
-                                int64 parent_idx, int64 child_idx) {
+                                int64_t parent_idx, int64_t child_idx) {
     ParentContext parent_context;
     parent_context.set_parent_id(contexts[parent_idx].id());
     parent_context.set_child_id(contexts[child_idx].id());
@@ -10110,7 +10110,7 @@ TEST_P(MetadataAccessObjectTest, CreateParentContextInheritanceLinkWithCycle) {
   ASSERT_EQ(Init(), absl::OkStatus());
   ContextType context_type;
   context_type.set_name("context_type_name");
-  int64 type_id;
+  int64_t type_id;
   ASSERT_EQ(metadata_access_object_->CreateType(context_type, &type_id),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -10120,7 +10120,7 @@ TEST_P(MetadataAccessObjectTest, CreateParentContextInheritanceLinkWithCycle) {
   for (int i = 0; i < num_contexts; i++) {
     contexts[i].set_name(absl::StrCat("context", i));
     contexts[i].set_type_id(type_id);
-    int64 ctx_id;
+    int64_t ctx_id;
     ASSERT_EQ(metadata_access_object_->CreateContext(contexts[i], &ctx_id),
               absl::OkStatus());
     contexts[i].set_id(ctx_id);
@@ -10194,8 +10194,8 @@ TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
   }
   // setup the database using the previous version.
   // Calling this with the minimum version sets up the original database.
-  int64 lib_version = metadata_access_object_->GetLibraryVersion();
-  for (int64 i = metadata_access_object_container_->MinimumVersion();
+  int64_t lib_version = metadata_access_object_->GetLibraryVersion();
+  for (int64_t i = metadata_access_object_container_->MinimumVersion();
        i <= lib_version; i++) {
     if (!metadata_access_object_container_->HasUpgradeVerification(i)) {
       continue;
@@ -10205,7 +10205,7 @@ TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
     if (i > 1) continue;
     // when i = 0, it is v0.13.2. At that time, the MLMDEnv table does not
     // exist, GetSchemaVersion resolves the current version as 0.
-    int64 v0_13_2_version = 100;
+    int64_t v0_13_2_version = 100;
     ASSERT_EQ(metadata_access_object_->GetSchemaVersion(&v0_13_2_version),
               absl::OkStatus());
     ASSERT_EQ(0, v0_13_2_version);
@@ -10227,7 +10227,7 @@ TEST_P(MetadataAccessObjectTest, MigrateToCurrentLibVersion) {
             absl::OkStatus());
   // at the end state, schema version should becomes the library version and
   // all migration queries should all succeed.
-  int64 curr_version = 0;
+  int64_t curr_version = 0;
   ASSERT_EQ(metadata_access_object_->GetSchemaVersion(&curr_version),
             absl::OkStatus());
   ASSERT_EQ(lib_version, curr_version);
@@ -10254,10 +10254,10 @@ TEST_P(MetadataAccessObjectTest, DowngradeToV0FromCurrentLibVersion) {
             absl::OkStatus());
   ASSERT_EQ(metadata_source_->Commit(), absl::OkStatus());
   ASSERT_EQ(metadata_source_->Begin(), absl::OkStatus());
-  int64 lib_version = metadata_access_object_->GetLibraryVersion();
+  int64_t lib_version = metadata_access_object_->GetLibraryVersion();
   MLMD_ASSERT_OK(
       metadata_access_object_container_->VerifyDbSchema(lib_version));
-  int64 curr_version = 0;
+  int64_t curr_version = 0;
   EXPECT_EQ(metadata_access_object_->GetSchemaVersion(&curr_version),
             absl::OkStatus());
   EXPECT_EQ(curr_version, lib_version);
@@ -10293,16 +10293,16 @@ TEST_P(MetadataAccessObjectTest, AutoMigrationTurnedOffByDefault) {
   ASSERT_EQ(metadata_source_->Commit(), absl::OkStatus());
   ASSERT_EQ(metadata_source_->Begin(), absl::OkStatus());
   // downgrade when the database to version 0.
-  int64 current_library_version =
+  int64_t current_library_version =
       metadata_access_object_->GetLibraryVersion();
   if (current_library_version ==
       metadata_access_object_container_->MinimumVersion()) {
     return;
   }
-  const int64 to_schema_version = current_library_version - 1;
+  const int64_t to_schema_version = current_library_version - 1;
   ASSERT_EQ(metadata_access_object_->DowngradeMetadataSource(to_schema_version),
             absl::OkStatus());
-  int64 db_version = -1;
+  int64_t db_version = -1;
   ASSERT_EQ(metadata_access_object_->GetSchemaVersion(&db_version),
             absl::OkStatus());
   ASSERT_EQ(db_version, to_schema_version);

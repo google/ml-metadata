@@ -71,7 +71,7 @@ void AddGrpcChannelArgs(const string& channel_arguments_str,
     // gRPC accept arguments of two types, int and string. We will attempt to
     // parse each arg as int and pass it on as such if successful. Otherwise we
     // will pass it as a string. gRPC will log arguments that were not accepted.
-    int64 value;
+    int64_t value;
     if (absl::SimpleAtoi(key_val[1], &value)) {
       builder->AddChannelArgument(key_val[0], value);
     } else {
@@ -107,7 +107,7 @@ bool ParseMetadataStoreServerConfigOrDie(
 bool ParseMySQLFlagsBasedServerConfigOrDie(
     const std::string& host, const int port, const std::string& database,
     const std::string& user, const std::string& password,
-    const bool enable_database_upgrade, const int64 downgrade_db_schema_version,
+    const bool enable_database_upgrade, const int64_t downgrade_db_schema_version,
     ml_metadata::MetadataStoreServerConfig* server_config) {
   if (host.empty() && database.empty() && port == 0) {
     return false;

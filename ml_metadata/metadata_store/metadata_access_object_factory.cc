@@ -32,7 +32,7 @@ namespace {
 // The MetadataSource is used to execute specific queries.
 absl::Status CreateRDBMSMetadataAccessObject(
     const MetadataSourceQueryConfig& query_config,
-    MetadataSource* const metadata_source, absl::optional<int64> schema_version,
+    MetadataSource* const metadata_source, absl::optional<int64_t> schema_version,
     std::unique_ptr<MetadataAccessObject>* result) {
   if (!metadata_source->is_connected())
     MLMD_RETURN_IF_ERROR(metadata_source->Connect());
@@ -61,7 +61,7 @@ absl::Status CreateMetadataAccessObject(
 
 absl::Status CreateMetadataAccessObject(
     const MetadataSourceQueryConfig& query_config,
-    MetadataSource* const metadata_source, absl::optional<int64> schema_version,
+    MetadataSource* const metadata_source, absl::optional<int64_t> schema_version,
     std::unique_ptr<MetadataAccessObject>* result) {
   switch (query_config.metadata_source_type()) {
     case UNKNOWN_METADATA_SOURCE:

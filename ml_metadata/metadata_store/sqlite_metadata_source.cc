@@ -87,7 +87,7 @@ int WaitThenRetry(void* options, int retried_times) {
     return 0;
   }
   std::minstd_rand0 gen(absl::ToUnixMillis(absl::Now()));
-  std::uniform_int_distribution<int64> uniform_dist(
+  std::uniform_int_distribution<int64_t> uniform_dist(
       opts->min_sleep_time / absl::Milliseconds(1),
       opts->max_sleep_time / absl::Milliseconds(1));
   const absl::Duration sleep_time = absl::Milliseconds(uniform_dist(gen));

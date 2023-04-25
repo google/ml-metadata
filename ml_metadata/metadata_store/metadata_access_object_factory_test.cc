@@ -43,12 +43,12 @@ TEST(MetadataAccessObjectFactory, CreateMetadataAccessObject) {
   ASSERT_EQ(absl::OkStatus(), metadata_source->Begin());
   ASSERT_EQ(absl::OkStatus(), metadata_access_object->InitMetadataSource());
 
-  int64 schema_version;
+  int64_t schema_version;
   ASSERT_EQ(absl::OkStatus(),
             metadata_access_object->GetSchemaVersion(&schema_version));
   ASSERT_EQ(absl::OkStatus(), metadata_source->Commit());
 
-  int64 library_version = metadata_access_object->GetLibraryVersion();
+  int64_t library_version = metadata_access_object->GetLibraryVersion();
   EXPECT_EQ(schema_version, library_version);
 }
 
@@ -58,8 +58,8 @@ TEST(MetadataAccessObjectFactory, CreateMetadataAccessObjectAtSchemaVersion9) {
   // Create MetadataAccessObject with default schema_version = library_version,
   // then downgrade the source to 9. Then create an instance of
   // MetadataAccessObject with that query_version.
-  constexpr int64 kLibSchemaVersion = 10;
-  const int64 earlier_schema_version = 9;
+  constexpr int64_t kLibSchemaVersion = 10;
+  const int64_t earlier_schema_version = 9;
   SqliteMetadataSourceConfig config;
   std::unique_ptr<MetadataSource> metadata_source =
       std::make_unique<SqliteMetadataSource>(config);
@@ -74,7 +74,7 @@ TEST(MetadataAccessObjectFactory, CreateMetadataAccessObjectAtSchemaVersion9) {
     ASSERT_EQ(absl::OkStatus(), metadata_access_object->InitMetadataSource());
     ASSERT_EQ(absl::OkStatus(), metadata_access_object->DowngradeMetadataSource(
                                     earlier_schema_version));
-    int64 schema_version;
+    int64_t schema_version;
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object->GetSchemaVersion(&schema_version));
     ASSERT_EQ(absl::OkStatus(), metadata_source->Commit());
@@ -99,8 +99,8 @@ TEST(MetadataAccessObjectFactory, CreateMetadataAccessObjectAtSchemaVersion8) {
   // Create MetadataAccessObject with default schema_version = library_version,
   // then downgrade the source to 8. Then create an instance of
   // MetadataAccessObject with that query_version.
-  constexpr int64 kLibSchemaVersion = 10;
-  const int64 earlier_schema_version = 8;
+  constexpr int64_t kLibSchemaVersion = 10;
+  const int64_t earlier_schema_version = 8;
   SqliteMetadataSourceConfig config;
   std::unique_ptr<MetadataSource> metadata_source =
       std::make_unique<SqliteMetadataSource>(config);
@@ -115,7 +115,7 @@ TEST(MetadataAccessObjectFactory, CreateMetadataAccessObjectAtSchemaVersion8) {
     ASSERT_EQ(absl::OkStatus(), metadata_access_object->InitMetadataSource());
     ASSERT_EQ(absl::OkStatus(), metadata_access_object->DowngradeMetadataSource(
                                     earlier_schema_version));
-    int64 schema_version;
+    int64_t schema_version;
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object->GetSchemaVersion(&schema_version));
     ASSERT_EQ(absl::OkStatus(), metadata_source->Commit());
@@ -140,8 +140,8 @@ TEST(MetadataAccessObjectFactory, CreateMetadataAccessObjectAtSchemaVersion7) {
   // Create MetadataAccessObject with default schema_version = library_version,
   // then downgrade the source to 7. Then create an instance of
   // MetadataAccessObject with that query_version.
-  constexpr int64 kLibSchemaVersion = 10;
-  const int64 earlier_schema_version = 7;
+  constexpr int64_t kLibSchemaVersion = 10;
+  const int64_t earlier_schema_version = 7;
   SqliteMetadataSourceConfig config;
   std::unique_ptr<MetadataSource> metadata_source =
       std::make_unique<SqliteMetadataSource>(config);
@@ -156,7 +156,7 @@ TEST(MetadataAccessObjectFactory, CreateMetadataAccessObjectAtSchemaVersion7) {
     ASSERT_EQ(absl::OkStatus(), metadata_access_object->InitMetadataSource());
     ASSERT_EQ(absl::OkStatus(), metadata_access_object->DowngradeMetadataSource(
                                     earlier_schema_version));
-    int64 schema_version;
+    int64_t schema_version;
     ASSERT_EQ(absl::OkStatus(),
               metadata_access_object->GetSchemaVersion(&schema_version));
     ASSERT_EQ(absl::OkStatus(), metadata_source->Commit());

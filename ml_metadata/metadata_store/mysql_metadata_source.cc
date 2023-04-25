@@ -108,7 +108,7 @@ Status CheckConfig(const MySQLDatabaseConfig& config) {
 // to the payload of the status object.
 absl::Status BuildErrorStatus(const absl::StatusCode status_code,
                               absl::string_view error_message,
-                              const int64 mysql_error_code,
+                              const int64_t mysql_error_code,
                               absl::string_view mysql_error_message) {
   auto error_status = absl::Status(
       status_code, absl::StrCat(error_message, ": errno: ", mysql_error_message,
@@ -286,7 +286,7 @@ Status MySqlMetadataSource::RunQuery(const std::string& query) {
 
   int query_status = mysql_query(db_, query.c_str());
   if (query_status) {
-    int64 error_number = mysql_errno(db_);
+    int64_t error_number = mysql_errno(db_);
     // 2006: sever closes the connection due to inactive client;
     // client reports server has gone away, we reconnect the server for the
     // client if the query is begin transaction.
@@ -361,8 +361,8 @@ Status MySqlMetadataSource::ConvertMySqlRowSetToRecordSet(
     RecordSet::Record record;
     std::vector<std::string> col_names;
 
-    uint32 num_cols = mysql_num_fields(result_set_);
-    for (uint32 col = 0; col < num_cols; ++col) {
+    uint32_t num_cols = mysql_num_fields(result_set_);
+    for (uint32_t col = 0; col < num_cols; ++col) {
       MYSQL_FIELD* field = mysql_fetch_field_direct(result_set_, col);
       if (field == nullptr) {
         return absl::InternalError(absl::StrCat(

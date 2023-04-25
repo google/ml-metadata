@@ -76,7 +76,7 @@ std::string GetColumnName(absl::optional<absl::string_view> table_alias,
 // specified.
 absl::Status ConstructOrderingFieldClause(
     const ListOperationOptions& options,
-    absl::optional<absl::string_view> table_alias, int64 field_offset,
+    absl::optional<absl::string_view> table_alias, int64_t field_offset,
     std::string& ordering_clause) {
   std::string column_name;
   MLMD_RETURN_IF_ERROR(GetDbColumnNameForProtoField(
@@ -97,7 +97,7 @@ absl::Status ConstructOrderingFieldClause(
 // Constructs the WHERE clause on the id field for CREATE_TIME ordering.
 std::string ConstructIdOrderCaluse(
     const ListOperationOptions& options,
-    absl::optional<absl::string_view> table_alias, int64 id_offset) {
+    absl::optional<absl::string_view> table_alias, int64_t id_offset) {
   return absl::Substitute("$0 $1 $2 ", GetColumnName(table_alias, "id"),
                           options.order_by_field().is_asc() ? ">" : "<",
                           id_offset);
@@ -105,7 +105,7 @@ std::string ConstructIdOrderCaluse(
 
 // Constructs the WHERE clause on the id field for LAST_UPDATE_TIME ordering.
 absl::Status ConstructIdNotInCaluse(
-    absl::Span<const int64> listed_ids,
+    absl::Span<const int64_t> listed_ids,
     absl::optional<absl::string_view> table_alias, std::string& not_in_clause) {
   if (listed_ids.empty()) {
     return absl::InternalError(
@@ -130,7 +130,7 @@ absl::Status ConstructIdClause(
                                          next_page_token.id_offset());
       break;
     case ListOperationOptions::OrderByField::LAST_UPDATE_TIME: {
-      std::vector<int64> listed_ids;
+      std::vector<int64_t> listed_ids;
       for (auto it = next_page_token.listed_ids().begin();
            it != next_page_token.listed_ids().end(); it++) {
         listed_ids.push_back(*it);

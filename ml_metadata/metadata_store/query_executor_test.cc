@@ -208,8 +208,8 @@ int GetColumnIndex(const RecordSet& record_set, const std::string column_name) {
 }
 
 void ValidateNodeRecordSetByNodeIDs(const RecordSet& record_set,
-                                    absl::Span<int64> expected_ids) {
-  std::vector<int64> actual_ids;
+                                    absl::Span<int64_t> expected_ids) {
+  std::vector<int64_t> actual_ids;
   for (const RecordSet::Record& record : record_set.records()) {
     actual_ids.push_back(std::stoi(record.values(0)));
   }
@@ -218,7 +218,7 @@ void ValidateNodeRecordSetByNodeIDs(const RecordSet& record_set,
 
 void ValidateParentContextRecordSet(
     const RecordSet& record_set,
-    std::vector<std::pair<int64, int64>> expected_parent_ids) {
+    std::vector<std::pair<int64_t, int64_t>> expected_parent_ids) {
   RecordSet expected_record_set;
   expected_record_set.add_column_names("context_id");
   expected_record_set.add_column_names("parent_context_id");
@@ -233,7 +233,7 @@ void ValidateParentContextRecordSet(
 TEST_P(QueryExecutorTest, SelectTypesByID) {
   ASSERT_EQ(absl::OkStatus(), Init());
   // Artifact type insertion.
-  int64 type_id_1, type_id_2;
+  int64_t type_id_1, type_id_2;
   ASSERT_EQ(absl::OkStatus(),
             query_executor_->InsertArtifactType(
                 "artifact_type_1", absl::nullopt, absl::nullopt,
@@ -245,7 +245,7 @@ TEST_P(QueryExecutorTest, SelectTypesByID) {
                 absl::nullopt,
                 &type_id_2));
   // Exectuion type insertion.
-  int64 type_id_3, type_id_4;
+  int64_t type_id_3, type_id_4;
   ArtifactStructType input_type;
   AnyArtifactStructType any_input_type;
   *input_type.mutable_any() = any_input_type;
@@ -265,7 +265,7 @@ TEST_P(QueryExecutorTest, SelectTypesByID) {
                 absl::nullopt,
                 &type_id_4));
   // Context type insertion.
-  int64 type_id_5;
+  int64_t type_id_5;
   ASSERT_EQ(absl::OkStatus(),
             query_executor_->InsertContextType(
                 "context_type_1", absl::nullopt, absl::nullopt,
@@ -274,7 +274,7 @@ TEST_P(QueryExecutorTest, SelectTypesByID) {
 
   // Test select artifact types by ids.
   TypeKind type_kind = TypeKind::ARTIFACT_TYPE;
-  std::vector<int64> type_ids = {type_id_1, type_id_2};
+  std::vector<int64_t> type_ids = {type_id_1, type_id_2};
   RecordSet artifact_record_set;
   ASSERT_EQ(absl::OkStatus(), query_executor_->SelectTypesByID(
                                   type_ids, type_kind, &artifact_record_set));
@@ -306,7 +306,7 @@ TEST_P(QueryExecutorTest, SelectTypesByID) {
 TEST_P(QueryExecutorTest, SelectTypesByIDWithMixedTypeIDKinds) {
   ASSERT_EQ(absl::OkStatus(), Init());
   // Artifact type insertion.
-  int64 type_id_1, type_id_2;
+  int64_t type_id_1, type_id_2;
   ASSERT_EQ(absl::OkStatus(),
             query_executor_->InsertArtifactType(
                 "artifact_type_1", absl::nullopt, absl::nullopt,
@@ -318,7 +318,7 @@ TEST_P(QueryExecutorTest, SelectTypesByIDWithMixedTypeIDKinds) {
                 absl::nullopt,
                 &type_id_2));
   // Context type insertion.
-  int64 type_id_3;
+  int64_t type_id_3;
   ASSERT_EQ(absl::OkStatus(),
             query_executor_->InsertContextType(
                 "context_type_1", absl::nullopt, absl::nullopt,
@@ -327,7 +327,7 @@ TEST_P(QueryExecutorTest, SelectTypesByIDWithMixedTypeIDKinds) {
 
   // Test select artifact types with a mixture of artifact and context type ids.
   TypeKind type_kind = TypeKind::ARTIFACT_TYPE;
-  std::vector<int64> type_ids = {type_id_1, type_id_3};
+  std::vector<int64_t> type_ids = {type_id_1, type_id_3};
   RecordSet record_set;
   ASSERT_EQ(absl::OkStatus(),
             query_executor_->SelectTypesByID(type_ids, type_kind, &record_set));
@@ -339,7 +339,7 @@ TEST_P(QueryExecutorTest, SelectTypesByIDWithMixedTypeIDKinds) {
 TEST_P(QueryExecutorTest, DeleteContextsById) {
   ASSERT_EQ(absl::OkStatus(), Init());
   // Create context type.
-  int64 context_type_id;
+  int64_t context_type_id;
   ASSERT_EQ(absl::OkStatus(),
             query_executor_->InsertContextType(
                 "context_type", absl::nullopt, absl::nullopt,
@@ -349,14 +349,14 @@ TEST_P(QueryExecutorTest, DeleteContextsById) {
             query_executor_->InsertTypeProperty(context_type_id, "property_1",
                                                 PropertyType::INT));
   // Create artifact type.
-  int64 artifact_type_id;
+  int64_t artifact_type_id;
   ASSERT_EQ(absl::OkStatus(),
             query_executor_->InsertArtifactType(
                 "artifact_type", absl::nullopt, absl::nullopt,
                 absl::nullopt,
                 &artifact_type_id));
   // Create execution type.
-  int64 execution_type_id;
+  int64_t execution_type_id;
   ArtifactStructType input_type;
   AnyArtifactStructType any_input_type;
   *input_type.mutable_any() = any_input_type;
@@ -371,7 +371,7 @@ TEST_P(QueryExecutorTest, DeleteContextsById) {
                 &execution_type_id));
 
   // Create contexts.
-  int64 context_id_1, context_id_2;
+  int64_t context_id_1, context_id_2;
   MLMD_ASSERT_OK(query_executor_->InsertContext(
       context_type_id, "delete_contexts_by_id_test_1",
       absl::nullopt,
@@ -390,7 +390,7 @@ TEST_P(QueryExecutorTest, DeleteContextsById) {
             query_executor_->InsertContextProperty(context_id_2, "property_1",
                                                    false, int_value));
   // Create artifact and execution.
-  int64 artifact_id, execution_id;
+  int64_t artifact_id, execution_id;
   MLMD_ASSERT_OK(query_executor_->InsertArtifact(
       artifact_type_id, "/foo/bar", absl::nullopt, "artifact",
       absl::nullopt,
@@ -401,7 +401,7 @@ TEST_P(QueryExecutorTest, DeleteContextsById) {
       absl::Now(), absl::Now(), &execution_id));
 
   // Create attribution and association.
-  int64 attribution_id, association_id;
+  int64_t attribution_id, association_id;
   ASSERT_EQ(absl::OkStatus(), query_executor_->InsertAttributionDirect(
                                   context_id_1, artifact_id, &attribution_id));
   ASSERT_EQ(absl::OkStatus(), query_executor_->InsertAssociation(
@@ -469,7 +469,7 @@ TEST_P(QueryExecutorTest, DeleteContextsById) {
 TEST_P(QueryExecutorTest, DeleteParentContextsByParentIdAndChildIds) {
   MLMD_ASSERT_OK(Init());
   // Create context type.
-  int64 context_type_id;
+  int64_t context_type_id;
   MLMD_ASSERT_OK(query_executor_->InsertContextType(
       "context_type", absl::nullopt, absl::nullopt,
       "context_type",
@@ -478,8 +478,8 @@ TEST_P(QueryExecutorTest, DeleteParentContextsByParentIdAndChildIds) {
                                   "property_1", PropertyType::INT));
 
   // Create contexts
-  int64 parent_id_1, parent_id_2, parent_id_3;
-  int64 child_id_1, child_id_2, child_id_3;
+  int64_t parent_id_1, parent_id_2, parent_id_3;
+  int64_t child_id_1, child_id_2, child_id_3;
   MLMD_ASSERT_OK(query_executor_->InsertContext(
       context_type_id, "parent_context_1",
       "parent_context_1",
@@ -576,7 +576,7 @@ TEST_P(QueryExecutorTest, DeleteParentContextsByParentIdAndChildIds) {
 TEST_P(QueryExecutorTest, SelectParentTypesByTypeID) {
   ASSERT_EQ(absl::OkStatus(), Init());
   // Setup: Create context type.
-  int64 context_type_id;
+  int64_t context_type_id;
   ASSERT_EQ(absl::OkStatus(),
             query_executor_->InsertContextType(
                 "context_type", absl::nullopt, absl::nullopt,
@@ -586,7 +586,7 @@ TEST_P(QueryExecutorTest, SelectParentTypesByTypeID) {
             query_executor_->InsertTypeProperty(context_type_id, "property_1",
                                                 PropertyType::INT));
   // Create artifact types.
-  int64 artifact_type_id, parent_artifact_type_id;
+  int64_t artifact_type_id, parent_artifact_type_id;
   ASSERT_EQ(absl::OkStatus(),
             query_executor_->InsertArtifactType(
                 "artifact_type", absl::nullopt, absl::nullopt,
@@ -599,7 +599,7 @@ TEST_P(QueryExecutorTest, SelectParentTypesByTypeID) {
                 &parent_artifact_type_id));
 
   // Setup: Create execution types.
-  int64 execution_type_id, parent_execution_type_id;
+  int64_t execution_type_id, parent_execution_type_id;
   ArtifactStructType input_type;
   AnyArtifactStructType any_input_type;
   *input_type.mutable_any() = any_input_type;
@@ -618,7 +618,8 @@ TEST_P(QueryExecutorTest, SelectParentTypesByTypeID) {
                 &input_type, &output_type,
                 absl::nullopt,
                 &parent_execution_type_id));
-  int64 non_exist_parent_type_id = parent_execution_type_id + execution_type_id;
+  int64_t non_exist_parent_type_id =
+      parent_execution_type_id + execution_type_id;
 
   // Setup: Insert parent type links.
   ASSERT_EQ(absl::OkStatus(), query_executor_->InsertParentType(
@@ -681,7 +682,7 @@ TEST_P(QueryExecutorTest, SelectParentTypesByTypeID) {
 TEST_P(QueryExecutorTest, SelectPropertiesByTypeID) {
   ASSERT_EQ(absl::OkStatus(), Init());
   // Setup: Create context type.
-  int64 context_type_id;
+  int64_t context_type_id;
   ASSERT_EQ(absl::OkStatus(),
             query_executor_->InsertContextType(
                 "context_type", absl::nullopt, absl::nullopt,
@@ -691,7 +692,7 @@ TEST_P(QueryExecutorTest, SelectPropertiesByTypeID) {
             query_executor_->InsertTypeProperty(context_type_id, "property_1",
                                                 PropertyType::INT));
   // Create artifact types.
-  int64 artifact_type_id_1, artifact_type_id_2;
+  int64_t artifact_type_id_1, artifact_type_id_2;
   ASSERT_EQ(absl::OkStatus(),
             query_executor_->InsertArtifactType(
                 "artifact_type_1", absl::nullopt, absl::nullopt,
@@ -770,7 +771,7 @@ TEST_P(QueryExecutorTest, SelectPropertiesByTypeID) {
 TEST_P(QueryExecutorTest, SelectTypesByNamesAndVersions) {
   ASSERT_EQ(Init(), absl::OkStatus());
   // Artifact type insertion.
-  int64 type_id_1, type_id_2;
+  int64_t type_id_1, type_id_2;
   ASSERT_EQ(query_executor_->InsertArtifactType(
                 "artifact_type_1", "version_1", absl::nullopt,
                 absl::nullopt,
@@ -782,7 +783,7 @@ TEST_P(QueryExecutorTest, SelectTypesByNamesAndVersions) {
                 &type_id_2),
             absl::OkStatus());
   // Exectuion type insertion.
-  int64 type_id_3, type_id_4;
+  int64_t type_id_3, type_id_4;
   ArtifactStructType input_type;
   AnyArtifactStructType any_input_type;
   *input_type.mutable_any() = any_input_type;
@@ -802,7 +803,7 @@ TEST_P(QueryExecutorTest, SelectTypesByNamesAndVersions) {
                 &type_id_4),
             absl::OkStatus());
   // Context type insertion.
-  int64 type_id_5;
+  int64_t type_id_5;
   ASSERT_EQ(query_executor_->InsertContextType(
                 "context_type_1", absl::nullopt, absl::nullopt,
                 absl::nullopt,
@@ -871,7 +872,7 @@ TEST_P(QueryExecutorTest, SelectTypesByNamesAndVersions) {
 TEST_P(QueryExecutorTest, SelectArtifacts) {
   ASSERT_EQ(absl::OkStatus(), Init());
   // Setup: insert artifact type
-  int64 type_id;
+  int64_t type_id;
   {
     ASSERT_EQ(absl::OkStatus(),
               query_executor_->InsertArtifactType(
@@ -881,8 +882,8 @@ TEST_P(QueryExecutorTest, SelectArtifacts) {
   }
   // Setup: insert two artifacts and create an expected record set
   RecordSet expected_artifact_record_set;
-  int64 artifact_id_1;
-  int64 artifact_id_2;
+  int64_t artifact_id_1;
+  int64_t artifact_id_2;
   const absl::Time test_create_time = absl::Now();
   const std::string test_external_id_1 = "test_artifact_1";
   {
@@ -940,7 +941,7 @@ TEST_P(QueryExecutorTest, SelectArtifacts) {
   // Test select artifacts by ids
   {
     RecordSet got_artifact_record_set;
-    std::vector<int64> artifact_ids = {artifact_id_1, artifact_id_2};
+    std::vector<int64_t> artifact_ids = {artifact_id_1, artifact_id_2};
     ASSERT_EQ(absl::OkStatus(), query_executor_->SelectArtifactsByID(
                                     artifact_ids, &got_artifact_record_set));
     EXPECT_THAT(got_artifact_record_set.records(),
@@ -954,7 +955,7 @@ TEST_P(QueryExecutorTest, SelectArtifacts) {
     ASSERT_EQ(absl::OkStatus(),
               query_executor_->SelectArtifactsByExternalIds(
                   absl::MakeSpan(external_ids), &got_artifact_record_set));
-    std::vector<int64> expected_artifact_ids = {artifact_id_1};
+    std::vector<int64_t> expected_artifact_ids = {artifact_id_1};
     ValidateNodeRecordSetByNodeIDs(got_artifact_record_set,
                                    absl::MakeSpan(expected_artifact_ids));
   }
@@ -963,7 +964,7 @@ TEST_P(QueryExecutorTest, SelectArtifacts) {
     RecordSet got_artifact_record_set;
     ASSERT_EQ(absl::OkStatus(), query_executor_->SelectArtifactsByTypeID(
                                     type_id, &got_artifact_record_set));
-    std::vector<int64> expected_artifact_ids = {artifact_id_1, artifact_id_2};
+    std::vector<int64_t> expected_artifact_ids = {artifact_id_1, artifact_id_2};
     ValidateNodeRecordSetByNodeIDs(got_artifact_record_set,
                                    absl::MakeSpan(expected_artifact_ids));
   }
@@ -973,7 +974,7 @@ TEST_P(QueryExecutorTest, SelectArtifacts) {
     ASSERT_EQ(absl::OkStatus(),
               query_executor_->SelectArtifactByTypeIDAndArtifactName(
                   type_id, "artifact_1", &got_artifact_record_set));
-    std::vector<int64> expected_artifact_ids = {artifact_id_1};
+    std::vector<int64_t> expected_artifact_ids = {artifact_id_1};
     ValidateNodeRecordSetByNodeIDs(got_artifact_record_set,
                                    absl::MakeSpan(expected_artifact_ids));
   }
@@ -982,7 +983,7 @@ TEST_P(QueryExecutorTest, SelectArtifacts) {
     RecordSet got_artifact_record_set;
     ASSERT_EQ(absl::OkStatus(), query_executor_->SelectArtifactsByURI(
                                     "artifact_uri", &got_artifact_record_set));
-    std::vector<int64> expected_artifact_ids = {artifact_id_1, artifact_id_2};
+    std::vector<int64_t> expected_artifact_ids = {artifact_id_1, artifact_id_2};
     ValidateNodeRecordSetByNodeIDs(got_artifact_record_set,
                                    absl::MakeSpan(expected_artifact_ids));
   }
@@ -991,7 +992,7 @@ TEST_P(QueryExecutorTest, SelectArtifacts) {
 TEST_P(QueryExecutorTest, SelectContexts) {
   ASSERT_EQ(absl::OkStatus(), Init());
   // Setup: insert context type
-  int64 type_id;
+  int64_t type_id;
   {
     ASSERT_EQ(absl::OkStatus(),
               query_executor_->InsertContextType(
@@ -1001,8 +1002,8 @@ TEST_P(QueryExecutorTest, SelectContexts) {
   }
   // Setup: insert two contexts and create an expected record set
   RecordSet expected_context_record_set;
-  int64 context_id_1;
-  int64 context_id_2;
+  int64_t context_id_1;
+  int64_t context_id_2;
   const absl::Time test_create_time = absl::Now();
   const std::string test_external_id_1 = "test_context_1";
   {
@@ -1054,7 +1055,7 @@ TEST_P(QueryExecutorTest, SelectContexts) {
   // Test select contexts by ids
   {
     RecordSet got_context_record_set;
-    std::vector<int64> context_ids = {context_id_1, context_id_2};
+    std::vector<int64_t> context_ids = {context_id_1, context_id_2};
     ASSERT_EQ(absl::OkStatus(), query_executor_->SelectContextsByID(
                                     context_ids, &got_context_record_set));
     EXPECT_THAT(got_context_record_set.records(),
@@ -1068,7 +1069,7 @@ TEST_P(QueryExecutorTest, SelectContexts) {
     ASSERT_EQ(absl::OkStatus(),
               query_executor_->SelectContextsByExternalIds(
                   absl::MakeSpan(external_ids), &got_context_record_set));
-    std::vector<int64> expected_context_ids = {context_id_1};
+    std::vector<int64_t> expected_context_ids = {context_id_1};
     ValidateNodeRecordSetByNodeIDs(got_context_record_set,
                                    absl::MakeSpan(expected_context_ids));
   }
@@ -1077,7 +1078,7 @@ TEST_P(QueryExecutorTest, SelectContexts) {
     RecordSet got_context_record_set;
     ASSERT_EQ(absl::OkStatus(), query_executor_->SelectContextsByTypeID(
                                     type_id, &got_context_record_set));
-    std::vector<int64> expected_context_ids = {context_id_1, context_id_2};
+    std::vector<int64_t> expected_context_ids = {context_id_1, context_id_2};
     ValidateNodeRecordSetByNodeIDs(got_context_record_set,
                                    absl::MakeSpan(expected_context_ids));
   }
@@ -1087,7 +1088,7 @@ TEST_P(QueryExecutorTest, SelectContexts) {
     ASSERT_EQ(absl::OkStatus(),
               query_executor_->SelectContextByTypeIDAndContextName(
                   type_id, "context_1", &got_context_record_set));
-    std::vector<int64> expected_context_ids = {context_id_1};
+    std::vector<int64_t> expected_context_ids = {context_id_1};
     ValidateNodeRecordSetByNodeIDs(got_context_record_set,
                                    absl::MakeSpan(expected_context_ids));
   }
@@ -1096,7 +1097,7 @@ TEST_P(QueryExecutorTest, SelectContexts) {
 TEST_P(QueryExecutorTest, SelectExecutions) {
   ASSERT_EQ(absl::OkStatus(), Init());
   // Setup: insert execution type
-  int64 type_id;
+  int64_t type_id;
   {
     ArtifactStructType input_type;
     AnyArtifactStructType any_input_type;
@@ -1113,8 +1114,8 @@ TEST_P(QueryExecutorTest, SelectExecutions) {
   }
   // Setup: insert two executions and create an expected record set
   RecordSet expected_execution_record_set;
-  int64 execution_id_1;
-  int64 execution_id_2;
+  int64_t execution_id_1;
+  int64_t execution_id_2;
   const absl::Time test_create_time = absl::Now();
   const std::string test_external_id_1 = "test_execution_1";
   {
@@ -1168,7 +1169,7 @@ TEST_P(QueryExecutorTest, SelectExecutions) {
   // Test select executions by ids
   {
     RecordSet got_execution_record_set;
-    std::vector<int64> execution_ids = {execution_id_1, execution_id_2};
+    std::vector<int64_t> execution_ids = {execution_id_1, execution_id_2};
     ASSERT_EQ(absl::OkStatus(), query_executor_->SelectExecutionsByID(
                                     execution_ids, &got_execution_record_set));
     EXPECT_THAT(got_execution_record_set.records(),
@@ -1182,7 +1183,7 @@ TEST_P(QueryExecutorTest, SelectExecutions) {
     ASSERT_EQ(absl::OkStatus(),
               query_executor_->SelectExecutionsByExternalIds(
                   absl::MakeSpan(external_ids), &got_execution_record_set));
-    std::vector<int64> expected_execution_ids = {execution_id_1};
+    std::vector<int64_t> expected_execution_ids = {execution_id_1};
     ValidateNodeRecordSetByNodeIDs(got_execution_record_set,
                                    absl::MakeSpan(expected_execution_ids));
   }
@@ -1191,7 +1192,7 @@ TEST_P(QueryExecutorTest, SelectExecutions) {
     RecordSet got_execution_record_set;
     ASSERT_EQ(absl::OkStatus(), query_executor_->SelectExecutionsByTypeID(
                                     type_id, &got_execution_record_set));
-    std::vector<int64> expected_execution_ids = {execution_id_1,
+    std::vector<int64_t> expected_execution_ids = {execution_id_1,
                                                    execution_id_2};
     ValidateNodeRecordSetByNodeIDs(got_execution_record_set,
                                    absl::MakeSpan(expected_execution_ids));
@@ -1202,7 +1203,7 @@ TEST_P(QueryExecutorTest, SelectExecutions) {
     ASSERT_EQ(absl::OkStatus(),
               query_executor_->SelectExecutionByTypeIDAndExecutionName(
                   type_id, "execution_1", &got_execution_record_set));
-    std::vector<int64> expected_execution_ids = {execution_id_1};
+    std::vector<int64_t> expected_execution_ids = {execution_id_1};
     ValidateNodeRecordSetByNodeIDs(got_execution_record_set,
                                    absl::MakeSpan(expected_execution_ids));
   }
@@ -1216,8 +1217,8 @@ TEST_P(QueryExecutorTest, SelectChildContextsByContextIDs) {
   //
   // parent_id_2 --> child_id_3
   // parent_id_3 -/
-  int64 parent_id_1 = 1, parent_id_2 = 2, parent_id_3 = 3;
-  int64 child_id_1 = 4, child_id_2 = 5, child_id_3 = 6;
+  int64_t parent_id_1 = 1, parent_id_2 = 2, parent_id_3 = 3;
+  int64_t child_id_1 = 4, child_id_2 = 5, child_id_3 = 6;
   ASSERT_EQ(query_executor_->InsertParentContext(parent_id_1, child_id_1),
             absl::OkStatus());
   ASSERT_EQ(query_executor_->InsertParentContext(parent_id_1, child_id_2),
@@ -1229,8 +1230,8 @@ TEST_P(QueryExecutorTest, SelectChildContextsByContextIDs) {
 
   // Test select child contexts by ids.
   RecordSet record_set;
-  std::vector<int64> parent_context_ids = {parent_id_1, parent_id_2,
-                                           parent_id_3};
+  std::vector<int64_t> parent_context_ids = {parent_id_1, parent_id_2,
+                                             parent_id_3};
   ASSERT_EQ(query_executor_->SelectChildContextsByContextIDs(parent_context_ids,
                                                              &record_set),
             absl::OkStatus());
@@ -1250,8 +1251,8 @@ TEST_P(QueryExecutorTest, SelectParentContextsByContextIDs) {
   // parent_id_2 --> child_id_3
   // parent_id_3 -/
   //                 child_id_4
-  int64 parent_id_1 = 1, parent_id_2 = 2, parent_id_3 = 3;
-  int64 child_id_1 = 4, child_id_2 = 5, child_id_3 = 6, child_id_4 = 7;
+  int64_t parent_id_1 = 1, parent_id_2 = 2, parent_id_3 = 3;
+  int64_t child_id_1 = 4, child_id_2 = 5, child_id_3 = 6, child_id_4 = 7;
   ASSERT_EQ(query_executor_->InsertParentContext(parent_id_1, child_id_1),
             absl::OkStatus());
   ASSERT_EQ(query_executor_->InsertParentContext(parent_id_1, child_id_2),
@@ -1263,8 +1264,8 @@ TEST_P(QueryExecutorTest, SelectParentContextsByContextIDs) {
 
   // Test select parent contexts by ids.
   RecordSet record_set;
-  std::vector<int64> context_ids = {child_id_1, child_id_2, child_id_3,
-                                    child_id_4};
+  std::vector<int64_t> context_ids = {child_id_1, child_id_2, child_id_3,
+                                      child_id_4};
   ASSERT_EQ(query_executor_->SelectParentContextsByContextIDs(context_ids,
                                                               &record_set),
             absl::OkStatus());

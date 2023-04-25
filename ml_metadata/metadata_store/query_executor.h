@@ -54,7 +54,7 @@ class QueryExecutor {
   // useful for multi-tenant applications to have better availability when
   // configured with a set of existing backends with different schema versions.
   explicit QueryExecutor(
-      absl::optional<int64> query_schema_version = absl::nullopt);
+      absl::optional<int64_t> query_schema_version = absl::nullopt);
   virtual ~QueryExecutor() = default;
 
   // default & copy constructors are disallowed.
@@ -117,7 +117,7 @@ class QueryExecutor {
   // Returns FAILED_PRECONDITION, if db schema version is newer than the
   //   library version.
   // Returns detailed INTERNAL error, if query execution fails.
-  virtual absl::Status DowngradeMetadataSource(int64 to_schema_version) = 0;
+  virtual absl::Status DowngradeMetadataSource(int64_t to_schema_version) = 0;
 
   // Resolves the schema version stored in the metadata source. The `db_version`
   // is set to 0, if it is a 0.13.2 release pre-existing database.
@@ -127,7 +127,7 @@ class QueryExecutor {
   // more than one value in the database.
   // Returns NOT_FOUND error, if the database is empty.
   // Returns detailed INTERNAL error, if query execution fails.
-  virtual absl::Status GetSchemaVersion(int64* db_version) = 0;
+  virtual absl::Status GetSchemaVersion(int64_t* db_version) = 0;
 
   // The version of the current query config or source. Increase the version by
   // 1 in any CL that includes physical schema changes and provides a migration
@@ -136,7 +136,7 @@ class QueryExecutor {
   // compares the given local `schema_version` in query config with the
   // `schema_version` stored in the database, and migrate the database if
   // needed.
-  virtual int64 GetLibraryVersion() = 0;
+  virtual int64_t GetLibraryVersion() = 0;
 
   // Each of the following methods roughly corresponds to a query (or two).
   virtual absl::Status CheckTypeTable() = 0;
@@ -166,8 +166,7 @@ class QueryExecutor {
   virtual absl::Status InsertArtifactType(
       const std::string& name, absl::optional<absl::string_view> version,
       absl::optional<absl::string_view> description,
-      absl::optional<absl::string_view> external_id,
-      int64* type_id) = 0;
+      absl::optional<absl::string_view> external_id, int64_t* type_id) = 0;
 
   // Inserts an ExecutionType into the database.
   // `input_type` is an optional field to describe the input artifact types.
@@ -179,8 +178,7 @@ class QueryExecutor {
       absl::optional<absl::string_view> description,
       const ArtifactStructType* input_type,
       const ArtifactStructType* output_type,
-      absl::optional<absl::string_view> external_id,
-      int64* type_id) = 0;
+      absl::optional<absl::string_view> external_id, int64_t* type_id) = 0;
 
   // Inserts a ContextType into the database.
   // `type_id` is the ID of the context type.
@@ -188,14 +186,13 @@ class QueryExecutor {
   virtual absl::Status InsertContextType(
       const std::string& name, absl::optional<absl::string_view> version,
       absl::optional<absl::string_view> description,
-      absl::optional<absl::string_view> external_id,
-      int64* type_id) = 0;
+      absl::optional<absl::string_view> external_id, int64_t* type_id) = 0;
 
   // Retrieves types from the database by their ids. Not found ids are
   // skipped.
   // Returned messages can be converted to ArtifactType, ContextType, or
   // ExecutionType.
-  virtual absl::Status SelectTypesByID(absl::Span<const int64> type_ids,
+  virtual absl::Status SelectTypesByID(absl::Span<const int64_t> type_ids,
                                        TypeKind type_kind,
                                        RecordSet* record_set) = 0;
 
@@ -212,7 +209,7 @@ class QueryExecutor {
   // ContextType, or ExecutionType.
   // TODO(b/171597866) Improve document and describe the returned `record_set`.
   // for the query executor APIs.
-  virtual absl::Status SelectTypeByID(int64 type_id, TypeKind type_kind,
+  virtual absl::Status SelectTypeByID(int64_t type_id, TypeKind type_kind,
                                       RecordSet* record_set) = 0;
 
   // Gets a type by its type name and an optional version. If version is
@@ -245,13 +242,13 @@ class QueryExecutor {
 
   // Updates a type's `external_id` in the database.
   virtual absl::Status UpdateTypeExternalIdDirect(
-      int64 type_id, absl::optional<absl::string_view> external_id) = 0;
+      int64_t type_id, absl::optional<absl::string_view> external_id) = 0;
 
   // Checks the existence of the TypeProperty table.
   virtual absl::Status CheckTypePropertyTable() = 0;
 
   // Inserts a property of a type into the database.
-  virtual absl::Status InsertTypeProperty(int64 type_id,
+  virtual absl::Status InsertTypeProperty(int64_t type_id,
                                           absl::string_view property_name,
                                           PropertyType property_type) = 0;
 
@@ -259,7 +256,7 @@ class QueryExecutor {
   // `type_ids`.
   // Returns a list of properties (type_id, name, data_type).
   virtual absl::Status SelectPropertiesByTypeID(
-      absl::Span<const int64> type_ids, RecordSet* record_set) = 0;
+      absl::Span<const int64_t> type_ids, RecordSet* record_set) = 0;
 
   // Checks the existence of the ParentType table.
   virtual absl::Status CheckParentTypeTable() = 0;
@@ -267,30 +264,30 @@ class QueryExecutor {
   // Inserts a parent type record.
   // Returns OK if the insertion succeeds.
   // Returns detailed INTERNAL error, if query execution fails.
-  virtual absl::Status InsertParentType(int64 type_id,
-                                        int64 parent_type_id) = 0;
+  virtual absl::Status InsertParentType(int64_t type_id,
+                                        int64_t parent_type_id) = 0;
 
   // Deletes a parent type record.
   // Returns detailed INTERNAL error, if query execution fails.
-  virtual absl::Status DeleteParentType(int64 type_id,
-                                        int64 parent_type_id) = 0;
+  virtual absl::Status DeleteParentType(int64_t type_id,
+                                        int64_t parent_type_id) = 0;
 
   // Returns parent types for the type id in `type_ids`. Each record has:
   // Column 0: int: type_id (= type_id in `type_ids`)
   // Column 1: int: parent_type_id
   virtual absl::Status SelectParentTypesByTypeID(
-      absl::Span<const int64> type_ids, RecordSet* record_set) = 0;
+      absl::Span<const int64_t> type_ids, RecordSet* record_set) = 0;
 
   // Checks the existence of the Artifact table.
   virtual absl::Status CheckArtifactTable() = 0;
 
   // Inserts an artifact into the database.
   virtual absl::Status InsertArtifact(
-      int64 type_id, const std::string& artifact_uri,
+      int64_t type_id, const std::string& artifact_uri,
       const absl::optional<Artifact::State>& state,
       const absl::optional<std::string>& name,
-      absl::optional<absl::string_view> external_id,
-      absl::Time create_time, absl::Time update_time, int64* artifact_id) = 0;
+      absl::optional<absl::string_view> external_id, absl::Time create_time,
+      absl::Time update_time, int64_t* artifact_id) = 0;
 
   // Gets artifacts from the database by their ids. Not found ids are
   // skipped. For each matched artifact, returns a row that contains the
@@ -302,7 +299,7 @@ class QueryExecutor {
   // - string: name
   // - int: create time (since epoch)
   // - int: last update time (since epoch)
-  virtual absl::Status SelectArtifactsByID(absl::Span<const int64> ids,
+  virtual absl::Status SelectArtifactsByID(absl::Span<const int64_t> ids,
                                            RecordSet* record_set) = 0;
 
   // Gets artifacts from the database by their external_ids. Not found
@@ -313,12 +310,12 @@ class QueryExecutor {
   // Gets an artifact from the Artifact table by its type_id and name.
   // Returns the artifact ID.
   virtual absl::Status SelectArtifactByTypeIDAndArtifactName(
-      int64 artifact_type_id, absl::string_view name,
+      int64_t artifact_type_id, absl::string_view name,
       RecordSet* record_set) = 0;
 
   // Gets artifacts from the Artifact table by their type_id.
   // Returns a list of artifact IDs.
-  virtual absl::Status SelectArtifactsByTypeID(int64 artifact_type_id,
+  virtual absl::Status SelectArtifactsByTypeID(int64_t artifact_type_id,
                                                RecordSet* record_set) = 0;
 
   // Gets an artifact from the database by its uri.
@@ -328,7 +325,7 @@ class QueryExecutor {
 
   // Updates an artifact in the database.
   virtual absl::Status UpdateArtifactDirect(
-      int64 artifact_id, int64 type_id, const std::string& uri,
+      int64_t artifact_id, int64_t type_id, const std::string& uri,
       const absl::optional<Artifact::State>& state,
       absl::optional<absl::string_view> external_id,
       absl::Time update_time) = 0;
@@ -338,33 +335,33 @@ class QueryExecutor {
 
   // Insert a property of an artifact into the database.
   virtual absl::Status InsertArtifactProperty(
-      int64 artifact_id, absl::string_view artifact_property_name,
+      int64_t artifact_id, absl::string_view artifact_property_name,
       bool is_custom_property, const Value& property_value) = 0;
 
   // Gets properties of an artifact from the database by the
   // artifact id. Upon return, each property is mapped to a row in 'record_set'
   // using the convention spelled out in the class docstring.
   virtual absl::Status SelectArtifactPropertyByArtifactID(
-      absl::Span<const int64> artifact_ids, RecordSet* record_set) = 0;
+      absl::Span<const int64_t> artifact_ids, RecordSet* record_set) = 0;
 
   // Updates a property of an artifact in the database.
-  virtual absl::Status UpdateArtifactProperty(
-      int64 artifact_id, absl::string_view property_name,
-      const Value& property_value) = 0;
+  virtual absl::Status UpdateArtifactProperty(int64_t artifact_id,
+                                              absl::string_view property_name,
+                                              const Value& property_value) = 0;
 
   // Deletes a property of an artifact.
   virtual absl::Status DeleteArtifactProperty(
-      int64 artifact_id, absl::string_view property_name) = 0;
+      int64_t artifact_id, absl::string_view property_name) = 0;
 
   // Checks the existence of the Execution table.
   virtual absl::Status CheckExecutionTable() = 0;
 
   // Inserts an execution into the database.
   virtual absl::Status InsertExecution(
-      int64 type_id, const absl::optional<Execution::State>& last_known_state,
+      int64_t type_id, const absl::optional<Execution::State>& last_known_state,
       const absl::optional<std::string>& name,
-      absl::optional<absl::string_view> external_id,
-      absl::Time create_time, absl::Time update_time, int64* execution_id) = 0;
+      absl::optional<absl::string_view> external_id, absl::Time create_time,
+      absl::Time update_time, int64_t* execution_id) = 0;
 
   // Gets Executions based on the given ids. Not found ids are skipped.
   // For each matched execution, returns a row that contains the following
@@ -376,7 +373,7 @@ class QueryExecutor {
   // - create_time_since_epoch
   // - last_update_time_since_epoch
   virtual absl::Status SelectExecutionsByID(
-      absl::Span<const int64> execution_ids, RecordSet* record_set) = 0;
+      absl::Span<const int64_t> execution_ids, RecordSet* record_set) = 0;
 
   // Gets executions based on the given external_ids. Not found
   // external_ids are skipped.
@@ -385,16 +382,16 @@ class QueryExecutor {
 
   // Gets an execution from the database by its type_id and name.
   virtual absl::Status SelectExecutionByTypeIDAndExecutionName(
-      int64 execution_type_id, absl::string_view name,
+      int64_t execution_type_id, absl::string_view name,
       RecordSet* record_set) = 0;
 
   // Gets an execution from the database by its type_id.
-  virtual absl::Status SelectExecutionsByTypeID(int64 execution_type_id,
+  virtual absl::Status SelectExecutionsByTypeID(int64_t execution_type_id,
                                                 RecordSet* record_set) = 0;
 
   // Updates an execution in the database.
   virtual absl::Status UpdateExecutionDirect(
-      int64 execution_id, int64 type_id,
+      int64_t execution_id, int64_t type_id,
       const absl::optional<Execution::State>& last_known_state,
       absl::optional<absl::string_view> external_id,
       absl::Time update_time) = 0;
@@ -403,7 +400,7 @@ class QueryExecutor {
   virtual absl::Status CheckExecutionPropertyTable() = 0;
 
   // Insert a property of an execution from the database.
-  virtual absl::Status InsertExecutionProperty(int64 execution_id,
+  virtual absl::Status InsertExecutionProperty(int64_t execution_id,
                                                absl::string_view name,
                                                bool is_custom_property,
                                                const Value& value) = 0;
@@ -412,26 +409,26 @@ class QueryExecutor {
   // Upon return, each property is mapped to a row in 'record_set'
   // using the convention spelled out in the class docstring.
   virtual absl::Status SelectExecutionPropertyByExecutionID(
-      absl::Span<const int64> execution_ids, RecordSet* record_set) = 0;
+      absl::Span<const int64_t> execution_ids, RecordSet* record_set) = 0;
 
   // Updates a property of an execution from the database.
-  virtual absl::Status UpdateExecutionProperty(int64 execution_id,
+  virtual absl::Status UpdateExecutionProperty(int64_t execution_id,
                                                absl::string_view name,
                                                const Value& value) = 0;
 
   // Deletes a property of an execution.
-  virtual absl::Status DeleteExecutionProperty(
-      int64 execution_id, absl::string_view name) = 0;
+  virtual absl::Status DeleteExecutionProperty(int64_t execution_id,
+                                               absl::string_view name) = 0;
 
   // Checks the existence of the Context table.
   virtual absl::Status CheckContextTable() = 0;
 
   // Inserts a context into the database.
   virtual absl::Status InsertContext(
-      int64 type_id, const std::string& name,
+      int64_t type_id, const std::string& name,
       absl::optional<absl::string_view> external_id,
       const absl::Time create_time, const absl::Time update_time,
-      int64* context_id) = 0;
+      int64_t* context_id) = 0;
 
   // Gets contexts from the database by their ids. For each context,
   // returns a row that contains the following columns (order not important):
@@ -440,7 +437,7 @@ class QueryExecutor {
   // - string: name
   // - int: create time (since epoch)
   // - int: last update time (since epoch)
-  virtual absl::Status SelectContextsByID(absl::Span<const int64> context_ids,
+  virtual absl::Status SelectContextsByID(absl::Span<const int64_t> context_ids,
                                           RecordSet* record_set) = 0;
 
   // Gets contexts from the database by their external_ids. Not found
@@ -449,17 +446,18 @@ class QueryExecutor {
       absl::Span<absl::string_view> external_ids, RecordSet* record_set) = 0;
 
   // Returns ids of contexts matching the given context_type_id.
-  virtual absl::Status SelectContextsByTypeID(int64 context_type_id,
+  virtual absl::Status SelectContextsByTypeID(int64_t context_type_id,
                                               RecordSet* record_set) = 0;
 
   // Returns ids of contexts matching the given context_type_id and name.
   virtual absl::Status SelectContextByTypeIDAndContextName(
-      int64 context_type_id, absl::string_view name,
+      int64_t context_type_id, absl::string_view name,
       RecordSet* record_set) = 0;
 
   // Updates a context in the Context table.
   virtual absl::Status UpdateContextDirect(
-      int64 existing_context_id, int64 type_id, const std::string& context_name,
+      int64_t existing_context_id, int64_t type_id,
+      const std::string& context_name,
       absl::optional<absl::string_view> external_id,
       const absl::Time update_time) = 0;
 
@@ -467,7 +465,7 @@ class QueryExecutor {
   virtual absl::Status CheckContextPropertyTable() = 0;
 
   // Insert a property of a context into the database.
-  virtual absl::Status InsertContextProperty(int64 context_id,
+  virtual absl::Status InsertContextProperty(int64_t context_id,
                                              absl::string_view name,
                                              bool custom_property,
                                              const Value& value) = 0;
@@ -475,86 +473,87 @@ class QueryExecutor {
   // Gets properties of contexts from the database by the
   // given context ids.
   virtual absl::Status SelectContextPropertyByContextID(
-      absl::Span<const int64> context_id, RecordSet* record_set) = 0;
+      absl::Span<const int64_t> context_id, RecordSet* record_set) = 0;
 
   // Updates a property of a context in the database.
-  virtual absl::Status UpdateContextProperty(
-      int64 context_id, absl::string_view property_name,
-      const Value& property_value) = 0;
+  virtual absl::Status UpdateContextProperty(int64_t context_id,
+                                             absl::string_view property_name,
+                                             const Value& property_value) = 0;
 
   // Deletes a property of a context.
   virtual absl::Status DeleteContextProperty(
-      const int64 context_id, absl::string_view property_name) = 0;
+      const int64_t context_id, absl::string_view property_name) = 0;
 
   // Checks the existence of the Event table.
   virtual absl::Status CheckEventTable() = 0;
 
   // Inserts an event into the database.
-  virtual absl::Status InsertEvent(int64 artifact_id, int64 execution_id,
+  virtual absl::Status InsertEvent(int64_t artifact_id, int64_t execution_id,
                                    int event_type,
-                                   int64 event_time_milliseconds,
-                                   int64* event_id) = 0;
+                                   int64_t event_time_milliseconds,
+                                   int64_t* event_id) = 0;
 
   // Gets events from the Event table by a collection of artifact ids.
   virtual absl::Status SelectEventByArtifactIDs(
-      absl::Span<const int64> artifact_ids, RecordSet* event_record_set) = 0;
+      absl::Span<const int64_t> artifact_ids, RecordSet* event_record_set) = 0;
 
   // Gets events from the Event table by a collection of execution ids.
   virtual absl::Status SelectEventByExecutionIDs(
-      absl::Span<const int64> execution_ids, RecordSet* event_record_set) = 0;
+      absl::Span<const int64_t> execution_ids, RecordSet* event_record_set) = 0;
 
   // Checks the existence of the EventPath table.
   virtual absl::Status CheckEventPathTable() = 0;
 
   // Inserts a path step into the EventPath table.
-  virtual absl::Status InsertEventPath(int64 event_id,
+  virtual absl::Status InsertEventPath(int64_t event_id,
                                        const Event::Path::Step& step) = 0;
 
   // Gets paths from the database by a collection of event ids.
   virtual absl::Status SelectEventPathByEventIDs(
-      absl::Span<const int64> event_ids, RecordSet* record_set) = 0;
+      absl::Span<const int64_t> event_ids, RecordSet* record_set) = 0;
 
   // Checks the existence of the Association table.
   virtual absl::Status CheckAssociationTable() = 0;
 
   // Inserts an association into the database.
-  virtual absl::Status InsertAssociation(int64 context_id, int64 execution_id,
-                                         int64* association_id) = 0;
+  virtual absl::Status InsertAssociation(int64_t context_id,
+                                         int64_t execution_id,
+                                         int64_t* association_id) = 0;
 
   // Returns association triplets for the given context id. Each triplet has:
   // Column 0: int: attribution id
   // Column 1: int: context id
   // Column 2: int: execution id
   virtual absl::Status SelectAssociationByContextIDs(
-      absl::Span<const int64> context_id, RecordSet* record_set) = 0;
+      absl::Span<const int64_t> context_id, RecordSet* record_set) = 0;
 
   // Returns association triplets for the given context id. Each triplet has:
   // Column 0: int: attribution id
   // Column 1: int: context id
   // Column 2: int: execution id
   virtual absl::Status SelectAssociationByExecutionID(
-      int64 execution_id, RecordSet* record_set) = 0;
+      int64_t execution_id, RecordSet* record_set) = 0;
 
   // Checks the existence of the Attribution table.
   virtual absl::Status CheckAttributionTable() = 0;
 
   // Inserts an attribution into the database.
-  virtual absl::Status InsertAttributionDirect(int64 context_id,
-                                               int64 artifact_id,
-                                               int64* attribution_id) = 0;
+  virtual absl::Status InsertAttributionDirect(int64_t context_id,
+                                               int64_t artifact_id,
+                                               int64_t* attribution_id) = 0;
 
   // Returns attribution triplets for the given context id. Each triplet has:
   // Column 0: int: attribution id
   // Column 1: int: context id
   // Column 2: int: artifact id
-  virtual absl::Status SelectAttributionByContextID(int64 context_id,
+  virtual absl::Status SelectAttributionByContextID(int64_t context_id,
                                                     RecordSet* record_set) = 0;
 
   // Returns attribution triplets for the given artifact id. Each triplet has:
   // Column 0: int: attribution id
   // Column 1: int: context id
   // Column 2: int: artifact id
-  virtual absl::Status SelectAttributionByArtifactID(int64 artifact_id,
+  virtual absl::Status SelectAttributionByArtifactID(int64_t artifact_id,
                                                      RecordSet* record_set) = 0;
 
   // Checks the existence of the ParentContext table.
@@ -563,41 +562,42 @@ class QueryExecutor {
   // Inserts a parent context.
   // Returns OK if the insertion succeeds.
   // Returns detailed INTERNAL error, if query execution fails.
-  virtual absl::Status InsertParentContext(int64 parent_id, int64 child_id) = 0;
+  virtual absl::Status InsertParentContext(int64_t parent_id,
+                                           int64_t child_id) = 0;
 
   // Returns parent contexts for the given context id. Each record has:
   // Column 0: int: context id (= context_id)
   // Column 1: int: parent context id
   virtual absl::Status SelectParentContextsByContextID(
-      int64 context_id, RecordSet* record_set) = 0;
+      int64_t context_id, RecordSet* record_set) = 0;
 
   // Returns child contexts for the given context id. Each record has:
   // Column 0: int: context id
   // Column 1: int: parent context id (= context_id)
   virtual absl::Status SelectChildContextsByContextID(
-      int64 context_id, RecordSet* record_set) = 0;
+      int64_t context_id, RecordSet* record_set) = 0;
 
   // Returns parent contexts for the given context ids. Each record has:
   // Column 0: int: context id (IN context_ids)
   // Column 1: int: parent context id
   virtual absl::Status SelectParentContextsByContextIDs(
-      absl::Span<const int64> context_ids, RecordSet* record_set) = 0;
+      absl::Span<const int64_t> context_ids, RecordSet* record_set) = 0;
 
   // Returns child contexts for the given parent context ids. Each record has:
   // Column 0: int: context id
   // Column 1: int: parent context id (IN context_ids)
   virtual absl::Status SelectChildContextsByContextIDs(
-      absl::Span<const int64> context_ids, RecordSet* record_set) = 0;
+      absl::Span<const int64_t> context_ids, RecordSet* record_set) = 0;
 
   // Checks the MLMDEnv table and query the schema version.
   // At MLMD release v0.13.2, by default it is v0.
   virtual absl::Status CheckMLMDEnvTable() = 0;
 
   // Insert schema_version.
-  virtual absl::Status InsertSchemaVersion(int64 schema_version) = 0;
+  virtual absl::Status InsertSchemaVersion(int64_t schema_version) = 0;
 
   // Update schema_version
-  virtual absl::Status UpdateSchemaVersion(int64 schema_version) = 0;
+  virtual absl::Status UpdateSchemaVersion(int64_t schema_version) = 0;
 
   // Check the database is a valid database produced by 0.13.2 MLMD release.
   // The schema version and migration are introduced after that release.
@@ -622,7 +622,7 @@ class QueryExecutor {
   // `record_set` is updated with artifact IDs based on `options`
   virtual absl::Status ListArtifactIDsUsingOptions(
       const ListOperationOptions& options,
-      absl::optional<absl::Span<const int64>> candidate_ids,
+      absl::optional<absl::Span<const int64_t>> candidate_ids,
       RecordSet* record_set) = 0;
 
   // List Execution IDs using `options`. If `candidate_ids` is provided, then
@@ -631,7 +631,7 @@ class QueryExecutor {
   // `record_set` is updated with execution IDs based on `options`.
   virtual absl::Status ListExecutionIDsUsingOptions(
       const ListOperationOptions& options,
-      absl::optional<absl::Span<const int64>> candidate_ids,
+      absl::optional<absl::Span<const int64_t>> candidate_ids,
       RecordSet* record_set) = 0;
 
   // List Context IDs using `options`. If `candidate_ids` is provided, then
@@ -640,71 +640,71 @@ class QueryExecutor {
   // `record_set` is updated with context IDs based on `options`.
   virtual absl::Status ListContextIDsUsingOptions(
       const ListOperationOptions& options,
-      absl::optional<absl::Span<const int64>> candidate_ids,
+      absl::optional<absl::Span<const int64_t>> candidate_ids,
       RecordSet* record_set) = 0;
 
 
   // Deletes a list of artifacts by id.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status DeleteArtifactsById(
-      absl::Span<const int64> artifact_ids) = 0;
+      absl::Span<const int64_t> artifact_ids) = 0;
 
   // Deletes a list of contexts by id.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status DeleteContextsById(
-      absl::Span<const int64> context_ids) = 0;
+      absl::Span<const int64_t> context_ids) = 0;
 
   // Deletes a list of executions by id.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status DeleteExecutionsById(
-      absl::Span<const int64> execution_ids) = 0;
+      absl::Span<const int64_t> execution_ids) = 0;
 
   // Deletes the events corresponding to the |artifact_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status DeleteEventsByArtifactsId(
-      absl::Span<const int64> artifact_ids) = 0;
+      absl::Span<const int64_t> artifact_ids) = 0;
 
   // Deletes the events corresponding to the |execution_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status DeleteEventsByExecutionsId(
-      absl::Span<const int64> execution_ids) = 0;
+      absl::Span<const int64_t> execution_ids) = 0;
 
   // Deletes the associations corresponding to the |context_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status DeleteAssociationsByContextsId(
-      absl::Span<const int64> context_ids) = 0;
+      absl::Span<const int64_t> context_ids) = 0;
 
   // Deletes the associations corresponding to the |execution_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status DeleteAssociationsByExecutionsId(
-      absl::Span<const int64> execution_ids) = 0;
+      absl::Span<const int64_t> execution_ids) = 0;
 
   // Deletes the attributions corresponding to the |context_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status DeleteAttributionsByContextsId(
-      absl::Span<const int64> context_ids) = 0;
+      absl::Span<const int64_t> context_ids) = 0;
 
   // Deletes the attributions corresponding to the |artifact_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status DeleteAttributionsByArtifactsId(
-      absl::Span<const int64> artifact_ids) = 0;
+      absl::Span<const int64_t> artifact_ids) = 0;
 
   // Deletes the parent contexts corresponding to the |parent_context_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status DeleteParentContextsByParentIds(
-      absl::Span<const int64> parent_context_ids) = 0;
+      absl::Span<const int64_t> parent_context_ids) = 0;
 
   // Deletes the parent contexts corresponding to the |child_context_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status DeleteParentContextsByChildIds(
-      absl::Span<const int64> child_context_ids) = 0;
+      absl::Span<const int64_t> child_context_ids) = 0;
 
   // Deletes the parent contexts corresponding to the |parent_context_id|
   // and |child_context_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status DeleteParentContextsByParentIdAndChildIds(
-      int64 parent_context_id,
-      absl::Span<const int64> child_context_ids) = 0;
+      int64_t parent_context_id,
+      absl::Span<const int64_t> child_context_ids) = 0;
 
   // Utility methods which may be used to websafe encode bytes specific to a
   // metadata source. For example, the MySQL and SQLite3 metadata sources do not
@@ -724,7 +724,7 @@ class QueryExecutor {
   // Returns FailedPrecondition, if the |query_schema_version_| is less than the
   //   mininum schema version that the API is expected to work with.
   absl::Status VerifyCurrentQueryVersionIsAtLeast(
-      int64 min_schema_version) const;
+      int64_t min_schema_version) const;
 
   // If |query_schema_version_| is given, then the query executor is expected to
   // work with an existing db with an earlier schema version (=
@@ -736,10 +736,10 @@ class QueryExecutor {
   // Uses the method to document the query branches for earlier schema for
   // ease of cleanup after the temporary branches after the migration.
   // Returns true if |query_schema_version_| = `schema_version`.
-  bool IsQuerySchemaVersionEquals(int64 schema_version) const;
+  bool IsQuerySchemaVersionEquals(int64_t schema_version) const;
 
   // Access the query_schema_version_ if any.
-  absl::optional<int64> query_schema_version() const {
+  absl::optional<int64_t> query_schema_version() const {
     return query_schema_version_;
   }
 
@@ -747,7 +747,7 @@ class QueryExecutor {
   // By default, the query executor assumes that the db schema version aligns
   // with the library version. If set, the query executor is switched to use
   // the queries to talk to an earlier schema_version = query_schema_version_.
-  absl::optional<int64> query_schema_version_ = absl::nullopt;
+  absl::optional<int64_t> query_schema_version_ = absl::nullopt;
 };
 
 }  // namespace ml_metadata

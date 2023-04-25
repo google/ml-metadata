@@ -28,7 +28,7 @@ namespace {
 // If the given string `value` is NULL (encoded as kMetadataSourceNull), then
 // leave the field unset.
 // The field should be a scalar field. The field type must be one of {string,
-// int64, bool, enum, message}.
+// int64_t, bool, enum, message}.
 absl::Status ParseValueToField(const google::protobuf::FieldDescriptor* field_descriptor,
                                absl::string_view value,
                                google::protobuf::Message& output_message) {

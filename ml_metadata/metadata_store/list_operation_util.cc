@@ -22,7 +22,7 @@ namespace ml_metadata {
 // Helper method to set initial field and id offset values based on List
 // operation options.
 void SetListOperationInitialValues(const ListOperationOptions& options,
-                                   int64& field_offset, int64& id_offset) {
+                                   int64_t& field_offset, int64_t& id_offset) {
   const bool is_asc = options.order_by_field().is_asc();
   field_offset = is_asc ? 0 : LLONG_MAX;
   id_offset = field_offset;

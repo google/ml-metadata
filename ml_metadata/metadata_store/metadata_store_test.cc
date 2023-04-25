@@ -84,7 +84,7 @@ class RDBMSMetadataStoreContainer : public MetadataStoreContainer {
 // Returns `creation_time_threshold` that is greater than the creation time of
 // {a_0, a_1, a_2, a_3, a_4}. In all artifacts, only a_4 is LIVE.
 absl::Status CreateLineageGraph(MetadataStore& metadata_store,
-                                int64& creation_time_threshold,
+                                int64_t& creation_time_threshold,
                                 std::vector<Artifact>& want_artifacts,
                                 std::vector<Execution>& want_executions) {
   const PutTypesRequest put_types_req =
@@ -125,20 +125,20 @@ absl::Status CreateLineageGraph(MetadataStore& metadata_store,
   // insert executions and links to artifacts
   auto put_execution = [&metadata_store, &put_types_resp, &want_executions](
                            const std::string& label,
-                           const std::vector<int64>& input_ids,
-                           const std::vector<int64>& output_ids) {
+                           const std::vector<int64_t>& input_ids,
+                           const std::vector<int64_t>& output_ids) {
     PutExecutionRequest req;
     Execution* execution = req.mutable_execution();
     execution->set_type_id(put_types_resp.execution_type_ids(0));
     (*execution->mutable_properties())["p2"].set_string_value(label);
     want_executions.push_back(*execution);
     // database id starts from 1.
-    for (int64 id : input_ids) {
+    for (int64_t id : input_ids) {
       Event* event = req.add_artifact_event_pairs()->mutable_event();
       event->set_artifact_id(id + 1);
       event->set_type(Event::INPUT);
     }
-    for (int64 id : output_ids) {
+    for (int64_t id : output_ids) {
       Event* event = req.add_artifact_event_pairs()->mutable_event();
       event->set_artifact_id(id + 1);
       event->set_type(Event::OUTPUT);
@@ -166,7 +166,7 @@ absl::Status CreateLineageGraph(MetadataStore& metadata_store,
 void VerifySubgraph(const LineageGraph& subgraph,
                     const std::vector<Artifact>& want_artifacts,
                     const std::vector<Execution>& want_executions,
-                    const std::vector<std::pair<int64, int64>>& want_events,
+                    const std::vector<std::pair<int64_t, int64_t>>& want_events,
                     std::unique_ptr<MetadataStore>& metadata_store) {
   // Compare nodes and edges.
   EXPECT_THAT(subgraph.artifacts(),
@@ -181,7 +181,7 @@ void VerifySubgraph(const LineageGraph& subgraph,
                                      "last_update_time_since_epoch"}),
                                  want_executions));
   EXPECT_THAT(subgraph.events(), SizeIs(want_events.size()));
-  std::vector<std::pair<int64, int64>> got_events;
+  std::vector<std::pair<int64_t, int64_t>> got_events;
   for (const Event& event : subgraph.events()) {
     got_events.push_back({event.artifact_id() - 1, event.execution_id() - 1});
   }
@@ -212,7 +212,7 @@ void VerifySubgraph(const LineageGraph& subgraph,
 TEST(MetadataStoreExtendedTest, GetLineageGraphWithMaxHops) {
   // Prepare a store with the lineage graph
   std::unique_ptr<MetadataStore> metadata_store = CreateMetadataStore();
-  int64 min_creation_time;
+  int64_t min_creation_time;
   std::vector<Artifact> want_artifacts;
   std::vector<Execution> want_executions;
   ASSERT_EQ(absl::OkStatus(),
@@ -222,10 +222,10 @@ TEST(MetadataStoreExtendedTest, GetLineageGraphWithMaxHops) {
   // Verify the query results with the specified max_num_hop
   auto verify_lineage_graph_with_max_num_hop =
       [&metadata_store](
-          absl::optional<int64> max_num_hop,
+          absl::optional<int64_t> max_num_hop,
           const std::vector<Artifact>& want_artifacts,
           const std::vector<Execution>& want_executions,
-          const std::vector<std::pair<int64, int64>>& want_events) {
+          const std::vector<std::pair<int64_t, int64_t>>& want_events) {
         GetLineageGraphRequest req;
         GetLineageGraphResponse resp;
         req.mutable_options()->mutable_artifacts_options()->set_filter_query(
@@ -291,7 +291,7 @@ TEST(MetadataStoreExtendedTest, GetLineageGraphWithMaxHops) {
 TEST(MetadataStoreExtendedTest, GetLineageGraphWithMaxNodeSize) {
   // Prepare a store with the lineage graph
   std::unique_ptr<MetadataStore> metadata_store = CreateMetadataStore();
-  int64 min_creation_time;
+  int64_t min_creation_time;
   std::vector<Artifact> want_artifacts;
   std::vector<Execution> want_executions;
   ASSERT_EQ(absl::OkStatus(),
@@ -300,10 +300,10 @@ TEST(MetadataStoreExtendedTest, GetLineageGraphWithMaxNodeSize) {
 
   // Verify the query results with the specified max_node_size
   auto verify_lineage_graph_with_max_node_size =
-      [&metadata_store](absl::optional<int64> max_node_size,
+      [&metadata_store](absl::optional<int64_t> max_node_size,
                         const std::vector<Artifact>& want_artifacts,
                         const std::vector<Execution>& want_executions,
-                        const std::vector<std::pair<int64, int64>>& want_events,
+                        const std::vector<std::pair<int64_t, int64_t>>& want_events,
                         bool artifact_requires_live_state = false) {
         GetLineageGraphRequest req;
         GetLineageGraphResponse resp;
@@ -386,7 +386,7 @@ TEST(MetadataStoreExtendedTest, GetLineageGraphWithMaxNodeSize) {
 TEST(MetadataStoreExtendedTest, GetLineageGraphWithBoundaryConditions) {
   // Prepare a store with the lineage graph
   std::unique_ptr<MetadataStore> metadata_store = CreateMetadataStore();
-  int64 min_creation_time;
+  int64_t min_creation_time;
   std::vector<Artifact> want_artifacts;
   std::vector<Execution> want_executions;
   ASSERT_EQ(absl::OkStatus(),
@@ -401,7 +401,7 @@ TEST(MetadataStoreExtendedTest, GetLineageGraphWithBoundaryConditions) {
           absl::optional<std::string> boundary_executions,
           const std::vector<Artifact>& want_artifacts,
           const std::vector<Execution>& want_executions,
-          const std::vector<std::pair<int64, int64>>& want_events) {
+          const std::vector<std::pair<int64_t, int64_t>>& want_events) {
         GetLineageGraphRequest req;
         GetLineageGraphResponse resp;
         req.mutable_options()->mutable_artifacts_options()->set_filter_query(
@@ -467,7 +467,7 @@ TEST(MetadataStoreExtendedTest, GetLineageGraphWithBoundaryConditions) {
 TEST(MetadataStoreExtendedTest, GetLineageGraphErrors) {
   // Prepare a store with the lineage graph
   std::unique_ptr<MetadataStore> metadata_store = CreateMetadataStore();
-  int64 min_creation_time;
+  int64_t min_creation_time;
   std::vector<Artifact> want_artifacts;
   std::vector<Execution> want_executions;
   ASSERT_EQ(absl::OkStatus(),

@@ -138,7 +138,7 @@ absl::Status CheckFieldsConsistent(const T& stored_type, const T& other_type,
 // TODO(b/195375645): support parent type update and deletion
 template <typename T>
 absl::Status UpsertTypeInheritanceLink(
-    const T& type, int64 type_id,
+    const T& type, int64_t type_id,
     MetadataAccessObject* metadata_access_object) {
   if (!type.has_base_type()) return absl::OkStatus();
 
@@ -147,7 +147,7 @@ absl::Status UpsertTypeInheritanceLink(
   if (IsUnsetBaseType(extension)) {
     return absl::UnimplementedError("base_type deletion is not supported yet");
   }
-  absl::flat_hash_map<int64, T> output_parent_types;
+  absl::flat_hash_map<int64_t, T> output_parent_types;
   MLMD_RETURN_IF_ERROR(metadata_access_object->FindParentTypesByTypeId(
       {type_id}, output_parent_types));
 
@@ -207,7 +207,7 @@ absl::Status UpsertTypes(const google::protobuf::RepeatedPtrField<T>& types,
   for (const T& type : types) {
     const std::pair<absl::string_view, absl::string_view> key{
         type.name(), type.version()};
-    int64 type_id;
+    int64_t type_id;
     const auto iter = name_and_version_to_stored_type.find(key);
     if (iter == name_and_version_to_stored_type.end()) {
       // if not found, then it creates a type. `can_add_fields` is ignored.
@@ -286,7 +286,7 @@ absl::Status UpsertSimpleTypes(MetadataAccessObject* metadata_access_object) {
 absl::Status UpsertArtifact(const Artifact& artifact,
                             MetadataAccessObject* metadata_access_object,
                             const bool skip_type_and_property_validation,
-                            int64* artifact_id) {
+                            int64_t* artifact_id) {
   CHECK(artifact_id) << "artifact_id should not be null";
   if (artifact.has_id()) {
     MLMD_RETURN_IF_ERROR(metadata_access_object->UpdateArtifact(artifact));
@@ -305,7 +305,7 @@ absl::Status UpsertArtifact(const Artifact& artifact,
 absl::Status UpsertExecution(const Execution& execution,
                              MetadataAccessObject* metadata_access_object,
                              const bool skip_type_and_property_validation,
-                             int64* execution_id) {
+                             int64_t* execution_id) {
   CHECK(execution_id) << "execution_id should not be null";
   if (execution.has_id()) {
     MLMD_RETURN_IF_ERROR(metadata_access_object->UpdateExecution(execution));
@@ -324,7 +324,7 @@ absl::Status UpsertExecution(const Execution& execution,
 absl::Status UpsertContext(const Context& context,
                            MetadataAccessObject* metadata_access_object,
                            const bool skip_type_and_property_validation,
-                           int64* context_id) {
+                           int64_t* context_id) {
   CHECK(context_id) << "context_id should not be null";
   if (context.has_id()) {
     MLMD_RETURN_IF_ERROR(metadata_access_object->UpdateContext(context));
@@ -343,7 +343,7 @@ absl::Status UpsertContext(const Context& context,
 absl::Status UpsertContextWithOptions(
     const Context& context, MetadataAccessObject* metadata_access_object,
     bool reuse_context_if_already_exist,
-    const bool skip_type_and_property_validation, int64* context_id) {
+    const bool skip_type_and_property_validation, int64_t* context_id) {
   CHECK(context_id) << "context_id should not be null";
 
   if (!context.has_type_id()) {
@@ -391,12 +391,12 @@ absl::Status UpsertContextWithOptions(
 // TODO(b/197686185): Remove `is_already_validated` parameter once foreign key
 // schema is implemented.
 absl::Status InsertAssociationIfNotExist(
-    int64 context_id, int64 execution_id, bool is_already_validated,
+    int64_t context_id, int64_t execution_id, bool is_already_validated,
     MetadataAccessObject* metadata_access_object) {
   Association association;
   association.set_execution_id(execution_id);
   association.set_context_id(context_id);
-  int64 dummy_association_id;
+  int64_t dummy_association_id;
   absl::Status status = metadata_access_object->CreateAssociation(
       association, /*is_already_validated=*/is_already_validated,
       &dummy_association_id);
@@ -410,12 +410,12 @@ absl::Status InsertAssociationIfNotExist(
 // TODO(b/197686185): Remove `is_already_validated` parameter once foreign key
 // schema is implemented.
 absl::Status InsertAttributionIfNotExist(
-    int64 context_id, int64 artifact_id, bool is_already_validated,
+    int64_t context_id, int64_t artifact_id, bool is_already_validated,
     MetadataAccessObject* metadata_access_object) {
   Attribution attribution;
   attribution.set_artifact_id(artifact_id);
   attribution.set_context_id(context_id);
-  int64 dummy_attribution_id;
+  int64_t dummy_attribution_id;
   absl::Status status = metadata_access_object->CreateAttribution(
       attribution, /*is_already_validated=*/is_already_validated,
       &dummy_attribution_id);
@@ -440,17 +440,17 @@ absl::Status InsertAttributionIfNotExist(
 absl::Status UpsertArtifactAndEvent(
     const PutExecutionRequest::ArtifactAndEvent& artifact_and_event,
     bool reuse_artifact_if_already_exist_by_external_id,
-    MetadataAccessObject* metadata_access_object, int64* artifact_id) {
+    MetadataAccessObject* metadata_access_object, int64_t* artifact_id) {
   CHECK(artifact_id) << "The output artifact_id pointer should not be null";
   if (!artifact_and_event.has_artifact() && !artifact_and_event.has_event()) {
     return absl::OkStatus();
   }
   // validate event and artifact's id aligns.
   // if artifact is not given, the event.artifact_id must exist
-  absl::optional<int64> maybe_event_artifact_id =
+  absl::optional<int64_t> maybe_event_artifact_id =
       artifact_and_event.has_event() &&
               artifact_and_event.event().has_artifact_id()
-          ? absl::make_optional<int64>(artifact_and_event.event().artifact_id())
+          ? absl::make_optional<int64_t>(artifact_and_event.event().artifact_id())
           : absl::nullopt;
   if (!artifact_and_event.has_artifact() && !maybe_event_artifact_id) {
     return absl::InvalidArgumentError(absl::StrCat(
@@ -482,10 +482,10 @@ absl::Status UpsertArtifactAndEvent(
 
   // if artifact and event.artifact_id is given, then artifact.id and
   // event.artifact_id must align.
-  absl::optional<int64> maybe_artifact_id =
+  absl::optional<int64_t> maybe_artifact_id =
       artifact_and_event.has_artifact() &&
               artifact_copy_to_be_upserted.has_id()
-          ? absl::make_optional<int64>(artifact_copy_to_be_upserted.id())
+          ? absl::make_optional<int64_t>(artifact_copy_to_be_upserted.id())
           : absl::nullopt;
 
   if (artifact_and_event.has_artifact() && maybe_event_artifact_id &&
@@ -510,7 +510,7 @@ absl::Status UpsertArtifactAndEvent(
   } else {
     *artifact_id = event.artifact_id();
   }
-  int64 dummy_event_id = -1;
+  int64_t dummy_event_id = -1;
   return metadata_access_object->CreateEvent(event,
                                              /*is_already_validated=*/true,
                                              &dummy_event_id);
@@ -520,7 +520,7 @@ absl::Status UpsertArtifactAndEvent(
 absl::Status GetExternalIdToIdMapping(
     absl::Span<const Artifact> artifacts,
     MetadataAccessObject* metadata_access_object,
-    absl::flat_hash_map<std::string, int64>&
+    absl::flat_hash_map<std::string, int64_t>&
         output_external_id_to_id_map) {
   std::vector<absl::string_view> external_ids;
   for (const Artifact& artifact : artifacts) {
@@ -557,8 +557,8 @@ template <typename T, typename ST>
 absl::Status SetBaseType(absl::Span<T* const> types,
                          MetadataAccessObject* metadata_access_object) {
   if (types.empty()) return absl::OkStatus();
-  absl::flat_hash_map<int64, T> output_parent_types;
-  std::vector<int64> type_ids;
+  absl::flat_hash_map<int64_t, T> output_parent_types;
+  std::vector<int64_t> type_ids;
   absl::c_transform(types, std::back_inserter(type_ids),
                     [](const T* type) { return type->id(); });
   MLMD_RETURN_IF_ERROR(metadata_access_object->FindParentTypesByTypeId(
@@ -682,7 +682,7 @@ template <typename Type, typename Node>
 absl::Status ValidateNodesPropertyWithTypes(
     const std::vector<Type>& types,
     const google::protobuf::RepeatedPtrField<Node>& nodes) {
-  absl::flat_hash_map<int64, Type> type_id_to_type;
+  absl::flat_hash_map<int64_t, Type> type_id_to_type;
   for (const Type& type : types) {
     type_id_to_type.insert({type.id(), type});
   }
@@ -706,7 +706,7 @@ absl::Status BatchTypeAndPropertyValidation(
     return absl::OkStatus();
   }
 
-  std::vector<int64> type_ids;
+  std::vector<int64_t> type_ids;
   std::vector<Type> types;
   for (const auto& node : nodes) {
     if (!node.has_type_id()) {
@@ -894,7 +894,7 @@ absl::Status MetadataStore::GetArtifactTypesByID(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
-        for (const int64 type_id : request.type_ids()) {
+        for (const int64_t type_id : request.type_ids()) {
           ArtifactType artifact_type;
           // TODO(b/218884256): replace FindTypeById with FindTypesById.
           const absl::Status status =
@@ -922,7 +922,7 @@ absl::Status MetadataStore::GetExecutionTypesByID(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
-        for (const int64 type_id : request.type_ids()) {
+        for (const int64_t type_id : request.type_ids()) {
           ExecutionType execution_type;
           const absl::Status status =
               metadata_access_object_->FindTypeById(type_id, &execution_type);
@@ -949,7 +949,7 @@ absl::Status MetadataStore::GetContextTypesByID(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
-        for (const int64 type_id : request.type_ids()) {
+        for (const int64_t type_id : request.type_ids()) {
           ContextType context_type;
           const absl::Status status =
               metadata_access_object_->FindTypeById(type_id, &context_type);
@@ -1043,7 +1043,7 @@ absl::Status MetadataStore::GetArtifactsByID(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Artifact> artifacts;
-        const std::vector<int64> ids(request.artifact_ids().begin(),
+        const std::vector<int64_t> ids(request.artifact_ids().begin(),
                                      request.artifact_ids().end());
         const absl::Status status =
             metadata_access_object_->FindArtifactsById(ids, &artifacts);
@@ -1064,7 +1064,7 @@ absl::Status MetadataStore::GetExecutionsByID(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Execution> executions;
-        const std::vector<int64> ids(request.execution_ids().begin(),
+        const std::vector<int64_t> ids(request.execution_ids().begin(),
                                      request.execution_ids().end());
         const absl::Status status =
             metadata_access_object_->FindExecutionsById(ids, &executions);
@@ -1084,7 +1084,7 @@ absl::Status MetadataStore::GetContextsByID(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Context> contexts;
-        const std::vector<int64> ids(request.context_ids().begin(),
+        const std::vector<int64_t> ids(request.context_ids().begin(),
                                      request.context_ids().end());
         const absl::Status status =
             metadata_access_object_->FindContextsById(ids, &contexts);
@@ -1104,7 +1104,7 @@ absl::Status MetadataStore::PutArtifacts(const PutArtifactsRequest& request,
                                          &response]() -> absl::Status {
     response->Clear();
     for (const Artifact& artifact : request.artifacts()) {
-      int64 artifact_id = -1;
+      int64_t artifact_id = -1;
       // Verify the latest_updated_time before upserting the artifact.
       if (artifact.has_id() &&
           request.options().abort_if_latest_updated_time_changed()) {
@@ -1152,7 +1152,7 @@ absl::Status MetadataStore::PutExecutions(const PutExecutionsRequest& request,
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         for (const Execution& execution : request.executions()) {
-          int64 execution_id = -1;
+          int64_t execution_id = -1;
           MLMD_RETURN_IF_ERROR(UpsertExecution(
               execution, metadata_access_object_.get(),
               /*skip_type_and_property_validation=*/false, &execution_id));
@@ -1169,7 +1169,7 @@ absl::Status MetadataStore::PutContexts(const PutContextsRequest& request,
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         for (const Context& context : request.contexts()) {
-          int64 context_id = -1;
+          int64_t context_id = -1;
           MLMD_RETURN_IF_ERROR(UpsertContext(
               context, metadata_access_object_.get(),
               /*skip_type_and_property_validation=*/false, &context_id));
@@ -1215,7 +1215,7 @@ absl::Status MetadataStore::PutEvents(const PutEventsRequest& request,
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         for (const Event& event : request.events()) {
-          int64 dummy_event_id = -1;
+          int64_t dummy_event_id = -1;
           MLMD_RETURN_IF_ERROR(
               metadata_access_object_->CreateEvent(event, &dummy_event_id));
         }
@@ -1235,7 +1235,7 @@ absl::Status MetadataStore::PutExecution(const PutExecutionRequest& request,
     }
     // 1. Upsert Execution
     const Execution& execution = request.execution();
-    int64 execution_id = -1;
+    int64_t execution_id = -1;
     MLMD_RETURN_IF_ERROR(UpsertExecution(
         execution, metadata_access_object_.get(),
         /*skip_type_and_property_validation=*/false, &execution_id));
@@ -1255,7 +1255,7 @@ absl::Status MetadataStore::PutExecution(const PutExecutionRequest& request,
         }
         event->set_execution_id(execution_id);
       }
-      int64 artifact_id = -1;
+      int64_t artifact_id = -1;
       MLMD_RETURN_IF_ERROR(UpsertArtifactAndEvent(
           artifact_and_event,
           request.options().reuse_artifact_if_already_exist_by_external_id(),
@@ -1264,7 +1264,7 @@ absl::Status MetadataStore::PutExecution(const PutExecutionRequest& request,
     }
     // 3. Upsert contexts and insert associations and attributions.
     for (const Context& context : request.contexts()) {
-      int64 context_id = -1;
+      int64_t context_id = -1;
       const absl::Status status = UpsertContextWithOptions(
           context, metadata_access_object_.get(),
           request.options().reuse_context_if_already_exist(),
@@ -1274,7 +1274,7 @@ absl::Status MetadataStore::PutExecution(const PutExecutionRequest& request,
       MLMD_RETURN_IF_ERROR(InsertAssociationIfNotExist(
           context_id, response->execution_id(), /*is_already_validated=*/true,
           metadata_access_object_.get()));
-      for (const int64 artifact_id : response->artifact_ids()) {
+      for (const int64_t artifact_id : response->artifact_ids()) {
         MLMD_RETURN_IF_ERROR(InsertAttributionIfNotExist(
             context_id, artifact_id, /*is_already_validated=*/true,
             metadata_access_object_.get()));
@@ -1306,7 +1306,7 @@ absl::Status MetadataStore::PutLineageSubgraph(
 
         // 1. Upsert contexts.
         for (const Context& context : request.contexts()) {
-          int64 context_id = -1;
+          int64_t context_id = -1;
           absl::Status status = UpsertContextWithOptions(
               context, metadata_access_object_.get(),
               request.options().reuse_context_if_already_exist(),
@@ -1317,7 +1317,7 @@ absl::Status MetadataStore::PutLineageSubgraph(
 
         // 2. Upsert executions.
         for (const Execution& execution : request.executions()) {
-          int64 execution_id = -1;
+          int64_t execution_id = -1;
           MLMD_RETURN_IF_ERROR(UpsertExecution(
               execution, metadata_access_object_.get(),
               /*skip_type_and_property_validation=*/true, &execution_id));
@@ -1327,7 +1327,7 @@ absl::Status MetadataStore::PutLineageSubgraph(
         // 3. Upsert artifacts.
         // Select the list of external_ids from Artifacts.
         // Search within the db to create a mapping from external_id to id.
-        absl::flat_hash_map<std::string, int64> external_id_to_id_map;
+        absl::flat_hash_map<std::string, int64_t> external_id_to_id_map;
         if (request.options()
                 .reuse_artifact_if_already_exist_by_external_id()) {
           std::vector<Artifact> artifacts_to_build_mapping(
@@ -1346,7 +1346,7 @@ absl::Status MetadataStore::PutLineageSubgraph(
             artifact_copy.set_id(
                 external_id_to_id_map.find(artifact.external_id())->second);
           }
-          int64 artifact_id = -1;
+          int64_t artifact_id = -1;
           MLMD_RETURN_IF_ERROR(UpsertArtifact(
               artifact_copy, metadata_access_object_.get(),
               /*skip_type_and_property_validation=*/true, &artifact_id));
@@ -1354,21 +1354,21 @@ absl::Status MetadataStore::PutLineageSubgraph(
         }
 
         // 4. Create associations and attributions.
-        absl::flat_hash_set<int64> artifact_ids(
+        absl::flat_hash_set<int64_t> artifact_ids(
             response->artifact_ids().begin(), response->artifact_ids().end());
-        absl::flat_hash_set<int64> context_ids(response->context_ids().begin(),
+        absl::flat_hash_set<int64_t> context_ids(response->context_ids().begin(),
                                                response->context_ids().end());
-        absl::flat_hash_set<int64> execution_ids(
+        absl::flat_hash_set<int64_t> execution_ids(
             response->execution_ids().begin(), response->execution_ids().end());
 
-        for (const int64 context_id : context_ids) {
-          for (const int64 execution_id : execution_ids) {
+        for (const int64_t context_id : context_ids) {
+          for (const int64_t execution_id : execution_ids) {
             MLMD_RETURN_IF_ERROR(InsertAssociationIfNotExist(
                 context_id, execution_id, /*is_already_validated=*/true,
                 metadata_access_object_.get()));
           }
 
-          for (const int64 artifact_id : artifact_ids) {
+          for (const int64_t artifact_id : artifact_ids) {
             MLMD_RETURN_IF_ERROR(InsertAttributionIfNotExist(
                 context_id, artifact_id, /*is_already_validated=*/true,
                 metadata_access_object_.get()));
@@ -1392,7 +1392,7 @@ absl::Status MetadataStore::PutLineageSubgraph(
                 response->artifact_ids(event_edge.artifact_index()));
           }
 
-          int64 dummy_event_id = -1;
+          int64_t dummy_event_id = -1;
           MLMD_RETURN_IF_ERROR(metadata_access_object_->CreateEvent(
               event, /*is_already_validated=*/true, &dummy_event_id));
         }
@@ -1411,7 +1411,7 @@ absl::Status MetadataStore::GetEventsByExecutionIDs(
         std::vector<Event> events;
         const absl::Status status =
             metadata_access_object_->FindEventsByExecutions(
-                std::vector<int64>(request.execution_ids().begin(),
+                std::vector<int64_t>(request.execution_ids().begin(),
                                    request.execution_ids().end()),
                 &events);
         if (absl::IsNotFound(status)) {
@@ -1436,7 +1436,7 @@ absl::Status MetadataStore::GetEventsByArtifactIDs(
         std::vector<Event> events;
         const absl::Status status =
             metadata_access_object_->FindEventsByArtifacts(
-                std::vector<int64>(request.artifact_ids().begin(),
+                std::vector<int64_t>(request.artifact_ids().begin(),
                                    request.artifact_ids().end()),
                 &events);
         if (absl::IsNotFound(status)) {
@@ -1688,7 +1688,7 @@ absl::Status MetadataStore::GetArtifactsByType(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
-        int64 artifact_type_id;
+        int64_t artifact_type_id;
         absl::Status status =
             metadata_access_object_->FindTypeIdByNameAndVersion(
                 request.type_name(), GetRequestTypeVersion(request),
@@ -1727,7 +1727,7 @@ absl::Status MetadataStore::GetArtifactByTypeAndName(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
-        int64 artifact_type_id;
+        int64_t artifact_type_id;
         absl::Status status =
             metadata_access_object_->FindTypeIdByNameAndVersion(
                 request.type_name(), GetRequestTypeVersion(request),
@@ -1782,7 +1782,7 @@ absl::Status MetadataStore::GetExecutionsByType(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
-        int64 execution_type_id;
+        int64_t execution_type_id;
         absl::Status status =
             metadata_access_object_->FindTypeIdByNameAndVersion(
                 request.type_name(), GetRequestTypeVersion(request),
@@ -1821,7 +1821,7 @@ absl::Status MetadataStore::GetExecutionByTypeAndName(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
-        int64 execution_type_id;
+        int64_t execution_type_id;
         absl::Status status =
             metadata_access_object_->FindTypeIdByNameAndVersion(
                 request.type_name(), GetRequestTypeVersion(request),
@@ -1876,7 +1876,7 @@ absl::Status MetadataStore::GetContextsByType(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
-        int64 context_type_id;
+        int64_t context_type_id;
         {
           absl::Status status =
               metadata_access_object_->FindTypeIdByNameAndVersion(
@@ -1920,7 +1920,7 @@ absl::Status MetadataStore::GetContextByTypeAndName(
   return transaction_executor_->Execute(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
-        int64 context_type_id;
+        int64_t context_type_id;
         absl::Status status =
             metadata_access_object_->FindTypeIdByNameAndVersion(
                 request.type_name(), GetRequestTypeVersion(request),
@@ -2140,15 +2140,15 @@ absl::Status MetadataStore::GetLineageGraph(
   if (!request.options().has_artifacts_options()) {
     return absl::InvalidArgumentError("Missing query_nodes conditions");
   }
-  static constexpr int64 kMaxDistance = 20;
-  int64 max_num_hops = kMaxDistance;
+  static constexpr int64_t kMaxDistance = 20;
+  int64_t max_num_hops = kMaxDistance;
   if (request.options().stop_conditions().has_max_num_hops()) {
     if (request.options().stop_conditions().max_num_hops() < 0) {
       return absl::InvalidArgumentError(
           absl::StrCat("max_num_hops cannot be negative: max_num_hops =",
                        request.options().stop_conditions().max_num_hops()));
     }
-    max_num_hops = std::min<int64>(
+    max_num_hops = std::min<int64_t>(
         max_num_hops, request.options().stop_conditions().max_num_hops());
     if (request.options().stop_conditions().max_num_hops() > max_num_hops) {
       LOG(WARNING) << "stop_conditions.max_num_hops: "
@@ -2183,7 +2183,7 @@ absl::Status MetadataStore::GetLineageGraph(
         return metadata_access_object_->QueryLineageGraph(
             artifacts, max_num_hops,
             request.options().max_node_size() > 0
-                ? absl::make_optional<int64>(request.options().max_node_size())
+                ? absl::make_optional<int64_t>(request.options().max_node_size())
                 : absl::nullopt,
             !stop_conditions.boundary_artifacts().empty()
                 ? absl::make_optional<std::string>(
