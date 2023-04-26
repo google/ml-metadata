@@ -311,6 +311,7 @@ absl::Status ParseRecordsToMapField(
 bool IsUniqueConstraintViolated(const absl::Status status) {
   return absl::IsInternal(status) &&
          (absl::StrContains(std::string(status.message()), "Duplicate") ||
+          absl::StrContains(std::string(status.message()), "duplicate") ||
           absl::StrContains(std::string(status.message()), "UNIQUE"));
 }
 

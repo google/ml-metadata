@@ -9488,7 +9488,6 @@ TEST_P(MetadataAccessObjectTest, CreateAssociationError2) {
   // second insertion fails
   EXPECT_TRUE(absl::IsAlreadyExists(metadata_access_object_->CreateAssociation(
       association, &association_id)));
-
   ASSERT_EQ(metadata_source_->Rollback(), absl::OkStatus());
   ASSERT_EQ(metadata_source_->Begin(), absl::OkStatus());
 }

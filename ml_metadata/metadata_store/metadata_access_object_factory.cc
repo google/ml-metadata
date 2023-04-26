@@ -73,9 +73,6 @@ absl::Status CreateMetadataAccessObject(
     case SQLITE_METADATA_SOURCE:
       return CreateRDBMSMetadataAccessObject(query_config, metadata_source,
                                              schema_version, result);
-    case POSTGRESQL_METADATA_SOURCE:
-      return absl::UnimplementedError(
-          "PostgreSQL database connection is pending implementation.");
     default:
       return absl::UnimplementedError("Unknown Metadata source type.");
   }
