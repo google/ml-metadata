@@ -434,6 +434,9 @@ message Context {
   optional int64 create_time_since_epoch = 7;
   // Output only. Last update time of the context in millisecond since epoch.
   optional int64 last_update_time_since_epoch = 8;
+
+  // Output only system metadata.
+  optional google.protobuf.Any system_metadata = 10;
 }
 
 // the Attribution edges between Context and Artifact instances.
