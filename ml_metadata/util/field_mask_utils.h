@@ -19,6 +19,7 @@ limitations under the License.
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "ml_metadata/proto/metadata_store.pb.h"
 #include "google/protobuf/descriptor.h"
 
 namespace ml_metadata {
@@ -34,8 +35,23 @@ namespace ml_metadata {
 // "custom_properties" without specifying the names in it ,
 // e.g. {"custom_properties"}, and `is_custom_properties` is true.
 absl::StatusOr<absl::flat_hash_set<absl::string_view>> GetPropertyNamesFromMask(
-    const google::protobuf::FieldMask& mask, bool is_custom_properties,
-    const google::protobuf::Descriptor* descriptor);
+    const google::protobuf::FieldMask& mask, bool is_custom_properties);
+
+// Gets names of `properties` or `custom_properties` from `mask` or the union of
+// `curr_properties` and `prev_properties` if `mask` is empty.
+// For example:
+// If `mask` contains {"properties.x", "properties.y", "external_id"} and
+// `is_custom_properties` is false, then the result will contain: {"x", "y"}
+// If `mask` contains {"external_id"} (does not contain property names),
+// then the result will be empty.
+// If `mask` is empty, the the result will contain the union of property names
+// from both `curr_properties` and `prev_properties`.
+// Returns INTERNAL error if any error occurs.
+absl::StatusOr<absl::flat_hash_set<absl::string_view>>
+GetPropertyNamesFromMaskOrUnionOfProperties(
+    const google::protobuf::FieldMask& mask, const bool is_custom_properties,
+    const google::protobuf::Map<std::string, Value>& curr_properties,
+    const google::protobuf::Map<std::string, Value>& prev_properties);
 
 // Gets a valid submask only containing paths of fields from `mask`.
 // For example, if `mask` contains {"properties.x", "properties.y",

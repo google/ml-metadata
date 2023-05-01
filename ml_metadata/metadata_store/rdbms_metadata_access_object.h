@@ -18,15 +18,20 @@ limitations under the License.
 #include <memory>
 #include <vector>
 
+#include "google/protobuf/field_mask.pb.h"
+#include "google/protobuf/struct.pb.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
+#include "absl/strings/match.h"
 #include "absl/strings/string_view.h"
 #include "ml_metadata/metadata_store/metadata_access_object.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/metadata_store/query_executor.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
+#include "ml_metadata/util/field_mask_utils.h"
+#include "ml_metadata/util/return_utils.h"
 
 namespace ml_metadata {
 
@@ -38,11 +43,37 @@ namespace ml_metadata {
 // TODO(b/197686185): Move this helper function to  metadata_store.cc once MAO
 // no longer needs it.
 template <typename Node, typename Type>
-absl::Status ValidatePropertiesWithType(const Node& node, const Type& type) {
+absl::Status ValidatePropertiesWithType(
+    const Node& node, const Type& type,
+    const google::protobuf::FieldMask& mask = {}) {
   const google::protobuf::Map<std::string, PropertyType>& type_properties =
       type.properties();
+
+  bool check_masked_properties = true;
+  absl::flat_hash_set<absl::string_view> property_names_in_mask;
+  if (!mask.paths().empty()) {
+    absl::StatusOr<absl::flat_hash_set<absl::string_view>>
+        property_names_or_internal_error =
+            GetPropertyNamesFromMask(mask, /*is_custom_properties=*/false);
+    if (property_names_or_internal_error.status().code() ==
+            absl::StatusCode::kInternal &&
+        absl::StrContains(property_names_or_internal_error.status().message(),
+                          "no property name is specified")) {
+      check_masked_properties = false;
+    } else {
+      MLMD_RETURN_IF_ERROR(property_names_or_internal_error.status());
+      property_names_in_mask = property_names_or_internal_error.value();
+    }
+  } else {
+    check_masked_properties = false;
+  }
+
   for (const auto& p : node.properties()) {
     const std::string& property_name = p.first;
+    // If mask is specified, only check masked property names.
+    if (check_masked_properties && !property_names_in_mask.count(property_name))
+      continue;
+
     const Value& property_value = p.second;
     if (type_properties.find(property_name) == type_properties.end())
       return absl::InvalidArgumentError(
@@ -272,8 +303,16 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status UpdateArtifact(const Artifact& artifact) final;
 
   absl::Status UpdateArtifact(const Artifact& artifact,
+                              const google::protobuf::FieldMask& mask) final;
+
+  absl::Status UpdateArtifact(const Artifact& artifact,
                               const absl::Time update_timestamp,
                               bool force_update_time) final;
+
+  absl::Status UpdateArtifact(const Artifact& artifact,
+                              const absl::Time update_timestamp,
+                              bool force_update_time,
+                              const google::protobuf::FieldMask& mask) final;
 
   absl::Status CreateExecution(const Execution& execution,
                                bool skip_type_and_property_validation,
@@ -541,21 +580,26 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
                               absl::string_view name);
 
   // Generates a list of queries for the `curr_properties` (C) based on the
-  // given `prev_properties` (P). A property definition is a 2-tuple (name,
-  // value_type). a) any property in the intersection of C and P, a update query
-  // is generated. b) any property in C \ P, insert query is generated. c) any
-  // property in P \ C, delete query is generated. The queries are composed from
-  // corresponding template queries with the given `NodeType` (which is one of
-  // {`ArtifactType`, `ExecutionType`, `ContextType`} and the
-  // `is_custom_property` (which indicates the space of the given properties.
-  // Returns `output_num_changed_properties` which equals to the number of
-  // properties are changed (deleted, updated or inserted).
+  // given `prev_properties` (P) only for properties associated with names in
+  // `mask`(M). A property definition is a 2-tuple (name, value_type).
+  // a) any property in the intersection of M, C and P, an update query is
+  // generated.
+  // b) any property in the intersection of M and (C \ P), insert query is
+  // generated.
+  // c) any property in the intersection of M and (P \ C), delete query is
+  // generated.
+  // The queries are composed from corresponding template
+  // queries with the given `NodeType` (which is one of {`ArtifactType`,
+  // `ExecutionType`, `ContextType`} and the `is_custom_property` (which
+  // indicates the space of the given properties. Returns
+  // `output_num_changed_properties` which equals to the number of properties
+  // are changed (deleted, updated or inserted).
   template <typename NodeType>
-  absl::Status ModifyProperties(
+  absl::StatusOr<int64_t> ModifyProperties(
       const google::protobuf::Map<std::string, Value>& curr_properties,
       const google::protobuf::Map<std::string, Value>& prev_properties,
       const int64_t node_id, const bool is_custom_property,
-      int& output_num_changed_properties);
+      const google::protobuf::FieldMask& mask = {});
 
   // Creates a query to insert an artifact type.
   absl::Status InsertTypeID(const ArtifactType& type, int64_t* type_id);
@@ -700,17 +744,21 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status FindNodesImpl(absl::Span<const int64_t> node_ids,
                              bool skipped_ids_ok, std::vector<Node>& nodes);
 
-  // Updates a `Node` which is one of {`Artifact`, `Execution`, `Context`}.
+  // Updates with masking for a `Node` being one of {`Artifact`, `Execution`,
+  // `Context`}.
   // `update_timestamp` should be used as the update time of the Node.
   // When `force_update_time` is set to true, `last_update_time_since_epoch` is
   // updated even if input node is the same as stored node.
-  // Returns INVALID_ARGUMENT error, if the node cannot be found
-  // Returns INVALID_ARGUMENT error, if the node does not match with its type
-  // Returns detailed INTERNAL error, if query execution fails.
+  // If `mask` is empty, update the `node` as a whole, otherwise, perform masked
+  // update on the `node`.
+  // Returns INVALID_ARGUMENT error, if the node cannot be
+  // found Returns INVALID_ARGUMENT error, if the node does not match with its
+  // type Returns detailed INTERNAL error, if query execution fails.
   template <typename Node, typename NodeType>
   absl::Status UpdateNodeImpl(const Node& node,
                               const absl::Time update_timestamp,
-                              bool force_update_time);
+                              bool force_update_time,
+                              const google::protobuf::FieldMask& mask);
 
   // Takes a record set that has one record per event and for each record:
   //   parses it into an Event object

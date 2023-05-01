@@ -21,6 +21,7 @@ limitations under the License.
 #include "gflags/gflags.h"
 #include <glog/logging.h>
 #include "google/protobuf/any.pb.h"
+#include "google/protobuf/field_mask.pb.h"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/container/flat_hash_map.h"
@@ -6920,6 +6921,8 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
 
   // update `property_1`, add `property_2`, and drop `property_3`
   // change the value type of `custom_property_1`
+  // If schema version is at least 10, add `property_4` and `property_5`
+  // Update `uri` and `state`
   Artifact updated_artifact = ParseTextProtoOrDie<Artifact>(
       absl::StrCat(R"(
     uri: 'testuri://changed/uri'
@@ -7235,6 +7238,594 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactWithForceUpdateTimeEnabled) {
   }
   // Expect no changes for the updated resource other than
   // `last_update_time_since_epoch`.
+  EXPECT_THAT(
+      got_artifact_after_2nd_update,
+      EqualsProto(got_artifact_after_1st_update,
+                  /*ignore_fields=*/{"type", "last_update_time_since_epoch"}));
+  EXPECT_NE(got_artifact_after_2nd_update.last_update_time_since_epoch(),
+            got_artifact_after_1st_update.last_update_time_since_epoch());
+  EXPECT_EQ(got_artifact_after_2nd_update.last_update_time_since_epoch(),
+            absl::ToUnixMillis(update_time));
+}
+
+TEST_P(MetadataAccessObjectTest, UpdateArtifactWithMasking) {
+  // Set up
+  ASSERT_EQ(Init(), absl::OkStatus());
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(
+      absl::StrCat(R"(
+    name: 'test_type'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: DOUBLE }
+    properties { key: 'property_3' value: STRING }
+  )",
+                   // TODO(b/257334039): cleanup fat client
+                   IfSchemaLessThan(10) ? "" :
+                                        R"pb(
+                     properties { key: 'property_4' value: PROTO }
+                     properties { key: 'property_5' value: BOOLEAN }
+                                        )pb",
+                   ""));
+  int64_t type_id;
+  ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
+            absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Artifact stored_artifact = ParseTextProtoOrDie<Artifact>(R"pb(
+    uri: 'testuri://testing/uri'
+    properties {
+      key: 'property_1'
+      value: { int_value: 3 }
+    }
+    properties {
+      key: 'property_3'
+      value: { string_value: '3' }
+    }
+    custom_properties {
+      key: 'custom_property_1'
+      value: { string_value: '5' }
+    }
+    custom_properties {
+      key: 'custom_property_2'
+      value: { int_value: 5 }
+    }
+    state: LIVE
+  )pb");
+  stored_artifact.set_type_id(type_id);
+  int64_t artifact_id;
+  ASSERT_EQ(
+      metadata_access_object_->CreateArtifact(stored_artifact, &artifact_id),
+      absl::OkStatus());
+
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Artifact got_artifact_before_update;
+  {
+    std::vector<Artifact> artifacts;
+    ASSERT_EQ(
+        metadata_access_object_->FindArtifactsById({artifact_id}, &artifacts),
+        absl::OkStatus());
+    got_artifact_before_update = artifacts.at(0);
+  }
+  EXPECT_THAT(
+      got_artifact_before_update,
+      EqualsProto(stored_artifact,
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
+
+  // Test 1:
+  // Update `property_1`, add `property_2`, and drop `property_3`
+  // Change the value type of `custom_property_1`, drop `custom_property_2`
+  // If schema version is at least 10, add `property_4` and `property_5`
+  // Update `uri`
+  // Add "invalid_path" in mask, which will be ignored during update.
+  google::protobuf::FieldMask mask =
+      ParseTextProtoOrDie<google::protobuf::FieldMask>(R"pb(
+        paths: 'uri'
+        paths: 'properties.property_1'
+        paths: 'properties.property_2'
+        paths: 'properties.property_3'
+        paths: 'custom_properties.custom_property_1'
+        paths: 'custom_properties.custom_property_2'
+        paths: 'invalid_path'
+      )pb");
+  if (!IfSchemaLessThan(10)) {
+    mask.add_paths("properties.property_4");
+    mask.add_paths("properties.property_5");
+  }
+
+  Artifact updated_artifact =
+      ParseTextProtoOrDie<Artifact>(absl::StrCat(R"(
+    uri: 'testuri://changed/uri'
+    properties {
+      key: 'property_1'
+      value: { int_value: 5 }
+    }
+    properties {
+      key: 'property_2'
+      value: { double_value: 3.0 }
+    }
+    custom_properties {
+      key: 'custom_property_1'
+      value: { int_value: 3 }
+    }
+  )",
+                                                 IfSchemaLessThan(10) ? "" :
+                                                                      R"(
+    properties {
+      key: 'property_4'
+      value {
+        proto_value {
+          [type.googleapis.com/ml_metadata.testing.MockProto] {
+            string_value: '3'
+            double_value: 3.0
+          }
+        }
+      }
+    }
+    properties {
+      key: 'property_5'
+      value { bool_value: true }
+    }
+  )",
+                                                 R"(
+    custom_properties {
+      key: 'custom_property_1'
+      value: { int_value: 3 }
+    }
+  )"));
+  updated_artifact.set_id(artifact_id);
+  updated_artifact.set_type_id(type_id);
+  updated_artifact.set_state(Artifact::LIVE);
+
+  {
+    // sleep to verify the latest update time is updated.
+    absl::SleepFor(absl::Milliseconds(1));
+    EXPECT_EQ(metadata_access_object_->UpdateArtifact(updated_artifact, mask),
+              absl::OkStatus());
+
+    ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+    Artifact got_artifact_after_update;
+    {
+      std::vector<Artifact> artifacts;
+      ASSERT_EQ(
+          metadata_access_object_->FindArtifactsById({artifact_id}, &artifacts),
+          absl::OkStatus());
+      got_artifact_after_update = artifacts.at(0);
+    }
+    EXPECT_THAT(
+        got_artifact_after_update,
+        EqualsProto(updated_artifact,
+                    /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
+    EXPECT_EQ(got_artifact_before_update.create_time_since_epoch(),
+              got_artifact_after_update.create_time_since_epoch());
+    EXPECT_LT(got_artifact_before_update.last_update_time_since_epoch(),
+              got_artifact_after_update.last_update_time_since_epoch());
+  }
+
+  // Test 2:
+  // Update 'property_1' and delete 'property_2'.
+  // Add both "properties" and "properties.property_1" in mask, this means
+  // making for "properties.property_1" is ignored and `properties` will be
+  // updated as a whole.
+  updated_artifact.mutable_properties()->at("property_1").set_int_value(6);
+  updated_artifact.mutable_properties()->erase("property_2");
+  {
+    // sleep to verify the latest update time is updated.
+    absl::SleepFor(absl::Milliseconds(1));
+    mask.Clear();
+    // Add field path: "properties" to mask, which means diffing and updating
+    // `properties` as a whole.
+    mask.add_paths("properties");
+    // Add field path: "properties" to mask, which means diffing and updating
+    // `custom_properties` as a whole.
+    mask.add_paths("custom_properties");
+    // "properties.property_1" will be ignored in the mask during update.
+    mask.add_paths("properties.property_1");
+    // Add an empty path to mask.
+    mask.add_paths("");
+    EXPECT_EQ(metadata_access_object_->UpdateArtifact(updated_artifact, mask),
+              absl::OkStatus());
+    ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+    Artifact got_artifact_after_update;
+    {
+      std::vector<Artifact> artifacts;
+      ASSERT_EQ(
+          metadata_access_object_->FindArtifactsById({artifact_id}, &artifacts),
+          absl::OkStatus());
+      got_artifact_after_update = artifacts.at(0);
+    }
+    EXPECT_THAT(
+        got_artifact_after_update,
+        EqualsProto(updated_artifact,
+                    /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
+    EXPECT_EQ(got_artifact_before_update.create_time_since_epoch(),
+              got_artifact_after_update.create_time_since_epoch());
+    EXPECT_LT(got_artifact_before_update.last_update_time_since_epoch(),
+              got_artifact_after_update.last_update_time_since_epoch());
+  }
+
+  // Test 3:
+  // Set `external_id`
+  if (!IfSchemaLessThan(/*schema_version=*/9)) {
+    EXPECT_TRUE(got_artifact_before_update.external_id().empty());
+    mask.Clear();
+    mask.add_paths("external_id");
+    updated_artifact.set_external_id("artifact_1");
+    EXPECT_EQ(metadata_access_object_->UpdateArtifact(updated_artifact, mask),
+              absl::OkStatus());
+    ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+    std::vector<Artifact> artifacts;
+    ASSERT_EQ(
+        metadata_access_object_->FindArtifactsById({artifact_id}, &artifacts),
+        absl::OkStatus());
+    EXPECT_EQ(artifacts.at(0).external_id(), "artifact_1");
+  }
+
+  // Test 4:
+  // Update with an empty mask, which means the artifact will be updated as a
+  // whole.
+  {
+    mask.Clear();
+    updated_artifact.mutable_properties()->at("property_1").set_int_value(9);
+    EXPECT_EQ(metadata_access_object_->UpdateArtifact(updated_artifact, mask),
+              absl::OkStatus());
+    ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+    Artifact got_artifact_after_update;
+    {
+      std::vector<Artifact> artifacts;
+      ASSERT_EQ(
+          metadata_access_object_->FindArtifactsById({artifact_id}, &artifacts),
+          absl::OkStatus());
+      got_artifact_after_update = artifacts.at(0);
+    }
+    EXPECT_THAT(
+        got_artifact_after_update,
+        EqualsProto(updated_artifact,
+                    /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
+  }
+}
+
+TEST_P(MetadataAccessObjectTest, UpdateArtifactWithMaskingError) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"pb(
+    name: 'test_type'
+    properties { key: 'property_1' value: INT }
+  )pb");
+  int64_t type_id;
+  ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
+            absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Artifact artifact = ParseTextProtoOrDie<Artifact>(R"pb(
+    uri: 'testuri://testing/uri'
+    properties {
+      key: 'property_1'
+      value: { int_value: 3 }
+    }
+  )pb");
+  artifact.set_type_id(type_id);
+  int64_t artifact_id;
+  ASSERT_EQ(metadata_access_object_->CreateArtifact(artifact, &artifact_id),
+            absl::OkStatus());
+  artifact.set_id(artifact_id);
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  google::protobuf::FieldMask mask =
+      ParseTextProtoOrDie<google::protobuf::FieldMask>(R"pb(
+        paths: 'uri'
+        paths: 'properties.property_1'
+      )pb");
+  // no artifact id given
+  Artifact wrong_artifact;
+  absl::Status s =
+      metadata_access_object_->UpdateArtifact(wrong_artifact, mask);
+  EXPECT_TRUE(absl::IsInvalidArgument(s));
+
+  // artifact id cannot be found
+  int64_t different_id = artifact_id + 1;
+  wrong_artifact.set_id(different_id);
+  s = metadata_access_object_->UpdateArtifact(wrong_artifact, mask);
+  EXPECT_TRUE(absl::IsInvalidArgument(s));
+
+  // type_id if given is not aligned with the stored one
+  wrong_artifact.set_id(artifact_id);
+  int64_t different_type_id = type_id + 1;
+  wrong_artifact.set_type_id(different_type_id);
+  s = metadata_access_object_->UpdateArtifact(wrong_artifact, mask);
+  EXPECT_TRUE(absl::IsInvalidArgument(s));
+
+  // artifact has unknown property
+  mask.add_paths("properties.unknown_property");
+  wrong_artifact.clear_type_id();
+  (*wrong_artifact.mutable_properties())["unknown_property"].set_int_value(1);
+  s = metadata_access_object_->UpdateArtifact(wrong_artifact, mask);
+  EXPECT_TRUE(absl::IsInvalidArgument(s));
+}
+
+TEST_P(MetadataAccessObjectTest, UpdateArtifactWithCustomUpdateTimeAndMasking) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(
+      absl::StrCat(R"pb(
+                     name: 'test_type'
+                     properties { key: 'property_1' value: INT }
+                     properties { key: 'property_2' value: DOUBLE }
+                     properties { key: 'property_3' value: STRING }
+                   )pb",
+                   // TODO(b/257334039): cleanup fat client
+                   IfSchemaLessThan(10) ? "" :
+                                        R"pb(
+                     properties { key: 'property_4' value: PROTO }
+                     properties { key: 'property_5' value: BOOLEAN }
+                                        )pb",
+                   ""));
+  int64_t type_id;
+  ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
+            absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Artifact stored_artifact = ParseTextProtoOrDie<Artifact>(
+      absl::StrCat(R"pb(
+                     uri: 'testuri://testing/uri'
+                     properties {
+                       key: 'property_1'
+                       value: { int_value: 3 }
+                     }
+                     properties {
+                       key: 'property_3'
+                       value: { string_value: '3' }
+                     }
+                   )pb",
+                   // TODO(b/257334039): cleanup fat client
+                   IfSchemaLessThan(10) ? "" :
+                                        R"pb(
+                     properties {
+                       key: 'property_4'
+                       value {
+                         proto_value {
+                           [type.googleapis.com/ml_metadata.testing.MockProto] {
+                             string_value: '3'
+                             double_value: 3.0
+                           }
+                         }
+                       }
+                     }
+                     properties {
+                       key: 'property_5'
+                       value { bool_value: true }
+                     }
+                                        )pb",
+                   R"pb(
+                     custom_properties {
+                       key: 'custom_property_1'
+                       value: { string_value: '5' }
+                     }
+                     state: LIVE
+                   )pb"));
+  stored_artifact.set_type_id(type_id);
+  int64_t artifact_id;
+  ASSERT_EQ(
+      metadata_access_object_->CreateArtifact(stored_artifact, &artifact_id),
+      absl::OkStatus());
+
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Artifact got_artifact_before_update;
+  {
+    std::vector<Artifact> artifacts;
+    ASSERT_EQ(
+        metadata_access_object_->FindArtifactsById({artifact_id}, &artifacts),
+        absl::OkStatus());
+    got_artifact_before_update = artifacts.at(0);
+  }
+  EXPECT_THAT(
+      got_artifact_before_update,
+      EqualsProto(stored_artifact,
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
+
+  // Update `property_1`, add `property_2`, and drop `property_3`
+  // Change the value type of `custom_property_1`
+  // If schema version is at least 10, update `property_4`
+  // Update `uri`
+  google::protobuf::FieldMask mask =
+      ParseTextProtoOrDie<google::protobuf::FieldMask>(R"pb(
+        paths: 'uri'
+        paths: 'properties.property_1'
+        paths: 'properties.property_2'
+        paths: 'properties.property_3'
+        paths: 'custom_properties.custom_property_1'
+      )pb");
+  if (!IfSchemaLessThan(10)) {
+    mask.add_paths("properties.property_4");
+  }
+  Artifact updated_artifact = ParseTextProtoOrDie<Artifact>(
+      absl::StrCat(R"pb(
+                     uri: 'testuri://changed/uri'
+                     properties {
+                       key: 'property_1'
+                       value: { int_value: 5 }
+                     }
+                     properties {
+                       key: 'property_2'
+                       value: { double_value: 3.0 }
+                     }
+                   )pb",
+                   // TODO(b/257334039): cleanup fat client
+                   IfSchemaLessThan(10) ? "" :
+                                        R"pb(
+                     properties {
+                       key: 'property_4'
+                       value {
+                         proto_value {
+                           [type.googleapis.com/ml_metadata.testing.MockProto] {
+                             string_value: '1'
+                             double_value: 1.0
+                           }
+                         }
+                       }
+                     }
+                     properties {
+                       key: 'property_5'
+                       value { bool_value: false }
+                     }
+                                        )pb",
+                   R"pb(
+                     custom_properties {
+                       key: 'custom_property_1'
+                       value: { int_value: 3 }
+                     }
+                     state: LIVE
+                   )pb"));
+  updated_artifact.set_id(artifact_id);
+  updated_artifact.set_type_id(type_id);
+  absl::Time update_time = absl::InfiniteFuture();
+  ASSERT_EQ(metadata_access_object_->UpdateArtifact(
+                updated_artifact, update_time,
+                /*force_update_time=*/false, mask),
+            absl::OkStatus());
+  if (!IfSchemaLessThan(10)) {
+    // Change `property_5` back to its stored bool value before comparing
+    // protos.
+    updated_artifact.mutable_properties()
+        ->at("property_5")
+        .set_bool_value(true);
+  }
+
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Artifact got_artifact_after_update;
+  {
+    std::vector<Artifact> artifacts;
+    ASSERT_EQ(
+        metadata_access_object_->FindArtifactsById({artifact_id}, &artifacts),
+        absl::OkStatus());
+    got_artifact_after_update = artifacts.at(0);
+  }
+  EXPECT_THAT(got_artifact_after_update,
+              EqualsProto(updated_artifact,
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
+  EXPECT_EQ(got_artifact_before_update.create_time_since_epoch(),
+            got_artifact_after_update.create_time_since_epoch());
+  EXPECT_EQ(got_artifact_after_update.last_update_time_since_epoch(),
+            absl::ToUnixMillis(update_time));
+}
+
+TEST_P(MetadataAccessObjectTest,
+       UpdateArtifactWithForceUpdateTimeEnabledAndMasking) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"pb(
+    name: 'test_type'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: DOUBLE }
+    properties { key: 'property_3' value: STRING }
+  )pb");
+  int64_t type_id;
+  ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
+            absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Artifact stored_artifact = ParseTextProtoOrDie<Artifact>(R"pb(
+    uri: 'testuri://testing/uri'
+    properties {
+      key: 'property_1'
+      value: { int_value: 3 }
+    }
+    properties {
+      key: 'property_3'
+      value: { string_value: '3' }
+    }
+    custom_properties {
+      key: 'custom_property_1'
+      value: { string_value: '5' }
+    }
+    state: LIVE
+  )pb");
+  stored_artifact.set_type_id(type_id);
+  int64_t artifact_id;
+  ASSERT_EQ(
+      metadata_access_object_->CreateArtifact(stored_artifact, &artifact_id),
+      absl::OkStatus());
+
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Artifact got_artifact_before_update;
+  {
+    std::vector<Artifact> artifacts;
+    ASSERT_EQ(
+        metadata_access_object_->FindArtifactsById({artifact_id}, &artifacts),
+        absl::OkStatus());
+    got_artifact_before_update = artifacts.at(0);
+  }
+  EXPECT_THAT(
+      got_artifact_before_update,
+      EqualsProto(stored_artifact,
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
+
+  // Update with no changes and force_update_time disabled.
+  google::protobuf::FieldMask mask;
+  mask.add_paths("name");
+  mask.add_paths("external_id");
+  mask.add_paths("");
+  absl::Time update_time = absl::InfiniteFuture();
+  ASSERT_EQ(metadata_access_object_->UpdateArtifact(
+                got_artifact_before_update, update_time,
+                /*force_update_time=*/false, mask),
+            absl::OkStatus());
+
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Artifact got_artifact_after_1st_update;
+  {
+    std::vector<Artifact> artifacts;
+    ASSERT_EQ(
+        metadata_access_object_->FindArtifactsById({artifact_id}, &artifacts),
+        absl::OkStatus());
+    got_artifact_after_1st_update = artifacts.at(0);
+  }
+  // Expect no changes for the updated resource.
+  EXPECT_THAT(got_artifact_after_1st_update,
+              EqualsProto(got_artifact_before_update));
+
+  got_artifact_after_1st_update.set_uri("testuri://testing/new_uri");
+  ASSERT_EQ(metadata_access_object_->UpdateArtifact(
+                got_artifact_after_1st_update, update_time,
+                /*force_update_time=*/true, google::protobuf::FieldMask()),
+            absl::OkStatus());
+
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  got_artifact_after_1st_update.mutable_properties()
+      ->at("property_1")
+      .set_int_value(6);
+  got_artifact_after_1st_update.set_state(Artifact::MARKED_FOR_DELETION);
+  got_artifact_after_1st_update.set_uri("invalid_uri");
+  mask.clear_paths();
+  mask.add_paths("properties.property_1");
+  mask.add_paths("state");
+  ASSERT_EQ(metadata_access_object_->UpdateArtifact(
+                got_artifact_after_1st_update, update_time,
+                /*force_update_time=*/true, mask),
+            absl::OkStatus());
+  // Set back uri value for later comparison
+  got_artifact_after_1st_update.set_uri("testuri://testing/new_uri");
+
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Artifact got_artifact_after_2nd_update;
+  {
+    std::vector<Artifact> artifacts;
+    ASSERT_EQ(
+        metadata_access_object_->FindArtifactsById({artifact_id}, &artifacts),
+        absl::OkStatus());
+    got_artifact_after_2nd_update = artifacts.at(0);
+  }
+
   EXPECT_THAT(
       got_artifact_after_2nd_update,
       EqualsProto(got_artifact_after_1st_update,

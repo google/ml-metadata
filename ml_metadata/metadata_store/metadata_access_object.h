@@ -18,6 +18,7 @@ limitations under the License.
 #include <memory>
 #include <vector>
 
+#include "google/protobuf/field_mask.pb.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
@@ -410,6 +411,21 @@ class MetadataAccessObject {
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status UpdateArtifact(const Artifact& artifact) = 0;
 
+  // Updates an artifact under masking.
+  // The `last_update_time_since_epoch` field is determined under the hood
+  //  and set to absl::Now().
+  // If input artifact is the same as stored artifact, skip update operation and
+  // return OK status.
+  // Returns INVALID_ARGUMENT error, if the id field is not given.
+  // Returns INVALID_ARGUMENT error, if no artifact is found with the given id.
+  // Returns INVALID_ARGUMENT error, if type_id is given and is different from
+  // the one stored.
+  // Returns INVALID_ARGUMENT error, if given property names and types do not
+  // align with the ArtifactType on file.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status UpdateArtifact(
+      const Artifact& artifact, const google::protobuf::FieldMask& mask) = 0;
+
   // Updates an artifact.
   // `update_timestamp` is used as the value of
   // Artifact.last_update_time_since_epoch.
@@ -425,6 +441,22 @@ class MetadataAccessObject {
   virtual absl::Status UpdateArtifact(const Artifact& artifact,
                                       const absl::Time update_timestamp,
                                       bool force_update_time) = 0;
+
+  // Updates an artifact under masking.
+  // `update_timestamp` is used as the value of
+  // Artifact.last_update_time_since_epoch.
+  // When `force_update_time` is set to true, `last_update_time_since_epoch` is
+  // updated even if input artifact is the same as stored artifact.
+  // Returns INVALID_ARGUMENT error, if the id field is not given.
+  // Returns INVALID_ARGUMENT error, if no artifact is found with the given id.
+  // Returns INVALID_ARGUMENT error, if type_id is given and is different from
+  // the one stored.
+  // Returns INVALID_ARGUMENT error, if given property names and types do not
+  // align with the ArtifactType on file.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status UpdateArtifact(
+      const Artifact& artifact, absl::Time update_timestamp,
+      bool force_update_time, const google::protobuf::FieldMask& mask) = 0;
 
   // Creates an execution, returns the assigned execution id. The id field of
   // the execution is ignored.

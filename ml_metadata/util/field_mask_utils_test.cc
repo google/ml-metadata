@@ -23,6 +23,7 @@ limitations under the License.
 #include "absl/strings/match.h"
 #include "absl/strings/string_view.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
+#include "google/protobuf/map.h"
 
 namespace ml_metadata {
 namespace {
@@ -35,7 +36,6 @@ TEST(FieldMaskUtils, GetArtifactPropertyNamesFromMaskSucceeds) {
   mask.add_paths("properties.key1");
   mask.add_paths("properties.key2");
 
-  Artifact artifact;
   // Mask:
   //   {"external_id", "name", "properties.key1",
   //    "properties.key2"}
@@ -43,8 +43,7 @@ TEST(FieldMaskUtils, GetArtifactPropertyNamesFromMaskSucceeds) {
   // Expected results:
   //   property_names = {"key1", "key2"}
   absl::StatusOr<absl::flat_hash_set<absl::string_view>> result =
-      GetPropertyNamesFromMask(mask, /*is_custom_properties=*/false,
-                               artifact.GetDescriptor());
+      GetPropertyNamesFromMask(mask, /*is_custom_properties=*/false);
 
   EXPECT_EQ(result.status(), absl::OkStatus());
   EXPECT_THAT(result.value(), UnorderedElementsAre("key1", "key2"));
@@ -58,15 +57,13 @@ TEST(FieldMaskUtils,
   mask.add_paths("properties");
   mask.add_paths("properties.key1");
 
-  Artifact artifact;
   // Mask:
   //   {"external_id", "name", "properties.key1", "properties"}
   // Get by "properties"
   // Expected results:
   //   INTERNAL error
   absl::StatusOr<absl::flat_hash_set<absl::string_view>> result =
-      GetPropertyNamesFromMask(mask, /*is_custom_properties=*/false,
-                               artifact.GetDescriptor());
+      GetPropertyNamesFromMask(mask, /*is_custom_properties=*/false);
 
   EXPECT_EQ(result.status().code(), absl::StatusCode::kInternal);
   EXPECT_TRUE(absl::StrContains(result.status().message(),
@@ -83,7 +80,6 @@ TEST(FieldMaskUtils,
   mask.add_paths("custom_properties.key3");
   mask.add_paths("custom_properties.key4");
 
-  Artifact artifact;
   // Mask:
   //   {"external_id", "name", "properties.key1",
   //    "properties.key2","custom_properties.key3","custom_properties.key4"}
@@ -91,8 +87,7 @@ TEST(FieldMaskUtils,
   // Expected results:
   //   property_names = {"key1", "key2"}
   absl::StatusOr<absl::flat_hash_set<absl::string_view>> result =
-      GetPropertyNamesFromMask(mask, /*is_custom_properties=*/false,
-                               artifact.GetDescriptor());
+      GetPropertyNamesFromMask(mask, /*is_custom_properties=*/false);
 
   EXPECT_EQ(result.status(), absl::OkStatus());
   EXPECT_THAT(result.value(), UnorderedElementsAre("key1", "key2"));
@@ -100,8 +95,7 @@ TEST(FieldMaskUtils,
   // Get by "custom_properties"
   // Expected results:
   //   custom_property_names = {"key3", "key4"}
-  result = GetPropertyNamesFromMask(mask, /*is_custom_properties=*/true,
-                                    artifact.GetDescriptor());
+  result = GetPropertyNamesFromMask(mask, /*is_custom_properties=*/true);
 
   EXPECT_EQ(result.status(), absl::OkStatus());
   EXPECT_THAT(result.value(), UnorderedElementsAre("key3", "key4"));
@@ -112,14 +106,12 @@ TEST(FieldMaskUtils,
   google::protobuf::FieldMask mask;
   mask.add_paths("absent_field_name");
 
-  Artifact artifact;
   // Mask: {"absent_field_name"}
   // Get by "properties"
   // Expected results:
   //   property_names = {}
   absl::StatusOr<absl::flat_hash_set<absl::string_view>> result =
-      GetPropertyNamesFromMask(mask, /*is_custom_properties=*/false,
-                               artifact.GetDescriptor());
+      GetPropertyNamesFromMask(mask, /*is_custom_properties=*/false);
 
   EXPECT_EQ(result.status(), absl::OkStatus());
   EXPECT_EQ(result.value().size(), 0);
@@ -134,7 +126,6 @@ TEST(FieldMaskUtils,
   mask.add_paths("properties.key2");
   mask.add_paths("properties.key2");
 
-  Artifact artifact;
   // Mask:
   //   {"external_id", "properties.key1","properties.key1",
   //    "properties.key2","properties.key2"}
@@ -142,11 +133,59 @@ TEST(FieldMaskUtils,
   // Expected results:
   //   property_names = {"key1", "key2"}
   absl::StatusOr<absl::flat_hash_set<absl::string_view>> result =
-      GetPropertyNamesFromMask(mask, /*is_custom_properties=*/false,
-                               artifact.GetDescriptor());
+      GetPropertyNamesFromMask(mask, /*is_custom_properties=*/false);
 
   EXPECT_EQ(result.status(), absl::OkStatus());
   EXPECT_THAT(result.value(), UnorderedElementsAre("key1", "key2"));
+}
+
+TEST(FieldMaskUtils, GetPropertyNamesFromMaskOrUnionOfPropertiesSucceeds) {
+  google::protobuf::Map<std::string, Value> curr_properties;
+  curr_properties.insert({"key1", Value()});
+  curr_properties.insert({"key3", Value()});
+
+  google::protobuf::Map<std::string, Value> prev_properties;
+  prev_properties.insert({"key1", Value()});
+  prev_properties.insert({"key4", Value()});
+
+  // Get property names from mask, if mask is not empty
+  {
+    google::protobuf::FieldMask mask;
+    mask.add_paths("external_id");
+    mask.add_paths("properties.key1");
+    mask.add_paths("properties.key2");
+    absl::StatusOr<absl::flat_hash_set<absl::string_view>> result =
+        GetPropertyNamesFromMaskOrUnionOfProperties(
+            mask, /*is_custom_properties=*/false, curr_properties,
+            prev_properties);
+    EXPECT_EQ(result.status(), absl::OkStatus());
+    EXPECT_THAT(result.value(), UnorderedElementsAre("key1", "key2"));
+  }
+
+  // Get property names from union of names in `curr_properties` and
+  // `prev_properties` if mask is empty.
+  {
+    google::protobuf::FieldMask mask;
+    absl::StatusOr<absl::flat_hash_set<absl::string_view>> result =
+        GetPropertyNamesFromMaskOrUnionOfProperties(
+            mask, /*is_custom_properties=*/false, curr_properties,
+            prev_properties);
+    EXPECT_EQ(result.status(), absl::OkStatus());
+    EXPECT_THAT(result.value(), UnorderedElementsAre("key1", "key3", "key4"));
+  }
+
+  // Get no property names if mask is not empty and does not contain property
+  // names.
+  {
+    google::protobuf::FieldMask mask;
+    mask.add_paths("external_id");
+    absl::StatusOr<absl::flat_hash_set<absl::string_view>> result =
+        GetPropertyNamesFromMaskOrUnionOfProperties(
+            mask, /*is_custom_properties=*/false, curr_properties,
+            prev_properties);
+    EXPECT_EQ(result.status(), absl::OkStatus());
+    EXPECT_EQ(result.value().size(), 0);
+  }
 }
 
 TEST(FieldMaskUtils, GetFieldSubmaskFromMaskFiltersPropertiesAndInvalidPaths) {
@@ -169,7 +208,8 @@ TEST(FieldMaskUtils, GetFieldSubmaskFromMaskFiltersPropertiesAndInvalidPaths) {
   EXPECT_THAT(result.value().paths(), UnorderedElementsAre("external_id"));
 }
 
-TEST(FieldMaskUtils, GetFromMaskWithNullDescriptorReturnsInvalidArgumentError) {
+TEST(FieldMaskUtils,
+     GetFieldSubmaskFromMaskWithNullDescriptorReturnsInvalidArgumentError) {
   google::protobuf::FieldMask mask;
   mask.add_paths("external_id");
   mask.add_paths("properties.key1");
@@ -177,11 +217,6 @@ TEST(FieldMaskUtils, GetFromMaskWithNullDescriptorReturnsInvalidArgumentError) {
 
   // Expected results for util functions:
   //   INVALID_ARTUMENT
-  absl::StatusOr<absl::flat_hash_set<absl::string_view>>
-      result_get_property_names = GetPropertyNamesFromMask(
-          mask, /*is_custom_properties=*/false, nullptr);
-  EXPECT_EQ(result_get_property_names.status().code(),
-            absl::StatusCode::kInvalidArgument);
   absl::StatusOr<google::protobuf::FieldMask> result_get_fields_submask =
       GetFieldsSubMaskFromMask(mask, nullptr);
   EXPECT_EQ(result_get_fields_submask.status().code(),
@@ -199,8 +234,7 @@ TEST(FieldMaskUtils, GetFromEmptyMaskReturnsEmptyResults) {
   // Get field submask
   // Expected results: {}
   absl::StatusOr<absl::flat_hash_set<absl::string_view>> result =
-      GetPropertyNamesFromMask(mask, /*is_custom_properties=*/false,
-                               artifact.GetDescriptor());
+      GetPropertyNamesFromMask(mask, /*is_custom_properties=*/false);
 
   EXPECT_EQ(result.status(), absl::OkStatus());
   EXPECT_EQ(result.value().size(), 0);

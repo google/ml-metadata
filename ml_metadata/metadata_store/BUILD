@@ -40,13 +40,13 @@ cc_library(
         ":metadata_source",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -105,12 +105,14 @@ cc_library(
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/simple_types:simple_types_constants",
+        "//ml_metadata/util:field_mask_utils",
         "//ml_metadata/util:return_utils",
         "//ml_metadata/util:struct_utils",
         "@com_google_glog//:glog",
@@ -376,6 +378,7 @@ cc_library(
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/util:return_utils",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -535,6 +538,7 @@ cc_library(
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/proto:metadata_store_service_proto",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -744,6 +748,7 @@ cc_library(
         "@com_github_gflags_gflags//:gflags_nothreads",
         "@com_google_glog//:glog",
         "@com_google_protobuf//:cc_wkt_protos",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 

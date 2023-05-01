@@ -24,22 +24,18 @@ limitations under the License.
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
+#include "ml_metadata/proto/metadata_store.pb.h"
 #include "google/protobuf/descriptor.h"
 
 namespace ml_metadata {
 
 namespace {
-constexpr absl::string_view kPropertiesFieldPathPrefix = "properties";
-constexpr absl::string_view kCustomPropertiesFieldPathPrefix =
-    "custom_properties";
+constexpr char kPropertiesFieldPathPrefix[] = "properties";
+constexpr char kCustomPropertiesFieldPathPrefix[] = "custom_properties";
 }  // namespace
 
 absl::StatusOr<absl::flat_hash_set<absl::string_view>> GetPropertyNamesFromMask(
-    const google::protobuf::FieldMask& mask, const bool is_custom_properties,
-    const google::protobuf::Descriptor* descriptor) {
-  if (descriptor == nullptr) {
-    return absl::InvalidArgumentError("`descriptor` cannot be null.");
-  }
+    const google::protobuf::FieldMask& mask, const bool is_custom_properties) {
   absl::flat_hash_set<absl::string_view> property_names;
   absl::string_view prefix = is_custom_properties
                                  ? kCustomPropertiesFieldPathPrefix
@@ -48,7 +44,7 @@ absl::StatusOr<absl::flat_hash_set<absl::string_view>> GetPropertyNamesFromMask(
     if (path == prefix) {
       return absl::InternalError(
           absl::StrCat("Cannot split property names from ", prefix,
-                       " if no property name is specified for", prefix,
+                       " if no property name is specified for ", prefix,
                        " field. Please update ", prefix, " field as a whole."));
     }
     if (absl::StartsWith(path, prefix)) {
@@ -56,6 +52,33 @@ absl::StatusOr<absl::flat_hash_set<absl::string_view>> GetPropertyNamesFromMask(
     }
   }
   return property_names;
+}
+
+absl::StatusOr<absl::flat_hash_set<absl::string_view>>
+GetPropertyNamesFromMaskOrUnionOfProperties(
+    const google::protobuf::FieldMask& mask, const bool is_custom_properties,
+    const google::protobuf::Map<std::string, Value>& curr_properties,
+    const google::protobuf::Map<std::string, Value>& prev_properties) {
+  absl::flat_hash_set<absl::string_view> property_names_in_properties_union;
+  for (const auto& property : curr_properties) {
+    property_names_in_properties_union.insert(property.first);
+  }
+  for (const auto& property : prev_properties) {
+    property_names_in_properties_union.insert(property.first);
+  }
+  if (mask.paths().empty()) {
+    return property_names_in_properties_union;
+  }
+
+  absl::StatusOr<absl::flat_hash_set<absl::string_view>>
+      property_names_in_mask_or_internal_error =
+          GetPropertyNamesFromMask(mask, is_custom_properties);
+  if (property_names_in_mask_or_internal_error.status().code() ==
+      absl::StatusCode::kInternal) {
+    return property_names_in_properties_union;
+  }
+
+  return property_names_in_mask_or_internal_error;
 }
 
 absl::StatusOr<google::protobuf::FieldMask> GetFieldsSubMaskFromMask(

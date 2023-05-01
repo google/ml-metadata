@@ -22,6 +22,7 @@ limitations under the License.
 #include <vector>
 
 #include <glog/logging.h>
+#include "google/protobuf/field_mask.pb.h"
 #include "google/protobuf/struct.pb.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/util/json_util.h"
@@ -29,6 +30,7 @@ limitations under the License.
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
@@ -37,6 +39,8 @@ limitations under the License.
 #include "absl/strings/substitute.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "ml_metadata/util/field_mask_utils.h"
+#include "google/protobuf/util/field_mask_util.h"
 // clang-format off
 #ifdef _WIN32
 #include "ml_metadata/metadata_store/rdbms_metadata_access_object.h" // NOLINT
@@ -569,55 +573,71 @@ absl::Status RDBMSMetadataAccessObject::DeleteProperty(
 }
 
 // Generates a list of queries for the `curr_properties` (C) based on the given
-// `prev_properties` (P). A property definition is a 2-tuple (name, value_type).
-// a) any property in the intersection of C and P, a update query is generated.
-// b) any property in C \ P, insert query is generated.
-// c) any property in P \ C, delete query is generated.
-// The queries are composed from corresponding template queries with the given
-// `NodeType` (which is one of {`ArtifactType`, `ExecutionType`, `ContextType`}
-// and the `is_custom_property` (which indicates the space of the given
-// properties.
-// Returns `output_num_changed_properties` which equals to the number of
-// properties are changed (deleted, updated or inserted).
+// `prev_properties` (P) only for properties associated with names in `mask`(M).
+// A property definition is a 2-tuple (name, value_type).
+// a) any property in the intersection of M, C and P, an update query is
+// generated.
+// b) any property in the intersection of M and (C \ P), insert query is
+// generated.
+// c) any property in the intersection of M and (P \ C), delete query is
+// generated.
+// The queries are composed from corresponding template
+// queries with the given `NodeType` (which is one of {`ArtifactType`,
+// `ExecutionType`, `ContextType`} and the `is_custom_property` (which indicates
+// the space of the given properties. Returns `output_num_changed_properties`
+// which equals to the number of properties are changed (deleted, updated or
+// inserted).
 template <typename NodeType>
-absl::Status RDBMSMetadataAccessObject::ModifyProperties(
+absl::StatusOr<int64_t> RDBMSMetadataAccessObject::ModifyProperties(
     const google::protobuf::Map<std::string, Value>& curr_properties,
-    const google::protobuf::Map<std::string, Value>& prev_properties, const int64_t node_id,
-    const bool is_custom_property, int& output_num_changed_properties) {
-  output_num_changed_properties = 0;
-  // generates delete clauses for properties in P \ C
-  for (const auto& p : prev_properties) {
-    const std::string& name = p.first;
-    const Value& value = p.second;
-    // check the 2-tuple (name, value_type) in prev_properties
-    if (curr_properties.find(name) != curr_properties.end() &&
-        curr_properties.at(name).value_case() == value.value_case())
-      continue;
+    const google::protobuf::Map<std::string, Value>& prev_properties,
+    const int64_t node_id, const bool is_custom_property,
+    const google::protobuf::FieldMask& mask) {
+  int output_num_changed_properties = 0;
+  absl::flat_hash_set<absl::string_view> property_names_in_mask;
+  absl::StatusOr<absl::flat_hash_set<absl::string_view>>
+      property_names_or_internal_error =
+          GetPropertyNamesFromMaskOrUnionOfProperties(
+              mask, is_custom_property, curr_properties, prev_properties);
 
-    MLMD_RETURN_IF_ERROR(DeleteProperty<NodeType>(node_id, name));
-    output_num_changed_properties++;
-  }
+  MLMD_RETURN_IF_ERROR(property_names_or_internal_error.status());
+  property_names_in_mask = property_names_or_internal_error.value();
 
-  for (const auto& p : curr_properties) {
-    const std::string& name = p.first;
-    const Value& value = p.second;
-    const auto prev_value_it = prev_properties.find(name);
-    if (prev_value_it != prev_properties.end() &&
-        prev_value_it->second.value_case() == p.second.value_case()) {
-      if (!google::protobuf::util::MessageDifferencer::Equals(prev_value_it->second,
-                                                    value)) {
-        // generates update clauses for properties in the intersection P & C
-        MLMD_RETURN_IF_ERROR(UpdateProperty<NodeType>(node_id, name, value));
+  for (const absl::string_view name : property_names_in_mask) {
+    const bool name_in_previous_properties =
+        prev_properties.find(name.data()) != prev_properties.end();
+    const bool name_in_current_properties =
+        curr_properties.find(name.data()) != curr_properties.end();
+
+    if (name_in_previous_properties) {
+      if (!name_in_current_properties) {
+        // Generate delete clauses for properties in P \ C
+        MLMD_RETURN_IF_ERROR(DeleteProperty<NodeType>(node_id, name));
         output_num_changed_properties++;
+      } else {
+        // Generate update clauses for properties in the intersection P & C only
+        // if the values associated with `name` are different.
+        if (!google::protobuf::util::MessageDifferencer::Equals(
+                prev_properties.at(name.data()),
+                curr_properties.at(name.data()))) {
+          MLMD_RETURN_IF_ERROR(UpdateProperty<NodeType>(
+              node_id, name, curr_properties.at(name.data())));
+          output_num_changed_properties++;
+        }
       }
     } else {
-      // generate insert clauses for properties in C \ P
-      MLMD_RETURN_IF_ERROR(
-          InsertProperty<NodeType>(node_id, name, is_custom_property, value));
-      output_num_changed_properties++;
+      if (name_in_current_properties) {
+        // Generate insert clauses for properties in C \ P
+        MLMD_RETURN_IF_ERROR(
+            InsertProperty<NodeType>(node_id, name, is_custom_property,
+                                     curr_properties.at(name.data())));
+        output_num_changed_properties++;
+      }
+      // Else, do nothing because `name` does not exist in either
+      // `prev_properties` nor `curr_properties`
     }
   }
-  return absl::OkStatus();
+  return output_num_changed_properties;
 }
 
 // Creates a query to insert an artifact type.
@@ -1028,13 +1048,15 @@ absl::Status RDBMSMetadataAccessObject::CreateNodeImpl(
   // insert properties
   const google::protobuf::Map<std::string, Value> prev_properties;
   int num_changed_properties = 0;
-  MLMD_RETURN_IF_ERROR(ModifyProperties<NodeType>(
-      node.properties(), prev_properties, *node_id,
-      /*is_custom_property=*/false, num_changed_properties));
+  MLMD_ASSIGN_OR_RETURN(
+      num_changed_properties,
+      ModifyProperties<NodeType>(node.properties(), prev_properties, *node_id,
+                                 /*is_custom_property=*/false));
   int num_changed_custom_properties = 0;
-  MLMD_RETURN_IF_ERROR(ModifyProperties<NodeType>(
-      node.custom_properties(), prev_properties, *node_id,
-      /*is_custom_property=*/true, num_changed_custom_properties));
+  MLMD_ASSIGN_OR_RETURN(num_changed_custom_properties,
+                        ModifyProperties<NodeType>(
+                            node.custom_properties(), prev_properties, *node_id,
+                            /*is_custom_property=*/true));
   return absl::OkStatus();
 }
 
@@ -1119,8 +1141,8 @@ absl::Status RDBMSMetadataAccessObject::FindNodeImpl(const int64_t node_id,
 // Returns detailed INTERNAL error, if query execution fails.
 template <typename Node, typename NodeType>
 absl::Status RDBMSMetadataAccessObject::UpdateNodeImpl(
-    const Node& node, const absl::Time update_timestamp,
-    bool force_update_time) {
+    const Node& node, const absl::Time update_timestamp, bool force_update_time,
+    const google::protobuf::FieldMask& mask) {
   // validate node
   if (!node.has_id()) return absl::InvalidArgumentError("No id is given.");
 
@@ -1140,26 +1162,41 @@ absl::Status RDBMSMetadataAccessObject::UpdateNodeImpl(
 
   NodeType stored_type;
   MLMD_RETURN_IF_ERROR(FindTypeImpl(type_id, &stored_type));
-  MLMD_RETURN_IF_ERROR(ValidatePropertiesWithType(node, stored_type));
+  MLMD_RETURN_IF_ERROR(ValidatePropertiesWithType(node, stored_type, mask));
 
   // Update, insert, delete properties if changed.
   int num_changed_properties = 0;
-  MLMD_RETURN_IF_ERROR(ModifyProperties<NodeType>(
-      node.properties(), stored_node.properties(), node.id(),
-      /*is_custom_property=*/false, num_changed_properties));
+  MLMD_ASSIGN_OR_RETURN(
+      num_changed_properties,
+      ModifyProperties<NodeType>(node.properties(), stored_node.properties(),
+                                 node.id(),
+                                 /*is_custom_property=*/false, mask));
   int num_changed_custom_properties = 0;
-  MLMD_RETURN_IF_ERROR(ModifyProperties<NodeType>(
-      node.custom_properties(), stored_node.custom_properties(), node.id(),
-      /*is_custom_property=*/true, num_changed_custom_properties));
+  MLMD_ASSIGN_OR_RETURN(
+      num_changed_custom_properties,
+      ModifyProperties<NodeType>(node.custom_properties(),
+                                 stored_node.custom_properties(), node.id(),
+                                 /*is_custom_property=*/true, mask));
 
   // If `force_update_time` is set to True. Always update node regardless of
   // whether input node is the same as stored node or not.
   if (force_update_time) {
-    MLMD_RETURN_IF_ERROR(RunNodeUpdate(node, update_timestamp));
+    if (!mask.paths().empty()) {
+      absl::StatusOr<google::protobuf::FieldMask> fields_mask_or =
+          GetFieldsSubMaskFromMask(mask, node.GetDescriptor());
+      MLMD_RETURN_IF_ERROR(fields_mask_or.status());
+      // seperate fields_mask from mask
+      google::protobuf::util::FieldMaskUtil::MergeOptions merge_options;
+      google::protobuf::util::FieldMaskUtil::MergeMessageTo(node, fields_mask_or.value(),
+                                                  merge_options, &stored_node);
+      MLMD_RETURN_IF_ERROR(RunNodeUpdate(stored_node, update_timestamp));
+    } else {
+      MLMD_RETURN_IF_ERROR(RunNodeUpdate(node, update_timestamp));
+    }
     return absl::OkStatus();
   }
-  // Update node if attributes are different or properties are updated, so that
-  // the last_update_time_since_epoch is updated properly.
+  // Update node if attributes are different or properties are updated, so
+  // that the last_update_time_since_epoch is updated properly.
   google::protobuf::util::MessageDifferencer diff;
   diff.IgnoreField(Node::descriptor()->FindFieldByName("properties"));
   diff.IgnoreField(Node::descriptor()->FindFieldByName("custom_properties"));
@@ -1171,7 +1208,18 @@ absl::Status RDBMSMetadataAccessObject::UpdateNodeImpl(
       Node::descriptor()->FindFieldByName("last_update_time_since_epoch"));
   if (!diff.Compare(node, stored_node) ||
       num_changed_properties + num_changed_custom_properties > 0) {
-    MLMD_RETURN_IF_ERROR(RunNodeUpdate(node, update_timestamp));
+    if (!mask.paths().empty()) {
+      absl::StatusOr<google::protobuf::FieldMask> fields_mask_or =
+          GetFieldsSubMaskFromMask(mask, node.GetDescriptor());
+      MLMD_RETURN_IF_ERROR(fields_mask_or.status());
+      // seperate fields_mask from mask
+      google::protobuf::util::FieldMaskUtil::MergeOptions merge_options;
+      google::protobuf::util::FieldMaskUtil::MergeMessageTo(node, fields_mask_or.value(),
+                                                  merge_options, &stored_node);
+      MLMD_RETURN_IF_ERROR(RunNodeUpdate(stored_node, update_timestamp));
+    } else {
+      MLMD_RETURN_IF_ERROR(RunNodeUpdate(node, update_timestamp));
+    }
   }
   return absl::OkStatus();
 }
@@ -1554,8 +1602,7 @@ absl::Status RDBMSMetadataAccessObject::CreateContext(const Context& context,
 }
 
 absl::Status RDBMSMetadataAccessObject::FindArtifactsById(
-    absl::Span<const int64_t> artifact_ids,
-    std::vector<Artifact>* artifacts) {
+    absl::Span<const int64_t> artifact_ids, std::vector<Artifact>* artifacts) {
   if (artifact_ids.empty()) {
     return absl::OkStatus();
   }
@@ -1652,7 +1699,14 @@ absl::Status RDBMSMetadataAccessObject::FindContextsByExternalIds(
 absl::Status RDBMSMetadataAccessObject::UpdateArtifact(
     const Artifact& artifact) {
   return UpdateArtifact(artifact, /*update_timestamp=*/absl::Now(),
-                        /*force_update_time=*/false);
+                        /*force_update_time=*/false,
+                        google::protobuf::FieldMask());
+}
+
+absl::Status RDBMSMetadataAccessObject::UpdateArtifact(
+    const Artifact& artifact, const google::protobuf::FieldMask& mask) {
+  return UpdateArtifact(artifact, /*update_timestamp=*/absl::Now(),
+                        /*force_update_time=*/false, mask);
 }
 
 absl::Status RDBMSMetadataAccessObject::UpdateExecution(
@@ -1670,21 +1724,31 @@ absl::Status RDBMSMetadataAccessObject::UpdateArtifact(
     const Artifact& artifact, const absl::Time update_timestamp,
     bool force_update_time) {
   return UpdateNodeImpl<Artifact, ArtifactType>(artifact, update_timestamp,
-                                                force_update_time);
+                                                force_update_time,
+                                                google::protobuf::FieldMask());
+}
+
+absl::Status RDBMSMetadataAccessObject::UpdateArtifact(
+    const Artifact& artifact, const absl::Time update_timestamp,
+    bool force_update_time, const google::protobuf::FieldMask& mask) {
+  return UpdateNodeImpl<Artifact, ArtifactType>(artifact, update_timestamp,
+                                                force_update_time, mask);
 }
 
 absl::Status RDBMSMetadataAccessObject::UpdateExecution(
     const Execution& execution, const absl::Time update_timestamp,
     bool force_update_time) {
-  return UpdateNodeImpl<Execution, ExecutionType>(execution, update_timestamp,
-                                                  force_update_time);
+  return UpdateNodeImpl<Execution, ExecutionType>(
+      execution, update_timestamp, force_update_time,
+      google::protobuf::FieldMask());
 }
 
 absl::Status RDBMSMetadataAccessObject::UpdateContext(
     const Context& context, const absl::Time update_timestamp,
     bool force_update_time) {
   return UpdateNodeImpl<Context, ContextType>(context, update_timestamp,
-                                              force_update_time);
+                                              force_update_time,
+                                              google::protobuf::FieldMask());
 }
 
 absl::Status RDBMSMetadataAccessObject::CreateEvent(const Event& event,
@@ -2270,9 +2334,9 @@ absl::Status RDBMSMetadataAccessObject::FindContextByTypeIdAndContextName(
   }
   // By design, a <type_id, name> pair uniquely identifies a context.
   // Fails if multiple contexts are found.
-  CHECK_EQ(ids.size(), 1)
-      << absl::StrCat("Found more than one contexts with type_id: ", type_id,
-                      " and context name: ", name);
+  CHECK_EQ(ids.size(), 1) << absl::StrCat(
+      "Found more than one contexts with type_id: ", type_id,
+      " and context name: ", name);
   if (id_only) {
     context->set_id(ids[0]);
     return absl::OkStatus();
@@ -2330,7 +2394,8 @@ absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
   }
   std::vector<Event> events;
   const auto status = FindEventsByArtifacts(input_artifact_ids, &events);
-  // If no events are found for the given artifacts, directly return ok status.
+  // If no events are found for the given artifacts, directly return ok
+  // status.
   if (absl::IsNotFound(status)) {
     return absl::OkStatus();
   }
@@ -2379,7 +2444,8 @@ absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
   }
   std::vector<Event> events;
   const auto status = FindEventsByExecutions(input_execution_ids, &events);
-  // If no events are found for the given executions, directly return ok status.
+  // If no events are found for the given executions, directly return ok
+  // status.
   if (absl::IsNotFound(status)) {
     return absl::OkStatus();
   }
@@ -2425,8 +2491,8 @@ absl::Status RDBMSMetadataAccessObject::QueryLineageGraph(
   int64_t curr_distance = 0;
   std::vector<Artifact> output_artifacts;
   std::vector<Execution> output_executions;
-  // If max_nodes is not set, set nodes quota to max int64_t value to effectively
-  // disable limit the lineage graph by nodes count.
+  // If max_nodes is not set, set nodes quota to max int64_t value to
+  // effectively disable limit the lineage graph by nodes count.
   int64_t nodes_quota;
   if (!max_nodes) {
     nodes_quota = std::numeric_limits<int64_t>::max();
@@ -2580,14 +2646,14 @@ absl::Status RDBMSMetadataAccessObject::DeleteParentContextsByChildIds(
   return executor_->DeleteParentContextsByChildIds(child_context_ids);
 }
 
-absl::Status RDBMSMetadataAccessObject::
-  DeleteParentContextsByParentIdAndChildIds(
+absl::Status
+RDBMSMetadataAccessObject::DeleteParentContextsByParentIdAndChildIds(
     int64_t parent_context_id, absl::Span<const int64_t> child_context_ids) {
   if (child_context_ids.empty()) {
     return absl::OkStatus();
   }
   return executor_->DeleteParentContextsByParentIdAndChildIds(
-    parent_context_id, child_context_ids);
+      parent_context_id, child_context_ids);
 }
 
 }  // namespace ml_metadata
