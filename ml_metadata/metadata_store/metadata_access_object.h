@@ -412,6 +412,8 @@ class MetadataAccessObject {
   virtual absl::Status UpdateArtifact(const Artifact& artifact) = 0;
 
   // Updates an artifact under masking.
+  // If `mask` is empty, update `stored_node` as a whole.
+  // If `mask` is not empty, only update fields specified in `mask`.
   // The `last_update_time_since_epoch` field is determined under the hood
   //  and set to absl::Now().
   // If input artifact is the same as stored artifact, skip update operation and
@@ -443,6 +445,8 @@ class MetadataAccessObject {
                                       bool force_update_time) = 0;
 
   // Updates an artifact under masking.
+  // If `mask` is empty, update `stored_node` as a whole.
+  // If `mask` is not empty, only update fields specified in `mask`.
   // `update_timestamp` is used as the value of
   // Artifact.last_update_time_since_epoch.
   // When `force_update_time` is set to true, `last_update_time_since_epoch` is
@@ -579,6 +583,41 @@ class MetadataAccessObject {
                                        const absl::Time update_timestamp,
                                        bool force_update_time) = 0;
 
+  // Updates an execution under masking.
+  // If `mask` is empty, update `stored_node` as a whole.
+  // If `mask` is not empty, only update fields specified in `mask`.
+  // The `last_update_time_since_epoch` field is determined under the hood
+  //  and set to absl::Now().
+  // If input execution is the same as stored execution, skip update operation
+  // and return OK status.
+  // Returns INVALID_ARGUMENT error, if the id field is not given.
+  // Returns INVALID_ARGUMENT error, if no execution is found with the given id.
+  // Returns INVALID_ARGUMENT error, if type_id is given and is different from
+  // the one stored.
+  // Returns INVALID_ARGUMENT error, if given property names and types do not
+  // align with the ExecutionType on file.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status UpdateExecution(
+      const Execution& execution, const google::protobuf::FieldMask& mask) = 0;
+
+  // Updates an execution under masking.
+  // If `mask` is empty, update `stored_node` as a whole.
+  // If `mask` is not empty, only update fields specified in `mask`.
+  // `update_timestamp` is used as the value of
+  // Execution.last_update_time_since_epoch.
+  // When `force_update_time` is set to true, `last_update_time_since_epoch` is
+  // updated even if input execution is the same as stored execution.
+  // Returns INVALID_ARGUMENT error, if the id field is not given.
+  // Returns INVALID_ARGUMENT error, if no execution is found with the given id.
+  // Returns INVALID_ARGUMENT error, if type_id is given and is different from
+  // the one stored.
+  // Returns INVALID_ARGUMENT error, if given property names and types do not
+  // align with the ExecutionType on file.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status UpdateExecution(
+      const Execution& execution, absl::Time update_timestamp,
+      bool force_update_time, const google::protobuf::FieldMask& mask) = 0;
+
   // Creates a context, returns the assigned context id. The id field of the
   // context is ignored. The name field of the context must not be empty and it
   // should be unique in the same ContextType.
@@ -701,6 +740,41 @@ class MetadataAccessObject {
   virtual absl::Status UpdateContext(const Context& context,
                                      const absl::Time update_timestamp,
                                      bool force_update_time) = 0;
+
+  // Updates a context under masking.
+  // If `mask` is empty, update `stored_node` as a whole.
+  // If `mask` is not empty, only update fields specified in `mask`.
+  // The `last_update_time_since_epoch` field is determined under the hood
+  //  and set to absl::Now().
+  // If input context is the same as stored context, skip update operation and
+  // return OK status.
+  // Returns INVALID_ARGUMENT error, if the id field is not given.
+  // Returns INVALID_ARGUMENT error, if no context is found with the given id.
+  // Returns INVALID_ARGUMENT error, if type_id is given and is different from
+  // the one stored.
+  // Returns INVALID_ARGUMENT error, if given property names and types do not
+  // align with the ContextType on file.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status UpdateContext(
+      const Context& context, const google::protobuf::FieldMask& mask) = 0;
+
+  // Updates a context under masking.
+  // If `mask` is empty, update `stored_node` as a whole.
+  // If `mask` is not empty, only update fields specified in `mask`.
+  // `update_timestamp` is used as the value of
+  // Context.last_update_time_since_epoch.
+  // When `force_update_time` is set to true, `last_update_time_since_epoch` is
+  // updated even if input context is the same as stored context.
+  // Returns INVALID_ARGUMENT error, if the id field is not given.
+  // Returns INVALID_ARGUMENT error, if no context is found with the given id.
+  // Returns INVALID_ARGUMENT error, if type_id is given and is different from
+  // the one stored.
+  // Returns INVALID_ARGUMENT error, if given property names and types do not
+  // align with the ContextType on file.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status UpdateContext(
+      const Context& context, absl::Time update_timestamp,
+      bool force_update_time, const google::protobuf::FieldMask& mask) = 0;
 
   // Creates an event, and returns the assigned event id. Please refer to the
   // docstring for CreateEvent() with the `is_already_validated` flag for more

@@ -8569,6 +8569,280 @@ TEST_P(MetadataAccessObjectTest, UpdateExecutionWithForceUpdateTimeEnabled) {
             absl::ToUnixMillis(update_time));
 }
 
+TEST_P(MetadataAccessObjectTest, UpdateExecutionWithMasking) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  ExecutionType type = ParseTextProtoOrDie<ExecutionType>(R"pb(
+    name: 'test_type'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: DOUBLE }
+    properties { key: 'property_3' value: STRING }
+  )pb");
+  int64_t type_id;
+  ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
+            absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Execution stored_execution = ParseTextProtoOrDie<Execution>(R"pb(
+    properties {
+      key: 'property_3'
+      value: { string_value: '3' }
+    }
+    custom_properties {
+      key: 'custom_property_1'
+      value: { string_value: '5' }
+    }
+    last_known_state: RUNNING
+  )pb");
+  stored_execution.set_type_id(type_id);
+  int64_t execution_id;
+  ASSERT_EQ(
+      metadata_access_object_->CreateExecution(stored_execution, &execution_id),
+      absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Execution got_execution_before_update;
+  {
+    std::vector<Execution> executions;
+    EXPECT_EQ(metadata_access_object_->FindExecutionsById({execution_id},
+                                                          &executions),
+              absl::OkStatus());
+    got_execution_before_update = executions.at(0);
+  }
+  EXPECT_THAT(
+      got_execution_before_update,
+      EqualsProto(stored_execution,
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
+  // add `property_1` and update `property_3`, and drop `custom_property_1`
+  Execution updated_execution = ParseTextProtoOrDie<Execution>(R"pb(
+    properties {
+      key: 'property_1'
+      value: { int_value: 5 }
+    }
+    properties {
+      key: 'property_3'
+      value: { string_value: '5' }
+    }
+  )pb");
+  updated_execution.set_id(execution_id);
+  updated_execution.set_type_id(type_id);
+  google::protobuf::FieldMask mask =
+      ParseTextProtoOrDie<google::protobuf::FieldMask>(R"pb(
+        paths: 'properties.property_1'
+        paths: 'properties.property_3'
+        paths: 'custom_properties.custom_property_1'
+      )pb");
+  // sleep to verify the latest update time is updated.
+  absl::SleepFor(absl::Milliseconds(1));
+  EXPECT_EQ(metadata_access_object_->UpdateExecution(updated_execution, mask),
+            absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Execution got_execution_after_update;
+  {
+    std::vector<Execution> executions;
+    EXPECT_EQ(metadata_access_object_->FindExecutionsById({execution_id},
+                                                          &executions),
+              absl::OkStatus());
+    got_execution_after_update = executions.at(0);
+  }
+  updated_execution.set_last_known_state(stored_execution.last_known_state());
+  EXPECT_THAT(got_execution_after_update,
+              EqualsProto(updated_execution,
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
+  EXPECT_EQ(got_execution_before_update.create_time_since_epoch(),
+            got_execution_after_update.create_time_since_epoch());
+  EXPECT_LT(got_execution_before_update.last_update_time_since_epoch(),
+            got_execution_after_update.last_update_time_since_epoch());
+}
+
+TEST_P(MetadataAccessObjectTest,
+       UpdateExecutionWithCustomUpdateTimeAndMasking) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  ExecutionType type = ParseTextProtoOrDie<ExecutionType>(R"pb(
+    name: 'test_type'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: DOUBLE }
+    properties { key: 'property_3' value: STRING }
+  )pb");
+  int64_t type_id;
+  ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
+            absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Execution stored_execution = ParseTextProtoOrDie<Execution>(R"pb(
+    properties {
+      key: 'property_3'
+      value: { string_value: '3' }
+    }
+    custom_properties {
+      key: 'custom_property_1'
+      value: { string_value: '5' }
+    }
+    last_known_state: RUNNING
+  )pb");
+  stored_execution.set_type_id(type_id);
+  int64_t execution_id;
+  ASSERT_EQ(
+      metadata_access_object_->CreateExecution(stored_execution, &execution_id),
+      absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Execution got_execution_before_update;
+  {
+    std::vector<Execution> executions;
+    EXPECT_EQ(metadata_access_object_->FindExecutionsById({execution_id},
+                                                          &executions),
+              absl::OkStatus());
+    got_execution_before_update = executions.at(0);
+  }
+  EXPECT_THAT(
+      got_execution_before_update,
+      EqualsProto(stored_execution,
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
+  // add `property_1` and update `property_3`, and drop `custom_property_1`
+  Execution updated_execution = ParseTextProtoOrDie<Execution>(R"pb(
+    properties {
+      key: 'property_1'
+      value: { int_value: 5 }
+    }
+    properties {
+      key: 'property_3'
+      value: { string_value: '5' }
+    }
+  )pb");
+  updated_execution.set_id(execution_id);
+  updated_execution.set_type_id(type_id);
+  google::protobuf::FieldMask mask =
+      ParseTextProtoOrDie<google::protobuf::FieldMask>(R"pb(
+        paths: 'properties.property_1'
+        paths: 'properties.property_3'
+        paths: 'custom_properties.custom_property_1'
+      )pb");
+  absl::Time update_time = absl::InfiniteFuture();
+  ASSERT_EQ(
+      metadata_access_object_->UpdateExecution(
+          updated_execution, update_time, /*force_update_time=*/false, mask),
+      absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Execution got_execution_after_update;
+  {
+    std::vector<Execution> executions;
+    EXPECT_EQ(metadata_access_object_->FindExecutionsById({execution_id},
+                                                          &executions),
+              absl::OkStatus());
+    got_execution_after_update = executions.at(0);
+  }
+  updated_execution.set_last_known_state(stored_execution.last_known_state());
+  EXPECT_THAT(got_execution_after_update,
+              EqualsProto(updated_execution,
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
+  EXPECT_EQ(got_execution_before_update.create_time_since_epoch(),
+            got_execution_after_update.create_time_since_epoch());
+  EXPECT_EQ(got_execution_after_update.last_update_time_since_epoch(),
+            absl::ToUnixMillis(update_time));
+}
+
+TEST_P(MetadataAccessObjectTest,
+       UpdateExecutionWithForceUpdateTimeEnabledAndMasking) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  ExecutionType type = ParseTextProtoOrDie<ExecutionType>(R"pb(
+    name: 'test_type'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: DOUBLE }
+    properties { key: 'property_3' value: STRING }
+  )pb");
+  int64_t type_id;
+  ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
+            absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Execution stored_execution = ParseTextProtoOrDie<Execution>(R"pb(
+    properties {
+      key: 'property_3'
+      value: { string_value: '3' }
+    }
+    custom_properties {
+      key: 'custom_property_1'
+      value: { string_value: '5' }
+    }
+    last_known_state: RUNNING
+  )pb");
+  stored_execution.set_type_id(type_id);
+  int64_t execution_id;
+  ASSERT_EQ(
+      metadata_access_object_->CreateExecution(stored_execution, &execution_id),
+      absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Execution got_execution_before_update;
+  {
+    std::vector<Execution> executions;
+    EXPECT_EQ(metadata_access_object_->FindExecutionsById({execution_id},
+                                                          &executions),
+              absl::OkStatus());
+    got_execution_before_update = executions.at(0);
+  }
+  EXPECT_THAT(
+      got_execution_before_update,
+      EqualsProto(stored_execution,
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
+  google::protobuf::FieldMask mask =
+      ParseTextProtoOrDie<google::protobuf::FieldMask>(R"pb(
+        paths: 'properties.property_1'
+        paths: 'properties.property_3'
+        paths: 'custom_properties.custom_property_1'
+      )pb");
+  // Update with no changes and force_update_time disabled.
+  absl::Time update_time = absl::InfiniteFuture();
+  ASSERT_EQ(metadata_access_object_->UpdateExecution(
+                got_execution_before_update, update_time,
+                /*force_update_time=*/false, mask),
+            absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Execution got_execution_after_1st_update;
+  {
+    std::vector<Execution> executions;
+    EXPECT_EQ(metadata_access_object_->FindExecutionsById({execution_id},
+                                                          &executions),
+              absl::OkStatus());
+    got_execution_after_1st_update = executions.at(0);
+  }
+  // Expect no changes for the updated resource.
+  EXPECT_THAT(got_execution_after_1st_update,
+              EqualsProto(got_execution_before_update));
+
+  // Update with no changes again but with force_update_time set to true.
+  ASSERT_EQ(metadata_access_object_->UpdateExecution(
+                got_execution_after_1st_update, update_time,
+                /*force_update_time=*/true, mask),
+            absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Execution got_execution_after_2nd_update;
+  {
+    std::vector<Execution> executions;
+    EXPECT_EQ(metadata_access_object_->FindExecutionsById({execution_id},
+                                                          &executions),
+              absl::OkStatus());
+    got_execution_after_2nd_update = executions.at(0);
+  }
+  // Expect no changes for the updated resource other than
+  EXPECT_THAT(got_execution_after_2nd_update,
+              EqualsProto(got_execution_after_1st_update,
+                          /*ignore_fields=*/{"last_update_time_since_epoch"}));
+  EXPECT_NE(got_execution_after_2nd_update.last_update_time_since_epoch(),
+            got_execution_after_1st_update.last_update_time_since_epoch());
+  EXPECT_EQ(got_execution_after_2nd_update.last_update_time_since_epoch(),
+            absl::ToUnixMillis(update_time));
+}
+
 TEST_P(MetadataAccessObjectTest, CreateAndFindContext) {
   ASSERT_EQ(Init(), absl::OkStatus());
   ContextType type1 = ParseTextProtoOrDie<ContextType>(R"pb(
@@ -9419,6 +9693,280 @@ TEST_P(MetadataAccessObjectTest, UpdateContextWithForceUpdateTimeEnabled) {
   ASSERT_EQ(metadata_access_object_->UpdateContext(got_context_after_1st_update,
                                                    update_time,
                                                    /*force_update_time=*/true),
+            absl::OkStatus());
+
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Context got_context_after_2nd_update;
+  {
+    std::vector<Context> contexts;
+    EXPECT_EQ(
+        metadata_access_object_->FindContextsById({context_id}, &contexts),
+        absl::OkStatus());
+    ASSERT_THAT(contexts, SizeIs(1));
+    got_context_after_2nd_update = contexts[0];
+  }
+  // Expect no changes for the updated resource other than
+  // `last_update_time_since_epoch`.
+  EXPECT_THAT(
+      got_context_after_2nd_update,
+      EqualsProto(got_context_after_1st_update,
+                  /*ignore_fields=*/{"type", "last_update_time_since_epoch"}));
+  EXPECT_NE(got_context_after_2nd_update.last_update_time_since_epoch(),
+            got_context_after_1st_update.last_update_time_since_epoch());
+  EXPECT_EQ(got_context_after_2nd_update.last_update_time_since_epoch(),
+            absl::ToUnixMillis(update_time));
+}
+
+TEST_P(MetadataAccessObjectTest, UpdateContextWithMasking) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  ContextType type = ParseTextProtoOrDie<ContextType>(R"pb(
+    name: 'test_type'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: STRING }
+  )pb");
+  int64_t type_id;
+  ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
+            absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+  Context context1 = ParseTextProtoOrDie<Context>(R"pb(
+    name: "before update name"
+    properties {
+      key: 'property_1'
+      value: { int_value: 2 }
+    }
+    custom_properties {
+      key: 'custom_property_1'
+      value: { string_value: '5' }
+    }
+  )pb");
+  context1.set_type_id(type_id);
+  int64_t context_id;
+  ASSERT_EQ(metadata_access_object_->CreateContext(context1, &context_id),
+            absl::OkStatus());
+  Context got_context_before_update;
+
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  {
+    std::vector<Context> contexts;
+    EXPECT_EQ(
+        metadata_access_object_->FindContextsById({context_id}, &contexts),
+        absl::OkStatus());
+    ASSERT_THAT(contexts, SizeIs(1));
+    got_context_before_update = contexts[0];
+  }
+
+  // add `property_2` and update `property_1`, and drop `custom_property_1`
+  Context want_context = ParseTextProtoOrDie<Context>(R"pb(
+    name: "after update name"
+    properties {
+      key: 'property_1'
+      value: { int_value: 5 }
+    }
+    properties {
+      key: 'property_2'
+      value: { string_value: 'test' }
+    }
+  )pb");
+  want_context.set_id(context_id);
+  want_context.set_type_id(type_id);
+
+  google::protobuf::FieldMask mask =
+      ParseTextProtoOrDie<google::protobuf::FieldMask>(R"pb(
+        paths: 'name'
+        paths: 'properties.property_1'
+        paths: 'properties.property_2'
+        paths: 'custom_properties.custom_property_1'
+      )pb");
+
+  // sleep to verify the latest update time is updated.
+  absl::SleepFor(absl::Milliseconds(1));
+  EXPECT_EQ(metadata_access_object_->UpdateContext(want_context, mask),
+            absl::OkStatus());
+
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Context got_context_after_update;
+  {
+    std::vector<Context> contexts;
+    EXPECT_EQ(
+        metadata_access_object_->FindContextsById({context_id}, &contexts),
+        absl::OkStatus());
+    ASSERT_THAT(contexts, SizeIs(1));
+    got_context_after_update = contexts[0];
+  }
+  EXPECT_THAT(want_context,
+              EqualsProto(got_context_after_update,
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
+  EXPECT_EQ(got_context_before_update.create_time_since_epoch(),
+            got_context_after_update.create_time_since_epoch());
+  EXPECT_LT(got_context_before_update.last_update_time_since_epoch(),
+            got_context_after_update.last_update_time_since_epoch());
+}
+
+TEST_P(MetadataAccessObjectTest, UpdateContextWithCustomUpdatetimeAndMasking) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  ContextType type = ParseTextProtoOrDie<ContextType>(R"pb(
+    name: 'test_type'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: STRING }
+  )pb");
+  int64_t type_id;
+  ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
+            absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Context context1 = ParseTextProtoOrDie<Context>(R"pb(
+    name: "before update name"
+    properties {
+      key: 'property_1'
+      value: { int_value: 2 }
+    }
+    custom_properties {
+      key: 'custom_property_1'
+      value: { string_value: '5' }
+    }
+  )pb");
+  context1.set_type_id(type_id);
+  int64_t context_id;
+  ASSERT_EQ(metadata_access_object_->CreateContext(context1, &context_id),
+            absl::OkStatus());
+  Context got_context_before_update;
+
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  {
+    std::vector<Context> contexts;
+    EXPECT_EQ(
+        metadata_access_object_->FindContextsById({context_id}, &contexts),
+        absl::OkStatus());
+    ASSERT_THAT(contexts, SizeIs(1));
+    got_context_before_update = contexts[0];
+  }
+
+  // add `property_2` and update `property_1`, and drop `custom_property_1`
+  Context want_context = ParseTextProtoOrDie<Context>(R"pb(
+    name: "after update name"
+    properties {
+      key: 'property_1'
+      value: { int_value: 5 }
+    }
+    properties {
+      key: 'property_2'
+      value: { string_value: 'test' }
+    }
+  )pb");
+  want_context.set_id(context_id);
+  want_context.set_type_id(type_id);
+  google::protobuf::FieldMask mask =
+      ParseTextProtoOrDie<google::protobuf::FieldMask>(R"pb(
+        paths: 'name'
+        paths: 'properties.property_1'
+        paths: 'properties.property_2'
+        paths: 'custom_properties.custom_property_1'
+      )pb");
+  absl::Time update_time = absl::InfiniteFuture();
+  EXPECT_EQ(
+      metadata_access_object_->UpdateContext(want_context, update_time,
+                                             /*force_update_time=*/false, mask),
+      absl::OkStatus());
+
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Context got_context_after_update;
+  {
+    std::vector<Context> contexts;
+    EXPECT_EQ(
+        metadata_access_object_->FindContextsById({context_id}, &contexts),
+        absl::OkStatus());
+    ASSERT_THAT(contexts, SizeIs(1));
+    got_context_after_update = contexts[0];
+  }
+  EXPECT_THAT(want_context,
+              EqualsProto(got_context_after_update,
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                             "last_update_time_since_epoch"}));
+  EXPECT_EQ(got_context_before_update.create_time_since_epoch(),
+            got_context_after_update.create_time_since_epoch());
+  EXPECT_EQ(got_context_after_update.last_update_time_since_epoch(),
+            absl::ToUnixMillis(update_time));
+}
+
+TEST_P(MetadataAccessObjectTest,
+       UpdateContextWithForceUpdateTimeEnabledAndMasking) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  ContextType type = ParseTextProtoOrDie<ContextType>(R"pb(
+    name: 'test_type'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: STRING }
+  )pb");
+  int64_t type_id;
+  ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
+            absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Context context1 = ParseTextProtoOrDie<Context>(R"pb(
+    name: "before update name"
+    properties {
+      key: 'property_1'
+      value: { int_value: 2 }
+    }
+    custom_properties {
+      key: 'custom_property_1'
+      value: { string_value: '5' }
+    }
+  )pb");
+  context1.set_type_id(type_id);
+  int64_t context_id;
+  ASSERT_EQ(metadata_access_object_->CreateContext(context1, &context_id),
+            absl::OkStatus());
+  Context got_context_before_update;
+
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  {
+    std::vector<Context> contexts;
+    EXPECT_EQ(
+        metadata_access_object_->FindContextsById({context_id}, &contexts),
+        absl::OkStatus());
+    ASSERT_THAT(contexts, SizeIs(1));
+    got_context_before_update = contexts[0];
+  }
+  google::protobuf::FieldMask mask =
+      ParseTextProtoOrDie<google::protobuf::FieldMask>(R"pb(
+        paths: 'name'
+        paths: 'properties.property_1'
+        paths: 'properties.property_2'
+        paths: 'custom_properties.custom_property_1'
+      )pb");
+  // Update with no changes and force_update_time disabled.
+  absl::Time update_time = absl::InfiniteFuture();
+  ASSERT_EQ(metadata_access_object_->UpdateContext(
+                got_context_before_update, update_time,
+                /*force_update_time=*/false, mask),
+            absl::OkStatus());
+
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Context got_context_after_1st_update;
+  {
+    std::vector<Context> contexts;
+    EXPECT_EQ(
+        metadata_access_object_->FindContextsById({context_id}, &contexts),
+        absl::OkStatus());
+    ASSERT_THAT(contexts, SizeIs(1));
+    got_context_after_1st_update = contexts[0];
+  }
+  // Expect no changes for the updated resource.
+  EXPECT_THAT(got_context_before_update,
+              EqualsProto(got_context_after_1st_update));
+
+  // Update with no changes again but with force_update_time set to true.
+  ASSERT_EQ(metadata_access_object_->UpdateContext(
+                got_context_after_1st_update, update_time,
+                /*force_update_time=*/true, mask),
             absl::OkStatus());
 
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());

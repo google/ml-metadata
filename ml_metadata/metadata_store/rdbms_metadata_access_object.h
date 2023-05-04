@@ -25,6 +25,7 @@ limitations under the License.
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/strings/string_view.h"
+#include "absl/time/time.h"
 #include "ml_metadata/metadata_store/metadata_access_object.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/metadata_store/query_executor.h"
@@ -349,6 +350,14 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
                                const absl::Time update_timestamp,
                                bool force_update_time) final;
 
+  absl::Status UpdateExecution(const Execution& execution,
+                               const google::protobuf::FieldMask& mask) final;
+
+  absl::Status UpdateExecution(const Execution& execution,
+                               absl::Time update_timestamp,
+                               bool force_update_time,
+                               const google::protobuf::FieldMask& mask) final;
+
   absl::Status CreateContext(const Context& context,
                              bool skip_type_and_property_validation,
                              int64_t* context_id) final;
@@ -383,6 +392,14 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status UpdateContext(const Context& context,
                              const absl::Time update_timestamp,
                              bool force_update_time) final;
+
+  absl::Status UpdateContext(const Context& context,
+                             const google::protobuf::FieldMask& mask) final;
+
+  absl::Status UpdateContext(const Context& context,
+                             absl::Time update_timestamp,
+                             bool force_update_time,
+                             const google::protobuf::FieldMask& mask) final;
 
   absl::Status CreateEvent(const Event& event, int64_t* event_id) final;
 
@@ -550,6 +567,14 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status RetrieveNodesById(
       absl::Span<const int64_t> id, RecordSet* header, RecordSet* properties,
       T* tag = nullptr /* used only for the template */);
+
+  // Update a Node's assets based on the field mask.
+  // If `mask` is empty, update `stored_node` as a whole.
+  // If `mask` is not empty, only update fields specified in `mask`.
+  template <typename Node>
+  absl::Status RunMaskedNodeUpdate(
+      const Node& node, Node& stored_node, absl::Time update_timestamp,
+      const google::protobuf::FieldMask& mask = {});
 
   // Update an Artifact's type_id and URI.
   absl::Status RunNodeUpdate(const Artifact& artifact,
@@ -758,7 +783,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status UpdateNodeImpl(const Node& node,
                               const absl::Time update_timestamp,
                               bool force_update_time,
-                              const google::protobuf::FieldMask& mask);
+                              const google::protobuf::FieldMask& mask = {});
 
   // Takes a record set that has one record per event and for each record:
   //   parses it into an Event object
