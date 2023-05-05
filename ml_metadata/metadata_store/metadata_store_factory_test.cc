@@ -27,7 +27,7 @@ limitations under the License.
 #include "ml_metadata/proto/metadata_store.pb.h"
 
 namespace ml_metadata {
-namespace {
+namespace testing {
 using testing::ParseTextProtoOrDie;
 
 // Utility method to test CreateMetadataStore.
@@ -73,5 +73,5 @@ TEST(MetadataStoreFactoryTest, CreateSQLiteMetadataStore) {
   TestPutAndGetArtifactType(connection_config);
 }
 
-}  // namespace
+}  // namespace testing
 }  // namespace ml_metadata

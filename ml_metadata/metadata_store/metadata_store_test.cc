@@ -28,6 +28,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/sqlite_metadata_source.h"
 #include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
+#include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/util/metadata_source_query_config.h"
 #include "ml_metadata/util/return_utils.h"
 
@@ -38,6 +39,7 @@ namespace {
 using ::testing::SizeIs;
 using ::testing::UnorderedElementsAreArray;
 using ::testing::UnorderedPointwise;
+
 
 std::unique_ptr<MetadataStore> CreateMetadataStore() {
   auto metadata_source =
@@ -70,6 +72,7 @@ class RDBMSMetadataStoreContainer : public MetadataStoreContainer {
   // construction time.
   std::unique_ptr<MetadataStore> metadata_store_;
 };
+
 
 
 // Creates the following lineage graph for deleting lineage.

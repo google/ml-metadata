@@ -85,10 +85,6 @@ absl::Status CreateMetadataStore(const ConnectionConfig& config,
       return CreateMySQLMetadataStore(config.mysql(), options, result);
     case ConnectionConfig::kSqlite:
       return CreateSqliteMetadataStore(config.sqlite(), options, result);
-    case ConnectionConfig::kPostgresql:
-      return absl::UnimplementedError(
-          "PostgreSQL database connection is "
-          "pending implementation.");
     default:
       return absl::UnimplementedError("Unknown database type.");
   }
