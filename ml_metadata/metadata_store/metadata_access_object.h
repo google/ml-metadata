@@ -20,6 +20,7 @@ limitations under the License.
 
 #include "google/protobuf/field_mask.pb.h"
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/node_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
@@ -101,10 +102,12 @@ class MetadataAccessObject {
   // Returns INVALID_ARGUMENT error, if name field is not given.
   // Returns INVALID_ARGUMENT error, if any property type is unknown.
   // Returns detailed INTERNAL error, if query execution fails.
-  virtual absl::Status CreateType(const ArtifactType& type, int64_t* type_id) = 0;
+  virtual absl::Status CreateType(const ArtifactType& type,
+                                  int64_t* type_id) = 0;
   virtual absl::Status CreateType(const ExecutionType& type,
                                   int64_t* type_id) = 0;
-  virtual absl::Status CreateType(const ContextType& type, int64_t* type_id) = 0;
+  virtual absl::Status CreateType(const ContextType& type,
+                                  int64_t* type_id) = 0;
 
   // Updates an existing type. A type is one of {ArtifactType, ExecutionType,
   // ContextType}. The update should be backward compatible, i.e., existing
@@ -388,7 +391,8 @@ class MetadataAccessObject {
   // Returns NOT_FOUND error, if the given artifact_type_id cannot be found.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status FindArtifactsByTypeId(
-      int64_t artifact_type_id, absl::optional<ListOperationOptions> list_options,
+      int64_t artifact_type_id,
+      absl::optional<ListOperationOptions> list_options,
       std::vector<Artifact>* artifacts, std::string* next_page_token) = 0;
 
   // Gets artifacts by a given uri with exact match.
@@ -807,7 +811,8 @@ class MetadataAccessObject {
   // Returns NOT_FOUND error, if no `events` can be found.
   // Returns INVALID_ARGUMENT error, if the `events` is null.
   virtual absl::Status FindEventsByExecutions(
-      const std::vector<int64_t>& execution_ids, std::vector<Event>* events) = 0;
+      const std::vector<int64_t>& execution_ids,
+      std::vector<Event>* events) = 0;
 
   // Creates an association, and returns the assigned association id.
   // Please refer to the docstring for CreateAssociation() with the
@@ -910,6 +915,18 @@ class MetadataAccessObject {
   // Returns INVALID_ARGUMENT error, if the `contexts` is null.
   virtual absl::Status FindChildContextsByContextId(
       int64_t context_id, std::vector<Context>* contexts) = 0;
+
+  // Gets the parent-contexts of child context_ids list.
+  // Returns INVALID_ARGUMENT error, if `context_ids` is empty.
+  virtual absl::Status FindParentContextsByContextIds(
+      const std::vector<int64_t>& context_ids,
+      absl::node_hash_map<int64_t, std::vector<Context>>& contexts) = 0;
+
+  // Gets the child-contexts of parent context_ids list.
+  // Returns INVALID_ARGUMENT error, if `context_ids` is empty.
+  virtual absl::Status FindChildContextsByContextIds(
+      const std::vector<int64_t>& context_ids,
+      absl::node_hash_map<int64_t, std::vector<Context>>& contexts) = 0;
 
   // Resolves the schema version stored in the metadata source. The `db_version`
   // is set to 0, if it is a 0.13.2 release pre-existing database.

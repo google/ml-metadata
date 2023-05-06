@@ -17,6 +17,7 @@ limitations under the License.
 
 #endif
 
+#include <cstdint>
 #include <iterator>
 #include <string>
 #include <vector>
@@ -29,6 +30,7 @@ limitations under the License.
 #include "google/protobuf/util/message_differencer.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/container/node_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
@@ -36,7 +38,6 @@ limitations under the License.
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
-#include "absl/strings/substitute.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "ml_metadata/util/field_mask_utils.h"
@@ -137,16 +138,24 @@ std::vector<int64_t> ConvertToIds(const RecordSet& record_set,
   return result;
 }
 
-// Extracts 2 vectors of type ids and corresponding parent type ids from the
-// parent_type triplets.
-void ConvertToTypeAndParentTypeIds(const RecordSet& record_set,
-                                   std::vector<int64_t>& type_ids,
-                                   std::vector<int64_t>& parent_type_ids) {
-  const std::vector<int64_t> ids = ConvertToIds(record_set);
-  absl::c_copy(ids, std::back_inserter(type_ids));
-  const std::vector<int64_t> parent_ids =
+// Dedups an id list.
+std::vector<int64_t> DedupIds(const std::vector<int64_t>& ids) {
+  std::vector<int64_t> result;
+  absl::flat_hash_set<int64_t> deduped_set(ids.begin(), ids.end());
+  absl::c_move(deduped_set, std::back_inserter(result));
+  return result;
+}
+
+// Extracts 2 vectors of ids and corresponding parent ids from parent_{}
+// records.
+void ConvertToIdAndParentIds(const RecordSet& record_set,
+                             std::vector<int64_t>& ids,
+                             std::vector<int64_t>& parent_ids) {
+  const std::vector<int64_t> converted_ids = ConvertToIds(record_set);
+  absl::c_copy(converted_ids, std::back_inserter(ids));
+  const std::vector<int64_t> converted_parent_ids =
       ConvertToIds(record_set, /*position=*/1);
-  absl::c_copy(parent_ids, std::back_inserter(parent_type_ids));
+  absl::c_copy(converted_parent_ids, std::back_inserter(parent_ids));
 }
 
 // Extracts a vector of parent type ids from the parent_type triplets.
@@ -181,6 +190,23 @@ std::vector<int64_t> ParentContextsToContextIds(const RecordSet& record_set,
                                                 bool is_parent) {
   const int position = is_parent ? 1 : 0;
   return ConvertToIds(record_set, position);
+}
+
+// Extracts a map of <key_id, vector<value_id_subset>> for each key_id in the
+// key_ids list.
+absl::flat_hash_map<int64_t, std::vector<int64_t>> MapKeyIdToValueIds(
+    const std::vector<int64_t>& key_ids,
+    const std::vector<int64_t>& value_ids) {
+  CHECK_EQ(key_ids.size(), value_ids.size());
+  absl::flat_hash_map<int64_t, std::vector<int64_t>> result;
+  for (int i = 0; i < key_ids.size(); ++i) {
+    if (!result.contains(key_ids[i])) {
+      result.insert({key_ids[i], {value_ids[i]}});
+    } else {
+      result[key_ids[i]].push_back(value_ids[i]);
+    }
+  }
+  return result;
 }
 
 // Parses and converts a string value to a specific field in a message.
@@ -1017,8 +1043,7 @@ absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeIdImpl(
   // `type_id` and `parent_type_id` have a 1:1 mapping based on the database
   // records.
   std::vector<int64_t> type_ids_with_parent, parent_type_ids;
-  ConvertToTypeAndParentTypeIds(record_set, type_ids_with_parent,
-                                parent_type_ids);
+  ConvertToIdAndParentIds(record_set, type_ids_with_parent, parent_type_ids);
 
   // Creates a {parent_id, parent_type} mapping.
   std::vector<Type> parent_types;
@@ -2095,6 +2120,61 @@ absl::Status RDBMSMetadataAccessObject::FindLinkedContextsImpl(
   return FindNodesImpl(ids, /*skipped_ids_ok=*/false, output_contexts);
 }
 
+absl::Status RDBMSMetadataAccessObject::FindLinkedContextsMapImpl(
+    absl::Span<const int64_t> context_ids,
+    ParentContextTraverseDirection direction,
+    absl::node_hash_map<int64_t, std::vector<Context>>& output_contexts) {
+  if (context_ids.empty()) {
+    return absl::InvalidArgumentError("Given context_ids is empty.");
+  }
+  RecordSet record_set;
+  if (direction == ParentContextTraverseDirection::kParent) {
+    MLMD_RETURN_IF_ERROR(
+        executor_->SelectParentContextsByContextIDs(context_ids, &record_set));
+  } else if (direction == ParentContextTraverseDirection::kChild) {
+    MLMD_RETURN_IF_ERROR(
+        executor_->SelectChildContextsByContextIDs(context_ids, &record_set));
+  } else {
+    return absl::InternalError("Unexpected ParentContext direction");
+  }
+
+  // `ids` and `parent_ids` have a 1:1 mapping based on the database records.
+  std::vector<int64_t> ids, parent_ids;
+  ConvertToIdAndParentIds(record_set, ids, parent_ids);
+
+  const bool is_parent = direction == ParentContextTraverseDirection::kParent;
+  const absl::flat_hash_map<int64_t, std::vector<int64_t>>
+      id_map_to_linked_ids = is_parent ? MapKeyIdToValueIds(ids, parent_ids)
+                                       : MapKeyIdToValueIds(parent_ids, ids);
+  if (id_map_to_linked_ids.empty()) {
+    return absl::OkStatus();
+  }
+
+  std::vector<Context> linked_contexts;
+  absl::Status result =
+      FindNodesImpl(is_parent ? DedupIds(parent_ids) : DedupIds(ids),
+                    /*skipped_ids_ok=*/false, linked_contexts);
+  MLMD_RETURN_IF_ERROR(result);
+
+  absl::flat_hash_map<int64_t, Context> id_map_to_linked_context;
+  for (const Context& context : linked_contexts) {
+    id_map_to_linked_context.insert(std::make_pair(context.id(), context));
+  }
+
+  output_contexts.clear();
+  for (const auto& entry : id_map_to_linked_ids) {
+    const int64_t id = entry.first;
+    const std::vector<int64_t>& linked_ids = entry.second;
+    std::vector<Context> contexts_per_id;
+    contexts_per_id.reserve(linked_ids.size());
+    for (const int64_t linked_id : linked_ids) {
+      contexts_per_id.push_back(id_map_to_linked_context[linked_id]);
+    }
+    output_contexts.insert(std::make_pair(id, contexts_per_id));
+  }
+  return absl::OkStatus();
+}
+
 absl::Status RDBMSMetadataAccessObject::FindParentContextsByContextId(
     int64_t context_id, std::vector<Context>* contexts) {
   if (contexts == nullptr) {
@@ -2111,6 +2191,20 @@ absl::Status RDBMSMetadataAccessObject::FindChildContextsByContextId(
   }
   return FindLinkedContextsImpl(
       context_id, ParentContextTraverseDirection::kChild, *contexts);
+}
+
+absl::Status RDBMSMetadataAccessObject::FindParentContextsByContextIds(
+    const std::vector<int64_t>& context_ids,
+    absl::node_hash_map<int64_t, std::vector<Context>>& contexts) {
+  return FindLinkedContextsMapImpl(
+      context_ids, ParentContextTraverseDirection::kParent, contexts);
+}
+
+absl::Status RDBMSMetadataAccessObject::FindChildContextsByContextIds(
+    const std::vector<int64_t>& context_ids,
+    absl::node_hash_map<int64_t, std::vector<Context>>& contexts) {
+  return FindLinkedContextsMapImpl(
+      context_ids, ParentContextTraverseDirection::kChild, contexts);
 }
 
 absl::Status RDBMSMetadataAccessObject::FindArtifacts(
@@ -2682,8 +2776,8 @@ absl::Status RDBMSMetadataAccessObject::DeleteParentContextsByChildIds(
   return executor_->DeleteParentContextsByChildIds(child_context_ids);
 }
 
-absl::Status RDBMSMetadataAccessObject::
-  DeleteParentContextsByParentIdAndChildIds(
+absl::Status
+RDBMSMetadataAccessObject::DeleteParentContextsByParentIdAndChildIds(
     int64_t parent_context_id, absl::Span<const int64_t> child_context_ids) {
   if (child_context_ids.empty()) {
     return absl::OkStatus();

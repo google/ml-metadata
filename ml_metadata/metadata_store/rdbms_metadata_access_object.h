@@ -22,6 +22,7 @@ limitations under the License.
 #include "google/protobuf/struct.pb.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/container/node_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/strings/string_view.h"
@@ -191,7 +192,8 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status UpdateType(const ContextType& type) final;
 
   absl::Status FindTypeById(int64_t type_id, ArtifactType* artifact_type) final;
-  absl::Status FindTypeById(int64_t type_id, ExecutionType* execution_type) final;
+  absl::Status FindTypeById(int64_t type_id,
+                            ExecutionType* execution_type) final;
   absl::Status FindTypeById(int64_t type_id, ContextType* context_type) final;
 
   absl::Status FindTypesByIds(absl::Span<const int64_t> type_ids,
@@ -291,7 +293,8 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
                             std::string* next_page_token) final;
 
   absl::Status FindArtifactsByTypeId(
-      int64_t artifact_type_id, absl::optional<ListOperationOptions> list_options,
+      int64_t artifact_type_id,
+      absl::optional<ListOperationOptions> list_options,
       std::vector<Artifact>* artifacts, std::string* next_page_token) final;
 
   absl::Status FindArtifactByTypeIdAndArtifactName(int64_t type_id,
@@ -455,6 +458,14 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status FindChildContextsByContextId(
       int64_t context_id, std::vector<Context>* contexts) final;
 
+  absl::Status FindParentContextsByContextIds(
+      const std::vector<int64_t>& context_ids,
+      absl::node_hash_map<int64_t, std::vector<Context>>& contexts) final;
+
+  absl::Status FindChildContextsByContextIds(
+      const std::vector<int64_t>& context_ids,
+      absl::node_hash_map<int64_t, std::vector<Context>>& contexts) final;
+
   absl::Status GetSchemaVersion(int64_t* db_version) final {
     return executor_->GetSchemaVersion(db_version);
   }
@@ -485,8 +496,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   // Deletes a list of contexts by id.
   // Returns detailed INTERNAL error, if query execution fails.
-  absl::Status DeleteContextsById(
-      absl::Span<const int64_t> context_ids) final;
+  absl::Status DeleteContextsById(absl::Span<const int64_t> context_ids) final;
 
   // Deletes the events corresponding to the |artifact_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
@@ -537,8 +547,8 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   // Deletes the parent type link |type_id, parent_type_id|.
   // Returns detailed INTERNAL error, if query execution fails.
-  absl::Status DeleteParentTypeInheritanceLink(
-      int64_t type_id, int64_t parent_type_id) final;
+  absl::Status DeleteParentTypeInheritanceLink(int64_t type_id,
+                                               int64_t parent_type_id) final;
 
  private:
   ///////// These methods are implementations details //////////////////////////
@@ -601,8 +611,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   // Generates a property deletion query for a NodeType.
   template <typename NodeType>
-  absl::Status DeleteProperty(const int64_t node_id,
-                              absl::string_view name);
+  absl::Status DeleteProperty(const int64_t node_id, absl::string_view name);
 
   // Generates a list of queries for the `curr_properties` (C) based on the
   // given `prev_properties` (P) only for properties associated with names in
@@ -829,10 +838,10 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // 2. Direction of ordering is not specified for the order_by_field.
   // 3. next_page_token cannot be decoded.
   template <typename Node>
-  absl::Status ListNodes(const ListOperationOptions& options,
-                         absl::optional<absl::Span<const int64_t>> candidate_ids,
-                         std::vector<Node>* nodes,
-                         std::string* next_page_token);
+  absl::Status ListNodes(
+      const ListOperationOptions& options,
+      absl::optional<absl::Span<const int64_t>> candidate_ids,
+      std::vector<Node>* nodes, std::string* next_page_token);
 
   // Traverse a ParentContext relation to look for parent or child context.
   enum class ParentContextTraverseDirection { kParent, kChild };
@@ -843,6 +852,15 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status FindLinkedContextsImpl(int64_t context_id,
                                       ParentContextTraverseDirection direction,
                                       std::vector<Context>& output_contexts);
+
+  // Gets the ParentContext with a context_ids list and returns a map of
+  // <context_id, linked_contexts> for each context_id in context_ids. If
+  // direction is kParent, then context_id is used to look for its parents. If
+  // direction is kChild, then context_id is used to look for its children.
+  absl::Status FindLinkedContextsMapImpl(
+      absl::Span<const int64_t> context_ids,
+      ParentContextTraverseDirection direction,
+      absl::node_hash_map<int64_t, std::vector<Context>>& output_contexts);
 
   // The utilities to expand lineage `subgraph` within one hop from artifacts.
   // For the `input_artifacts`, their neighborhood executions that do not

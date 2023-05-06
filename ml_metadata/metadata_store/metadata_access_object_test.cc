@@ -11244,6 +11244,101 @@ TEST_P(MetadataAccessObjectTest, CreateAndFindParentContext) {
   }
 }
 
+TEST_P(MetadataAccessObjectTest, FindParentandChildContextsByContextIds) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  ContextType context_type;
+  context_type.set_name("context_type_name");
+  int64_t type_id;
+  ASSERT_EQ(metadata_access_object_->CreateType(context_type, &type_id),
+            absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+  // Setup: create some contexts to insert parent context relationship.
+  const int num_contexts = 5;
+  std::vector<Context> contexts(num_contexts);
+  std::vector<int64_t> context_ids;
+  for (int i = 0; i < num_contexts; i++) {
+    contexts[i].set_name(absl::StrCat("context", i));
+    contexts[i].set_type_id(type_id);
+    int64_t ctx_id;
+    ASSERT_EQ(metadata_access_object_->CreateContext(contexts[i], &ctx_id),
+              absl::OkStatus());
+    contexts[i].set_id(ctx_id);
+    context_ids.push_back(ctx_id);
+  }
+
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  // Setup: populate a list of parent contexts and capture expected results of
+  // number of parents and children per context.
+  absl::node_hash_map<int64_t, std::vector<Context>> want_parents,
+      want_children;
+  auto put_parent_context = [this, &contexts, &want_parents, &want_children](
+                                int64_t parent_idx, int64_t child_idx) {
+    ParentContext parent_context;
+    parent_context.set_parent_id(contexts[parent_idx].id());
+    parent_context.set_child_id(contexts[child_idx].id());
+    ASSERT_EQ(metadata_access_object_->CreateParentContext(parent_context),
+              absl::OkStatus());
+    want_parents[contexts[child_idx].id()].push_back(contexts[parent_idx]);
+    want_children[contexts[parent_idx].id()].push_back(contexts[child_idx]);
+  };
+  put_parent_context(/*parent_idx=*/0, /*child_idx=*/1);
+  put_parent_context(/*parent_idx=*/0, /*child_idx=*/2);
+  put_parent_context(/*parent_idx=*/0, /*child_idx=*/3);
+  put_parent_context(/*parent_idx=*/2, /*child_idx=*/3);
+  put_parent_context(/*parent_idx=*/4, /*child_idx=*/3);
+
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  {
+    // Act: call FindParent/ChildContextsByContextIds with empty context_ids.
+    absl::node_hash_map<int64_t, std::vector<Context>> got_children,
+        got_parents;
+    absl::Status status =
+        metadata_access_object_->FindChildContextsByContextIds({},
+                                                               got_children);
+    EXPECT_TRUE(absl::IsInvalidArgument(status));
+    status = metadata_access_object_->FindParentContextsByContextIds(
+        {}, got_parents);
+    EXPECT_TRUE(absl::IsInvalidArgument(status));
+  }
+  {
+    // Act: call FindParent/ChildContextsByContextIds on all the context_ids.
+    absl::node_hash_map<int64_t, std::vector<Context>> got_children,
+        got_parents;
+    ASSERT_EQ(metadata_access_object_->FindChildContextsByContextIds(
+                  context_ids, got_children),
+              absl::OkStatus());
+    ASSERT_EQ(metadata_access_object_->FindParentContextsByContextIds(
+                  context_ids, got_parents),
+              absl::OkStatus());
+
+    // Verify the results
+    ASSERT_THAT(got_parents, SizeIs(want_parents.size()));
+    for (const int64_t context_id : context_ids) {
+      ASSERT_EQ(got_parents.contains(context_id),
+                want_parents.contains(context_id));
+      if (!got_parents.contains(context_id)) continue;
+      EXPECT_THAT(got_parents.at(context_id),
+                  UnorderedPointwise(EqualsProto<Context>(/*ignore_fields=*/{
+                                         "type", "create_time_since_epoch",
+                                         "last_update_time_since_epoch"}),
+                                     want_parents[context_id]));
+    }
+    ASSERT_THAT(got_children, SizeIs(want_children.size()));
+    for (const int64_t context_id : context_ids) {
+      ASSERT_EQ(got_children.contains(context_id),
+                want_children.contains(context_id));
+      if (!got_children.contains(context_id)) continue;
+      EXPECT_THAT(got_children.at(context_id),
+                  UnorderedPointwise(EqualsProto<Context>(/*ignore_fields=*/{
+                                         "type", "create_time_since_epoch",
+                                         "last_update_time_since_epoch"}),
+                                     want_children[context_id]));
+    }
+  }
+}
+
 TEST_P(MetadataAccessObjectTest, CreateParentContextInheritanceLinkWithCycle) {
   ASSERT_EQ(Init(), absl::OkStatus());
   ContextType context_type;
