@@ -361,8 +361,8 @@ Status MySqlMetadataSource::ConvertMySqlRowSetToRecordSet(
     RecordSet::Record record;
     std::vector<std::string> col_names;
 
-    uint32_t num_cols = mysql_num_fields(result_set_);
-    for (uint32_t col = 0; col < num_cols; ++col) {
+    int64_t num_cols = mysql_num_fields(result_set_);
+    for (int64_t col = 0; col < num_cols; ++col) {
       MYSQL_FIELD* field = mysql_fetch_field_direct(result_set_, col);
       if (field == nullptr) {
         return absl::InternalError(absl::StrCat(

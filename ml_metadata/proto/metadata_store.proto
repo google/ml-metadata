@@ -599,7 +599,7 @@ message MySQLDatabaseConfig {
   optional string host = 1;
   // The TCP Port number that the MYSQL server accepts connections on.
   // If unspecified, the default MYSQL port (3306) is used.
-  optional uint32 port = 2;
+  optional int64 port = 2;
   // The database to connect to. Must be specified.
   // After connecting to the MYSQL server, this database is created if not
   // already present unless skip_db_creation is set.
@@ -806,7 +806,7 @@ message MetadataStoreClientConfig {
   optional string host = 1;
   // The TCP Port number that the gRPC server accepts connections on.
   // Must be specified.
-  optional uint32 port = 2;
+  optional int64 port = 2;
 
   message SSLConfig {
     // The PEM-encoded private key as a byte string, or Empty if no private key

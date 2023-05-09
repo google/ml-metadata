@@ -20,7 +20,6 @@ limitations under the License.
 #ifndef HAS_GLOBAL_STRING
 
 using std::string;
-typedef unsigned int uint32_t;
 
 #endif
 
