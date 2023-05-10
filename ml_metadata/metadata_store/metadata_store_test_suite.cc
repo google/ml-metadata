@@ -16,6 +16,7 @@ limitations under the License.
 
 #include <memory>
 #include <unordered_map>
+#include <vector>
 
 #include <glog/logging.h>
 #include <gmock/gmock.h>
@@ -5056,6 +5057,108 @@ TEST_P(MetadataStoreTestSuite, PutParentContextsAndGetLinkedContextByContext) {
                                        "type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"}),
                                    want_children[i]));
+  }
+}
+
+TEST_P(MetadataStoreTestSuite,
+       PutParentContextsAndGetLinkedContextsByContexts) {
+  // Inserts a context type.
+  ContextType context_type;
+  context_type.set_name("context_type_name");
+  PutContextTypeRequest put_type_request;
+  *put_type_request.mutable_context_type() = context_type;
+  PutContextTypeResponse put_type_response;
+  ASSERT_EQ(
+      metadata_store_->PutContextType(put_type_request, &put_type_response),
+      absl::OkStatus());
+  context_type.set_id(put_type_response.type_id());
+
+  // Creates some contexts to be inserted into the later parent context
+  // relationship.
+  const int num_contexts = 7;
+  std::vector<Context> contexts(num_contexts);
+  std::vector<int64_t> context_ids(num_contexts);
+  PutContextsRequest put_contexts_request;
+  for (int i = 0; i < num_contexts; i++) {
+    contexts[i].set_name(absl::StrCat("context_", i));
+    contexts[i].set_type_id(context_type.id());
+    *put_contexts_request.add_contexts() = contexts[i];
+  }
+  PutContextsResponse put_contexts_response;
+  ASSERT_EQ(metadata_store_->PutContexts(put_contexts_request,
+                                         &put_contexts_response),
+            absl::OkStatus());
+  for (int i = 0; i < num_contexts; i++) {
+    contexts[i].set_id(put_contexts_response.context_ids(i));
+    context_ids[i] = contexts[i].id();
+  }
+
+  // Prepares a list of parent contexts and stores every parent context
+  // relationship for each context.
+  std::unordered_map<int, std::vector<Context>> want_parents;
+  std::unordered_map<int, std::vector<Context>> want_children;
+  PutParentContextsRequest put_parent_contexts_request;
+
+  auto put_parent_context = [&](int64_t parent_idx, int64_t child_idx) {
+    ParentContext parent_context;
+    parent_context.set_parent_id(contexts[parent_idx].id());
+    parent_context.set_child_id(contexts[child_idx].id());
+    put_parent_contexts_request.add_parent_contexts()->CopyFrom(parent_context);
+    want_parents[contexts[child_idx].id()].push_back(contexts[parent_idx]);
+    want_children[contexts[parent_idx].id()].push_back(contexts[child_idx]);
+  };
+
+  put_parent_context(/*parent_idx=*/0, /*child_idx=*/1);
+  put_parent_context(/*parent_idx=*/0, /*child_idx=*/2);
+  put_parent_context(/*parent_idx=*/2, /*child_idx=*/3);
+  put_parent_context(/*parent_idx=*/1, /*child_idx=*/6);
+  put_parent_context(/*parent_idx=*/4, /*child_idx=*/5);
+  put_parent_context(/*parent_idx=*/5, /*child_idx=*/6);
+
+  PutParentContextsResponse put_parent_contexts_response;
+  ASSERT_EQ(metadata_store_->PutParentContexts(put_parent_contexts_request,
+                                               &put_parent_contexts_response),
+            absl::OkStatus());
+
+  // Verifies the parent/child contexts by looking up and stored result.
+  GetParentContextsByContextsRequest get_parents_request;
+  absl::c_copy(context_ids, google::protobuf::RepeatedFieldBackInserter(
+                                get_parents_request.mutable_context_ids()));
+  GetParentContextsByContextsResponse get_parents_response;
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetParentContextsByContexts(
+                                  get_parents_request, &get_parents_response));
+  GetChildrenContextsByContextsRequest get_children_request;
+  absl::c_copy(context_ids, google::protobuf::RepeatedFieldBackInserter(
+                                get_children_request.mutable_context_ids()));
+  GetChildrenContextsByContextsResponse get_children_response;
+  ASSERT_EQ(metadata_store_->GetChildrenContextsByContexts(
+                get_children_request, &get_children_response),
+            absl::OkStatus());
+
+  ASSERT_THAT(get_parents_response.contexts(), SizeIs(want_parents.size()));
+  for (const int64_t context_id : context_ids) {
+    ASSERT_EQ(get_parents_response.contexts().contains(context_id),
+              want_parents.count(context_id) > 0);
+    if (!get_parents_response.contexts().contains(context_id)) continue;
+    EXPECT_THAT(
+        get_parents_response.contexts().at(context_id).parent_contexts(),
+        UnorderedPointwise(EqualsProto<Context>(/*ignore_fields=*/{
+                               "type", "create_time_since_epoch",
+                               "last_update_time_since_epoch"}),
+                           want_parents[context_id]));
+  }
+
+  ASSERT_THAT(get_children_response.contexts(), SizeIs(want_children.size()));
+  for (const int64_t context_id : context_ids) {
+    ASSERT_EQ(get_children_response.contexts().contains(context_id),
+              want_children.count(context_id) > 0);
+    if (!get_children_response.contexts().contains(context_id)) continue;
+    EXPECT_THAT(
+        get_children_response.contexts().at(context_id).children_contexts(),
+        UnorderedPointwise(EqualsProto<Context>(/*ignore_fields=*/{
+                               "type", "create_time_since_epoch",
+                               "last_update_time_since_epoch"}),
+                           want_children[context_id]));
   }
 }
 

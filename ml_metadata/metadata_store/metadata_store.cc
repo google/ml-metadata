@@ -26,6 +26,7 @@ limitations under the License.
 #include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/container/node_hash_map.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
@@ -450,7 +451,8 @@ absl::Status UpsertArtifactAndEvent(
   absl::optional<int64_t> maybe_event_artifact_id =
       artifact_and_event.has_event() &&
               artifact_and_event.event().has_artifact_id()
-          ? absl::make_optional<int64_t>(artifact_and_event.event().artifact_id())
+          ? absl::make_optional<int64_t>(
+                artifact_and_event.event().artifact_id())
           : absl::nullopt;
   if (!artifact_and_event.has_artifact() && !maybe_event_artifact_id) {
     return absl::InvalidArgumentError(absl::StrCat(
@@ -483,8 +485,7 @@ absl::Status UpsertArtifactAndEvent(
   // if artifact and event.artifact_id is given, then artifact.id and
   // event.artifact_id must align.
   absl::optional<int64_t> maybe_artifact_id =
-      artifact_and_event.has_artifact() &&
-              artifact_copy_to_be_upserted.has_id()
+      artifact_and_event.has_artifact() && artifact_copy_to_be_upserted.has_id()
           ? absl::make_optional<int64_t>(artifact_copy_to_be_upserted.id())
           : absl::nullopt;
 
@@ -520,8 +521,7 @@ absl::Status UpsertArtifactAndEvent(
 absl::Status GetExternalIdToIdMapping(
     absl::Span<const Artifact> artifacts,
     MetadataAccessObject* metadata_access_object,
-    absl::flat_hash_map<std::string, int64_t>&
-        output_external_id_to_id_map) {
+    absl::flat_hash_map<std::string, int64_t>& output_external_id_to_id_map) {
   std::vector<absl::string_view> external_ids;
   for (const Artifact& artifact : artifacts) {
     if (artifact.has_external_id() && !artifact.external_id().empty()) {
@@ -1044,7 +1044,7 @@ absl::Status MetadataStore::GetArtifactsByID(
         response->Clear();
         std::vector<Artifact> artifacts;
         const std::vector<int64_t> ids(request.artifact_ids().begin(),
-                                     request.artifact_ids().end());
+                                       request.artifact_ids().end());
         const absl::Status status =
             metadata_access_object_->FindArtifactsById(ids, &artifacts);
         if (!status.ok() && !absl::IsNotFound(status)) {
@@ -1065,7 +1065,7 @@ absl::Status MetadataStore::GetExecutionsByID(
         response->Clear();
         std::vector<Execution> executions;
         const std::vector<int64_t> ids(request.execution_ids().begin(),
-                                     request.execution_ids().end());
+                                       request.execution_ids().end());
         const absl::Status status =
             metadata_access_object_->FindExecutionsById(ids, &executions);
         if (!status.ok() && !absl::IsNotFound(status)) {
@@ -1085,7 +1085,7 @@ absl::Status MetadataStore::GetContextsByID(
         response->Clear();
         std::vector<Context> contexts;
         const std::vector<int64_t> ids(request.context_ids().begin(),
-                                     request.context_ids().end());
+                                       request.context_ids().end());
         const absl::Status status =
             metadata_access_object_->FindContextsById(ids, &contexts);
         if (!status.ok() && !absl::IsNotFound(status)) {
@@ -1356,8 +1356,8 @@ absl::Status MetadataStore::PutLineageSubgraph(
         // 4. Create associations and attributions.
         absl::flat_hash_set<int64_t> artifact_ids(
             response->artifact_ids().begin(), response->artifact_ids().end());
-        absl::flat_hash_set<int64_t> context_ids(response->context_ids().begin(),
-                                               response->context_ids().end());
+        absl::flat_hash_set<int64_t> context_ids(
+            response->context_ids().begin(), response->context_ids().end());
         absl::flat_hash_set<int64_t> execution_ids(
             response->execution_ids().begin(), response->execution_ids().end());
 
@@ -1412,7 +1412,7 @@ absl::Status MetadataStore::GetEventsByExecutionIDs(
         const absl::Status status =
             metadata_access_object_->FindEventsByExecutions(
                 std::vector<int64_t>(request.execution_ids().begin(),
-                                   request.execution_ids().end()),
+                                     request.execution_ids().end()),
                 &events);
         if (absl::IsNotFound(status)) {
           return absl::OkStatus();
@@ -1437,7 +1437,7 @@ absl::Status MetadataStore::GetEventsByArtifactIDs(
         const absl::Status status =
             metadata_access_object_->FindEventsByArtifacts(
                 std::vector<int64_t>(request.artifact_ids().begin(),
-                                   request.artifact_ids().end()),
+                                     request.artifact_ids().end()),
                 &events);
         if (absl::IsNotFound(status)) {
           return absl::OkStatus();
@@ -2134,6 +2134,60 @@ absl::Status MetadataStore::GetChildrenContextsByContext(
       request.transaction_options());
 }
 
+absl::Status MetadataStore::GetParentContextsByContexts(
+    const GetParentContextsByContextsRequest& request,
+    GetParentContextsByContextsResponse* response) {
+  return transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
+        response->Clear();
+        std::vector<int64_t> context_ids;
+        std::copy(request.context_ids().begin(), request.context_ids().end(),
+                  std::back_inserter(context_ids));
+        absl::node_hash_map<int64_t, std::vector<Context>> parent_contexts;
+        const absl::Status status =
+            metadata_access_object_->FindParentContextsByContextIds(
+                context_ids, parent_contexts);
+        if (!status.ok() && !absl::IsNotFound(status)) {
+          return status;
+        }
+        for (auto& entry : parent_contexts) {
+          absl::c_move(entry.second,
+                       google::protobuf::RepeatedPtrFieldBackInserter(
+                           (*response->mutable_contexts())[entry.first]
+                               .mutable_parent_contexts()));
+        }
+        return absl::OkStatus();
+      },
+      request.transaction_options());
+}
+
+absl::Status MetadataStore::GetChildrenContextsByContexts(
+    const GetChildrenContextsByContextsRequest& request,
+    GetChildrenContextsByContextsResponse* response) {
+  return transaction_executor_->Execute(
+      [this, &request, &response]() -> absl::Status {
+        response->Clear();
+        std::vector<int64_t> context_ids;
+        std::copy(request.context_ids().begin(), request.context_ids().end(),
+                  std::back_inserter(context_ids));
+        absl::node_hash_map<int64_t, std::vector<Context>> child_contexts;
+        const absl::Status status =
+            metadata_access_object_->FindChildContextsByContextIds(
+                context_ids, child_contexts);
+        if (!status.ok() && !absl::IsNotFound(status)) {
+          return status;
+        }
+        for (auto& entry : child_contexts) {
+          absl::c_move(entry.second,
+                       google::protobuf::RepeatedPtrFieldBackInserter(
+                           (*response->mutable_contexts())[entry.first]
+                               .mutable_children_contexts()));
+        }
+        return absl::OkStatus();
+      },
+      request.transaction_options());
+}
+
 
 absl::Status MetadataStore::GetLineageGraph(
     const GetLineageGraphRequest& request, GetLineageGraphResponse* response) {
@@ -2183,7 +2237,8 @@ absl::Status MetadataStore::GetLineageGraph(
         return metadata_access_object_->QueryLineageGraph(
             artifacts, max_num_hops,
             request.options().max_node_size() > 0
-                ? absl::make_optional<int64_t>(request.options().max_node_size())
+                ? absl::make_optional<int64_t>(
+                      request.options().max_node_size())
                 : absl::nullopt,
             !stop_conditions.boundary_artifacts().empty()
                 ? absl::make_optional<std::string>(

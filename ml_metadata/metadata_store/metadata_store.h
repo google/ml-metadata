@@ -496,6 +496,18 @@ class MetadataStore : public MetadataStoreServiceInterface {
       const GetChildrenContextsByContextRequest& request,
       GetChildrenContextsByContextResponse* response) override;
 
+  // Gets all parent contexts of a list of contexts.
+  // Returns detailed INTERNAL error, if query execution fails.
+  absl::Status GetParentContextsByContexts(
+      const GetParentContextsByContextsRequest& request,
+      GetParentContextsByContextsResponse* response) override;
+
+  // Gets all children contexts of a list of contexts.
+  // Returns detailed INTERNAL error, if query execution fails.
+  absl::Status GetChildrenContextsByContexts(
+      const GetChildrenContextsByContextsRequest& request,
+      GetChildrenContextsByContextsResponse* response) override;
+
 
   // The method is used for accessing MLMD lineage. Please see
   // metadata_store_service.proto for details. Returns detailed INTERNAL error,

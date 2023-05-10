@@ -820,6 +820,32 @@ message GetChildrenContextsByContextResponse {
   repeated Context contexts = 1;
 }
 
+message GetParentContextsByContextsRequest {
+  repeated int64 context_ids = 1 [packed = true];
+  // Options regarding transactions.
+  optional TransactionOptions transaction_options = 2;
+}
+
+message GetParentContextsByContextsResponse {
+  message ParentContextsPerChild {
+    repeated Context parent_contexts = 1;
+  }
+  map<int64, ParentContextsPerChild> contexts = 2;
+}
+
+message GetChildrenContextsByContextsRequest {
+  repeated int64 context_ids = 1 [packed = true];
+  // Options regarding transactions.
+  optional TransactionOptions transaction_options = 2;
+}
+
+message GetChildrenContextsByContextsResponse {
+  message ChildrenContextsPerParent {
+    repeated Context children_contexts = 1;
+  }
+  map<int64, ChildrenContextsPerParent> contexts = 2;
+}
+
 message GetArtifactsByContextRequest {
   optional int64 context_id = 1;
 
@@ -1246,6 +1272,15 @@ service MetadataStoreService {
   // Gets all children contexts that a context is related.
   rpc GetChildrenContextsByContext(GetChildrenContextsByContextRequest)
       returns (GetChildrenContextsByContextResponse) {}
+
+  // Batch getting all the parent contexts that a list of contexts are related.
+  rpc GetParentContextsByContexts(GetParentContextsByContextsRequest)
+      returns (GetParentContextsByContextsResponse) {}
+
+  // Batch getting all the children contexts that a list of contexts are
+  // related.
+  rpc GetChildrenContextsByContexts(GetChildrenContextsByContextsRequest)
+      returns (GetChildrenContextsByContextsResponse) {}
 
   // Gets all direct artifacts that a context attributes to.
   rpc GetArtifactsByContext(GetArtifactsByContextRequest)
