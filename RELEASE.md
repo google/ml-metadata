@@ -6,6 +6,10 @@
 
 ## Deprecations
 
+## Bug Fixed and Other Changes
+
+*   Bumped minimum bazel version to 5.3.0
+
 # Version 1.13.1
 
 ## Major Features and Improvements

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Choose docker base image.
-FROM ubuntu:18.04 as builder
+FROM ubuntu:20.04 as builder
 
 # Install required dependencies.
 RUN export DEBIAN_FRONTEND=noninteractive && \
@@ -33,8 +33,8 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
   python-dev \
   python3-distutils
 
-# Set up Bazel 3.7.2
-ENV BAZEL_VERSION 3.7.2
+# Set up Bazel 5.3.0
+ENV BAZEL_VERSION 5.3.0
 WORKDIR /
 RUN mkdir /bazel && \
     cd /bazel && \
