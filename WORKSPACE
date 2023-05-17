@@ -3,7 +3,7 @@ workspace(name = "ml_metadata")
 load("//ml_metadata:repo.bzl", "mlmd_http_archive", "clean_dep")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-# Install bazel platform version 0.0.6
+#Install bazel platform version 0.0.6
 http_archive(
     name = "platforms",
     urls = [
@@ -132,23 +132,30 @@ http_archive(
     urls = ["https://github.com/madler/zlib/archive/v1.2.12.tar.gz"],
 )
 
-# pybind11
-http_archive(
-    name = "pybind11",
-    build_file = "@pybind11_bazel//:pybind11.BUILD",
-    strip_prefix = "pybind11-2.4.3",
-    urls = ["https://github.com/pybind/pybind11/archive/v2.4.3.tar.gz"],
-)
-
-# Bazel rules for pybind11
 http_archive(
     name = "pybind11_bazel",
-    strip_prefix = "pybind11_bazel-d5587e65fb8cbfc0015391a7616dc9c66f64a494",
-    url = "https://github.com/pybind/pybind11_bazel/archive/d5587e65fb8cbfc0015391a7616dc9c66f64a494.zip",
-    sha256 = "bf8e1f3ebde5ee37ad30c451377b03fbbe42b9d8f24c244aa8af2ccbaeca7e6c",
+    strip_prefix = "pybind11_bazel-faf56fb3df11287f26dbc66fdedf60a2fc2c6631",
+    urls = ["https://github.com/pybind/pybind11_bazel/archive/faf56fb3df11287f26dbc66fdedf60a2fc2c6631.tar.gz"],
+    sha256 = "a2b107b06ffe1049696e132d39987d80e24d73b131d87f1af581c2cb271232f8",
 )
+
+http_archive(
+    name = "pybind11",
+    urls = [
+        "https://github.com/pybind/pybind11/archive/v2.10.1.tar.gz",
+    ],
+    strip_prefix = "pybind11-2.10.1",
+    build_file = "@pybind11_bazel//:pybind11.BUILD",
+)
+
 load("@pybind11_bazel//:python_configure.bzl", "python_configure")
 python_configure(name = "local_config_python")
+
+# Needed by @com_google_protobuf.
+bind(
+    name = "python_headers",
+    actual = "@local_config_python//:python_headers",
+)
 
 # Note - use @com_github_google_re2 instead of more canonical
 #        @com_google_re2 for consistency with dependency grpc

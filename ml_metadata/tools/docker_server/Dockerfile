@@ -31,8 +31,9 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
   unzip \
   software-properties-common \
   git \
-  python-dev \
-  python3-distutils
+  python3-distutils \
+  python-is-python3 \
+  python3-dev
 
 # Set up Bazel 5.3.0
 ENV BAZEL_VERSION 5.3.0

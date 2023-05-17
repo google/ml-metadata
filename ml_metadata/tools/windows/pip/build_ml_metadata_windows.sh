@@ -144,7 +144,7 @@ export SETUPTOOLS_USE_DISTUTILS=stdlib
 pip freeze --all
 
 # set up bazel environment before compiling
-export BAZEL_VC="C:/Program Files (x86)/Microsoft Visual Studio 14.0/VC"
+export BAZEL_VC="C:/Program Files (x86)/Microsoft Visual Studio/2017/BuildTools/VC"
 # print environment for debugging
 printenv
 
