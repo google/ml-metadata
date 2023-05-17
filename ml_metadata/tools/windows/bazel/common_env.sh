@@ -20,7 +20,7 @@
 # REQUIREMENTS:
 # * All installed in standard locations:
 #   - JDK8, and JAVA_HOME set.
-#   - Microsoft Visual Studio 2015 Community Edition
+#   - Microsoft Visual Studio 2017 Community Edition
 #   - Msys2
 #   - Anaconda3
 # * Bazel windows executable copied as "bazel.exe" and included in PATH.
