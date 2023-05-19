@@ -33,21 +33,24 @@ using ::zetasql::types::Int64Type;
 using ::zetasql::types::StringType;
 
 // A regular expression that for mentioned contexts in query.
-constexpr char kContextRE[] = "\\b(contexts_[[:word:]]+)\\.";
-constexpr char kArtifactRE[] = "\\b(artifacts_[[:word:]]+)\\.";
-constexpr char kExecutionRE[] = "\\b(executions_[[:word:]]+)\\.";
-constexpr char kPropertyRE[] = "\\bproperties\\.(:?([[:word:]]+)|(`[^`]+`))\\.";
-constexpr char kCustomPropertyRE[] =
+constexpr absl::string_view kContextRE = "\\b(contexts_[[:word:]]+)\\.";
+constexpr absl::string_view kArtifactRE = "\\b(artifacts_[[:word:]]+)\\.";
+constexpr absl::string_view kExecutionRE = "\\b(executions_[[:word:]]+)\\.";
+constexpr absl::string_view kPropertyRE =
+    "\\bproperties\\.(:?([[:word:]]+)|(`[^`]+`))\\.";
+constexpr absl::string_view kCustomPropertyRE =
     "\\bcustom_properties\\.(:?([[:word:]]+)|(`[^`]+`))\\.";
-constexpr char kChildContextRE[] = "\\b(child_contexts_[[:word:]]+)\\.";
-constexpr char kParentContextRE[] = "\\b(parent_contexts_[[:word:]]+)\\.";
-constexpr char kEventRE[] = "\\b(events_[[:word:]]+)\\.";
+constexpr absl::string_view kChildContextRE =
+    "\\b(child_contexts_[[:word:]]+)\\.";
+constexpr absl::string_view kParentContextRE =
+    "\\b(parent_contexts_[[:word:]]+)\\.";
+constexpr absl::string_view kEventRE = "\\b(events_[[:word:]]+)\\.";
 
-constexpr char kArtifactStatePredicateRE[] =
+constexpr absl::string_view kArtifactStatePredicateRE =
     "\\b(state)[[:space:]]*(=|!=)[[:space:]]*([[:word:]]+)\\b";
-constexpr char kExecutionStatePredicateRE[] =
+constexpr absl::string_view kExecutionStatePredicateRE =
     "\\b(last_known_state)[[:space:]]*(=|!=)[[:space:]]*([[:word:]]+)\\b";
-constexpr char kEventTypePredicateRE[] =
+constexpr absl::string_view kEventTypePredicateRE =
     "\\b(events_[[:word:]]+\\.type)[[:space:]]*(=|!=)[[:space:]]*([[:word:]]+)"
     "\\b";
 
@@ -216,7 +219,7 @@ absl::StatusOr<std::string> AddNeighborhoodNodes(
 
 // Adds the Contexts used in the query to the analyzer as StructType column.
 absl::Status AddContextsImpl(absl::string_view query_string,
-                             const absl::string_view context_prefix,
+                             absl::string_view context_prefix,
                              zetasql::AnalyzerOptions& analyzer_opts,
                              zetasql::TypeFactory& type_factory) {
   RE2 context_re(context_prefix);
@@ -308,7 +311,7 @@ absl::StatusOr<std::string> AddEvents(absl::string_view query_string,
                                       absl::string_view neighbor_node_id,
                                       zetasql::AnalyzerOptions& analyzer_opts,
                                       zetasql::TypeFactory& type_factory) {
-  static LazyRE2 event_re = {kEventRE};
+  static LazyRE2 event_re = {kEventRE.data()};
   std::string matched_event;
   absl::flat_hash_set<std::string> mentioned_events;
   std::string original_query = std::string(query_string);
@@ -461,7 +464,7 @@ absl::StatusOr<std::string> AddPropertiesAndTransformQueryImpl(
 absl::StatusOr<std::string> AddPropertiesAndTransformQuery(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts,
     zetasql::TypeFactory& type_factory) {
-  static LazyRE2 property_re = {kPropertyRE};
+  static LazyRE2 property_re = {kPropertyRE.data()};
   return AddPropertiesAndTransformQueryImpl(query_string, analyzer_opts,
                                             type_factory, *property_re,
                                             /*column_prefix=*/"properties");
@@ -472,7 +475,7 @@ absl::StatusOr<std::string> AddPropertiesAndTransformQuery(
 absl::StatusOr<std::string> AddCustomPropertiesAndTransformQuery(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts,
     zetasql::TypeFactory& type_factory) {
-  static LazyRE2 property_re = {kCustomPropertyRE};
+  static LazyRE2 property_re = {kCustomPropertyRE.data()};
   return AddPropertiesAndTransformQueryImpl(
       query_string, analyzer_opts, type_factory, *property_re,
       /*column_prefix=*/"custom_properties");

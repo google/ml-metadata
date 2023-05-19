@@ -583,7 +583,8 @@ absl::Status QueryConfigExecutor::InsertArtifactType(
       query_schema_version().value() < kSchemaVersionNine) {
     MetadataSourceQueryConfig::TemplateQuery insert_artifact_type;
     MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-        entity_query::v7_and_v8::kInsertArtifactType, insert_artifact_type));
+        entity_query::v7_and_v8::kInsertArtifactType.data(),
+        insert_artifact_type));
     return ExecuteQuerySelectLastInsertID(
         insert_artifact_type, {Bind(name), Bind(version), Bind(description)},
         type_id);
@@ -618,7 +619,8 @@ absl::Status QueryConfigExecutor::InsertExecutionType(
       query_schema_version().value() < kSchemaVersionNine) {
     MetadataSourceQueryConfig::TemplateQuery insert_execution_type;
     MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-        entity_query::v7_and_v8::kInsertExecutionType, insert_execution_type));
+        entity_query::v7_and_v8::kInsertExecutionType.data(),
+        insert_execution_type));
     return ExecuteQuerySelectLastInsertID(
         insert_execution_type,
         {Bind(name), Bind(version), Bind(description), Bind(input_type),
@@ -654,7 +656,8 @@ absl::Status QueryConfigExecutor::InsertContextType(
       query_schema_version().value() < kSchemaVersionNine) {
     MetadataSourceQueryConfig::TemplateQuery insert_context_type;
     MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-        entity_query::v7_and_v8::kInsertContextType, insert_context_type));
+        entity_query::v7_and_v8::kInsertContextType.data(),
+        insert_context_type));
     return ExecuteQuerySelectLastInsertID(
         insert_context_type, {Bind(name), Bind(version), Bind(description)},
         type_id);
@@ -686,7 +689,7 @@ absl::Status QueryConfigExecutor::SelectTypesByID(
       query_schema_version().value() < kSchemaVersionNine) {
     MetadataSourceQueryConfig::TemplateQuery select_types_by_id;
     MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-        entity_query::v7_and_v8::kSelectTypesById, select_types_by_id));
+        entity_query::v7_and_v8::kSelectTypesById.data(), select_types_by_id));
     return ExecuteQuery(select_types_by_id, {Bind(type_ids), Bind(type_kind)},
                         record_set);
   }
@@ -703,7 +706,7 @@ absl::Status QueryConfigExecutor::SelectTypeByID(int64_t type_id,
       query_schema_version().value() < kSchemaVersionNine) {
     MetadataSourceQueryConfig::TemplateQuery select_type_by_id;
     MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-        entity_query::v7_and_v8::kSelectTypeById, select_type_by_id));
+        entity_query::v7_and_v8::kSelectTypeById.data(), select_type_by_id));
     return ExecuteQuery(select_type_by_id, {Bind(type_id), Bind(type_kind)},
                         record_set);
   }
@@ -728,7 +731,7 @@ absl::Status QueryConfigExecutor::SelectTypeByNameAndVersion(
         query_schema_version().value() < kSchemaVersionNine) {
       MetadataSourceQueryConfig::TemplateQuery select_type_by_name_and_version;
       MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-          entity_query::v7_and_v8::kSelectTypeByNameAndVersion,
+          entity_query::v7_and_v8::kSelectTypeByNameAndVersion.data(),
           select_type_by_name_and_version));
       return ExecuteQuery(
           select_type_by_name_and_version,
@@ -742,7 +745,8 @@ absl::Status QueryConfigExecutor::SelectTypeByNameAndVersion(
         query_schema_version().value() < kSchemaVersionNine) {
       MetadataSourceQueryConfig::TemplateQuery select_type_by_name;
       MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-          entity_query::v7_and_v8::kSelectTypeByName, select_type_by_name));
+          entity_query::v7_and_v8::kSelectTypeByName.data(),
+          select_type_by_name));
       return ExecuteQuery(select_type_by_name,
                           {Bind(type_name), Bind(type_kind)}, record_set);
     }

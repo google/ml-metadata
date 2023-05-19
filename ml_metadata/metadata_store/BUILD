@@ -56,6 +56,7 @@ cc_library(
     hdrs = [
         "constants.h",
     ],
+    deps = ["@com_google_absl//absl/strings"],
 )
 
 cc_library(

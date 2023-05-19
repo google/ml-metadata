@@ -1052,13 +1052,13 @@ TEST_P(MetadataAccessObjectTest, StoreTypeWithVersionAndDescriptions) {
 TEST_P(MetadataAccessObjectTest, StoreTypeWithEmptyVersion) {
   ASSERT_EQ(Init(), absl::OkStatus());
   // When the input version = empty string, it is treated as unset.
-  static constexpr char kEmptyStringVersionTypeStr[] =
+  static constexpr absl::string_view kEmptyStringVersionTypeStr =
       "name: 'test_type' version: ''";
 
   {
     const ArtifactType want_artifact_type =
         CreateTypeFromTextProto<ArtifactType>(
-            kEmptyStringVersionTypeStr, *metadata_access_object_,
+            kEmptyStringVersionTypeStr.data(), *metadata_access_object_,
             metadata_access_object_container_.get());
     ArtifactType got_artifact_type;
     ASSERT_EQ(metadata_access_object_->FindTypeById(want_artifact_type.id(),
@@ -1072,7 +1072,7 @@ TEST_P(MetadataAccessObjectTest, StoreTypeWithEmptyVersion) {
   {
     const ExecutionType want_execution_type =
         CreateTypeFromTextProto<ExecutionType>(
-            kEmptyStringVersionTypeStr, *metadata_access_object_,
+            kEmptyStringVersionTypeStr.data(), *metadata_access_object_,
             metadata_access_object_container_.get());
     ExecutionType got_execution_type;
     ASSERT_EQ(metadata_access_object_->FindTypeByNameAndVersion(
@@ -1086,7 +1086,7 @@ TEST_P(MetadataAccessObjectTest, StoreTypeWithEmptyVersion) {
 
   {
     const ContextType want_context_type = CreateTypeFromTextProto<ContextType>(
-        kEmptyStringVersionTypeStr, *metadata_access_object_,
+        kEmptyStringVersionTypeStr.data(), *metadata_access_object_,
         metadata_access_object_container_.get());
     std::vector<ContextType> got_context_types;
     ASSERT_EQ(metadata_access_object_->FindTypes(&got_context_types),
@@ -4158,7 +4158,7 @@ void TestFilteringWithListOptionsImpl(
                             metadata_access_object_container, want_nodes[i]);
   }
 
-  static constexpr char kListOption[] = R"(
+  static constexpr absl::string_view kListOption = R"(
             max_result_size: 10,
             order_by_field: { field: CREATE_TIME is_asc: false }
             filter_query: "$0")";

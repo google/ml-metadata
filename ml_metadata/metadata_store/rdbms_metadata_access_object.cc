@@ -655,7 +655,7 @@ absl::StatusOr<int64_t> RDBMSMetadataAccessObject::ModifyProperties(
   MLMD_RETURN_IF_ERROR(property_names_or_internal_error.status());
   property_names_in_mask = property_names_or_internal_error.value();
 
-  for (const absl::string_view name : property_names_in_mask) {
+  for (absl::string_view name : property_names_in_mask) {
     const bool name_in_previous_properties =
         prev_properties.find(name.data()) != prev_properties.end();
     const bool name_in_current_properties =

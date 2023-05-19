@@ -54,7 +54,7 @@ inline absl::Status GetTemplateQueryOrDie(
 namespace entity_query {
 namespace v7_and_v8 {
 
-static constexpr char kInsertArtifact[] = R"pb(
+static constexpr absl::string_view kInsertArtifact = R"pb(
   query: " INSERT INTO `Artifact`( "
          "   `type_id`, `uri`, `state`, `name`, `create_time_since_epoch`, "
          "   `last_update_time_since_epoch` "
@@ -62,7 +62,7 @@ static constexpr char kInsertArtifact[] = R"pb(
   parameter_num: 6
 )pb";
 
-static constexpr char kSelectArtifactByIdForMySQL[] = R"pb(
+static constexpr absl::string_view kSelectArtifactByIdForMySQL = R"pb(
   query: " SELECT A.id, A.type_id, A.uri, A.state, A.name, "
          "        A.create_time_since_epoch, "
          "        A.last_update_time_since_epoch, T.name AS `type` "
@@ -73,7 +73,7 @@ static constexpr char kSelectArtifactByIdForMySQL[] = R"pb(
   parameter_num: 1
 )pb";
 
-static constexpr char kSelectArtifactByIdForSQLite[] = R"pb(
+static constexpr absl::string_view kSelectArtifactByIdForSQLite = R"pb(
   query: " SELECT A.id, A.type_id, A.uri, A.state, A.name, "
          "        A.create_time_since_epoch, "
          "        A.last_update_time_since_epoch, T.name AS `type` "
@@ -84,7 +84,7 @@ static constexpr char kSelectArtifactByIdForSQLite[] = R"pb(
   parameter_num: 1
 )pb";
 
-static constexpr char kUpdateArtifact[] = R"pb(
+static constexpr absl::string_view kUpdateArtifact = R"pb(
   query: " UPDATE `Artifact` "
          " SET `type_id` = $1, `uri` = $2, `state` = $3, "
          "     `last_update_time_since_epoch` = $4 "
@@ -92,7 +92,7 @@ static constexpr char kUpdateArtifact[] = R"pb(
   parameter_num: 5
 )pb";
 
-static constexpr char kInsertExecution[] = R"pb(
+static constexpr absl::string_view kInsertExecution = R"pb(
   query: " INSERT INTO `Execution`( "
          "   `type_id`, `last_known_state`, `name`, "
          "   `create_time_since_epoch`, `last_update_time_since_epoch` "
@@ -100,7 +100,7 @@ static constexpr char kInsertExecution[] = R"pb(
   parameter_num: 5
 )pb";
 
-static constexpr char kSelectExecutionByIdForMySQL[] = R"pb(
+static constexpr absl::string_view kSelectExecutionByIdForMySQL = R"pb(
   query: " SELECT E.id, E.type_id, E.last_known_state, E.name, "
          "        E.create_time_since_epoch, "
          "        E.last_update_time_since_epoch, T.name AS `type` "
@@ -111,7 +111,7 @@ static constexpr char kSelectExecutionByIdForMySQL[] = R"pb(
   parameter_num: 1
 )pb";
 
-static constexpr char kSelectExecutionByIdForSQLite[] = R"pb(
+static constexpr absl::string_view kSelectExecutionByIdForSQLite = R"pb(
   query: " SELECT E.id, E.type_id, E.last_known_state, E.name, "
          "        E.create_time_since_epoch, "
          "        E.last_update_time_since_epoch, T.name AS `type` "
@@ -122,7 +122,7 @@ static constexpr char kSelectExecutionByIdForSQLite[] = R"pb(
   parameter_num: 1
 )pb";
 
-static constexpr char kUpdateExecution[] = R"pb(
+static constexpr absl::string_view kUpdateExecution = R"pb(
   query: " UPDATE `Execution` "
          " SET `type_id` = $1, `last_known_state` = $2, "
          "     `last_update_time_since_epoch` = $3 "
@@ -130,7 +130,7 @@ static constexpr char kUpdateExecution[] = R"pb(
   parameter_num: 4
 )pb";
 
-static constexpr char kInsertContext[] = R"pb(
+static constexpr absl::string_view kInsertContext = R"pb(
   query: " INSERT INTO `Context`( "
          "   `type_id`, `name`, "
          "   `create_time_since_epoch`, `last_update_time_since_epoch` "
@@ -138,7 +138,7 @@ static constexpr char kInsertContext[] = R"pb(
   parameter_num: 4
 )pb";
 
-static constexpr char kSelectContextByIdForMySQL[] = R"pb(
+static constexpr absl::string_view kSelectContextByIdForMySQL = R"pb(
   query: " SELECT C.id, C.type_id, C.name, C.create_time_since_epoch, "
          "        C.last_update_time_since_epoch, T.name AS `type` "
          " FROM `Context` AS C "
@@ -147,7 +147,7 @@ static constexpr char kSelectContextByIdForMySQL[] = R"pb(
   parameter_num: 1
 )pb";
 
-static constexpr char kSelectContextByIdForSQLite[] = R"pb(
+static constexpr absl::string_view kSelectContextByIdForSQLite = R"pb(
   query: " SELECT C.id, C.type_id, C.name, C.create_time_since_epoch, "
          "        C.last_update_time_since_epoch, T.name AS `type` "
          " FROM `Context` AS C "
@@ -156,7 +156,7 @@ static constexpr char kSelectContextByIdForSQLite[] = R"pb(
   parameter_num: 1
 )pb";
 
-static constexpr char kUpdateContext[] = R"pb(
+static constexpr absl::string_view kUpdateContext = R"pb(
   query: " UPDATE `Context` "
          " SET `type_id` = $1, `name` = $2, "
          "     `last_update_time_since_epoch` = $3 "
@@ -164,14 +164,14 @@ static constexpr char kUpdateContext[] = R"pb(
   parameter_num: 4
 )pb";
 
-static constexpr char kInsertArtifactType[] = R"pb(
+static constexpr absl::string_view kInsertArtifactType = R"pb(
   query: " INSERT INTO `Type`( "
          "   `name`, `type_kind`, `version`, `description` "
          ") VALUES($0, 1, $1, $2);"
   parameter_num: 3
 )pb";
 
-static constexpr char kInsertExecutionType[] = R"pb(
+static constexpr absl::string_view kInsertExecutionType = R"pb(
   query: " INSERT INTO `Type`( "
          "   `name`, `type_kind`, `version`, `description`, "
          "   `input_type`, `output_type` "
@@ -179,35 +179,35 @@ static constexpr char kInsertExecutionType[] = R"pb(
   parameter_num: 5
 )pb";
 
-static constexpr char kInsertContextType[] = R"pb(
+static constexpr absl::string_view kInsertContextType = R"pb(
   query: " INSERT INTO `Type`( "
          "   `name`, `type_kind`, `version`, `description` "
          ") VALUES($0, 2, $1, $2);"
   parameter_num: 3
 )pb";
 
-static constexpr char kSelectTypesById[] = R"pb(
+static constexpr absl::string_view kSelectTypesById = R"pb(
   query: " SELECT `id`, `name`, `version`, `description` "
          " FROM `Type` "
          " WHERE id IN ($0) and type_kind = $1; "
   parameter_num: 2
 )pb";
 
-static constexpr char kSelectTypeById[] = R"pb(
+static constexpr absl::string_view kSelectTypeById = R"pb(
   query: " SELECT `id`, `name`, `version`, `description`, "
          "        `input_type`, `output_type` FROM `Type` "
          " WHERE id = $0 and type_kind = $1; "
   parameter_num: 2
 )pb";
 
-static constexpr char kSelectTypeByNameAndVersion[] = R"pb(
+static constexpr absl::string_view kSelectTypeByNameAndVersion = R"pb(
   query: " SELECT `id`, `name`, `version`, `description`, "
          "        `input_type`, `output_type` FROM `Type` "
          " WHERE name = $0 AND version = $1 AND type_kind = $2; "
   parameter_num: 3
 )pb";
 
-static constexpr char kSelectTypeByName[] = R"pb(
+static constexpr absl::string_view kSelectTypeByName = R"pb(
   query: " SELECT `id`, `name`, `version`, `description`, "
          "        `input_type`, `output_type` FROM `Type` "
          " WHERE name = $0 AND version IS NULL AND type_kind = $1; "
@@ -222,13 +222,13 @@ namespace v7_v8_v9 {
 
 // BEGIN ArtifactProperty queries
 
-static constexpr char kCheckArtifactPropertyTable[] = R"pb(
+static constexpr absl::string_view kCheckArtifactPropertyTable = R"pb(
   query: " SELECT `artifact_id`, `name`, `is_custom_property`, "
          "        `int_value`, `double_value`, `string_value`, `byte_value` "
          " FROM `ArtifactProperty` LIMIT 1; "
 )pb";
 
-static constexpr char kSelectArtifactPropertyByArtifactId[] = R"pb(
+static constexpr absl::string_view kSelectArtifactPropertyByArtifactId = R"pb(
   query: " SELECT `artifact_id` as `id`, `name` as `key`, "
          "        `is_custom_property`, "
          "        `int_value`, `double_value`, `string_value` "
@@ -241,13 +241,13 @@ static constexpr char kSelectArtifactPropertyByArtifactId[] = R"pb(
 
 // BEGIN ExecutionProperty queries
 
-static constexpr char kCheckExecutionPropertyTable[] = R"pb(
+static constexpr absl::string_view kCheckExecutionPropertyTable = R"pb(
   query: " SELECT `execution_id`, `name`, `is_custom_property`, "
          "        `int_value`, `double_value`, `string_value`, `byte_value` "
          " FROM `ExecutionProperty` LIMIT 1; "
 )pb";
 
-static constexpr char kSelectExecutionPropertyByExecutionId[] = R"pb(
+static constexpr absl::string_view kSelectExecutionPropertyByExecutionId = R"pb(
   query: " SELECT `execution_id` as `id`, `name` as `key`, "
          "        `is_custom_property`, "
          "        `int_value`, `double_value`, `string_value` "
@@ -260,13 +260,13 @@ static constexpr char kSelectExecutionPropertyByExecutionId[] = R"pb(
 
 // BEGIN ContextProperty queries
 
-static constexpr char kCheckContextPropertyTable[] = R"pb(
+static constexpr absl::string_view kCheckContextPropertyTable = R"pb(
   query: " SELECT `context_id`, `name`, `is_custom_property`, "
          "        `int_value`, `double_value`, `string_value`, `byte_value` "
          " FROM `ContextProperty` LIMIT 1; "
 )pb";
 
-static constexpr char kSelectContextPropertyByContextId[] = R"pb(
+static constexpr absl::string_view kSelectContextPropertyByContextId = R"pb(
   query: " SELECT `context_id` as `id`, `name` as `key`, "
          "        `is_custom_property`, "
          "        `int_value`, `double_value`, `string_value` "
@@ -434,7 +434,7 @@ class QueryConfigExecutor : public QueryExecutor {
         query_schema_version().value() < kSchemaVersionNine) {
       MetadataSourceQueryConfig::TemplateQuery insert_artifact;
       MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-          entity_query::v7_and_v8::kInsertArtifact, insert_artifact));
+          entity_query::v7_and_v8::kInsertArtifact.data(), insert_artifact));
       return ExecuteQuerySelectLastInsertID(
           insert_artifact,
           {Bind(type_id), Bind(artifact_uri), Bind(state), Bind(name),
@@ -460,11 +460,11 @@ class QueryConfigExecutor : public QueryExecutor {
       if (query_config_.metadata_source_type() ==
           MetadataSourceType::MYSQL_METADATA_SOURCE) {
         MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-            entity_query::v7_and_v8::kSelectArtifactByIdForMySQL,
+            entity_query::v7_and_v8::kSelectArtifactByIdForMySQL.data(),
             select_artifact_by_id));
       } else {
         MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-            entity_query::v7_and_v8::kSelectArtifactByIdForSQLite,
+            entity_query::v7_and_v8::kSelectArtifactByIdForSQLite.data(),
             select_artifact_by_id));
       }
       return ExecuteQuery(select_artifact_by_id, {Bind(artifact_ids)},
@@ -511,7 +511,7 @@ class QueryConfigExecutor : public QueryExecutor {
         query_schema_version().value() < kSchemaVersionNine) {
       MetadataSourceQueryConfig::TemplateQuery update_artifact;
       MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-          entity_query::v7_and_v8::kUpdateArtifact, update_artifact));
+          entity_query::v7_and_v8::kUpdateArtifact.data(), update_artifact));
       return ExecuteQuery(update_artifact,
                           {Bind(artifact_id), Bind(type_id), Bind(uri),
                            Bind(state), Bind(absl::ToUnixMillis(update_time))});
@@ -528,7 +528,7 @@ class QueryConfigExecutor : public QueryExecutor {
     if (query_schema_version().has_value() &&
         query_schema_version().value() < kSchemaVersionTen) {
       MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-          property_query::v7_v8_v9::kCheckArtifactPropertyTable,
+          property_query::v7_v8_v9::kCheckArtifactPropertyTable.data(),
           check_artifact_property_table));
     } else {
       check_artifact_property_table =
@@ -555,7 +555,7 @@ class QueryConfigExecutor : public QueryExecutor {
     if (query_schema_version().has_value() &&
         query_schema_version().value() < kSchemaVersionTen) {
       MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-          property_query::v7_v8_v9::kSelectArtifactPropertyByArtifactId,
+          property_query::v7_v8_v9::kSelectArtifactPropertyByArtifactId.data(),
           select_artifact_property_by_artifact_id));
     } else {
       select_artifact_property_by_artifact_id =
@@ -595,7 +595,7 @@ class QueryConfigExecutor : public QueryExecutor {
         query_schema_version().value() < kSchemaVersionNine) {
       MetadataSourceQueryConfig::TemplateQuery insert_execution;
       MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-          entity_query::v7_and_v8::kInsertExecution, insert_execution));
+          entity_query::v7_and_v8::kInsertExecution.data(), insert_execution));
       return ExecuteQuerySelectLastInsertID(
           insert_execution,
           {Bind(type_id), Bind(last_known_state), Bind(name),
@@ -620,12 +620,12 @@ class QueryConfigExecutor : public QueryExecutor {
       if (query_config_.metadata_source_type() ==
           MetadataSourceType::MYSQL_METADATA_SOURCE) {
         MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-            entity_query::v7_and_v8::kSelectExecutionByIdForMySQL,
+            entity_query::v7_and_v8::kSelectExecutionByIdForMySQL.data(),
             select_execution_by_id));
 
       } else {
         MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-            entity_query::v7_and_v8::kSelectExecutionByIdForSQLite,
+            entity_query::v7_and_v8::kSelectExecutionByIdForSQLite.data(),
             select_execution_by_id));
       }
       return ExecuteQuery(select_execution_by_id, {Bind(execution_ids)},
@@ -666,7 +666,7 @@ class QueryConfigExecutor : public QueryExecutor {
         query_schema_version().value() < kSchemaVersionNine) {
       MetadataSourceQueryConfig::TemplateQuery update_execution;
       MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-          entity_query::v7_and_v8::kUpdateExecution, update_execution));
+          entity_query::v7_and_v8::kUpdateExecution.data(), update_execution));
       absl::Status s = ExecuteQuery(
           update_execution,
           {Bind(execution_id), Bind(type_id), Bind(last_known_state),
@@ -685,7 +685,7 @@ class QueryConfigExecutor : public QueryExecutor {
     if (query_schema_version().has_value() &&
         query_schema_version().value() < kSchemaVersionTen) {
       MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-          property_query::v7_v8_v9::kCheckExecutionPropertyTable,
+          property_query::v7_v8_v9::kCheckExecutionPropertyTable.data(),
           check_execution_property_table));
     } else {
       check_execution_property_table =
@@ -711,7 +711,8 @@ class QueryConfigExecutor : public QueryExecutor {
     if (query_schema_version().has_value() &&
         query_schema_version().value() < kSchemaVersionTen) {
       MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-          property_query::v7_v8_v9::kSelectExecutionPropertyByExecutionId,
+          property_query::v7_v8_v9::kSelectExecutionPropertyByExecutionId
+              .data(),
           select_execution_property_by_execution_id));
     } else {
       select_execution_property_by_execution_id =
@@ -749,7 +750,7 @@ class QueryConfigExecutor : public QueryExecutor {
         query_schema_version().value() < kSchemaVersionNine) {
       MetadataSourceQueryConfig::TemplateQuery insert_context;
       MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-          entity_query::v7_and_v8::kInsertContext, insert_context));
+          entity_query::v7_and_v8::kInsertContext.data(), insert_context));
       return ExecuteQuerySelectLastInsertID(
           insert_context,
           {Bind(type_id), Bind(name), Bind(absl::ToUnixMillis(create_time)),
@@ -773,11 +774,11 @@ class QueryConfigExecutor : public QueryExecutor {
       if (query_config_.metadata_source_type() ==
           MetadataSourceType::MYSQL_METADATA_SOURCE) {
         MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-            entity_query::v7_and_v8::kSelectContextByIdForMySQL,
+            entity_query::v7_and_v8::kSelectContextByIdForMySQL.data(),
             select_context_by_id));
       } else {
         MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-            entity_query::v7_and_v8::kSelectContextByIdForSQLite,
+            entity_query::v7_and_v8::kSelectContextByIdForSQLite.data(),
             select_context_by_id));
       }
       return ExecuteQuery(select_context_by_id, {Bind(context_ids)},
@@ -818,7 +819,7 @@ class QueryConfigExecutor : public QueryExecutor {
         query_schema_version().value() < kSchemaVersionNine) {
       MetadataSourceQueryConfig::TemplateQuery update_context;
       MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-          entity_query::v7_and_v8::kUpdateContext, update_context));
+          entity_query::v7_and_v8::kUpdateContext.data(), update_context));
       return ExecuteQuery(
           update_context,
           {Bind(existing_context_id), Bind(type_id), Bind(context_name),
@@ -836,7 +837,7 @@ class QueryConfigExecutor : public QueryExecutor {
     if (query_schema_version().has_value() &&
         query_schema_version().value() < kSchemaVersionTen) {
       MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-          property_query::v7_v8_v9::kCheckContextPropertyTable,
+          property_query::v7_v8_v9::kCheckContextPropertyTable.data(),
           check_context_property_table));
     } else {
       check_context_property_table =
@@ -861,7 +862,7 @@ class QueryConfigExecutor : public QueryExecutor {
     if (query_schema_version().has_value() &&
         query_schema_version().value() < kSchemaVersionTen) {
       MLMD_RETURN_IF_ERROR(GetTemplateQueryOrDie(
-          property_query::v7_v8_v9::kSelectContextPropertyByContextId,
+          property_query::v7_v8_v9::kSelectContextPropertyByContextId.data(),
           select_context_property_by_context_id));
     } else {
       select_context_property_by_context_id =

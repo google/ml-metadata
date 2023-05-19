@@ -68,8 +68,7 @@ struct QueryTupleTestCase {
   // TODO(b/257334039): remove query_version parameter
   template <typename Node>
   std::string GetFromClause(int64_t query_version) const {
-    const absl::string_view base_alias =
-        FilterQueryBuilder<Node>::kBaseTableAlias;
+    absl::string_view base_alias = FilterQueryBuilder<Node>::kBaseTableAlias;
     std::string from_clause =
         FilterQueryBuilder<Node>::GetBaseNodeTable(base_alias);
     for (absl::string_view type_alias : join_mentions.types) {

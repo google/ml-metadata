@@ -39,13 +39,14 @@ namespace {
 
 using absl::Status;
 
-constexpr char kSetIsolationLevel[] = "SET TRANSACTION ISOLATION LEVEL ";
-constexpr char kBeginTransaction[] = "START TRANSACTION";
-constexpr char kCommitTransaction[] = "COMMIT";
-constexpr char kRollbackTransaction[] = "ROLLBACK";
+constexpr absl::string_view kSetIsolationLevel =
+    "SET TRANSACTION ISOLATION LEVEL ";
+constexpr absl::string_view kBeginTransaction = "START TRANSACTION";
+constexpr absl::string_view kCommitTransaction = "COMMIT";
+constexpr absl::string_view kRollbackTransaction = "ROLLBACK";
 
 // url key used for storing ustom error information in the absl::Status payload.
-constexpr char kStatusErrorInfoUrl[] = "mysql-error-info";
+constexpr absl::string_view kStatusErrorInfoUrl = "mysql-error-info";
 
 // A class that invokes mysql_thread_init() when constructed, and
 // mysql_thread_end() when destructed.  It can be used as a
@@ -238,29 +239,29 @@ Status MySqlMetadataSource::ExecuteQueryImpl(const std::string& query,
 Status MySqlMetadataSource::CommitImpl() {
   MLMD_RETURN_WITH_CONTEXT_IF_ERROR(ThreadInitAccess(),
                                     "MySql thread init failed at CommitImpl");
-  return RunQuery(kCommitTransaction);
+  return RunQuery(kCommitTransaction.data());
 }
 
 Status MySqlMetadataSource::RollbackImpl() {
   MLMD_RETURN_WITH_CONTEXT_IF_ERROR(ThreadInitAccess(),
                                     "MySql thread init failed at RollbackImpl");
 
-  return RunQuery(kRollbackTransaction);
+  return RunQuery(kRollbackTransaction.data());
 }
 
 Status MySqlMetadataSource::BeginImpl() {
   MLMD_RETURN_WITH_CONTEXT_IF_ERROR(ThreadInitAccess(),
                                     "MySql thread init failed at BeginImpl");
 
-  return RunQuery(kBeginTransaction);
+  return RunQuery(kBeginTransaction.data());
 }
 
 
 Status MySqlMetadataSource::CheckTransactionSupport() {
-  constexpr char kCheckTransactionSupport[] =
+  constexpr absl::string_view kCheckTransactionSupport =
       "SELECT ENGINE, TRANSACTIONS FROM INFORMATION_SCHEMA.ENGINES WHERE "
       "ENGINE=(SELECT @@default_storage_engine)";
-  MLMD_RETURN_IF_ERROR(RunQuery(kCheckTransactionSupport));
+  MLMD_RETURN_IF_ERROR(RunQuery(kCheckTransactionSupport.data()));
 
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(ConvertMySqlRowSetToRecordSet(&record_set));
@@ -374,7 +375,7 @@ Status MySqlMetadataSource::ConvertMySqlRowSetToRecordSet(
       }
 
       if (row[col] == nullptr && !(field->flags & NOT_NULL_FLAG)) {
-        record.add_values(kMetadataSourceNull);
+        record.add_values(kMetadataSourceNull.data());
       } else {
         record.add_values(absl::StrCat(row[col]));
       }

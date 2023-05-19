@@ -30,8 +30,9 @@ limitations under the License.
 namespace ml_metadata {
 
 namespace {
-constexpr char kPropertiesFieldPathPrefix[] = "properties";
-constexpr char kCustomPropertiesFieldPathPrefix[] = "custom_properties";
+constexpr absl::string_view kPropertiesFieldPathPrefix = "properties";
+constexpr absl::string_view kCustomPropertiesFieldPathPrefix =
+    "custom_properties";
 }  // namespace
 
 absl::StatusOr<absl::flat_hash_set<absl::string_view>> GetPropertyNamesFromMask(
@@ -40,7 +41,7 @@ absl::StatusOr<absl::flat_hash_set<absl::string_view>> GetPropertyNamesFromMask(
   absl::string_view prefix = is_custom_properties
                                  ? kCustomPropertiesFieldPathPrefix
                                  : kPropertiesFieldPathPrefix;
-  for (const absl::string_view path : mask.paths()) {
+  for (absl::string_view path : mask.paths()) {
     if (path == prefix) {
       return absl::InternalError(
           absl::StrCat("Cannot split property names from ", prefix,

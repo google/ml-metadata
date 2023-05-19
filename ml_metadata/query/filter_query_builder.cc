@@ -27,11 +27,11 @@ namespace ml_metadata {
 namespace {
 
 // The prefix for table alias in SQL clauses
-constexpr char kTableAliasPrefix[] = "table_";
+constexpr absl::string_view kTableAliasPrefix = "table_";
 
 // Default static references keys used in the JoinTableAlias
-constexpr char kBaseTableRef[] = "";
-constexpr char kTypeTableRef[] = "type";
+constexpr absl::string_view kBaseTableRef = "";
+constexpr absl::string_view kTypeTableRef = "type";
 
 // A list of template queries of joins to compose FROM clause.
 // $0 is the base node table, $1 is the type related neighborhood table.
@@ -419,7 +419,7 @@ std::string FilterQueryBuilder<T>::GetEventJoinTable(
 template <typename T>
 FilterQueryBuilder<T>::FilterQueryBuilder() {
   mentioned_alias_[AtomType::ATTRIBUTE].insert(
-      {kBaseTableRef, std::string(kBaseTableAlias)});
+      {kBaseTableRef.data(), std::string(kBaseTableAlias)});
 }
 
 template <typename T>
