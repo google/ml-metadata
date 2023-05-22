@@ -280,19 +280,33 @@ absl::Status UpsertSimpleTypes(MetadataAccessObject* metadata_access_object) {
       /*can_omit_fields=*/true, metadata_access_object, &response);
 }
 
-// Updates or inserts an artifact. If the artifact.id is given, it updates the
-// stored artifact, otherwise, it creates a new artifact.
+// Updates or inserts an artifact.
+// If the artifact.id is given, it updates the stored artifact, otherwise,
+// it creates a new artifact.
+// While creating a new artifact, `mask` will be ignored.
+// While updating an existing artifact, the update can be performed under
+// masking.
+// If artifact.id is given and `mask` is empty, it updates `stored_node` as a
+// whole.
+// If artifact.id is given and `mask` is not empty, it only updates
+// fields specified in `mask`.
 // `skip_type_and_property_validation` is set to be true if the `artifact`'s
 // type/property has been validated.
 absl::Status UpsertArtifact(const Artifact& artifact,
                             MetadataAccessObject* metadata_access_object,
                             const bool skip_type_and_property_validation,
-                            int64_t* artifact_id) {
+                            int64_t* artifact_id,
+                            const google::protobuf::FieldMask& mask = {}) {
   CHECK(artifact_id) << "artifact_id should not be null";
   if (artifact.has_id()) {
-    MLMD_RETURN_IF_ERROR(metadata_access_object->UpdateArtifact(artifact));
+    MLMD_RETURN_IF_ERROR(
+        metadata_access_object->UpdateArtifact(artifact, mask));
     *artifact_id = artifact.id();
   } else {
+    if (!mask.paths().empty()) {
+      LOG(WARNING) << "Found non-empty field mask while creating the artifact."
+                   << "The mask will be ignored.";
+    }
     MLMD_RETURN_IF_ERROR(metadata_access_object->CreateArtifact(
         artifact, skip_type_and_property_validation, artifact_id));
   }
@@ -1136,9 +1150,10 @@ absl::Status MetadataStore::PutArtifacts(const PutArtifactsRequest& request,
           absl::SleepFor(absl::Milliseconds(1));
         }
       }
-      MLMD_RETURN_IF_ERROR(UpsertArtifact(
-          artifact, metadata_access_object_.get(),
-          /*skip_type_and_property_validation=*/false, &artifact_id));
+      MLMD_RETURN_IF_ERROR(
+          UpsertArtifact(artifact, metadata_access_object_.get(),
+                         /*skip_type_and_property_validation=*/false,
+                         &artifact_id, request.update_mask()));
       response->add_artifact_ids(artifact_id);
     }
     return absl::OkStatus();

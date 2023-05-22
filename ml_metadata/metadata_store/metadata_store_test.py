@@ -914,6 +914,48 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertEqual(artifact_result.properties["foo"].int_value, artifact_id)
     self.assertEqual(artifact_result.external_id, "artifact_2")
 
+  def test_update_artifact_with_masking_get_artifact(self):
+    store = _get_metadata_store()
+    artifact_type = _create_example_artifact_type(self._get_test_type_name())
+    type_id = store.put_artifact_type(artifact_type)
+    artifact = metadata_store_pb2.Artifact(
+        type_id=type_id,
+        uri="test_uri",
+        properties={"bar": metadata_store_pb2.Value(string_value="Hello")},
+    )
+
+    [artifact_id] = store.put_artifacts([artifact])
+    artifact_2 = metadata_store_pb2.Artifact(
+        id=artifact_id,
+        type_id=type_id,
+        external_id="new_external_id",
+        properties={
+            "foo": metadata_store_pb2.Value(int_value=artifact_id),
+            "bar": metadata_store_pb2.Value(string_value="Goodbye"),
+        },
+        custom_properties={
+            "hello": metadata_store_pb2.Value(string_value="World")
+        },
+    )
+
+    field_mask_paths = [
+        "external_id",
+        "properties.foo",
+        "custom_properties.hello",
+        "",
+        "invalid_field_mask_path"
+    ]
+    [artifact_id_2] = store.put_artifacts([artifact_2], field_mask_paths)
+    self.assertEqual(artifact_id, artifact_id_2)
+
+    [artifact_result] = store.get_artifacts_by_id([artifact_id])
+    self.assertEqual(
+        artifact_result.custom_properties["hello"].string_value, "World"
+    )
+    self.assertEqual(artifact_result.properties["bar"].string_value, "Hello")
+    self.assertEqual(artifact_result.properties["foo"].int_value, artifact_id)
+    self.assertEqual(artifact_result.external_id, "new_external_id")
+
   def test_put_execution_type_get_execution_type(self):
     store = _get_metadata_store()
     execution_type_name = self._get_test_type_name()

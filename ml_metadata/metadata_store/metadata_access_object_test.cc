@@ -4268,7 +4268,7 @@ TEST_P(MetadataAccessObjectTest, ListNodesFilterWithErrors) {
         list_options, &got_contexts, &next_page_token);
     EXPECT_TRUE(absl::IsInvalidArgument(status));
   }
-  // testing filter query type mistmatch
+  // testing filter query type mismatch
   {
     list_options = ParseTextProtoOrDie<ListOperationOptions>(R"pb(
       max_result_size: 10,

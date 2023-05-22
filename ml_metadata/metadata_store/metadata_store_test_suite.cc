@@ -1884,6 +1884,221 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsUpdateGetArtifactsByID) {
                                              "last_update_time_since_epoch"}));
 }
 
+// Test creating an artifact and then updating one of its properties.
+TEST_P(MetadataStoreTestSuite, UpdateArtifactWithMasking) {
+  const PutArtifactTypeRequest put_artifact_type_request =
+      ParseTextProtoOrDie<PutArtifactTypeRequest>(
+          R"pb(
+            all_fields_match: true
+            artifact_type: {
+              name: 'test_type2'
+              properties { key: 'property' value: STRING }
+            }
+          )pb");
+  PutArtifactTypeResponse put_artifact_type_response;
+  ASSERT_EQ(metadata_store_->PutArtifactType(put_artifact_type_request,
+                                             &put_artifact_type_response),
+            absl::OkStatus());
+  ASSERT_TRUE(put_artifact_type_response.has_type_id());
+
+  const int64_t type_id = put_artifact_type_response.type_id();
+
+  // Add two artifacts, one with a `properties` pair <'property': '3''>, one
+  // without.
+  PutArtifactsRequest put_artifacts_request =
+      ParseTextProtoOrDie<PutArtifactsRequest>(R"pb(
+        artifacts: {
+          uri: 'testuri://testing/uri1'
+          properties {
+            key: 'property'
+            value: { string_value: '3' }
+          }
+        }
+        artifacts: { uri: 'testuri://testing/uri2' }
+      )pb");
+  put_artifacts_request.mutable_artifacts(0)->set_type_id(type_id);
+  put_artifacts_request.mutable_artifacts(1)->set_type_id(type_id);
+  PutArtifactsResponse put_artifacts_response;
+  {
+    // Test 1: a complex test case for updating fields and properties for both
+    // artifacts.
+    ASSERT_EQ(metadata_store_->PutArtifacts(put_artifacts_request,
+                                            &put_artifacts_response),
+              absl::OkStatus());
+    ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(2));
+    const int64_t artifact_id1 = put_artifacts_response.artifact_ids(0);
+    const int64_t artifact_id2 = put_artifacts_response.artifact_ids(1);
+    // Add `state` for both artifacts. `uri` for both artifacts will remain
+    // unchanged.
+    // Change string value of key `property` from '3' to '1' in the first
+    // artifact.
+    // Add `properties` pair <'property': '2'> in the second artifact.
+    PutArtifactsRequest update_artifacts_request =
+        ParseTextProtoOrDie<PutArtifactsRequest>(R"pb(
+          artifacts: {
+            properties {
+              key: 'property'
+              value: { string_value: '1' }
+            }
+            state: LIVE
+          }
+          artifacts: {
+            properties {
+              key: 'property'
+              value: { string_value: '2' }
+            }
+            state: LIVE
+          }
+          update_mask: { paths: 'properties.property' paths: 'state' }
+        )pb");
+    update_artifacts_request.mutable_artifacts(0)->set_type_id(type_id);
+    update_artifacts_request.mutable_artifacts(0)->set_id(artifact_id1);
+    update_artifacts_request.mutable_artifacts(1)->set_type_id(type_id);
+    update_artifacts_request.mutable_artifacts(1)->set_id(artifact_id2);
+    PutArtifactsResponse update_artifacts_response;
+    ASSERT_EQ(metadata_store_->PutArtifacts(update_artifacts_request,
+                                            &update_artifacts_response),
+              absl::OkStatus());
+
+    GetArtifactsByIDRequest get_artifacts_by_id_request;
+    get_artifacts_by_id_request.add_artifact_ids(artifact_id1);
+    get_artifacts_by_id_request.add_artifact_ids(artifact_id2);
+
+    GetArtifactsByIDResponse get_artifacts_by_id_response;
+    ASSERT_EQ(metadata_store_->GetArtifactsByID(get_artifacts_by_id_request,
+                                                &get_artifacts_by_id_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_artifacts_by_id_response.artifacts(), SizeIs(2));
+
+    update_artifacts_request.mutable_artifacts(0)->set_uri(
+        "testuri://testing/uri1");
+    update_artifacts_request.mutable_artifacts(1)->set_uri(
+        "testuri://testing/uri2");
+    EXPECT_THAT(
+        get_artifacts_by_id_response.artifacts(),
+        UnorderedElementsAre(
+            EqualsProto(update_artifacts_request.artifacts(0),
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(update_artifacts_request.artifacts(1),
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
+  {
+    // Test 2: insert two artifacts and update fields for both artifacts.
+    ASSERT_EQ(metadata_store_->PutArtifacts(put_artifacts_request,
+                                            &put_artifacts_response),
+              absl::OkStatus());
+    ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(2));
+    const int64_t artifact_id3 = put_artifacts_response.artifact_ids(0);
+    const int64_t artifact_id4 = put_artifacts_response.artifact_ids(1);
+    // Set `external_id` and `name` for both artifacts.
+    // `properties` for both artifacts will remain unchanged.
+    PutArtifactsRequest update_artifacts_request =
+        ParseTextProtoOrDie<PutArtifactsRequest>(R"pb(
+          artifacts: { external_id: 'artifact_3' uri: 'testuri://testing/uri3' }
+          artifacts: { external_id: 'artifact_4' uri: 'testuri://testing/uri4' }
+          update_mask: { paths: 'external_id' paths: 'uri' }
+        )pb");
+    update_artifacts_request.mutable_artifacts(0)->set_type_id(type_id);
+    update_artifacts_request.mutable_artifacts(0)->set_id(artifact_id3);
+    update_artifacts_request.mutable_artifacts(1)->set_type_id(type_id);
+    update_artifacts_request.mutable_artifacts(1)->set_id(artifact_id4);
+    PutArtifactsResponse update_artifacts_response;
+    ASSERT_EQ(metadata_store_->PutArtifacts(update_artifacts_request,
+                                            &update_artifacts_response),
+              absl::OkStatus());
+
+    GetArtifactsByIDRequest get_artifacts_by_id_request;
+    get_artifacts_by_id_request.add_artifact_ids(artifact_id3);
+    get_artifacts_by_id_request.add_artifact_ids(artifact_id4);
+
+    GetArtifactsByIDResponse get_artifacts_by_id_response;
+    ASSERT_EQ(metadata_store_->GetArtifactsByID(get_artifacts_by_id_request,
+                                                &get_artifacts_by_id_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_artifacts_by_id_response.artifacts(), SizeIs(2));
+
+    EXPECT_THAT(
+        get_artifacts_by_id_response.artifacts(),
+        UnorderedElementsAre(
+            EqualsProto(update_artifacts_request.artifacts(0),
+                        /*ignore_fields=*/{"type", "properties",
+                                           "create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(update_artifacts_request.artifacts(1),
+                        /*ignore_fields=*/{"type", "properties",
+                                           "create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
+  {
+    // Test 3: insert two artifacts and update `properties` and
+    // `custom_properties` for both artifacts.
+    ASSERT_EQ(metadata_store_->PutArtifacts(put_artifacts_request,
+                                            &put_artifacts_response),
+              absl::OkStatus());
+    ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(2));
+    const int64_t artifact_id5 = put_artifacts_response.artifact_ids(0);
+    const int64_t artifact_id6 = put_artifacts_response.artifact_ids(1);
+    // `uri` for both artifacts will remain unchanged.
+    // Delete `properties` pair <'property': '3'> in the first artifact.
+    // Add `custom_properties` pair <'custom_property': true> for the
+    // artifact_5. Add `custom_properties` pair <'custom_property': false> for
+    // the artifact_6.
+    PutArtifactsRequest update_artifacts_request =
+        ParseTextProtoOrDie<PutArtifactsRequest>(R"pb(
+          artifacts: {
+            custom_properties {
+              key: 'custom_property'
+              value: { bool_value: true }
+            }
+          }
+          artifacts: {
+            custom_properties {
+              key: 'custom_property'
+              value: { bool_value: false }
+            }
+          }
+          update_mask: {
+            paths: 'properties.property'
+            paths: 'custom_properties.custom_property'
+          }
+        )pb");
+    update_artifacts_request.mutable_artifacts(0)->set_type_id(type_id);
+    update_artifacts_request.mutable_artifacts(0)->set_id(artifact_id5);
+    update_artifacts_request.mutable_artifacts(1)->set_type_id(type_id);
+    update_artifacts_request.mutable_artifacts(1)->set_id(artifact_id6);
+    PutArtifactsResponse update_artifacts_response;
+    ASSERT_EQ(metadata_store_->PutArtifacts(update_artifacts_request,
+                                            &update_artifacts_response),
+              absl::OkStatus());
+
+    GetArtifactsByIDRequest get_artifacts_by_id_request;
+    get_artifacts_by_id_request.add_artifact_ids(artifact_id5);
+    get_artifacts_by_id_request.add_artifact_ids(artifact_id6);
+
+    GetArtifactsByIDResponse get_artifacts_by_id_response;
+    ASSERT_EQ(metadata_store_->GetArtifactsByID(get_artifacts_by_id_request,
+                                                &get_artifacts_by_id_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_artifacts_by_id_response.artifacts(), SizeIs(2));
+
+    update_artifacts_request.mutable_artifacts(0)->set_uri(
+        "testuri://testing/uri1");
+    update_artifacts_request.mutable_artifacts(1)->set_uri(
+        "testuri://testing/uri2");
+    EXPECT_THAT(
+        get_artifacts_by_id_response.artifacts(),
+        UnorderedElementsAre(
+            EqualsProto(update_artifacts_request.artifacts(0),
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(update_artifacts_request.artifacts(1),
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
+}
+
 TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithListOptions) {
   const PutArtifactTypeRequest put_artifact_type_request =
       ParseTextProtoOrDie<PutArtifactTypeRequest>(

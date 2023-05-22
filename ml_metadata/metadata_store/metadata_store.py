@@ -20,7 +20,7 @@ types can be created on the fly.
 import enum
 import random
 import time
-from typing import Any, Iterable, List, Optional, Sequence, Text, Tuple
+from typing import Any, Iterable, List, Optional, Sequence, Tuple
 
 from absl import logging
 import attr
@@ -246,7 +246,11 @@ class MetadataStore(object):
       raise make_exception(error_message.decode('utf-8'), status_code)
     response.ParseFromString(response_str)
 
-  def put_artifacts(self, artifacts: Sequence[proto.Artifact]) -> List[int]:
+  def put_artifacts(
+      self,
+      artifacts: Sequence[proto.Artifact],
+      field_mask_paths: Optional[Sequence[str]] = None,
+  ) -> List[int]:
     """Inserts or updates artifacts in the database.
 
     If an artifact id is specified for an artifact, it is an update.
@@ -259,8 +263,17 @@ class MetadataStore(object):
     It is not guaranteed that the created or updated artifacts will share the
     same `create_time_since_epoch` or `last_update_time_since_epoch` timestamps.
 
+    If `field_mask_paths` is specified and non-empty:
+      1. while updating an existing artifact, it only updates fields specified
+         in `field_mask_paths`.
+      2. while inserting a new artifact, `field_mask_paths` will be ignored.
+      3. otherwise, `field_mask_paths` will be applied to all `artifacts`.
+    If `field_mask_paths` is unspecified or is empty, it updates the artifact
+    as a whole.
+
     Args:
       artifacts: A list of artifacts to insert or update.
+      field_mask_paths: A list of field mask paths for masked update.
 
     Returns:
       A list of artifact ids index-aligned with the input.
@@ -272,6 +285,10 @@ class MetadataStore(object):
     request = metadata_store_service_pb2.PutArtifactsRequest()
     for x in artifacts:
       request.artifacts.add().CopyFrom(x)
+
+    if field_mask_paths:
+      for path in field_mask_paths:
+        request.update_mask.paths.append(path)
     response = metadata_store_service_pb2.PutArtifactsResponse()
 
     self._call('PutArtifacts', request, response)
@@ -706,8 +723,8 @@ class MetadataStore(object):
 
   def get_artifacts_by_type(
       self,
-      type_name: Text,
-      type_version: Optional[Text] = None) -> List[proto.Artifact]:
+      type_name: str,
+      type_version: Optional[str] = None) -> List[proto.Artifact]:
     """Gets all the artifacts of a given type.
 
     Args:
@@ -732,9 +749,9 @@ class MetadataStore(object):
 
   def get_artifact_by_type_and_name(
       self,
-      type_name: Text,
-      artifact_name: Text,
-      type_version: Optional[Text] = None) -> Optional[proto.Artifact]:
+      type_name: str,
+      artifact_name: str,
+      type_version: Optional[str] = None) -> Optional[proto.Artifact]:
     """Get the artifact of the given type and name.
 
     The API fails if more than one artifact is found.
@@ -762,7 +779,7 @@ class MetadataStore(object):
       return None
     return response.artifact
 
-  def get_artifacts_by_uri(self, uri: Text) -> List[proto.Artifact]:
+  def get_artifacts_by_uri(self, uri: str) -> List[proto.Artifact]:
     """Gets all the artifacts of a given uri.
 
     Args:
@@ -805,7 +822,7 @@ class MetadataStore(object):
     return result
 
   def get_artifacts_by_external_ids(
-      self, external_ids: Iterable[Text]) -> List[proto.Artifact]:
+      self, external_ids: Iterable[str]) -> List[proto.Artifact]:
     """Gets all artifacts with matching external ids.
 
     Args:
@@ -823,8 +840,8 @@ class MetadataStore(object):
 
   def get_artifact_type(
       self,
-      type_name: Text,
-      type_version: Optional[Text] = None) -> proto.ArtifactType:
+      type_name: str,
+      type_version: Optional[str] = None) -> proto.ArtifactType:
     """Gets an artifact type by name and version.
 
     Args:
@@ -867,7 +884,7 @@ class MetadataStore(object):
     return result
 
   def get_artifact_types_by_external_ids(
-      self, external_ids: Iterable[Text]) -> List[proto.ArtifactType]:
+      self, external_ids: Iterable[str]) -> List[proto.ArtifactType]:
     """Gets all artifact types with matching external ids.
 
     Args:
@@ -886,8 +903,8 @@ class MetadataStore(object):
 
   def get_execution_type(
       self,
-      type_name: Text,
-      type_version: Optional[Text] = None) -> proto.ExecutionType:
+      type_name: str,
+      type_version: Optional[str] = None) -> proto.ExecutionType:
     """Gets an execution type by name and version.
 
     Args:
@@ -930,7 +947,7 @@ class MetadataStore(object):
     return result
 
   def get_execution_types_by_external_ids(
-      self, external_ids: Iterable[Text]) -> List[proto.ExecutionType]:
+      self, external_ids: Iterable[str]) -> List[proto.ExecutionType]:
     """Gets all execution types with matching external ids.
 
     Args:
@@ -949,8 +966,8 @@ class MetadataStore(object):
 
   def get_context_type(
       self,
-      type_name: Text,
-      type_version: Optional[Text] = None) -> proto.ContextType:
+      type_name: str,
+      type_version: Optional[str] = None) -> proto.ContextType:
     """Gets a context type by name and version.
 
     Args:
@@ -993,7 +1010,7 @@ class MetadataStore(object):
     return result
 
   def get_context_types_by_external_ids(
-      self, external_ids: Iterable[Text]) -> List[proto.ContextType]:
+      self, external_ids: Iterable[str]) -> List[proto.ContextType]:
     """Gets all context types with matching external ids.
 
     Args:
@@ -1011,8 +1028,8 @@ class MetadataStore(object):
 
   def get_executions_by_type(
       self,
-      type_name: Text,
-      type_version: Optional[Text] = None) -> List[proto.Execution]:
+      type_name: str,
+      type_version: Optional[str] = None) -> List[proto.Execution]:
     """Gets all the executions of a given type.
 
     Args:
@@ -1036,9 +1053,9 @@ class MetadataStore(object):
 
   def get_execution_by_type_and_name(
       self,
-      type_name: Text,
-      execution_name: Text,
-      type_version: Optional[Text] = None) -> Optional[proto.Execution]:
+      type_name: str,
+      execution_name: str,
+      type_version: Optional[str] = None) -> Optional[proto.Execution]:
     """Get the execution of the given type and name.
 
     The API fails if more than one execution is found.
@@ -1090,7 +1107,7 @@ class MetadataStore(object):
     return result
 
   def get_executions_by_external_ids(
-      self, external_ids: Iterable[Text]) -> List[proto.Execution]:
+      self, external_ids: Iterable[str]) -> List[proto.Execution]:
     """Gets all executions with matching external ids.
 
     Args:
@@ -1268,8 +1285,8 @@ class MetadataStore(object):
 
   def get_contexts_by_type(
       self,
-      type_name: Text,
-      type_version: Optional[Text] = None) -> List[proto.Context]:
+      type_name: str,
+      type_version: Optional[str] = None) -> List[proto.Context]:
     """Gets all the contexts of a given type.
 
     Args:
@@ -1294,9 +1311,9 @@ class MetadataStore(object):
 
   def get_context_by_type_and_name(
       self,
-      type_name: Text,
-      context_name: Text,
-      type_version: Optional[Text] = None) -> Optional[proto.Context]:
+      type_name: str,
+      context_name: str,
+      type_version: Optional[str] = None) -> Optional[proto.Context]:
     """Get the context of the given type and context name.
 
     The API fails if more than one contexts are found.
@@ -1325,7 +1342,7 @@ class MetadataStore(object):
     return response.context
 
   def get_contexts_by_external_ids(
-      self, external_ids: Iterable[Text]) -> List[proto.Context]:
+      self, external_ids: Iterable[str]) -> List[proto.Context]:
     """Gets all contexts with matching external ids.
 
     Args:
