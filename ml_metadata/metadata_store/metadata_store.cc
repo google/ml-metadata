@@ -1277,6 +1277,8 @@ absl::Status MetadataStore::PutExecution(const PutExecutionRequest& request,
           metadata_access_object_.get(), &artifact_id));
       response->add_artifact_ids(artifact_id);
     }
+    absl::flat_hash_set<int64_t> artifact_ids(response->artifact_ids().begin(),
+                                              response->artifact_ids().end());
     // 3. Upsert contexts and insert associations and attributions.
     for (const Context& context : request.contexts()) {
       int64_t context_id = -1;
@@ -1289,7 +1291,7 @@ absl::Status MetadataStore::PutExecution(const PutExecutionRequest& request,
       MLMD_RETURN_IF_ERROR(InsertAssociationIfNotExist(
           context_id, response->execution_id(), /*is_already_validated=*/true,
           metadata_access_object_.get()));
-      for (const int64_t artifact_id : response->artifact_ids()) {
+      for (const int64_t artifact_id : artifact_ids) {
         MLMD_RETURN_IF_ERROR(InsertAttributionIfNotExist(
             context_id, artifact_id, /*is_already_validated=*/true,
             metadata_access_object_.get()));

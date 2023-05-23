@@ -4083,6 +4083,79 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithArtifactReuseOption) {
             kNewExternalIdStr);
 }
 
+TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithDuplicatedArtifacts) {
+  // Setup: Insert different types.
+  PutTypesRequest put_types_request = ParseTextProtoOrDie<PutTypesRequest>(R"pb(
+    artifact_types: { name: 'artifact_type' }
+    execution_types: { name: 'execution_type' }
+    context_types: { name: 'context_type' }
+  )pb");
+  PutTypesResponse put_types_response;
+  ASSERT_EQ(metadata_store_->PutTypes(put_types_request, &put_types_response),
+            absl::OkStatus());
+  // Setup: Insert 1 context.
+  Context context = ParseTextProtoOrDie<Context>(
+      R"pb(
+        name: 'context_name'
+      )pb");
+  context.set_type_id(put_types_response.context_type_ids(0));
+  PutContextsRequest put_contexts_request;
+  *put_contexts_request.add_contexts() = context;
+  PutContextsResponse put_contexts_response;
+  ASSERT_EQ(metadata_store_->PutContexts(put_contexts_request,
+                                         &put_contexts_response),
+            absl::OkStatus());
+  context.set_id(put_contexts_response.context_ids(0));
+  // Setup: Insert 1 artifact.
+  Artifact artifact = ParseTextProtoOrDie<Artifact>(
+      R"pb(
+        external_id: 'artifact_reference_str' name: 'artifact_name'
+      )pb");
+  artifact.set_type_id(put_types_response.artifact_type_ids(0));
+
+  PutArtifactsRequest put_artifact_request;
+  *put_artifact_request.add_artifacts() = artifact;
+  PutArtifactsResponse put_artifact_response;
+  ASSERT_EQ(metadata_store_->PutArtifacts(put_artifact_request,
+                                          &put_artifact_response),
+            absl::OkStatus());
+
+  // Ack: Call put execution with duplicate artifacts.
+  // Expect call succeeds without error due to built-in artifact de-dup.
+  PutExecutionRequest put_execution_request;
+  put_execution_request.mutable_execution()->set_type_id(
+      put_types_response.execution_type_ids(0));
+  *put_execution_request.add_artifact_event_pairs()->mutable_artifact() =
+      artifact;
+  *put_execution_request.add_artifact_event_pairs()->mutable_artifact() =
+      artifact;
+  *put_execution_request.add_contexts() = context;
+  put_execution_request.mutable_options()
+      ->set_reuse_artifact_if_already_exist_by_external_id(true);
+  put_execution_request.mutable_options()->set_reuse_context_if_already_exist(
+      true);
+  PutExecutionResponse put_execution_response;
+  ASSERT_EQ(metadata_store_->PutExecution(put_execution_request,
+                                          &put_execution_response),
+            absl::OkStatus());
+
+  // Ack: Call GetArtifactsByContext to confirm that attribution relationship
+  // is correctly created between context and artifact.
+  GetArtifactsByContextRequest get_artifact_by_context_request;
+  get_artifact_by_context_request.set_context_id(context.id());
+  GetArtifactsByContextResponse get_artifact_by_context_response;
+  ASSERT_EQ(
+      metadata_store_->GetArtifactsByContext(get_artifact_by_context_request,
+                                             &get_artifact_by_context_response),
+      absl::OkStatus());
+  EXPECT_THAT(
+      get_artifact_by_context_response.artifacts(),
+      UnorderedElementsAre(EqualsProto(
+          artifact,
+          /*ignore_fields=*/{"id", "type", "uri", "create_time_since_epoch",
+                             "last_update_time_since_epoch"})));
+}
+
 TEST_P(MetadataStoreTestSuite,
        PutAndGetLineageSubgraphWithArtifactReuseOption) {
   // Setup: Prepares input that consists of 1 execution and 1 artifact,
