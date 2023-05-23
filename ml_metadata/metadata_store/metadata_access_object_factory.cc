@@ -18,6 +18,7 @@ limitations under the License.
 
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "ml_metadata/metadata_store/postgresql_query_executor.h"
 #include "ml_metadata/metadata_store/query_config_executor.h"
 #include "ml_metadata/metadata_store/rdbms_metadata_access_object.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
@@ -32,7 +33,8 @@ namespace {
 // The MetadataSource is used to execute specific queries.
 absl::Status CreateRDBMSMetadataAccessObject(
     const MetadataSourceQueryConfig& query_config,
-    MetadataSource* const metadata_source, absl::optional<int64_t> schema_version,
+    MetadataSource* const metadata_source,
+    absl::optional<int64_t> schema_version,
     std::unique_ptr<MetadataAccessObject>* result) {
   if (!metadata_source->is_connected())
     MLMD_RETURN_IF_ERROR(metadata_source->Connect());
@@ -42,6 +44,27 @@ absl::Status CreateRDBMSMetadataAccessObject(
                 query_config, metadata_source, *schema_version))
           : absl::WrapUnique(
                 new QueryConfigExecutor(query_config, metadata_source));
+  *result =
+      absl::WrapUnique(new RDBMSMetadataAccessObject(std::move(executor)));
+  return absl::OkStatus();
+}
+
+// Creates MetadataAccessObject (MAO) for PostgreSQL and returns the created MAO
+// pointer. This uses PostgreSQLQueryExecutor instead of QueryConfigExecutor
+// as query executor.
+absl::Status CreateRDBMSMetadataAccessObjectPostgreSQL(
+    const MetadataSourceQueryConfig& query_config,
+    MetadataSource* const metadata_source,
+    absl::optional<int64_t> schema_version,
+    std::unique_ptr<MetadataAccessObject>* result) {
+  if (!metadata_source->is_connected())
+    MLMD_RETURN_IF_ERROR(metadata_source->Connect());
+  std::unique_ptr<QueryExecutor> executor =
+      schema_version && *schema_version != query_config.schema_version()
+          ? absl::WrapUnique(new PostgreSQLQueryExecutor(
+                query_config, metadata_source, *schema_version))
+          : absl::WrapUnique(
+                new PostgreSQLQueryExecutor(query_config, metadata_source));
   *result =
       absl::WrapUnique(new RDBMSMetadataAccessObject(std::move(executor)));
   return absl::OkStatus();
@@ -61,7 +84,8 @@ absl::Status CreateMetadataAccessObject(
 
 absl::Status CreateMetadataAccessObject(
     const MetadataSourceQueryConfig& query_config,
-    MetadataSource* const metadata_source, absl::optional<int64_t> schema_version,
+    MetadataSource* const metadata_source,
+    absl::optional<int64_t> schema_version,
     std::unique_ptr<MetadataAccessObject>* result) {
   switch (query_config.metadata_source_type()) {
     case UNKNOWN_METADATA_SOURCE:
@@ -73,6 +97,9 @@ absl::Status CreateMetadataAccessObject(
     case SQLITE_METADATA_SOURCE:
       return CreateRDBMSMetadataAccessObject(query_config, metadata_source,
                                              schema_version, result);
+    case POSTGRESQL_METADATA_SOURCE:
+      return CreateRDBMSMetadataAccessObjectPostgreSQL(
+          query_config, metadata_source, schema_version, result);
     default:
       return absl::UnimplementedError("Unknown Metadata source type.");
   }

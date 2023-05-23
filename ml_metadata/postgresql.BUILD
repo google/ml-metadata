@@ -62,7 +62,8 @@ cc_library(
         "src/port/path.c",
         "src/port/pg_bitutils.c",
         "src/port/pg_crc32c_sb8.c",
-        "src/port/pg_crc32c_sse42_choose.c",
+        # Comment this line out to force usage of sb8 algorithm of crc32c
+        # "src/port/pg_crc32c_sse42_choose.c",
         "src/port/pg_strong_random.c",
         "src/port/pgcheckdir.c",
         "src/port/pgmkdirp.c",
@@ -79,8 +80,8 @@ cc_library(
         "src/port/tar.c",
         "src/port/thread.c",
     ] + select({
-        "@bazel_tools//src/conditions:darwin": [],
-        "@bazel_tools//src/conditions:windows": [
+        "@//ml_metadata:macos": [],
+        "@//ml_metadata:windows": [
             "src/interfaces/libpq/pthread-win32.c",
             "src/interfaces/libpq/win32.c",
             "src/port/dirmod.c",
@@ -94,6 +95,7 @@ cc_library(
         ],
         "//conditions:default": [
             "src/port/getpeereid.c",
+            "src/port/strlcat.c",
             "src/port/strlcpy.c",
         ],
     }),
@@ -108,14 +110,14 @@ cc_library(
     defines = [
         "FRONTEND",
     ] + select({
-        "@bazel_tools//src/conditions:windows": [
+        "@//ml_metadata:windows": [
             "BLCKSZ=8192",
             "XLOG_BLCKSZ=8192",
             'PG_MAJORVERSION=\\"12\\"',
             "HAVE_LIBZ=1",
             "WIN32",
         ],
-        "@bazel_tools//src/conditions:darwin": [
+        "@//ml_metadata:macos": [
             "HAVE_DECL_STRLCPY=1",
             "HAVE_STRLCPY=1",
             "HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN=1",
@@ -131,7 +133,7 @@ cc_library(
         "src/include",
         "src/interfaces/libpq",
     ] + select({
-        "@bazel_tools//src/conditions:windows": [
+        "@//ml_metadata:windows": [
             "src/include/port/win32",
             "src/include/port/win32_msvc",
             "src/port",
@@ -139,9 +141,10 @@ cc_library(
         "//conditions:default": [],
     }),
     linkopts = select({
-        "@bazel_tools//src/conditions:windows": [
+        "@//ml_metadata:windows": [
             "-DEFAULTLIB:ws2_32.lib",
             "-DEFAULTLIB:shell32.lib",
+            "-DEFAULTLIB:secur32.lib"
         ],
         "//conditions:default": [],
     }),
@@ -151,10 +154,10 @@ cc_library(
 genrule(
     name = "pg_config_os_h",
     srcs = select({
-        "@bazel_tools//src/conditions:windows": [
+        "@//ml_metadata:windows": [
             "src/include/port/win32.h",
         ],
-        "@bazel_tools//src/conditions:darwin": [
+        "@//ml_metadata:macos": [
             "src/include/port/darwin.h",
         ],
         "//conditions:default": [
@@ -170,7 +173,7 @@ genrule(
 genrule(
     name = "pg_config_ext_h",
     srcs = select({
-        "@bazel_tools//src/conditions:windows": [
+        "@//ml_metadata:windows": [
             "src/include/pg_config_ext.h.win32",
         ],
         "//conditions:default": [
@@ -179,7 +182,7 @@ genrule(
     }),
     outs = ["config/pg_config_ext.h"],
     cmd = select({
-        "@bazel_tools//src/conditions:windows": "cp $< $@",
+        "@//ml_metadata:windows": "cp $< $@",
         "//conditions:default": (
             "sed " +
             "-e 's/undef PG_INT64_TYPE/define PG_INT64_TYPE long int/g' " +
@@ -390,7 +393,7 @@ genrule(
 genrule(
     name = "pg_config_h",
     srcs = select({
-        "@bazel_tools//src/conditions:windows": [
+        "@//ml_metadata:windows": [
             "src/include/pg_config.h.win32",
         ],
         "//conditions:default": [
@@ -401,7 +404,7 @@ genrule(
         "config/pg_config.h",
     ],
     cmd = select({
-        "@bazel_tools//src/conditions:windows": "cp $< $@",
+        "@//ml_metadata:windows": "cp $< $@",
         "//conditions:default": "\n".join([
             "cat <<'EOF' >$@",
             "/* src/include/pg_config.h.  Generated from pg_config.h.in by configure.  */",
@@ -1349,13 +1352,15 @@ genrule(
             "/* #undef USE_PAM */",
             "",
             "/* Define to 1 to use software CRC-32C implementation (slicing-by-8). */",
-            "/* #undef USE_SLICING_BY_8_CRC32C */",
+            # Force usage of sb8 algorithm of crc32c
+            "#define USE_SLICING_BY_8_CRC32C 1",
             "",
             "/* Define to 1 use Intel SSE 4.2 CRC instructions. */",
             "/* #undef USE_SSE42_CRC32C */",
             "",
             "/* Define to 1 to use Intel SSE 4.2 CRC instructions with a runtime check. */",
-            "#define USE_SSE42_CRC32C_WITH_RUNTIME_CHECK 1",
+            # Do not check at runtime but force usage of sb8 algorithm of crc32c
+            "/* #undef USE_SSE42_CRC32C_WITH_RUNTIME_CHECK */",
             "",
             "/* Define to build with systemd support. (--with-systemd) */",
             "/* #undef USE_SYSTEMD */",

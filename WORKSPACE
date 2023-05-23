@@ -3,6 +3,17 @@ workspace(name = "ml_metadata")
 load("//ml_metadata:repo.bzl", "mlmd_http_archive", "clean_dep")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
+http_archive(
+    name = "postgresql",
+    build_file = "//ml_metadata:postgresql.BUILD",
+    workspace_file_content = "//ml_metadata:postgresql.WORKSPACE",
+    sha256 = "9868c1149a04bae1131533c5cbd1c46f9c077f834f6147abaef8791a7c91b1a1",
+    strip_prefix = "postgresql-12.1",
+    urls = [
+        "https://ftp.postgresql.org/pub/source/v12.1/postgresql-12.1.tar.gz",
+    ],
+)
+
 #Install bazel platform version 0.0.6
 http_archive(
     name = "platforms",
@@ -57,17 +68,6 @@ mlmd_http_archive(
     urls = [
         "https://storage.googleapis.com/mirror.tensorflow.org/www.sqlite.org/2022/sqlite-amalgamation-3390200.zip",
         "https://www.sqlite.org/2022/sqlite-amalgamation-3390200.zip",
-    ],
-)
-
-# postgres
-http_archive(
-    name = "postgresql",
-    build_file = "//ml_metadata:postgres.BUILD",
-    sha256 = "9868c1149a04bae1131533c5cbd1c46f9c077f834f6147abaef8791a7c91b1a1",
-    strip_prefix = "postgresql-12.1",
-    urls = [
-        "https://ftp.postgresql.org/pub/source/v12.1/postgresql-12.1.tar.gz",
     ],
 )
 

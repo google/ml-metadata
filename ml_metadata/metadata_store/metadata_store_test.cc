@@ -303,11 +303,12 @@ TEST(MetadataStoreExtendedTest, GetLineageGraphWithMaxNodeSize) {
 
   // Verify the query results with the specified max_node_size
   auto verify_lineage_graph_with_max_node_size =
-      [&metadata_store](absl::optional<int64_t> max_node_size,
-                        const std::vector<Artifact>& want_artifacts,
-                        const std::vector<Execution>& want_executions,
-                        const std::vector<std::pair<int64_t, int64_t>>& want_events,
-                        bool artifact_requires_live_state = false) {
+      [&metadata_store](
+          absl::optional<int64_t> max_node_size,
+          const std::vector<Artifact>& want_artifacts,
+          const std::vector<Execution>& want_executions,
+          const std::vector<std::pair<int64_t, int64_t>>& want_events,
+          bool artifact_requires_live_state = false) {
         GetLineageGraphRequest req;
         GetLineageGraphResponse resp;
         if (artifact_requires_live_state) {
