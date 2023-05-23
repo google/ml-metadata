@@ -677,7 +677,7 @@ message SqliteMetadataSourceConfig {
 // A config contains the parameters when using with PostgreSQLMetadatSource.
 // Next index: 10
 message PostgreSQLDatabaseConfig {
-  // Name of host to connect to. If the host name starts with @, it is taken as
+  // Name of host to connect to. If the host name starts with /, it is taken as
   // a Unix-domain socket in the abstract namespace.
   optional string host = 1;
 

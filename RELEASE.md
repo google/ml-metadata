@@ -2,6 +2,8 @@
 
 ## Major Features and Improvements
 
+*   Support PostgreSQL database type.
+
 ## Breaking Changes
 
 ## Deprecations

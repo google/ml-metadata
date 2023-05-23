@@ -723,6 +723,7 @@ cc_binary(
         ":metadata_store_service_impl",
         "@com_google_protobuf//:protobuf",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "//ml_metadata/proto:metadata_store_proto",
         "@com_github_gflags_gflags//:gflags_nothreads",
