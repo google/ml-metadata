@@ -904,6 +904,42 @@ cc_test(
     ],
 )
 
+# This test requires a PostgreSQL server that is separately spawned. Details of the PostgreSQL
+# server are specified by flags passed to the test. For e.g.,
+#
+# bazel run :standalone_postgresql_metadata_access_object_test -- \
+#     --db_name="foo" \
+#     --host_name="localhost"\
+#     --user_name="me" \
+#     --password="thisispassword"\
+#     --port="3456"
+#
+# See standalone_postgresql_metadata_access_object_test.cc for the full flag
+# list.
+cc_test(
+    name = "standalone_postgresql_metadata_access_object_test",
+    tags = [
+        "local",
+        "manual",
+    ],
+    deps = [
+        ":test_postgresql_standalone_metadata_source_initializer",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "test_postgresql_standalone_metadata_source_initializer",
+    testonly = 1,
+    srcs = ["test_postgresql_standalone_metadata_source_initializer.cc"],
+    deps = [
+        ":postgresql_metadata_source",
+        ":test_postgresql_metadata_source_initializer",
+        "//ml_metadata/proto:metadata_store_proto",
+        "@com_github_gflags_gflags//:gflags_nothreads",
+    ],
+)
+
 # PostgreSQL build and test targets.
 cc_library(
     name = "postgresql_metadata_source",
