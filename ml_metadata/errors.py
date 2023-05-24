@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Exception types for MLMD errors."""
+from absl import logging
 
 # The error code values are aligned with absl status errors.
 # TODO(b/143236826) Drop this once absl status is available in python.
@@ -195,3 +196,26 @@ _CODE_TO_EXCEPTION_CLASS = {
 def exception_type_from_error_code(error_code):
   """Returns error class w.r.t. the error_code."""
   return _CODE_TO_EXCEPTION_CLASS[error_code]
+
+
+def make_exception(message: str, error_code: int):
+  """Makes an exception with the MLMD error code.
+
+  Args:
+    message: Error message.
+    error_code: MLMD error code.
+
+  Returns:
+    An exception.
+  """
+
+  try:
+    exc_type = exception_type_from_error_code(error_code)
+    # log internal backend engine errors only.
+    if error_code == INTERNAL:
+      logging.log(
+          logging.WARNING, 'mlmd client %s: %s', exc_type.__name__, message
+      )
+    return exc_type(message)
+  except KeyError:
+    return UnknownError(message)

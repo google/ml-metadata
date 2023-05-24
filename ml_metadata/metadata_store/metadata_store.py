@@ -221,7 +221,7 @@ class MetadataStore(object):
         # RpcError code uses a tuple to specify error code and short
         # description.
         # https://grpc.github.io/grpc/python/_modules/grpc.html#StatusCode
-        raise make_exception(e.details(), e.code().value[0]) from e  # pytype: disable=attribute-error
+        raise errors.make_exception(e.details(), e.code().value[0]) from e  # pytype: disable=attribute-error
 
   def _pywrap_cc_call(self, method, request, response) -> None:
     """Calls method, serializing and deserializing inputs and outputs.
@@ -243,7 +243,7 @@ class MetadataStore(object):
     [response_str, error_message,
      status_code] = method(self._metadata_store, request.SerializeToString())
     if status_code != 0:
-      raise make_exception(error_message.decode('utf-8'), status_code)
+      raise errors.make_exception(error_message.decode('utf-8'), status_code)
     response.ParseFromString(response_str)
 
   def put_artifacts(
@@ -1166,7 +1166,7 @@ class MetadataStore(object):
     del extra_options
     if list_options is not None:
       if list_options.limit and list_options.limit < 1:
-        raise make_exception(
+        raise errors.make_exception(
             (
                 'Invalid list_options.limit value passed. '
                 'list_options.limit is expected to be greater than 1'
@@ -1680,7 +1680,7 @@ def downgrade_schema(config: proto.ConnectionConfig,
     RuntimeError: if the downgrade is not finished, return detailed error.
   """
   if downgrade_to_schema_version < 0:
-    raise make_exception(
+    raise errors.make_exception(
         'downgrade_to_schema_version not specified', errors.INVALID_ARGUMENT
     )
 
@@ -1691,29 +1691,8 @@ def downgrade_schema(config: proto.ConnectionConfig,
         config.SerializeToString(), migration_options.SerializeToString())
   except RuntimeError as e:
     if str(e).startswith('MLMD cannot be downgraded to schema_version'):
-      raise make_exception(str(e), errors.INVALID_ARGUMENT) from e
+      raise errors.make_exception(str(e), errors.INVALID_ARGUMENT) from e
     if not str(e).startswith('Downgrade migration was performed.'):
       raise e
     # downgrade is done.
     logging.log(logging.INFO, str(e))
-
-
-def make_exception(msg, error_code):
-  """Makes an exception with MLMD error code.
-
-  Args:
-    msg: Error message.
-    error_code: MLMD error code.
-
-  Returns:
-    An exception.
-  """
-
-  try:
-    exc_type = errors.exception_type_from_error_code(error_code)
-    # log internal backend engine errors only.
-    if error_code == errors.INTERNAL:
-      logging.log(logging.WARNING, 'mlmd client %s: %s', exc_type.__name__, msg)
-    return exc_type(msg)
-  except KeyError:
-    return errors.UnknownError(msg)
