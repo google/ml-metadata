@@ -1048,43 +1048,123 @@ message TransactionOptions {
 }
 
 
-// The query options for list lineage graph operation. It allows specifying the
-// `query_nodes` of interests and the `stop_conditions` when querying a
-// lineage graph. The query option is used for exporting provenance information
-// from a source MLMD instance.
+// The query options for `get_lineage_graph` operation.
+// `query_nodes` is a list of nodes of interest.
+// Currently only artifacts are supported as `query_nodes`.
+// `stop_conditions` defines the filtering rules when querying a lineage graph.
+// `max_node_size` defines the total number of artifacts and executions returned
+// in the subgraph.
 message LineageGraphQueryOptions {
-  // A query to specify the nodes of interests.
+  // A query to specify the nodes of interest.
+  // `ListOperationOptions.max_result_size` sets the maximum number of nodes to
+  // begin with the graph search.
   // TODO(b/178491112) Support query_nodes for Executions.
   oneof query_nodes {
     ListOperationOptions artifacts_options = 1;
   }
 
-  // Boundary conditions to stop the traversal when return the `subgraph`.
+  // Filtering conditions for retrieving the lineage graph.
   message BoundaryConstraint {
-    // The maximum number of hops from the `query_nodes` to traverse. It should
-    // be non-negative. When zero, only the `query_nodes` are returned.
+    // The maximum number of hops from the `query_nodes` to traverse.
+    // A hop is defined as a jump to the next node following the path of
+    // node -> event -> next_node.
+    // For example, in the lineage graph a_1 -> e_1 -> a_2:
+    // a_2 is 2 hops away from a_1, and e_1 is 1 hop away from a_1.
+    // `max_num_hops` should be non-negative.
+    // When its value is set to 0, only the `query_nodes` are returned.
     optional int64 max_num_hops = 1;
 
-    // Conditions for the boundary node in the returned the subgraph.
-    // Please refer to ListOperationOptions.filter_query for the syntax.
-    // If set, it stops traversing further at the artifacts that do not satisfy
-    // `boundary_artifacts` and exclude them from the returned subgraph.
-    // For example, to look for the models related to a DataSet and ignore
-    // other artifacts derived from the DataSet:
-    //   "type = 'DataSet' OR type = 'TransformGraph' OR type = 'Model'"
+    // Filtering conditions for retrieving the lineage graph.
+    // Please refer to `ListOperationOptions.filter_query` for the syntax.
+    //
+    // If set, the `boundary_artifacts` defines which artifacts to keep in the
+    // returned lineage graph during the graph search.
+    // Artifacts that do not satisfy the `boundary_artifacts` are filtered out,
+    // and the subgraphs starting at them will be pruned.
+    // If not set, no artifacts will be filtered out.
+    // Taking the following lineage graph as example:
+    // (`a` represents an Artifact, `e` represents an Execution, each arrow
+    // represents a hop.)
+    //  a_0   a_1     a_3
+    //   |      \   /     \
+    //  \/      \/ \/     \/
+    //  e_0      e_1      e_3
+    //                   /   \
+    //                  \/   \/
+    //        a_2     a_4     a_5
+    //           \   /
+    //           \/ \/
+    //            e_2
+    // To query all the upstream and downstream nodes 3 hops away from a_4,
+    // while excluding the upstream subgraph starting at a_3, then
+    // `stop_conditions` can be set as:
+    // {
+    //   max_num_hops: 3
+    //   boundary_artifacts: 'id != 3'
+    // }
+    // With the `stop_conditions`, {a_3, e_1, a_1, a_0, e_0} will be filtered
+    // out.
+    // The returned lineage graph looks like:
+    //                    e_3
+    //                   /   \
+    //                  \/   \/
+    //        a_2     a_4     a_5
+    //           \   /
+    //           \/ \/
+    //            e_2
     optional string boundary_artifacts = 2;
-    // If set, it stops traversing further at the executions that do not satisfy
-    // `boundary_executions` and exclude them from the returned subgraph.
-    // For example, two trainers may be connected due to the shared datasets,
-    // to exclude other trainers except a particular one (e.g., id = 5):
-    //   "type != 'Trainer' OR (type = 'Trainer' AND id = 5)"
+    // If set, the `boundary_executions` defines which executions to keep in the
+    // returned lineage graph during the graph search.
+    // Executions that do not satisfy the `boundary_executions` are filtered out
+    // and the subgraphs starting at them will be pruned.
+    // If not set, no executions will be filtered out.
+    // In the example above, to query for all the upstream and downstream nodes
+    // 3 hops away from a_4, while excluding the upstream subgraph and the
+    // downstream subgraph starting at e_3, then `stop_conditions` can be set as
+    // {
+    //   max_num_hops: 3
+    //   boundary_executions: 'id != 3'
+    // }
+    // With the `stop_conditions`, {e_3, a_5, a_3, e_1, a_1, a_0, e_0} will be
+    // filtered out.
+    // The returned lineage graph looks like:
+    //        a_2     a_4
+    //           \   /
+    //           \/ \/
+    //            e_2
+    // However, for the following graph:
+    //  a_0   a_1     a_3
+    //   |      \   /     \
+    //  \/      \/ \/     \/
+    //  e_0      e_1      e_3
+    //              \    /   \
+    //               \/ \/   \/
+    //        a_2     a_4     a_5
+    //           \   /
+    //           \/ \/
+    //            e_2
+    // With the same `stop_conditions`, only {e_3, a_5, a_0, e_0} will be
+    // filtered out.
+    // The returned lineage graph looks like:
+    //       a_1     a_3
+    //          \   /
+    //          \/ \/
+    //           e_1
+    //              \
+    //               \/
+    //        a_2     a_4
+    //           \   /
+    //           \/ \/
+    //            e_2
     optional string boundary_executions = 3;
   }
 
-  // A constraint option to define the boundary of the returned subgraph.
+  // A constraint option to define the filtering rules when querying a lineage
+  // graph.
   optional BoundaryConstraint stop_conditions = 2;
 
-  // Maximum number of returned nodes.
+  // Maximum total number of artifacts and executions in the whole returned
+  // lineage graph.
   // If set to 0 or below, all related nodes will be returned without any
   // number limitation.
   // The number counts toward Artifacts and Executions. Nothing else considered.

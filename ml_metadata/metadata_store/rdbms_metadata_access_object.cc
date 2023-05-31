@@ -2621,8 +2621,8 @@ absl::Status RDBMSMetadataAccessObject::QueryLineageGraph(
   int64_t curr_distance = 0;
   std::vector<Artifact> output_artifacts;
   std::vector<Execution> output_executions;
-  // If max_nodes is not set, set nodes quota to max int64_t value to effectively
-  // disable limit the lineage graph by nodes count.
+  // If max_nodes is not set, set nodes quota to max int64_t value to
+  // effectively disable the nodes count limit of the lineage graph.
   int64_t nodes_quota;
   if (!max_nodes) {
     nodes_quota = std::numeric_limits<int64_t>::max();

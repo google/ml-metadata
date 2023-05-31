@@ -975,8 +975,8 @@ message GetExecutionsByContextResponse {
 }
 
 
-// A lineage query request to specify the query nodes of interests and the
-// boundary conditions for the returned graph.
+// A lineage query request to specify the query nodes of interest and the
+// boundary conditions for pruning the returned graph.
 message GetLineageGraphRequest {
   optional LineageGraphQueryOptions options = 1;
   // Options regarding transactions.
