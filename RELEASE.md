@@ -3,6 +3,7 @@
 ## Major Features and Improvements
 
 *   Support PostgreSQL database type.
+*   Support bool_value in (custom_)property filter queries.
 
 ## Breaking Changes
 

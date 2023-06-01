@@ -200,10 +200,12 @@ constexpr QueryTestCase kValidTestQueries[] = {
     {"properties.0.int_value = 1", ""},
     {"properties.foo.string_value = '2'", ""},
     {"properties.bar_baz.double_value IS NOT NULL", ""},
+    {"properties.qux.bool_value = true", ""},
     // custom properties related expressions
     {"custom_properties.0.double_value > 1.0", ""},
     {"custom_properties.1.string_value = '2'", ""},
     {"custom_properties.2.int_value != 0", ""},
+    {"custom_properties.3.bool_value != false", ""},
     // the property name with arbitrary strings
     {"properties.`0:b`.int_value = 1", ""},
     {"custom_properties.`0 b`.string_value != '1'", ""},

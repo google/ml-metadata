@@ -31,6 +31,7 @@ namespace {
 using ::zetasql::types::DoubleType;
 using ::zetasql::types::Int64Type;
 using ::zetasql::types::StringType;
+using ::zetasql::types::BoolType;
 
 // A regular expression that for mentioned contexts in query.
 constexpr absl::string_view kContextRE = "\\b(contexts_[[:word:]]+)\\.";
@@ -451,7 +452,8 @@ absl::StatusOr<std::string> AddPropertiesAndTransformQueryImpl(
     MLMD_RETURN_IF_ERROR(
         type_factory.MakeStructType({{"int_value", Int64Type()},
                                      {"double_value", DoubleType()},
-                                     {"string_value", StringType()}},
+                                     {"string_value", StringType()},
+                                     {"bool_value", BoolType()}},
                                     &property_struct_type));
     MLMD_RETURN_IF_ERROR(
         analyzer_opts.AddExpressionColumn(ast_property, property_struct_type));

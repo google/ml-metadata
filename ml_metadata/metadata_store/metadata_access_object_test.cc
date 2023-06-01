@@ -4121,41 +4121,103 @@ TEST_P(MetadataAccessObjectTest,
 template <class NodeType, class Node>
 void TestFilteringWithListOptionsImpl(
     MetadataAccessObject& metadata_access_object,
-    MetadataAccessObjectContainer* metadata_access_object_container) {
+    MetadataAccessObjectContainer* metadata_access_object_container,
+    bool schema_less_than_10) {
   const NodeType type = CreateTypeFromTextProto<NodeType>(
       R"(
     name: 'test_type'
     properties { key: 'p1' value: INT }
     properties { key: 'p2' value: DOUBLE }
     properties { key: 'p3' value: STRING }
+    properties { key: 'p4' value: BOOLEAN }
   )",
       metadata_access_object, metadata_access_object_container);
 
   // Setup: 5 nodes of `test_type`
   // node_$i has a custom property custom_property_$i which is not NULL.
-  // node_$i also has p1 = $i, p2 = $i.0, p3 = '$i'
+  // node_$i also has p1 = $i, p2 = $i.0, p3 = '$i',
+  //   and if schema_version >= 10, has p4 = ((i % 2) == 0)
   std::vector<Node> want_nodes(5);
   for (int i = 0; i < want_nodes.size(); i++) {
-    CreateNodeFromTextProto(absl::StrFormat(R"(
-          type_id: %d
-          name: 'test_%d'
-          properties { key: 'p1' value: { int_value: %d } }
-          properties { key: 'p2' value: { double_value: %f } }
-          properties { key: 'p3' value: { string_value: '%s' }
-        }
-        custom_properties {
-          key: 'custom_property_%d' value: { string_value: 'foo' }
-        }
-        custom_properties {
-          key: 'custom_property %d' value: { double_value: 1.0 }
-        }
-        custom_properties {
-          key: 'custom_property:%d' value: { int_value: 1 }
-        })",
-                                            type.id(), i, i, 1.0 * i,
-                                            absl::StrCat("0", i), i, i, i),
-                            type.id(), metadata_access_object,
-                            metadata_access_object_container, want_nodes[i]);
+    CreateNodeFromTextProto(
+        schema_less_than_10
+            ? absl::StrFormat(
+                  R"pb(
+                    type_id: %d
+                    name: 'test_%d'
+                    properties {
+                      key: 'p1'
+                      value: { int_value: %d }
+                    }
+                    properties {
+                      key: 'p2'
+                      value: { double_value: %f }
+                    }
+                    properties {
+                      key: 'p3'
+                      value: { string_value: '%s' }
+                    }
+                    custom_properties {
+                      key: 'custom_property_%d'
+                      value: { string_value: 'foo' }
+                    }
+                    custom_properties {
+                      key: 'custom_property %d'
+                      value: { double_value: 1.0 }
+                    }
+                    custom_properties {
+                      key: 'custom_property:%d'
+                      value: { int_value: 1 }
+                    }
+                  )pb",
+                  /*type_id, name_suffix=*/type.id(), i,
+                  /*int_value=*/i,
+                  /*double_value=*/1.0 * i,
+                  /*string_value=*/absl::StrCat("0", i), i, i, i)
+            : absl::StrFormat(
+                  R"pb(
+                    type_id: %d
+                    name: 'test_%d'
+                    properties {
+                      key: 'p1'
+                      value: { int_value: %d }
+                    }
+                    properties {
+                      key: 'p2'
+                      value: { double_value: %f }
+                    }
+                    properties {
+                      key: 'p3'
+                      value: { string_value: '%s' }
+                    }
+                    properties {
+                      key: 'p4'
+                      value: { bool_value: %s }
+                    }
+                    custom_properties {
+                      key: 'custom_property_%d'
+                      value: { string_value: 'foo' }
+                    }
+                    custom_properties {
+                      key: 'custom_property %d'
+                      value: { double_value: 1.0 }
+                    }
+                    custom_properties {
+                      key: 'custom_property:%d'
+                      value: { int_value: 1 }
+                    }
+                    custom_properties {
+                      key: 'custom_property-%d'
+                      value: { bool_value: true }
+                    }
+                  )pb",
+                  /*type_id, name_suffix=*/type.id(), i,
+                  /*int_value=*/i,
+                  /*double_value=*/1.0 * i,
+                  /*string_value=*/absl::StrCat("0", i),
+                  /*bool_value=*/(i % 2) == 0 ? "true" : "false", i, i, i, i),
+        type.id(), metadata_access_object, metadata_access_object_container,
+        want_nodes[i]);
   }
 
   static constexpr absl::string_view kListOption = R"(
@@ -4191,6 +4253,15 @@ void TestFilteringWithListOptionsImpl(
       {want_nodes[4], want_nodes[3], want_nodes[2], want_nodes[1],
        want_nodes[0]});
 
+  if (!schema_less_than_10) {
+    VerifyListOptions<Node>(
+        absl::Substitute(kListOption, "properties.p4.bool_value = true"),
+        metadata_access_object,
+        /*want_nodes=*/
+        {want_nodes[4], want_nodes[2], want_nodes[0]}
+    );
+  }
+
   VerifyListOptions<Node>(
       absl::Substitute(
           kListOption,
@@ -4222,19 +4293,22 @@ void TestFilteringWithListOptionsImpl(
 TEST_P(MetadataAccessObjectTest, ListArtifactsFilterPropertyQuery) {
   ASSERT_EQ(Init(), absl::OkStatus());
   TestFilteringWithListOptionsImpl<ArtifactType, Artifact>(
-      *metadata_access_object_, metadata_access_object_container_.get());
+      *metadata_access_object_, metadata_access_object_container_.get(),
+      /*schema_less_than_10=*/IfSchemaLessThan(10));
 }
 
 TEST_P(MetadataAccessObjectTest, ListExecutionsFilterPropertyQuery) {
   ASSERT_EQ(Init(), absl::OkStatus());
   TestFilteringWithListOptionsImpl<ExecutionType, Execution>(
-      *metadata_access_object_, metadata_access_object_container_.get());
+      *metadata_access_object_, metadata_access_object_container_.get(),
+      /*schema_less_than_10=*/IfSchemaLessThan(10));
 }
 
 TEST_P(MetadataAccessObjectTest, LisContextsFilterPropertyQuery) {
   ASSERT_EQ(Init(), absl::OkStatus());
   TestFilteringWithListOptionsImpl<ContextType, Context>(
-      *metadata_access_object_, metadata_access_object_container_.get());
+      *metadata_access_object_, metadata_access_object_container_.get(),
+      /*schema_less_than_10=*/IfSchemaLessThan(10));
 }
 
 TEST_P(MetadataAccessObjectTest, ListNodesFilterWithErrors) {

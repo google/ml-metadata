@@ -171,14 +171,13 @@ absl::string_view GetArtifactPropertyJoinTable(int64_t query_version) {
           FROM ArtifactProperty WHERE name = "$2" AND is_custom_property = $3
         ) AS $1 ON $0.id = $1.artifact_id )sql";
     // Head version supports queries from v10+
-    // TODO(b/258307046): add bool_value to v10+ queries
     case 10:
     default:
       // $0 is the base node table. $1 is the property related neighborhood
       // table. $2 is property name. $3 is a boolean for is_custom_property.
       return R"sql(
         JOIN (
-          SELECT artifact_id, int_value, double_value, string_value
+          SELECT artifact_id, int_value, double_value, string_value, bool_value
           FROM ArtifactProperty WHERE name = "$2" AND is_custom_property = $3
         ) AS $1 ON $0.id = $1.artifact_id )sql";
   }
@@ -202,14 +201,13 @@ absl::string_view GetExecutionPropertyJoinTable(int64_t query_version) {
           FROM ExecutionProperty WHERE name = "$2" AND is_custom_property = $3
         ) AS $1 ON $0.id = $1.execution_id )sql";
     // Head version supports queries from v10+
-    // TODO(b/258307046): add bool_value to v10+ queries
     case 10:
     default:
       // $0 is the base node table. $1 is the property related neighborhood
       // table. $2 is property name. $3 is a boolean for is_custom_property.
       return R"sql(
         JOIN (
-          SELECT execution_id, int_value, double_value, string_value
+          SELECT execution_id, int_value, double_value, string_value, bool_value
           FROM ExecutionProperty WHERE name = "$2" AND is_custom_property = $3
         ) AS $1 ON $0.id = $1.execution_id )sql";
   }
@@ -233,14 +231,13 @@ absl::string_view GetContextPropertyJoinTable(int64_t query_version) {
           FROM ContextProperty WHERE name = "$2" AND is_custom_property = $3
         ) AS $1 ON $0.id = $1.context_id )sql";
     // Head version supports queries from v10+
-    // TODO(b/258307046): add bool_value to v10+ queries
     case 10:
     default:
       // $0 is the base node table. $1 is the property related neighborhood
       // table. $2 is property name. $3 is a boolean for is_custom_property.
       return R"sql(
         JOIN (
-          SELECT context_id, int_value, double_value, string_value
+          SELECT context_id, int_value, double_value, string_value, bool_value
           FROM ContextProperty WHERE name = "$2" AND is_custom_property = $3
         ) AS $1 ON $0.id = $1.context_id )sql";
   }

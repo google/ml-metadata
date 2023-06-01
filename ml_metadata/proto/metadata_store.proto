@@ -908,6 +908,7 @@ message ListOperationOptions {
   //           custom_properties.$name ($name is the custom property name)
   //   attributes: the following attributes can be used
   //      int_value: int64, double_value: double, string_value: string
+  //      bool_value: bool
   //
   // - Context (for Artifact and Execution):
   //   syntax: contexts_$alias ($alias can be [0-9A-Za-z_])
@@ -986,7 +987,7 @@ message ListOperationOptions {
   //    other than [0-9A-Za-z_], then the name need to be backquoted,
   //    e.g.,
   //    - properties.`my property`.int_value > 0
-  //    - custom_properties.`my:custom.property`.string_value = 'foo'
+  //    - custom_properties.`my:custom.property`.bool_value = true
   //
   // f) complex query to filter both node attributes and neighborhood
   //    - type = 'DataSet' AND
