@@ -115,6 +115,9 @@ class PostgreSQLMetadataSource : public MetadataSource {
   PGconn* conn_ = nullptr;
 };
 
+std::string buildConnectionConfig(const PostgreSQLDatabaseConfig& config,
+                                  bool& use_default_db);
+
 }  // namespace ml_metadata
 
 #endif  // THIRD_PARTY_ML_METADATA_METADATA_STORE_POSTGRESQL_METADATA_SOURCE_H_

@@ -226,7 +226,7 @@ absl::Status PostgreSQLMetadataSource::ConnectImpl() {
     }
 
     const std::string create_database_cmd =
-        absl::StrCat("CREATE DATABASE ", config_.dbname().data());
+        absl::StrCat("CREATE DATABASE ", config_.dbname().data(), ";");
     PGresult* res = PQexec(connDefault, create_database_cmd.c_str());
     if (PQresultStatus(res) != PGRES_COMMAND_OK &&
         PQresultStatus(res) != PGRES_TUPLES_OK) {

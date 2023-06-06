@@ -928,6 +928,38 @@ cc_test(
     ],
 )
 
+cc_test(
+    name = "standalone_postgresql_metadata_source_test",
+    tags = [
+        "local",
+        "manual",
+    ],
+    deps = [
+        ":postgresql_metadata_source_test",
+        ":test_postgresql_standalone_metadata_source_initializer",
+    ],
+)
+
+cc_library(
+    name = "postgresql_metadata_source_test",
+    testonly = 1,
+    srcs = [
+        "postgresql_metadata_source_test.cc",
+    ],
+    deps = [
+        ":metadata_source",
+        ":metadata_source_test_suite",
+        ":postgresql_metadata_source",
+        ":test_postgresql_metadata_source_initializer",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/memory",
+        "@com_github_gflags_gflags//:gflags_nothreads",
+        "@com_google_glog//:glog",
+    ],
+)
+
 cc_library(
     name = "test_postgresql_standalone_metadata_source_initializer",
     testonly = 1,
@@ -935,8 +967,11 @@ cc_library(
     deps = [
         ":postgresql_metadata_source",
         ":test_postgresql_metadata_source_initializer",
+        "@com_google_absl//absl/memory",
         "//ml_metadata/proto:metadata_store_proto",
         "@com_github_gflags_gflags//:gflags_nothreads",
+        "@com_google_glog//:glog",
+        "@postgresql",
     ],
 )
 

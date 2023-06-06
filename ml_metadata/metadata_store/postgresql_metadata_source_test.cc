@@ -15,6 +15,8 @@ limitations under the License.
 
 #include "ml_metadata/metadata_store/postgresql_metadata_source.h"
 
+#include "gflags/gflags.h"
+#include <glog/logging.h>
 #include <gtest/gtest.h>
 #include "ml_metadata/metadata_store/metadata_source_test_suite.h"
 #include "ml_metadata/metadata_store/test_postgresql_metadata_source_initializer.h"
@@ -85,3 +87,9 @@ INSTANTIATE_TEST_SUITE_P(
 
 }  // namespace testing
 }  // namespace ml_metadata
+
+int main(int argc, char* argv[]) {
+  ::testing::InitGoogleTest(&argc, argv);
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
+  return RUN_ALL_TESTS();
+}
