@@ -25,6 +25,7 @@ limitations under the License.
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/substitute.h"
 #include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/metadata_store/sqlite_metadata_source_util.h"
 #include "ml_metadata/metadata_store/types.h"
@@ -225,20 +226,47 @@ absl::Status PostgreSQLMetadataSource::ConnectImpl() {
                                             PQerrorMessage(connDefault)));
     }
 
-    const std::string create_database_cmd =
-        absl::StrCat("CREATE DATABASE ", config_.dbname().data(), ";");
-    PGresult* res = PQexec(connDefault, create_database_cmd.c_str());
-    if (PQresultStatus(res) != PGRES_COMMAND_OK &&
-        PQresultStatus(res) != PGRES_TUPLES_OK) {
-      const std::string error_str = std::string(PQresultErrorMessage(res));
-      LOG(ERROR) << "Creating database " << config_.dbname()
+    // Check whether the target DB already exists.
+    const std::string check_database_command = absl::Substitute(
+        "SELECT datname FROM pg_catalog.pg_database WHERE lower(datname) = "
+        "lower('$0');",
+        config_.dbname().data());
+    PGresult* res_check = PQexec(connDefault, check_database_command.c_str());
+    if (PQresultStatus(res_check) != PGRES_COMMAND_OK &&
+        PQresultStatus(res_check) != PGRES_TUPLES_OK) {
+      const std::string error_str =
+          std::string(PQresultErrorMessage(res_check));
+      LOG(ERROR) << "Checking database existence for " << config_.dbname()
                  << " failure: " << error_str;
-      PQclear(res);
+      PQclear(res_check);
       PQfinish(connDefault);
       MLMD_RETURN_IF_ERROR(
           BuildErrorStatus(absl::StatusCode::kInternal, error_str));
     }
-    PQclear(res);
+
+    // Create Database if not exists.
+    RecordSet record_set;
+    absl::Status databaseExistenceStatus =
+        ConvertResultToRecordSet(res_check, &record_set);
+    PQclear(res_check);
+    MLMD_RETURN_IF_ERROR(databaseExistenceStatus);
+    if (record_set.records_size() == 0) {
+      const std::string create_database_cmd =
+          absl::Substitute("CREATE DATABASE $0;", config_.dbname().data());
+      PGresult* res = PQexec(connDefault, create_database_cmd.c_str());
+      if (PQresultStatus(res) != PGRES_COMMAND_OK &&
+          PQresultStatus(res) != PGRES_TUPLES_OK) {
+        const std::string error_create = std::string(PQresultErrorMessage(res));
+        LOG(ERROR) << "Creating database " << config_.dbname()
+                   << " failure: " << error_create;
+        PQclear(res);
+        PQfinish(connDefault);
+        MLMD_RETURN_IF_ERROR(
+            BuildErrorStatus(absl::StatusCode::kInternal, error_create));
+      }
+      PQclear(res);
+    }
+
     PQfinish(connDefault);
   }
 
