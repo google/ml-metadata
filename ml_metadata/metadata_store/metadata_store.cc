@@ -20,6 +20,7 @@ limitations under the License.
 #include <vector>
 
 #include <glog/logging.h>
+#include "google/protobuf/field_mask.pb.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/repeated_field.h"
 #include "google/protobuf/util/message_differencer.h"
@@ -295,35 +296,41 @@ absl::Status UpsertSimpleTypes(MetadataAccessObject* metadata_access_object) {
 absl::Status UpsertArtifact(const Artifact& artifact,
                             MetadataAccessObject* metadata_access_object,
                             const bool skip_type_and_property_validation,
-                            int64_t* artifact_id,
-                            const google::protobuf::FieldMask& mask = {}) {
+                            const google::protobuf::FieldMask& mask,
+                            int64_t* artifact_id) {
   CHECK(artifact_id) << "artifact_id should not be null";
   if (artifact.has_id()) {
     MLMD_RETURN_IF_ERROR(
         metadata_access_object->UpdateArtifact(artifact, mask));
     *artifact_id = artifact.id();
   } else {
-    if (!mask.paths().empty()) {
-      LOG(WARNING) << "Found non-empty field mask while creating the artifact."
-                   << "The mask will be ignored.";
-    }
     MLMD_RETURN_IF_ERROR(metadata_access_object->CreateArtifact(
         artifact, skip_type_and_property_validation, artifact_id));
   }
   return absl::OkStatus();
 }
 
-// Updates or inserts an execution. If the execution.id is given, it updates the
-// stored execution, otherwise, it creates a new execution.
+// Updates or inserts an execution.
+// If the execution.id is given, it updates the stored execution,
+// otherwise, it creates a new execution.
+// While creating a new execution, `mask` will be ignored.
+// While updating an existing execution, the update can be performed under
+// masking.
+// If execution.id is given and `mask` is empty, it updates `stored_node` as a
+// whole.
+// If execution.id is given and `mask` is not empty, it only updates
+// fields specified in `mask`.
 // `skip_type_and_property_validation` is set to be true if the `execution`'s
 // type/property has been validated.
 absl::Status UpsertExecution(const Execution& execution,
                              MetadataAccessObject* metadata_access_object,
                              const bool skip_type_and_property_validation,
+                             const google::protobuf::FieldMask& mask,
                              int64_t* execution_id) {
   CHECK(execution_id) << "execution_id should not be null";
   if (execution.has_id()) {
-    MLMD_RETURN_IF_ERROR(metadata_access_object->UpdateExecution(execution));
+    MLMD_RETURN_IF_ERROR(
+        metadata_access_object->UpdateExecution(execution, mask));
     *execution_id = execution.id();
   } else {
     MLMD_RETURN_IF_ERROR(metadata_access_object->CreateExecution(
@@ -332,17 +339,26 @@ absl::Status UpsertExecution(const Execution& execution,
   return absl::OkStatus();
 }
 
-// Updates or inserts a context. If the context.id is given, it updates the
-// stored context, otherwise, it creates a new context.
+// Updates or inserts a context.
+// If the context.id is given, it updates the stored context,
+// otherwise, it creates a new context.
+// While creating a new context, `mask` will be ignored.
+// While updating an existing context, the update can be performed under
+// masking.
+// If context.id is given and `mask` is empty, it updates `stored_node` as a
+// whole.
+// If context.id is given and `mask` is not empty, it only updates
+// fields specified in `mask`.
 // `skip_type_and_property_validation` is set to be true if the `context`'s
 // type/property has been validated.
 absl::Status UpsertContext(const Context& context,
                            MetadataAccessObject* metadata_access_object,
                            const bool skip_type_and_property_validation,
+                           const google::protobuf::FieldMask& mask,
                            int64_t* context_id) {
   CHECK(context_id) << "context_id should not be null";
   if (context.has_id()) {
-    MLMD_RETURN_IF_ERROR(metadata_access_object->UpdateContext(context));
+    MLMD_RETURN_IF_ERROR(metadata_access_object->UpdateContext(context, mask));
     *context_id = context.id();
   } else {
     MLMD_RETURN_IF_ERROR(metadata_access_object->CreateContext(
@@ -385,9 +401,9 @@ absl::Status UpsertContextWithOptions(
     }
   }
   if (*context_id == -1) {
-    const absl::Status status =
-        UpsertContext(context, metadata_access_object,
-                      skip_type_and_property_validation, context_id);
+    const absl::Status status = UpsertContext(
+        context, metadata_access_object, skip_type_and_property_validation,
+        google::protobuf::FieldMask(), context_id);
     // When `reuse_context_if_already_exist`, there are concurrent timelines
     // to create the same new context. If use the option, let client side
     // to retry the failed transaction safely.
@@ -511,9 +527,10 @@ absl::Status UpsertArtifactAndEvent(
   }
   // upsert artifact if present.
   if (artifact_and_event.has_artifact()) {
-    MLMD_RETURN_IF_ERROR(UpsertArtifact(
-        artifact_copy_to_be_upserted, metadata_access_object,
-        /*skip_type_and_property_validation=*/false, artifact_id));
+    MLMD_RETURN_IF_ERROR(
+        UpsertArtifact(artifact_copy_to_be_upserted, metadata_access_object,
+                       /*skip_type_and_property_validation=*/false,
+                       google::protobuf::FieldMask(), artifact_id));
   }
   // insert event if any.
   if (!artifact_and_event.has_event()) {
@@ -1153,7 +1170,7 @@ absl::Status MetadataStore::PutArtifacts(const PutArtifactsRequest& request,
       MLMD_RETURN_IF_ERROR(
           UpsertArtifact(artifact, metadata_access_object_.get(),
                          /*skip_type_and_property_validation=*/false,
-                         &artifact_id, request.update_mask()));
+                         request.update_mask(), &artifact_id));
       response->add_artifact_ids(artifact_id);
     }
     return absl::OkStatus();
@@ -1168,9 +1185,10 @@ absl::Status MetadataStore::PutExecutions(const PutExecutionsRequest& request,
         response->Clear();
         for (const Execution& execution : request.executions()) {
           int64_t execution_id = -1;
-          MLMD_RETURN_IF_ERROR(UpsertExecution(
-              execution, metadata_access_object_.get(),
-              /*skip_type_and_property_validation=*/false, &execution_id));
+          MLMD_RETURN_IF_ERROR(
+              UpsertExecution(execution, metadata_access_object_.get(),
+                              /*skip_type_and_property_validation=*/false,
+                              request.update_mask(), &execution_id));
           response->add_execution_ids(execution_id);
         }
         return absl::OkStatus();
@@ -1185,9 +1203,10 @@ absl::Status MetadataStore::PutContexts(const PutContextsRequest& request,
         response->Clear();
         for (const Context& context : request.contexts()) {
           int64_t context_id = -1;
-          MLMD_RETURN_IF_ERROR(UpsertContext(
-              context, metadata_access_object_.get(),
-              /*skip_type_and_property_validation=*/false, &context_id));
+          MLMD_RETURN_IF_ERROR(
+              UpsertContext(context, metadata_access_object_.get(),
+                            /*skip_type_and_property_validation=*/false,
+                            request.update_mask(), &context_id));
           response->add_context_ids(context_id);
         }
         return absl::OkStatus();
@@ -1251,9 +1270,10 @@ absl::Status MetadataStore::PutExecution(const PutExecutionRequest& request,
     // 1. Upsert Execution
     const Execution& execution = request.execution();
     int64_t execution_id = -1;
-    MLMD_RETURN_IF_ERROR(UpsertExecution(
-        execution, metadata_access_object_.get(),
-        /*skip_type_and_property_validation=*/false, &execution_id));
+    MLMD_RETURN_IF_ERROR(
+        UpsertExecution(execution, metadata_access_object_.get(),
+                        /*skip_type_and_property_validation=*/false,
+                        google::protobuf::FieldMask(), &execution_id));
     response->set_execution_id(execution_id);
     // 2. Upsert Artifacts and insert events
     for (PutExecutionRequest::ArtifactAndEvent artifact_and_event :
@@ -1335,9 +1355,10 @@ absl::Status MetadataStore::PutLineageSubgraph(
         // 2. Upsert executions.
         for (const Execution& execution : request.executions()) {
           int64_t execution_id = -1;
-          MLMD_RETURN_IF_ERROR(UpsertExecution(
-              execution, metadata_access_object_.get(),
-              /*skip_type_and_property_validation=*/true, &execution_id));
+          MLMD_RETURN_IF_ERROR(
+              UpsertExecution(execution, metadata_access_object_.get(),
+                              /*skip_type_and_property_validation=*/true,
+                              google::protobuf::FieldMask(), &execution_id));
           response->add_execution_ids(execution_id);
         }
 
@@ -1364,9 +1385,10 @@ absl::Status MetadataStore::PutLineageSubgraph(
                 external_id_to_id_map.find(artifact.external_id())->second);
           }
           int64_t artifact_id = -1;
-          MLMD_RETURN_IF_ERROR(UpsertArtifact(
-              artifact_copy, metadata_access_object_.get(),
-              /*skip_type_and_property_validation=*/true, &artifact_id));
+          MLMD_RETURN_IF_ERROR(
+              UpsertArtifact(artifact_copy, metadata_access_object_.get(),
+                             /*skip_type_and_property_validation=*/true,
+                             google::protobuf::FieldMask(), &artifact_id));
           response->add_artifact_ids(artifact_id);
         }
 

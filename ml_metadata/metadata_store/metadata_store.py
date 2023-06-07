@@ -357,7 +357,11 @@ class MetadataStore(object):
     self._call('PutArtifactType', request, response)
     return response.type_id
 
-  def put_executions(self, executions: Sequence[proto.Execution]) -> List[int]:
+  def put_executions(
+      self,
+      executions: Sequence[proto.Execution],
+      field_mask_paths: Optional[Sequence[str]] = None,
+  ) -> List[int]:
     """Inserts or updates executions in the database.
 
     If an execution id is specified for an execution, it is an update.
@@ -370,8 +374,17 @@ class MetadataStore(object):
     It is not guaranteed that the created or updated executions will share the
     same `create_time_since_epoch` or `last_update_time_since_epoch` timestamps.
 
+    If `field_mask_paths` is specified and non-empty:
+      1. while updating an existing execution, it only updates fields specified
+         in `field_mask_paths`.
+      2. while inserting a new execution, `field_mask_paths` will be ignored.
+      3. otherwise, `field_mask_paths` will be applied to all `executions`.
+    If `field_mask_paths` is unspecified or is empty, it updates the execution
+    as a whole.
+
     Args:
       executions: A list of executions to insert or update.
+      field_mask_paths: A list of field mask paths for masked update.
 
     Returns:
       A list of execution ids index-aligned with the input.
@@ -383,6 +396,10 @@ class MetadataStore(object):
     request = metadata_store_service_pb2.PutExecutionsRequest()
     for x in executions:
       request.executions.add().CopyFrom(x)
+
+    if field_mask_paths:
+      for path in field_mask_paths:
+        request.update_mask.paths.append(path)
     response = metadata_store_service_pb2.PutExecutionsResponse()
 
     self._call('PutExecutions', request, response)
@@ -451,7 +468,11 @@ class MetadataStore(object):
     self._call('PutExecutionType', request, response)
     return response.type_id
 
-  def put_contexts(self, contexts: Sequence[proto.Context]) -> List[int]:
+  def put_contexts(
+      self,
+      contexts: Sequence[proto.Context],
+      field_mask_paths: Optional[Sequence[str]] = None,
+  ) -> List[int]:
     """Inserts or updates contexts in the database.
 
     If an context id is specified for an context, it is an update.
@@ -464,8 +485,17 @@ class MetadataStore(object):
     It is not guaranteed that the created or updated contexts will share the
     same `create_time_since_epoch` or `last_update_time_since_epoch` timestamps.
 
+    If `field_mask_paths` is specified and non-empty:
+      1. while updating an existing context, it only updates fields specified
+         in `field_mask_paths`.
+      2. while inserting a new context, `field_mask_paths` will be ignored.
+      3. otherwise, `field_mask_paths` will be applied to all `contexts`.
+    If `field_mask_paths` is unspecified or is empty, it updates the context
+    as a whole.
+
     Args:
       contexts: A list of contexts to insert or update.
+      field_mask_paths: A list of field mask paths for masked update.
 
     Returns:
       A list of context ids index-aligned with the input.
@@ -478,6 +508,10 @@ class MetadataStore(object):
     request = metadata_store_service_pb2.PutContextsRequest()
     for x in contexts:
       request.contexts.add().CopyFrom(x)
+
+    if field_mask_paths:
+      for path in field_mask_paths:
+        request.update_mask.paths.append(path)
     response = metadata_store_service_pb2.PutContextsResponse()
 
     self._call('PutContexts', request, response)

@@ -4,6 +4,7 @@
 
 *   Support PostgreSQL database type.
 *   Support bool_value in (custom_)property filter queries.
+*   Add masking support for Artifact / Execution / Context updates
 
 ## Breaking Changes
 

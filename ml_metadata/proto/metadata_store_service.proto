@@ -201,6 +201,43 @@ message PutExecutionsRequest {
 
   // Options regarding transactions.
   optional TransactionOptions transaction_options = 2;
+
+  // FieldMask for executions in the PUT update
+  // If `execution.id` is not specified, it means a new execution will be
+  // created and `update_mask` will not be applied to the creation.
+  // If `update_mask` is empty, update the executions as a whole.
+  // If `update_mask` is not empty, only update fields or properties specified
+  // in `update_mask`.
+  // Example request protos:
+  //   1. Add a <'key', 'val'> pair into `custom_properties`:
+  //      {
+  //        executions {
+  //          id: 1234
+  //          type_id: 5678
+  //          custom_properties {
+  //            key: "key"
+  //            value: {
+  //              string_value: "val"
+  //            }
+  //          }
+  //        }
+  //        update_mask {
+  //          paths: "custom_properties.key"
+  //        }
+  //      }
+  //   2. Set `last_known_state` field:
+  //      {
+  //        executions {
+  //          id: 1234
+  //          type_id: 5678
+  //          last_known_state: CACHED
+  //        }
+  //        update_mask {
+  //          paths: "last_known_state"
+  //        }
+  //      }
+  // Please refer to `PutArtifactsRequest` for more details.
+  optional google.protobuf.FieldMask update_mask = 3;
 }
 
 message PutExecutionsResponse {
@@ -423,6 +460,43 @@ message PutContextsRequest {
 
   // Options regarding transactions.
   optional TransactionOptions transaction_options = 2;
+
+  // FieldMask for contexts in the PUT update
+  // If `context.id` is not specified, it means a new context will be
+  // created and `update_mask` will not be applied to the creation.
+  // If `update_mask` is empty, update the contexts as a whole.
+  // If `update_mask` is not empty, only update fields or properties specified
+  // in `update_mask`.
+  // Example request protos:
+  //   1. Add a <'key', 'val'> pair into `custom_properties`:
+  //      {
+  //        contexts {
+  //          id: 1234
+  //          type_id: 5678
+  //          custom_properties {
+  //            key: "key"
+  //            value: {
+  //              string_value: "val"
+  //            }
+  //          }
+  //        }
+  //        update_mask {
+  //          paths: "custom_properties.key"
+  //        }
+  //      }
+  //   2. Set `name` field:
+  //      {
+  //        contexts {
+  //          id: 1234
+  //          type_id: 5678
+  //          name: "set_name"
+  //        }
+  //        update_mask {
+  //          paths: "name"
+  //        }
+  //      }
+  // Please refer to `PutArtifactsRequest` for more details.
+  optional google.protobuf.FieldMask update_mask = 3;
 }
 
 message PutContextsResponse {

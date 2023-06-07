@@ -1137,6 +1137,53 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertEqual(execution_result.properties["foo"].int_value, 12)
     self.assertEqual(execution_result.external_id, "execution_2")
 
+  def test_update_execution_with_masking_get_execution(self):
+    store = _get_metadata_store()
+    execution_type = metadata_store_pb2.ExecutionType(
+        name=self._get_test_type_name(),
+        properties={
+            "foo": metadata_store_pb2.INT,
+            "bar": metadata_store_pb2.STRING,
+        },
+    )
+    type_id = store.put_execution_type(execution_type)
+    execution = metadata_store_pb2.Execution(
+        type_id=type_id,
+        properties={"bar": metadata_store_pb2.Value(string_value="Hello")},
+    )
+
+    [execution_id] = store.put_executions([execution])
+    execution_2 = metadata_store_pb2.Execution(
+        id=execution_id,
+        type_id=type_id,
+        external_id="new_external_id",
+        properties={
+            "foo": metadata_store_pb2.Value(int_value=execution_id),
+            "bar": metadata_store_pb2.Value(string_value="Goodbye"),
+        },
+        custom_properties={
+            "hello": metadata_store_pb2.Value(string_value="World")
+        },
+    )
+
+    field_mask_paths = [
+        "external_id",
+        "properties.foo",
+        "custom_properties.hello",
+        "",
+        "invalid_field_mask_path"
+    ]
+    [execution_id_2] = store.put_executions([execution_2], field_mask_paths)
+    self.assertEqual(execution_id, execution_id_2)
+
+    [execution_result] = store.get_executions_by_id([execution_id])
+    self.assertEqual(
+        execution_result.custom_properties["hello"].string_value, "World"
+    )
+    self.assertEqual(execution_result.properties["bar"].string_value, "Hello")
+    self.assertEqual(execution_result.properties["foo"].int_value, execution_id)
+    self.assertEqual(execution_result.external_id, "new_external_id")
+
   def test_put_events_get_events(self):
     store = _get_metadata_store()
     execution_type = metadata_store_pb2.ExecutionType()
