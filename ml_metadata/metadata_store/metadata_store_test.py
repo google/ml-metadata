@@ -1333,8 +1333,17 @@ class MetadataStoreTest(parameterized.TestCase):
     output_event = metadata_store_pb2.Event(
         type=metadata_store_pb2.Event.DECLARED_INPUT)
 
+    # Test when contexts parameter is an empty list.
     execution_id, artifact_ids, context_ids = store.put_execution(
         execution, [[input_artifact], [output_artifact, output_event]], [])
+    self.assertLen(artifact_ids, 2)
+    events = store.get_events_by_execution_ids([execution_id])
+    self.assertLen(events, 1)
+    self.assertEmpty(context_ids)
+
+    # Test when contexts parameter is None.
+    execution_id, artifact_ids, context_ids = store.put_execution(
+        execution, [[input_artifact], [output_artifact, output_event]], None)
     self.assertLen(artifact_ids, 2)
     events = store.get_events_by_execution_ids([execution_id])
     self.assertLen(events, 1)

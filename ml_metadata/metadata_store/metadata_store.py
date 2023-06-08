@@ -292,10 +292,7 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.PutArtifactsResponse()
 
     self._call('PutArtifacts', request, response)
-    result = []
-    for x in response.artifact_ids:
-      result.append(x)
-    return result
+    return list(response.artifact_ids)
 
   def put_artifact_type(self,
                         artifact_type: proto.ArtifactType,
@@ -403,10 +400,7 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.PutExecutionsResponse()
 
     self._call('PutExecutions', request, response)
-    result = []
-    for x in response.execution_ids:
-      result.append(x)
-    return result
+    return list(response.execution_ids)
 
   def put_execution_type(self,
                          execution_type: proto.ExecutionType,
@@ -515,10 +509,7 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.PutContextsResponse()
 
     self._call('PutContexts', request, response)
-    result = []
-    for x in response.context_ids:
-      result.append(x)
-    return result
+    return list(response.context_ids)
 
   def put_context_type(self,
                        context_type: proto.ContextType,
@@ -655,7 +646,7 @@ class MetadataStore(object):
     """
     request = metadata_store_service_pb2.PutExecutionRequest(
         execution=execution,
-        contexts=(context for context in contexts),
+        contexts=contexts,
         options=metadata_store_service_pb2.PutExecutionRequest.Options(
             reuse_context_if_already_exist=reuse_context_if_already_exist,
             reuse_artifact_if_already_exist_by_external_id=(
@@ -668,8 +659,8 @@ class MetadataStore(object):
             artifact=pair[0], event=pair[1] if len(pair) == 2 else None)
     response = metadata_store_service_pb2.PutExecutionResponse()
     self._call('PutExecution', request, response)
-    artifact_ids = [x for x in response.artifact_ids]
-    context_ids = [x for x in response.context_ids]
+    artifact_ids = list(response.artifact_ids)
+    context_ids = list(response.context_ids)
     return response.execution_id, artifact_ids, context_ids
 
   def put_lineage_subgraph(
@@ -776,10 +767,7 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetArtifactsByTypeResponse()
 
     self._call('GetArtifactsByType', request, response)
-    result = []
-    for x in response.artifacts:
-      result.append(x)
-    return result
+    return list(response.artifacts)
 
   def get_artifact_by_type_and_name(
       self,
@@ -827,10 +815,7 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetArtifactsByURIResponse()
 
     self._call('GetArtifactsByURI', request, response)
-    result = []
-    for x in response.artifacts:
-      result.append(x)
-    return result
+    return list(response.artifacts)
 
   def get_artifacts_by_id(self,
                           artifact_ids: Iterable[int]) -> List[proto.Artifact]:
@@ -850,10 +835,7 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetArtifactsByIDResponse()
 
     self._call('GetArtifactsByID', request, response)
-    result = []
-    for x in response.artifacts:
-      result.append(x)
-    return result
+    return list(response.artifacts)
 
   def get_artifacts_by_external_ids(
       self, external_ids: Iterable[str]) -> List[proto.Artifact]:
@@ -912,10 +894,7 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetArtifactTypesResponse()
 
     self._call('GetArtifactTypes', request, response)
-    result = []
-    for x in response.artifact_types:
-      result.append(x)
-    return result
+    return list(response.artifact_types)
 
   def get_artifact_types_by_external_ids(
       self, external_ids: Iterable[str]) -> List[proto.ArtifactType]:
@@ -975,10 +954,7 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetExecutionTypesResponse()
 
     self._call('GetExecutionTypes', request, response)
-    result = []
-    for x in response.execution_types:
-      result.append(x)
-    return result
+    return list(response.execution_types)
 
   def get_execution_types_by_external_ids(
       self, external_ids: Iterable[str]) -> List[proto.ExecutionType]:
@@ -1038,10 +1014,7 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetContextTypesResponse()
 
     self._call('GetContextTypes', request, response)
-    result = []
-    for x in response.context_types:
-      result.append(x)
-    return result
+    return list(response.context_types)
 
   def get_context_types_by_external_ids(
       self, external_ids: Iterable[str]) -> List[proto.ContextType]:
@@ -1080,10 +1053,7 @@ class MetadataStore(object):
     if type_version:
       request.type_version = type_version
     self._call('GetExecutionsByType', request, response)
-    result = []
-    for x in response.executions:
-      result.append(x)
-    return result
+    return list(response.executions)
 
   def get_execution_by_type_and_name(
       self,
@@ -1135,10 +1105,7 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetExecutionsByIDResponse()
 
     self._call('GetExecutionsByID', request, response)
-    result = []
-    for x in response.executions:
-      result.append(x)
-    return result
+    return list(response.executions)
 
   def get_executions_by_external_ids(
       self, external_ids: Iterable[str]) -> List[proto.Execution]:
@@ -1312,10 +1279,7 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetContextsByIDResponse()
 
     self._call('GetContextsByID', request, response)
-    result = []
-    for x in response.contexts:
-      result.append(x)
-    return result
+    return list(response.contexts)
 
   def get_contexts_by_type(
       self,
@@ -1338,10 +1302,7 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetContextsByTypeResponse()
 
     self._call('GetContextsByType', request, response)
-    result = []
-    for x in response.contexts:
-      result.append(x)
-    return result
+    return list(response.contexts)
 
   def get_context_by_type_and_name(
       self,
@@ -1411,10 +1372,7 @@ class MetadataStore(object):
       request.type_ids.append(x)
 
     self._call('GetArtifactTypesByID', request, response)
-    result = []
-    for x in response.artifact_types:
-      result.append(x)
-    return result
+    return list(response.artifact_types)
 
   def get_execution_types_by_id(
       self, type_ids: Iterable[int]) -> List[proto.ExecutionType]:
@@ -1438,10 +1396,7 @@ class MetadataStore(object):
       request.type_ids.append(x)
 
     self._call('GetExecutionTypesByID', request, response)
-    result = []
-    for x in response.execution_types:
-      result.append(x)
-    return result
+    return list(response.execution_types)
 
   def get_context_types_by_id(
       self, type_ids: Iterable[int]) -> List[proto.ContextType]:
@@ -1465,10 +1420,7 @@ class MetadataStore(object):
       request.type_ids.append(x)
 
     self._call('GetContextTypesByID', request, response)
-    result = []
-    for x in response.context_types:
-      result.append(x)
-    return result
+    return list(response.context_types)
 
   def put_attributions_and_associations(
       self, attributions: Sequence[proto.Attribution],
@@ -1527,10 +1479,7 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetContextsByArtifactResponse()
 
     self._call('GetContextsByArtifact', request, response)
-    result = []
-    for x in response.contexts:
-      result.append(x)
-    return result
+    return list(response.contexts)
 
   def get_contexts_by_execution(self, execution_id: int) -> List[proto.Context]:
     """Gets all context that an execution is associated with.
@@ -1546,10 +1495,7 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetContextsByExecutionResponse()
 
     self._call('GetContextsByExecution', request, response)
-    result = []
-    for x in response.contexts:
-      result.append(x)
-    return result
+    return list(response.contexts)
 
   def get_artifacts_by_context(
       self,
@@ -1615,10 +1561,7 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetEventsByExecutionIDsResponse()
 
     self._call('GetEventsByExecutionIDs', request, response)
-    result = []
-    for x in response.events:
-      result.append(x)
-    return result
+    return list(response.events)
 
   def get_events_by_artifact_ids(
       self, artifact_ids: Iterable[int]) -> List[proto.Event]:
@@ -1640,10 +1583,7 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetEventsByArtifactIDsResponse()
 
     self._call('GetEventsByArtifactIDs', request, response)
-    result = []
-    for x in response.events:
-      result.append(x)
-    return result
+    return list(response.events)
 
   def get_parent_contexts_by_context(self,
                                      context_id: int) -> List[proto.Context]:
@@ -1662,10 +1602,7 @@ class MetadataStore(object):
     request.context_id = context_id
     response = metadata_store_service_pb2.GetParentContextsByContextResponse()
     self._call('GetParentContextsByContext', request, response)
-    result = []
-    for x in response.contexts:
-      result.append(x)
-    return result
+    return list(response.contexts)
 
   def get_children_contexts_by_context(self,
                                        context_id: int) -> List[proto.Context]:
@@ -1684,10 +1621,7 @@ class MetadataStore(object):
     request.context_id = context_id
     response = metadata_store_service_pb2.GetChildrenContextsByContextResponse()
     self._call('GetChildrenContextsByContext', request, response)
-    result = []
-    for x in response.contexts:
-      result.append(x)
-    return result
+    return list(response.contexts)
 
 
 def downgrade_schema(config: proto.ConnectionConfig,
