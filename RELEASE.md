@@ -5,6 +5,7 @@
 *   Support PostgreSQL database type.
 *   Support bool_value in (custom_)property filter queries.
 *   Add masking support for Artifact / Execution / Context updates
+*   Support using enum names in IN operator in filter queries.
 
 ## Breaking Changes
 

@@ -947,8 +947,10 @@ message ListOperationOptions {
   // c) to filter artifact's state or execution's last_known_state
   //    - state = LIVE
   //    - state IS NULL
+  //    - state IN (PENDING, LIVE)
   //    - last_known_state = RUNNING
   //    - last_known_state != RUNNING
+  //    - last_known_state NOT IN (FAILED, CANCELED)
   //
   // d) to filter nodes having a specific context, artifact, or execution
   //    - contexts_a.id = 5
@@ -964,6 +966,7 @@ message ListOperationOptions {
   //    - artifacts_a.name = 'my_dataset'
   //    - artifacts_a.uri = 'exact_path_string'
   //    - artifacts_a.state = LIVE
+  //    - artifacts_a.state IN (PENDING, LIVE)
   //    - artifacts_a.external_id = "my_external_id"
   //    - artifacts_a.create_time_since_epoch = 1626761453
   //    - artifacts_a.last_update_time_since_epoch = 1626761453
@@ -974,6 +977,7 @@ message ListOperationOptions {
   //    - executions_a.type = 'Dataset'
   //    - executions_a.name = 'my_dataset'
   //    - executions_a.last_known_state = RUNNING
+  //.   - executions_a.last_known_state IN (NEW, RUNNING)
   //    - executions_a.external_id = "my_external_id"
   //    - executions_a.create_time_since_epoch = 1626761453
   //    - executions_a.last_update_time_since_epoch = 1626761453
@@ -1005,7 +1009,7 @@ message ListOperationOptions {
   //    - events_0.milliseconds_since_epoch = 1
   //    to filter Executions on Events
   //    - events_0.artifact_id = 1
-  //    - events_0.type = INPUT
+  //    - events_0.type IN (INPUT, INTERNAL_INPUT)
   //    - events_0.milliseconds_since_epoch = 1
   // TODO(b/145945460) Support filtering on event step fields.
   optional string filter_query = 4;
