@@ -133,7 +133,8 @@ JOIN (
 // table.
 constexpr absl::string_view kParentContextJoinTableViaParentContext = R"sql(
 JOIN (
-  SELECT Context.name,
+  SELECT Context.id,
+         Context.name,
          Type.name as type,
          ParentContext.context_id as child_context_id
   FROM Context
@@ -145,7 +146,8 @@ JOIN (
 // table.
 constexpr absl::string_view kChildContextJoinTableViaParentContext = R"sql(
 JOIN (
-  SELECT Context.name,
+  SELECT Context.id,
+         Context.name,
          Type.name as type,
          ParentContext.parent_context_id as parent_context_id
   FROM Context

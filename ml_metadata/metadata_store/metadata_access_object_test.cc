@@ -28,6 +28,7 @@ limitations under the License.
 #include "absl/container/node_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
@@ -3977,6 +3978,26 @@ TEST_P(MetadataAccessObjectTest, ListContextNodesWithParentChildQuery) {
               absl::OkStatus());
   }
 
+  // Query on ParentContext.id
+  VerifyListOptions<Context>(
+      absl::Substitute(
+          R"(max_result_size: 10,
+          order_by_field: { field: CREATE_TIME is_asc: false }
+          filter_query: "parent_contexts_c.id = $0")",
+          absl::StrCat(parent_context_1.id())),
+      *metadata_access_object_,
+      /*want_nodes=*/{child_contexts[2], child_contexts[1], child_contexts[0]});
+
+  // Query on ParentContext.id
+  VerifyListOptions<Context>(
+      absl::Substitute(
+          R"(max_result_size: 10,
+          order_by_field: { field: CREATE_TIME is_asc: false }
+          filter_query: "parent_contexts_c.id = $0")",
+          absl::StrCat(parent_context_2.id())),
+      *metadata_access_object_,
+      /*want_nodes=*/{child_contexts[1], child_contexts[0]});
+
   // Query on ParentContext.type
   VerifyListOptions<Context>(
       absl::Substitute(
@@ -3999,7 +4020,7 @@ TEST_P(MetadataAccessObjectTest, ListContextNodesWithParentChildQuery) {
 
   // Query on ParentContext.name
   VerifyListOptions<Context>(
-      R"(max_result_size: 10,
+          R"(max_result_size: 10,
           order_by_field: { field: CREATE_TIME is_asc: false }
           filter_query: "parent_contexts_c.name = 'p1'")",
       *metadata_access_object_,
@@ -4007,16 +4028,36 @@ TEST_P(MetadataAccessObjectTest, ListContextNodesWithParentChildQuery) {
 
   // Query on ParentContext.name
   VerifyListOptions<Context>(
-      R"(max_result_size: 10,
+          R"(max_result_size: 10,
           order_by_field: { field: CREATE_TIME is_asc: false }
           filter_query: "parent_contexts_c.name = 'p2'")",
       *metadata_access_object_,
       /*want_nodes=*/{child_contexts[1], child_contexts[0]});
 
+  // Query on ChildContext.id
+  VerifyListOptions<Context>(
+      absl::Substitute(
+      R"(max_result_size: 10,
+          order_by_field: { field: CREATE_TIME is_asc: false }
+          filter_query: "child_contexts_c.id = $0")",
+          absl::StrCat(child_contexts[0].id())),
+      *metadata_access_object_,
+      /*want_nodes=*/{parent_context_2, parent_context_1});
+
+  // Query on ChildContext.id
+  VerifyListOptions<Context>(
+      absl::Substitute(
+      R"(max_result_size: 10,
+          order_by_field: { field: CREATE_TIME is_asc: false }
+          filter_query: "child_contexts_c.id = $0")",
+          absl::StrCat(child_contexts[2].id())),
+      *metadata_access_object_,
+      /*want_nodes=*/{parent_context_1});
+
   // Query on ChildContext.type
   VerifyListOptions<Context>(
       absl::Substitute(
-          R"(max_result_size: 10,
+      R"(max_result_size: 10,
           order_by_field: { field: CREATE_TIME is_asc: false }
           filter_query: "child_contexts_c.type = '$0'")",
           "child_context_type"),
