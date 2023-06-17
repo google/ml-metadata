@@ -23,6 +23,7 @@ limitations under the License.
 #include <gtest/gtest.h>
 #include "absl/algorithm/container.h"
 #include "absl/status/status.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
@@ -4887,6 +4888,223 @@ TEST_P(MetadataStoreTestSuite, PutContextTypeGetContextTypesByID) {
       << "The type should be the same as the one given.";
 }
 
+TEST_P(MetadataStoreTestSuite, UpdateContextPropertiesAndCustomProperties) {
+  const PutContextTypeRequest put_context_type_request =
+      ParseTextProtoOrDie<PutContextTypeRequest>(
+          R"pb(
+            all_fields_match: true
+            context_type: {
+              name: 'test_type'
+              properties { key: 'property_str' value: STRING }
+            }
+          )pb");
+  PutContextTypeResponse put_context_type_response;
+  ASSERT_EQ(metadata_store_->PutContextType(put_context_type_request,
+                                            &put_context_type_response),
+            absl::OkStatus());
+  ASSERT_TRUE(put_context_type_response.has_type_id());
+  const int64_t type_id = put_context_type_response.type_id();
+
+  PutContextsRequest put_contexts_request =
+      ParseTextProtoOrDie<PutContextsRequest>(R"pb(
+        contexts: {
+          properties {
+            key: 'property_str'
+            value: { string_value: '1' }
+          }
+          custom_properties {
+            key: 'custom_property_str_to_int'
+            value: { string_value: '1' }
+          }
+          custom_properties {
+            key: 'custom_property_int_to_str'
+            value: { int_value: 1 }
+          }
+          custom_properties {
+            key: 'custom_property_double_to_bool'
+            value: { double_value: 1.2345 }
+          }
+          custom_properties {
+            key: 'custom_property_bool_to_double'
+            value: { bool_value: true }
+          }
+          name: 'context_name'
+        }
+      )pb");
+  put_contexts_request.mutable_contexts(0)->set_type_id(type_id);
+
+  PutContextsResponse put_contexts_response;
+  {
+    // Test 1: update custom_properties.
+    ASSERT_EQ(metadata_store_->PutContexts(put_contexts_request,
+                                           &put_contexts_response),
+              absl::OkStatus());
+    ASSERT_THAT(put_contexts_response.context_ids(), SizeIs(1));
+    const int64_t context_id1 = put_contexts_response.context_ids(0);
+
+    PutContextsRequest update_contexts_request =
+        ParseTextProtoOrDie<PutContextsRequest>(R"pb(
+          contexts: {
+            properties {
+              key: 'property_str'
+              value: { string_value: '1' }
+            }
+            custom_properties {
+              key: 'custom_property_str_to_int'
+              value: { int_value: 1 }
+            }
+            custom_properties {
+              key: 'custom_property_int_to_str'
+              value: { string_value: '1' }
+            }
+            custom_properties {
+              key: 'custom_property_double_to_bool'
+              value: { bool_value: true }
+            }
+            custom_properties {
+              key: 'custom_property_bool_to_double'
+              value: { double_value: 1.2345 }
+            }
+            name: 'context_name'
+          }
+        )pb");
+    update_contexts_request.mutable_contexts(0)->set_type_id(type_id);
+    update_contexts_request.mutable_contexts(0)->set_id(context_id1);
+
+    PutContextsResponse update_contexts_response;
+    ASSERT_EQ(metadata_store_->PutContexts(update_contexts_request,
+                                           &update_contexts_response),
+              absl::OkStatus());
+
+    GetContextsByIDRequest get_contexts_by_id_request;
+    get_contexts_by_id_request.add_context_ids(context_id1);
+
+    GetContextsByIDResponse get_contexts_by_id_response;
+    ASSERT_EQ(metadata_store_->GetContextsByID(get_contexts_by_id_request,
+                                               &get_contexts_by_id_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_contexts_by_id_response.contexts(), SizeIs(1));
+
+    EXPECT_THAT(get_contexts_by_id_response.contexts(),
+                ElementsAre(EqualsProto(
+                    update_contexts_request.contexts(0),
+                    /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                       "last_update_time_since_epoch"})));
+  }
+  {
+    // Test 2: update custom_properties under masking.
+    put_contexts_request.mutable_contexts(0)->set_name("context_name2");
+    ASSERT_EQ(metadata_store_->PutContexts(put_contexts_request,
+                                           &put_contexts_response),
+              absl::OkStatus());
+    ASSERT_THAT(put_contexts_response.context_ids(), SizeIs(1));
+    const int64_t context_id2 = put_contexts_response.context_ids(0);
+
+    PutContextsRequest update_contexts_request =
+        ParseTextProtoOrDie<PutContextsRequest>(R"pb(
+          contexts: {
+            custom_properties {
+              key: 'custom_property_str_to_int'
+              value: { int_value: 1 }
+            }
+            custom_properties {
+              key: 'custom_property_int_to_str'
+              value: { string_value: '1' }
+            }
+            custom_properties {
+              key: 'custom_property_double_to_bool'
+              value: { bool_value: true }
+            }
+            custom_properties {
+              key: 'custom_property_bool_to_double'
+              value: { double_value: 1.2345 }
+            }
+          }
+          update_mask: {
+            paths: 'custom_properties.custom_property_str_to_int'
+            paths: 'custom_properties.custom_property_int_to_str'
+          }
+        )pb");
+    update_contexts_request.mutable_contexts(0)->set_type_id(type_id);
+    update_contexts_request.mutable_contexts(0)->set_id(context_id2);
+
+    PutContextsResponse update_contexts_response;
+    ASSERT_EQ(metadata_store_->PutContexts(update_contexts_request,
+                                           &update_contexts_response),
+              absl::OkStatus());
+
+    GetContextsByIDRequest get_contexts_by_id_request;
+    get_contexts_by_id_request.add_context_ids(context_id2);
+
+    GetContextsByIDResponse get_contexts_by_id_response;
+    ASSERT_EQ(metadata_store_->GetContextsByID(get_contexts_by_id_request,
+                                               &get_contexts_by_id_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_contexts_by_id_response.contexts(), SizeIs(1));
+
+    Context wanted_context = ParseTextProtoOrDie<Context>(R"pb(
+      properties {
+        key: 'property_str'
+        value: { string_value: '1' }
+      }
+      custom_properties {
+        key: 'custom_property_str_to_int'
+        value: { int_value: 1 }
+      }
+      custom_properties {
+        key: 'custom_property_int_to_str'
+        value: { string_value: '1' }
+      }
+      custom_properties {
+        key: 'custom_property_double_to_bool'
+        value: { double_value: 1.2345 }
+      }
+      custom_properties {
+        key: 'custom_property_bool_to_double'
+        value: { bool_value: true }
+      }
+      name: 'context_name2'
+    )pb");
+
+    EXPECT_THAT(get_contexts_by_id_response.contexts(),
+                ElementsAre(EqualsProto(
+                    wanted_context,
+                    /*ignore_fields=*/{"id", "type_id", "type",
+                                       "create_time_since_epoch",
+                                       "last_update_time_since_epoch"})));
+  }
+  {
+    // Test 3: updating property's value_type fails.
+    put_contexts_request.mutable_contexts(0)->set_name("context_name3");
+    ASSERT_EQ(metadata_store_->PutContexts(put_contexts_request,
+                                           &put_contexts_response),
+              absl::OkStatus());
+    ASSERT_THAT(put_contexts_response.context_ids(), SizeIs(1));
+    const int64_t context_id3 = put_contexts_response.context_ids(0);
+
+    PutContextsRequest update_contexts_request =
+        ParseTextProtoOrDie<PutContextsRequest>(R"pb(
+          contexts: {
+            properties {
+              key: 'property_str'
+              value: { int_value: 1 }
+            }
+          }
+          update_mask: { paths: 'properties.property_str' }
+        )pb");
+    PutContextsResponse update_contexts_response;
+    update_contexts_request.mutable_contexts(0)->set_type_id(type_id);
+    update_contexts_request.mutable_contexts(0)->set_id(context_id3);
+    EXPECT_TRUE(absl::IsInvalidArgument(metadata_store_->PutContexts(
+        update_contexts_request, &update_contexts_response)));
+    EXPECT_TRUE(absl::StrContains(
+        metadata_store_
+            ->PutContexts(update_contexts_request, &update_contexts_response)
+            .message(),
+        "unmatched property type"));
+  }
+}
+
 // Test creating an context and then updating one of its properties.
 TEST_P(MetadataStoreTestSuite, UpdateContextWithMasking) {
   const PutContextTypeRequest put_context_type_request =
@@ -5429,8 +5647,6 @@ TEST_P(MetadataStoreTestSuite, PutContextsGetContextsByExternalIds) {
     ASSERT_THAT(put_contexts_response.context_ids(), SizeIs(2));
     context1.set_id(put_contexts_response.context_ids(0));
     context2.set_id(put_contexts_response.context_ids(1));
-    LOG(INFO) << context1.DebugString();
-    LOG(INFO) << context2.DebugString();
   }
 
   // Test: retrieve by one external id

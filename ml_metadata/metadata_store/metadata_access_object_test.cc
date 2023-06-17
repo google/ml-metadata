@@ -7008,7 +7008,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
     }
     custom_properties {
       key: 'custom_property_1'
-      value: { string_value: '5' }
+      value: { int_value: 5 }
     }
     state: LIVE
   )pb");
@@ -7072,7 +7072,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
                    R"(
     custom_properties {
       key: 'custom_property_1'
-      value: { int_value: 3 }
+      value: { string_value: '3' }
     }
   )"));
   updated_artifact.set_id(artifact_id);
@@ -7397,7 +7397,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactWithMasking) {
     }
     custom_properties {
       key: 'custom_property_1'
-      value: { string_value: '5' }
+      value: { int_value: 5 }
     }
     custom_properties {
       key: 'custom_property_2'
@@ -7459,10 +7459,6 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactWithMasking) {
       key: 'property_2'
       value: { double_value: 3.0 }
     }
-    custom_properties {
-      key: 'custom_property_1'
-      value: { int_value: 3 }
-    }
   )",
                                                  IfSchemaLessThan(10) ? "" :
                                                                       R"(
@@ -7485,7 +7481,7 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifactWithMasking) {
                                                  R"(
     custom_properties {
       key: 'custom_property_1'
-      value: { int_value: 3 }
+      value: { string_value: '3' }
     }
   )"));
   updated_artifact.set_id(artifact_id);

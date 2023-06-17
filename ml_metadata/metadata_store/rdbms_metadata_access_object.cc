@@ -672,8 +672,15 @@ absl::StatusOr<int64_t> RDBMSMetadataAccessObject::ModifyProperties(
         if (!google::protobuf::util::MessageDifferencer::Equals(
                 prev_properties.at(name.data()),
                 curr_properties.at(name.data()))) {
-          MLMD_RETURN_IF_ERROR(UpdateProperty<NodeType>(
-              node_id, name, curr_properties.at(name.data())));
+          if (is_custom_property) {
+            MLMD_RETURN_IF_ERROR(DeleteProperty<NodeType>(node_id, name));
+            MLMD_RETURN_IF_ERROR(
+                InsertProperty<NodeType>(node_id, name, is_custom_property,
+                                         curr_properties.at(name.data())));
+          } else {
+            MLMD_RETURN_IF_ERROR(UpdateProperty<NodeType>(
+                node_id, name, curr_properties.at(name.data())));
+          }
           output_num_changed_properties++;
         }
       }
