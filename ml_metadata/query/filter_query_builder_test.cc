@@ -233,6 +233,9 @@ std::vector<QueryTupleTestCase> GetTestQueryTuples() {
       // mention context (the neighbor only applies to artifact/execution)
       {"contexts_0.id = 1", JoinWithContexts({"table_1"}), "((table_1.id) = 1)",
        exclude_context},
+      {"contexts_0.name = 'properties.node.node'",
+       JoinWithContexts({"table_1"}),
+       "((table_1.name) = (\"properties.node.node\"))", exclude_context},
       // use multiple conditions on the same context
       {"contexts_0.id = 1 AND contexts_0.name LIKE 'foo%'",
        JoinWithContexts({"table_1"}),

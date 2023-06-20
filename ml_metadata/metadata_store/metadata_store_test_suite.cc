@@ -6644,6 +6644,61 @@ TEST_P(MetadataStoreTestSuite, GetExecutionFilterWithSpecialChars) {
   }
 }
 
+TEST_P(MetadataStoreTestSuite, GetExecutionWithFilterContextQuery) {
+  PutTypesRequest put_types_request = ParseTextProtoOrDie<PutTypesRequest>(R"pb(
+    context_types: { name: 'context_type' }
+    execution_types: { name: 'execution_type' }
+  )pb");
+  PutTypesResponse put_types_response;
+  ASSERT_EQ(metadata_store_->PutTypes(put_types_request, &put_types_response),
+            absl::OkStatus());
+  int64_t context_type_id = put_types_response.context_type_ids(0);
+  int64_t execution_type_id = put_types_response.execution_type_ids(0);
+
+  // Setup: Insert an execution, a context and an association.
+  Context context;
+  context.set_type_id(context_type_id);
+  // context name has a form similar to properties filter query syntax.
+  context.set_name("properties.component.component");
+  PutContextsRequest put_context_request;
+  *put_context_request.add_contexts() = context;
+  PutContextsResponse put_context_response;
+  ASSERT_EQ(
+      metadata_store_->PutContexts(put_context_request, &put_context_response),
+      absl::OkStatus());
+  context.set_id(put_context_response.context_ids(0));
+
+  Execution execution;
+  execution.set_type_id(execution_type_id);
+  execution.set_name("execution_name'");
+  PutExecutionRequest put_execution_request;
+  *put_execution_request.mutable_execution() = execution;
+  *put_execution_request.add_contexts() = context;
+  PutExecutionResponse put_execution_response;
+  ASSERT_EQ(metadata_store_->PutExecution(put_execution_request,
+                                          &put_execution_response),
+            absl::OkStatus());
+  execution.set_id(put_execution_response.execution_id());
+
+  // Test: GetExecutions with filter query on context.type and context.name
+  // could obtain the wanted execution.
+  {
+    GetExecutionsRequest get_executions_request;
+    GetExecutionsResponse get_executions_response;
+    get_executions_request.mutable_options()->set_filter_query(
+        R"((contexts_0.type = 'context_type') AND (contexts_0.name = 'properties.component.component'))");
+    ASSERT_EQ(metadata_store_->GetExecutions(get_executions_request,
+                                             &get_executions_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_executions_response.executions(), SizeIs(1));
+    EXPECT_THAT(
+        get_executions_response.executions(0),
+        EqualsProto(execution,
+                    /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
+  }
+}
+
 // Test that PutLineageSubgraph adds entire subgraph.
 TEST_P(MetadataStoreTestSuite, PutLineageSubgraphAndVerifyLineageGraph) {
   // Prepare the metadata store with types

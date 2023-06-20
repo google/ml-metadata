@@ -43,9 +43,10 @@ constexpr absl::string_view kContextRE = "\\b(contexts_[[:word:]]+)\\.";
 constexpr absl::string_view kArtifactRE = "\\b(artifacts_[[:word:]]+)\\.";
 constexpr absl::string_view kExecutionRE = "\\b(executions_[[:word:]]+)\\.";
 constexpr absl::string_view kPropertyRE =
-    "\\bproperties\\.(:?([[:word:]]+)|(`[^`]+`))\\.";
+    "\\bproperties\\.(:?([[:word:]]+)|(`[^`]+`))\\.(?:int|double|string|bool)";
 constexpr absl::string_view kCustomPropertyRE =
-    "\\bcustom_properties\\.(:?([[:word:]]+)|(`[^`]+`))\\.";
+    "\\bcustom_properties\\.(:?([[:word:]]+)|(`[^`]+`))\\."
+    "(?:int|double|string|bool)";
 constexpr absl::string_view kChildContextRE =
     "\\b(child_contexts_[[:word:]]+)\\.";
 constexpr absl::string_view kParentContextRE =
