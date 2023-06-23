@@ -1,6 +1,6 @@
 workspace(name = "ml_metadata")
 
-load("//ml_metadata:repo.bzl", "mlmd_http_archive", "clean_dep")
+load("//ml_metadata:repo.bzl", "clean_dep")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -48,35 +48,30 @@ http_archive(
     sha256 = "0e800799aa64d0b4d354f3ff317bbd5fbf42f3a522ab0456bb749fc8d3b67415",
 )
 
-mlmd_http_archive(
+http_archive(
     name = "boringssl",
     sha256 = "1188e29000013ed6517168600fc35a010d58c5d321846d6a6dfee74e4c788b45",
     strip_prefix = "boringssl-7f634429a04abc48e2eb041c81c5235816c96514",
-    system_build_file = clean_dep("//ml_metadata/third_party/systemlibs:boringssl.BUILD"),
     urls = [
-        "https://storage.googleapis.com/mirror.tensorflow.org/github.com/google/boringssl/archive/7f634429a04abc48e2eb041c81c5235816c96514.tar.gz",
         "https://github.com/google/boringssl/archive/7f634429a04abc48e2eb041c81c5235816c96514.tar.gz",
     ],
 )
 
-mlmd_http_archive(
+http_archive(
     name = "org_sqlite",
     build_file = clean_dep("//ml_metadata/third_party:sqlite.BUILD"),
     sha256 = "87775784f8b22d0d0f1d7811870d39feaa7896319c7c20b849a4181c5a50609b",
     strip_prefix = "sqlite-amalgamation-3390200",
-    system_build_file = clean_dep("//ml_metadata/third_party/systemlibs:sqlite.BUILD"),
     urls = [
-        "https://storage.googleapis.com/mirror.tensorflow.org/www.sqlite.org/2022/sqlite-amalgamation-3390200.zip",
         "https://www.sqlite.org/2022/sqlite-amalgamation-3390200.zip",
     ],
 )
 
-mlmd_http_archive(
+http_archive(
     name = "com_google_googletest",
     sha256 = "ff7a82736e158c077e76188232eac77913a15dac0b22508c390ab3f88e6d6d86",
     strip_prefix = "googletest-b6cd405286ed8635ece71c72f118e659f4ade3fb",
     urls = [
-        "https://storage.googleapis.com/mirror.tensorflow.org/github.com/google/googletest/archive/b6cd405286ed8635ece71c72f118e659f4ade3fb.zip",
         "https://github.com/google/googletest/archive/b6cd405286ed8635ece71c72f118e659f4ade3fb.zip",
     ],
 )
