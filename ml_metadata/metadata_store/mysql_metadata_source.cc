@@ -160,6 +160,7 @@ Status MySqlMetadataSource::ConnectImpl() {
     mysql_options(db_, MYSQL_OPT_SSL_VERIFY_SERVER_CERT, &verify_server_cert);
   }
 
+  mysql_options(db_, MYSQL_DEFAULT_AUTH, "mysql_native_password");
   // Connect to the MYSQL server.
   db_ = mysql_real_connect(
           db_, config_.host().empty() ? nullptr : config_.host().c_str(),
