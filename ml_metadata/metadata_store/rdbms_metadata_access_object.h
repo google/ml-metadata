@@ -409,10 +409,10 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status CreateEvent(const Event& event, const bool is_already_validated,
                            int64_t* event_id) final;
 
-  absl::Status FindEventsByArtifacts(const std::vector<int64_t>& artifact_ids,
+  absl::Status FindEventsByArtifacts(absl::Span<const int64_t> artifact_ids,
                                      std::vector<Event>* events) final;
 
-  absl::Status FindEventsByExecutions(const std::vector<int64_t>& execution_ids,
+  absl::Status FindEventsByExecutions(absl::Span<const int64_t> execution_ids,
                                       std::vector<Event>* events) final;
 
   absl::Status CreateAssociation(const Association& association,
@@ -482,6 +482,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
       absl::optional<std::string> boundary_artifacts,
       absl::optional<std::string> boundary_executions,
       LineageGraph& subgraph) final;
+
 
 
   // Deletes a list of artifacts by id.
@@ -890,13 +891,17 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
       absl::flat_hash_set<int64_t>& visited_execution_ids,
       std::vector<Artifact>& output_artifacts, LineageGraph& subgraph);
 
-  // Given `boundary_condition`, the utility method keeps nodes that satisfy
-  // the `boundary_condition`, and removes any nodes that do not satisfy the
-  // `boundary_condition` from `unvisited_node_ids`.
+
+  // Given `node_filter`, keeps nodes that satisfy the `node_filter`, and
+  // removes any nodes that do not satisfy the `node_filter` from
+  // `boundary_node_ids`.
+  // Returns OK status if `node_filter` is not specified or filtering boundary
+  // nodes succeeds.
+  // Returns detailed INTERNAL error, if filtering boundary nodes fails.
   template <typename Node>
-  absl::Status SkipBoundaryNodesImpl(
-      absl::optional<std::string> boundary_condition,
-      absl::flat_hash_set<int64_t>& unvisited_node_ids);
+  absl::Status FilterBoundaryNodesImpl(
+      absl::optional<absl::string_view> node_filter,
+      absl::flat_hash_set<int64_t>& boundary_node_ids);
 
   std::unique_ptr<QueryExecutor> executor_;
 

@@ -4474,6 +4474,22 @@ void VerifyLineageGraph(const LineageGraph& subgraph,
               UnorderedPointwise(EqualsProto<ContextType>(), context_types));
 }
 
+void VerifyLineageGraphSkeleton(
+    const LineageGraph& skeleton,
+    const std::vector<int64_t>& expected_artifact_ids,
+    const std::vector<int64_t>& expected_execution_ids,
+    const std::vector<Event>& events) {
+  EXPECT_THAT(skeleton.artifacts(),
+              UnorderedPointwise(IdEquals(), expected_artifact_ids));
+  EXPECT_THAT(skeleton.executions(),
+              UnorderedPointwise(IdEquals(), expected_execution_ids));
+  EXPECT_THAT(skeleton.events(),
+              UnorderedPointwise(EqualsProto<Event>(/*ignore_fields=*/{
+                                     "milliseconds_since_epoch",
+                                 }),
+                                 events));
+}
+
 TEST_P(MetadataAccessObjectTest, QueryLineageGraph) {
   ASSERT_EQ(Init(), absl::OkStatus());
   // Test setup: use a simple graph with multiple paths between (a1, e2).
@@ -5022,6 +5038,7 @@ TEST_P(MetadataAccessObjectTest, QueryLineageGraphWithBoundaryConditions) {
                        /*events=*/{a1e1, a0e1}, *metadata_access_object_);
   }
 }
+
 
 TEST_P(MetadataAccessObjectTest, DeleteArtifactsById) {
   ASSERT_EQ(Init(), absl::OkStatus());

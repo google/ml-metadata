@@ -112,6 +112,13 @@ T ParseTextProtoOrDie(const std::string& input) {
   return result;
 }
 
+// Checks if the id of a proto matches an expected value.
+MATCHER(IdEquals, "") {
+  auto& lhs = ::testing::get<0>(arg);
+  auto& rhs = ::testing::get<1>(arg);
+  return ::testing::Matches(lhs.id())(rhs);
+}
+
 }  // namespace testing
 }  // namespace ml_metadata
 

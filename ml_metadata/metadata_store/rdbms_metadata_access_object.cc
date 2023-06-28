@@ -1877,7 +1877,7 @@ absl::Status RDBMSMetadataAccessObject::CreateEvent(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindEventsByArtifacts(
-    const std::vector<int64_t>& artifact_ids, std::vector<Event>* events) {
+    absl::Span<const int64_t> artifact_ids, std::vector<Event>* events) {
   if (events == nullptr) {
     return absl::InvalidArgumentError("Given events is NULL.");
   }
@@ -1895,7 +1895,7 @@ absl::Status RDBMSMetadataAccessObject::FindEventsByArtifacts(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindEventsByExecutions(
-    const std::vector<int64_t>& execution_ids, std::vector<Event>* events) {
+    absl::Span<const int64_t> execution_ids, std::vector<Event>* events) {
   if (events == nullptr) {
     return absl::InvalidArgumentError("Given events is NULL.");
   }
@@ -2487,28 +2487,28 @@ absl::Status RDBMSMetadataAccessObject::FindContextByTypeIdAndContextName(
 
 
 template <typename Node>
-absl::Status RDBMSMetadataAccessObject::SkipBoundaryNodesImpl(
-    absl::optional<std::string> boundary_condition,
-    absl::flat_hash_set<int64_t>& unvisited_node_ids) {
-  if (!boundary_condition) {
+absl::Status RDBMSMetadataAccessObject::FilterBoundaryNodesImpl(
+    absl::optional<absl::string_view> node_filter,
+    absl::flat_hash_set<int64_t>& boundary_node_ids) {
+  if (!node_filter.has_value()) {
     return absl::OkStatus();
   }
-  const std::vector<int64_t> candidate_ids(unvisited_node_ids.begin(),
-                                           unvisited_node_ids.end());
+  const std::vector<int64_t> candidate_ids(boundary_node_ids.begin(),
+                                           boundary_node_ids.end());
   auto list_ids = absl::MakeConstSpan(candidate_ids);
   // Uses batched retrieval to bound query length and list query invariant.
   static constexpr int kBatchSize = 100;
-  unvisited_node_ids.clear();
+  boundary_node_ids.clear();
   for (int i = 0; i * kBatchSize < candidate_ids.size(); i++) {
     ListOperationOptions boundary_options;
     boundary_options.set_max_result_size(kBatchSize);
-    boundary_options.set_filter_query(*boundary_condition);
+    boundary_options.set_filter_query(node_filter.value().data());
     RecordSet record_set;
     MLMD_RETURN_IF_ERROR(ListNodeIds<Node>(
         boundary_options, list_ids.subspan(i * kBatchSize, kBatchSize),
         &record_set));
     for (int64_t keep_id : ConvertToIds(record_set)) {
-      unvisited_node_ids.insert(keep_id);
+      boundary_node_ids.insert(keep_id);
     }
   }
 
@@ -2542,7 +2542,7 @@ absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
       unvisited_execution_ids.insert(event.execution_id());
     }
   }
-  MLMD_RETURN_IF_ERROR(SkipBoundaryNodesImpl<Execution>(
+  MLMD_RETURN_IF_ERROR(FilterBoundaryNodesImpl<Execution>(
       boundary_condition, unvisited_execution_ids));
 
   // Randomly remove extra nodes if more than max_nodes executions are found.
@@ -2564,6 +2564,7 @@ absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
                                       subgraph.mutable_executions()));
   return absl::OkStatus();
 }
+
 
 absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
     const std::vector<Execution>& input_executions, int64_t max_nodes,
@@ -2592,8 +2593,8 @@ absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
       unvisited_artifact_ids.insert(event.artifact_id());
     }
   }
-  MLMD_RETURN_IF_ERROR(SkipBoundaryNodesImpl<Artifact>(boundary_condition,
-                                                       unvisited_artifact_ids));
+  MLMD_RETURN_IF_ERROR(FilterBoundaryNodesImpl<Artifact>(
+      boundary_condition, unvisited_artifact_ids));
 
   // Randomly remove extra nodes if more than max_nodes artifacts are found.
   while (unvisited_artifact_ids.size() > max_nodes) {
@@ -2694,6 +2695,7 @@ absl::Status RDBMSMetadataAccessObject::QueryLineageGraph(
                                   subgraph.mutable_context_types()));
   return absl::OkStatus();
 }
+
 
 absl::Status RDBMSMetadataAccessObject::DeleteArtifactsById(
     absl::Span<const int64_t> artifact_ids) {

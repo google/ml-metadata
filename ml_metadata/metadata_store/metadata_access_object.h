@@ -805,14 +805,13 @@ class MetadataAccessObject {
   // Returns NOT_FOUND error, if no `events` can be found.
   // Returns INVALID_ARGUMENT error, if the `events` is null.
   virtual absl::Status FindEventsByArtifacts(
-      const std::vector<int64_t>& artifact_ids, std::vector<Event>* events) = 0;
+      absl::Span<const int64_t> artifact_ids, std::vector<Event>* events) = 0;
 
   // Gets the events associated with a collection of execution_ids.
   // Returns NOT_FOUND error, if no `events` can be found.
   // Returns INVALID_ARGUMENT error, if the `events` is null.
   virtual absl::Status FindEventsByExecutions(
-      const std::vector<int64_t>& execution_ids,
-      std::vector<Event>* events) = 0;
+      absl::Span<const int64_t> execution_ids, std::vector<Event>* events) = 0;
 
   // Creates an association, and returns the assigned association id.
   // Please refer to the docstring for CreateAssociation() with the
@@ -961,6 +960,7 @@ class MetadataAccessObject {
       absl::optional<std::string> boundary_artifacts,
       absl::optional<std::string> boundary_executions,
       LineageGraph& subgraph) = 0;
+
 
 
   // Deletes a list of artifacts by id.
