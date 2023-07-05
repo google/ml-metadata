@@ -39,13 +39,14 @@ namespace {
 
 using absl::Status;
 
-constexpr char kSetIsolationLevel[] = "SET TRANSACTION ISOLATION LEVEL ";
-constexpr char kBeginTransaction[] = "START TRANSACTION";
-constexpr char kCommitTransaction[] = "COMMIT";
-constexpr char kRollbackTransaction[] = "ROLLBACK";
+constexpr absl::string_view kSetIsolationLevel =
+    "SET TRANSACTION ISOLATION LEVEL ";
+constexpr absl::string_view kBeginTransaction = "START TRANSACTION";
+constexpr absl::string_view kCommitTransaction = "COMMIT";
+constexpr absl::string_view kRollbackTransaction = "ROLLBACK";
 
 // url key used for storing ustom error information in the absl::Status payload.
-constexpr char kStatusErrorInfoUrl[] = "mysql-error-info";
+constexpr absl::string_view kStatusErrorInfoUrl = "mysql-error-info";
 
 // A class that invokes mysql_thread_init() when constructed, and
 // mysql_thread_end() when destructed.  It can be used as a
@@ -108,7 +109,7 @@ Status CheckConfig(const MySQLDatabaseConfig& config) {
 // to the payload of the status object.
 absl::Status BuildErrorStatus(const absl::StatusCode status_code,
                               absl::string_view error_message,
-                              const int64 mysql_error_code,
+                              const int64_t mysql_error_code,
                               absl::string_view mysql_error_message) {
   auto error_status = absl::Status(
       status_code, absl::StrCat(error_message, ": errno: ", mysql_error_message,
@@ -159,6 +160,7 @@ Status MySqlMetadataSource::ConnectImpl() {
     mysql_options(db_, MYSQL_OPT_SSL_VERIFY_SERVER_CERT, &verify_server_cert);
   }
 
+  mysql_options(db_, MYSQL_DEFAULT_AUTH, "mysql_native_password");
   // Connect to the MYSQL server.
   db_ = mysql_real_connect(
           db_, config_.host().empty() ? nullptr : config_.host().c_str(),
@@ -238,29 +240,29 @@ Status MySqlMetadataSource::ExecuteQueryImpl(const std::string& query,
 Status MySqlMetadataSource::CommitImpl() {
   MLMD_RETURN_WITH_CONTEXT_IF_ERROR(ThreadInitAccess(),
                                     "MySql thread init failed at CommitImpl");
-  return RunQuery(kCommitTransaction);
+  return RunQuery(kCommitTransaction.data());
 }
 
 Status MySqlMetadataSource::RollbackImpl() {
   MLMD_RETURN_WITH_CONTEXT_IF_ERROR(ThreadInitAccess(),
                                     "MySql thread init failed at RollbackImpl");
 
-  return RunQuery(kRollbackTransaction);
+  return RunQuery(kRollbackTransaction.data());
 }
 
 Status MySqlMetadataSource::BeginImpl() {
   MLMD_RETURN_WITH_CONTEXT_IF_ERROR(ThreadInitAccess(),
                                     "MySql thread init failed at BeginImpl");
 
-  return RunQuery(kBeginTransaction);
+  return RunQuery(kBeginTransaction.data());
 }
 
 
 Status MySqlMetadataSource::CheckTransactionSupport() {
-  constexpr char kCheckTransactionSupport[] =
+  constexpr absl::string_view kCheckTransactionSupport =
       "SELECT ENGINE, TRANSACTIONS FROM INFORMATION_SCHEMA.ENGINES WHERE "
       "ENGINE=(SELECT @@default_storage_engine)";
-  MLMD_RETURN_IF_ERROR(RunQuery(kCheckTransactionSupport));
+  MLMD_RETURN_IF_ERROR(RunQuery(kCheckTransactionSupport.data()));
 
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(ConvertMySqlRowSetToRecordSet(&record_set));
@@ -286,7 +288,7 @@ Status MySqlMetadataSource::RunQuery(const std::string& query) {
 
   int query_status = mysql_query(db_, query.c_str());
   if (query_status) {
-    int64 error_number = mysql_errno(db_);
+    int64_t error_number = mysql_errno(db_);
     // 2006: sever closes the connection due to inactive client;
     // client reports server has gone away, we reconnect the server for the
     // client if the query is begin transaction.
@@ -361,20 +363,20 @@ Status MySqlMetadataSource::ConvertMySqlRowSetToRecordSet(
     RecordSet::Record record;
     std::vector<std::string> col_names;
 
-    uint32 num_cols = mysql_num_fields(result_set_);
-    for (uint32 col = 0; col < num_cols; ++col) {
+    int64_t num_cols = mysql_num_fields(result_set_);
+    for (int64_t col = 0; col < num_cols; ++col) {
       MYSQL_FIELD* field = mysql_fetch_field_direct(result_set_, col);
       if (field == nullptr) {
         return absl::InternalError(absl::StrCat(
             "Error in retrieving column description for index ", col));
       }
-      const std::string col_name(field->org_name);
+      const std::string col_name(field->name);
       if (record_set.column_names().empty()) {
         col_names.push_back(col_name);
       }
 
       if (row[col] == nullptr && !(field->flags & NOT_NULL_FLAG)) {
-        record.add_values(kMetadataSourceNull);
+        record.add_values(kMetadataSourceNull.data());
       } else {
         record.add_values(absl::StrCat(row[col]));
       }

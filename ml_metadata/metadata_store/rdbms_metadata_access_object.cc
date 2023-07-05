@@ -17,26 +17,31 @@ limitations under the License.
 
 #endif
 
+#include <cstdint>
 #include <iterator>
 #include <string>
 #include <vector>
 
 #include <glog/logging.h>
+#include "google/protobuf/field_mask.pb.h"
 #include "google/protobuf/struct.pb.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/util/json_util.h"
 #include "google/protobuf/util/message_differencer.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/container/node_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
-#include "absl/strings/substitute.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "ml_metadata/util/field_mask_utils.h"
+#include "google/protobuf/util/field_mask_util.h"
 // clang-format off
 #ifdef _WIN32
 #include "ml_metadata/metadata_store/rdbms_metadata_access_object.h" // NOLINT
@@ -45,6 +50,7 @@ limitations under the License.
 #include "absl/types/optional.h"
 #include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/metadata_store/list_operation_util.h"
+#include "ml_metadata/metadata_store/record_parsing_utils.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/simple_types/simple_types_constants.h"
@@ -81,7 +87,7 @@ absl::Status PopulateNodeProperties(const RecordSet::Record& record,
       (is_custom_property ? (*node.mutable_custom_properties())[property_name]
                           : (*node.mutable_properties())[property_name]);
   if (record.values(3) != kMetadataSourceNull) {
-    int64 int_value;
+    int64_t int_value;
     CHECK(absl::SimpleAtoi(record.values(3), &int_value));
     property_value.set_int_value(int_value);
   } else if (record.values(4) != kMetadataSourceNull) {
@@ -120,68 +126,94 @@ absl::Status PopulateNodeProperties(const RecordSet::Record& record,
 
 // Converts a record set that contains an id column at position per record to a
 // vector.
-std::vector<int64> ConvertToIds(const RecordSet& record_set, int position = 0) {
-  std::vector<int64> result;
+std::vector<int64_t> ConvertToIds(const RecordSet& record_set,
+                                  int position = 0) {
+  std::vector<int64_t> result;
   result.reserve(record_set.records().size());
   for (const RecordSet::Record& record : record_set.records()) {
-    int64 id;
+    int64_t id;
     CHECK(absl::SimpleAtoi(record.values(position), &id));
     result.push_back(id);
   }
   return result;
 }
 
-// Extracts 2 vectors of type ids and corresponding parent type ids from the
-// parent_type triplets.
-void ConvertToTypeAndParentTypeIds(const RecordSet& record_set,
-                                   std::vector<int64>& type_ids,
-                                   std::vector<int64>& parent_type_ids) {
-  const std::vector<int64> ids = ConvertToIds(record_set);
-  absl::c_copy(ids, std::back_inserter(type_ids));
-  const std::vector<int64> parent_ids =
+// Dedups an id list.
+std::vector<int64_t> DedupIds(const std::vector<int64_t>& ids) {
+  std::vector<int64_t> result;
+  absl::flat_hash_set<int64_t> deduped_set(ids.begin(), ids.end());
+  absl::c_move(deduped_set, std::back_inserter(result));
+  return result;
+}
+
+// Extracts 2 vectors of ids and corresponding parent ids from parent_{}
+// records.
+void ConvertToIdAndParentIds(const RecordSet& record_set,
+                             std::vector<int64_t>& ids,
+                             std::vector<int64_t>& parent_ids) {
+  const std::vector<int64_t> converted_ids = ConvertToIds(record_set);
+  absl::c_copy(converted_ids, std::back_inserter(ids));
+  const std::vector<int64_t> converted_parent_ids =
       ConvertToIds(record_set, /*position=*/1);
-  absl::c_copy(parent_ids, std::back_inserter(parent_type_ids));
+  absl::c_copy(converted_parent_ids, std::back_inserter(parent_ids));
 }
 
 // Extracts a vector of parent type ids from the parent_type triplets.
-std::vector<int64> ParentTypesToParentTypeIds(const RecordSet& record_set) {
+std::vector<int64_t> ParentTypesToParentTypeIds(const RecordSet& record_set) {
   return ConvertToIds(record_set, /*position=*/1);
 }
 
 // Extracts a vector of context ids from attribution triplets.
-std::vector<int64> AttributionsToContextIds(const RecordSet& record_set) {
+std::vector<int64_t> AttributionsToContextIds(const RecordSet& record_set) {
   return ConvertToIds(record_set, /*position=*/1);
 }
 
 // Extracts a vector of context ids from attribution triplets.
-std::vector<int64> AttributionsToArtifactIds(const RecordSet& record_set) {
+std::vector<int64_t> AttributionsToArtifactIds(const RecordSet& record_set) {
   return ConvertToIds(record_set, /*position=*/2);
 }
 
 // Extracts a vector of context ids from association triplets.
-std::vector<int64> AssociationsToContextIds(const RecordSet& record_set) {
+std::vector<int64_t> AssociationsToContextIds(const RecordSet& record_set) {
   return ConvertToIds(record_set, /*position=*/1);
 }
 
 // Extracts a vector of execution ids from association triplets.
-std::vector<int64> AssociationsToExecutionIds(const RecordSet& record_set) {
+std::vector<int64_t> AssociationsToExecutionIds(const RecordSet& record_set) {
   return ConvertToIds(record_set, /*position=*/2);
 }
 
 // Extracts a vector of parent context ids from parent context triplets.
 // If is_parent is true, then parent_context_ids are returned.
 // If is_parent is false, then context_ids for children are returned.
-std::vector<int64> ParentContextsToContextIds(const RecordSet& record_set,
-                                              bool is_parent) {
+std::vector<int64_t> ParentContextsToContextIds(const RecordSet& record_set,
+                                                bool is_parent) {
   const int position = is_parent ? 1 : 0;
   return ConvertToIds(record_set, position);
+}
+
+// Extracts a map of <key_id, vector<value_id_subset>> for each key_id in the
+// key_ids list.
+absl::flat_hash_map<int64_t, std::vector<int64_t>> MapKeyIdToValueIds(
+    const std::vector<int64_t>& key_ids,
+    const std::vector<int64_t>& value_ids) {
+  CHECK_EQ(key_ids.size(), value_ids.size());
+  absl::flat_hash_map<int64_t, std::vector<int64_t>> result;
+  for (int i = 0; i < key_ids.size(); ++i) {
+    if (!result.contains(key_ids[i])) {
+      result.insert({key_ids[i], {value_ids[i]}});
+    } else {
+      result[key_ids[i]].push_back(value_ids[i]);
+    }
+  }
+  return result;
 }
 
 // Parses and converts a string value to a specific field in a message.
 // If the given string `value` is NULL (encoded as kMetadataSourceNull), then
 // leave the field unset.
 // The field should be a scalar field. The field type must be one of {string,
-// int64, bool, enum, message}.
+// int64_t, bool, enum, message}.
 absl::Status ParseValueToField(const google::protobuf::FieldDescriptor* field_descriptor,
                                absl::string_view value,
                                google::protobuf::Message* message) {
@@ -198,7 +230,7 @@ absl::Status ParseValueToField(const google::protobuf::FieldDescriptor* field_de
       break;
     }
     case google::protobuf::FieldDescriptor::CppType::CPPTYPE_INT64: {
-      int64 int64_value;
+      int64_t int64_value;
       CHECK(absl::SimpleAtoi(value, &int64_value));
       if (field_descriptor->is_repeated())
         reflection->AddInt64(message, field_descriptor, int64_value);
@@ -268,17 +300,6 @@ absl::Status ParseRecordSetToMessage(const RecordSet& record_set,
   return absl::OkStatus();
 }
 
-// Converts a RecordSet in the query result to a MessageType array.
-template <typename MessageType>
-absl::Status ParseRecordSetToMessageArray(const RecordSet& record_set,
-                                          std::vector<MessageType>* messages) {
-  for (int i = 0; i < record_set.records_size(); i++) {
-    messages->push_back(MessageType());
-    MLMD_RETURN_IF_ERROR(
-        ParseRecordSetToMessage(record_set, &messages->back(), i));
-  }
-  return absl::OkStatus();
-}
 
 // Converts a list of Records containing key-value pairs to a proto Map.
 // The field_name is the map field in the MessageType. The method fills the
@@ -321,6 +342,7 @@ absl::Status ParseRecordsToMapField(
 bool IsUniqueConstraintViolated(const absl::Status status) {
   return absl::IsInternal(status) &&
          (absl::StrContains(std::string(status.message()), "Duplicate") ||
+          absl::StrContains(std::string(status.message()), "duplicate") ||
           absl::StrContains(std::string(status.message()), "UNIQUE"));
 }
 
@@ -335,7 +357,8 @@ absl::optional<std::string> GetTypeVersion(const T& type_message) {
 // Template function for adding ancestors for ArtifactType, ExecutionType and
 // ContextType cases in CheckCyClicDependency().
 template <typename T>
-absl::Status AddAncestors(int64 ancestor_id, std::vector<int64>& ancestor_ids,
+absl::Status AddAncestors(int64_t ancestor_id,
+                          std::vector<int64_t>& ancestor_ids,
                           std::unique_ptr<QueryExecutor>& executor) {
   // Checks whether type T is one of the expected node type.
   // If not, returns Internal Error.
@@ -346,8 +369,8 @@ absl::Status AddAncestors(int64 ancestor_id, std::vector<int64>& ancestor_ids,
   }
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(executor->SelectParentTypesByTypeID(
-      absl::Span<const int64>({ancestor_id}), &record_set));
-  for (const int64 parent_id : ParentTypesToParentTypeIds(record_set)) {
+      absl::Span<const int64_t>({ancestor_id}), &record_set));
+  for (const int64_t parent_id : ParentTypesToParentTypeIds(record_set)) {
     ancestor_ids.push_back(parent_id);
   }
   return absl::OkStatus();
@@ -357,12 +380,12 @@ absl::Status AddAncestors(int64 ancestor_id, std::vector<int64>& ancestor_ids,
 // CheckCyClicDependency().
 template <>
 absl::Status AddAncestors<ParentContext>(
-    int64 ancestor_id, std::vector<int64>& ancestor_ids,
+    int64_t ancestor_id, std::vector<int64_t>& ancestor_ids,
     std::unique_ptr<QueryExecutor>& executor) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(
       executor->SelectParentContextsByContextID(ancestor_id, &record_set));
-  for (const int64 parent_id :
+  for (const int64_t parent_id :
        ParentContextsToContextIds(record_set, /*is_parent=*/true)) {
     ancestor_ids.push_back(parent_id);
   }
@@ -373,12 +396,12 @@ absl::Status AddAncestors<ParentContext>(
 // root node's id(`parent_id`) and it introduces a cycle if any ancestors' id
 // is `child_id`. It assumes that existing inheritance are acyclic.
 template <typename T>
-absl::Status CheckCyClicDependency(int64 child_id, int64 parent_id,
+absl::Status CheckCyClicDependency(int64_t child_id, int64_t parent_id,
                                    std::unique_ptr<QueryExecutor>& executor) {
-  std::vector<int64> ancestor_ids = {parent_id};
-  absl::flat_hash_set<int64> visited_ancestors_ids;
+  std::vector<int64_t> ancestor_ids = {parent_id};
+  absl::flat_hash_set<int64_t> visited_ancestors_ids;
   while (!ancestor_ids.empty()) {
-    const int64 ancestor_id = ancestor_ids.back();
+    const int64_t ancestor_id = ancestor_ids.back();
     if (ancestor_id == child_id) {
       return absl::InvalidArgumentError(
           "There is a cycle detected of the given relationship.");
@@ -395,30 +418,11 @@ absl::Status CheckCyClicDependency(int64 child_id, int64 parent_id,
 
 }  // namespace
 
-absl::Status ParseRecordSetToNodeArray(const RecordSet& record_set,
-                                       std::vector<Artifact>* artifacts) {
-  return ParseRecordSetToMessageArray(record_set, artifacts);
-}
-
-absl::Status ParseRecordSetToNodeArray(const RecordSet& record_set,
-                                       std::vector<Execution>* executions) {
-  return ParseRecordSetToMessageArray(record_set, executions);
-}
-
-absl::Status ParseRecordSetToNodeArray(const RecordSet& record_set,
-                                       std::vector<Context>* contexts) {
-  return ParseRecordSetToMessageArray(record_set, contexts);
-}
-
-absl::Status ParseRecordSetToNodeArray(const RecordSet& record_set,
-                                       std::vector<Event>* events) {
-  return ParseRecordSetToMessageArray(record_set, events);
-}
 
 // Creates an Artifact (without properties).
 absl::Status RDBMSMetadataAccessObject::CreateBasicNode(
     const Artifact& artifact, const absl::Time create_timestamp,
-    int64* node_id) {
+    int64_t* node_id) {
   return executor_->InsertArtifact(
       artifact.type_id(), artifact.uri(),
       artifact.has_state() ? absl::make_optional(artifact.state())
@@ -433,7 +437,7 @@ absl::Status RDBMSMetadataAccessObject::CreateBasicNode(
 // Creates an Execution (without properties).
 absl::Status RDBMSMetadataAccessObject::CreateBasicNode(
     const Execution& execution, const absl::Time create_timestamp,
-    int64* node_id) {
+    int64_t* node_id) {
   return executor_->InsertExecution(
       execution.type_id(),
       execution.has_last_known_state()
@@ -448,7 +452,8 @@ absl::Status RDBMSMetadataAccessObject::CreateBasicNode(
 
 // Creates a Context (without properties).
 absl::Status RDBMSMetadataAccessObject::CreateBasicNode(
-    const Context& context, const absl::Time create_timestamp, int64* node_id) {
+    const Context& context, const absl::Time create_timestamp,
+    int64_t* node_id) {
   if (!context.has_name() || context.name().empty()) {
     return absl::InvalidArgumentError("Context name should not be empty");
   }
@@ -461,7 +466,7 @@ absl::Status RDBMSMetadataAccessObject::CreateBasicNode(
 
 template <>
 absl::Status RDBMSMetadataAccessObject::RetrieveNodesById(
-    absl::Span<const int64> ids, RecordSet* header, RecordSet* properties,
+    absl::Span<const int64_t> ids, RecordSet* header, RecordSet* properties,
     Context* tag) {
   MLMD_RETURN_IF_ERROR(executor_->SelectContextsByID(ids, header));
   if (!header->records().empty()) {
@@ -473,7 +478,7 @@ absl::Status RDBMSMetadataAccessObject::RetrieveNodesById(
 
 template <>
 absl::Status RDBMSMetadataAccessObject::RetrieveNodesById(
-    absl::Span<const int64> ids, RecordSet* header, RecordSet* properties,
+    absl::Span<const int64_t> ids, RecordSet* header, RecordSet* properties,
     Artifact* tag) {
   MLMD_RETURN_IF_ERROR(executor_->SelectArtifactsByID(ids, header));
   if (!header->records().empty()) {
@@ -485,12 +490,34 @@ absl::Status RDBMSMetadataAccessObject::RetrieveNodesById(
 
 template <>
 absl::Status RDBMSMetadataAccessObject::RetrieveNodesById(
-    absl::Span<const int64> ids, RecordSet* header, RecordSet* properties,
+    absl::Span<const int64_t> ids, RecordSet* header, RecordSet* properties,
     Execution* tag) {
   MLMD_RETURN_IF_ERROR(executor_->SelectExecutionsByID(ids, header));
   if (!header->records().empty()) {
     MLMD_RETURN_IF_ERROR(
         executor_->SelectExecutionPropertyByExecutionID(ids, properties));
+  }
+  return absl::OkStatus();
+}
+
+// Update a Node's assets based on the field mask.
+// If `mask` is empty, update `stored_node` as a whole.
+// If `mask` is not empty, only update fields specified in `mask`.
+template <typename Node>
+absl::Status RDBMSMetadataAccessObject::RunMaskedNodeUpdate(
+    const Node& node, Node& stored_node, absl::Time update_timestamp,
+    const google::protobuf::FieldMask& mask) {
+  if (!mask.paths().empty()) {
+    absl::StatusOr<google::protobuf::FieldMask> fields_mask_or =
+        GetFieldsSubMaskFromMask(mask, node.GetDescriptor());
+    MLMD_RETURN_IF_ERROR(fields_mask_or.status());
+    // seperate fields_mask from mask
+    google::protobuf::util::FieldMaskUtil::MergeOptions merge_options;
+    google::protobuf::util::FieldMaskUtil::MergeMessageTo(node, fields_mask_or.value(),
+                                                merge_options, &stored_node);
+    MLMD_RETURN_IF_ERROR(RunNodeUpdate(stored_node, update_timestamp));
+  } else {
+    MLMD_RETURN_IF_ERROR(RunNodeUpdate(node, update_timestamp));
   }
   return absl::OkStatus();
 }
@@ -536,7 +563,7 @@ absl::Status RDBMSMetadataAccessObject::RunNodeUpdate(
 // Runs a property insertion query for a NodeType.
 template <typename NodeType>
 absl::Status RDBMSMetadataAccessObject::InsertProperty(
-    const int64 node_id, absl::string_view name,
+    const int64_t node_id, absl::string_view name,
     const bool is_custom_property, const Value& value) {
   NodeType node;
   const TypeKind type_kind = ResolveTypeKind(&node);
@@ -560,8 +587,9 @@ absl::Status RDBMSMetadataAccessObject::InsertProperty(
 
 // Generates a property update query for a NodeType.
 template <typename NodeType>
-absl::Status RDBMSMetadataAccessObject::UpdateProperty(
-    const int64 node_id, absl::string_view name, const Value& value) {
+absl::Status RDBMSMetadataAccessObject::UpdateProperty(const int64_t node_id,
+                                                       absl::string_view name,
+                                                       const Value& value) {
   NodeType node;
   const TypeKind type_kind = ResolveTypeKind(&node);
   MetadataSourceQueryConfig::TemplateQuery update_property;
@@ -580,8 +608,8 @@ absl::Status RDBMSMetadataAccessObject::UpdateProperty(
 
 // Generates a property deletion query for a NodeType.
 template <typename NodeType>
-absl::Status RDBMSMetadataAccessObject::DeleteProperty(
-    const int64 node_id, absl::string_view name) {
+absl::Status RDBMSMetadataAccessObject::DeleteProperty(const int64_t node_id,
+                                                       absl::string_view name) {
   NodeType type;
   const TypeKind type_kind = ResolveTypeKind(&type);
   switch (type_kind) {
@@ -597,60 +625,83 @@ absl::Status RDBMSMetadataAccessObject::DeleteProperty(
 }
 
 // Generates a list of queries for the `curr_properties` (C) based on the given
-// `prev_properties` (P). A property definition is a 2-tuple (name, value_type).
-// a) any property in the intersection of C and P, a update query is generated.
-// b) any property in C \ P, insert query is generated.
-// c) any property in P \ C, delete query is generated.
-// The queries are composed from corresponding template queries with the given
-// `NodeType` (which is one of {`ArtifactType`, `ExecutionType`, `ContextType`}
-// and the `is_custom_property` (which indicates the space of the given
-// properties.
-// Returns `output_num_changed_properties` which equals to the number of
-// properties are changed (deleted, updated or inserted).
+// `prev_properties` (P) only for properties associated with names in `mask`(M).
+// A property definition is a 2-tuple (name, value_type).
+// a) any property in the intersection of M, C and P, an update query is
+// generated.
+// b) any property in the intersection of M and (C \ P), insert query is
+// generated.
+// c) any property in the intersection of M and (P \ C), delete query is
+// generated.
+// The queries are composed from corresponding template
+// queries with the given `NodeType` (which is one of {`ArtifactType`,
+// `ExecutionType`, `ContextType`} and the `is_custom_property` (which indicates
+// the space of the given properties. Returns `output_num_changed_properties`
+// which equals to the number of properties are changed (deleted, updated or
+// inserted).
 template <typename NodeType>
-absl::Status RDBMSMetadataAccessObject::ModifyProperties(
+absl::StatusOr<int64_t> RDBMSMetadataAccessObject::ModifyProperties(
     const google::protobuf::Map<std::string, Value>& curr_properties,
-    const google::protobuf::Map<std::string, Value>& prev_properties, const int64 node_id,
-    const bool is_custom_property, int& output_num_changed_properties) {
-  output_num_changed_properties = 0;
-  // generates delete clauses for properties in P \ C
-  for (const auto& p : prev_properties) {
-    const std::string& name = p.first;
-    const Value& value = p.second;
-    // check the 2-tuple (name, value_type) in prev_properties
-    if (curr_properties.find(name) != curr_properties.end() &&
-        curr_properties.at(name).value_case() == value.value_case())
-      continue;
+    const google::protobuf::Map<std::string, Value>& prev_properties,
+    const int64_t node_id, const bool is_custom_property,
+    const google::protobuf::FieldMask& mask) {
+  int output_num_changed_properties = 0;
+  absl::flat_hash_set<absl::string_view> property_names_in_mask;
+  absl::StatusOr<absl::flat_hash_set<absl::string_view>>
+      property_names_or_internal_error =
+          GetPropertyNamesFromMaskOrUnionOfProperties(
+              mask, is_custom_property, curr_properties, prev_properties);
 
-    MLMD_RETURN_IF_ERROR(DeleteProperty<NodeType>(node_id, name));
-    output_num_changed_properties++;
-  }
+  MLMD_RETURN_IF_ERROR(property_names_or_internal_error.status());
+  property_names_in_mask = property_names_or_internal_error.value();
 
-  for (const auto& p : curr_properties) {
-    const std::string& name = p.first;
-    const Value& value = p.second;
-    const auto prev_value_it = prev_properties.find(name);
-    if (prev_value_it != prev_properties.end() &&
-        prev_value_it->second.value_case() == p.second.value_case()) {
-      if (!google::protobuf::util::MessageDifferencer::Equals(prev_value_it->second,
-                                                    value)) {
-        // generates update clauses for properties in the intersection P & C
-        MLMD_RETURN_IF_ERROR(UpdateProperty<NodeType>(node_id, name, value));
+  for (absl::string_view name : property_names_in_mask) {
+    const bool name_in_previous_properties =
+        prev_properties.find(name.data()) != prev_properties.end();
+    const bool name_in_current_properties =
+        curr_properties.find(name.data()) != curr_properties.end();
+
+    if (name_in_previous_properties) {
+      if (!name_in_current_properties) {
+        // Generate delete clauses for properties in P \ C
+        MLMD_RETURN_IF_ERROR(DeleteProperty<NodeType>(node_id, name));
         output_num_changed_properties++;
+      } else {
+        // Generate update clauses for properties in the intersection P & C only
+        // if the values associated with `name` are different.
+        if (!google::protobuf::util::MessageDifferencer::Equals(
+                prev_properties.at(name.data()),
+                curr_properties.at(name.data()))) {
+          if (is_custom_property) {
+            MLMD_RETURN_IF_ERROR(DeleteProperty<NodeType>(node_id, name));
+            MLMD_RETURN_IF_ERROR(
+                InsertProperty<NodeType>(node_id, name, is_custom_property,
+                                         curr_properties.at(name.data())));
+          } else {
+            MLMD_RETURN_IF_ERROR(UpdateProperty<NodeType>(
+                node_id, name, curr_properties.at(name.data())));
+          }
+          output_num_changed_properties++;
+        }
       }
     } else {
-      // generate insert clauses for properties in C \ P
-      MLMD_RETURN_IF_ERROR(
-          InsertProperty<NodeType>(node_id, name, is_custom_property, value));
-      output_num_changed_properties++;
+      if (name_in_current_properties) {
+        // Generate insert clauses for properties in C \ P
+        MLMD_RETURN_IF_ERROR(
+            InsertProperty<NodeType>(node_id, name, is_custom_property,
+                                     curr_properties.at(name.data())));
+        output_num_changed_properties++;
+      }
+      // Else, do nothing because `name` does not exist in either
+      // `prev_properties` nor `curr_properties`
     }
   }
-  return absl::OkStatus();
+  return output_num_changed_properties;
 }
 
 // Creates a query to insert an artifact type.
 absl::Status RDBMSMetadataAccessObject::InsertTypeID(const ArtifactType& type,
-                                                     int64* type_id) {
+                                                     int64_t* type_id) {
   return executor_->InsertArtifactType(
       type.name(), GetTypeVersion(type),
       type.has_description() ? absl::make_optional(type.description())
@@ -662,7 +713,7 @@ absl::Status RDBMSMetadataAccessObject::InsertTypeID(const ArtifactType& type,
 
 // Creates a query to insert an execution type.
 absl::Status RDBMSMetadataAccessObject::InsertTypeID(const ExecutionType& type,
-                                                     int64* type_id) {
+                                                     int64_t* type_id) {
   return executor_->InsertExecutionType(
       type.name(), GetTypeVersion(type),
       type.has_description() ? absl::make_optional(type.description())
@@ -676,7 +727,7 @@ absl::Status RDBMSMetadataAccessObject::InsertTypeID(const ExecutionType& type,
 
 // Creates a query to insert a context type.
 absl::Status RDBMSMetadataAccessObject::InsertTypeID(const ContextType& type,
-                                                     int64* type_id) {
+                                                     int64_t* type_id) {
   return executor_->InsertContextType(
       type.name(), GetTypeVersion(type),
       type.has_description() ? absl::make_optional(type.description())
@@ -693,7 +744,7 @@ absl::Status RDBMSMetadataAccessObject::InsertTypeID(const ContextType& type,
 // Returns detailed INTERNAL error, if query execution fails.
 template <typename Type>
 absl::Status RDBMSMetadataAccessObject::CreateTypeImpl(const Type& type,
-                                                       int64* type_id) {
+                                                       int64_t* type_id) {
   const std::string& type_name = type.name();
   const google::protobuf::Map<std::string, PropertyType>& type_properties =
       type.properties();
@@ -744,16 +795,16 @@ absl::Status RDBMSMetadataAccessObject::FindTypesFromRecordSet(
   }
   if (get_properties) {
     RecordSet property_record_set;
-    std::vector<int64> type_ids;
+    std::vector<int64_t> type_ids;
     absl::c_transform(*types, std::back_inserter(type_ids),
                       [](const MessageType& type) { return type.id(); });
     MLMD_RETURN_IF_ERROR(
         executor_->SelectPropertiesByTypeID(type_ids, &property_record_set));
     // Builds a map between type.id and all its properties.
-    absl::flat_hash_map<int64, std::vector<RecordSet::Record>>
+    absl::flat_hash_map<int64_t, std::vector<RecordSet::Record>>
         type_id_to_records;
     for (const RecordSet::Record& record : property_record_set.records()) {
-      int64 type_id;
+      int64_t type_id;
       CHECK(absl::SimpleAtoi(record.values(0), &type_id));
       if (type_id_to_records.contains(type_id)) {
         type_id_to_records[type_id].push_back(record);
@@ -762,7 +813,7 @@ absl::Status RDBMSMetadataAccessObject::FindTypesFromRecordSet(
       }
     }
     // Builds a map between type.id and its position in `types` vector.
-    absl::flat_hash_map<int64, int64> type_id_to_pos;
+    absl::flat_hash_map<int64_t, int64_t> type_id_to_pos;
     for (int i = 0; i < types->size(); ++i) {
       type_id_to_pos.insert({types->at(i).id(), i});
     }
@@ -779,7 +830,7 @@ absl::Status RDBMSMetadataAccessObject::FindTypesFromRecordSet(
 
 template <typename MessageType>
 absl::Status RDBMSMetadataAccessObject::FindTypesImpl(
-    absl::Span<const int64> type_ids, bool get_properties,
+    absl::Span<const int64_t> type_ids, bool get_properties,
     std::vector<MessageType>& types) {
   if (type_ids.empty()) {
     return absl::InvalidArgumentError("ids cannot be empty");
@@ -790,13 +841,13 @@ absl::Status RDBMSMetadataAccessObject::FindTypesImpl(
   MessageType dummy_type;
   const TypeKind type_kind = ResolveTypeKind(&dummy_type);
 
-  absl::flat_hash_set<int64> deduped_id_set;
+  absl::flat_hash_set<int64_t> deduped_id_set;
   for (const auto& id : type_ids) {
     deduped_id_set.insert(id);
   }
-  std::vector<int64> deduped_ids;
+  std::vector<int64_t> deduped_ids;
   absl::c_transform(deduped_id_set, std::back_inserter(deduped_ids),
-                    [](const int64 id) { return id; });
+                    [](const int64_t id) { return id; });
 
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(
@@ -805,7 +856,7 @@ absl::Status RDBMSMetadataAccessObject::FindTypesImpl(
       FindTypesFromRecordSet(record_set, &types, get_properties));
 
   if (deduped_ids.size() != types.size()) {
-    std::vector<int64> found_ids;
+    std::vector<int64_t> found_ids;
     absl::c_transform(types, std::back_inserter(found_ids),
                       [](const MessageType& type) { return type.id(); });
     return absl::NotFoundError(absl::StrCat(
@@ -816,7 +867,7 @@ absl::Status RDBMSMetadataAccessObject::FindTypesImpl(
 }
 
 template <typename MessageType>
-absl::Status RDBMSMetadataAccessObject::FindTypeImpl(int64 type_id,
+absl::Status RDBMSMetadataAccessObject::FindTypeImpl(int64_t type_id,
                                                      MessageType* type) {
   const TypeKind type_kind = ResolveTypeKind(type);
   RecordSet record_set;
@@ -981,8 +1032,8 @@ absl::Status RDBMSMetadataAccessObject::UpdateTypeImpl(const Type& type) {
 
 template <typename Type>
 absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeIdImpl(
-    absl::Span<const int64> type_ids,
-    absl::flat_hash_map<int64, Type>& output_parent_types) {
+    absl::Span<const int64_t> type_ids,
+    absl::flat_hash_map<int64_t, Type>& output_parent_types) {
   if (type_ids.empty()) {
     return absl::InvalidArgumentError("type_ids cannot be empty");
   }
@@ -998,15 +1049,14 @@ absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeIdImpl(
 
   // `type_id` and `parent_type_id` have a 1:1 mapping based on the database
   // records.
-  std::vector<int64> type_ids_with_parent, parent_type_ids;
-  ConvertToTypeAndParentTypeIds(record_set, type_ids_with_parent,
-                                parent_type_ids);
+  std::vector<int64_t> type_ids_with_parent, parent_type_ids;
+  ConvertToIdAndParentIds(record_set, type_ids_with_parent, parent_type_ids);
 
   // Creates a {parent_id, parent_type} mapping.
   std::vector<Type> parent_types;
   MLMD_RETURN_IF_ERROR(
       FindTypesImpl(parent_type_ids, /*get_properties=*/false, parent_types));
-  absl::flat_hash_map<int64, Type> parent_id_to_type;
+  absl::flat_hash_map<int64_t, Type> parent_id_to_type;
   for (const auto& parent_type : parent_types) {
     parent_id_to_type.insert({parent_type.id(), parent_type});
   }
@@ -1029,14 +1079,14 @@ absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeIdImpl(
 template <typename Node, typename NodeType>
 absl::Status RDBMSMetadataAccessObject::CreateNodeImpl(
     const Node& node, const bool skip_type_and_property_validation,
-    const absl::Time create_timestamp, int64* node_id) {
+    const absl::Time create_timestamp, int64_t* node_id) {
   // clear node id
   *node_id = 0;
   if (!skip_type_and_property_validation) {
     // validate type
     if (!node.has_type_id())
       return absl::InvalidArgumentError("Type id is missing.");
-    const int64 type_id = node.type_id();
+    const int64_t type_id = node.type_id();
     NodeType node_type;
     MLMD_RETURN_WITH_CONTEXT_IF_ERROR(FindTypeImpl(type_id, &node_type),
                                       "Cannot find type for ",
@@ -1056,19 +1106,21 @@ absl::Status RDBMSMetadataAccessObject::CreateNodeImpl(
   // insert properties
   const google::protobuf::Map<std::string, Value> prev_properties;
   int num_changed_properties = 0;
-  MLMD_RETURN_IF_ERROR(ModifyProperties<NodeType>(
-      node.properties(), prev_properties, *node_id,
-      /*is_custom_property=*/false, num_changed_properties));
+  MLMD_ASSIGN_OR_RETURN(
+      num_changed_properties,
+      ModifyProperties<NodeType>(node.properties(), prev_properties, *node_id,
+                                 /*is_custom_property=*/false));
   int num_changed_custom_properties = 0;
-  MLMD_RETURN_IF_ERROR(ModifyProperties<NodeType>(
-      node.custom_properties(), prev_properties, *node_id,
-      /*is_custom_property=*/true, num_changed_custom_properties));
+  MLMD_ASSIGN_OR_RETURN(num_changed_custom_properties,
+                        ModifyProperties<NodeType>(
+                            node.custom_properties(), prev_properties, *node_id,
+                            /*is_custom_property=*/true));
   return absl::OkStatus();
 }
 
 template <typename Node>
 absl::Status RDBMSMetadataAccessObject::FindNodesImpl(
-    absl::Span<const int64> node_ids, const bool skipped_ids_ok,
+    absl::Span<const int64_t> node_ids, const bool skipped_ids_ok,
     std::vector<Node>& nodes) {
   if (node_ids.empty()) {
     return absl::InvalidArgumentError("ids cannot be empty");
@@ -1084,14 +1136,15 @@ absl::Status RDBMSMetadataAccessObject::FindNodesImpl(
   MLMD_RETURN_IF_ERROR(RetrieveNodesById<Node>(node_ids, &node_record_set,
                                                &properties_record_set));
 
-  MLMD_RETURN_IF_ERROR(ParseRecordSetToMessageArray(node_record_set, &nodes));
+  MLMD_RETURN_IF_ERROR(ParseRecordSetToNodeArray(node_record_set, nodes));
 
   // if there are properties associated with the nodes, parse the returned
   // values.
   if (!properties_record_set.records().empty()) {
     // First we build a hash map from node ids to Node messages, to
     // facilitate lookups.
-    absl::flat_hash_map<int64, typename std::vector<Node>::iterator> node_by_id;
+    absl::flat_hash_map<int64_t, typename std::vector<Node>::iterator>
+        node_by_id;
     for (auto i = nodes.begin(); i != nodes.end(); ++i) {
       node_by_id.insert({i->id(), i});
     }
@@ -1101,7 +1154,7 @@ absl::Status RDBMSMetadataAccessObject::FindNodesImpl(
     CHECK_LE(properties_record_set.column_names_size(), kPropertyRecordSetSize);
     for (const RecordSet::Record& record : properties_record_set.records()) {
       // Match the record against a node in the hash map.
-      int64 node_id;
+      int64_t node_id;
       CHECK(absl::SimpleAtoi(record.values(0), &node_id));
       auto iter = node_by_id.find(node_id);
       CHECK(iter != node_by_id.end());
@@ -1112,7 +1165,7 @@ absl::Status RDBMSMetadataAccessObject::FindNodesImpl(
   }
 
   if (node_ids.size() != nodes.size()) {
-    std::vector<int64> found_ids;
+    std::vector<int64_t> found_ids;
     absl::c_transform(nodes, std::back_inserter(found_ids),
                       [](const Node& node) { return node.id(); });
 
@@ -1130,7 +1183,7 @@ absl::Status RDBMSMetadataAccessObject::FindNodesImpl(
 }
 
 template <typename Node>
-absl::Status RDBMSMetadataAccessObject::FindNodeImpl(const int64 node_id,
+absl::Status RDBMSMetadataAccessObject::FindNodeImpl(const int64_t node_id,
                                                      Node* node) {
   std::vector<Node> nodes;
   MLMD_RETURN_IF_ERROR(
@@ -1140,15 +1193,19 @@ absl::Status RDBMSMetadataAccessObject::FindNodeImpl(const int64 node_id,
   return absl::OkStatus();
 }
 
-// Updates a `Node` which is one of {`Artifact`, `Execution`, `Context`}.
+// Updates a `Node` which is one of {`Artifact`, `Execution`, `Context`} under
+// masking.
 // `update_timestamp` should be used as the update time of the Node.
-// Returns INVALID_ARGUMENT error, if the node cannot be found
-// Returns INVALID_ARGUMENT error, if the node does not match with its type
+// If `mask` is empty, update the node as a whole.
+// If `mask` is not empty, only update fields and properties specified in
+// `mask`.
+// Returns INVALID_ARGUMENT error, if the node cannot be found.
+// Returns INVALID_ARGUMENT error, if the node does not match with its type.
 // Returns detailed INTERNAL error, if query execution fails.
 template <typename Node, typename NodeType>
 absl::Status RDBMSMetadataAccessObject::UpdateNodeImpl(
-    const Node& node, const absl::Time update_timestamp,
-    bool force_update_time) {
+    const Node& node, const absl::Time update_timestamp, bool force_update_time,
+    const google::protobuf::FieldMask& mask) {
   // validate node
   if (!node.has_id()) return absl::InvalidArgumentError("No id is given.");
 
@@ -1164,30 +1221,33 @@ absl::Status RDBMSMetadataAccessObject::UpdateNodeImpl(
         "Given type_id ", node.type_id(),
         " is different from the one known before: ", stored_node.type_id()));
   }
-  const int64 type_id = stored_node.type_id();
+  const int64_t type_id = stored_node.type_id();
 
   NodeType stored_type;
   MLMD_RETURN_IF_ERROR(FindTypeImpl(type_id, &stored_type));
-  MLMD_RETURN_IF_ERROR(ValidatePropertiesWithType(node, stored_type));
+  MLMD_RETURN_IF_ERROR(ValidatePropertiesWithType(node, stored_type, mask));
 
   // Update, insert, delete properties if changed.
   int num_changed_properties = 0;
-  MLMD_RETURN_IF_ERROR(ModifyProperties<NodeType>(
-      node.properties(), stored_node.properties(), node.id(),
-      /*is_custom_property=*/false, num_changed_properties));
+  MLMD_ASSIGN_OR_RETURN(
+      num_changed_properties,
+      ModifyProperties<NodeType>(node.properties(), stored_node.properties(),
+                                 node.id(),
+                                 /*is_custom_property=*/false, mask));
   int num_changed_custom_properties = 0;
-  MLMD_RETURN_IF_ERROR(ModifyProperties<NodeType>(
-      node.custom_properties(), stored_node.custom_properties(), node.id(),
-      /*is_custom_property=*/true, num_changed_custom_properties));
+  MLMD_ASSIGN_OR_RETURN(
+      num_changed_custom_properties,
+      ModifyProperties<NodeType>(node.custom_properties(),
+                                 stored_node.custom_properties(), node.id(),
+                                 /*is_custom_property=*/true, mask));
 
   // If `force_update_time` is set to True. Always update node regardless of
   // whether input node is the same as stored node or not.
   if (force_update_time) {
-    MLMD_RETURN_IF_ERROR(RunNodeUpdate(node, update_timestamp));
-    return absl::OkStatus();
+    return RunMaskedNodeUpdate(node, stored_node, update_timestamp, mask);
   }
-  // Update node if attributes are different or properties are updated, so that
-  // the last_update_time_since_epoch is updated properly.
+  // Update node if attributes are different or properties are updated, so
+  // that the last_update_time_since_epoch is updated properly.
   google::protobuf::util::MessageDifferencer diff;
   diff.IgnoreField(Node::descriptor()->FindFieldByName("properties"));
   diff.IgnoreField(Node::descriptor()->FindFieldByName("custom_properties"));
@@ -1199,7 +1259,8 @@ absl::Status RDBMSMetadataAccessObject::UpdateNodeImpl(
       Node::descriptor()->FindFieldByName("last_update_time_since_epoch"));
   if (!diff.Compare(node, stored_node) ||
       num_changed_properties + num_changed_custom_properties > 0) {
-    MLMD_RETURN_IF_ERROR(RunNodeUpdate(node, update_timestamp));
+    MLMD_RETURN_IF_ERROR(
+        RunMaskedNodeUpdate(node, stored_node, update_timestamp, mask));
   }
   return absl::OkStatus();
 }
@@ -1214,15 +1275,15 @@ absl::Status RDBMSMetadataAccessObject::FindEventsFromRecordSet(
     return absl::InvalidArgumentError("Given events is NULL.");
 
   events->reserve(event_record_set.records_size());
-  MLMD_RETURN_IF_ERROR(ParseRecordSetToMessageArray(event_record_set, events));
+  MLMD_RETURN_IF_ERROR(ParseRecordSetToEdgeArray(event_record_set, *events));
 
-  absl::flat_hash_map<int64, Event*> event_id_to_event_map;
-  std::vector<int64> event_ids;
+  absl::flat_hash_map<int64_t, Event*> event_id_to_event_map;
+  std::vector<int64_t> event_ids;
   event_ids.reserve(event_record_set.records_size());
   for (int i = 0; i < events->size(); ++i) {
     CHECK_LT(i, event_record_set.records_size());
     const RecordSet::Record& record = event_record_set.records()[i];
-    int64 event_id;
+    int64_t event_id;
     CHECK(absl::SimpleAtoi(record.values(0), &event_id));
     event_id_to_event_map[event_id] = &(*events)[i];
     event_ids.push_back(event_id);
@@ -1232,7 +1293,7 @@ absl::Status RDBMSMetadataAccessObject::FindEventsFromRecordSet(
   MLMD_RETURN_IF_ERROR(
       executor_->SelectEventPathByEventIDs(event_ids, &path_record_set));
   for (const RecordSet::Record& record : path_record_set.records()) {
-    int64 event_id;
+    int64_t event_id;
     CHECK(absl::SimpleAtoi(record.values(0), &event_id));
     auto iter = event_id_to_event_map.find(event_id);
     CHECK(iter != event_id_to_event_map.end());
@@ -1240,7 +1301,7 @@ absl::Status RDBMSMetadataAccessObject::FindEventsFromRecordSet(
     bool is_index_step;
     CHECK(absl::SimpleAtob(record.values(1), &is_index_step));
     if (is_index_step) {
-      int64 step_index;
+      int64_t step_index;
       CHECK(absl::SimpleAtoi(record.values(2), &step_index));
       event->mutable_path()->add_steps()->set_index(step_index);
     } else {
@@ -1252,27 +1313,27 @@ absl::Status RDBMSMetadataAccessObject::FindEventsFromRecordSet(
 
 
 absl::Status RDBMSMetadataAccessObject::CreateType(const ArtifactType& type,
-                                                   int64* type_id) {
+                                                   int64_t* type_id) {
   return CreateTypeImpl(type, type_id);
 }
 
 absl::Status RDBMSMetadataAccessObject::CreateType(const ExecutionType& type,
-                                                   int64* type_id) {
+                                                   int64_t* type_id) {
   return CreateTypeImpl(type, type_id);
 }
 
 absl::Status RDBMSMetadataAccessObject::CreateType(const ContextType& type,
-                                                   int64* type_id) {
+                                                   int64_t* type_id) {
   return CreateTypeImpl(type, type_id);
 }
 
 absl::Status RDBMSMetadataAccessObject::FindTypeById(
-    const int64 type_id, ArtifactType* artifact_type) {
+    const int64_t type_id, ArtifactType* artifact_type) {
   return FindTypeImpl(type_id, artifact_type);
 }
 
 absl::Status RDBMSMetadataAccessObject::FindTypeById(
-    const int64 type_id, ExecutionType* execution_type) {
+    const int64_t type_id, ExecutionType* execution_type) {
   return FindTypeImpl(type_id, execution_type);
 }
 
@@ -1282,24 +1343,25 @@ absl::Status RDBMSMetadataAccessObject::FindTypes(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindTypeById(
-    const int64 type_id, ContextType* context_type) {
+    const int64_t type_id, ContextType* context_type) {
   return FindTypeImpl(type_id, context_type);
 }
 
 absl::Status RDBMSMetadataAccessObject::FindTypesByIds(
-    absl::Span<const int64> type_ids,
+    absl::Span<const int64_t> type_ids,
     std::vector<ArtifactType>& artifact_types) {
   return FindTypesImpl(type_ids, /*get_properties=*/true, artifact_types);
 }
 
 absl::Status RDBMSMetadataAccessObject::FindTypesByIds(
-    absl::Span<const int64> type_ids,
+    absl::Span<const int64_t> type_ids,
     std::vector<ExecutionType>& execution_types) {
   return FindTypesImpl(type_ids, /*get_properties=*/true, execution_types);
 }
 
 absl::Status RDBMSMetadataAccessObject::FindTypesByIds(
-    absl::Span<const int64> type_ids, std::vector<ContextType>& context_types) {
+    absl::Span<const int64_t> type_ids,
+    std::vector<ContextType>& context_types) {
   return FindTypesImpl(type_ids, /*get_properties=*/true, context_types);
 }
 
@@ -1354,7 +1416,7 @@ absl::Status RDBMSMetadataAccessObject::FindTypeByNameAndVersion(
 
 absl::Status RDBMSMetadataAccessObject::FindTypeIdByNameAndVersion(
     absl::string_view name, absl::optional<absl::string_view> version,
-    TypeKind type_kind, int64* type_id) {
+    TypeKind type_kind, int64_t* type_id) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(executor_->SelectTypeByNameAndVersion(
       name, version, type_kind, &record_set));
@@ -1461,31 +1523,31 @@ absl::Status RDBMSMetadataAccessObject::CreateParentTypeInheritanceLink(
 }
 
 absl::Status RDBMSMetadataAccessObject::DeleteParentTypeInheritanceLink(
-    int64 type_id, int64 parent_type_id) {
+    int64_t type_id, int64_t parent_type_id) {
   return executor_->DeleteParentType(type_id, parent_type_id);
 }
 
 absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeId(
-    absl::Span<const int64> type_ids,
-    absl::flat_hash_map<int64, ArtifactType>& output_parent_types) {
+    absl::Span<const int64_t> type_ids,
+    absl::flat_hash_map<int64_t, ArtifactType>& output_parent_types) {
   return FindParentTypesByTypeIdImpl(type_ids, output_parent_types);
 }
 
 absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeId(
-    absl::Span<const int64> type_ids,
-    absl::flat_hash_map<int64, ExecutionType>& output_parent_types) {
+    absl::Span<const int64_t> type_ids,
+    absl::flat_hash_map<int64_t, ExecutionType>& output_parent_types) {
   return FindParentTypesByTypeIdImpl(type_ids, output_parent_types);
 }
 
 absl::Status RDBMSMetadataAccessObject::FindParentTypesByTypeId(
-    absl::Span<const int64> type_ids,
-    absl::flat_hash_map<int64, ContextType>& output_parent_types) {
+    absl::Span<const int64_t> type_ids,
+    absl::flat_hash_map<int64_t, ContextType>& output_parent_types) {
   return FindParentTypesByTypeIdImpl(type_ids, output_parent_types);
 }
 
 absl::Status RDBMSMetadataAccessObject::CreateArtifact(
     const Artifact& artifact, const bool skip_type_and_property_validation,
-    int64* artifact_id) {
+    int64_t* artifact_id) {
   const absl::Status& status = CreateNodeImpl<Artifact, ArtifactType>(
       artifact, skip_type_and_property_validation, absl::Now(), artifact_id);
   if (IsUniqueConstraintViolated(status)) {
@@ -1498,7 +1560,7 @@ absl::Status RDBMSMetadataAccessObject::CreateArtifact(
 
 absl::Status RDBMSMetadataAccessObject::CreateArtifact(
     const Artifact& artifact, const bool skip_type_and_property_validation,
-    const absl::Time create_timestamp, int64* artifact_id) {
+    const absl::Time create_timestamp, int64_t* artifact_id) {
   const absl::Status& status = CreateNodeImpl<Artifact, ArtifactType>(
       artifact, skip_type_and_property_validation, create_timestamp,
       artifact_id);
@@ -1511,14 +1573,14 @@ absl::Status RDBMSMetadataAccessObject::CreateArtifact(
 }
 
 absl::Status RDBMSMetadataAccessObject::CreateArtifact(const Artifact& artifact,
-                                                       int64* artifact_id) {
+                                                       int64_t* artifact_id) {
   return CreateArtifact(artifact, /*skip_type_and_property_validation=*/false,
                         artifact_id);
 }
 
 absl::Status RDBMSMetadataAccessObject::CreateExecution(
     const Execution& execution, const bool skip_type_and_property_validation,
-    int64* execution_id) {
+    int64_t* execution_id) {
   const absl::Status& status = CreateNodeImpl<Execution, ExecutionType>(
       execution, skip_type_and_property_validation, absl::Now(), execution_id);
   if (IsUniqueConstraintViolated(status)) {
@@ -1531,7 +1593,7 @@ absl::Status RDBMSMetadataAccessObject::CreateExecution(
 
 absl::Status RDBMSMetadataAccessObject::CreateExecution(
     const Execution& execution, const bool skip_type_and_property_validation,
-    const absl::Time create_timestamp, int64* execution_id) {
+    const absl::Time create_timestamp, int64_t* execution_id) {
   const absl::Status& status = CreateNodeImpl<Execution, ExecutionType>(
       execution, skip_type_and_property_validation, create_timestamp,
       execution_id);
@@ -1544,14 +1606,14 @@ absl::Status RDBMSMetadataAccessObject::CreateExecution(
 }
 
 absl::Status RDBMSMetadataAccessObject::CreateExecution(
-    const Execution& execution, int64* execution_id) {
+    const Execution& execution, int64_t* execution_id) {
   return CreateExecution(execution, /*skip_type_and_property_validation=*/false,
                          execution_id);
 }
 
 absl::Status RDBMSMetadataAccessObject::CreateContext(
     const Context& context, const bool skip_type_and_property_validation,
-    int64* context_id) {
+    int64_t* context_id) {
   const absl::Status& status = CreateNodeImpl<Context, ContextType>(
       context, skip_type_and_property_validation, absl::Now(), context_id);
   if (IsUniqueConstraintViolated(status)) {
@@ -1564,7 +1626,7 @@ absl::Status RDBMSMetadataAccessObject::CreateContext(
 
 absl::Status RDBMSMetadataAccessObject::CreateContext(
     const Context& context, const bool skip_type_and_property_validation,
-    const absl::Time create_timestamp, int64* context_id) {
+    const absl::Time create_timestamp, int64_t* context_id) {
   const absl::Status& status = CreateNodeImpl<Context, ContextType>(
       context, skip_type_and_property_validation, create_timestamp, context_id);
   if (IsUniqueConstraintViolated(status)) {
@@ -1576,14 +1638,13 @@ absl::Status RDBMSMetadataAccessObject::CreateContext(
 }
 
 absl::Status RDBMSMetadataAccessObject::CreateContext(const Context& context,
-                                                      int64* context_id) {
+                                                      int64_t* context_id) {
   return CreateContext(context, /*skip_type_and_property_validation=*/false,
                        context_id);
 }
 
 absl::Status RDBMSMetadataAccessObject::FindArtifactsById(
-    absl::Span<const int64> artifact_ids,
-    std::vector<Artifact>* artifacts) {
+    absl::Span<const int64_t> artifact_ids, std::vector<Artifact>* artifacts) {
   if (artifact_ids.empty()) {
     return absl::OkStatus();
   }
@@ -1591,7 +1652,7 @@ absl::Status RDBMSMetadataAccessObject::FindArtifactsById(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindExecutionsById(
-    absl::Span<const int64> execution_ids,
+    absl::Span<const int64_t> execution_ids,
     std::vector<Execution>* executions) {
   if (execution_ids.empty()) {
     return absl::OkStatus();
@@ -1601,7 +1662,7 @@ absl::Status RDBMSMetadataAccessObject::FindExecutionsById(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindContextsById(
-    absl::Span<const int64> context_ids, std::vector<Context>* contexts) {
+    absl::Span<const int64_t> context_ids, std::vector<Context>* contexts) {
   if (context_ids.empty()) {
     return absl::OkStatus();
   }
@@ -1623,7 +1684,7 @@ absl::Status RDBMSMetadataAccessObject::FindArtifactsByExternalIds(
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(
       executor_->SelectArtifactsByExternalIds(external_ids, &record_set));
-  const std::vector<int64> ids = ConvertToIds(record_set);
+  const std::vector<int64_t> ids = ConvertToIds(record_set);
   if (ids.empty()) {
     return absl::NotFoundError(
         absl::StrCat("No artifacts found for external_ids."));
@@ -1646,7 +1707,7 @@ absl::Status RDBMSMetadataAccessObject::FindExecutionsByExternalIds(
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(
       executor_->SelectExecutionsByExternalIds(external_ids, &record_set));
-  const std::vector<int64> ids = ConvertToIds(record_set);
+  const std::vector<int64_t> ids = ConvertToIds(record_set);
   if (ids.empty()) {
     return absl::NotFoundError(
         absl::StrCat("No executions found for external_ids."));
@@ -1669,7 +1730,7 @@ absl::Status RDBMSMetadataAccessObject::FindContextsByExternalIds(
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(
       executor_->SelectContextsByExternalIds(external_ids, &record_set));
-  const std::vector<int64> ids = ConvertToIds(record_set);
+  const std::vector<int64_t> ids = ConvertToIds(record_set);
   if (ids.empty()) {
     return absl::NotFoundError(
         absl::StrCat("No contexts found for external_ids."));
@@ -1680,7 +1741,14 @@ absl::Status RDBMSMetadataAccessObject::FindContextsByExternalIds(
 absl::Status RDBMSMetadataAccessObject::UpdateArtifact(
     const Artifact& artifact) {
   return UpdateArtifact(artifact, /*update_timestamp=*/absl::Now(),
-                        /*force_update_time=*/false);
+                        /*force_update_time=*/false,
+                        google::protobuf::FieldMask());
+}
+
+absl::Status RDBMSMetadataAccessObject::UpdateArtifact(
+    const Artifact& artifact, const google::protobuf::FieldMask& mask) {
+  return UpdateArtifact(artifact, /*update_timestamp=*/absl::Now(),
+                        /*force_update_time=*/false, mask);
 }
 
 absl::Status RDBMSMetadataAccessObject::UpdateExecution(
@@ -1689,39 +1757,75 @@ absl::Status RDBMSMetadataAccessObject::UpdateExecution(
                          /*force_update_time=*/false);
 }
 
+absl::Status RDBMSMetadataAccessObject::UpdateExecution(
+    const Execution& execution, const google::protobuf::FieldMask& mask) {
+  return UpdateExecution(execution, /*update_timestamp=*/absl::Now(),
+                         /*force_update_time=*/false, mask);
+}
+
 absl::Status RDBMSMetadataAccessObject::UpdateContext(const Context& context) {
   return UpdateContext(context, /*update_timestamp=*/absl::Now(),
                        /*force_update_time=*/false);
+}
+
+absl::Status RDBMSMetadataAccessObject::UpdateContext(
+    const Context& context, const google::protobuf::FieldMask& mask) {
+  return UpdateContext(context, /*update_timestamp=*/absl::Now(),
+                       /*force_update_time=*/false, mask);
 }
 
 absl::Status RDBMSMetadataAccessObject::UpdateArtifact(
     const Artifact& artifact, const absl::Time update_timestamp,
     bool force_update_time) {
   return UpdateNodeImpl<Artifact, ArtifactType>(artifact, update_timestamp,
-                                                force_update_time);
+                                                force_update_time,
+                                                google::protobuf::FieldMask());
+}
+
+absl::Status RDBMSMetadataAccessObject::UpdateArtifact(
+    const Artifact& artifact, const absl::Time update_timestamp,
+    bool force_update_time, const google::protobuf::FieldMask& mask) {
+  return UpdateNodeImpl<Artifact, ArtifactType>(artifact, update_timestamp,
+                                                force_update_time, mask);
 }
 
 absl::Status RDBMSMetadataAccessObject::UpdateExecution(
     const Execution& execution, const absl::Time update_timestamp,
     bool force_update_time) {
+  return UpdateNodeImpl<Execution, ExecutionType>(
+      execution, update_timestamp, force_update_time,
+      google::protobuf::FieldMask());
+}
+
+absl::Status RDBMSMetadataAccessObject::UpdateExecution(
+    const Execution& execution, const absl::Time update_timestamp,
+    bool force_update_time, const google::protobuf::FieldMask& mask) {
   return UpdateNodeImpl<Execution, ExecutionType>(execution, update_timestamp,
-                                                  force_update_time);
+                                                  force_update_time, mask);
 }
 
 absl::Status RDBMSMetadataAccessObject::UpdateContext(
     const Context& context, const absl::Time update_timestamp,
     bool force_update_time) {
   return UpdateNodeImpl<Context, ContextType>(context, update_timestamp,
-                                              force_update_time);
+                                              force_update_time,
+                                              google::protobuf::FieldMask());
+}
+
+absl::Status RDBMSMetadataAccessObject::UpdateContext(
+    const Context& context, const absl::Time update_timestamp,
+    bool force_update_time, const google::protobuf::FieldMask& mask) {
+  return UpdateNodeImpl<Context, ContextType>(context, update_timestamp,
+                                              force_update_time, mask);
 }
 
 absl::Status RDBMSMetadataAccessObject::CreateEvent(const Event& event,
-                                                    int64* event_id) {
+                                                    int64_t* event_id) {
   return CreateEvent(event, /*is_already_validated=*/false, event_id);
 }
 
 absl::Status RDBMSMetadataAccessObject::CreateEvent(
-    const Event& event, const bool is_already_validated, int64* event_id) {
+    const Event& event, const bool is_already_validated, int64_t* event_id) {
   // validate the given event
   if (!event.has_artifact_id())
     return absl::InvalidArgumentError("No artifact id is specified.");
@@ -1752,9 +1856,9 @@ absl::Status RDBMSMetadataAccessObject::CreateEvent(
   }
 
   // insert an event and get its given id
-  int64 event_time = event.has_milliseconds_since_epoch()
-                         ? event.milliseconds_since_epoch()
-                         : absl::ToUnixMillis(absl::Now());
+  int64_t event_time = event.has_milliseconds_since_epoch()
+                           ? event.milliseconds_since_epoch()
+                           : absl::ToUnixMillis(absl::Now());
 
   const absl::Status status =
       executor_->InsertEvent(event.artifact_id(), event.execution_id(),
@@ -1773,7 +1877,7 @@ absl::Status RDBMSMetadataAccessObject::CreateEvent(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindEventsByArtifacts(
-    const std::vector<int64>& artifact_ids, std::vector<Event>* events) {
+    absl::Span<const int64_t> artifact_ids, std::vector<Event>* events) {
   if (events == nullptr) {
     return absl::InvalidArgumentError("Given events is NULL.");
   }
@@ -1791,7 +1895,7 @@ absl::Status RDBMSMetadataAccessObject::FindEventsByArtifacts(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindEventsByExecutions(
-    const std::vector<int64>& execution_ids, std::vector<Event>* events) {
+    absl::Span<const int64_t> execution_ids, std::vector<Event>* events) {
   if (events == nullptr) {
     return absl::InvalidArgumentError("Given events is NULL.");
   }
@@ -1809,14 +1913,14 @@ absl::Status RDBMSMetadataAccessObject::FindEventsByExecutions(
 }
 
 absl::Status RDBMSMetadataAccessObject::CreateAssociation(
-    const Association& association, int64* association_id) {
+    const Association& association, int64_t* association_id) {
   return CreateAssociation(association, /*is_already_validated=*/false,
                            association_id);
 }
 
 absl::Status RDBMSMetadataAccessObject::CreateAssociation(
     const Association& association, const bool is_already_validated,
-    int64* association_id) {
+    int64_t* association_id) {
   if (!association.has_context_id())
     return absl::InvalidArgumentError("No context id is specified.");
   if (!association.has_execution_id())
@@ -1854,11 +1958,11 @@ absl::Status RDBMSMetadataAccessObject::CreateAssociation(
 
 
 absl::Status RDBMSMetadataAccessObject::FindContextsByExecution(
-    int64 execution_id, std::vector<Context>* contexts) {
+    int64_t execution_id, std::vector<Context>* contexts) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(
       executor_->SelectAssociationByExecutionID(execution_id, &record_set));
-  const std::vector<int64> context_ids = AssociationsToContextIds(record_set);
+  const std::vector<int64_t> context_ids = AssociationsToContextIds(record_set);
   if (context_ids.empty()) {
     return absl::NotFoundError(
         absl::StrCat("No contexts found for execution_id: ", execution_id));
@@ -1867,19 +1971,19 @@ absl::Status RDBMSMetadataAccessObject::FindContextsByExecution(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindExecutionsByContext(
-    int64 context_id, std::vector<Execution>* executions) {
+    int64_t context_id, std::vector<Execution>* executions) {
   std::string unused_next_page_toke;
   return FindExecutionsByContext(context_id, absl::nullopt, executions,
                                  &unused_next_page_toke);
 }
 
 absl::Status RDBMSMetadataAccessObject::FindExecutionsByContext(
-    int64 context_id, absl::optional<ListOperationOptions> list_options,
+    int64_t context_id, absl::optional<ListOperationOptions> list_options,
     std::vector<Execution>* executions, std::string* next_page_token) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(
       executor_->SelectAssociationByContextIDs({context_id}, &record_set));
-  const std::vector<int64> ids = AssociationsToExecutionIds(record_set);
+  const std::vector<int64_t> ids = AssociationsToExecutionIds(record_set);
   if (ids.empty()) {
     return absl::OkStatus();
   }
@@ -1891,14 +1995,14 @@ absl::Status RDBMSMetadataAccessObject::FindExecutionsByContext(
 }
 
 absl::Status RDBMSMetadataAccessObject::CreateAttribution(
-    const Attribution& attribution, int64* attribution_id) {
+    const Attribution& attribution, int64_t* attribution_id) {
   return CreateAttribution(attribution,
                            /*is_already_validated=*/false, attribution_id);
 }
 
 absl::Status RDBMSMetadataAccessObject::CreateAttribution(
     const Attribution& attribution, const bool is_already_validated,
-    int64* attribution_id) {
+    int64_t* attribution_id) {
   if (!attribution.has_context_id())
     return absl::InvalidArgumentError("No context id is specified.");
   if (!attribution.has_artifact_id())
@@ -1935,11 +2039,11 @@ absl::Status RDBMSMetadataAccessObject::CreateAttribution(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindContextsByArtifact(
-    int64 artifact_id, std::vector<Context>* contexts) {
+    int64_t artifact_id, std::vector<Context>* contexts) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(
       executor_->SelectAttributionByArtifactID(artifact_id, &record_set));
-  const std::vector<int64> context_ids = AttributionsToContextIds(record_set);
+  const std::vector<int64_t> context_ids = AttributionsToContextIds(record_set);
   if (context_ids.empty()) {
     return absl::NotFoundError(
         absl::StrCat("No contexts found for artifact_id: ", artifact_id));
@@ -1948,19 +2052,19 @@ absl::Status RDBMSMetadataAccessObject::FindContextsByArtifact(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindArtifactsByContext(
-    int64 context_id, std::vector<Artifact>* artifacts) {
+    int64_t context_id, std::vector<Artifact>* artifacts) {
   std::string unused_next_page_token;
   return FindArtifactsByContext(context_id, absl::nullopt, artifacts,
                                 &unused_next_page_token);
 }
 
 absl::Status RDBMSMetadataAccessObject::FindArtifactsByContext(
-    int64 context_id, absl::optional<ListOperationOptions> list_options,
+    int64_t context_id, absl::optional<ListOperationOptions> list_options,
     std::vector<Artifact>* artifacts, std::string* next_page_token) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(
       executor_->SelectAttributionByContextID(context_id, &record_set));
-  const std::vector<int64> ids = AttributionsToArtifactIds(record_set);
+  const std::vector<int64_t> ids = AttributionsToArtifactIds(record_set);
   if (ids.empty()) {
     return absl::OkStatus();
   }
@@ -2001,7 +2105,7 @@ absl::Status RDBMSMetadataAccessObject::CreateParentContext(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindLinkedContextsImpl(
-    int64 context_id, ParentContextTraverseDirection direction,
+    int64_t context_id, ParentContextTraverseDirection direction,
     std::vector<Context>& output_contexts) {
   RecordSet record_set;
   if (direction == ParentContextTraverseDirection::kParent) {
@@ -2014,7 +2118,7 @@ absl::Status RDBMSMetadataAccessObject::FindLinkedContextsImpl(
     return absl::InternalError("Unexpected ParentContext direction");
   }
   const bool is_parent = direction == ParentContextTraverseDirection::kParent;
-  const std::vector<int64> ids =
+  const std::vector<int64_t> ids =
       ParentContextsToContextIds(record_set, is_parent);
   output_contexts.clear();
   if (ids.empty()) {
@@ -2023,8 +2127,63 @@ absl::Status RDBMSMetadataAccessObject::FindLinkedContextsImpl(
   return FindNodesImpl(ids, /*skipped_ids_ok=*/false, output_contexts);
 }
 
+absl::Status RDBMSMetadataAccessObject::FindLinkedContextsMapImpl(
+    absl::Span<const int64_t> context_ids,
+    ParentContextTraverseDirection direction,
+    absl::node_hash_map<int64_t, std::vector<Context>>& output_contexts) {
+  if (context_ids.empty()) {
+    return absl::InvalidArgumentError("Given context_ids is empty.");
+  }
+  RecordSet record_set;
+  if (direction == ParentContextTraverseDirection::kParent) {
+    MLMD_RETURN_IF_ERROR(
+        executor_->SelectParentContextsByContextIDs(context_ids, &record_set));
+  } else if (direction == ParentContextTraverseDirection::kChild) {
+    MLMD_RETURN_IF_ERROR(
+        executor_->SelectChildContextsByContextIDs(context_ids, &record_set));
+  } else {
+    return absl::InternalError("Unexpected ParentContext direction");
+  }
+
+  // `ids` and `parent_ids` have a 1:1 mapping based on the database records.
+  std::vector<int64_t> ids, parent_ids;
+  ConvertToIdAndParentIds(record_set, ids, parent_ids);
+
+  const bool is_parent = direction == ParentContextTraverseDirection::kParent;
+  const absl::flat_hash_map<int64_t, std::vector<int64_t>>
+      id_map_to_linked_ids = is_parent ? MapKeyIdToValueIds(ids, parent_ids)
+                                       : MapKeyIdToValueIds(parent_ids, ids);
+  if (id_map_to_linked_ids.empty()) {
+    return absl::OkStatus();
+  }
+
+  std::vector<Context> linked_contexts;
+  absl::Status result =
+      FindNodesImpl(is_parent ? DedupIds(parent_ids) : DedupIds(ids),
+                    /*skipped_ids_ok=*/false, linked_contexts);
+  MLMD_RETURN_IF_ERROR(result);
+
+  absl::flat_hash_map<int64_t, Context> id_map_to_linked_context;
+  for (const Context& context : linked_contexts) {
+    id_map_to_linked_context.insert(std::make_pair(context.id(), context));
+  }
+
+  output_contexts.clear();
+  for (const auto& entry : id_map_to_linked_ids) {
+    const int64_t id = entry.first;
+    const std::vector<int64_t>& linked_ids = entry.second;
+    std::vector<Context> contexts_per_id;
+    contexts_per_id.reserve(linked_ids.size());
+    for (const int64_t linked_id : linked_ids) {
+      contexts_per_id.push_back(id_map_to_linked_context[linked_id]);
+    }
+    output_contexts.insert(std::make_pair(id, contexts_per_id));
+  }
+  return absl::OkStatus();
+}
+
 absl::Status RDBMSMetadataAccessObject::FindParentContextsByContextId(
-    int64 context_id, std::vector<Context>* contexts) {
+    int64_t context_id, std::vector<Context>* contexts) {
   if (contexts == nullptr) {
     return absl::InvalidArgumentError("Given contexts is NULL.");
   }
@@ -2033,7 +2192,7 @@ absl::Status RDBMSMetadataAccessObject::FindParentContextsByContextId(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindChildContextsByContextId(
-    int64 context_id, std::vector<Context>* contexts) {
+    int64_t context_id, std::vector<Context>* contexts) {
   if (contexts == nullptr) {
     return absl::InvalidArgumentError("Given contexts is NULL.");
   }
@@ -2041,11 +2200,25 @@ absl::Status RDBMSMetadataAccessObject::FindChildContextsByContextId(
       context_id, ParentContextTraverseDirection::kChild, *contexts);
 }
 
+absl::Status RDBMSMetadataAccessObject::FindParentContextsByContextIds(
+    const std::vector<int64_t>& context_ids,
+    absl::node_hash_map<int64_t, std::vector<Context>>& contexts) {
+  return FindLinkedContextsMapImpl(
+      context_ids, ParentContextTraverseDirection::kParent, contexts);
+}
+
+absl::Status RDBMSMetadataAccessObject::FindChildContextsByContextIds(
+    const std::vector<int64_t>& context_ids,
+    absl::node_hash_map<int64_t, std::vector<Context>>& contexts) {
+  return FindLinkedContextsMapImpl(
+      context_ids, ParentContextTraverseDirection::kChild, contexts);
+}
+
 absl::Status RDBMSMetadataAccessObject::FindArtifacts(
     std::vector<Artifact>* artifacts) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(executor_->SelectAllArtifactIDs(&record_set));
-  std::vector<int64> ids = ConvertToIds(record_set);
+  std::vector<int64_t> ids = ConvertToIds(record_set);
   if (ids.empty()) {
     return absl::OkStatus();
   }
@@ -2055,7 +2228,7 @@ absl::Status RDBMSMetadataAccessObject::FindArtifacts(
 template <>
 absl::Status RDBMSMetadataAccessObject::ListNodeIds(
     const ListOperationOptions& options,
-    absl::optional<absl::Span<const int64>> candidate_ids,
+    absl::optional<absl::Span<const int64_t>> candidate_ids,
     RecordSet* record_set, Artifact* tag) {
   return executor_->ListArtifactIDsUsingOptions(options, candidate_ids,
                                                 record_set);
@@ -2064,7 +2237,7 @@ absl::Status RDBMSMetadataAccessObject::ListNodeIds(
 template <>
 absl::Status RDBMSMetadataAccessObject::ListNodeIds(
     const ListOperationOptions& options,
-    absl::optional<absl::Span<const int64>> candidate_ids,
+    absl::optional<absl::Span<const int64_t>> candidate_ids,
     RecordSet* record_set, Execution* tag) {
   return executor_->ListExecutionIDsUsingOptions(options, candidate_ids,
                                                  record_set);
@@ -2073,7 +2246,7 @@ absl::Status RDBMSMetadataAccessObject::ListNodeIds(
 template <>
 absl::Status RDBMSMetadataAccessObject::ListNodeIds(
     const ListOperationOptions& options,
-    absl::optional<absl::Span<const int64>> candidate_ids,
+    absl::optional<absl::Span<const int64_t>> candidate_ids,
     RecordSet* record_set, Context* tag) {
   return executor_->ListContextIDsUsingOptions(options, candidate_ids,
                                                record_set);
@@ -2082,7 +2255,7 @@ absl::Status RDBMSMetadataAccessObject::ListNodeIds(
 template <typename Node>
 absl::Status RDBMSMetadataAccessObject::ListNodes(
     const ListOperationOptions& options,
-    absl::optional<absl::Span<const int64>> candidate_ids,
+    absl::optional<absl::Span<const int64_t>> candidate_ids,
     std::vector<Node>* nodes, std::string* next_page_token) {
   if (options.max_result_size() <= 0) {
     return absl::InvalidArgumentError(
@@ -2102,13 +2275,13 @@ absl::Status RDBMSMetadataAccessObject::ListNodes(
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(
       ListNodeIds<Node>(updated_options, candidate_ids, &record_set));
-  const std::vector<int64> ids = ConvertToIds(record_set);
+  const std::vector<int64_t> ids = ConvertToIds(record_set);
   if (ids.empty()) {
     return absl::OkStatus();
   }
 
   // Map node ids to positions
-  absl::flat_hash_map<int64, size_t> position_by_id;
+  absl::flat_hash_map<int64_t, size_t> position_by_id;
   for (int i = 0; i < ids.size(); ++i) {
     position_by_id[ids.at(i)] = i;
   }
@@ -2153,11 +2326,11 @@ absl::Status RDBMSMetadataAccessObject::ListContexts(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindArtifactByTypeIdAndArtifactName(
-    const int64 type_id, absl::string_view name, Artifact* artifact) {
+    const int64_t type_id, absl::string_view name, Artifact* artifact) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(executor_->SelectArtifactByTypeIDAndArtifactName(
       type_id, name, &record_set));
-  const std::vector<int64> ids = ConvertToIds(record_set);
+  const std::vector<int64_t> ids = ConvertToIds(record_set);
   if (ids.empty()) {
     return absl::NotFoundError(absl::StrCat(
         "No artifacts found for type_id:", type_id, ", name:", name));
@@ -2174,12 +2347,12 @@ absl::Status RDBMSMetadataAccessObject::FindArtifactByTypeIdAndArtifactName(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindArtifactsByTypeId(
-    const int64 type_id, absl::optional<ListOperationOptions> list_options,
+    const int64_t type_id, absl::optional<ListOperationOptions> list_options,
     std::vector<Artifact>* artifacts, std::string* next_page_token) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(
       executor_->SelectArtifactsByTypeID(type_id, &record_set));
-  const std::vector<int64> ids = ConvertToIds(record_set);
+  const std::vector<int64_t> ids = ConvertToIds(record_set);
   if (ids.empty()) {
     return absl::NotFoundError(
         absl::StrCat("No artifacts found for type_id:", type_id));
@@ -2196,7 +2369,7 @@ absl::Status RDBMSMetadataAccessObject::FindExecutions(
     std::vector<Execution>* executions) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(executor_->SelectAllExecutionIDs(&record_set));
-  const std::vector<int64> ids = ConvertToIds(record_set);
+  const std::vector<int64_t> ids = ConvertToIds(record_set);
   if (ids.empty()) {
     return absl::OkStatus();
   }
@@ -2204,11 +2377,11 @@ absl::Status RDBMSMetadataAccessObject::FindExecutions(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindExecutionByTypeIdAndExecutionName(
-    const int64 type_id, absl::string_view name, Execution* execution) {
+    const int64_t type_id, absl::string_view name, Execution* execution) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(executor_->SelectExecutionByTypeIDAndExecutionName(
       type_id, name, &record_set));
-  const std::vector<int64> ids = ConvertToIds(record_set);
+  const std::vector<int64_t> ids = ConvertToIds(record_set);
   if (ids.empty()) {
     return absl::NotFoundError(absl::StrCat(
         "No executions found for type_id:", type_id, ", name:", name));
@@ -2226,12 +2399,12 @@ absl::Status RDBMSMetadataAccessObject::FindExecutionByTypeIdAndExecutionName(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindExecutionsByTypeId(
-    const int64 type_id, absl::optional<ListOperationOptions> list_options,
+    const int64_t type_id, absl::optional<ListOperationOptions> list_options,
     std::vector<Execution>* executions, std::string* next_page_token) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(
       executor_->SelectExecutionsByTypeID(type_id, &record_set));
-  const std::vector<int64> ids = ConvertToIds(record_set);
+  const std::vector<int64_t> ids = ConvertToIds(record_set);
   if (ids.empty()) {
     return absl::NotFoundError(
         absl::StrCat("No executions found for type_id:", type_id));
@@ -2248,7 +2421,7 @@ absl::Status RDBMSMetadataAccessObject::FindContexts(
     std::vector<Context>* contexts) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(executor_->SelectAllContextIDs(&record_set));
-  const std::vector<int64> ids = ConvertToIds(record_set);
+  const std::vector<int64_t> ids = ConvertToIds(record_set);
   if (ids.empty()) {
     return absl::OkStatus();
   }
@@ -2256,11 +2429,11 @@ absl::Status RDBMSMetadataAccessObject::FindContexts(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindContextsByTypeId(
-    const int64 type_id, absl::optional<ListOperationOptions> list_options,
+    const int64_t type_id, absl::optional<ListOperationOptions> list_options,
     std::vector<Context>* contexts, std::string* next_page_token) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(executor_->SelectContextsByTypeID(type_id, &record_set));
-  const std::vector<int64> ids = ConvertToIds(record_set);
+  const std::vector<int64_t> ids = ConvertToIds(record_set);
   if (ids.empty()) {
     return absl::NotFoundError(
         absl::StrCat("No contexts found with type_id: ", type_id));
@@ -2278,7 +2451,7 @@ absl::Status RDBMSMetadataAccessObject::FindArtifactsByURI(
     absl::string_view uri, std::vector<Artifact>* artifacts) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(executor_->SelectArtifactsByURI(uri, &record_set));
-  const std::vector<int64> ids = ConvertToIds(record_set);
+  const std::vector<int64_t> ids = ConvertToIds(record_set);
   if (ids.empty()) {
     return absl::NotFoundError(
         absl::StrCat("No artifacts found for uri:", uri));
@@ -2287,20 +2460,20 @@ absl::Status RDBMSMetadataAccessObject::FindArtifactsByURI(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindContextByTypeIdAndContextName(
-    int64 type_id, absl::string_view name, bool id_only, Context* context) {
+    int64_t type_id, absl::string_view name, bool id_only, Context* context) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(executor_->SelectContextByTypeIDAndContextName(
       type_id, name, &record_set));
-  const std::vector<int64> ids = ConvertToIds(record_set);
+  const std::vector<int64_t> ids = ConvertToIds(record_set);
   if (ids.empty()) {
     return absl::NotFoundError(absl::StrCat(
         "No contexts found with type_id: ", type_id, ", name: ", name));
   }
   // By design, a <type_id, name> pair uniquely identifies a context.
   // Fails if multiple contexts are found.
-  CHECK_EQ(ids.size(), 1)
-      << absl::StrCat("Found more than one contexts with type_id: ", type_id,
-                      " and context name: ", name);
+  CHECK_EQ(ids.size(), 1) << absl::StrCat(
+      "Found more than one contexts with type_id: ", type_id,
+      " and context name: ", name);
   if (id_only) {
     context->set_id(ids[0]);
     return absl::OkStatus();
@@ -2314,60 +2487,62 @@ absl::Status RDBMSMetadataAccessObject::FindContextByTypeIdAndContextName(
 
 
 template <typename Node>
-absl::Status RDBMSMetadataAccessObject::SkipBoundaryNodesImpl(
-    absl::optional<std::string> boundary_condition,
-    absl::flat_hash_set<int64>& unvisited_node_ids) {
-  if (!boundary_condition) {
+absl::Status RDBMSMetadataAccessObject::FilterBoundaryNodesImpl(
+    absl::optional<absl::string_view> node_filter,
+    absl::flat_hash_set<int64_t>& boundary_node_ids) {
+  if (!node_filter.has_value()) {
     return absl::OkStatus();
   }
-  const std::vector<int64> candidate_ids(unvisited_node_ids.begin(),
-                                         unvisited_node_ids.end());
+  const std::vector<int64_t> candidate_ids(boundary_node_ids.begin(),
+                                           boundary_node_ids.end());
   auto list_ids = absl::MakeConstSpan(candidate_ids);
   // Uses batched retrieval to bound query length and list query invariant.
   static constexpr int kBatchSize = 100;
+  boundary_node_ids.clear();
   for (int i = 0; i * kBatchSize < candidate_ids.size(); i++) {
     ListOperationOptions boundary_options;
     boundary_options.set_max_result_size(kBatchSize);
-    boundary_options.set_filter_query(
-        absl::Substitute("NOT($0)", *boundary_condition));
+    boundary_options.set_filter_query(node_filter.value().data());
     RecordSet record_set;
     MLMD_RETURN_IF_ERROR(ListNodeIds<Node>(
         boundary_options, list_ids.subspan(i * kBatchSize, kBatchSize),
         &record_set));
-    for (int64 skip_id : ConvertToIds(record_set)) {
-      unvisited_node_ids.erase(skip_id);
+    for (int64_t keep_id : ConvertToIds(record_set)) {
+      boundary_node_ids.insert(keep_id);
     }
   }
+
   return absl::OkStatus();
 }
 
 absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
-    const std::vector<Artifact>& input_artifacts, int64 max_nodes,
+    const std::vector<Artifact>& input_artifacts, int64_t max_nodes,
     absl::optional<std::string> boundary_condition,
-    const absl::flat_hash_set<int64>& visited_execution_ids,
-    absl::flat_hash_set<int64>& visited_artifact_ids,
+    const absl::flat_hash_set<int64_t>& visited_execution_ids,
+    absl::flat_hash_set<int64_t>& visited_artifact_ids,
     std::vector<Execution>& output_executions, LineageGraph& subgraph) {
   if (max_nodes <= 0) {
     return absl::OkStatus();
   }
-  std::vector<int64> input_artifact_ids(input_artifacts.size());
+  std::vector<int64_t> input_artifact_ids(input_artifacts.size());
   for (int i = 0; i < input_artifacts.size(); i++) {
     input_artifact_ids[i] = input_artifacts[i].id();
     visited_artifact_ids.insert(input_artifact_ids[i]);
   }
   std::vector<Event> events;
   const auto status = FindEventsByArtifacts(input_artifact_ids, &events);
-  // If no events are found for the given artifacts, directly return ok status.
+  // If no events are found for the given artifacts, directly return ok
+  // status.
   if (absl::IsNotFound(status)) {
     return absl::OkStatus();
   }
-  absl::flat_hash_set<int64> unvisited_execution_ids;
+  absl::flat_hash_set<int64_t> unvisited_execution_ids;
   for (const Event& event : events) {
     if (!visited_execution_ids.contains(event.execution_id())) {
       unvisited_execution_ids.insert(event.execution_id());
     }
   }
-  MLMD_RETURN_IF_ERROR(SkipBoundaryNodesImpl<Execution>(
+  MLMD_RETURN_IF_ERROR(FilterBoundaryNodesImpl<Execution>(
       boundary_condition, unvisited_execution_ids));
 
   // Randomly remove extra nodes if more than max_nodes executions are found.
@@ -2380,8 +2555,8 @@ absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
       *subgraph.add_events() = event;
     }
   }
-  const std::vector<int64> expand_execution_ids(unvisited_execution_ids.begin(),
-                                                unvisited_execution_ids.end());
+  const std::vector<int64_t> expand_execution_ids(
+      unvisited_execution_ids.begin(), unvisited_execution_ids.end());
   output_executions.clear();
   MLMD_RETURN_IF_ERROR(
       FindExecutionsById(expand_execution_ids, &output_executions));
@@ -2390,34 +2565,36 @@ absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
   return absl::OkStatus();
 }
 
+
 absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
-    const std::vector<Execution>& input_executions, int64 max_nodes,
+    const std::vector<Execution>& input_executions, int64_t max_nodes,
     absl::optional<std::string> boundary_condition,
-    const absl::flat_hash_set<int64>& visited_artifact_ids,
-    absl::flat_hash_set<int64>& visited_execution_ids,
+    const absl::flat_hash_set<int64_t>& visited_artifact_ids,
+    absl::flat_hash_set<int64_t>& visited_execution_ids,
     std::vector<Artifact>& output_artifacts, LineageGraph& subgraph) {
   if (max_nodes <= 0) {
     return absl::OkStatus();
   }
-  std::vector<int64> input_execution_ids(input_executions.size());
+  std::vector<int64_t> input_execution_ids(input_executions.size());
   for (int i = 0; i < input_executions.size(); i++) {
     input_execution_ids[i] = input_executions[i].id();
     visited_execution_ids.insert(input_execution_ids[i]);
   }
   std::vector<Event> events;
   const auto status = FindEventsByExecutions(input_execution_ids, &events);
-  // If no events are found for the given executions, directly return ok status.
+  // If no events are found for the given executions, directly return ok
+  // status.
   if (absl::IsNotFound(status)) {
     return absl::OkStatus();
   }
-  absl::flat_hash_set<int64> unvisited_artifact_ids;
+  absl::flat_hash_set<int64_t> unvisited_artifact_ids;
   for (const Event& event : events) {
     if (!visited_artifact_ids.contains(event.artifact_id())) {
       unvisited_artifact_ids.insert(event.artifact_id());
     }
   }
-  MLMD_RETURN_IF_ERROR(SkipBoundaryNodesImpl<Artifact>(boundary_condition,
-                                                       unvisited_artifact_ids));
+  MLMD_RETURN_IF_ERROR(FilterBoundaryNodesImpl<Artifact>(
+      boundary_condition, unvisited_artifact_ids));
 
   // Randomly remove extra nodes if more than max_nodes artifacts are found.
   while (unvisited_artifact_ids.size() > max_nodes) {
@@ -2429,8 +2606,8 @@ absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
       *subgraph.add_events() = event;
     }
   }
-  const std::vector<int64> expand_artifact_ids(unvisited_artifact_ids.begin(),
-                                               unvisited_artifact_ids.end());
+  const std::vector<int64_t> expand_artifact_ids(unvisited_artifact_ids.begin(),
+                                                 unvisited_artifact_ids.end());
   output_artifacts.clear();
   MLMD_RETURN_IF_ERROR(
       FindArtifactsById(expand_artifact_ids, &output_artifacts));
@@ -2440,23 +2617,23 @@ absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
 }
 
 absl::Status RDBMSMetadataAccessObject::QueryLineageGraph(
-    const std::vector<Artifact>& query_nodes, int64 max_num_hops,
-    absl::optional<int64> max_nodes,
+    const std::vector<Artifact>& query_nodes, int64_t max_num_hops,
+    absl::optional<int64_t> max_nodes,
     absl::optional<std::string> boundary_artifacts,
     absl::optional<std::string> boundary_executions, LineageGraph& subgraph) {
   absl::c_copy(query_nodes,
                google::protobuf::RepeatedFieldBackInserter(subgraph.mutable_artifacts()));
   // Add nodes and edges
-  absl::flat_hash_set<int64> visited_artifacts_ids;
-  absl::flat_hash_set<int64> visited_executions_ids;
-  int64 curr_distance = 0;
+  absl::flat_hash_set<int64_t> visited_artifacts_ids;
+  absl::flat_hash_set<int64_t> visited_executions_ids;
+  int64_t curr_distance = 0;
   std::vector<Artifact> output_artifacts;
   std::vector<Execution> output_executions;
-  // If max_nodes is not set, set nodes quota to max int64 value to effectively
-  // disable limit the lineage graph by nodes count.
-  int64 nodes_quota;
+  // If max_nodes is not set, set nodes quota to max int64_t value to
+  // effectively disable the nodes count limit of the lineage graph.
+  int64_t nodes_quota;
   if (!max_nodes) {
-    nodes_quota = std::numeric_limits<int64>::max();
+    nodes_quota = std::numeric_limits<int64_t>::max();
   } else {
     nodes_quota = max_nodes.value() - query_nodes.size();
   }
@@ -2519,8 +2696,9 @@ absl::Status RDBMSMetadataAccessObject::QueryLineageGraph(
   return absl::OkStatus();
 }
 
+
 absl::Status RDBMSMetadataAccessObject::DeleteArtifactsById(
-    absl::Span<const int64> artifact_ids) {
+    absl::Span<const int64_t> artifact_ids) {
   if (artifact_ids.empty()) {
     return absl::OkStatus();
   }
@@ -2528,7 +2706,7 @@ absl::Status RDBMSMetadataAccessObject::DeleteArtifactsById(
 }
 
 absl::Status RDBMSMetadataAccessObject::DeleteExecutionsById(
-    absl::Span<const int64> execution_ids) {
+    absl::Span<const int64_t> execution_ids) {
   if (execution_ids.empty()) {
     return absl::OkStatus();
   }
@@ -2536,7 +2714,7 @@ absl::Status RDBMSMetadataAccessObject::DeleteExecutionsById(
 }
 
 absl::Status RDBMSMetadataAccessObject::DeleteContextsById(
-    absl::Span<const int64> context_ids) {
+    absl::Span<const int64_t> context_ids) {
   if (context_ids.empty()) {
     return absl::OkStatus();
   }
@@ -2544,7 +2722,7 @@ absl::Status RDBMSMetadataAccessObject::DeleteContextsById(
 }
 
 absl::Status RDBMSMetadataAccessObject::DeleteEventsByArtifactsId(
-    absl::Span<const int64> artifact_ids) {
+    absl::Span<const int64_t> artifact_ids) {
   if (artifact_ids.empty()) {
     return absl::OkStatus();
   }
@@ -2552,7 +2730,7 @@ absl::Status RDBMSMetadataAccessObject::DeleteEventsByArtifactsId(
 }
 
 absl::Status RDBMSMetadataAccessObject::DeleteEventsByExecutionsId(
-    absl::Span<const int64> execution_ids) {
+    absl::Span<const int64_t> execution_ids) {
   if (execution_ids.empty()) {
     return absl::OkStatus();
   }
@@ -2560,7 +2738,7 @@ absl::Status RDBMSMetadataAccessObject::DeleteEventsByExecutionsId(
 }
 
 absl::Status RDBMSMetadataAccessObject::DeleteAssociationsByContextsId(
-    absl::Span<const int64> context_ids) {
+    absl::Span<const int64_t> context_ids) {
   if (context_ids.empty()) {
     return absl::OkStatus();
   }
@@ -2568,7 +2746,7 @@ absl::Status RDBMSMetadataAccessObject::DeleteAssociationsByContextsId(
 }
 
 absl::Status RDBMSMetadataAccessObject::DeleteAssociationsByExecutionsId(
-    absl::Span<const int64> execution_ids) {
+    absl::Span<const int64_t> execution_ids) {
   if (execution_ids.empty()) {
     return absl::OkStatus();
   }
@@ -2576,7 +2754,7 @@ absl::Status RDBMSMetadataAccessObject::DeleteAssociationsByExecutionsId(
 }
 
 absl::Status RDBMSMetadataAccessObject::DeleteAttributionsByContextsId(
-    absl::Span<const int64> context_ids) {
+    absl::Span<const int64_t> context_ids) {
   if (context_ids.empty()) {
     return absl::OkStatus();
   }
@@ -2584,7 +2762,7 @@ absl::Status RDBMSMetadataAccessObject::DeleteAttributionsByContextsId(
 }
 
 absl::Status RDBMSMetadataAccessObject::DeleteAttributionsByArtifactsId(
-    absl::Span<const int64> artifact_ids) {
+    absl::Span<const int64_t> artifact_ids) {
   if (artifact_ids.empty()) {
     return absl::OkStatus();
   }
@@ -2592,7 +2770,7 @@ absl::Status RDBMSMetadataAccessObject::DeleteAttributionsByArtifactsId(
 }
 
 absl::Status RDBMSMetadataAccessObject::DeleteParentContextsByParentIds(
-    absl::Span<const int64> parent_context_ids) {
+    absl::Span<const int64_t> parent_context_ids) {
   if (parent_context_ids.empty()) {
     return absl::OkStatus();
   }
@@ -2600,21 +2778,21 @@ absl::Status RDBMSMetadataAccessObject::DeleteParentContextsByParentIds(
 }
 
 absl::Status RDBMSMetadataAccessObject::DeleteParentContextsByChildIds(
-    absl::Span<const int64> child_context_ids) {
+    absl::Span<const int64_t> child_context_ids) {
   if (child_context_ids.empty()) {
     return absl::OkStatus();
   }
   return executor_->DeleteParentContextsByChildIds(child_context_ids);
 }
 
-absl::Status RDBMSMetadataAccessObject::
-  DeleteParentContextsByParentIdAndChildIds(
-    int64 parent_context_id, absl::Span<const int64> child_context_ids) {
+absl::Status
+RDBMSMetadataAccessObject::DeleteParentContextsByParentIdAndChildIds(
+    int64_t parent_context_id, absl::Span<const int64_t> child_context_ids) {
   if (child_context_ids.empty()) {
     return absl::OkStatus();
   }
   return executor_->DeleteParentContextsByParentIdAndChildIds(
-    parent_context_id, child_context_ids);
+      parent_context_id, child_context_ids);
 }
 
 }  // namespace ml_metadata

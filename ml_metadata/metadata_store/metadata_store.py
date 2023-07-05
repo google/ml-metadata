@@ -20,7 +20,7 @@ types can be created on the fly.
 import enum
 import random
 import time
-from typing import Any, Iterable, List, Optional, Sequence, Text, Tuple, Union
+from typing import Any, Iterable, List, Optional, Sequence, Tuple
 
 from absl import logging
 import attr
@@ -32,6 +32,7 @@ from ml_metadata.metadata_store.pywrap.metadata_store_extension import metadata_
 from ml_metadata.proto import metadata_store_pb2
 from ml_metadata.proto import metadata_store_service_pb2
 from ml_metadata.proto import metadata_store_service_pb2_grpc
+
 
 # Max number of results for one call.
 MAX_NUM_RESULT = 100
@@ -60,7 +61,7 @@ class ListOptions(object):
       the order is up to the database backend implementation.
     is_asc: Specifies `order_by` is ascending or descending. If `order_by` is
       not given, the field is ignored. If `order_by` is set, then by default
-      descending order is used.
+      ascending order is used for performance benefit.
     filter_query: An optional boolean expression in SQL syntax to specify
       conditions on nodes' attributes and 1-hop neighborhood. See
       https://github.com/google/ml-metadata/blob/master/ml_metadata/proto/metadata_store.proto#L705-L783 for the query capabilities and syntax. Note in
@@ -70,17 +71,21 @@ class ListOptions(object):
 
   limit: Optional[int] = None
   order_by: Optional[OrderByField] = None
-  is_asc: bool = False
+  is_asc: bool = True
   filter_query: Optional[str] = None
+
+
+class ExtraOptions(object):
+  """Dummy Extra options to align with internal MetadataStore."""
+
+  def __init__(self, euc=None):
+    """Initialize ExtraOptions."""
 
 
 class MetadataStore(object):
   """A store for the metadata."""
 
-  def __init__(self,
-               config: Union[proto.ConnectionConfig,
-                             proto.MetadataStoreClientConfig],
-               enable_upgrade_migration: bool = False):
+  def __init__(self, config, enable_upgrade_migration: bool = False):
     """Initialize the MetadataStore.
 
     MetadataStore can directly connect to either the metadata database or
@@ -94,6 +99,7 @@ class MetadataStore(object):
         It is ignored when using gRPC `proto.MetadataStoreClientConfig`.
     """
     self._max_num_retries = 5
+    self._service_client_wrapper = None
     if isinstance(config, proto.ConnectionConfig):
       self._using_db_connection = True
       migration_options = metadata_store_pb2.MigrationOptions()
@@ -168,17 +174,19 @@ class MetadataStore(object):
                                                certificate_chain)
     return grpc.secure_channel(target, credentials, options=options)
 
-  def _call(self, method_name, request, response):
+  def _call(self, method_name, request, response, extra_options=None):
     """Calls method with retry when Aborted error is returned.
 
     Args:
       method_name: the method to call.
       request: the request protobuf message.
       response: the response protobuf message.
+      extra_options: ExtraOptions instance.
 
     Returns:
       Detailed errors if the method is failed.
     """
+    del extra_options
     num_retries = self._max_num_retries
     avg_delay_sec = 2
     while True:
@@ -213,7 +221,7 @@ class MetadataStore(object):
         # RpcError code uses a tuple to specify error code and short
         # description.
         # https://grpc.github.io/grpc/python/_modules/grpc.html#StatusCode
-        raise _make_exception(e.details(), e.code().value[0])  # pytype: disable=attribute-error
+        raise errors.make_exception(e.details(), e.code().value[0]) from e  # pytype: disable=attribute-error
 
   def _pywrap_cc_call(self, method, request, response) -> None:
     """Calls method, serializing and deserializing inputs and outputs.
@@ -235,10 +243,14 @@ class MetadataStore(object):
     [response_str, error_message,
      status_code] = method(self._metadata_store, request.SerializeToString())
     if status_code != 0:
-      raise _make_exception(error_message.decode('utf-8'), status_code)
+      raise errors.make_exception(error_message.decode('utf-8'), status_code)
     response.ParseFromString(response_str)
 
-  def put_artifacts(self, artifacts: Sequence[proto.Artifact]) -> List[int]:
+  def put_artifacts(
+      self,
+      artifacts: Sequence[proto.Artifact],
+      field_mask_paths: Optional[Sequence[str]] = None,
+  ) -> List[int]:
     """Inserts or updates artifacts in the database.
 
     If an artifact id is specified for an artifact, it is an update.
@@ -251,8 +263,17 @@ class MetadataStore(object):
     It is not guaranteed that the created or updated artifacts will share the
     same `create_time_since_epoch` or `last_update_time_since_epoch` timestamps.
 
+    If `field_mask_paths` is specified and non-empty:
+      1. while updating an existing artifact, it only updates fields specified
+         in `field_mask_paths`.
+      2. while inserting a new artifact, `field_mask_paths` will be ignored.
+      3. otherwise, `field_mask_paths` will be applied to all `artifacts`.
+    If `field_mask_paths` is unspecified or is empty, it updates the artifact
+    as a whole.
+
     Args:
       artifacts: A list of artifacts to insert or update.
+      field_mask_paths: A list of field mask paths for masked update.
 
     Returns:
       A list of artifact ids index-aligned with the input.
@@ -264,13 +285,14 @@ class MetadataStore(object):
     request = metadata_store_service_pb2.PutArtifactsRequest()
     for x in artifacts:
       request.artifacts.add().CopyFrom(x)
+
+    if field_mask_paths:
+      for path in field_mask_paths:
+        request.update_mask.paths.append(path)
     response = metadata_store_service_pb2.PutArtifactsResponse()
 
     self._call('PutArtifacts', request, response)
-    result = []
-    for x in response.artifact_ids:
-      result.append(x)
-    return result
+    return list(response.artifact_ids)
 
   def put_artifact_type(self,
                         artifact_type: proto.ArtifactType,
@@ -332,7 +354,11 @@ class MetadataStore(object):
     self._call('PutArtifactType', request, response)
     return response.type_id
 
-  def put_executions(self, executions: Sequence[proto.Execution]) -> List[int]:
+  def put_executions(
+      self,
+      executions: Sequence[proto.Execution],
+      field_mask_paths: Optional[Sequence[str]] = None,
+  ) -> List[int]:
     """Inserts or updates executions in the database.
 
     If an execution id is specified for an execution, it is an update.
@@ -345,8 +371,17 @@ class MetadataStore(object):
     It is not guaranteed that the created or updated executions will share the
     same `create_time_since_epoch` or `last_update_time_since_epoch` timestamps.
 
+    If `field_mask_paths` is specified and non-empty:
+      1. while updating an existing execution, it only updates fields specified
+         in `field_mask_paths`.
+      2. while inserting a new execution, `field_mask_paths` will be ignored.
+      3. otherwise, `field_mask_paths` will be applied to all `executions`.
+    If `field_mask_paths` is unspecified or is empty, it updates the execution
+    as a whole.
+
     Args:
       executions: A list of executions to insert or update.
+      field_mask_paths: A list of field mask paths for masked update.
 
     Returns:
       A list of execution ids index-aligned with the input.
@@ -358,13 +393,14 @@ class MetadataStore(object):
     request = metadata_store_service_pb2.PutExecutionsRequest()
     for x in executions:
       request.executions.add().CopyFrom(x)
+
+    if field_mask_paths:
+      for path in field_mask_paths:
+        request.update_mask.paths.append(path)
     response = metadata_store_service_pb2.PutExecutionsResponse()
 
     self._call('PutExecutions', request, response)
-    result = []
-    for x in response.execution_ids:
-      result.append(x)
-    return result
+    return list(response.execution_ids)
 
   def put_execution_type(self,
                          execution_type: proto.ExecutionType,
@@ -426,7 +462,11 @@ class MetadataStore(object):
     self._call('PutExecutionType', request, response)
     return response.type_id
 
-  def put_contexts(self, contexts: Sequence[proto.Context]) -> List[int]:
+  def put_contexts(
+      self,
+      contexts: Sequence[proto.Context],
+      field_mask_paths: Optional[Sequence[str]] = None,
+  ) -> List[int]:
     """Inserts or updates contexts in the database.
 
     If an context id is specified for an context, it is an update.
@@ -439,8 +479,17 @@ class MetadataStore(object):
     It is not guaranteed that the created or updated contexts will share the
     same `create_time_since_epoch` or `last_update_time_since_epoch` timestamps.
 
+    If `field_mask_paths` is specified and non-empty:
+      1. while updating an existing context, it only updates fields specified
+         in `field_mask_paths`.
+      2. while inserting a new context, `field_mask_paths` will be ignored.
+      3. otherwise, `field_mask_paths` will be applied to all `contexts`.
+    If `field_mask_paths` is unspecified or is empty, it updates the context
+    as a whole.
+
     Args:
       contexts: A list of contexts to insert or update.
+      field_mask_paths: A list of field mask paths for masked update.
 
     Returns:
       A list of context ids index-aligned with the input.
@@ -453,13 +502,14 @@ class MetadataStore(object):
     request = metadata_store_service_pb2.PutContextsRequest()
     for x in contexts:
       request.contexts.add().CopyFrom(x)
+
+    if field_mask_paths:
+      for path in field_mask_paths:
+        request.update_mask.paths.append(path)
     response = metadata_store_service_pb2.PutContextsResponse()
 
     self._call('PutContexts', request, response)
-    result = []
-    for x in response.context_ids:
-      result.append(x)
-    return result
+    return list(response.context_ids)
 
   def put_context_type(self,
                        context_type: proto.ContextType,
@@ -596,7 +646,7 @@ class MetadataStore(object):
     """
     request = metadata_store_service_pb2.PutExecutionRequest(
         execution=execution,
-        contexts=(context for context in contexts),
+        contexts=contexts,
         options=metadata_store_service_pb2.PutExecutionRequest.Options(
             reuse_context_if_already_exist=reuse_context_if_already_exist,
             reuse_artifact_if_already_exist_by_external_id=(
@@ -609,8 +659,8 @@ class MetadataStore(object):
             artifact=pair[0], event=pair[1] if len(pair) == 2 else None)
     response = metadata_store_service_pb2.PutExecutionResponse()
     self._call('PutExecution', request, response)
-    artifact_ids = [x for x in response.artifact_ids]
-    context_ids = [x for x in response.context_ids]
+    artifact_ids = list(response.artifact_ids)
+    context_ids = list(response.context_ids)
     return response.execution_id, artifact_ids, context_ids
 
   def put_lineage_subgraph(
@@ -698,8 +748,8 @@ class MetadataStore(object):
 
   def get_artifacts_by_type(
       self,
-      type_name: Text,
-      type_version: Optional[Text] = None) -> List[proto.Artifact]:
+      type_name: str,
+      type_version: Optional[str] = None) -> List[proto.Artifact]:
     """Gets all the artifacts of a given type.
 
     Args:
@@ -717,16 +767,13 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetArtifactsByTypeResponse()
 
     self._call('GetArtifactsByType', request, response)
-    result = []
-    for x in response.artifacts:
-      result.append(x)
-    return result
+    return list(response.artifacts)
 
   def get_artifact_by_type_and_name(
       self,
-      type_name: Text,
-      artifact_name: Text,
-      type_version: Optional[Text] = None) -> Optional[proto.Artifact]:
+      type_name: str,
+      artifact_name: str,
+      type_version: Optional[str] = None) -> Optional[proto.Artifact]:
     """Get the artifact of the given type and name.
 
     The API fails if more than one artifact is found.
@@ -754,7 +801,7 @@ class MetadataStore(object):
       return None
     return response.artifact
 
-  def get_artifacts_by_uri(self, uri: Text) -> List[proto.Artifact]:
+  def get_artifacts_by_uri(self, uri: str) -> List[proto.Artifact]:
     """Gets all the artifacts of a given uri.
 
     Args:
@@ -768,10 +815,7 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetArtifactsByURIResponse()
 
     self._call('GetArtifactsByURI', request, response)
-    result = []
-    for x in response.artifacts:
-      result.append(x)
-    return result
+    return list(response.artifacts)
 
   def get_artifacts_by_id(self,
                           artifact_ids: Iterable[int]) -> List[proto.Artifact]:
@@ -791,13 +835,10 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetArtifactsByIDResponse()
 
     self._call('GetArtifactsByID', request, response)
-    result = []
-    for x in response.artifacts:
-      result.append(x)
-    return result
+    return list(response.artifacts)
 
   def get_artifacts_by_external_ids(
-      self, external_ids: Iterable[Text]) -> List[proto.Artifact]:
+      self, external_ids: Iterable[str]) -> List[proto.Artifact]:
     """Gets all artifacts with matching external ids.
 
     Args:
@@ -815,8 +856,8 @@ class MetadataStore(object):
 
   def get_artifact_type(
       self,
-      type_name: Text,
-      type_version: Optional[Text] = None) -> proto.ArtifactType:
+      type_name: str,
+      type_version: Optional[str] = None) -> proto.ArtifactType:
     """Gets an artifact type by name and version.
 
     Args:
@@ -853,13 +894,10 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetArtifactTypesResponse()
 
     self._call('GetArtifactTypes', request, response)
-    result = []
-    for x in response.artifact_types:
-      result.append(x)
-    return result
+    return list(response.artifact_types)
 
   def get_artifact_types_by_external_ids(
-      self, external_ids: Iterable[Text]) -> List[proto.ArtifactType]:
+      self, external_ids: Iterable[str]) -> List[proto.ArtifactType]:
     """Gets all artifact types with matching external ids.
 
     Args:
@@ -878,8 +916,8 @@ class MetadataStore(object):
 
   def get_execution_type(
       self,
-      type_name: Text,
-      type_version: Optional[Text] = None) -> proto.ExecutionType:
+      type_name: str,
+      type_version: Optional[str] = None) -> proto.ExecutionType:
     """Gets an execution type by name and version.
 
     Args:
@@ -916,13 +954,10 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetExecutionTypesResponse()
 
     self._call('GetExecutionTypes', request, response)
-    result = []
-    for x in response.execution_types:
-      result.append(x)
-    return result
+    return list(response.execution_types)
 
   def get_execution_types_by_external_ids(
-      self, external_ids: Iterable[Text]) -> List[proto.ExecutionType]:
+      self, external_ids: Iterable[str]) -> List[proto.ExecutionType]:
     """Gets all execution types with matching external ids.
 
     Args:
@@ -941,8 +976,8 @@ class MetadataStore(object):
 
   def get_context_type(
       self,
-      type_name: Text,
-      type_version: Optional[Text] = None) -> proto.ContextType:
+      type_name: str,
+      type_version: Optional[str] = None) -> proto.ContextType:
     """Gets a context type by name and version.
 
     Args:
@@ -979,13 +1014,10 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetContextTypesResponse()
 
     self._call('GetContextTypes', request, response)
-    result = []
-    for x in response.context_types:
-      result.append(x)
-    return result
+    return list(response.context_types)
 
   def get_context_types_by_external_ids(
-      self, external_ids: Iterable[Text]) -> List[proto.ContextType]:
+      self, external_ids: Iterable[str]) -> List[proto.ContextType]:
     """Gets all context types with matching external ids.
 
     Args:
@@ -1003,8 +1035,8 @@ class MetadataStore(object):
 
   def get_executions_by_type(
       self,
-      type_name: Text,
-      type_version: Optional[Text] = None) -> List[proto.Execution]:
+      type_name: str,
+      type_version: Optional[str] = None) -> List[proto.Execution]:
     """Gets all the executions of a given type.
 
     Args:
@@ -1021,16 +1053,13 @@ class MetadataStore(object):
     if type_version:
       request.type_version = type_version
     self._call('GetExecutionsByType', request, response)
-    result = []
-    for x in response.executions:
-      result.append(x)
-    return result
+    return list(response.executions)
 
   def get_execution_by_type_and_name(
       self,
-      type_name: Text,
-      execution_name: Text,
-      type_version: Optional[Text] = None) -> Optional[proto.Execution]:
+      type_name: str,
+      execution_name: str,
+      type_version: Optional[str] = None) -> Optional[proto.Execution]:
     """Get the execution of the given type and name.
 
     The API fails if more than one execution is found.
@@ -1076,13 +1105,10 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetExecutionsByIDResponse()
 
     self._call('GetExecutionsByID', request, response)
-    result = []
-    for x in response.executions:
-      result.append(x)
-    return result
+    return list(response.executions)
 
   def get_executions_by_external_ids(
-      self, external_ids: Iterable[Text]) -> List[proto.Execution]:
+      self, external_ids: Iterable[str]) -> List[proto.Execution]:
     """Gets all executions with matching external ids.
 
     Args:
@@ -1123,7 +1149,9 @@ class MetadataStore(object):
       method_name: str,
       entity_field_name: str,
       request_without_list_options: Any,
-      list_options: Optional[ListOptions] = None) -> List[Any]:
+      list_options: Optional[ListOptions] = None,
+      extra_options: Optional[ExtraOptions] = None,
+  ) -> List[Any]:
     """Apply for loop for functions with list_options in request.
 
     Args:
@@ -1131,16 +1159,21 @@ class MetadataStore(object):
       entity_field_name: Field name to look for in response.
       request_without_list_options: A MLMD API request without setting options.
       list_options: optional list options.
+      extra_options: ExtraOptions instance.
 
     Returns:
       A list of entities.
     """
+    del extra_options
     if list_options is not None:
       if list_options.limit and list_options.limit < 1:
-        raise _make_exception(
-            'Invalid list_options.limit value passed. '
-            'list_options.limit is expected to be greater than 1',
-            errors.INVALID_ARGUMENT)
+        raise errors.make_exception(
+            (
+                'Invalid list_options.limit value passed. '
+                'list_options.limit is expected to be greater than 1'
+            ),
+            errors.INVALID_ARGUMENT,
+        )
     request = request_without_list_options
     return_size = None
     if list_options is not None:
@@ -1204,14 +1237,17 @@ class MetadataStore(object):
     return self._call_method_with_list_options('GetArtifacts', 'artifacts',
                                                request, list_options)
 
-  def get_contexts(self,
-                   list_options: Optional[ListOptions] = None
-                  ) -> List[proto.Context]:
+  def get_contexts(
+      self,
+      list_options: Optional[ListOptions] = None,
+      extra_options: Optional[ExtraOptions] = None,
+  ) -> List[proto.Context]:
     """Gets contexts.
 
     Args:
       list_options: A set of options to specify the conditions, limit the size
         and adjust order of the returned contexts.
+      extra_options: ExtraOptions instance.
 
     Returns:
       A list of contexts.
@@ -1220,6 +1256,7 @@ class MetadataStore(object):
       errors.InternalError: if query execution fails.
       errors.InvalidArgument: if list_options is invalid.
     """
+    del extra_options
     request = metadata_store_service_pb2.GetContextsRequest()
     return self._call_method_with_list_options('GetContexts', 'contexts',
                                                request, list_options)
@@ -1242,15 +1279,12 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetContextsByIDResponse()
 
     self._call('GetContextsByID', request, response)
-    result = []
-    for x in response.contexts:
-      result.append(x)
-    return result
+    return list(response.contexts)
 
   def get_contexts_by_type(
       self,
-      type_name: Text,
-      type_version: Optional[Text] = None) -> List[proto.Context]:
+      type_name: str,
+      type_version: Optional[str] = None) -> List[proto.Context]:
     """Gets all the contexts of a given type.
 
     Args:
@@ -1268,16 +1302,13 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetContextsByTypeResponse()
 
     self._call('GetContextsByType', request, response)
-    result = []
-    for x in response.contexts:
-      result.append(x)
-    return result
+    return list(response.contexts)
 
   def get_context_by_type_and_name(
       self,
-      type_name: Text,
-      context_name: Text,
-      type_version: Optional[Text] = None) -> Optional[proto.Context]:
+      type_name: str,
+      context_name: str,
+      type_version: Optional[str] = None) -> Optional[proto.Context]:
     """Get the context of the given type and context name.
 
     The API fails if more than one contexts are found.
@@ -1306,7 +1337,7 @@ class MetadataStore(object):
     return response.context
 
   def get_contexts_by_external_ids(
-      self, external_ids: Iterable[Text]) -> List[proto.Context]:
+      self, external_ids: Iterable[str]) -> List[proto.Context]:
     """Gets all contexts with matching external ids.
 
     Args:
@@ -1341,10 +1372,7 @@ class MetadataStore(object):
       request.type_ids.append(x)
 
     self._call('GetArtifactTypesByID', request, response)
-    result = []
-    for x in response.artifact_types:
-      result.append(x)
-    return result
+    return list(response.artifact_types)
 
   def get_execution_types_by_id(
       self, type_ids: Iterable[int]) -> List[proto.ExecutionType]:
@@ -1368,10 +1396,7 @@ class MetadataStore(object):
       request.type_ids.append(x)
 
     self._call('GetExecutionTypesByID', request, response)
-    result = []
-    for x in response.execution_types:
-      result.append(x)
-    return result
+    return list(response.execution_types)
 
   def get_context_types_by_id(
       self, type_ids: Iterable[int]) -> List[proto.ContextType]:
@@ -1395,10 +1420,7 @@ class MetadataStore(object):
       request.type_ids.append(x)
 
     self._call('GetContextTypesByID', request, response)
-    result = []
-    for x in response.context_types:
-      result.append(x)
-    return result
+    return list(response.context_types)
 
   def put_attributions_and_associations(
       self, attributions: Sequence[proto.Attribution],
@@ -1457,10 +1479,7 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetContextsByArtifactResponse()
 
     self._call('GetContextsByArtifact', request, response)
-    result = []
-    for x in response.contexts:
-      result.append(x)
-    return result
+    return list(response.contexts)
 
   def get_contexts_by_execution(self, execution_id: int) -> List[proto.Context]:
     """Gets all context that an execution is associated with.
@@ -1476,10 +1495,7 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetContextsByExecutionResponse()
 
     self._call('GetContextsByExecution', request, response)
-    result = []
-    for x in response.contexts:
-      result.append(x)
-    return result
+    return list(response.contexts)
 
   def get_artifacts_by_context(
       self,
@@ -1545,10 +1561,7 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetEventsByExecutionIDsResponse()
 
     self._call('GetEventsByExecutionIDs', request, response)
-    result = []
-    for x in response.events:
-      result.append(x)
-    return result
+    return list(response.events)
 
   def get_events_by_artifact_ids(
       self, artifact_ids: Iterable[int]) -> List[proto.Event]:
@@ -1570,10 +1583,7 @@ class MetadataStore(object):
     response = metadata_store_service_pb2.GetEventsByArtifactIDsResponse()
 
     self._call('GetEventsByArtifactIDs', request, response)
-    result = []
-    for x in response.events:
-      result.append(x)
-    return result
+    return list(response.events)
 
   def get_parent_contexts_by_context(self,
                                      context_id: int) -> List[proto.Context]:
@@ -1592,10 +1602,7 @@ class MetadataStore(object):
     request.context_id = context_id
     response = metadata_store_service_pb2.GetParentContextsByContextResponse()
     self._call('GetParentContextsByContext', request, response)
-    result = []
-    for x in response.contexts:
-      result.append(x)
-    return result
+    return list(response.contexts)
 
   def get_children_contexts_by_context(self,
                                        context_id: int) -> List[proto.Context]:
@@ -1614,10 +1621,7 @@ class MetadataStore(object):
     request.context_id = context_id
     response = metadata_store_service_pb2.GetChildrenContextsByContextResponse()
     self._call('GetChildrenContextsByContext', request, response)
-    result = []
-    for x in response.contexts:
-      result.append(x)
-    return result
+    return list(response.contexts)
 
 
 def downgrade_schema(config: proto.ConnectionConfig,
@@ -1644,8 +1648,9 @@ def downgrade_schema(config: proto.ConnectionConfig,
     RuntimeError: if the downgrade is not finished, return detailed error.
   """
   if downgrade_to_schema_version < 0:
-    raise _make_exception('downgrade_to_schema_version not specified',
-                          errors.INVALID_ARGUMENT)
+    raise errors.make_exception(
+        'downgrade_to_schema_version not specified', errors.INVALID_ARGUMENT
+    )
 
   try:
     migration_options = metadata_store_pb2.MigrationOptions()
@@ -1654,29 +1659,8 @@ def downgrade_schema(config: proto.ConnectionConfig,
         config.SerializeToString(), migration_options.SerializeToString())
   except RuntimeError as e:
     if str(e).startswith('MLMD cannot be downgraded to schema_version'):
-      raise _make_exception(str(e), errors.INVALID_ARGUMENT)
+      raise errors.make_exception(str(e), errors.INVALID_ARGUMENT) from e
     if not str(e).startswith('Downgrade migration was performed.'):
       raise e
     # downgrade is done.
     logging.log(logging.INFO, str(e))
-
-
-def _make_exception(msg, error_code):
-  """Makes an exception with MLMD error code.
-
-  Args:
-    msg: Error message.
-    error_code: MLMD error code.
-
-  Returns:
-    An exception.
-  """
-
-  try:
-    exc_type = errors.exception_type_from_error_code(error_code)
-    # log internal backend engine errors only.
-    if error_code == errors.INTERNAL:
-      logging.log(logging.WARNING, 'mlmd client %s: %s', exc_type.__name__, msg)
-    return exc_type(msg)
-  except KeyError:
-    return errors.UnknownError(msg)

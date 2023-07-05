@@ -41,7 +41,7 @@ absl::Status CreateMetadataAccessObject(
 // works with an existing db having that particular schema version.
 absl::Status CreateMetadataAccessObject(
     const MetadataSourceQueryConfig& query_config,
-    MetadataSource* const metadata_source, absl::optional<int64> schema_version,
+    MetadataSource* const metadata_source, absl::optional<int64_t> schema_version,
     std::unique_ptr<MetadataAccessObject>* result);
 
 }  // namespace ml_metadata

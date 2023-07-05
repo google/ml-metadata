@@ -18,15 +18,22 @@ limitations under the License.
 #include <memory>
 #include <vector>
 
+#include "google/protobuf/field_mask.pb.h"
+#include "google/protobuf/struct.pb.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/container/node_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/strings/match.h"
 #include "absl/strings/string_view.h"
+#include "absl/time/time.h"
 #include "ml_metadata/metadata_store/metadata_access_object.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/metadata_store/query_executor.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
+#include "ml_metadata/util/field_mask_utils.h"
+#include "ml_metadata/util/return_utils.h"
 
 namespace ml_metadata {
 
@@ -38,11 +45,37 @@ namespace ml_metadata {
 // TODO(b/197686185): Move this helper function to  metadata_store.cc once MAO
 // no longer needs it.
 template <typename Node, typename Type>
-absl::Status ValidatePropertiesWithType(const Node& node, const Type& type) {
+absl::Status ValidatePropertiesWithType(
+    const Node& node, const Type& type,
+    const google::protobuf::FieldMask& mask = {}) {
   const google::protobuf::Map<std::string, PropertyType>& type_properties =
       type.properties();
+
+  bool check_masked_properties = true;
+  absl::flat_hash_set<absl::string_view> property_names_in_mask;
+  if (!mask.paths().empty()) {
+    absl::StatusOr<absl::flat_hash_set<absl::string_view>>
+        property_names_or_internal_error =
+            GetPropertyNamesFromMask(mask, /*is_custom_properties=*/false);
+    if (property_names_or_internal_error.status().code() ==
+            absl::StatusCode::kInternal &&
+        absl::StrContains(property_names_or_internal_error.status().message(),
+                          "no property name is specified")) {
+      check_masked_properties = false;
+    } else {
+      MLMD_RETURN_IF_ERROR(property_names_or_internal_error.status());
+      property_names_in_mask = property_names_or_internal_error.value();
+    }
+  } else {
+    check_masked_properties = false;
+  }
+
   for (const auto& p : node.properties()) {
     const std::string& property_name = p.first;
+    // If mask is specified, only check masked property names.
+    if (check_masked_properties && !property_names_in_mask.count(property_name))
+      continue;
+
     const Value& property_value = p.second;
     if (type_properties.find(property_name) == type_properties.end())
       return absl::InvalidArgumentError(
@@ -84,23 +117,6 @@ absl::Status ValidatePropertiesWithType(const Node& node, const Type& type) {
   }
   return absl::OkStatus();
 }
-
-// Converts `record_set` to an Artifact/Execution/Context/Event array.
-// ParseRecordSetToMessageArray is a template function. If we want to expose it
-// to other binaries, the definition should also be in the header file
-// (go/totw/12#what-do-i-need-to-know-about-templates) or a wrapper can be
-// created on top of it and instantiate it.
-absl::Status ParseRecordSetToNodeArray(const RecordSet& record_set,
-                                       std::vector<Artifact>* artifacts);
-
-absl::Status ParseRecordSetToNodeArray(const RecordSet& record_set,
-                                       std::vector<Execution>* executions);
-
-absl::Status ParseRecordSetToNodeArray(const RecordSet& record_set,
-                                       std::vector<Context>* contexts);
-
-absl::Status ParseRecordSetToNodeArray(const RecordSet& record_set,
-                                       std::vector<Event>* events);
 
 // Declare a parameterized abstract test fixture to run tests on private methods
 // of RDBMSMetadataAccessObject created with different MetadataSource types.
@@ -163,28 +179,29 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // Returns FAILED_PRECONDITION, if db schema version is newer than the
   //   library version.
   // Returns detailed INTERNAL error, if query execution fails.
-  absl::Status DowngradeMetadataSource(int64 to_schema_version) final {
+  absl::Status DowngradeMetadataSource(int64_t to_schema_version) final {
     return executor_->DowngradeMetadataSource(to_schema_version);
   }
 
-  absl::Status CreateType(const ArtifactType& type, int64* type_id) final;
-  absl::Status CreateType(const ExecutionType& type, int64* type_id) final;
-  absl::Status CreateType(const ContextType& type, int64* type_id) final;
+  absl::Status CreateType(const ArtifactType& type, int64_t* type_id) final;
+  absl::Status CreateType(const ExecutionType& type, int64_t* type_id) final;
+  absl::Status CreateType(const ContextType& type, int64_t* type_id) final;
 
   absl::Status UpdateType(const ArtifactType& type) final;
   absl::Status UpdateType(const ExecutionType& type) final;
   absl::Status UpdateType(const ContextType& type) final;
 
-  absl::Status FindTypeById(int64 type_id, ArtifactType* artifact_type) final;
-  absl::Status FindTypeById(int64 type_id, ExecutionType* execution_type) final;
-  absl::Status FindTypeById(int64 type_id, ContextType* context_type) final;
+  absl::Status FindTypeById(int64_t type_id, ArtifactType* artifact_type) final;
+  absl::Status FindTypeById(int64_t type_id,
+                            ExecutionType* execution_type) final;
+  absl::Status FindTypeById(int64_t type_id, ContextType* context_type) final;
 
-  absl::Status FindTypesByIds(absl::Span<const int64> type_ids,
+  absl::Status FindTypesByIds(absl::Span<const int64_t> type_ids,
                               std::vector<ArtifactType>& artifact_types) final;
   absl::Status FindTypesByIds(
-      absl::Span<const int64> type_ids,
+      absl::Span<const int64_t> type_ids,
       std::vector<ExecutionType>& execution_types) final;
-  absl::Status FindTypesByIds(absl::Span<const int64> type_ids,
+  absl::Status FindTypesByIds(absl::Span<const int64_t> type_ids,
                               std::vector<ContextType>& context_types) final;
 
   absl::Status FindTypesByExternalIds(
@@ -209,7 +226,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   absl::Status FindTypeIdByNameAndVersion(
       absl::string_view name, absl::optional<absl::string_view> version,
-      TypeKind type_kind, int64* type_id) final;
+      TypeKind type_kind, int64_t* type_id) final;
 
   absl::Status FindTypesByNamesAndVersions(
       absl::Span<std::pair<std::string, std::string>> names_and_versions,
@@ -233,28 +250,28 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
       const ContextType& type, const ContextType& parent_type) final;
 
   absl::Status FindParentTypesByTypeId(
-      absl::Span<const int64> type_ids,
-      absl::flat_hash_map<int64, ArtifactType>& output_parent_types) final;
+      absl::Span<const int64_t> type_ids,
+      absl::flat_hash_map<int64_t, ArtifactType>& output_parent_types) final;
   absl::Status FindParentTypesByTypeId(
-      absl::Span<const int64> type_ids,
-      absl::flat_hash_map<int64, ExecutionType>& output_parent_types) final;
+      absl::Span<const int64_t> type_ids,
+      absl::flat_hash_map<int64_t, ExecutionType>& output_parent_types) final;
   absl::Status FindParentTypesByTypeId(
-      absl::Span<const int64> type_ids,
-      absl::flat_hash_map<int64, ContextType>& output_parent_types) final;
+      absl::Span<const int64_t> type_ids,
+      absl::flat_hash_map<int64_t, ContextType>& output_parent_types) final;
 
   absl::Status CreateArtifact(const Artifact& artifact,
                               bool skip_type_and_property_validation,
-                              int64* artifact_id) final;
+                              int64_t* artifact_id) final;
 
   absl::Status CreateArtifact(const Artifact& artifact,
                               bool skip_type_and_property_validation,
                               absl::Time create_timestamp,
-                              int64* artifact_id) final;
+                              int64_t* artifact_id) final;
 
   absl::Status CreateArtifact(const Artifact& artifact,
-                              int64* artifact_id) final;
+                              int64_t* artifact_id) final;
 
-  absl::Status FindArtifactsById(absl::Span<const int64> artifact_ids,
+  absl::Status FindArtifactsById(absl::Span<const int64_t> artifact_ids,
                                  std::vector<Artifact>* artifacts) final;
 
   absl::Status FindArtifactsByExternalIds(
@@ -276,10 +293,11 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
                             std::string* next_page_token) final;
 
   absl::Status FindArtifactsByTypeId(
-      int64 artifact_type_id, absl::optional<ListOperationOptions> list_options,
+      int64_t artifact_type_id,
+      absl::optional<ListOperationOptions> list_options,
       std::vector<Artifact>* artifacts, std::string* next_page_token) final;
 
-  absl::Status FindArtifactByTypeIdAndArtifactName(int64 type_id,
+  absl::Status FindArtifactByTypeIdAndArtifactName(int64_t type_id,
                                                    absl::string_view name,
                                                    Artifact* artifact) final;
 
@@ -289,22 +307,30 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status UpdateArtifact(const Artifact& artifact) final;
 
   absl::Status UpdateArtifact(const Artifact& artifact,
+                              const google::protobuf::FieldMask& mask) final;
+
+  absl::Status UpdateArtifact(const Artifact& artifact,
                               const absl::Time update_timestamp,
                               bool force_update_time) final;
 
+  absl::Status UpdateArtifact(const Artifact& artifact,
+                              const absl::Time update_timestamp,
+                              bool force_update_time,
+                              const google::protobuf::FieldMask& mask) final;
+
   absl::Status CreateExecution(const Execution& execution,
                                bool skip_type_and_property_validation,
-                               int64* execution_id) final;
+                               int64_t* execution_id) final;
 
   absl::Status CreateExecution(const Execution& execution,
                                bool skip_type_and_property_validation,
                                const absl::Time create_timestamp,
-                               int64* execution_id) final;
+                               int64_t* execution_id) final;
 
   absl::Status CreateExecution(const Execution& execution,
-                               int64* execution_id) final;
+                               int64_t* execution_id) final;
 
-  absl::Status FindExecutionsById(absl::Span<const int64> execution_ids,
+  absl::Status FindExecutionsById(absl::Span<const int64_t> execution_ids,
                                   std::vector<Execution>* executions) final;
 
   absl::Status FindExecutionsByExternalIds(
@@ -314,10 +340,10 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status FindExecutions(std::vector<Execution>* executions) final;
 
   absl::Status FindExecutionByTypeIdAndExecutionName(
-      int64 type_id, absl::string_view name, Execution* execution) final;
+      int64_t type_id, absl::string_view name, Execution* execution) final;
 
   absl::Status FindExecutionsByTypeId(
-      int64 execution_type_id,
+      int64_t execution_type_id,
       absl::optional<ListOperationOptions> list_options,
       std::vector<Execution>* executions, std::string* next_page_token) final;
 
@@ -327,18 +353,26 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
                                const absl::Time update_timestamp,
                                bool force_update_time) final;
 
+  absl::Status UpdateExecution(const Execution& execution,
+                               const google::protobuf::FieldMask& mask) final;
+
+  absl::Status UpdateExecution(const Execution& execution,
+                               absl::Time update_timestamp,
+                               bool force_update_time,
+                               const google::protobuf::FieldMask& mask) final;
+
   absl::Status CreateContext(const Context& context,
                              bool skip_type_and_property_validation,
-                             int64* context_id) final;
+                             int64_t* context_id) final;
 
   absl::Status CreateContext(const Context& context,
                              bool skip_type_and_property_validation,
                              const absl::Time create_timestamp,
-                             int64* context_id) final;
+                             int64_t* context_id) final;
 
-  absl::Status CreateContext(const Context& context, int64* context_id) final;
+  absl::Status CreateContext(const Context& context, int64_t* context_id) final;
 
-  absl::Status FindContextsById(absl::Span<const int64> context_ids,
+  absl::Status FindContextsById(absl::Span<const int64_t> context_ids,
                                 std::vector<Context>* contexts) final;
 
   absl::Status FindContextsByExternalIds(
@@ -348,10 +382,10 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status FindContexts(std::vector<Context>* contexts) final;
 
   absl::Status FindContextsByTypeId(
-      int64 type_id, absl::optional<ListOperationOptions> list_options,
+      int64_t type_id, absl::optional<ListOperationOptions> list_options,
       std::vector<Context>* contexts, std::string* next_page_token) final;
 
-  absl::Status FindContextByTypeIdAndContextName(int64 type_id,
+  absl::Status FindContextByTypeIdAndContextName(int64_t type_id,
                                                  absl::string_view name,
                                                  bool id_only,
                                                  Context* context) final;
@@ -362,144 +396,160 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
                              const absl::Time update_timestamp,
                              bool force_update_time) final;
 
-  absl::Status CreateEvent(const Event& event, int64* event_id) final;
+  absl::Status UpdateContext(const Context& context,
+                             const google::protobuf::FieldMask& mask) final;
+
+  absl::Status UpdateContext(const Context& context,
+                             absl::Time update_timestamp,
+                             bool force_update_time,
+                             const google::protobuf::FieldMask& mask) final;
+
+  absl::Status CreateEvent(const Event& event, int64_t* event_id) final;
 
   absl::Status CreateEvent(const Event& event, const bool is_already_validated,
-                           int64* event_id) final;
+                           int64_t* event_id) final;
 
-  absl::Status FindEventsByArtifacts(const std::vector<int64>& artifact_ids,
+  absl::Status FindEventsByArtifacts(absl::Span<const int64_t> artifact_ids,
                                      std::vector<Event>* events) final;
 
-  absl::Status FindEventsByExecutions(const std::vector<int64>& execution_ids,
+  absl::Status FindEventsByExecutions(absl::Span<const int64_t> execution_ids,
                                       std::vector<Event>* events) final;
 
   absl::Status CreateAssociation(const Association& association,
-                                 int64* association_id) final;
+                                 int64_t* association_id) final;
 
   absl::Status CreateAssociation(const Association& association,
                                  bool is_already_validated,
-                                 int64* association_id) final;
+                                 int64_t* association_id) final;
 
 
-  absl::Status FindContextsByExecution(int64 execution_id,
+  absl::Status FindContextsByExecution(int64_t execution_id,
                                        std::vector<Context>* contexts) final;
 
   absl::Status FindExecutionsByContext(
-      int64 context_id, std::vector<Execution>* executions) final;
+      int64_t context_id, std::vector<Execution>* executions) final;
 
   absl::Status FindExecutionsByContext(
-      int64 context_id, absl::optional<ListOperationOptions> list_options,
+      int64_t context_id, absl::optional<ListOperationOptions> list_options,
       std::vector<Execution>* executions, std::string* next_page_token) final;
 
   absl::Status CreateAttribution(const Attribution& attribution,
-                                 int64* attribution_id) final;
+                                 int64_t* attribution_id) final;
 
   absl::Status CreateAttribution(const Attribution& attribution,
                                  bool is_already_validated,
-                                 int64* attribution_id) final;
+                                 int64_t* attribution_id) final;
 
-  absl::Status FindContextsByArtifact(int64 artifact_id,
+  absl::Status FindContextsByArtifact(int64_t artifact_id,
                                       std::vector<Context>* contexts) final;
 
-  absl::Status FindArtifactsByContext(int64 context_id,
+  absl::Status FindArtifactsByContext(int64_t context_id,
                                       std::vector<Artifact>* artifacts) final;
 
   absl::Status FindArtifactsByContext(
-      int64 context_id, absl::optional<ListOperationOptions> list_options,
+      int64_t context_id, absl::optional<ListOperationOptions> list_options,
       std::vector<Artifact>* artifacts, std::string* next_page_token) final;
 
   absl::Status CreateParentContext(const ParentContext& parent_context) final;
 
   absl::Status FindParentContextsByContextId(
-      int64 context_id, std::vector<Context>* contexts) final;
+      int64_t context_id, std::vector<Context>* contexts) final;
 
   absl::Status FindChildContextsByContextId(
-      int64 context_id, std::vector<Context>* contexts) final;
+      int64_t context_id, std::vector<Context>* contexts) final;
 
-  absl::Status GetSchemaVersion(int64* db_version) final {
+  absl::Status FindParentContextsByContextIds(
+      const std::vector<int64_t>& context_ids,
+      absl::node_hash_map<int64_t, std::vector<Context>>& contexts) final;
+
+  absl::Status FindChildContextsByContextIds(
+      const std::vector<int64_t>& context_ids,
+      absl::node_hash_map<int64_t, std::vector<Context>>& contexts) final;
+
+  absl::Status GetSchemaVersion(int64_t* db_version) final {
     return executor_->GetSchemaVersion(db_version);
   }
 
-  int64 GetLibraryVersion() final { return executor_->GetLibraryVersion(); }
+  int64_t GetLibraryVersion() final { return executor_->GetLibraryVersion(); }
 
 
   // The method is currently used for accessing MLMD lineage.
   // TODO(b/178491112) Support Execution typed query_nodes.
   // TODO(b/178491112) Returns contexts in the returned subgraphs.
   absl::Status QueryLineageGraph(
-      const std::vector<Artifact>& query_nodes, int64 max_num_hops,
-      absl::optional<int64> max_nodes,
+      const std::vector<Artifact>& query_nodes, int64_t max_num_hops,
+      absl::optional<int64_t> max_nodes,
       absl::optional<std::string> boundary_artifacts,
       absl::optional<std::string> boundary_executions,
       LineageGraph& subgraph) final;
 
 
+
   // Deletes a list of artifacts by id.
   // Returns detailed INTERNAL error, if query execution fails.
   absl::Status DeleteArtifactsById(
-      absl::Span<const int64> artifact_ids) final;
+      absl::Span<const int64_t> artifact_ids) final;
 
   // Deletes a list of executions by id.
   // Returns detailed INTERNAL error, if query execution fails.
   absl::Status DeleteExecutionsById(
-      absl::Span<const int64> execution_ids) final;
+      absl::Span<const int64_t> execution_ids) final;
 
   // Deletes a list of contexts by id.
   // Returns detailed INTERNAL error, if query execution fails.
-  absl::Status DeleteContextsById(
-      absl::Span<const int64> context_ids) final;
+  absl::Status DeleteContextsById(absl::Span<const int64_t> context_ids) final;
 
   // Deletes the events corresponding to the |artifact_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   absl::Status DeleteEventsByArtifactsId(
-      absl::Span<const int64> artifact_ids) final;
+      absl::Span<const int64_t> artifact_ids) final;
 
   // Deletes the events corresponding to the |execution_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   absl::Status DeleteEventsByExecutionsId(
-      absl::Span<const int64> execution_ids) final;
+      absl::Span<const int64_t> execution_ids) final;
 
   // Deletes the associations corresponding to the |context_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   absl::Status DeleteAssociationsByContextsId(
-      absl::Span<const int64> context_ids) final;
+      absl::Span<const int64_t> context_ids) final;
 
   // Deletes the associations corresponding to the |execution_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   absl::Status DeleteAssociationsByExecutionsId(
-      absl::Span<const int64> execution_ids) final;
+      absl::Span<const int64_t> execution_ids) final;
 
   // Deletes the attributions corresponding to the |context_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   absl::Status DeleteAttributionsByContextsId(
-      absl::Span<const int64> context_ids) final;
+      absl::Span<const int64_t> context_ids) final;
 
   // Deletes the attributions corresponding to the |artifact_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   absl::Status DeleteAttributionsByArtifactsId(
-      absl::Span<const int64> artifact_ids) final;
+      absl::Span<const int64_t> artifact_ids) final;
 
   // Deletes the parent contexts corresponding to the |parent_context_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   absl::Status DeleteParentContextsByParentIds(
-      absl::Span<const int64> parent_context_ids) final;
+      absl::Span<const int64_t> parent_context_ids) final;
 
   // Deletes the parent contexts corresponding to the |child_context_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   absl::Status DeleteParentContextsByChildIds(
-      absl::Span<const int64> child_context_ids) final;
+      absl::Span<const int64_t> child_context_ids) final;
 
   // Deletes the parent contexts corresponding to the |parent_context_id|
   // and |child_context_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   absl::Status DeleteParentContextsByParentIdAndChildIds(
-      int64 parent_context_id,
-      absl::Span<const int64> child_context_ids) final;
+      int64_t parent_context_id,
+      absl::Span<const int64_t> child_context_ids) final;
 
   // Deletes the parent type link |type_id, parent_type_id|.
   // Returns detailed INTERNAL error, if query execution fails.
-  absl::Status DeleteParentTypeInheritanceLink(
-      int64 type_id, int64 parent_type_id) final;
+  absl::Status DeleteParentTypeInheritanceLink(int64_t type_id,
+                                               int64_t parent_type_id) final;
 
  private:
   ///////// These methods are implementations details //////////////////////////
@@ -507,16 +557,16 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // Creates an Artifact (without properties).
   absl::Status CreateBasicNode(const Artifact& artifact,
                                const absl::Time create_timestamp,
-                               int64* node_id);
+                               int64_t* node_id);
 
   // Creates an Execution (without properties).
   absl::Status CreateBasicNode(const Execution& execution,
                                const absl::Time create_timestamp,
-                               int64* node_id);
+                               int64_t* node_id);
   // Creates a Context (without properties).
   absl::Status CreateBasicNode(const Context& context,
                                const absl::Time create_timestamp,
-                               int64* node_id);
+                               int64_t* node_id);
 
   // Gets nodes (and their properties) based on the provided 'ids'.
   // 'header' contains the non-property information, and 'properties' contains
@@ -526,8 +576,16 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // QueryExecutor::Select{Node}PropertyBy{Node}ID().
   template <typename T>
   absl::Status RetrieveNodesById(
-      absl::Span<const int64> id, RecordSet* header, RecordSet* properties,
+      absl::Span<const int64_t> id, RecordSet* header, RecordSet* properties,
       T* tag = nullptr /* used only for the template */);
+
+  // Update a Node's assets based on the field mask.
+  // If `mask` is empty, update `stored_node` as a whole.
+  // If `mask` is not empty, only update fields specified in `mask`.
+  template <typename Node>
+  absl::Status RunMaskedNodeUpdate(
+      const Node& node, Node& stored_node, absl::Time update_timestamp,
+      const google::protobuf::FieldMask& mask = {});
 
   // Update an Artifact's type_id and URI.
   absl::Status RunNodeUpdate(const Artifact& artifact,
@@ -543,45 +601,49 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   // Runs a property insertion query for a NodeType.
   template <typename NodeType>
-  absl::Status InsertProperty(const int64 node_id, absl::string_view name,
+  absl::Status InsertProperty(const int64_t node_id, absl::string_view name,
                               const bool is_custom_property,
                               const Value& value);
 
   // Generates a property update query for a NodeType.
   template <typename NodeType>
-  absl::Status UpdateProperty(const int64 node_id, absl::string_view name,
+  absl::Status UpdateProperty(const int64_t node_id, absl::string_view name,
                               const Value& value);
 
   // Generates a property deletion query for a NodeType.
   template <typename NodeType>
-  absl::Status DeleteProperty(const int64 node_id,
-                              absl::string_view name);
+  absl::Status DeleteProperty(const int64_t node_id, absl::string_view name);
 
   // Generates a list of queries for the `curr_properties` (C) based on the
-  // given `prev_properties` (P). A property definition is a 2-tuple (name,
-  // value_type). a) any property in the intersection of C and P, a update query
-  // is generated. b) any property in C \ P, insert query is generated. c) any
-  // property in P \ C, delete query is generated. The queries are composed from
-  // corresponding template queries with the given `NodeType` (which is one of
-  // {`ArtifactType`, `ExecutionType`, `ContextType`} and the
-  // `is_custom_property` (which indicates the space of the given properties.
-  // Returns `output_num_changed_properties` which equals to the number of
-  // properties are changed (deleted, updated or inserted).
+  // given `prev_properties` (P) only for properties associated with names in
+  // `mask`(M). A property definition is a 2-tuple (name, value_type).
+  // a) any property in the intersection of M, C and P, an update query is
+  // generated.
+  // b) any property in the intersection of M and (C \ P), insert query is
+  // generated.
+  // c) any property in the intersection of M and (P \ C), delete query is
+  // generated.
+  // The queries are composed from corresponding template
+  // queries with the given `NodeType` (which is one of {`ArtifactType`,
+  // `ExecutionType`, `ContextType`} and the `is_custom_property` (which
+  // indicates the space of the given properties. Returns
+  // `output_num_changed_properties` which equals to the number of properties
+  // are changed (deleted, updated or inserted).
   template <typename NodeType>
-  absl::Status ModifyProperties(
+  absl::StatusOr<int64_t> ModifyProperties(
       const google::protobuf::Map<std::string, Value>& curr_properties,
       const google::protobuf::Map<std::string, Value>& prev_properties,
-      const int64 node_id, const bool is_custom_property,
-      int& output_num_changed_properties);
+      const int64_t node_id, const bool is_custom_property,
+      const google::protobuf::FieldMask& mask = {});
 
   // Creates a query to insert an artifact type.
-  absl::Status InsertTypeID(const ArtifactType& type, int64* type_id);
+  absl::Status InsertTypeID(const ArtifactType& type, int64_t* type_id);
 
   // Creates a query to insert an execution type.
-  absl::Status InsertTypeID(const ExecutionType& type, int64* type_id);
+  absl::Status InsertTypeID(const ExecutionType& type, int64_t* type_id);
 
   // Creates a query to insert a context type.
-  absl::Status InsertTypeID(const ContextType& type, int64* type_id);
+  absl::Status InsertTypeID(const ContextType& type, int64_t* type_id);
 
   // Creates a `Type` where acceptable ones are in {ArtifactType, ExecutionType,
   // ContextType}.
@@ -589,7 +651,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // Returns INVALID_ARGUMENT error, if any property type is unknown.
   // Returns detailed INTERNAL error, if query execution fails.
   template <typename Type>
-  absl::Status CreateTypeImpl(const Type& type, int64* type_id);
+  absl::Status CreateTypeImpl(const Type& type, int64_t* type_id);
 
   // Generates a query to find all type instances.
   absl::Status GenerateFindAllTypeInstancesQuery(const TypeKind type_kind,
@@ -612,7 +674,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // Returns detailed INTERNAL error if query execution fails.
   // If any ids are not found then returns NOT_FOUND error.
   template <typename MessageType>
-  absl::Status FindTypesImpl(absl::Span<const int64> type_ids,
+  absl::Status FindTypesImpl(absl::Span<const int64_t> type_ids,
                              bool get_properties,
                              std::vector<MessageType>& types);
 
@@ -635,7 +697,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // Returns NOT_FOUND error, if the given type_id cannot be found.
   // Returns detailed INTERNAL error, if query execution fails.
   template <typename MessageType>
-  absl::Status FindTypeImpl(int64 type_id, MessageType* type);
+  absl::Status FindTypeImpl(int64_t type_id, MessageType* type);
 
   // Finds a type by its name and an optional version.
   // Acceptable types are {ArtifactType,
@@ -680,8 +742,8 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // `output_parent_types` is not empty.
   template <typename Type>
   absl::Status FindParentTypesByTypeIdImpl(
-      absl::Span<const int64> type_ids,
-      absl::flat_hash_map<int64, Type>& output_parent_types);
+      absl::Span<const int64_t> type_ids,
+      absl::flat_hash_map<int64_t, Type>& output_parent_types);
 
   // Creates an `Node`, which is one of {`Artifact`, `Execution`, `Context`},
   // then returns the assigned node id. The node's id field is ignored. The node
@@ -696,14 +758,14 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status CreateNodeImpl(const Node& node,
                               bool skip_type_and_property_validation,
                               const absl::Time create_timestamp,
-                              int64* node_id);
+                              int64_t* node_id);
 
   // Gets a `Node` which is one of {`Artifact`, `Execution`, `Context`} by
   // an id.
   // Returns NOT_FOUND error, if the given id cannot be found.
   // Returns detailed INTERNAL error, if query execution fails.
   template <typename Node>
-  absl::Status FindNodeImpl(const int64 node_id, Node* node);
+  absl::Status FindNodeImpl(const int64_t node_id, Node* node);
 
   // Gets a set of `Node` which is one of {`Artifact`, `Execution`,
   // `Context`} by the given 'ids'.
@@ -714,20 +776,24 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // If any ids are not found then returns NOT_FOUND if skipped_ids_ok is true,
   // otherwise INTERNAL error.
   template <typename Node>
-  absl::Status FindNodesImpl(absl::Span<const int64> node_ids,
+  absl::Status FindNodesImpl(absl::Span<const int64_t> node_ids,
                              bool skipped_ids_ok, std::vector<Node>& nodes);
 
-  // Updates a `Node` which is one of {`Artifact`, `Execution`, `Context`}.
+  // Updates with masking for a `Node` being one of {`Artifact`, `Execution`,
+  // `Context`}.
   // `update_timestamp` should be used as the update time of the Node.
   // When `force_update_time` is set to true, `last_update_time_since_epoch` is
   // updated even if input node is the same as stored node.
-  // Returns INVALID_ARGUMENT error, if the node cannot be found
-  // Returns INVALID_ARGUMENT error, if the node does not match with its type
-  // Returns detailed INTERNAL error, if query execution fails.
+  // If `mask` is empty, update the `node` as a whole, otherwise, perform masked
+  // update on the `node`.
+  // Returns INVALID_ARGUMENT error, if the node cannot be
+  // found Returns INVALID_ARGUMENT error, if the node does not match with its
+  // type Returns detailed INTERNAL error, if query execution fails.
   template <typename Node, typename NodeType>
   absl::Status UpdateNodeImpl(const Node& node,
                               const absl::Time update_timestamp,
-                              bool force_update_time);
+                              bool force_update_time,
+                              const google::protobuf::FieldMask& mask = {});
 
   // Takes a record set that has one record per event and for each record:
   //   parses it into an Event object
@@ -752,7 +818,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   template <typename Node>
   absl::Status ListNodeIds(
       const ListOperationOptions& options,
-      absl::optional<absl::Span<const int64>> candidate_ids,
+      absl::optional<absl::Span<const int64_t>> candidate_ids,
       RecordSet* record_set,
       Node* tag = nullptr /* used only for template instantiation*/);
 
@@ -773,10 +839,10 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // 2. Direction of ordering is not specified for the order_by_field.
   // 3. next_page_token cannot be decoded.
   template <typename Node>
-  absl::Status ListNodes(const ListOperationOptions& options,
-                         absl::optional<absl::Span<const int64>> candidate_ids,
-                         std::vector<Node>* nodes,
-                         std::string* next_page_token);
+  absl::Status ListNodes(
+      const ListOperationOptions& options,
+      absl::optional<absl::Span<const int64_t>> candidate_ids,
+      std::vector<Node>* nodes, std::string* next_page_token);
 
   // Traverse a ParentContext relation to look for parent or child context.
   enum class ParentContextTraverseDirection { kParent, kChild };
@@ -784,9 +850,18 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // Gets the ParentContext with a context_id and returns a list of Context.
   // If direction is kParent, then context_id is used to look for its parents.
   // If direction is kChild, then context_id is used to look for its children.
-  absl::Status FindLinkedContextsImpl(int64 context_id,
+  absl::Status FindLinkedContextsImpl(int64_t context_id,
                                       ParentContextTraverseDirection direction,
                                       std::vector<Context>& output_contexts);
+
+  // Gets the ParentContext with a context_ids list and returns a map of
+  // <context_id, linked_contexts> for each context_id in context_ids. If
+  // direction is kParent, then context_id is used to look for its parents. If
+  // direction is kChild, then context_id is used to look for its children.
+  absl::Status FindLinkedContextsMapImpl(
+      absl::Span<const int64_t> context_ids,
+      ParentContextTraverseDirection direction,
+      absl::node_hash_map<int64_t, std::vector<Context>>& output_contexts);
 
   // The utilities to expand lineage `subgraph` within one hop from artifacts.
   // For the `input_artifacts`, their neighborhood executions that do not
@@ -796,10 +871,10 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // visited executions in previous traversal, while the `visited_artifact_ids`
   // maintains previously visited and the newly visited `input_artifacts`.
   absl::Status ExpandLineageGraphImpl(
-      const std::vector<Artifact>& input_artifacts, int64 max_nodes,
+      const std::vector<Artifact>& input_artifacts, int64_t max_nodes,
       absl::optional<std::string> boundary_condition,
-      const absl::flat_hash_set<int64>& visited_execution_ids,
-      absl::flat_hash_set<int64>& visited_artifact_ids,
+      const absl::flat_hash_set<int64_t>& visited_execution_ids,
+      absl::flat_hash_set<int64_t>& visited_artifact_ids,
       std::vector<Execution>& output_executions, LineageGraph& subgraph);
 
   // The utilities to expand lineage `subgraph` within one hop from executions.
@@ -810,19 +885,23 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // visited artifacts in previous traversal, while the `visited_execution_ids`
   // maintains previously visited and the newly visited `input_executions`.
   absl::Status ExpandLineageGraphImpl(
-      const std::vector<Execution>& input_executions, int64 max_nodes,
+      const std::vector<Execution>& input_executions, int64_t max_nodes,
       absl::optional<std::string> boundary_condition,
-      const absl::flat_hash_set<int64>& visited_artifact_ids,
-      absl::flat_hash_set<int64>& visited_execution_ids,
+      const absl::flat_hash_set<int64_t>& visited_artifact_ids,
+      absl::flat_hash_set<int64_t>& visited_execution_ids,
       std::vector<Artifact>& output_artifacts, LineageGraph& subgraph);
 
-  // Given `boundary_condition`, the utility method keeps nodes that satisfy
-  // the `boundary_condition`, and removes any nodes that do not satisfy the
-  // `boundary_condition` from `unvisited_node_ids`.
+
+  // Given `node_filter`, keeps nodes that satisfy the `node_filter`, and
+  // removes any nodes that do not satisfy the `node_filter` from
+  // `boundary_node_ids`.
+  // Returns OK status if `node_filter` is not specified or filtering boundary
+  // nodes succeeds.
+  // Returns detailed INTERNAL error, if filtering boundary nodes fails.
   template <typename Node>
-  absl::Status SkipBoundaryNodesImpl(
-      absl::optional<std::string> boundary_condition,
-      absl::flat_hash_set<int64>& unvisited_node_ids);
+  absl::Status FilterBoundaryNodesImpl(
+      absl::optional<absl::string_view> node_filter,
+      absl::flat_hash_set<int64_t>& boundary_node_ids);
 
   std::unique_ptr<QueryExecutor> executor_;
 

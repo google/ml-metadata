@@ -20,7 +20,7 @@
 # REQUIREMENTS:
 # * All installed in standard locations:
 #   - JDK8, and JAVA_HOME set.
-#   - Microsoft Visual Studio 2015 Community Edition
+#   - Microsoft Visual Studio 2017 Community Edition
 #   - Msys2
 #   - Anaconda3
 # * Bazel windows executable copied as "bazel.exe" and included in PATH.
@@ -44,6 +44,7 @@ export PATH="/c/tools/bazel/:$PATH"
 # Set Python path for ./configure
 export PYTHON_BIN_PATH="C:/${PYTHON_BASE_PATH}/python.exe"
 export PYTHON_LIB_PATH="C:/${PYTHON_BASE_PATH}/lib/site-packages"
+export PIP_COMMAND="C:/${PYTHON_BASE_PATH}/Scripts/pip.exe"
 
 # Add python into PATH, it's needed because gen_git_source.py uses
 # '/usr/bin/env python' as a shebang

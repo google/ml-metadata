@@ -21,6 +21,7 @@ limitations under the License.
 #ifndef _WIN32
 #include "ml_metadata/metadata_store/mysql_metadata_source.h"
 #endif
+#include "ml_metadata/metadata_store/postgresql_metadata_source.h"
 #include "ml_metadata/metadata_store/sqlite_metadata_source.h"
 #include "ml_metadata/util/metadata_source_query_config.h"
 #include "ml_metadata/util/return_utils.h"
@@ -66,6 +67,22 @@ absl::Status CreateSqliteMetadataStore(
       migration_options.enable_upgrade_migration());
 }
 
+absl::Status CreatePostgreSQLMetadataStore(
+    const PostgreSQLDatabaseConfig& config,
+    const MigrationOptions& migration_options,
+    std::unique_ptr<MetadataStore>* result) {
+  auto postgresql_metadata_source =
+      std::make_unique<PostgreSQLMetadataSource>(config);
+  auto transaction_executor = std::make_unique<RdbmsTransactionExecutor>(
+      postgresql_metadata_source.get());
+  MLMD_RETURN_IF_ERROR(MetadataStore::Create(
+      util::GetPostgreSQLMetadataSourceQueryConfig(), migration_options,
+      std::move(postgresql_metadata_source), std::move(transaction_executor),
+      result));
+  return (*result)->InitMetadataStoreIfNotExists(
+      migration_options.enable_upgrade_migration());
+}
+
 
 }  // namespace
 
@@ -85,6 +102,9 @@ absl::Status CreateMetadataStore(const ConnectionConfig& config,
       return CreateMySQLMetadataStore(config.mysql(), options, result);
     case ConnectionConfig::kSqlite:
       return CreateSqliteMetadataStore(config.sqlite(), options, result);
+    case ConnectionConfig::kPostgresql:
+      return CreatePostgreSQLMetadataStore(config.postgresql(), options,
+                                           result);
     default:
       return absl::UnimplementedError("Unknown database type.");
   }

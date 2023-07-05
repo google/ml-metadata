@@ -68,8 +68,7 @@ struct QueryTupleTestCase {
   // TODO(b/257334039): remove query_version parameter
   template <typename Node>
   std::string GetFromClause(int64_t query_version) const {
-    const absl::string_view base_alias =
-        FilterQueryBuilder<Node>::kBaseTableAlias;
+    absl::string_view base_alias = FilterQueryBuilder<Node>::kBaseTableAlias;
     std::string from_clause =
         FilterQueryBuilder<Node>::GetBaseNodeTable(base_alias);
     for (absl::string_view type_alias : join_mentions.types) {
@@ -220,13 +219,23 @@ std::vector<QueryTupleTestCase> GetTestQueryTuples() {
        artifact_only},
       {"state = LIVE AND state = DELETED", NoJoin(),
        "(((table_0.state) = 2) AND ((table_0.state) = 4))", artifact_only},
+      {"state IN (LIVE, PENDING)", NoJoin(), "((table_0.state) IN (2, 1))",
+       artifact_only},
+      {"state NOT IN (DELETED)", NoJoin(),
+       "((NOT ((table_0.state) IN (4))) OR ((table_0.state) IS NULL))",
+       artifact_only},
       // execution-only attributes
       {"last_known_state = NEW OR last_known_state = COMPLETE", NoJoin(),
        "(((table_0.last_known_state) = 1) OR ((table_0.last_known_state) = 3))",
        execution_only},
+      {"last_known_state IN (NEW, RUNNING)", NoJoin(),
+       "((table_0.last_known_state) IN (1, 2))", execution_only},
       // mention context (the neighbor only applies to artifact/execution)
       {"contexts_0.id = 1", JoinWithContexts({"table_1"}), "((table_1.id) = 1)",
        exclude_context},
+      {"contexts_0.name = 'properties.node.node'",
+       JoinWithContexts({"table_1"}),
+       "((table_1.name) = (\"properties.node.node\"))", exclude_context},
       // use multiple conditions on the same context
       {"contexts_0.id = 1 AND contexts_0.name LIKE 'foo%'",
        JoinWithContexts({"table_1"}),
@@ -264,6 +273,8 @@ std::vector<QueryTupleTestCase> GetTestQueryTuples() {
        "((table_1.uri) LIKE (\"ab_c%\"))", context_only},
       {"artifacts_0.state = LIVE", JoinWithArtifacts({"table_1"}),
        "((table_1.state) = 2)", context_only},
+      {"artifacts_0.state IN (PENDING, LIVE)", JoinWithArtifacts({"table_1"}),
+       "((table_1.state) IN (1, 2))", context_only},
       // use multiple conditions on the same artifact
       {"artifacts_0.id = 1 AND artifacts_0.name LIKE 'foo%'",
        JoinWithArtifacts({"table_1"}),
@@ -333,6 +344,9 @@ std::vector<QueryTupleTestCase> GetTestQueryTuples() {
       {"executions_0.last_known_state = COMPLETE",
        JoinWithExecutions({"table_1"}), "((table_1.last_known_state) = 3)",
        context_only},
+      {"executions_0.last_known_state IN (COMPLETE, RUNNING)",
+       JoinWithExecutions({"table_1"}),
+       "((table_1.last_known_state) IN (3, 2))", context_only},
       // mention properties
       {"properties.p0.int_value = 1", JoinWithProperty("table_1", "p0"),
        "((table_1.int_value) = 1)"},
@@ -486,6 +500,8 @@ std::vector<QueryTupleTestCase> GetTestQueryTuples() {
       {"events_0.type = INPUT OR events_0.type = OUTPUT",
        JoinWithEvents({"table_1"}),
        "(((table_1.type) = 3) OR ((table_1.type) = 4))", exclude_context},
+      {"events_0.type IN (INPUT, DECLARED_INPUT)", JoinWithEvents({"table_1"}),
+       "((table_1.type) IN (3, 2))", exclude_context},
       {"uri = 'http://some_path' AND events_0.type = INPUT",
        JoinWithEvents({"table_1"}),
        "(((table_0.uri) = (\"http://some_path\")) AND ((table_1.type) = 3))",

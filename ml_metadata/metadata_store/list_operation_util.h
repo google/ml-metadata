@@ -26,7 +26,7 @@ namespace ml_metadata {
 // Sets initial field and id offset values based on List operation options.
 // TODO(b/187082552): Remove this method.
 void SetListOperationInitialValues(const ListOperationOptions& options,
-                                   int64& field_offset, int64& id_offset);
+                                   int64_t& field_offset, int64_t& id_offset);
 
 // Decodes ListOperationNextPageToken encoded in `next_page_token`.
 absl::Status DecodeListOperationNextPageToken(

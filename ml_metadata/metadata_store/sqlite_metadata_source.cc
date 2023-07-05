@@ -31,10 +31,10 @@ namespace ml_metadata {
 
 namespace {
 
-constexpr char kInMemoryConnection[] = ":memory:";
-constexpr char kBeginTransaction[] = "BEGIN;";
-constexpr char kCommitTransaction[] = "COMMIT;";
-constexpr char kRollbackTransaction[] = "ROLLBACK;";
+constexpr absl::string_view kInMemoryConnection = ":memory:";
+constexpr absl::string_view kBeginTransaction = "BEGIN;";
+constexpr absl::string_view kCommitTransaction = "COMMIT;";
+constexpr absl::string_view kRollbackTransaction = "ROLLBACK;";
 
 // Returns a Sqlite3 connection flags based on the SqliteMetadataSourceConfig.
 // (see https://www.sqlite.org/c3ref/open.html for details)
@@ -87,7 +87,7 @@ int WaitThenRetry(void* options, int retried_times) {
     return 0;
   }
   std::minstd_rand0 gen(absl::ToUnixMillis(absl::Now()));
-  std::uniform_int_distribution<int64> uniform_dist(
+  std::uniform_int_distribution<int64_t> uniform_dist(
       opts->min_sleep_time / absl::Milliseconds(1),
       opts->max_sleep_time / absl::Milliseconds(1));
   const absl::Duration sleep_time = absl::Milliseconds(uniform_dist(gen));
@@ -102,7 +102,7 @@ SqliteMetadataSource::SqliteMetadataSource(
     const SqliteMetadataSourceConfig& config)
     : config_(config) {
   if (config_.filename_uri().empty())
-    config_.set_filename_uri(kInMemoryConnection);
+    config_.set_filename_uri(kInMemoryConnection.data());
   if (!config_.connection_mode())
     config_.set_connection_mode(
         SqliteMetadataSourceConfig::READWRITE_OPENCREATE);
@@ -161,16 +161,16 @@ absl::Status SqliteMetadataSource::ExecuteQueryImpl(const std::string& query,
 }
 
 absl::Status SqliteMetadataSource::BeginImpl() {
-  return RunStatement(kBeginTransaction);
+  return RunStatement(kBeginTransaction.data());
 }
 
 
 absl::Status SqliteMetadataSource::CommitImpl() {
-  return RunStatement(kCommitTransaction);
+  return RunStatement(kCommitTransaction.data());
 }
 
 absl::Status SqliteMetadataSource::RollbackImpl() {
-  return RunStatement(kRollbackTransaction);
+  return RunStatement(kRollbackTransaction.data());
 }
 
 std::string SqliteMetadataSource::EscapeString(absl::string_view value) const {

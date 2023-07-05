@@ -75,7 +75,7 @@ void RDBMSMetadataAccessObjectTest::VerifyFindTypesFromRecordSet(
 
 TEST_P(RDBMSMetadataAccessObjectTest, FindArtifactTypesFromRecordSet) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  int64 type_id_1, type_id_2;
+  int64_t type_id_1, type_id_2;
   ArtifactType type_1 = testing::ParseTextProtoOrDie<ArtifactType>(R"pb(
     name: 'artifact_type_1'
     properties { key: 'property_1' value: STRING }
@@ -101,7 +101,7 @@ TEST_P(RDBMSMetadataAccessObjectTest, FindArtifactTypesFromRecordSet) {
 
 TEST_P(RDBMSMetadataAccessObjectTest, FindExecutionTypesFromRecordSet) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  int64 type_id_1, type_id_2;
+  int64_t type_id_1, type_id_2;
   ExecutionType type_1 = testing::ParseTextProtoOrDie<ExecutionType>(R"pb(
     name: 'execution_type_1'
     properties { key: 'property_1' value: STRING }
@@ -126,7 +126,7 @@ TEST_P(RDBMSMetadataAccessObjectTest, FindExecutionTypesFromRecordSet) {
 
 TEST_P(RDBMSMetadataAccessObjectTest, FindContextTypesFromRecordSet) {
   ASSERT_EQ(absl::OkStatus(), Init());
-  int64 type_id_1;
+  int64_t type_id_1;
   ContextType type_1 = testing::ParseTextProtoOrDie<ContextType>(R"pb(
     name: 'context_type_1'
   )pb");
@@ -145,7 +145,7 @@ TEST_P(RDBMSMetadataAccessObjectTest, FindTypesImpl) {
   ASSERT_EQ(absl::OkStatus(), Init());
 
   // Setup: Create context type.
-  int64 context_type_id;
+  int64_t context_type_id;
   ContextType context_type = testing::ParseTextProtoOrDie<ContextType>(R"pb(
     name: 'context_type'
   )pb");
@@ -153,7 +153,7 @@ TEST_P(RDBMSMetadataAccessObjectTest, FindTypesImpl) {
   context_type.set_id(context_type_id);
 
   // Setup: Create artifact types.
-  int64 artifact_type_id_1, artifact_type_id_2;
+  int64_t artifact_type_id_1, artifact_type_id_2;
   ArtifactType artifact_type_1 =
       testing::ParseTextProtoOrDie<ArtifactType>(R"pb(
         name: 'artifact_type_1'
@@ -171,7 +171,7 @@ TEST_P(RDBMSMetadataAccessObjectTest, FindTypesImpl) {
   artifact_type_2.set_id(artifact_type_id_2);
 
   // Setup: Create execution type.
-  int64 execution_type_id;
+  int64_t execution_type_id;
   ExecutionType execution_type =
       testing::ParseTextProtoOrDie<ExecutionType>(R"pb(
         name: 'execution_type'
@@ -259,7 +259,7 @@ TEST_P(RDBMSMetadataAccessObjectTest, FindParentTypesByTypeIdImpl) {
   // ContextType:   type8
 
   // Setup: Create artifact types and links.
-  int64 type_id_1, type_id_2, type_id_3, type_id_4, type_id_5;
+  int64_t type_id_1, type_id_2, type_id_3, type_id_4, type_id_5;
   ArtifactType type_1 = testing::ParseTextProtoOrDie<ArtifactType>(R"pb(
     name: 'artifact_type_1'
   )pb");
@@ -297,7 +297,7 @@ TEST_P(RDBMSMetadataAccessObjectTest, FindParentTypesByTypeIdImpl) {
                 type_4, type_5));
 
   // Setup: Create execution types and link.
-  int64 type_id_6, type_id_7;
+  int64_t type_id_6, type_id_7;
   ExecutionType type_6 = testing::ParseTextProtoOrDie<ExecutionType>(R"pb(
     name: 'execution_type_6'
   )pb");
@@ -313,7 +313,7 @@ TEST_P(RDBMSMetadataAccessObjectTest, FindParentTypesByTypeIdImpl) {
                 type_6, type_7));
 
   // Setup: Create context type.
-  int64 type_id_8;
+  int64_t type_id_8;
   ContextType type_8 = testing::ParseTextProtoOrDie<ContextType>(R"pb(
     name: 'context_type_8'
   )pb");
@@ -322,13 +322,13 @@ TEST_P(RDBMSMetadataAccessObjectTest, FindParentTypesByTypeIdImpl) {
 
   // Test: empty ids.
   {
-    absl::flat_hash_map<int64, ArtifactType> parent_types;
+    absl::flat_hash_map<int64_t, ArtifactType> parent_types;
     EXPECT_TRUE(
         absl::IsInvalidArgument(FindParentTypesByTypeIdImpl({}, parent_types)));
   }
   // Test: get artifact parent types.
   {
-    absl::flat_hash_map<int64, ArtifactType> parent_types;
+    absl::flat_hash_map<int64_t, ArtifactType> parent_types;
     ASSERT_EQ(absl::OkStatus(),
               FindParentTypesByTypeIdImpl(
                   {type_id_1, type_id_2, type_id_3, type_id_4, type_id_5},
@@ -344,7 +344,7 @@ TEST_P(RDBMSMetadataAccessObjectTest, FindParentTypesByTypeIdImpl) {
   }
   // Test: get execution parent types.
   {
-    absl::flat_hash_map<int64, ExecutionType> parent_types;
+    absl::flat_hash_map<int64_t, ExecutionType> parent_types;
     ASSERT_EQ(absl::OkStatus(), FindParentTypesByTypeIdImpl(
                                     {type_id_6, type_id_7}, parent_types));
     // Verify: only type_6 have 1 parent type.
@@ -353,7 +353,7 @@ TEST_P(RDBMSMetadataAccessObjectTest, FindParentTypesByTypeIdImpl) {
   }
   // Test: get context parent types.
   {
-    absl::flat_hash_map<int64, ContextType> parent_types;
+    absl::flat_hash_map<int64_t, ContextType> parent_types;
     ASSERT_EQ(absl::OkStatus(),
               FindParentTypesByTypeIdImpl({type_id_8}, parent_types));
     // Verify: type_8 do not have parent types.
@@ -361,7 +361,7 @@ TEST_P(RDBMSMetadataAccessObjectTest, FindParentTypesByTypeIdImpl) {
   }
   // Test: mixed ids of different child types.
   {
-    absl::flat_hash_map<int64, ArtifactType> parent_types;
+    absl::flat_hash_map<int64_t, ArtifactType> parent_types;
     // Verify: NOT_FOUND error was returned because results were missing for
     // `type_id_6` and `type_id_8`.
     EXPECT_TRUE(absl::IsNotFound(FindParentTypesByTypeIdImpl(

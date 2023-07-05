@@ -31,9 +31,7 @@ ml_metadata_proto_library(
     has_services = 1,
     cc_api_version = 2,
     cc_grpc_version = 1,
-    deps = [
-        ":metadata_store_proto",
-    ],
+    deps = [":metadata_store_proto"],
 )
 
 ml_metadata_proto_library_py(

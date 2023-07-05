@@ -26,7 +26,7 @@ WORKING_DIR=$PWD
 
 function setup_environment() {
   source scl_source enable devtoolset-8
-  source scl_source enable rh-python36
+  source scl_source enable rh-python38
   if [[ -z "${PYTHON_VERSION}" ]]; then
     echo "Must set PYTHON_VERSION env to 38|39|310"; exit 1;
   fi
@@ -48,6 +48,7 @@ function setup_environment() {
   ${PIP_BIN} install numpy
   # Auditwheel does not have a python2 version and auditwheel is just a binary.
   ${PIP_BIN} install auditwheel
+  sudo ln -s ${PYTHON_BIN_PATH} /usr/bin/python3
 }
 
 function build_wheel() {
@@ -58,7 +59,7 @@ function build_wheel() {
 function stamp_wheel() {
   WHEEL_PATH="$(ls "$PWD"/dist/*.whl)"
   WHEEL_DIR=$(dirname "${WHEEL_PATH}")
-  auditwheel repair --plat manylinux2010_x86_64 -w "${WHEEL_DIR}" "${WHEEL_PATH}"
+  auditwheel repair --plat manylinux2014_x86_64 -w "${WHEEL_DIR}" "${WHEEL_PATH}"
   rm "${WHEEL_PATH}"
 }
 

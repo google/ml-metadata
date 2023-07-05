@@ -1,60 +1,77 @@
 workspace(name = "ml_metadata")
 
-load("//ml_metadata:repo.bzl", "mlmd_http_archive", "clean_dep")
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+load("//ml_metadata:repo.bzl", "clean_dep")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-# lts_20210324.2
+http_archive(
+    name = "postgresql",
+    build_file = "//ml_metadata:postgresql.BUILD",
+    workspace_file_content = "//ml_metadata:postgresql.WORKSPACE",
+    sha256 = "9868c1149a04bae1131533c5cbd1c46f9c077f834f6147abaef8791a7c91b1a1",
+    strip_prefix = "postgresql-12.1",
+    urls = [
+        "https://ftp.postgresql.org/pub/source/v12.1/postgresql-12.1.tar.gz",
+    ],
+)
+
+#Install bazel platform version 0.0.6
+http_archive(
+    name = "platforms",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.6/platforms-0.0.6.tar.gz",
+        "https://github.com/bazelbuild/platforms/releases/download/0.0.6/platforms-0.0.6.tar.gz",
+    ],
+    sha256 = "5308fc1d8865406a49427ba24a9ab53087f17f5266a7aabbfc28823f3916e1ca",
+)
+
+# Install version 0.9.0 of rules_foreign_cc, as default version causes an
+# invalid escape sequence error to be raised, which can't be avoided with
+# the --incompatible_restrict_string_escapes=false flag (flag was removed in
+# Bazel 5.0).
+RULES_FOREIGN_CC_VERSION = "0.9.0"
+http_archive(
+    name = "rules_foreign_cc",
+    sha256 = "2a4d07cd64b0719b39a7c12218a3e507672b82a97b98c6a89d38565894cf7c51",
+    strip_prefix = "rules_foreign_cc-%s" % RULES_FOREIGN_CC_VERSION,
+    url = "https://github.com/bazelbuild/rules_foreign_cc/archive/refs/tags/%s.tar.gz" % RULES_FOREIGN_CC_VERSION,
+    patch_tool = "patch",
+    patches = ["//ml_metadata/third_party:rules_foreign_cc.patch",],
+)
+
+load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
+rules_foreign_cc_dependencies()
+
 http_archive(
     name = "com_google_absl",
-    sha256 = "1764491a199eb9325b177126547f03d244f86b4ff28f16f206c7b3e7e4f777ec",
-    strip_prefix = "abseil-cpp-278e0a071885a22dcd2fd1b5576cc44757299343",
-    urls = [
-        "https://mirror.bazel.build/github.com/abseil/abseil-cpp/archive/278e0a071885a22dcd2fd1b5576cc44757299343.tar.gz",
-        "https://github.com/abseil/abseil-cpp/archive/278e0a071885a22dcd2fd1b5576cc44757299343.tar.gz"
-    ],
+    urls = ["https://github.com/abseil/abseil-cpp/archive/940c06c25d2953f44310b68eb8aab6114dba11fb.zip"],
+    strip_prefix = "abseil-cpp-940c06c25d2953f44310b68eb8aab6114dba11fb",
+    sha256 = "0e800799aa64d0b4d354f3ff317bbd5fbf42f3a522ab0456bb749fc8d3b67415",
 )
 
-# rules_cc defines rules for generating C++ code from Protocol Buffers.
 http_archive(
-    name = "rules_cc",
-    sha256 = "35f2fb4ea0b3e61ad64a369de284e4fbbdcdba71836a5555abb5e194cf119509",
-    strip_prefix = "rules_cc-624b5d59dfb45672d4239422fa1e3de1822ee110",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_cc/archive/624b5d59dfb45672d4239422fa1e3de1822ee110.tar.gz",
-        "https://github.com/bazelbuild/rules_cc/archive/624b5d59dfb45672d4239422fa1e3de1822ee110.tar.gz",
-    ],
-)
-
-mlmd_http_archive(
     name = "boringssl",
     sha256 = "1188e29000013ed6517168600fc35a010d58c5d321846d6a6dfee74e4c788b45",
     strip_prefix = "boringssl-7f634429a04abc48e2eb041c81c5235816c96514",
-    system_build_file = clean_dep("//ml_metadata/third_party/systemlibs:boringssl.BUILD"),
     urls = [
-        "https://storage.googleapis.com/mirror.tensorflow.org/github.com/google/boringssl/archive/7f634429a04abc48e2eb041c81c5235816c96514.tar.gz",
         "https://github.com/google/boringssl/archive/7f634429a04abc48e2eb041c81c5235816c96514.tar.gz",
     ],
 )
 
-mlmd_http_archive(
+http_archive(
     name = "org_sqlite",
     build_file = clean_dep("//ml_metadata/third_party:sqlite.BUILD"),
     sha256 = "87775784f8b22d0d0f1d7811870d39feaa7896319c7c20b849a4181c5a50609b",
     strip_prefix = "sqlite-amalgamation-3390200",
-    system_build_file = clean_dep("//ml_metadata/third_party/systemlibs:sqlite.BUILD"),
     urls = [
-        "https://storage.googleapis.com/mirror.tensorflow.org/www.sqlite.org/2022/sqlite-amalgamation-3390200.zip",
         "https://www.sqlite.org/2022/sqlite-amalgamation-3390200.zip",
     ],
 )
 
-mlmd_http_archive(
+http_archive(
     name = "com_google_googletest",
     sha256 = "ff7a82736e158c077e76188232eac77913a15dac0b22508c390ab3f88e6d6d86",
     strip_prefix = "googletest-b6cd405286ed8635ece71c72f118e659f4ade3fb",
     urls = [
-        "https://storage.googleapis.com/mirror.tensorflow.org/github.com/google/googletest/archive/b6cd405286ed8635ece71c72f118e659f4ade3fb.zip",
         "https://github.com/google/googletest/archive/b6cd405286ed8635ece71c72f118e659f4ade3fb.zip",
     ],
 )
@@ -90,15 +107,11 @@ http_archive(
     build_file = "//ml_metadata/third_party:six.BUILD"
 )
 
-PROTOBUF_COMMIT = "fde7cf7358ec7cd69e8db9be4f1fa6a5c431386a" # 3.13.0
 http_archive(
     name = "com_google_protobuf",
-    sha256 = "e589e39ef46fb2b3b476b3ca355bd324e5984cbdfac19f0e1625f0042e99c276",
-    strip_prefix = "protobuf-%s" % PROTOBUF_COMMIT,
-    urls = [
-        "https://storage.googleapis.com/grpc-bazel-mirror/github.com/google/protobuf/archive/%s.tar.gz" % PROTOBUF_COMMIT,
-        "https://github.com/google/protobuf/archive/%s.tar.gz" % PROTOBUF_COMMIT,
-    ],
+    sha256 = "930c2c3b5ecc6c9c12615cf5ad93f1cd6e12d0aba862b572e076259970ac3a53",
+    strip_prefix = "protobuf-3.21.12",
+    urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.21.12.tar.gz"],
 )
 
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
@@ -114,43 +127,57 @@ http_archive(
     urls = ["https://github.com/madler/zlib/archive/v1.2.12.tar.gz"],
 )
 
-# pybind11
-http_archive(
-    name = "pybind11",
-    build_file = "@pybind11_bazel//:pybind11.BUILD",
-    strip_prefix = "pybind11-2.4.3",
-    urls = ["https://github.com/pybind/pybind11/archive/v2.4.3.tar.gz"],
-)
-
-# Bazel rules for pybind11
 http_archive(
     name = "pybind11_bazel",
-    strip_prefix = "pybind11_bazel-d5587e65fb8cbfc0015391a7616dc9c66f64a494",
-    url = "https://github.com/pybind/pybind11_bazel/archive/d5587e65fb8cbfc0015391a7616dc9c66f64a494.zip",
-    sha256 = "bf8e1f3ebde5ee37ad30c451377b03fbbe42b9d8f24c244aa8af2ccbaeca7e6c",
+    strip_prefix = "pybind11_bazel-faf56fb3df11287f26dbc66fdedf60a2fc2c6631",
+    urls = ["https://github.com/pybind/pybind11_bazel/archive/faf56fb3df11287f26dbc66fdedf60a2fc2c6631.tar.gz"],
+    sha256 = "a2b107b06ffe1049696e132d39987d80e24d73b131d87f1af581c2cb271232f8",
 )
+
+http_archive(
+    name = "pybind11",
+    urls = [
+        "https://github.com/pybind/pybind11/archive/v2.10.1.tar.gz",
+    ],
+    strip_prefix = "pybind11-2.10.1",
+    build_file = "@pybind11_bazel//:pybind11.BUILD",
+)
+
 load("@pybind11_bazel//:python_configure.bzl", "python_configure")
 python_configure(name = "local_config_python")
 
-http_archive(
-    name = "com_googlesource_code_re2",
-    urls = [
-        "https://github.com/google/re2/archive/d1394506654e0a19a92f3d8921e26f7c3f4de969.tar.gz",
-    ],
-    sha256 = "ac855fb93dfa6878f88bc1c399b9a2743fdfcb3dc24b94ea9a568a1c990b1212",
-    strip_prefix = "re2-d1394506654e0a19a92f3d8921e26f7c3f4de969",
+# Needed by @com_google_protobuf.
+bind(
+    name = "python_headers",
+    actual = "@local_config_python//:python_headers",
 )
 
-# gRPC. Official release 1.33.2. Name is required by Google APIs.
+# Note - use @com_github_google_re2 instead of more canonical
+#        @com_google_re2 for consistency with dependency grpc
+#        which uses @com_github_google_re2.
+#          (see https://github.com/google/xls/issues/234)
+http_archive(
+    name = "com_googlesource_code_re2",
+    sha256 = "ef516fb84824a597c4d5d0d6d330daedb18363b5a99eda87d027e6bdd9cba299",
+    strip_prefix = "re2-03da4fc0857c285e3a26782f6bc8931c4c950df4",
+    urls = [
+        "https://storage.googleapis.com/mirror.tensorflow.org/github.com/google/re2/archive/03da4fc0857c285e3a26782f6bc8931c4c950df4.tar.gz",
+        "https://github.com/google/re2/archive/03da4fc0857c285e3a26782f6bc8931c4c950df4.tar.gz",
+    ],
+)
+
 http_archive(
     name = "com_github_grpc_grpc",
-    sha256 = "2060769f2d4b0d3535ba594b2ab614d7f68a492f786ab94b4318788d45e3278a",
-    strip_prefix = "grpc-1.33.2",
-    patches = ["//ml_metadata/third_party:grpc.patch"],
-    urls = ["https://github.com/grpc/grpc/archive/v1.33.2.tar.gz"],
+    urls = ["https://github.com/grpc/grpc/archive/v1.46.3.tar.gz"],
+    sha256 = "d6cbf22cb5007af71b61c6be316a79397469c58c82a942552a62e708bce60964",
+    strip_prefix = "grpc-1.46.3",
 )
+
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
 grpc_deps()
+
+load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
+grpc_extra_deps()
 
 # Needed by Protobuf.
 bind(
@@ -213,21 +240,22 @@ go_register_toolchains()
 gazelle_dependencies()
 
 # For commandline flags used in gRPC server
-git_repository(
+# gflags needed by glog
+http_archive(
     name = "com_github_gflags_gflags",
-    # v2.2.2
-    commit = "e171aa2d15ed9eb17054558e0b3a6a413bb01067",
-    remote = "https://github.com/gflags/gflags.git",
+    strip_prefix = "gflags-a738fdf9338412f83ab3f26f31ac11ed3f3ec4bd",
+    sha256 = "017e0a91531bfc45be9eaf07e4d8fed33c488b90b58509dbd2e33a33b2648ae6",
+    url = "https://github.com/gflags/gflags/archive/a738fdf9338412f83ab3f26f31ac11ed3f3ec4bd.zip",
 )
 
 # BEGIN IFNDEF_WIN
-ZETASQL_COMMIT = "5ccb05880e72ab9ff75dd6b05d7b0acce53f1ea2" # 04/22/2021  # windows
+ZETASQL_COMMIT = "ac37cf5c0d80b5605176fc0f29e87b12f00be693" # 08/10/2022  # windows
 http_archive(  # windows
     name = "com_google_zetasql",  # windows
     urls = ["https://github.com/google/zetasql/archive/%s.zip" % ZETASQL_COMMIT],  # windows
     strip_prefix = "zetasql-%s" % ZETASQL_COMMIT,  # windows
-    # patches = ["//ml_metadata/third_party:zetasql.patch"],  # windows
-    sha256 = '4ca4e45f457926484822701ec15ca4d0172b01d7ce43c0b34c6f3ab98c95b241'  # windows
+    #patches = ["//ml_metadata/third_party:zetasql.patch"],  # windows
+    sha256 = '651a768cd51627f58aa6de7039aba9ddab22f4b0450521169800555269447840'  # windows
 )  # windows
 
 load("@com_google_zetasql//bazel:zetasql_deps_step_1.bzl", "zetasql_deps_step_1")  # windows
@@ -239,7 +267,15 @@ zetasql_deps_step_2(  # windows
     tools_deps = False,  # windows
     java_deps = False,  # windows
     testing_deps = False)  # windows
-# END IFNDEF_WIN
+
+# This is part of what zetasql_deps_step_3() does.
+load("@com_google_googleapis//:repository_rules.bzl", "switched_rules_by_language")
+switched_rules_by_language(
+    name = "com_google_googleapis_imports",
+    cc = True,
+)
+
+# END IFNDE
 
 
 # Please add all new ML Metadata dependencies in workspace.bzl.
@@ -249,4 +285,4 @@ ml_metadata_workspace()
 
 # Specify the minimum required bazel version.
 load("@bazel_skylib//lib:versions.bzl", "versions")
-versions.check("3.7.2")
+versions.check("5.3.0")

@@ -20,7 +20,7 @@
 # REQUIREMENTS:
 # * All installed in standard locations:
 #   - JDK8, and JAVA_HOME set.
-#   - Microsoft Visual Studio 2015 Community Edition
+#   - Microsoft Visual Studio 2017 Community Edition
 #   - Msys2
 #   - Anaconda3
 # * Bazel windows executable copied as "bazel.exe" and included in PATH.
@@ -144,7 +144,7 @@ export SETUPTOOLS_USE_DISTUTILS=stdlib
 pip freeze --all
 
 # set up bazel environment before compiling
-export BAZEL_VC="C:/Program Files (x86)/Microsoft Visual Studio 14.0/VC"
+export BAZEL_VC="C:/Program Files (x86)/Microsoft Visual Studio/2017/BuildTools/VC"
 # print environment for debugging
 printenv
 

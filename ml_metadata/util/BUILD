@@ -56,3 +56,32 @@ cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "field_mask_utils",
+    srcs = ["field_mask_utils.cc"],
+    hdrs = ["field_mask_utils.h"],
+    deps = [
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "//ml_metadata/proto:metadata_store_proto",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_test(
+    name = "field_mask_utils_test",
+    srcs = ["field_mask_utils_test.cc"],
+    deps = [
+        ":field_mask_utils",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "//ml_metadata/proto:metadata_store_proto",
+        "@com_google_protobuf//:protobuf",
+    ],
+)

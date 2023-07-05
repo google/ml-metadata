@@ -24,9 +24,9 @@ namespace ml_metadata {
 // The kSupportedEarlierQueryVersion can be the same with the current library
 // schema version or a schema version before hand. The latter is for
 // supporting migration for MLMD online services.
-static constexpr int64 kSupportedEarlierQueryVersion = 7;
+static constexpr int64_t kSupportedEarlierQueryVersion = 7;
 
-QueryExecutor::QueryExecutor(absl::optional<int64> query_schema_version)
+QueryExecutor::QueryExecutor(absl::optional<int64_t> query_schema_version)
     : query_schema_version_(query_schema_version) {
   if (query_schema_version_) {
     CHECK_GE(*query_schema_version_, kSupportedEarlierQueryVersion)
@@ -38,7 +38,7 @@ QueryExecutor::QueryExecutor(absl::optional<int64> query_schema_version)
 }
 
 absl::Status QueryExecutor::VerifyCurrentQueryVersionIsAtLeast(
-    int64 min_schema_version) const {
+    int64_t min_schema_version) const {
   return query_schema_version_ && *query_schema_version_ < min_schema_version
              ? absl::FailedPreconditionError(absl::StrCat(
                    "The query executor method requires query_schema_version "
@@ -54,7 +54,7 @@ absl::Status QueryExecutor::CheckSchemaVersionAlignsWithQueryVersion() {
         "When query_schema_version_ is set, the method checks the given db has "
         "already initialized with the schema version.");
   }
-  int64 db_version = -1;
+  int64_t db_version = -1;
   const absl::Status existing_schema_version_status =
       GetSchemaVersion(&db_version);
   if (absl::IsNotFound(existing_schema_version_status)) {
@@ -73,7 +73,7 @@ absl::Status QueryExecutor::CheckSchemaVersionAlignsWithQueryVersion() {
   return absl::OkStatus();
 }
 
-bool QueryExecutor::IsQuerySchemaVersionEquals(int64 schema_version) const {
+bool QueryExecutor::IsQuerySchemaVersionEquals(int64_t schema_version) const {
   return query_schema_version_ && *query_schema_version_ == schema_version;
 }
 

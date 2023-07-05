@@ -44,12 +44,12 @@ class MetadataAccessObjectContainer {
 
   // If the head library needs to support earlier schema version, this method
   // should be overridden to test against an earlier schema version.
-  virtual absl::optional<int64> GetSchemaVersion() {
+  virtual absl::optional<int64_t> GetSchemaVersion() {
     return absl::nullopt;
   }
 
   // Returns OK if DB schema passed verification.
-  virtual absl::Status VerifyDbSchema(const int64 version) {
+  virtual absl::Status VerifyDbSchema(const int64_t version) {
     return absl::OkStatus();
   }
 
@@ -61,7 +61,7 @@ class MetadataAccessObjectContainer {
     // If the test suite indicates the library at head should be tested against
     // an existing db with a previous schema version, we downgrade the
     // initialized schema to setup the test environment.
-    const absl::optional<int64> earlier_schema_version = GetSchemaVersion();
+    const absl::optional<int64_t> earlier_schema_version = GetSchemaVersion();
     if (earlier_schema_version) {
       MLMD_RETURN_IF_ERROR(GetMetadataAccessObject()->DowngradeMetadataSource(
           *earlier_schema_version));
@@ -74,10 +74,10 @@ class MetadataAccessObjectContainer {
 
 
   // Tests if there is upgrade verification.
-  virtual bool HasUpgradeVerification(int64 version) = 0;
+  virtual bool HasUpgradeVerification(int64_t version) = 0;
 
   // Tests if there is upgrade verification.
-  virtual bool HasDowngradeVerification(int64 version) = 0;
+  virtual bool HasDowngradeVerification(int64_t version) = 0;
 
   // Tests if there is filter query support.
   virtual bool HasFilterQuerySupport() { return false; }
@@ -108,16 +108,16 @@ class MetadataAccessObjectContainer {
   }
 
   // Initializes the previous version of the database for downgrade.
-  virtual absl::Status SetupPreviousVersionForDowngrade(int64 version) = 0;
+  virtual absl::Status SetupPreviousVersionForDowngrade(int64_t version) = 0;
 
   // Verifies that a database has been downgraded to version.
-  virtual absl::Status DowngradeVerification(int64 version) = 0;
+  virtual absl::Status DowngradeVerification(int64_t version) = 0;
 
   // Initializes the previous version of the database for upgrade.
-  virtual absl::Status SetupPreviousVersionForUpgrade(int64 version) = 0;
+  virtual absl::Status SetupPreviousVersionForUpgrade(int64_t version) = 0;
 
   // Verifies that a database has been upgraded to version.
-  virtual absl::Status UpgradeVerification(int64 version) = 0;
+  virtual absl::Status UpgradeVerification(int64_t version) = 0;
 
   // Drops the type table (or some other table) to test the behavior of
   // InitMetadataSourceIfNotExists when a database is partially created.
@@ -141,7 +141,7 @@ class MetadataAccessObjectContainer {
   virtual absl::Status SetDatabaseVersionIncompatible() = 0;
 
   // Returns the minimum version to test for upgrades and downgrades.
-  virtual int64 MinimumVersion() = 0;
+  virtual int64_t MinimumVersion() = 0;
 
   // If returns true, should perform tests that rely on some implementation
   // details of the database. Specifically, these tests rely on having a
@@ -161,30 +161,30 @@ class QueryConfigMetadataAccessObjectContainer
   // db schema.
   QueryConfigMetadataAccessObjectContainer(
       const MetadataSourceQueryConfig& config,
-      absl::optional<int64> earlier_schema_version = absl::nullopt)
+      absl::optional<int64_t> earlier_schema_version = absl::nullopt)
       : config_(config), testing_schema_version_(earlier_schema_version) {}
 
   virtual ~QueryConfigMetadataAccessObjectContainer() = default;
 
-  absl::optional<int64> GetSchemaVersion() final {
+  absl::optional<int64_t> GetSchemaVersion() final {
     return testing_schema_version_;
   }
 
-  bool HasUpgradeVerification(int64 version) final;
+  bool HasUpgradeVerification(int64_t version) final;
 
-  bool HasDowngradeVerification(int64 version) final;
+  bool HasDowngradeVerification(int64_t version) final;
 
   bool HasFilterQuerySupport() final { return true; }
 
-  absl::Status VerifyDbSchema(const int64 version) final;
+  absl::Status VerifyDbSchema(const int64_t version) final;
 
-  absl::Status SetupPreviousVersionForDowngrade(int64 version) final;
+  absl::Status SetupPreviousVersionForDowngrade(int64_t version) final;
 
-  absl::Status DowngradeVerification(int64 version) final;
+  absl::Status DowngradeVerification(int64_t version) final;
 
-  absl::Status SetupPreviousVersionForUpgrade(int64 version) final;
+  absl::Status SetupPreviousVersionForUpgrade(int64_t version) final;
 
-  absl::Status UpgradeVerification(int64 version) final;
+  absl::Status UpgradeVerification(int64_t version) final;
 
   absl::Status DropTypeTable() final;
 
@@ -198,7 +198,7 @@ class QueryConfigMetadataAccessObjectContainer
 
   bool PerformExtendedTests() final { return true; }
 
-  int64 MinimumVersion() final;
+  int64_t MinimumVersion() final;
 
   virtual std::string GetTableNumQuery() {
     return "select count(*) from sqlite_master where type='table' "
@@ -212,7 +212,7 @@ class QueryConfigMetadataAccessObjectContainer
  private:
   // Get a migration scheme, or return NOT_FOUND.
   absl::Status GetMigrationScheme(
-      int64 version,
+      int64_t version,
       MetadataSourceQueryConfig::MigrationScheme* migration_scheme);
 
   // Verify that a sequence of queries return true.
@@ -222,7 +222,7 @@ class QueryConfigMetadataAccessObjectContainer
 
   MetadataSourceQueryConfig config_;
   // If not set, by default, we test against the head version.
-  absl::optional<int64> testing_schema_version_;
+  absl::optional<int64_t> testing_schema_version_;
 };
 
 // Represents the type of the Gunit Test param for the parameterized
@@ -290,7 +290,7 @@ class MetadataAccessObjectTest
 
 
   // Uses to indicate the minimum expected schema version to run a test.
-  bool SkipIfEarlierSchemaLessThan(int64 min_schema_version) {
+  bool SkipIfEarlierSchemaLessThan(int64_t min_schema_version) {
     const bool is_skip =
         EarlierSchemaEnabled() &&
         *metadata_access_object_container_->GetSchemaVersion() <
@@ -304,7 +304,7 @@ class MetadataAccessObjectTest
 
   // Uses as a condition for diverging different test behaviors for different
   // schema versions.
-  bool IfSchemaLessThan(int64 schema_version) {
+  bool IfSchemaLessThan(int64_t schema_version) {
     const bool is_true =
         EarlierSchemaEnabled() &&
         *metadata_access_object_container_->GetSchemaVersion() < schema_version;
@@ -327,10 +327,10 @@ class MetadataAccessObjectTest
   }
 
   template <class NodeType>
-  int64 InsertType(const std::string& type_name) {
+  int64_t InsertType(const std::string& type_name) {
     NodeType type;
     type.set_name(type_name);
-    int64 type_id;
+    int64_t type_id;
     CHECK_EQ(absl::OkStatus(),
              metadata_access_object_->CreateType(type, &type_id));
     CHECK_EQ(absl::OkStatus(),

@@ -79,6 +79,8 @@ class MetadataStoreServiceInterface {
   METADATA_STORE_SERVICE_INTERFACE_DECLARE(GetContextsByExecution)
   METADATA_STORE_SERVICE_INTERFACE_DECLARE(GetParentContextsByContext)
   METADATA_STORE_SERVICE_INTERFACE_DECLARE(GetChildrenContextsByContext)
+  METADATA_STORE_SERVICE_INTERFACE_DECLARE(GetParentContextsByContexts)
+  METADATA_STORE_SERVICE_INTERFACE_DECLARE(GetChildrenContextsByContexts)
   METADATA_STORE_SERVICE_INTERFACE_DECLARE(GetArtifactsByContext)
   METADATA_STORE_SERVICE_INTERFACE_DECLARE(GetExecutionsByContext)
   // The method is used for accessing MLMD lineage.

@@ -39,14 +39,15 @@ cc_library(
         ":constants",
         ":metadata_source",
         "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:node_hash_map",
         "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -54,6 +55,35 @@ cc_library(
     name = "constants",
     hdrs = [
         "constants.h",
+    ],
+    deps = ["@com_google_absl//absl/strings"],
+)
+
+cc_library(
+    name = "record_parsing_utils",
+    srcs = ["record_parsing_utils.cc"],
+    hdrs = ["record_parsing_utils.h"],
+    deps = [
+        ":constants",
+        
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/util:return_utils",
+        "@com_google_glog//:glog",
+    ],
+)
+
+cc_test(
+    name = "record_parsing_utils_test",
+    srcs = ["record_parsing_utils_test.cc"],
+    deps = [
+        ":record_parsing_utils",
+        ":test_util",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/status",
+        "//ml_metadata/proto:metadata_store_proto",
     ],
 )
 
@@ -71,17 +101,21 @@ cc_library(
         ":metadata_access_object_base",
         ":metadata_source",
         ":query_executor",
+        ":record_parsing_utils",
         "@com_google_protobuf//:protobuf",
         
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/container:node_hash_map",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/simple_types:simple_types_constants",
+        "//ml_metadata/util:field_mask_utils",
         "//ml_metadata/util:return_utils",
         "//ml_metadata/util:struct_utils",
         "@com_google_glog//:glog",
@@ -172,8 +206,10 @@ cc_library(
         ":test_util",
         "@com_google_googletest//:gtest",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
+        "@com_google_absl//absl/types:span",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/util:return_utils",
@@ -239,6 +275,7 @@ cc_test(
         "manual",
     ],
     deps = [
+        ":mysql_query_config_executor_test",
         ":test_standalone_mysql_metadata_source_initializer",
         "@com_google_googletest//:gtest_main",
     ],
@@ -332,9 +369,11 @@ cc_library(
         ":constants",
         ":metadata_access_object_base",
         ":metadata_source",
+        ":postgresql_query_executor",
         ":query_config_executor",
         ":rdbms_metadata_access_object",
         "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:node_hash_map",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
@@ -344,6 +383,7 @@ cc_library(
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/util:return_utils",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -423,6 +463,7 @@ cc_library(
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/container:node_hash_map",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
@@ -453,7 +494,6 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "//ml_metadata/proto:metadata_store_proto",
-        "//ml_metadata/simple_types:simple_types_constants",
         "//ml_metadata/simple_types/proto:simple_types_proto",
         "@com_google_glog//:glog",
     ],
@@ -471,9 +511,11 @@ ml_metadata_cc_test(
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
         "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/util:metadata_source_query_config",
         "//ml_metadata/util:return_utils",
         "@com_google_glog//:glog",
@@ -495,6 +537,7 @@ cc_library(
         ":constants",
         ":types",
         "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:node_hash_map",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
@@ -504,6 +547,7 @@ cc_library(
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/proto:metadata_store_service_proto",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -514,6 +558,7 @@ cc_library(
     deps = [
         ":metadata_store",
         ":mysql_metadata_source",
+        ":postgresql_metadata_source",
         ":sqlite_metadata_source",
         ":transaction_executor",
         "@com_google_absl//absl/memory",
@@ -678,6 +723,7 @@ cc_binary(
         ":metadata_store_service_impl",
         "@com_google_protobuf//:protobuf",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "//ml_metadata/proto:metadata_store_proto",
         "@com_github_gflags_gflags//:gflags_nothreads",
@@ -696,7 +742,6 @@ cc_library(
         ":metadata_access_object_base",
         ":metadata_source",
         ":test_util",
-        "@com_google_protobuf//:protobuf",
         "@com_google_googletest//:gtest",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:node_hash_map",
@@ -714,6 +759,7 @@ cc_library(
         "@com_github_gflags_gflags//:gflags_nothreads",
         "@com_google_glog//:glog",
         "@com_google_protobuf//:cc_wkt_protos",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -856,6 +902,151 @@ cc_test(
         ":test_standalone_mysql_metadata_source_initializer",
         "@com_google_googletest//:gtest_main",
     ],
+)
+
+# This test requires a PostgreSQL server that is separately spawned. Details of the PostgreSQL
+# server are specified by flags passed to the test. For e.g.,
+#
+# bazel run :standalone_postgresql_metadata_access_object_test -- \
+#     --db_name="foo" \
+#     --host_name="localhost"\
+#     --user_name="me" \
+#     --password="thisispassword"\
+#     --port="3456"
+#
+# See standalone_postgresql_metadata_access_object_test.cc for the full flag
+# list.
+cc_test(
+    name = "standalone_postgresql_metadata_access_object_test",
+    tags = [
+        "local",
+        "manual",
+    ],
+    deps = [
+        ":test_postgresql_standalone_metadata_source_initializer",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "standalone_postgresql_metadata_source_test",
+    tags = [
+        "local",
+        "manual",
+    ],
+    deps = [
+        ":postgresql_metadata_source_test",
+        ":test_postgresql_standalone_metadata_source_initializer",
+    ],
+)
+
+cc_library(
+    name = "postgresql_metadata_source_test",
+    testonly = 1,
+    srcs = [
+        "postgresql_metadata_source_test.cc",
+    ],
+    deps = [
+        ":metadata_source",
+        ":metadata_source_test_suite",
+        ":postgresql_metadata_source",
+        ":test_postgresql_metadata_source_initializer",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/memory",
+        "@com_github_gflags_gflags//:gflags_nothreads",
+        "@com_google_glog//:glog",
+    ],
+)
+
+cc_library(
+    name = "test_postgresql_standalone_metadata_source_initializer",
+    testonly = 1,
+    srcs = ["test_postgresql_standalone_metadata_source_initializer.cc"],
+    deps = [
+        ":postgresql_metadata_source",
+        ":test_postgresql_metadata_source_initializer",
+        "@com_google_absl//absl/memory",
+        "//ml_metadata/proto:metadata_store_proto",
+        "@com_github_gflags_gflags//:gflags_nothreads",
+        "@com_google_glog//:glog",
+        "@postgresql",
+    ],
+)
+
+# PostgreSQL build and test targets.
+cc_library(
+    name = "postgresql_metadata_source",
+    srcs = ["postgresql_metadata_source.cc"],
+    hdrs = ["postgresql_metadata_source.h"],
+    deps = [
+        ":constants",
+        ":metadata_source",
+        ":sqlite_metadata_source_util",
+        ":types",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/util:return_utils",
+        "@com_google_glog//:glog",
+        "@postgresql",
+    ],
+)
+
+cc_library(
+    name = "postgresql_query_executor",
+    srcs = ["postgresql_query_executor.cc"],
+    hdrs = ["postgresql_query_executor.h"],
+    deps = [
+        ":list_operation_query_helper",
+        ":metadata_source",
+        ":query_config_executor",
+        ":query_executor",
+        "@com_google_glog//:glog",
+        "@com_google_protobuf//:cc_wkt_protos",
+        "@com_google_protobuf//:protobuf",
+        
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_store_proto",
+        # BEGIN IFNDEF_WIN
+        "//ml_metadata/query:filter_query_ast_resolver",  # windows
+        "//ml_metadata/query:filter_query_builder",  # windows
+        # END IFNDEF_WIN
+        "//ml_metadata/util:return_utils",
+        "//ml_metadata/util:struct_utils",
+    ],
+)
+
+cc_library(
+    name = "postgresql_query_executor_test",
+    testonly = 1,
+    srcs = [
+        "postgresql_query_executor_test.cc",
+    ],
+    deps = [
+        ":postgresql_query_executor",
+        ":query_executor",
+        ":query_executor_test",
+        ":test_postgresql_metadata_source_initializer",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/memory",
+        "//ml_metadata/util:metadata_source_query_config",
+    ],
+)
+
+cc_library(
+    name = "test_postgresql_metadata_source_initializer",
+    testonly = 1,
+    hdrs = [
+        "test_postgresql_metadata_source_initializer.h",
+    ],
+    deps = [":postgresql_metadata_source"],
 )
 
 ml_metadata_cc_test(

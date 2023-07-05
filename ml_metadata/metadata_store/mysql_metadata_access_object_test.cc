@@ -41,7 +41,7 @@ class MySqlMetadataAccessObjectContainer
     : public QueryConfigMetadataAccessObjectContainer {
  public:
   MySqlMetadataAccessObjectContainer(
-      absl::optional<int64> earlier_schema_version = absl::nullopt)
+      absl::optional<int64_t> earlier_schema_version = absl::nullopt)
       : QueryConfigMetadataAccessObjectContainer(
             util::GetMySqlMetadataSourceQueryConfig(), earlier_schema_version) {
     metadata_source_initializer_ = GetTestMySqlMetadataSourceInitializer();

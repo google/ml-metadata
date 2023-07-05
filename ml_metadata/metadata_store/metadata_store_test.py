@@ -583,7 +583,9 @@ class MetadataStoreTest(parameterized.TestCase):
     artifact = metadata_store_pb2.Artifact(type_id=type_id)
     artifact_ids = store.put_artifacts([artifact, artifact, artifact])
 
-    got_artifacts = store.get_artifacts(list_options=mlmd.ListOptions(limit=2))
+    got_artifacts = store.get_artifacts(
+        list_options=mlmd.ListOptions(limit=2, is_asc=False)
+    )
     self.assertLen(got_artifacts, 2)
     self.assertEqual(got_artifacts[0].id, artifact_ids[2])
     self.assertEqual(got_artifacts[1].id, artifact_ids[1])
@@ -597,7 +599,7 @@ class MetadataStoreTest(parameterized.TestCase):
         [metadata_store_pb2.Artifact(type_id=type_id) for i in range(200)])
 
     got_artifacts = store.get_artifacts(
-        list_options=mlmd.ListOptions(limit=103))
+        list_options=mlmd.ListOptions(limit=103, is_asc=False))
     self.assertLen(got_artifacts, 103)
     for i in range(103):
       self.assertEqual(got_artifacts[i].id, artifact_ids[199 - i])
@@ -614,7 +616,10 @@ class MetadataStoreTest(parameterized.TestCase):
     # does not support ascending ordering as it reuses MySQL instance across
     # tests.
     got_artifacts = store.get_artifacts(
-        list_options=mlmd.ListOptions(limit=103, order_by=mlmd.OrderByField.ID))
+        list_options=mlmd.ListOptions(
+            limit=103, order_by=mlmd.OrderByField.ID, is_asc=False
+        )
+    )
 
     self.assertLen(got_artifacts, 103)
     for i in range(103):
@@ -909,6 +914,48 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertEqual(artifact_result.properties["foo"].int_value, artifact_id)
     self.assertEqual(artifact_result.external_id, "artifact_2")
 
+  def test_update_artifact_with_masking_get_artifact(self):
+    store = _get_metadata_store()
+    artifact_type = _create_example_artifact_type(self._get_test_type_name())
+    type_id = store.put_artifact_type(artifact_type)
+    artifact = metadata_store_pb2.Artifact(
+        type_id=type_id,
+        uri="test_uri",
+        properties={"bar": metadata_store_pb2.Value(string_value="Hello")},
+    )
+
+    [artifact_id] = store.put_artifacts([artifact])
+    artifact_2 = metadata_store_pb2.Artifact(
+        id=artifact_id,
+        type_id=type_id,
+        external_id="new_external_id",
+        properties={
+            "foo": metadata_store_pb2.Value(int_value=artifact_id),
+            "bar": metadata_store_pb2.Value(string_value="Goodbye"),
+        },
+        custom_properties={
+            "hello": metadata_store_pb2.Value(string_value="World")
+        },
+    )
+
+    field_mask_paths = [
+        "external_id",
+        "properties.foo",
+        "custom_properties.hello",
+        "",
+        "invalid_field_mask_path"
+    ]
+    [artifact_id_2] = store.put_artifacts([artifact_2], field_mask_paths)
+    self.assertEqual(artifact_id, artifact_id_2)
+
+    [artifact_result] = store.get_artifacts_by_id([artifact_id])
+    self.assertEqual(
+        artifact_result.custom_properties["hello"].string_value, "World"
+    )
+    self.assertEqual(artifact_result.properties["bar"].string_value, "Hello")
+    self.assertEqual(artifact_result.properties["foo"].int_value, artifact_id)
+    self.assertEqual(artifact_result.external_id, "new_external_id")
+
   def test_put_execution_type_get_execution_type(self):
     store = _get_metadata_store()
     execution_type_name = self._get_test_type_name()
@@ -1013,7 +1060,7 @@ class MetadataStoreTest(parameterized.TestCase):
     execution_ids = store.put_executions([execution, execution, execution])
 
     got_executions = store.get_executions(
-        list_options=mlmd.ListOptions(limit=2))
+        list_options=mlmd.ListOptions(limit=2, is_asc=False))
     self.assertLen(got_executions, 2)
     self.assertEqual(got_executions[0].id, execution_ids[2])
     self.assertEqual(got_executions[1].id, execution_ids[1])
@@ -1027,7 +1074,7 @@ class MetadataStoreTest(parameterized.TestCase):
         [metadata_store_pb2.Execution(type_id=type_id) for i in range(200)])
 
     got_executions = store.get_executions(
-        list_options=mlmd.ListOptions(limit=103))
+        list_options=mlmd.ListOptions(limit=103, is_asc=False))
     self.assertLen(got_executions, 103)
     for i in range(103):
       self.assertEqual(got_executions[i].id, execution_ids[199 - i])
@@ -1041,7 +1088,10 @@ class MetadataStoreTest(parameterized.TestCase):
         [metadata_store_pb2.Execution(type_id=type_id) for i in range(200)])
 
     got_executions = store.get_executions(
-        list_options=mlmd.ListOptions(limit=103, order_by=mlmd.OrderByField.ID))
+        list_options=mlmd.ListOptions(
+            limit=103, order_by=mlmd.OrderByField.ID, is_asc=False
+        )
+    )
 
     self.assertLen(got_executions, 103)
     for i in range(103):
@@ -1086,6 +1136,53 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertEqual(execution_result.properties["bar"].string_value, "Goodbye")
     self.assertEqual(execution_result.properties["foo"].int_value, 12)
     self.assertEqual(execution_result.external_id, "execution_2")
+
+  def test_update_execution_with_masking_get_execution(self):
+    store = _get_metadata_store()
+    execution_type = metadata_store_pb2.ExecutionType(
+        name=self._get_test_type_name(),
+        properties={
+            "foo": metadata_store_pb2.INT,
+            "bar": metadata_store_pb2.STRING,
+        },
+    )
+    type_id = store.put_execution_type(execution_type)
+    execution = metadata_store_pb2.Execution(
+        type_id=type_id,
+        properties={"bar": metadata_store_pb2.Value(string_value="Hello")},
+    )
+
+    [execution_id] = store.put_executions([execution])
+    execution_2 = metadata_store_pb2.Execution(
+        id=execution_id,
+        type_id=type_id,
+        external_id="new_external_id",
+        properties={
+            "foo": metadata_store_pb2.Value(int_value=execution_id),
+            "bar": metadata_store_pb2.Value(string_value="Goodbye"),
+        },
+        custom_properties={
+            "hello": metadata_store_pb2.Value(string_value="World")
+        },
+    )
+
+    field_mask_paths = [
+        "external_id",
+        "properties.foo",
+        "custom_properties.hello",
+        "",
+        "invalid_field_mask_path"
+    ]
+    [execution_id_2] = store.put_executions([execution_2], field_mask_paths)
+    self.assertEqual(execution_id, execution_id_2)
+
+    [execution_result] = store.get_executions_by_id([execution_id])
+    self.assertEqual(
+        execution_result.custom_properties["hello"].string_value, "World"
+    )
+    self.assertEqual(execution_result.properties["bar"].string_value, "Hello")
+    self.assertEqual(execution_result.properties["foo"].int_value, execution_id)
+    self.assertEqual(execution_result.external_id, "new_external_id")
 
   def test_put_events_get_events(self):
     store = _get_metadata_store()
@@ -1236,8 +1333,17 @@ class MetadataStoreTest(parameterized.TestCase):
     output_event = metadata_store_pb2.Event(
         type=metadata_store_pb2.Event.DECLARED_INPUT)
 
+    # Test when contexts parameter is an empty list.
     execution_id, artifact_ids, context_ids = store.put_execution(
         execution, [[input_artifact], [output_artifact, output_event]], [])
+    self.assertLen(artifact_ids, 2)
+    events = store.get_events_by_execution_ids([execution_id])
+    self.assertLen(events, 1)
+    self.assertEmpty(context_ids)
+
+    # Test when contexts parameter is None.
+    execution_id, artifact_ids, context_ids = store.put_execution(
+        execution, [[input_artifact], [output_artifact, output_event]], None)
     self.assertLen(artifact_ids, 2)
     events = store.get_events_by_execution_ids([execution_id])
     self.assertLen(events, 1)
@@ -1552,7 +1658,9 @@ class MetadataStoreTest(parameterized.TestCase):
             name=self._get_test_type_name(), type_id=type_id)
     ])
 
-    got_contexts = store.get_contexts(list_options=mlmd.ListOptions(limit=2))
+    got_contexts = store.get_contexts(
+        list_options=mlmd.ListOptions(limit=2, is_asc=False)
+    )
     self.assertLen(got_contexts, 2)
     self.assertEqual(got_contexts[0].id, context_ids[2])
     self.assertEqual(got_contexts[1].id, context_ids[1])
@@ -1568,7 +1676,9 @@ class MetadataStoreTest(parameterized.TestCase):
         for i in range(200)
     ])
 
-    got_contexts = store.get_contexts(list_options=mlmd.ListOptions(limit=103))
+    got_contexts = store.get_contexts(
+        list_options=mlmd.ListOptions(limit=103, is_asc=False)
+    )
     self.assertLen(got_contexts, 103)
     for i in range(103):
       self.assertEqual(got_contexts[i].id, context_ids[199 - i])
@@ -1585,7 +1695,10 @@ class MetadataStoreTest(parameterized.TestCase):
     ])
 
     got_contexts = store.get_contexts(
-        list_options=mlmd.ListOptions(limit=103, order_by=mlmd.OrderByField.ID))
+        list_options=mlmd.ListOptions(
+            limit=103, order_by=mlmd.OrderByField.ID, is_asc=False
+        )
+    )
 
     self.assertLen(got_contexts, 103)
     for i in range(103):

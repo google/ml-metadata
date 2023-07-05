@@ -82,6 +82,7 @@ message Artifact {
     ABANDONED = 5;
     // A state indicating that the artifact is a copy for referencing an
     // external artifact.
+    // TODO(b/261527306) This new state is currently not used.
     REFERENCE = 6;
   }
 
@@ -92,6 +93,9 @@ message Artifact {
   // Output only. Last update time of the artifact since epoch in millisecond
   // since epoch.
   optional int64 last_update_time_since_epoch = 10;
+
+  // Output only.
+  optional google.protobuf.Any system_metadata = 12;
 }
 
 // The list of supported property value types.
@@ -268,6 +272,9 @@ message Event {
   // Time the event occurred
   // Epoch is Jan 1, 1970, UTC
   optional int64 milliseconds_since_epoch = 5;
+
+  // Output only.
+  optional google.protobuf.Any system_metadata = 6;
 }
 
 message Execution {
@@ -313,6 +320,9 @@ message Execution {
   optional int64 create_time_since_epoch = 8;
   // Output only. Last update time of the execution in millisecond since epoch.
   optional int64 last_update_time_since_epoch = 9;
+
+  // Output only.
+  optional google.protobuf.Any system_metadata = 11;
 }
 
 message ExecutionType {
@@ -424,6 +434,9 @@ message Context {
   optional int64 create_time_since_epoch = 7;
   // Output only. Last update time of the context in millisecond since epoch.
   optional int64 last_update_time_since_epoch = 8;
+
+  // Output only system metadata.
+  optional google.protobuf.Any system_metadata = 10;
 }
 
 // the Attribution edges between Context and Artifact instances.
@@ -586,7 +599,7 @@ message MySQLDatabaseConfig {
   optional string host = 1;
   // The TCP Port number that the MYSQL server accepts connections on.
   // If unspecified, the default MYSQL port (3306) is used.
-  optional uint32 port = 2;
+  optional int64 port = 2;
   // The database to connect to. Must be specified.
   // After connecting to the MYSQL server, this database is created if not
   // already present unless skip_db_creation is set.
@@ -661,6 +674,71 @@ message SqliteMetadataSourceConfig {
   optional ConnectionMode connection_mode = 2;
 }
 
+// A config contains the parameters when using with PostgreSQLMetadatSource.
+// Next index: 10
+message PostgreSQLDatabaseConfig {
+  // Name of host to connect to. If the host name starts with /, it is taken as
+  // a Unix-domain socket in the abstract namespace.
+  optional string host = 1;
+
+  // Numeric IP address of host to connect to. If this field is provided, `host`
+  // field is ignored.
+  optional string hostaddr = 2;
+
+  // Port number to connect to at the server host, or socket file name extension
+  // for Unix-domain connections.
+  optional string port = 3;
+
+  // PostgreSQL user name to connect as. Defaults to be the same as the
+  // operating system name of the user running the application.
+  optional string user = 4;
+
+  // Password to be used if the server demands password authentication.
+  optional string password = 5;
+
+  // Specifies the name of the file used to store passwords.
+  optional string passfile = 6;
+
+  // The database name. Defaults to be the same as the user name.
+  optional string dbname = 7;
+
+  // A config to skip the database creation if not exist when connecting the
+  // db instance. It is useful when the db creation is handled by an admin
+  // process, while the lib user should not issue db creation clauses.
+  optional bool skip_db_creation = 8;
+
+  message SSLOptions {
+    // disable, allow, verify-ca, verify-full, etc. Reference:
+    // https://www.postgresql.org/docs/current/libpq-connect.html
+    optional string sslmode = 1;
+
+    // This parameter specifies the file name of the client SSL certificate,
+    // replacing the default ~/.postgresql/postgresql.crt. This parameter is
+    // ignored if an SSL connection is not made.
+    optional string sslcert = 2;
+
+    // This parameter specifies the location for the secret key used for the
+    // client certificate. It can either specify a file name that will be used
+    // instead of the default ~/.postgresql/postgresql.key, this parameter is
+    // ignored if an SSL connection is not made.
+    optional string sslkey = 3;
+
+    // This parameter specifies the password for the secret key specified in
+    // sslkey, allowing client certificate private keys to be stored in
+    // encrypted form on disk even when interactive passphrase input is not
+    // practical.
+    optional string sslpassword = 4;
+
+    // This parameter specifies the name of a file containing SSL certificate
+    // authority (CA) certificate(s). If the file exists, the server's
+    // certificate will be verified to be signed by one of these authorities.
+    // The default is ~/.postgresql/root.crt.
+    optional string sslrootcert = 5;
+  }
+
+  optional SSLOptions ssloption = 9;
+}
+
 
 message MigrationOptions {
   // If not set, by default the upgrade migration is disabled. MLMD only
@@ -699,6 +777,10 @@ message ConnectionConfig {
     FakeDatabaseConfig fake_database = 1;
     MySQLDatabaseConfig mysql = 2;
     SqliteMetadataSourceConfig sqlite = 3;
+
+    // PostgreSQL database connection config.
+    PostgreSQLDatabaseConfig postgresql = 5;
+
   }
 
   // Options for overwriting the default retry setting when MLMD transactions
@@ -724,7 +806,7 @@ message MetadataStoreClientConfig {
   optional string host = 1;
   // The TCP Port number that the gRPC server accepts connections on.
   // Must be specified.
-  optional uint32 port = 2;
+  optional int64 port = 2;
 
   message SSLConfig {
     // The PEM-encoded private key as a byte string, or Empty if no private key
@@ -826,6 +908,7 @@ message ListOperationOptions {
   //           custom_properties.$name ($name is the custom property name)
   //   attributes: the following attributes can be used
   //      int_value: int64, double_value: double, string_value: string
+  //      bool_value: bool
   //
   // - Context (for Artifact and Execution):
   //   syntax: contexts_$alias ($alias can be [0-9A-Za-z_])
@@ -864,8 +947,10 @@ message ListOperationOptions {
   // c) to filter artifact's state or execution's last_known_state
   //    - state = LIVE
   //    - state IS NULL
+  //    - state IN (PENDING, LIVE)
   //    - last_known_state = RUNNING
   //    - last_known_state != RUNNING
+  //    - last_known_state NOT IN (FAILED, CANCELED)
   //
   // d) to filter nodes having a specific context, artifact, or execution
   //    - contexts_a.id = 5
@@ -881,6 +966,7 @@ message ListOperationOptions {
   //    - artifacts_a.name = 'my_dataset'
   //    - artifacts_a.uri = 'exact_path_string'
   //    - artifacts_a.state = LIVE
+  //    - artifacts_a.state IN (PENDING, LIVE)
   //    - artifacts_a.external_id = "my_external_id"
   //    - artifacts_a.create_time_since_epoch = 1626761453
   //    - artifacts_a.last_update_time_since_epoch = 1626761453
@@ -891,6 +977,7 @@ message ListOperationOptions {
   //    - executions_a.type = 'Dataset'
   //    - executions_a.name = 'my_dataset'
   //    - executions_a.last_known_state = RUNNING
+  //.   - executions_a.last_known_state IN (NEW, RUNNING)
   //    - executions_a.external_id = "my_external_id"
   //    - executions_a.create_time_since_epoch = 1626761453
   //    - executions_a.last_update_time_since_epoch = 1626761453
@@ -904,7 +991,7 @@ message ListOperationOptions {
   //    other than [0-9A-Za-z_], then the name need to be backquoted,
   //    e.g.,
   //    - properties.`my property`.int_value > 0
-  //    - custom_properties.`my:custom.property`.string_value = 'foo'
+  //    - custom_properties.`my:custom.property`.bool_value = true
   //
   // f) complex query to filter both node attributes and neighborhood
   //    - type = 'DataSet' AND
@@ -922,7 +1009,7 @@ message ListOperationOptions {
   //    - events_0.milliseconds_since_epoch = 1
   //    to filter Executions on Events
   //    - events_0.artifact_id = 1
-  //    - events_0.type = INPUT
+  //    - events_0.type IN (INPUT, INTERNAL_INPUT)
   //    - events_0.milliseconds_since_epoch = 1
   // TODO(b/145945460) Support filtering on event step fields.
   optional string filter_query = 4;
@@ -953,6 +1040,7 @@ message ListOperationNextPageToken {
   // the same order_by field value.
   // This field is currently only set whe order_by field is LAST_UPDATE_TIME.
   repeated int64 listed_ids = 4;
+
 }
 
 // Options for transactions.
@@ -965,43 +1053,123 @@ message TransactionOptions {
 }
 
 
-// The query options for list lineage graph operation. It allows specifying the
-// `query_nodes` of interests and the `stop_conditions` when querying a
-// lineage graph. The query option is used for exporting provenance information
-// from a source MLMD instance.
+// The query options for `get_lineage_graph` operation.
+// `query_nodes` is a list of nodes of interest.
+// Currently only artifacts are supported as `query_nodes`.
+// `stop_conditions` defines the filtering rules when querying a lineage graph.
+// `max_node_size` defines the total number of artifacts and executions returned
+// in the subgraph.
 message LineageGraphQueryOptions {
-  // A query to specify the nodes of interests.
+  // A query to specify the nodes of interest.
+  // `ListOperationOptions.max_result_size` sets the maximum number of nodes to
+  // begin with the graph search.
   // TODO(b/178491112) Support query_nodes for Executions.
   oneof query_nodes {
     ListOperationOptions artifacts_options = 1;
   }
 
-  // Boundary conditions to stop the traversal when return the `subgraph`.
+  // Filtering conditions for retrieving the lineage graph.
   message BoundaryConstraint {
-    // The maximum number of hops from the `query_nodes` to traverse. It should
-    // be non-negative. When zero, only the `query_nodes` are returned.
+    // The maximum number of hops from the `query_nodes` to traverse.
+    // A hop is defined as a jump to the next node following the path of
+    // node -> event -> next_node.
+    // For example, in the lineage graph a_1 -> e_1 -> a_2:
+    // a_2 is 2 hops away from a_1, and e_1 is 1 hop away from a_1.
+    // `max_num_hops` should be non-negative.
+    // When its value is set to 0, only the `query_nodes` are returned.
     optional int64 max_num_hops = 1;
 
-    // Conditions for the boundary node in the returned the subgraph.
-    // Please refer to ListOperationOptions.filter_query for the syntax.
-    // If set, it stops traversing further at the artifacts that do not satisfy
-    // `boundary_artifacts` and exclude them from the returned subgraph.
-    // For example, to look for the models related to a DataSet and ignore
-    // other artifacts derived from the DataSet:
-    //   "type = 'DataSet' OR type = 'TransformGraph' OR type = 'Model'"
+    // Filtering conditions for retrieving the lineage graph.
+    // Please refer to `ListOperationOptions.filter_query` for the syntax.
+    //
+    // If set, the `boundary_artifacts` defines which artifacts to keep in the
+    // returned lineage graph during the graph search.
+    // Artifacts that do not satisfy the `boundary_artifacts` are filtered out,
+    // and the subgraphs starting at them will be pruned.
+    // If not set, no artifacts will be filtered out.
+    // Taking the following lineage graph as example:
+    // (`a` represents an Artifact, `e` represents an Execution, each arrow
+    // represents a hop.)
+    //  a_0   a_1     a_3
+    //   |      \   /     \
+    //  \/      \/ \/     \/
+    //  e_0      e_1      e_3
+    //                   /   \
+    //                  \/   \/
+    //        a_2     a_4     a_5
+    //           \   /
+    //           \/ \/
+    //            e_2
+    // To query all the upstream and downstream nodes 3 hops away from a_4,
+    // while excluding the upstream subgraph starting at a_3, then
+    // `stop_conditions` can be set as:
+    // {
+    //   max_num_hops: 3
+    //   boundary_artifacts: 'id != 3'
+    // }
+    // With the `stop_conditions`, {a_3, e_1, a_1, a_0, e_0} will be filtered
+    // out.
+    // The returned lineage graph looks like:
+    //                    e_3
+    //                   /   \
+    //                  \/   \/
+    //        a_2     a_4     a_5
+    //           \   /
+    //           \/ \/
+    //            e_2
     optional string boundary_artifacts = 2;
-    // If set, it stops traversing further at the executions that do not satisfy
-    // `boundary_executions` and exclude them from the returned subgraph.
-    // For example, two trainers may be connected due to the shared datasets,
-    // to exclude other trainers except a particular one (e.g., id = 5):
-    //   "type != 'Trainer' OR (type = 'Trainer' AND id = 5)"
+    // If set, the `boundary_executions` defines which executions to keep in the
+    // returned lineage graph during the graph search.
+    // Executions that do not satisfy the `boundary_executions` are filtered out
+    // and the subgraphs starting at them will be pruned.
+    // If not set, no executions will be filtered out.
+    // In the example above, to query for all the upstream and downstream nodes
+    // 3 hops away from a_4, while excluding the upstream subgraph and the
+    // downstream subgraph starting at e_3, then `stop_conditions` can be set as
+    // {
+    //   max_num_hops: 3
+    //   boundary_executions: 'id != 3'
+    // }
+    // With the `stop_conditions`, {e_3, a_5, a_3, e_1, a_1, a_0, e_0} will be
+    // filtered out.
+    // The returned lineage graph looks like:
+    //        a_2     a_4
+    //           \   /
+    //           \/ \/
+    //            e_2
+    // However, for the following graph:
+    //  a_0   a_1     a_3
+    //   |      \   /     \
+    //  \/      \/ \/     \/
+    //  e_0      e_1      e_3
+    //              \    /   \
+    //               \/ \/   \/
+    //        a_2     a_4     a_5
+    //           \   /
+    //           \/ \/
+    //            e_2
+    // With the same `stop_conditions`, only {e_3, a_5, a_0, e_0} will be
+    // filtered out.
+    // The returned lineage graph looks like:
+    //       a_1     a_3
+    //          \   /
+    //          \/ \/
+    //           e_1
+    //              \
+    //               \/
+    //        a_2     a_4
+    //           \   /
+    //           \/ \/
+    //            e_2
     optional string boundary_executions = 3;
   }
 
-  // A constraint option to define the boundary of the returned subgraph.
+  // A constraint option to define the filtering rules when querying a lineage
+  // graph.
   optional BoundaryConstraint stop_conditions = 2;
 
-  // Maximum number of returned nodes.
+  // Maximum total number of artifacts and executions in the whole returned
+  // lineage graph.
   // If set to 0 or below, all related nodes will be returned without any
   // number limitation.
   // The number counts toward Artifacts and Executions. Nothing else considered.

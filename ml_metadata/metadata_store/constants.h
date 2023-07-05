@@ -15,11 +15,12 @@ limitations under the License.
 #ifndef THIRD_PARTY_ML_METADATA_METADATA_STORE_CONSTANTS_H_
 #define THIRD_PARTY_ML_METADATA_METADATA_STORE_CONSTANTS_H_
 
+#include "absl/strings/string_view.h"
 namespace ml_metadata {
 
 // The in-memory encoding of the NULL value in RecordSet proto returned from
 // any MetadataSource.
-static constexpr char kMetadataSourceNull[] = "__MLMD_NULL__";
+static constexpr absl::string_view kMetadataSourceNull = "__MLMD_NULL__";
 
 // The node type_kind enum values used for internal storage. The enum value
 // should not be modified, in order to be backward compatible with stored types.

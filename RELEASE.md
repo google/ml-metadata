@@ -2,10 +2,46 @@
 
 ## Major Features and Improvements
 
-*   Fix filter query parsing for QueryLineageGraph when using queries with
-    aliases.
+*   Support PostgreSQL database type.
+*   Support bool_value in (custom_)property filter queries.
+*   Add masking support for Artifact / Execution / Context updates
+*   Support using enum names in IN operator in filter queries.
 
 ## Breaking Changes
+
+## Deprecations
+
+## Bug Fixed and Other Changes
+
+*   Bumped minimum bazel version to 5.3.0.
+*   Upgrade Microsoft Visual Studio (MSVC) version to 2017.
+*   Support filtering by parent/child context id in filter queries.
+
+# Version 1.13.1
+
+## Major Features and Improvements
+
+*   N/A
+
+## Breaking Changes
+
+*   N/A
+
+## Deprecations
+
+*   N/A
+
+# Version 1.13.0
+
+## Major Features and Improvements
+
+*   Fix filter query parsing for QueryLineageGraph when using queries with
+    aliases.
+*   Depends on `numpy~=1.22.0`.
+
+## Breaking Changes
+
+*   N/A
 
 ## Deprecations
 

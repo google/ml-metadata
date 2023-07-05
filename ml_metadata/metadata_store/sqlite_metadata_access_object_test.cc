@@ -40,7 +40,7 @@ class SqliteMetadataAccessObjectContainer
     : public QueryConfigMetadataAccessObjectContainer {
  public:
   SqliteMetadataAccessObjectContainer(
-      absl::optional<int64> earlier_schema_version = absl::nullopt)
+      absl::optional<int64_t> earlier_schema_version = absl::nullopt)
       : QueryConfigMetadataAccessObjectContainer(
             util::GetSqliteMetadataSourceQueryConfig(),
             earlier_schema_version) {

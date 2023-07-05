@@ -13,13 +13,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/query/filter_query_ast_resolver.h"
+#include <vector>
 
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/simple_catalog.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/ascii.h"
+#include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_replace.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/util/return_utils.h"
@@ -31,25 +36,35 @@ namespace {
 using ::zetasql::types::DoubleType;
 using ::zetasql::types::Int64Type;
 using ::zetasql::types::StringType;
+using ::zetasql::types::BoolType;
 
 // A regular expression that for mentioned contexts in query.
-constexpr char kContextRE[] = "\\b(contexts_[[:word:]]+)\\.";
-constexpr char kArtifactRE[] = "\\b(artifacts_[[:word:]]+)\\.";
-constexpr char kExecutionRE[] = "\\b(executions_[[:word:]]+)\\.";
-constexpr char kPropertyRE[] = "\\bproperties\\.(:?([[:word:]]+)|(`[^`]+`))\\.";
-constexpr char kCustomPropertyRE[] =
-    "\\bcustom_properties\\.(:?([[:word:]]+)|(`[^`]+`))\\.";
-constexpr char kChildContextRE[] = "\\b(child_contexts_[[:word:]]+)\\.";
-constexpr char kParentContextRE[] = "\\b(parent_contexts_[[:word:]]+)\\.";
-constexpr char kEventRE[] = "\\b(events_[[:word:]]+)\\.";
+constexpr absl::string_view kContextRE = "\\b(contexts_[[:word:]]+)\\.";
+constexpr absl::string_view kArtifactRE = "\\b(artifacts_[[:word:]]+)\\.";
+constexpr absl::string_view kExecutionRE = "\\b(executions_[[:word:]]+)\\.";
+constexpr absl::string_view kPropertyRE =
+    "\\bproperties\\.(:?([[:word:]]+)|(`[^`]+`))\\.(?:int|double|string|bool)";
+constexpr absl::string_view kCustomPropertyRE =
+    "\\bcustom_properties\\.(:?([[:word:]]+)|(`[^`]+`))\\."
+    "(?:int|double|string|bool)";
+constexpr absl::string_view kChildContextRE =
+    "\\b(child_contexts_[[:word:]]+)\\.";
+constexpr absl::string_view kParentContextRE =
+    "\\b(parent_contexts_[[:word:]]+)\\.";
+constexpr absl::string_view kEventRE = "\\b(events_[[:word:]]+)\\.";
 
-constexpr char kArtifactStatePredicateRE[] =
-    "\\b(state)[[:space:]]*(=|!=)[[:space:]]*([[:word:]]+)\\b";
-constexpr char kExecutionStatePredicateRE[] =
-    "\\b(last_known_state)[[:space:]]*(=|!=)[[:space:]]*([[:word:]]+)\\b";
-constexpr char kEventTypePredicateRE[] =
-    "\\b(events_[[:word:]]+\\.type)[[:space:]]*(=|!=)[[:space:]]*([[:word:]]+)"
-    "\\b";
+constexpr absl::string_view kArtifactStatePredicateRE =
+    "\\b(state)[[:space:]](=|!=|(?i)NOT[[:space:]]*IN|(?i)IN)[[:space:]]*"
+    "([[:word:]]+\\b|\\(([[:space:]]*[[:word:]]+[[:space:]]*[,]*[[:space:]]*"
+    "[[:word:]]+[[:space:]]*)*\\))";
+constexpr absl::string_view kExecutionStatePredicateRE =
+    "\\b(last_known_state)[[:space:]]*(=|!=|(?i)NOT[[:space:]]*IN|(?i)IN)"
+    "[[:space:]]*([[:word:]]+\\b|\\(([[:space:]]*[[:word:]]+[[:space:]]*[,]*"
+    "[[:space:]]*[[:word:]]+[[:space:]]*)*\\))";
+constexpr absl::string_view kEventTypePredicateRE =
+    "\\b(events_[[:word:]]+\\.type)[[:space:]]*(=|!=|(?i)NOT[[:space:]]*IN|(?i)"
+    "IN)[[:space:]]*([[:word:]]+\\b|\\(([[:space:]]*[[:word:]]+[[:space:]]*[,]*"
+    "[[:space:]]*[[:word:]]+[[:space:]]*)*\\))";
 
 // Returns a map of Artifact state Enums to their corresponding int values. See
 // go/totw/110#the-fix-safe-initialization-no-destruction for more information
@@ -118,24 +133,62 @@ absl::StatusOr<std::string> ParseEnumPredicateAndTransformQuery(
   while (RE2::FindAndConsume(&query_string, enum_predicate_regex,
                              &state_string_literal, &operator_literal,
                              &value_literal)) {
-    if (!enum_value_mapping.contains(value_literal)) {
-      return absl::InvalidArgumentError(
-          absl::StrCat("Unsupported enum value specified in the query: ",
-                       value_literal));
-    }
-
     std::string query_subtitute;
-    if (operator_literal == "!=") {
-      query_subtitute = absl::Substitute(" (($0 $1 $2) OR ($0 IS NULL)) ",
-                                         state_string_literal, operator_literal,
-                                         enum_value_mapping.at(value_literal));
+    if (operator_literal == "=" || operator_literal == "!=") {
+      if (!enum_value_mapping.contains(value_literal)) {
+        return absl::InvalidArgumentError(
+            absl::StrCat("Unsupported enum value specified in the query: ",
+                        value_literal));
+      }
+
+      if (operator_literal == "!=") {
+        query_subtitute = absl::Substitute(
+            " (($0 $1 $2) OR ($0 IS NULL)) ", state_string_literal,
+            operator_literal, enum_value_mapping.at(value_literal));
+      } else {
+        query_subtitute = absl::Substitute(
+            " $0 $1 $2 ", state_string_literal, operator_literal,
+            enum_value_mapping.at(value_literal));
+      }
     } else {
-      query_subtitute =
-          absl::Substitute(" $0 $1 $2 ", state_string_literal, operator_literal,
-                           enum_value_mapping.at(value_literal));
+      if (!absl::StartsWith(value_literal, "(") &&
+          !absl::EndsWith(value_literal, ")")) {
+        return absl::InvalidArgumentError(absl::StrCat(
+            "Expected a list of enum values enclosed in parentheses but got ",
+            value_literal));
+      }
+      std::string value_literal_no_parens =
+          value_literal.substr(1, value_literal.size() - 2);
+      if (value_literal_no_parens.empty()) { continue; }
+      std::vector<std::string> value_literals =
+          absl::StrSplit(value_literal_no_parens, ',');
+      std::vector<int> enum_values;
+      for (std::string& literal : value_literals) {
+        absl::StripAsciiWhitespace(&literal);
+        if (!enum_value_mapping.contains(literal)) {
+          return absl::InvalidArgumentError(
+              absl::StrCat("Unsupported enum value specified in the query: ",
+                           literal));
+        }
+        enum_values.push_back(enum_value_mapping.at(literal));
+      }
+      std::string enum_literal = absl::StrJoin(enum_values, ",");
+      if (absl::EqualsIgnoreCase(operator_literal, "IN")) {
+        query_subtitute = absl::Substitute(" $0 $1 ($2) ", state_string_literal,
+                                           operator_literal, enum_literal);
+      } else {
+        query_subtitute = absl::Substitute(" (($0 $1 ($2)) OR ($0 IS NULL)) ",
+                                           state_string_literal,
+                                           operator_literal, enum_literal);
+      }
     }
-    const std::string replace_regex = absl::StrReplaceAll(
-        enum_predicate_regex, {{"([[:word:]]+)", value_literal}});
+    value_literal =
+        absl::StrReplaceAll(value_literal, {{"(", "\\("}, {")", "\\)"}});
+    std::string replace_regex = absl::StrReplaceAll(
+        enum_predicate_regex,
+        {{"([[:word:]]+\\b|\\(([[:space:]]*[[:word:]]+[[:space:]]*[,]*"
+          "[[:space:]]*[[:word:]]+[[:space:]]*)*\\))",
+          value_literal}});
     if (!RE2::GlobalReplace(&rewritten_query, replace_regex, query_subtitute)) {
       return absl::InternalError(absl::Substitute(
           "Query cannot be rewritten successfully for matched enum predicate: "
@@ -216,7 +269,7 @@ absl::StatusOr<std::string> AddNeighborhoodNodes(
 
 // Adds the Contexts used in the query to the analyzer as StructType column.
 absl::Status AddContextsImpl(absl::string_view query_string,
-                             const absl::string_view context_prefix,
+                             absl::string_view context_prefix,
                              zetasql::AnalyzerOptions& analyzer_opts,
                              zetasql::TypeFactory& type_factory) {
   RE2 context_re(context_prefix);
@@ -308,7 +361,7 @@ absl::StatusOr<std::string> AddEvents(absl::string_view query_string,
                                       absl::string_view neighbor_node_id,
                                       zetasql::AnalyzerOptions& analyzer_opts,
                                       zetasql::TypeFactory& type_factory) {
-  static LazyRE2 event_re = {kEventRE};
+  static LazyRE2 event_re = {kEventRE.data()};
   std::string matched_event;
   absl::flat_hash_set<std::string> mentioned_events;
   std::string original_query = std::string(query_string);
@@ -448,7 +501,8 @@ absl::StatusOr<std::string> AddPropertiesAndTransformQueryImpl(
     MLMD_RETURN_IF_ERROR(
         type_factory.MakeStructType({{"int_value", Int64Type()},
                                      {"double_value", DoubleType()},
-                                     {"string_value", StringType()}},
+                                     {"string_value", StringType()},
+                                     {"bool_value", BoolType()}},
                                     &property_struct_type));
     MLMD_RETURN_IF_ERROR(
         analyzer_opts.AddExpressionColumn(ast_property, property_struct_type));
@@ -461,7 +515,7 @@ absl::StatusOr<std::string> AddPropertiesAndTransformQueryImpl(
 absl::StatusOr<std::string> AddPropertiesAndTransformQuery(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts,
     zetasql::TypeFactory& type_factory) {
-  static LazyRE2 property_re = {kPropertyRE};
+  static LazyRE2 property_re = {kPropertyRE.data()};
   return AddPropertiesAndTransformQueryImpl(query_string, analyzer_opts,
                                             type_factory, *property_re,
                                             /*column_prefix=*/"properties");
@@ -472,7 +526,7 @@ absl::StatusOr<std::string> AddPropertiesAndTransformQuery(
 absl::StatusOr<std::string> AddCustomPropertiesAndTransformQuery(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts,
     zetasql::TypeFactory& type_factory) {
-  static LazyRE2 property_re = {kCustomPropertyRE};
+  static LazyRE2 property_re = {kCustomPropertyRE.data()};
   return AddPropertiesAndTransformQueryImpl(
       query_string, analyzer_opts, type_factory, *property_re,
       /*column_prefix=*/"custom_properties");

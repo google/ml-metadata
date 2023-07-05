@@ -61,7 +61,8 @@ int ConvertSqliteResultsToRecordSet(void* results, int column_num,
   RecordSet::Record* record = record_set->add_records();
   for (int i = 0; i < column_num; i++) {
     if (!is_column_name_initted) record_set->add_column_names(column_names[i]);
-    record->add_values(column_vals[i] ? column_vals[i] : kMetadataSourceNull);
+    record->add_values(column_vals[i] ? column_vals[i]
+                                      : kMetadataSourceNull.data());
   }
   return SQLITE_OK;
 }

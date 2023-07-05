@@ -16,12 +16,14 @@ limitations under the License.
 
 #include <memory>
 #include <unordered_map>
+#include <vector>
 
 #include <glog/logging.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/algorithm/container.h"
 #include "absl/status/status.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
@@ -368,10 +370,9 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypesGetArtifactTypes) {
   GetArtifactTypesResponse got_response;
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->GetArtifactTypes(get_request, &got_response));
-  GetArtifactTypesResponse want_response;
-  *want_response.add_artifact_types() = type_1;
-  *want_response.add_artifact_types() = type_2;
-  EXPECT_THAT(got_response, EqualsProto(want_response));
+
+  EXPECT_THAT(got_response.artifact_types(),
+              UnorderedElementsAre(EqualsProto(type_1), EqualsProto(type_2)));
 }
 
 TEST_P(MetadataStoreTestSuite, PutArtifactTypesGetArtifactTypesByExternalIds) {
@@ -635,7 +636,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeWithUpdateErrors) {
   PutArtifactTypeResponse response_1;
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->PutArtifactType(request_1, &response_1));
-  const int64 type_id = response_1.type_id();
+  const int64_t type_id = response_1.type_id();
 
   {
     // can_add_fields is not set to true
@@ -926,17 +927,15 @@ TEST_P(MetadataStoreTestSuite, PutArtifactTypeGetArtifactTypesByIDTwo) {
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->GetArtifactTypesByID(get_request, &get_response));
   ASSERT_THAT(get_response.artifact_types(), SizeIs(2));
-  const ArtifactType& result_1 = get_response.artifact_types(0);
-  const ArtifactType& result_2 = get_response.artifact_types(1);
+
   ArtifactType expected_result_1 = put_request_1.artifact_type();
   ArtifactType expected_result_2 = put_request_2.artifact_type();
   expected_result_1.set_id(put_response_1.type_id());
   expected_result_2.set_id(put_response_2.type_id());
 
-  EXPECT_THAT(result_1, EqualsProto(expected_result_1))
-      << "Type ID should be the same as the type created.";
-  EXPECT_THAT(result_2, EqualsProto(expected_result_2))
-      << "The name should be the same as the one returned.";
+  EXPECT_THAT(get_response.artifact_types(),
+              UnorderedElementsAre(EqualsProto(expected_result_1),
+                                   EqualsProto(expected_result_2)));
 }
 
 TEST_P(MetadataStoreTestSuite, PutExecutionTypeGetExecutionTypesByID) {
@@ -1138,17 +1137,14 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypeGetExecutionTypesByIDTwo) {
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->GetExecutionTypesByID(get_request, &get_response));
   ASSERT_THAT(get_response.execution_types(), SizeIs(2));
-  const ExecutionType& result_1 = get_response.execution_types(0);
-  const ExecutionType& result_2 = get_response.execution_types(1);
   ExecutionType expected_result_1 = put_request_1.execution_type();
   ExecutionType expected_result_2 = put_request_2.execution_type();
   expected_result_1.set_id(put_response_1.type_id());
   expected_result_2.set_id(put_response_2.type_id());
 
-  EXPECT_THAT(result_1, EqualsProto(expected_result_1))
-      << "Type ID should be the same as the type created.";
-  EXPECT_THAT(result_2, EqualsProto(expected_result_2))
-      << "The name should be the same as the one returned.";
+  EXPECT_THAT(get_response.execution_types(),
+              UnorderedElementsAre(EqualsProto(expected_result_1),
+                                   EqualsProto(expected_result_2)));
 }
 
 TEST_P(MetadataStoreTestSuite, PutTypeWithVersionsGetType) {
@@ -1307,11 +1303,10 @@ TEST_P(MetadataStoreTestSuite, TypeWithNullAndEmptyStringVersionsGetType) {
   GetContextTypesResponse get_response;
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->GetContextTypes({}, &get_response));
-  EXPECT_THAT(get_response.context_types(), SizeIs(2));
-  EXPECT_THAT(get_response.context_types(0), EqualsProto(want_types[0]));
-  EXPECT_FALSE(get_response.context_types(1).has_version());
-  EXPECT_THAT(get_response.context_types(1),
-              EqualsProto(want_types[2], /*ignore_fields=*/{"version"}));
+
+  EXPECT_THAT(get_response.context_types(),
+              UnorderedElementsAre(EqualsProto(want_types[0]),
+                                   EqualsProto(want_types[3])));
 }
 
 TEST_P(MetadataStoreTestSuite, PutTypesAndArtifactsGetArtifactsThroughType) {
@@ -1331,11 +1326,12 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndArtifactsGetArtifactsThroughType) {
         ASSERT_EQ(absl::OkStatus(),
                   metadata_store_->GetArtifactsByType(get_nodes_request,
                                                       &get_nodes_response));
-        EXPECT_THAT(get_nodes_response.artifacts(),
-                    UnorderedPointwise(EqualsProto<Artifact>(/*ignore_fields=*/{
-                                           "uri", "create_time_since_epoch",
-                                           "last_update_time_since_epoch"}),
-                                       want_artifacts));
+        EXPECT_THAT(
+            get_nodes_response.artifacts(),
+            UnorderedPointwise(EqualsProto<Artifact>(/*ignore_fields=*/{
+                                   "uri", "type", "create_time_since_epoch",
+                                   "last_update_time_since_epoch"}),
+                               want_artifacts));
       };
 
   auto verify_get_artifact_by_type_and_name =
@@ -1350,10 +1346,11 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndArtifactsGetArtifactsThroughType) {
         GetArtifactByTypeAndNameResponse get_node_response;
         ASSERT_EQ(absl::OkStatus(), metadata_store_->GetArtifactByTypeAndName(
                                         get_node_request, &get_node_response));
-        EXPECT_THAT(get_node_response.artifact(),
-                    EqualsProto<Artifact>(want_artifact, /*ignore_fields=*/{
-                                              "uri", "create_time_since_epoch",
-                                              "last_update_time_since_epoch"}));
+        EXPECT_THAT(
+            get_node_response.artifact(),
+            EqualsProto<Artifact>(want_artifact, /*ignore_fields=*/{
+                                      "uri", "type", "create_time_since_epoch",
+                                      "last_update_time_since_epoch"}));
       };
 
   // Fetches the node according through the types.
@@ -1406,11 +1403,12 @@ TEST_P(MetadataStoreTestSuite,
                   metadata_store_->GetArtifactsByType(get_nodes_request,
                                                       &get_nodes_response));
         ASSERT_EQ(want_artifacts.size(), get_nodes_response.artifacts_size());
-        EXPECT_THAT(get_nodes_response.artifacts(),
-                    UnorderedPointwise(EqualsProto<Artifact>(/*ignore_fields=*/{
-                                           "uri", "create_time_since_epoch",
-                                           "last_update_time_since_epoch"}),
-                                       want_artifacts));
+        EXPECT_THAT(
+            get_nodes_response.artifacts(),
+            UnorderedPointwise(EqualsProto<Artifact>(/*ignore_fields=*/{
+                                   "uri", "type", "create_time_since_epoch",
+                                   "last_update_time_since_epoch"}),
+                               want_artifacts));
       };
 
   GetArtifactsByTypeRequest get_nodes_request;
@@ -1469,10 +1467,10 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndExecutionsGetExecutionsThroughType) {
                                                        &get_nodes_response));
         EXPECT_THAT(
             get_nodes_response.executions(),
-            UnorderedPointwise(
-                EqualsProto<Execution>(/*ignore_fields=*/{
-                    "create_time_since_epoch", "last_update_time_since_epoch"}),
-                want_executions));
+            UnorderedPointwise(EqualsProto<Execution>(/*ignore_fields=*/{
+                                   "type", "create_time_since_epoch",
+                                   "last_update_time_since_epoch"}),
+                               want_executions));
       };
 
   auto verify_get_execution_by_type_and_name =
@@ -1490,7 +1488,7 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndExecutionsGetExecutionsThroughType) {
         EXPECT_THAT(
             get_node_response.execution(),
             EqualsProto<Execution>(want_execution, /*ignore_fields=*/{
-                                       "create_time_since_epoch",
+                                       "type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"}));
       };
 
@@ -1542,7 +1540,7 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndContextsGetContextsThroughType) {
                                                      &get_nodes_response));
         EXPECT_THAT(get_nodes_response.contexts(),
                     UnorderedPointwise(EqualsProto<Context>(/*ignore_fields=*/{
-                                           "create_time_since_epoch",
+                                           "type", "create_time_since_epoch",
                                            "last_update_time_since_epoch"}),
                                        want_contexts));
       };
@@ -1561,7 +1559,7 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndContextsGetContextsThroughType) {
                                         get_node_request, &get_node_response));
         EXPECT_THAT(get_node_response.context(),
                     EqualsProto<Context>(want_context, /*ignore_fields=*/{
-                                             "create_time_since_epoch",
+                                             "type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
       };
 
@@ -1594,7 +1592,7 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndContextsGetContextsThroughType) {
 }
 
 TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {
-  int64 type_id;
+  int64_t type_id;
   // Create the type
   {
     const PutArtifactTypeRequest put_artifact_type_request =
@@ -1640,6 +1638,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {
     ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(2));
     artifact1.set_id(put_artifacts_response.artifact_ids(0));
     artifact2.set_id(put_artifacts_response.artifact_ids(1));
+    artifact1.set_type("test_type2");
+    artifact2.set_type("test_type2");
   }
 
   // Test: retrieve by one id
@@ -1657,7 +1657,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {
                                        "last_update_time_since_epoch"})));
   }
   // Test: retrieve by one id
-  const int64 unknown_id = artifact1.id() + artifact2.id() + 1;
+  const int64_t unknown_id = artifact1.id() + artifact2.id() + 1;
   {
     GetArtifactsByIDRequest get_artifacts_by_id_request;
     get_artifacts_by_id_request.add_artifact_ids(unknown_id);
@@ -1690,7 +1690,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {
 }
 
 TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByExternalIds) {
-  int64 type_id;
+  int64_t type_id;
   // Create the type
   {
     const PutArtifactTypeRequest put_artifact_type_request =
@@ -1737,6 +1737,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByExternalIds) {
     ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(2));
     artifact1.set_id(put_artifacts_response.artifact_ids(0));
     artifact2.set_id(put_artifacts_response.artifact_ids(1));
+    artifact1.set_type("test_type2");
+    artifact2.set_type("test_type2");
   }
 
   // Test: retrieve by one external id
@@ -1831,7 +1833,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsUpdateGetArtifactsByID) {
                                              &put_artifact_type_response));
   ASSERT_TRUE(put_artifact_type_response.has_type_id());
 
-  const int64 type_id = put_artifact_type_response.type_id();
+  const int64_t type_id = put_artifact_type_response.type_id();
 
   PutArtifactsRequest put_artifacts_request =
       ParseTextProtoOrDie<PutArtifactsRequest>(R"(
@@ -1849,7 +1851,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsUpdateGetArtifactsByID) {
             metadata_store_->PutArtifacts(put_artifacts_request,
                                           &put_artifacts_response));
   ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(1));
-  const int64 artifact_id = put_artifacts_response.artifact_ids(0);
+  const int64_t artifact_id = put_artifacts_response.artifact_ids(0);
 
   // Now we change 3 to 2 and adds the state
   PutArtifactsRequest put_artifacts_request_2 =
@@ -1879,8 +1881,326 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsUpdateGetArtifactsByID) {
   ASSERT_THAT(get_artifacts_by_id_response.artifacts(), SizeIs(1));
   EXPECT_THAT(get_artifacts_by_id_response.artifacts(0),
               EqualsProto(put_artifacts_request_2.artifacts(0),
-                          /*ignore_fields=*/{"create_time_since_epoch",
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
+}
+
+// Test creating an artifact and then updating one of its properties.
+TEST_P(MetadataStoreTestSuite, UpdateArtifactWithMasking) {
+  const PutArtifactTypeRequest put_artifact_type_request =
+      ParseTextProtoOrDie<PutArtifactTypeRequest>(
+          R"pb(
+            all_fields_match: true
+            artifact_type: {
+              name: 'test_type2'
+              properties { key: 'property' value: STRING }
+            }
+          )pb");
+  PutArtifactTypeResponse put_artifact_type_response;
+  ASSERT_EQ(metadata_store_->PutArtifactType(put_artifact_type_request,
+                                             &put_artifact_type_response),
+            absl::OkStatus());
+  ASSERT_TRUE(put_artifact_type_response.has_type_id());
+
+  const int64_t type_id = put_artifact_type_response.type_id();
+
+  // Add two artifacts, one with a `properties` pair <'property': '3'>, one
+  // without.
+  PutArtifactsRequest put_artifacts_request =
+      ParseTextProtoOrDie<PutArtifactsRequest>(R"pb(
+        artifacts: {
+          uri: 'testuri://testing/uri1'
+          properties {
+            key: 'property'
+            value: { string_value: '3' }
+          }
+        }
+        artifacts: { uri: 'testuri://testing/uri2' }
+      )pb");
+  put_artifacts_request.mutable_artifacts(0)->set_type_id(type_id);
+  put_artifacts_request.mutable_artifacts(1)->set_type_id(type_id);
+  PutArtifactsResponse put_artifacts_response;
+  {
+    // Test 1: a complex test case for updating fields and properties for both
+    // artifacts.
+    ASSERT_EQ(metadata_store_->PutArtifacts(put_artifacts_request,
+                                            &put_artifacts_response),
+              absl::OkStatus());
+    ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(2));
+    const int64_t artifact_id1 = put_artifacts_response.artifact_ids(0);
+    const int64_t artifact_id2 = put_artifacts_response.artifact_ids(1);
+    // Add `state` for both artifacts. `uri` for both artifacts will remain
+    // unchanged.
+    // Change string value of key `property` from '3' to '1' in the first
+    // artifact.
+    // Add `properties` pair <'property': '2'> in the second artifact.
+    PutArtifactsRequest update_artifacts_request =
+        ParseTextProtoOrDie<PutArtifactsRequest>(R"pb(
+          artifacts: {
+            properties {
+              key: 'property'
+              value: { string_value: '1' }
+            }
+            state: LIVE
+          }
+          artifacts: {
+            properties {
+              key: 'property'
+              value: { string_value: '2' }
+            }
+            state: LIVE
+          }
+          update_mask: {
+            paths: 'properties.property'
+            paths: 'state'
+            paths: 'an_invalid_field_path_having_no_effect'
+          }
+        )pb");
+    update_artifacts_request.mutable_artifacts(0)->set_type_id(type_id);
+    update_artifacts_request.mutable_artifacts(0)->set_id(artifact_id1);
+    update_artifacts_request.mutable_artifacts(1)->set_type_id(type_id);
+    update_artifacts_request.mutable_artifacts(1)->set_id(artifact_id2);
+    PutArtifactsResponse update_artifacts_response;
+    ASSERT_EQ(metadata_store_->PutArtifacts(update_artifacts_request,
+                                            &update_artifacts_response),
+              absl::OkStatus());
+
+    GetArtifactsByIDRequest get_artifacts_by_id_request;
+    get_artifacts_by_id_request.add_artifact_ids(artifact_id1);
+    get_artifacts_by_id_request.add_artifact_ids(artifact_id2);
+
+    GetArtifactsByIDResponse get_artifacts_by_id_response;
+    ASSERT_EQ(metadata_store_->GetArtifactsByID(get_artifacts_by_id_request,
+                                                &get_artifacts_by_id_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_artifacts_by_id_response.artifacts(), SizeIs(2));
+
+    update_artifacts_request.mutable_artifacts(0)->set_uri(
+        "testuri://testing/uri1");
+    update_artifacts_request.mutable_artifacts(1)->set_uri(
+        "testuri://testing/uri2");
+    EXPECT_THAT(
+        get_artifacts_by_id_response.artifacts(),
+        UnorderedElementsAre(
+            EqualsProto(update_artifacts_request.artifacts(0),
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(update_artifacts_request.artifacts(1),
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
+  {
+    // Test 2: insert two new artifacts and update fields for both artifacts.
+    ASSERT_EQ(metadata_store_->PutArtifacts(put_artifacts_request,
+                                            &put_artifacts_response),
+              absl::OkStatus());
+    ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(2));
+    const int64_t artifact_id3 = put_artifacts_response.artifact_ids(0);
+    const int64_t artifact_id4 = put_artifacts_response.artifact_ids(1);
+    // Set `external_id` and `uri` for both artifacts.
+    // `properties` for both artifacts will remain unchanged.
+    PutArtifactsRequest update_artifacts_request =
+        ParseTextProtoOrDie<PutArtifactsRequest>(R"pb(
+          artifacts: { external_id: 'artifact_3' uri: 'testuri://testing/uri3' }
+          artifacts: { external_id: 'artifact_4' uri: 'testuri://testing/uri4' }
+          update_mask: { paths: 'external_id' paths: 'uri' }
+        )pb");
+    update_artifacts_request.mutable_artifacts(0)->set_type_id(type_id);
+    update_artifacts_request.mutable_artifacts(0)->set_id(artifact_id3);
+    update_artifacts_request.mutable_artifacts(1)->set_type_id(type_id);
+    update_artifacts_request.mutable_artifacts(1)->set_id(artifact_id4);
+    PutArtifactsResponse update_artifacts_response;
+    ASSERT_EQ(metadata_store_->PutArtifacts(update_artifacts_request,
+                                            &update_artifacts_response),
+              absl::OkStatus());
+
+    GetArtifactsByIDRequest get_artifacts_by_id_request;
+    get_artifacts_by_id_request.add_artifact_ids(artifact_id3);
+    get_artifacts_by_id_request.add_artifact_ids(artifact_id4);
+
+    GetArtifactsByIDResponse get_artifacts_by_id_response;
+    ASSERT_EQ(metadata_store_->GetArtifactsByID(get_artifacts_by_id_request,
+                                                &get_artifacts_by_id_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_artifacts_by_id_response.artifacts(), SizeIs(2));
+
+    EXPECT_THAT(
+        get_artifacts_by_id_response.artifacts(),
+        UnorderedElementsAre(
+            EqualsProto(update_artifacts_request.artifacts(0),
+                        /*ignore_fields=*/{"type", "properties",
+                                           "create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(update_artifacts_request.artifacts(1),
+                        /*ignore_fields=*/{"type", "properties",
+                                           "create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
+  Artifact artifact_for_test_3_4_and_5;
+  {
+    // Test 3: insert two new artifacts and update `properties` and
+    // `custom_properties` for both artifacts.
+    ASSERT_EQ(metadata_store_->PutArtifacts(put_artifacts_request,
+                                            &put_artifacts_response),
+              absl::OkStatus());
+    ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(2));
+    const int64_t artifact_id5 = put_artifacts_response.artifact_ids(0);
+    const int64_t artifact_id6 = put_artifacts_response.artifact_ids(1);
+    // `uri` for both artifacts will remain unchanged.
+    // Delete `properties` pair <'property': '3'> in the first artifact.
+    // Add `custom_properties` pair <'custom_property': true> for `artifact_5`.
+    // Add `custom_properties` pair <'custom_property': false> for `artifact_6`.
+    PutArtifactsRequest update_artifacts_request =
+        ParseTextProtoOrDie<PutArtifactsRequest>(R"pb(
+          artifacts: {
+            custom_properties {
+              key: 'custom_property'
+              value: { bool_value: true }
+            }
+          }
+          artifacts: {
+            custom_properties {
+              key: 'custom_property'
+              value: { bool_value: false }
+            }
+          }
+          update_mask: {
+            paths: 'properties.property'
+            paths: 'custom_properties.custom_property'
+          }
+        )pb");
+    update_artifacts_request.mutable_artifacts(0)->set_type_id(type_id);
+    update_artifacts_request.mutable_artifacts(0)->set_id(artifact_id5);
+    update_artifacts_request.mutable_artifacts(1)->set_type_id(type_id);
+    update_artifacts_request.mutable_artifacts(1)->set_id(artifact_id6);
+    PutArtifactsResponse update_artifacts_response;
+    ASSERT_EQ(metadata_store_->PutArtifacts(update_artifacts_request,
+                                            &update_artifacts_response),
+              absl::OkStatus());
+
+    GetArtifactsByIDRequest get_artifacts_by_id_request;
+    get_artifacts_by_id_request.add_artifact_ids(artifact_id5);
+    get_artifacts_by_id_request.add_artifact_ids(artifact_id6);
+
+    GetArtifactsByIDResponse get_artifacts_by_id_response;
+    ASSERT_EQ(metadata_store_->GetArtifactsByID(get_artifacts_by_id_request,
+                                                &get_artifacts_by_id_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_artifacts_by_id_response.artifacts(), SizeIs(2));
+
+    update_artifacts_request.mutable_artifacts(0)->set_uri(
+        "testuri://testing/uri1");
+    update_artifacts_request.mutable_artifacts(1)->set_uri(
+        "testuri://testing/uri2");
+    artifact_for_test_3_4_and_5 = update_artifacts_request.artifacts(1);
+    EXPECT_THAT(
+        get_artifacts_by_id_response.artifacts(),
+        UnorderedElementsAre(
+            EqualsProto(update_artifacts_request.artifacts(0),
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(update_artifacts_request.artifacts(1),
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
+  {
+    // Test 4: insert a new artifact and update an existing artifact in the
+    // same request under masking. The mask is expected to have no effect on
+    // insertion but to protect fields for update.
+    PutArtifactsRequest upsert_artifacts_request =
+        ParseTextProtoOrDie<PutArtifactsRequest>(R"pb(
+          artifacts: {
+            external_id: 'artifact_6'
+            custom_properties {
+              key: 'custom_property'
+              value: { bool_value: true }
+            }
+          }
+          artifacts: {
+            uri: 'testuri://testing/uri7'
+            external_id: 'artifact_7'
+            custom_properties {
+              key: 'custom_property'
+              value: { bool_value: true }
+            }
+          }
+          update_mask: { paths: 'external_id' }
+        )pb");
+    upsert_artifacts_request.mutable_artifacts(0)->set_type_id(type_id);
+    upsert_artifacts_request.mutable_artifacts(0)->set_id(
+        artifact_for_test_3_4_and_5.id());
+    upsert_artifacts_request.mutable_artifacts(1)->set_type_id(type_id);
+    PutArtifactsResponse upsert_artifacts_response;
+    ASSERT_EQ(metadata_store_->PutArtifacts(upsert_artifacts_request,
+                                            &upsert_artifacts_response),
+              absl::OkStatus());
+    const int64_t artifact_id7 = upsert_artifacts_response.artifact_ids(1);
+
+    GetArtifactsByIDRequest get_artifacts_by_id_request;
+    get_artifacts_by_id_request.add_artifact_ids(
+        artifact_for_test_3_4_and_5.id());
+    get_artifacts_by_id_request.add_artifact_ids(artifact_id7);
+
+    GetArtifactsByIDResponse get_artifacts_by_id_response;
+    ASSERT_EQ(metadata_store_->GetArtifactsByID(get_artifacts_by_id_request,
+                                                &get_artifacts_by_id_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_artifacts_by_id_response.artifacts(), SizeIs(2));
+
+    // If put update is successful, one of the obtained artifacts should be the
+    // updated artifact, one of the obtained artifacts should be the inserted
+    // artifact.
+    artifact_for_test_3_4_and_5.set_external_id("artifact_6");
+    upsert_artifacts_request.mutable_artifacts(1)->set_id(artifact_id7);
+    EXPECT_THAT(
+        get_artifacts_by_id_response.artifacts(),
+        UnorderedElementsAre(
+            EqualsProto(artifact_for_test_3_4_and_5,
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(upsert_artifacts_request.artifacts(1),
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
+  {
+    // Test 5: updating an artifact with a mask containing only invalid mask
+    // paths has no effect.
+    PutArtifactsRequest upsert_artifacts_request =
+        ParseTextProtoOrDie<PutArtifactsRequest>(R"pb(
+          artifacts: {
+            external_id: 'unimportant_exeternal_id_value'
+            custom_properties {
+              key: 'unimportant_property_key'
+              value: { bool_value: true }
+            }
+          }
+          update_mask: { paths: 'an_invalid_field_path' }
+        )pb");
+    upsert_artifacts_request.mutable_artifacts(0)->set_type_id(type_id);
+    upsert_artifacts_request.mutable_artifacts(0)->set_id(
+        artifact_for_test_3_4_and_5.id());
+    PutArtifactsResponse upsert_artifacts_response;
+    ASSERT_EQ(metadata_store_->PutArtifacts(upsert_artifacts_request,
+                                            &upsert_artifacts_response),
+              absl::OkStatus());
+
+    GetArtifactsByIDRequest get_artifacts_by_id_request;
+    get_artifacts_by_id_request.add_artifact_ids(
+        artifact_for_test_3_4_and_5.id());
+
+    GetArtifactsByIDResponse get_artifacts_by_id_response;
+    ASSERT_EQ(metadata_store_->GetArtifactsByID(get_artifacts_by_id_request,
+                                                &get_artifacts_by_id_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_artifacts_by_id_response.artifacts(), SizeIs(1));
+
+    EXPECT_THAT(
+        get_artifacts_by_id_response.artifacts(0),
+        EqualsProto(
+            artifact_for_test_3_4_and_5,
+            /*ignore_fields=*/{"type", "external_id", "create_time_since_epoch",
+                               "last_update_time_since_epoch"}));
+  }
 }
 
 TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithListOptions) {
@@ -1899,7 +2219,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithListOptions) {
                                              &put_artifact_type_response));
   ASSERT_TRUE(put_artifact_type_response.has_type_id());
 
-  const int64 type_id = put_artifact_type_response.type_id();
+  const int64_t type_id = put_artifact_type_response.type_id();
 
   Artifact artifact = ParseTextProtoOrDie<Artifact>(R"(
     uri: 'testuri://testing/uri'
@@ -1921,8 +2241,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithListOptions) {
             metadata_store_->PutArtifacts(put_artifacts_request,
                                           &put_artifacts_response));
   ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(2));
-  const int64 first_artifact_id = put_artifacts_response.artifact_ids(0);
-  const int64 second_artifact_id = put_artifacts_response.artifact_ids(1);
+  const int64_t first_artifact_id = put_artifacts_response.artifact_ids(0);
+  const int64_t second_artifact_id = put_artifacts_response.artifact_ids(1);
 
   ListOperationOptions list_options =
       ParseTextProtoOrDie<ListOperationOptions>(R"(
@@ -1941,10 +2261,11 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithListOptions) {
   EXPECT_THAT(get_artifacts_response.next_page_token(), Not(IsEmpty()));
   EXPECT_EQ(get_artifacts_response.artifacts(0).id(), second_artifact_id);
 
-  EXPECT_THAT(get_artifacts_response.artifacts(0),
-              EqualsProto(put_artifacts_request.artifacts(1),
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      get_artifacts_response.artifacts(0),
+      EqualsProto(put_artifacts_request.artifacts(1),
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
 
   list_options.set_next_page_token(get_artifacts_response.next_page_token());
   *get_artifacts_request.mutable_options() = list_options;
@@ -1954,10 +2275,11 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithListOptions) {
   EXPECT_THAT(get_artifacts_response.artifacts(), SizeIs(1));
   EXPECT_THAT(get_artifacts_response.next_page_token(), IsEmpty());
   EXPECT_EQ(get_artifacts_response.artifacts(0).id(), first_artifact_id);
-  EXPECT_THAT(get_artifacts_response.artifacts(0),
-              EqualsProto(put_artifacts_request.artifacts(0),
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      get_artifacts_response.artifacts(0),
+      EqualsProto(put_artifacts_request.artifacts(0),
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
 }
 
 TEST_P(MetadataStoreTestSuite, PutArtifactsWhenLatestUpdatedTimeChanged) {
@@ -1966,7 +2288,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsWhenLatestUpdatedTimeChanged) {
   PutArtifactTypeResponse put_type_response;
   ASSERT_EQ(absl::OkStatus(), metadata_store_->PutArtifactType(
                                   put_type_request, &put_type_response));
-  const int64 type_id = put_type_response.type_id();
+  const int64_t type_id = put_type_response.type_id();
   PutArtifactsRequest put_artifacts_request;
   put_artifacts_request.add_artifacts()->set_type_id(type_id);
   PutArtifactsResponse put_artifacts_response;
@@ -2019,7 +2341,7 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsUpdateGetExecutionsByID) {
                                               &put_execution_type_response));
   ASSERT_TRUE(put_execution_type_response.has_type_id());
 
-  const int64 type_id = put_execution_type_response.type_id();
+  const int64_t type_id = put_execution_type_response.type_id();
 
   PutExecutionsRequest put_executions_request =
       ParseTextProtoOrDie<PutExecutionsRequest>(R"(
@@ -2037,7 +2359,7 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsUpdateGetExecutionsByID) {
             metadata_store_->PutExecutions(put_executions_request,
                                            &put_executions_response));
   ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(1));
-  const int64 execution_id = put_executions_response.execution_ids(0);
+  const int64_t execution_id = put_executions_response.execution_ids(0);
 
   // Now we change 3 to 2, and drop the state.
   PutExecutionsRequest put_executions_request_2 =
@@ -2066,7 +2388,7 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsUpdateGetExecutionsByID) {
 
   EXPECT_THAT(get_executions_by_id_response.executions(0),
               EqualsProto(put_executions_request_2.executions(0),
-                          /*ignore_fields=*/{"create_time_since_epoch",
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
 }
 
@@ -2194,10 +2516,9 @@ TEST_P(MetadataStoreTestSuite, PutExecutionTypesGetExecutionTypes) {
   GetExecutionTypesResponse got_response;
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->GetExecutionTypes(get_request, &got_response));
-  GetExecutionTypesResponse want_response;
-  *want_response.add_execution_types() = type_1;
-  *want_response.add_execution_types() = type_2;
-  EXPECT_THAT(got_response, EqualsProto(want_response));
+
+  EXPECT_THAT(got_response.execution_types(),
+              UnorderedElementsAre(EqualsProto(type_1), EqualsProto(type_2)));
 }
 
 TEST_P(MetadataStoreTestSuite, GetExecutionTypesWhenNoneExist) {
@@ -2321,7 +2642,7 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionByID) {
                                               &put_execution_type_response));
   ASSERT_TRUE(put_execution_type_response.has_type_id());
 
-  const int64 type_id = put_execution_type_response.type_id();
+  const int64_t type_id = put_execution_type_response.type_id();
 
   // Setup: Insert two executions
   Execution execution1;
@@ -2356,6 +2677,8 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionByID) {
     execution1.set_id(put_executions_response.execution_ids(0));
     execution2 = put_executions_request.executions(1);
     execution2.set_id(put_executions_response.execution_ids(1));
+    execution1.set_type("test_type2");
+    execution2.set_type("test_type2");
   }
   // Test: Get by a single id
   {
@@ -2372,7 +2695,7 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionByID) {
                                        "last_update_time_since_epoch"})));
   }
   // Test: Get by a single unknown id
-  const int64 unknown_id = execution1.id() + execution2.id() + 1;
+  const int64_t unknown_id = execution1.id() + execution2.id() + 1;
   {
     GetExecutionsByIDRequest get_executions_by_id_request;
     get_executions_by_id_request.add_execution_ids(unknown_id);
@@ -2405,7 +2728,7 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionByID) {
 }
 
 TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsByExternalIds) {
-  int64 type_id;
+  int64_t type_id;
   // Create the type
   {
     const PutExecutionTypeRequest put_execution_type_request =
@@ -2451,6 +2774,8 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsByExternalIds) {
     ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(2));
     execution1.set_id(put_executions_response.execution_ids(0));
     execution2.set_id(put_executions_response.execution_ids(1));
+    execution1.set_type("test_execution_type");
+    execution2.set_type("test_execution_type");
   }
 
   // Test: retrieve by one external id
@@ -2543,7 +2868,7 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithEmptyExecution) {
                                               &put_execution_type_response));
   ASSERT_TRUE(put_execution_type_response.has_type_id());
 
-  const int64 type_id = put_execution_type_response.type_id();
+  const int64_t type_id = put_execution_type_response.type_id();
 
   PutExecutionsRequest put_executions_request =
       ParseTextProtoOrDie<PutExecutionsRequest>(R"(
@@ -2556,17 +2881,18 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithEmptyExecution) {
             metadata_store_->PutExecutions(put_executions_request,
                                            &put_executions_response));
   ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(1));
-  const int64 execution_id = put_executions_response.execution_ids(0);
+  const int64_t execution_id = put_executions_response.execution_ids(0);
   const GetExecutionsRequest get_executions_request;
   GetExecutionsResponse get_executions_response;
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->GetExecutions(get_executions_request,
                                            &get_executions_response));
   ASSERT_THAT(get_executions_response.executions(), SizeIs(1));
-  EXPECT_THAT(get_executions_response.executions(0),
-              EqualsProto(put_executions_request.executions(0),
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      get_executions_response.executions(0),
+      EqualsProto(put_executions_request.executions(0),
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
 
   GetExecutionsByTypeRequest get_executions_by_type_request;
   GetExecutionsByTypeResponse get_executions_by_type_response;
@@ -2587,6 +2913,314 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithEmptyExecution) {
               SizeIs(0));
 }
 
+// Test creating an execution and then updating one of its properties.
+TEST_P(MetadataStoreTestSuite, UpdateExecutionWithMasking) {
+  const PutExecutionTypeRequest put_execution_type_request =
+      ParseTextProtoOrDie<PutExecutionTypeRequest>(
+          R"pb(
+            all_fields_match: true
+            execution_type: {
+              name: 'test_type2'
+              properties { key: 'property' value: STRING }
+            }
+          )pb");
+  PutExecutionTypeResponse put_execution_type_response;
+  ASSERT_EQ(metadata_store_->PutExecutionType(put_execution_type_request,
+                                              &put_execution_type_response),
+            absl::OkStatus());
+  ASSERT_TRUE(put_execution_type_response.has_type_id());
+
+  const int64_t type_id = put_execution_type_response.type_id();
+
+  // Add two executions, one with a `properties` pair <'property': '3'>, one
+  // without.
+  PutExecutionsRequest put_executions_request =
+      ParseTextProtoOrDie<PutExecutionsRequest>(R"pb(
+        executions: {
+          properties {
+            key: 'property'
+            value: { string_value: '3' }
+          }
+
+        }
+        executions: {}
+      )pb");
+  put_executions_request.mutable_executions(0)->set_type_id(type_id);
+  put_executions_request.mutable_executions(1)->set_type_id(type_id);
+  PutExecutionsResponse put_executions_response;
+  {
+    // Test 1: a complex test case for updating fields and properties for both
+    // executions.
+    ASSERT_EQ(metadata_store_->PutExecutions(put_executions_request,
+                                             &put_executions_response),
+              absl::OkStatus());
+    ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(2));
+    const int64_t execution_id1 = put_executions_response.execution_ids(0);
+    const int64_t execution_id2 = put_executions_response.execution_ids(1);
+    // Add `last_known_state` for both executions.
+    // Change string value of key `property` from '3' to '1' in the first
+    // execution.
+    // Add `properties` pair <'property': '2'> in the second execution.
+    PutExecutionsRequest update_executions_request =
+        ParseTextProtoOrDie<PutExecutionsRequest>(R"pb(
+          executions: {
+            properties {
+              key: 'property'
+              value: { string_value: '1' }
+            }
+            last_known_state: RUNNING
+          }
+          executions: {
+            properties {
+              key: 'property'
+              value: { string_value: '2' }
+            }
+            last_known_state: CANCELED
+          }
+          update_mask: {
+            paths: 'properties.property'
+            paths: 'last_known_state'
+            paths: 'an_invalid_field_path_having_no_effect'
+          }
+        )pb");
+    update_executions_request.mutable_executions(0)->set_type_id(type_id);
+    update_executions_request.mutable_executions(0)->set_id(execution_id1);
+    update_executions_request.mutable_executions(1)->set_type_id(type_id);
+    update_executions_request.mutable_executions(1)->set_id(execution_id2);
+    PutExecutionsResponse update_executions_response;
+    ASSERT_EQ(metadata_store_->PutExecutions(update_executions_request,
+                                             &update_executions_response),
+              absl::OkStatus());
+
+    GetExecutionsByIDRequest get_executions_by_id_request;
+    get_executions_by_id_request.add_execution_ids(execution_id1);
+    get_executions_by_id_request.add_execution_ids(execution_id2);
+
+    GetExecutionsByIDResponse get_executions_by_id_response;
+    ASSERT_EQ(metadata_store_->GetExecutionsByID(
+                  get_executions_by_id_request, &get_executions_by_id_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_executions_by_id_response.executions(), SizeIs(2));
+
+    EXPECT_THAT(
+        get_executions_by_id_response.executions(),
+        UnorderedElementsAre(
+            EqualsProto(update_executions_request.executions(0),
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(update_executions_request.executions(1),
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
+  {
+    // Test 2: insert two new executions and update fields for both executions.
+    ASSERT_EQ(metadata_store_->PutExecutions(put_executions_request,
+                                             &put_executions_response),
+              absl::OkStatus());
+    ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(2));
+    const int64_t execution_id3 = put_executions_response.execution_ids(0);
+    const int64_t execution_id4 = put_executions_response.execution_ids(1);
+    // Set `external_id` and `last_known_state` for both executions.
+    // `properties` for both executions will remain unchanged.
+    PutExecutionsRequest update_executions_request =
+        ParseTextProtoOrDie<PutExecutionsRequest>(R"pb(
+          executions: { external_id: 'execution_3' last_known_state: RUNNING }
+          executions: { external_id: 'execution_4' last_known_state: CANCELED }
+          update_mask: { paths: 'external_id' paths: 'last_known_state' }
+        )pb");
+    update_executions_request.mutable_executions(0)->set_type_id(type_id);
+    update_executions_request.mutable_executions(0)->set_id(execution_id3);
+    update_executions_request.mutable_executions(1)->set_type_id(type_id);
+    update_executions_request.mutable_executions(1)->set_id(execution_id4);
+    PutExecutionsResponse update_executions_response;
+    ASSERT_EQ(metadata_store_->PutExecutions(update_executions_request,
+                                             &update_executions_response),
+              absl::OkStatus());
+
+    GetExecutionsByIDRequest get_executions_by_id_request;
+    get_executions_by_id_request.add_execution_ids(execution_id3);
+    get_executions_by_id_request.add_execution_ids(execution_id4);
+
+    GetExecutionsByIDResponse get_executions_by_id_response;
+    ASSERT_EQ(metadata_store_->GetExecutionsByID(
+                  get_executions_by_id_request, &get_executions_by_id_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_executions_by_id_response.executions(), SizeIs(2));
+
+    EXPECT_THAT(
+        get_executions_by_id_response.executions(),
+        UnorderedElementsAre(
+            EqualsProto(update_executions_request.executions(0),
+                        /*ignore_fields=*/{"type", "properties",
+                                           "create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(update_executions_request.executions(1),
+                        /*ignore_fields=*/{"type", "properties",
+                                           "create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
+  Execution execution_for_test_3_4_and_5;
+  {
+    // Test 3: insert two new executions and update `properties` and
+    // `custom_properties` for both executions.
+    ASSERT_EQ(metadata_store_->PutExecutions(put_executions_request,
+                                             &put_executions_response),
+              absl::OkStatus());
+    ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(2));
+    const int64_t execution_id5 = put_executions_response.execution_ids(0);
+    const int64_t execution_id6 = put_executions_response.execution_ids(1);
+    // Delete `properties` pair <'property': '3'> in the first execution.
+    // Add `custom_properties` pair <'custom_property': true> for `execution_5`.
+    // Add `custom_properties` pair <'custom_property': false> for
+    // `execution_6`.
+    PutExecutionsRequest update_executions_request =
+        ParseTextProtoOrDie<PutExecutionsRequest>(R"pb(
+          executions: {
+            custom_properties {
+              key: 'custom_property'
+              value: { bool_value: true }
+            }
+          }
+          executions: {
+            custom_properties {
+              key: 'custom_property'
+              value: { bool_value: false }
+            }
+          }
+          update_mask: {
+            paths: 'properties.property'
+            paths: 'custom_properties.custom_property'
+          }
+        )pb");
+    update_executions_request.mutable_executions(0)->set_type_id(type_id);
+    update_executions_request.mutable_executions(0)->set_id(execution_id5);
+    update_executions_request.mutable_executions(1)->set_type_id(type_id);
+    update_executions_request.mutable_executions(1)->set_id(execution_id6);
+    PutExecutionsResponse update_executions_response;
+    ASSERT_EQ(metadata_store_->PutExecutions(update_executions_request,
+                                             &update_executions_response),
+              absl::OkStatus());
+    execution_for_test_3_4_and_5 = update_executions_request.executions(1);
+
+    GetExecutionsByIDRequest get_executions_by_id_request;
+    get_executions_by_id_request.add_execution_ids(execution_id5);
+    get_executions_by_id_request.add_execution_ids(execution_id6);
+
+    GetExecutionsByIDResponse get_executions_by_id_response;
+    ASSERT_EQ(metadata_store_->GetExecutionsByID(
+                  get_executions_by_id_request, &get_executions_by_id_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_executions_by_id_response.executions(), SizeIs(2));
+
+    EXPECT_THAT(
+        get_executions_by_id_response.executions(),
+        UnorderedElementsAre(
+            EqualsProto(update_executions_request.executions(0),
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(update_executions_request.executions(1),
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
+  {
+    // Test 4: insert a new execution and update an existing execution in the
+    // same request under masking. The mask is expected to have no effect on
+    // insertion but to protect fields for update.
+    PutExecutionsRequest upsert_executions_request =
+        ParseTextProtoOrDie<PutExecutionsRequest>(R"pb(
+          executions: {
+            external_id: 'execution_6'
+            custom_properties {
+              key: 'custom_property'
+              value: { bool_value: true }
+            }
+          }
+          executions: {
+            external_id: 'execution_7'
+            custom_properties {
+              key: 'custom_property'
+              value: { bool_value: true }
+            }
+          }
+          update_mask: { paths: 'external_id' }
+        )pb");
+    upsert_executions_request.mutable_executions(0)->set_type_id(type_id);
+    upsert_executions_request.mutable_executions(0)->set_id(
+        execution_for_test_3_4_and_5.id());
+    upsert_executions_request.mutable_executions(1)->set_type_id(type_id);
+    PutExecutionsResponse upsert_executions_response;
+    ASSERT_EQ(metadata_store_->PutExecutions(upsert_executions_request,
+                                             &upsert_executions_response),
+              absl::OkStatus());
+    const int64_t execution_id7 = upsert_executions_response.execution_ids(1);
+
+    GetExecutionsByIDRequest get_executions_by_id_request;
+    get_executions_by_id_request.add_execution_ids(
+        execution_for_test_3_4_and_5.id());
+    get_executions_by_id_request.add_execution_ids(execution_id7);
+
+    GetExecutionsByIDResponse get_executions_by_id_response;
+    ASSERT_EQ(metadata_store_->GetExecutionsByID(
+                  get_executions_by_id_request, &get_executions_by_id_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_executions_by_id_response.executions(), SizeIs(2));
+
+    // If put update is successful, one of the obtained executions should be the
+    // updated execution, one of the obtained executions should be the inserted
+    // execution.
+    execution_for_test_3_4_and_5.set_external_id("execution_6");
+    upsert_executions_request.mutable_executions(1)->set_id(execution_id7);
+    EXPECT_THAT(
+        get_executions_by_id_response.executions(),
+        UnorderedElementsAre(
+            EqualsProto(execution_for_test_3_4_and_5,
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(upsert_executions_request.executions(1),
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
+  {
+    // Test 5: updating an execution with a mask containing only invalid mask
+    // paths has no effect.
+    PutExecutionsRequest upsert_executions_request =
+        ParseTextProtoOrDie<PutExecutionsRequest>(R"pb(
+          executions: {
+            external_id: 'unimportant_exeternal_id_value'
+            custom_properties {
+              key: 'unimportant_property_key'
+              value: { bool_value: true }
+            }
+          }
+          update_mask: { paths: 'an_invalid_field_path' }
+        )pb");
+    upsert_executions_request.mutable_executions(0)->set_type_id(type_id);
+    upsert_executions_request.mutable_executions(0)->set_id(
+        execution_for_test_3_4_and_5.id());
+    PutExecutionsResponse upsert_executions_response;
+    ASSERT_EQ(metadata_store_->PutExecutions(upsert_executions_request,
+                                             &upsert_executions_response),
+              absl::OkStatus());
+
+    GetExecutionsByIDRequest get_executions_by_id_request;
+    get_executions_by_id_request.add_execution_ids(
+        execution_for_test_3_4_and_5.id());
+
+    GetExecutionsByIDResponse get_executions_by_id_response;
+    ASSERT_EQ(metadata_store_->GetExecutionsByID(
+                  get_executions_by_id_request, &get_executions_by_id_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_executions_by_id_response.executions(), SizeIs(1));
+
+    EXPECT_THAT(
+        get_executions_by_id_response.executions(0),
+        EqualsProto(
+            execution_for_test_3_4_and_5,
+            /*ignore_fields=*/{"type", "external_id", "create_time_since_epoch",
+                               "last_update_time_since_epoch"}));
+  }
+}
+
 TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithListOptions) {
   const PutExecutionTypeRequest put_execution_type_request =
       ParseTextProtoOrDie<PutExecutionTypeRequest>(
@@ -2603,7 +3237,7 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithListOptions) {
                                               &put_execution_type_response));
   ASSERT_TRUE(put_execution_type_response.has_type_id());
 
-  const int64 type_id = put_execution_type_response.type_id();
+  const int64_t type_id = put_execution_type_response.type_id();
 
   Execution execution = ParseTextProtoOrDie<Execution>(R"(
     properties {
@@ -2625,8 +3259,8 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithListOptions) {
             metadata_store_->PutExecutions(put_executions_request,
                                            &put_executions_response));
   ASSERT_THAT(put_executions_response.execution_ids(), SizeIs(2));
-  const int64 execution_id_0 = put_executions_response.execution_ids(0);
-  const int64 execution_id_1 = put_executions_response.execution_ids(1);
+  const int64_t execution_id_0 = put_executions_response.execution_ids(0);
+  const int64_t execution_id_1 = put_executions_response.execution_ids(1);
 
   ListOperationOptions list_options =
       ParseTextProtoOrDie<ListOperationOptions>(R"(
@@ -2645,10 +3279,11 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithListOptions) {
   EXPECT_THAT(get_executions_response.next_page_token(), Not(IsEmpty()));
   EXPECT_EQ(get_executions_response.executions(0).id(), execution_id_1);
 
-  EXPECT_THAT(get_executions_response.executions(0),
-              EqualsProto(put_executions_request.executions(1),
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      get_executions_response.executions(0),
+      EqualsProto(put_executions_request.executions(1),
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
 
   list_options.set_next_page_token(get_executions_response.next_page_token());
   *get_executions_request.mutable_options() = list_options;
@@ -2658,10 +3293,11 @@ TEST_P(MetadataStoreTestSuite, PutExecutionsGetExecutionsWithListOptions) {
   EXPECT_THAT(get_executions_response.executions(), SizeIs(1));
   EXPECT_THAT(get_executions_response.next_page_token(), IsEmpty());
   EXPECT_EQ(get_executions_response.executions(0).id(), execution_id_0);
-  EXPECT_THAT(get_executions_response.executions(0),
-              EqualsProto(put_executions_request.executions(0),
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      get_executions_response.executions(0),
+      EqualsProto(put_executions_request.executions(0),
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
 }
 
 TEST_P(MetadataStoreTestSuite,
@@ -2731,7 +3367,7 @@ TEST_P(MetadataStoreTestSuite, GetArtifactByURI) {
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->PutArtifactType(put_artifact_type_request,
                                              &put_artifact_type_response));
-  const int64 type_id = put_artifact_type_response.type_id();
+  const int64_t type_id = put_artifact_type_response.type_id();
 
   const GetArtifactsByURIRequest get_artifacts_by_uri_empty_db_request;
   GetArtifactsByURIResponse get_artifacts_by_uri_empty_db_response;
@@ -2845,7 +3481,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithEmptyArtifact) {
                                              &put_artifact_type_response));
   ASSERT_TRUE(put_artifact_type_response.has_type_id());
 
-  const int64 type_id = put_artifact_type_response.type_id();
+  const int64_t type_id = put_artifact_type_response.type_id();
 
   PutArtifactsRequest put_artifacts_request =
       ParseTextProtoOrDie<PutArtifactsRequest>(R"(
@@ -2858,7 +3494,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsWithEmptyArtifact) {
             metadata_store_->PutArtifacts(put_artifacts_request,
                                           &put_artifacts_response));
   ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(1));
-  const int64 artifact_id = put_artifacts_response.artifact_ids(0);
+  const int64_t artifact_id = put_artifacts_response.artifact_ids(0);
   GetArtifactsRequest get_artifacts_request;
   GetArtifactsResponse get_artifacts_response;
   ASSERT_EQ(absl::OkStatus(),
@@ -3338,8 +3974,8 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecution) {
   PutTypesResponse put_types_response;
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->PutTypes(put_types_request, &put_types_response));
-  int64 artifact_type_id = put_types_response.artifact_type_ids(0);
-  int64 execution_type_id = put_types_response.execution_type_ids(0);
+  int64_t artifact_type_id = put_types_response.artifact_type_ids(0);
+  int64_t execution_type_id = put_types_response.execution_type_ids(0);
 
   // 1. Insert an execution first time without any artifact and event pair.
   Execution execution;
@@ -3417,14 +4053,15 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecution) {
             metadata_store_->GetArtifacts(get_artifacts_request,
                                           &get_artifacts_response));
   ASSERT_THAT(get_artifacts_response.artifacts(), SizeIs(2));
-  EXPECT_THAT(get_artifacts_response.artifacts(0),
-              EqualsProto(artifact_1,
-                          /*ignore_fields=*/{"create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
-  EXPECT_THAT(get_artifacts_response.artifacts(1),
-              EqualsProto(artifact_2,
-                          /*ignore_fields=*/{"create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      get_artifacts_response.artifacts(),
+      UnorderedElementsAre(
+          EqualsProto(artifact_1,
+                      /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                         "last_update_time_since_epoch"}),
+          EqualsProto(artifact_2,
+                      /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                         "last_update_time_since_epoch"})));
 
   GetExecutionsRequest get_executions_request;
   GetExecutionsResponse get_executions_response;
@@ -3434,7 +4071,7 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecution) {
   ASSERT_THAT(get_executions_response.executions(), SizeIs(1));
   EXPECT_THAT(get_executions_response.executions(0),
               EqualsProto(execution,
-                          /*ignore_fields=*/{"create_time_since_epoch",
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
   GetEventsByExecutionIDsRequest get_events_request;
   get_events_request.add_execution_ids(execution.id());
@@ -3442,8 +4079,11 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecution) {
   ASSERT_EQ(absl::OkStatus(), metadata_store_->GetEventsByExecutionIDs(
                                   get_events_request, &get_events_response));
   ASSERT_THAT(get_events_response.events(), SizeIs(2));
-  EXPECT_EQ(get_events_response.events(0).artifact_id(), artifact_1.id());
-  EXPECT_EQ(get_events_response.events(1).artifact_id(), artifact_2.id());
+  std::vector<int64_t> got_events_artifact_ids = {
+      get_events_response.events(0).artifact_id(),
+      get_events_response.events(1).artifact_id()};
+  EXPECT_THAT(got_events_artifact_ids,
+              UnorderedElementsAre(artifact_1.id(), artifact_2.id()));
 }
 
 // Put an execution with contexts.
@@ -3491,16 +4131,16 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContext) {
             metadata_store_->GetContexts({}, &get_contexts_response));
   EXPECT_THAT(
       get_contexts_response.contexts(),
-      ElementsAre(
+      UnorderedElementsAre(
           EqualsProto(context1,
-                      /*ignore_fields=*/{"create_time_since_epoch",
+                      /*ignore_fields=*/{"type", "create_time_since_epoch",
                                          "last_update_time_since_epoch"}),
           EqualsProto(context2,
-                      /*ignore_fields=*/{"create_time_since_epoch",
+                      /*ignore_fields=*/{"type", "create_time_since_epoch",
                                          "last_update_time_since_epoch"})));
 
   // check attributions and associations of each context.
-  for (const int64 context_id : put_execution_response.context_ids()) {
+  for (const int64_t context_id : put_execution_response.context_ids()) {
     GetArtifactsByContextRequest get_artifacts_by_context_request;
     get_artifacts_by_context_request.set_context_id(context_id);
     GetArtifactsByContextResponse get_artifacts_by_context_response;
@@ -3545,7 +4185,7 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionsWithContextUsingListOptions) {
                                          &put_contexts_response));
 
   ASSERT_EQ(put_contexts_response.context_ids().size(), 1);
-  int64 context_id = put_contexts_response.context_ids(0);
+  int64_t context_id = put_contexts_response.context_ids(0);
 
   PutExecutionRequest put_execution_request;
   put_execution_request.mutable_execution()->set_type_id(
@@ -3557,14 +4197,14 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionsWithContextUsingListOptions) {
                                           &put_execution_response));
   // check the nodes of the end state graph
   ASSERT_GE(put_execution_response.execution_id(), 0);
-  int64 execution_id_1 = put_execution_response.execution_id();
+  int64_t execution_id_1 = put_execution_response.execution_id();
 
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->PutExecution(put_execution_request,
                                           &put_execution_response));
   // check the nodes of the end state graph
   ASSERT_GE(put_execution_response.execution_id(), 1);
-  int64 execution_id_2 = put_execution_response.execution_id();
+  int64_t execution_id_2 = put_execution_response.execution_id();
 
   Association association1;
   association1.set_context_id(context_id);
@@ -3637,7 +4277,7 @@ TEST_P(MetadataStoreTestSuite, PutAndGetArtifactsWithContextUsingListOptions) {
                                          &put_contexts_response));
 
   ASSERT_EQ(put_contexts_response.context_ids().size(), 1);
-  int64 context_id = put_contexts_response.context_ids(0);
+  int64_t context_id = put_contexts_response.context_ids(0);
 
   PutArtifactsRequest put_artifacts_request_1;
   Artifact artifact1;
@@ -3652,8 +4292,8 @@ TEST_P(MetadataStoreTestSuite, PutAndGetArtifactsWithContextUsingListOptions) {
             metadata_store_->PutArtifacts(put_artifacts_request_1,
                                           &put_artifacts_response));
   ASSERT_EQ(put_artifacts_response.artifact_ids().size(), 2);
-  int64 artifact_id_1 = put_artifacts_response.artifact_ids(0);
-  int64 artifact_id_2 = put_artifacts_response.artifact_ids(1);
+  int64_t artifact_id_1 = put_artifacts_response.artifact_ids(0);
+  int64_t artifact_id_2 = put_artifacts_response.artifact_ids(1);
 
   Attribution attribution1;
   attribution1.set_context_id(context_id);
@@ -3741,9 +4381,10 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContextReuseOption) {
             metadata_store_->GetContexts({}, &get_contexts_response));
   ASSERT_THAT(get_contexts_response.contexts(), SizeIs(1));
   const Context& stored_context = get_contexts_response.contexts(0);
-  EXPECT_THAT(stored_context, EqualsProto(context, /*ignore_fields=*/{
-                                              "id", "create_time_since_epoch",
-                                              "last_update_time_since_epoch"}));
+  EXPECT_THAT(stored_context,
+              EqualsProto(context, /*ignore_fields=*/{
+                              "id", "type", "create_time_since_epoch",
+                              "last_update_time_since_epoch"}));
   GetExecutionsByContextRequest get_executions_by_context_request;
   get_executions_by_context_request.set_context_id(stored_context.id());
   GetExecutionsByContextResponse get_executions_by_context_response;
@@ -3753,13 +4394,15 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContextReuseOption) {
   ASSERT_THAT(get_executions_by_context_response.executions(), SizeIs(2));
   EXPECT_THAT(
       get_executions_by_context_response.executions(),
-      ElementsAre(
-          EqualsProto(request.execution(),
-                      /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                         "last_update_time_since_epoch"}),
-          EqualsProto(request.execution(),
-                      /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                         "last_update_time_since_epoch"})));
+      UnorderedElementsAre(
+          EqualsProto(
+              request.execution(),
+              /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                 "last_update_time_since_epoch"}),
+          EqualsProto(
+              request.execution(),
+              /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                 "last_update_time_since_epoch"})));
 }
 
 TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithArtifactReuseOption) {
@@ -3790,7 +4433,7 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithArtifactReuseOption) {
                                           &put_execution_response),
             absl::OkStatus());
   ASSERT_EQ(put_execution_response.artifact_ids_size(), 1);
-  const int64 artifact_id = put_execution_response.artifact_ids(0);
+  const int64_t artifact_id = put_execution_response.artifact_ids(0);
 
   // Test 1.2: Try to insert another artifact with the same external_id but a
   // new uri fails as the artifact with the same external_id already exists.
@@ -3852,6 +4495,79 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithArtifactReuseOption) {
             kNewExternalIdStr);
 }
 
+TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithDuplicatedArtifacts) {
+  // Setup: Insert different types.
+  PutTypesRequest put_types_request = ParseTextProtoOrDie<PutTypesRequest>(R"pb(
+    artifact_types: { name: 'artifact_type' }
+    execution_types: { name: 'execution_type' }
+    context_types: { name: 'context_type' }
+  )pb");
+  PutTypesResponse put_types_response;
+  ASSERT_EQ(metadata_store_->PutTypes(put_types_request, &put_types_response),
+            absl::OkStatus());
+  // Setup: Insert 1 context.
+  Context context = ParseTextProtoOrDie<Context>(
+      R"pb(
+        name: 'context_name'
+      )pb");
+  context.set_type_id(put_types_response.context_type_ids(0));
+  PutContextsRequest put_contexts_request;
+  *put_contexts_request.add_contexts() = context;
+  PutContextsResponse put_contexts_response;
+  ASSERT_EQ(metadata_store_->PutContexts(put_contexts_request,
+                                         &put_contexts_response),
+            absl::OkStatus());
+  context.set_id(put_contexts_response.context_ids(0));
+  // Setup: Insert 1 artifact.
+  Artifact artifact = ParseTextProtoOrDie<Artifact>(
+      R"pb(
+        external_id: 'artifact_reference_str' name: 'artifact_name'
+      )pb");
+  artifact.set_type_id(put_types_response.artifact_type_ids(0));
+
+  PutArtifactsRequest put_artifact_request;
+  *put_artifact_request.add_artifacts() = artifact;
+  PutArtifactsResponse put_artifact_response;
+  ASSERT_EQ(metadata_store_->PutArtifacts(put_artifact_request,
+                                          &put_artifact_response),
+            absl::OkStatus());
+
+  // Ack: Call put execution with duplicate artifacts.
+  // Expect call succeeds without error due to built-in artifact de-dup.
+  PutExecutionRequest put_execution_request;
+  put_execution_request.mutable_execution()->set_type_id(
+      put_types_response.execution_type_ids(0));
+  *put_execution_request.add_artifact_event_pairs()->mutable_artifact() =
+      artifact;
+  *put_execution_request.add_artifact_event_pairs()->mutable_artifact() =
+      artifact;
+  *put_execution_request.add_contexts() = context;
+  put_execution_request.mutable_options()
+      ->set_reuse_artifact_if_already_exist_by_external_id(true);
+  put_execution_request.mutable_options()->set_reuse_context_if_already_exist(
+      true);
+  PutExecutionResponse put_execution_response;
+  ASSERT_EQ(metadata_store_->PutExecution(put_execution_request,
+                                          &put_execution_response),
+            absl::OkStatus());
+
+  // Ack: Call GetArtifactsByContext to confirm that attribution relationship
+  // is correctly created between context and artifact.
+  GetArtifactsByContextRequest get_artifact_by_context_request;
+  get_artifact_by_context_request.set_context_id(context.id());
+  GetArtifactsByContextResponse get_artifact_by_context_response;
+  ASSERT_EQ(
+      metadata_store_->GetArtifactsByContext(get_artifact_by_context_request,
+                                             &get_artifact_by_context_response),
+      absl::OkStatus());
+  EXPECT_THAT(
+      get_artifact_by_context_response.artifacts(),
+      UnorderedElementsAre(EqualsProto(
+          artifact,
+          /*ignore_fields=*/{"id", "type", "uri", "create_time_since_epoch",
+                             "last_update_time_since_epoch"})));
+}
+
 TEST_P(MetadataStoreTestSuite,
        PutAndGetLineageSubgraphWithArtifactReuseOption) {
   // Setup: Prepares input that consists of 1 execution and 1 artifact,
@@ -3880,7 +4596,7 @@ TEST_P(MetadataStoreTestSuite,
                                                 &put_subgraph_response),
             absl::OkStatus());
   ASSERT_EQ(put_subgraph_response.artifact_ids_size(), 1);
-  const int64 artifact_id = put_subgraph_response.artifact_ids(0);
+  const int64_t artifact_id = put_subgraph_response.artifact_ids(0);
 
   // Test 1.2: Try to insert another artifact with the same external_id but a
   // new uri fails as the artifact with the same external_id already exists.
@@ -3909,7 +4625,7 @@ TEST_P(MetadataStoreTestSuite,
   // Test 2.2: Put input artifact which has the same <type_id, name> pair
   // but no external_id with
   // `set_reuse_artifact_if_already_exist_by_external_id=true`.
-  // Expect insert instead of updaate but failed with <type_id, name> unique
+  // Expect insert instead of update but failed with <type_id, name> unique
   // index violation.
   put_subgraph_request.mutable_artifacts(0)->clear_external_id();
   EXPECT_TRUE(absl::IsAlreadyExists(metadata_store_->PutLineageSubgraph(
@@ -4172,6 +4888,531 @@ TEST_P(MetadataStoreTestSuite, PutContextTypeGetContextTypesByID) {
       << "The type should be the same as the one given.";
 }
 
+TEST_P(MetadataStoreTestSuite, UpdateContextPropertiesAndCustomProperties) {
+  const PutContextTypeRequest put_context_type_request =
+      ParseTextProtoOrDie<PutContextTypeRequest>(
+          R"pb(
+            all_fields_match: true
+            context_type: {
+              name: 'test_type'
+              properties { key: 'property_str' value: STRING }
+            }
+          )pb");
+  PutContextTypeResponse put_context_type_response;
+  ASSERT_EQ(metadata_store_->PutContextType(put_context_type_request,
+                                            &put_context_type_response),
+            absl::OkStatus());
+  ASSERT_TRUE(put_context_type_response.has_type_id());
+  const int64_t type_id = put_context_type_response.type_id();
+
+  PutContextsRequest put_contexts_request =
+      ParseTextProtoOrDie<PutContextsRequest>(R"pb(
+        contexts: {
+          properties {
+            key: 'property_str'
+            value: { string_value: '1' }
+          }
+          custom_properties {
+            key: 'custom_property_str_to_int'
+            value: { string_value: '1' }
+          }
+          custom_properties {
+            key: 'custom_property_int_to_str'
+            value: { int_value: 1 }
+          }
+          custom_properties {
+            key: 'custom_property_double_to_bool'
+            value: { double_value: 1.2345 }
+          }
+          custom_properties {
+            key: 'custom_property_bool_to_double'
+            value: { bool_value: true }
+          }
+          name: 'context_name'
+        }
+      )pb");
+  put_contexts_request.mutable_contexts(0)->set_type_id(type_id);
+
+  PutContextsResponse put_contexts_response;
+  {
+    // Test 1: update custom_properties.
+    ASSERT_EQ(metadata_store_->PutContexts(put_contexts_request,
+                                           &put_contexts_response),
+              absl::OkStatus());
+    ASSERT_THAT(put_contexts_response.context_ids(), SizeIs(1));
+    const int64_t context_id1 = put_contexts_response.context_ids(0);
+
+    PutContextsRequest update_contexts_request =
+        ParseTextProtoOrDie<PutContextsRequest>(R"pb(
+          contexts: {
+            properties {
+              key: 'property_str'
+              value: { string_value: '1' }
+            }
+            custom_properties {
+              key: 'custom_property_str_to_int'
+              value: { int_value: 1 }
+            }
+            custom_properties {
+              key: 'custom_property_int_to_str'
+              value: { string_value: '1' }
+            }
+            custom_properties {
+              key: 'custom_property_double_to_bool'
+              value: { bool_value: true }
+            }
+            custom_properties {
+              key: 'custom_property_bool_to_double'
+              value: { double_value: 1.2345 }
+            }
+            name: 'context_name'
+          }
+        )pb");
+    update_contexts_request.mutable_contexts(0)->set_type_id(type_id);
+    update_contexts_request.mutable_contexts(0)->set_id(context_id1);
+
+    PutContextsResponse update_contexts_response;
+    ASSERT_EQ(metadata_store_->PutContexts(update_contexts_request,
+                                           &update_contexts_response),
+              absl::OkStatus());
+
+    GetContextsByIDRequest get_contexts_by_id_request;
+    get_contexts_by_id_request.add_context_ids(context_id1);
+
+    GetContextsByIDResponse get_contexts_by_id_response;
+    ASSERT_EQ(metadata_store_->GetContextsByID(get_contexts_by_id_request,
+                                               &get_contexts_by_id_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_contexts_by_id_response.contexts(), SizeIs(1));
+
+    EXPECT_THAT(get_contexts_by_id_response.contexts(),
+                ElementsAre(EqualsProto(
+                    update_contexts_request.contexts(0),
+                    /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                       "last_update_time_since_epoch"})));
+  }
+  {
+    // Test 2: update custom_properties under masking.
+    put_contexts_request.mutable_contexts(0)->set_name("context_name2");
+    ASSERT_EQ(metadata_store_->PutContexts(put_contexts_request,
+                                           &put_contexts_response),
+              absl::OkStatus());
+    ASSERT_THAT(put_contexts_response.context_ids(), SizeIs(1));
+    const int64_t context_id2 = put_contexts_response.context_ids(0);
+
+    PutContextsRequest update_contexts_request =
+        ParseTextProtoOrDie<PutContextsRequest>(R"pb(
+          contexts: {
+            custom_properties {
+              key: 'custom_property_str_to_int'
+              value: { int_value: 1 }
+            }
+            custom_properties {
+              key: 'custom_property_int_to_str'
+              value: { string_value: '1' }
+            }
+            custom_properties {
+              key: 'custom_property_double_to_bool'
+              value: { bool_value: true }
+            }
+            custom_properties {
+              key: 'custom_property_bool_to_double'
+              value: { double_value: 1.2345 }
+            }
+          }
+          update_mask: {
+            paths: 'custom_properties.custom_property_str_to_int'
+            paths: 'custom_properties.custom_property_int_to_str'
+          }
+        )pb");
+    update_contexts_request.mutable_contexts(0)->set_type_id(type_id);
+    update_contexts_request.mutable_contexts(0)->set_id(context_id2);
+
+    PutContextsResponse update_contexts_response;
+    ASSERT_EQ(metadata_store_->PutContexts(update_contexts_request,
+                                           &update_contexts_response),
+              absl::OkStatus());
+
+    GetContextsByIDRequest get_contexts_by_id_request;
+    get_contexts_by_id_request.add_context_ids(context_id2);
+
+    GetContextsByIDResponse get_contexts_by_id_response;
+    ASSERT_EQ(metadata_store_->GetContextsByID(get_contexts_by_id_request,
+                                               &get_contexts_by_id_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_contexts_by_id_response.contexts(), SizeIs(1));
+
+    Context wanted_context = ParseTextProtoOrDie<Context>(R"pb(
+      properties {
+        key: 'property_str'
+        value: { string_value: '1' }
+      }
+      custom_properties {
+        key: 'custom_property_str_to_int'
+        value: { int_value: 1 }
+      }
+      custom_properties {
+        key: 'custom_property_int_to_str'
+        value: { string_value: '1' }
+      }
+      custom_properties {
+        key: 'custom_property_double_to_bool'
+        value: { double_value: 1.2345 }
+      }
+      custom_properties {
+        key: 'custom_property_bool_to_double'
+        value: { bool_value: true }
+      }
+      name: 'context_name2'
+    )pb");
+
+    EXPECT_THAT(get_contexts_by_id_response.contexts(),
+                ElementsAre(EqualsProto(
+                    wanted_context,
+                    /*ignore_fields=*/{"id", "type_id", "type",
+                                       "create_time_since_epoch",
+                                       "last_update_time_since_epoch"})));
+  }
+  {
+    // Test 3: updating property's value_type fails.
+    put_contexts_request.mutable_contexts(0)->set_name("context_name3");
+    ASSERT_EQ(metadata_store_->PutContexts(put_contexts_request,
+                                           &put_contexts_response),
+              absl::OkStatus());
+    ASSERT_THAT(put_contexts_response.context_ids(), SizeIs(1));
+    const int64_t context_id3 = put_contexts_response.context_ids(0);
+
+    PutContextsRequest update_contexts_request =
+        ParseTextProtoOrDie<PutContextsRequest>(R"pb(
+          contexts: {
+            properties {
+              key: 'property_str'
+              value: { int_value: 1 }
+            }
+          }
+          update_mask: { paths: 'properties.property_str' }
+        )pb");
+    PutContextsResponse update_contexts_response;
+    update_contexts_request.mutable_contexts(0)->set_type_id(type_id);
+    update_contexts_request.mutable_contexts(0)->set_id(context_id3);
+    EXPECT_TRUE(absl::IsInvalidArgument(metadata_store_->PutContexts(
+        update_contexts_request, &update_contexts_response)));
+    EXPECT_TRUE(absl::StrContains(
+        metadata_store_
+            ->PutContexts(update_contexts_request, &update_contexts_response)
+            .message(),
+        "unmatched property type"));
+  }
+}
+
+// Test creating an context and then updating one of its properties.
+TEST_P(MetadataStoreTestSuite, UpdateContextWithMasking) {
+  const PutContextTypeRequest put_context_type_request =
+      ParseTextProtoOrDie<PutContextTypeRequest>(
+          R"pb(
+            all_fields_match: true
+            context_type: {
+              name: 'test_type'
+              properties { key: 'property' value: STRING }
+            }
+          )pb");
+  PutContextTypeResponse put_context_type_response;
+  ASSERT_EQ(metadata_store_->PutContextType(put_context_type_request,
+                                            &put_context_type_response),
+            absl::OkStatus());
+  ASSERT_TRUE(put_context_type_response.has_type_id());
+  const int64_t type_id = put_context_type_response.type_id();
+
+  // Add two contexts, one with a `properties` pair <'property': '3'>, one
+  // without.
+  PutContextsRequest put_contexts_request =
+      ParseTextProtoOrDie<PutContextsRequest>(R"pb(
+        contexts: {
+          properties {
+            key: 'property'
+            value: { string_value: '1' }
+          }
+          name: 'context_name_old_1'
+        }
+        contexts: { name: 'context_name_old_2' }
+      )pb");
+  put_contexts_request.mutable_contexts(0)->set_type_id(type_id);
+  put_contexts_request.mutable_contexts(1)->set_type_id(type_id);
+  PutContextsResponse put_contexts_response;
+  {
+    // Test 1: a complex test case for updating fields and properties for both
+    // contexts.
+    ASSERT_EQ(metadata_store_->PutContexts(put_contexts_request,
+                                           &put_contexts_response),
+              absl::OkStatus());
+    ASSERT_THAT(put_contexts_response.context_ids(), SizeIs(2));
+    const int64_t context_id1 = put_contexts_response.context_ids(0);
+    const int64_t context_id2 = put_contexts_response.context_ids(1);
+    // Add `name` for both contexts.
+    // Change string value of key `property` from '3' to '1' in the first
+    // context.
+    // Add `properties` pair <'property': '2'> in the second context.
+    PutContextsRequest update_contexts_request =
+        ParseTextProtoOrDie<PutContextsRequest>(R"pb(
+          contexts: {
+            properties {
+              key: 'property'
+              value: { string_value: '1' }
+            }
+            name: 'context_1'
+          }
+          contexts: {
+            properties {
+              key: 'property'
+              value: { string_value: '2' }
+            }
+            name: 'context_2'
+          }
+          update_mask: {
+            paths: 'properties.property'
+            paths: 'name'
+            paths: 'an_invalid_field_path_having_no_effect'
+          }
+        )pb");
+    update_contexts_request.mutable_contexts(0)->set_type_id(type_id);
+    update_contexts_request.mutable_contexts(0)->set_id(context_id1);
+    update_contexts_request.mutable_contexts(1)->set_type_id(type_id);
+    update_contexts_request.mutable_contexts(1)->set_id(context_id2);
+    PutContextsResponse update_contexts_response;
+    ASSERT_EQ(metadata_store_->PutContexts(update_contexts_request,
+                                           &update_contexts_response),
+              absl::OkStatus());
+
+    GetContextsByIDRequest get_contexts_by_id_request;
+    get_contexts_by_id_request.add_context_ids(context_id1);
+    get_contexts_by_id_request.add_context_ids(context_id2);
+
+    GetContextsByIDResponse get_contexts_by_id_response;
+    ASSERT_EQ(metadata_store_->GetContextsByID(get_contexts_by_id_request,
+                                               &get_contexts_by_id_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_contexts_by_id_response.contexts(), SizeIs(2));
+
+    EXPECT_THAT(
+        get_contexts_by_id_response.contexts(),
+        UnorderedElementsAre(
+            EqualsProto(update_contexts_request.contexts(0),
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(update_contexts_request.contexts(1),
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
+  {
+    // Test 2: insert two new contexts and update fields for both contexts.
+    ASSERT_EQ(metadata_store_->PutContexts(put_contexts_request,
+                                           &put_contexts_response),
+              absl::OkStatus());
+    ASSERT_THAT(put_contexts_response.context_ids(), SizeIs(2));
+    const int64_t context_id3 = put_contexts_response.context_ids(0);
+    const int64_t context_id4 = put_contexts_response.context_ids(1);
+    // Set `external_id` and `name` for both contexts.
+    // `properties` for both contexts will remain unchanged.
+    PutContextsRequest update_contexts_request =
+        ParseTextProtoOrDie<PutContextsRequest>(R"pb(
+          contexts: { external_id: 'context_3' name: 'context_3' }
+          contexts: { external_id: 'context_4' name: 'context_4' }
+          update_mask: { paths: 'external_id' paths: 'name' }
+        )pb");
+    update_contexts_request.mutable_contexts(0)->set_type_id(type_id);
+    update_contexts_request.mutable_contexts(0)->set_id(context_id3);
+    update_contexts_request.mutable_contexts(1)->set_type_id(type_id);
+    update_contexts_request.mutable_contexts(1)->set_id(context_id4);
+    PutContextsResponse update_contexts_response;
+    ASSERT_EQ(metadata_store_->PutContexts(update_contexts_request,
+                                           &update_contexts_response),
+              absl::OkStatus());
+
+    GetContextsByIDRequest get_contexts_by_id_request;
+    get_contexts_by_id_request.add_context_ids(context_id3);
+    get_contexts_by_id_request.add_context_ids(context_id4);
+
+    GetContextsByIDResponse get_contexts_by_id_response;
+    ASSERT_EQ(metadata_store_->GetContextsByID(get_contexts_by_id_request,
+                                               &get_contexts_by_id_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_contexts_by_id_response.contexts(), SizeIs(2));
+
+    EXPECT_THAT(
+        get_contexts_by_id_response.contexts(),
+        UnorderedElementsAre(
+            EqualsProto(update_contexts_request.contexts(0),
+                        /*ignore_fields=*/{"type", "properties",
+                                           "create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(update_contexts_request.contexts(1),
+                        /*ignore_fields=*/{"type", "properties",
+                                           "create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
+  Context context_for_test_3_4_and_5;
+  {
+    // Test 3: insert two new contexts and update `properties` and
+    // `custom_properties` for both contexts.
+    ASSERT_EQ(metadata_store_->PutContexts(put_contexts_request,
+                                           &put_contexts_response),
+              absl::OkStatus());
+    ASSERT_THAT(put_contexts_response.context_ids(), SizeIs(2));
+    const int64_t context_id5 = put_contexts_response.context_ids(0);
+    const int64_t context_id6 = put_contexts_response.context_ids(1);
+    // Delete `properties` pair <'property': '3'> in the first context.
+    // Add `custom_properties` pair <'custom_property': true> for `context_5`.
+    // Add `custom_properties` pair <'custom_property': false> for `context_6`.
+    // The `name` for both contexts will remain unchanged.
+    PutContextsRequest update_contexts_request =
+        ParseTextProtoOrDie<PutContextsRequest>(R"pb(
+          contexts: {
+            custom_properties {
+              key: 'custom_property'
+              value: { bool_value: true }
+            }
+            name: 'context_name_old_1'
+          }
+          contexts: {
+            custom_properties {
+              key: 'custom_property'
+              value: { bool_value: false }
+            }
+            name: 'context_name_old_2'
+          }
+          update_mask: {
+            paths: 'properties.property'
+            paths: 'custom_properties.custom_property'
+          }
+        )pb");
+    update_contexts_request.mutable_contexts(0)->set_type_id(type_id);
+    update_contexts_request.mutable_contexts(0)->set_id(context_id5);
+    update_contexts_request.mutable_contexts(1)->set_type_id(type_id);
+    update_contexts_request.mutable_contexts(1)->set_id(context_id6);
+    PutContextsResponse update_contexts_response;
+    ASSERT_EQ(metadata_store_->PutContexts(update_contexts_request,
+                                           &update_contexts_response),
+              absl::OkStatus());
+    context_for_test_3_4_and_5 = update_contexts_request.contexts(1);
+
+    GetContextsByIDRequest get_contexts_by_id_request;
+    get_contexts_by_id_request.add_context_ids(context_id5);
+    get_contexts_by_id_request.add_context_ids(context_id6);
+
+    GetContextsByIDResponse get_contexts_by_id_response;
+    ASSERT_EQ(metadata_store_->GetContextsByID(get_contexts_by_id_request,
+                                               &get_contexts_by_id_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_contexts_by_id_response.contexts(), SizeIs(2));
+
+    EXPECT_THAT(
+        get_contexts_by_id_response.contexts(),
+        UnorderedElementsAre(
+            EqualsProto(update_contexts_request.contexts(0),
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(update_contexts_request.contexts(1),
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
+  {
+    // Test 4: insert a new context and update an existing context in the
+    // same request under masking. The mask is expected to have no effect on
+    // insertion but to protect fields for update.
+    PutContextsRequest upsert_contexts_request =
+        ParseTextProtoOrDie<PutContextsRequest>(R"pb(
+          contexts: {
+            external_id: 'context_6'
+            custom_properties {
+              key: 'custom_property'
+              value: { bool_value: true }
+            }
+          }
+          contexts: {
+            name: 'context_7'
+            external_id: 'context_7'
+            custom_properties {
+              key: 'custom_property'
+              value: { bool_value: true }
+            }
+          }
+          update_mask: { paths: 'external_id' }
+        )pb");
+    upsert_contexts_request.mutable_contexts(0)->set_type_id(type_id);
+    upsert_contexts_request.mutable_contexts(0)->set_id(
+        context_for_test_3_4_and_5.id());
+    upsert_contexts_request.mutable_contexts(1)->set_type_id(type_id);
+    PutContextsResponse upsert_contexts_response;
+    ASSERT_EQ(metadata_store_->PutContexts(upsert_contexts_request,
+                                           &upsert_contexts_response),
+              absl::OkStatus());
+    const int64_t context_id7 = upsert_contexts_response.context_ids(1);
+
+    GetContextsByIDRequest get_contexts_by_id_request;
+    get_contexts_by_id_request.add_context_ids(context_for_test_3_4_and_5.id());
+    get_contexts_by_id_request.add_context_ids(context_id7);
+
+    GetContextsByIDResponse get_contexts_by_id_response;
+    ASSERT_EQ(metadata_store_->GetContextsByID(get_contexts_by_id_request,
+                                               &get_contexts_by_id_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_contexts_by_id_response.contexts(), SizeIs(2));
+
+    // If put update is successful, one of the obtained contexts should be the
+    // updated context, one of the obtained contexts should be the inserted
+    // context.
+    context_for_test_3_4_and_5.set_external_id("context_6");
+    upsert_contexts_request.mutable_contexts(1)->set_id(context_id7);
+    EXPECT_THAT(
+        get_contexts_by_id_response.contexts(),
+        UnorderedElementsAre(
+            EqualsProto(context_for_test_3_4_and_5,
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(upsert_contexts_request.contexts(1),
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+  }
+  {
+    // Test 5: updating an context with a mask containing only invalid mask
+    // paths has no effect.
+    PutContextsRequest upsert_contexts_request =
+        ParseTextProtoOrDie<PutContextsRequest>(R"pb(
+          contexts: {
+            external_id: 'unimportant_exeternal_id_value'
+            custom_properties {
+              key: 'unimportant_property_key'
+              value: { bool_value: true }
+            }
+          }
+          update_mask: { paths: 'an_invalid_field_path' }
+        )pb");
+    upsert_contexts_request.mutable_contexts(0)->set_type_id(type_id);
+    upsert_contexts_request.mutable_contexts(0)->set_id(
+        context_for_test_3_4_and_5.id());
+    PutContextsResponse upsert_contexts_response;
+    ASSERT_EQ(metadata_store_->PutContexts(upsert_contexts_request,
+                                           &upsert_contexts_response),
+              absl::OkStatus());
+
+    GetContextsByIDRequest get_contexts_by_id_request;
+    get_contexts_by_id_request.add_context_ids(context_for_test_3_4_and_5.id());
+
+    GetContextsByIDResponse get_contexts_by_id_response;
+    ASSERT_EQ(metadata_store_->GetContextsByID(get_contexts_by_id_request,
+                                               &get_contexts_by_id_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_contexts_by_id_response.contexts(), SizeIs(1));
+
+    EXPECT_THAT(
+        get_contexts_by_id_response.contexts(0),
+        EqualsProto(
+            context_for_test_3_4_and_5,
+            /*ignore_fields=*/{"type", "external_id", "create_time_since_epoch",
+                               "last_update_time_since_epoch"}));
+  }
+}
+
 TEST_P(MetadataStoreTestSuite, PutContextsGetContextsWithListOptions) {
   const PutContextTypeRequest put_context_type_request =
       ParseTextProtoOrDie<PutContextTypeRequest>(
@@ -4188,7 +5429,7 @@ TEST_P(MetadataStoreTestSuite, PutContextsGetContextsWithListOptions) {
                                             &put_context_type_response));
   ASSERT_TRUE(put_context_type_response.has_type_id());
 
-  const int64 type_id = put_context_type_response.type_id();
+  const int64_t type_id = put_context_type_response.type_id();
 
   Context context = ParseTextProtoOrDie<Context>(R"(
     name: 'test_type_1'
@@ -4211,8 +5452,8 @@ TEST_P(MetadataStoreTestSuite, PutContextsGetContextsWithListOptions) {
             metadata_store_->PutContexts(put_contexts_request,
                                          &put_contexts_response));
   ASSERT_THAT(put_contexts_response.context_ids(), SizeIs(2));
-  const int64 context_id_0 = put_contexts_response.context_ids(0);
-  const int64 context_id_1 = put_contexts_response.context_ids(1);
+  const int64_t context_id_0 = put_contexts_response.context_ids(0);
+  const int64_t context_id_1 = put_contexts_response.context_ids(1);
 
   ListOperationOptions list_options =
       ParseTextProtoOrDie<ListOperationOptions>(R"(
@@ -4231,10 +5472,11 @@ TEST_P(MetadataStoreTestSuite, PutContextsGetContextsWithListOptions) {
   EXPECT_THAT(get_contexts_response.next_page_token(), Not(IsEmpty()));
   EXPECT_EQ(get_contexts_response.contexts(0).id(), context_id_1);
 
-  EXPECT_THAT(get_contexts_response.contexts(0),
-              EqualsProto(put_contexts_request.contexts(1),
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      get_contexts_response.contexts(0),
+      EqualsProto(put_contexts_request.contexts(1),
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
 
   list_options.set_next_page_token(get_contexts_response.next_page_token());
   *get_contexts_request.mutable_options() = list_options;
@@ -4244,10 +5486,11 @@ TEST_P(MetadataStoreTestSuite, PutContextsGetContextsWithListOptions) {
   EXPECT_THAT(get_contexts_response.contexts(), SizeIs(1));
   EXPECT_THAT(get_contexts_response.next_page_token(), IsEmpty());
   EXPECT_EQ(get_contexts_response.contexts(0).id(), context_id_0);
-  EXPECT_THAT(get_contexts_response.contexts(0),
-              EqualsProto(put_contexts_request.contexts(0),
-                          /*ignore_fields=*/{"id", "create_time_since_epoch",
-                                             "last_update_time_since_epoch"}));
+  EXPECT_THAT(
+      get_contexts_response.contexts(0),
+      EqualsProto(put_contexts_request.contexts(0),
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"}));
 }
 
 TEST_P(MetadataStoreTestSuite, PutContextTypeUpsert) {
@@ -4357,7 +5600,7 @@ TEST_P(MetadataStoreTestSuite, PutContextTypeUpsert) {
 }
 
 TEST_P(MetadataStoreTestSuite, PutContextsGetContextsByExternalIds) {
-  int64 type_id;
+  int64_t type_id;
   // Create the type
   {
     const PutContextTypeRequest put_context_type_request =
@@ -4404,8 +5647,6 @@ TEST_P(MetadataStoreTestSuite, PutContextsGetContextsByExternalIds) {
     ASSERT_THAT(put_contexts_response.context_ids(), SizeIs(2));
     context1.set_id(put_contexts_response.context_ids(0));
     context2.set_id(put_contexts_response.context_ids(1));
-    LOG(INFO) << context1.DebugString();
-    LOG(INFO) << context2.DebugString();
   }
 
   // Test: retrieve by one external id
@@ -4420,7 +5661,7 @@ TEST_P(MetadataStoreTestSuite, PutContextsGetContextsByExternalIds) {
     EXPECT_THAT(get_contexts_by_external_ids_response.contexts(),
                 ElementsAre(EqualsProto(
                     context1,
-                    /*ignore_fields=*/{"create_time_since_epoch",
+                    /*ignore_fields=*/{"type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"})));
   }
   // Test: retrieve by one non-existing external id
@@ -4450,10 +5691,10 @@ TEST_P(MetadataStoreTestSuite, PutContextsGetContextsByExternalIds) {
         get_contexts_by_external_ids_response.contexts(),
         UnorderedElementsAre(
             EqualsProto(context1,
-                        /*ignore_fields=*/{"create_time_since_epoch",
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
                                            "last_update_time_since_epoch"}),
             EqualsProto(context2,
-                        /*ignore_fields=*/{"create_time_since_epoch",
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
                                            "last_update_time_since_epoch"})));
 
     // Will return whatever found if some of the external ids is absent
@@ -4466,10 +5707,10 @@ TEST_P(MetadataStoreTestSuite, PutContextsGetContextsByExternalIds) {
         get_contexts_by_external_ids_response.contexts(),
         UnorderedElementsAre(
             EqualsProto(context1,
-                        /*ignore_fields=*/{"create_time_since_epoch",
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
                                            "last_update_time_since_epoch"}),
             EqualsProto(context2,
-                        /*ignore_fields=*/{"create_time_since_epoch",
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
                                            "last_update_time_since_epoch"})));
   }
 
@@ -4501,7 +5742,7 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
             metadata_store_->PutContextType(put_context_type_request,
                                             &put_context_type_response));
   ASSERT_TRUE(put_context_type_response.has_type_id());
-  const int64 type_id = put_context_type_response.type_id();
+  const int64_t type_id = put_context_type_response.type_id();
 
   ContextType type2;
   type2.set_name("type2_name");
@@ -4513,7 +5754,7 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
             metadata_store_->PutContextType(put_context_type_request2,
                                             &put_context_type_response2));
   ASSERT_TRUE(put_context_type_response2.has_type_id());
-  const int64 type2_id = put_context_type_response2.type_id();
+  const int64_t type2_id = put_context_type_response2.type_id();
 
   PutContextsRequest put_contexts_request =
       ParseTextProtoOrDie<PutContextsRequest>(R"(
@@ -4539,20 +5780,23 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
             metadata_store_->PutContexts(put_contexts_request,
                                          &put_contexts_response));
   ASSERT_THAT(put_contexts_response.context_ids(), SizeIs(2));
-  const int64 id1 = put_contexts_response.context_ids(0);
-  const int64 id2 = put_contexts_response.context_ids(1);
+  const int64_t id1 = put_contexts_response.context_ids(0);
+  const int64_t id2 = put_contexts_response.context_ids(1);
 
   // Now we update context1's string value from 1 to 2.
   // and context2's int value from 2 to 3, and add a new context with type2.
   Context want_context1 = *put_contexts_request.mutable_contexts(0);
   want_context1.set_id(id1);
+  want_context1.set_type(put_context_type_request.context_type().name());
   (*want_context1.mutable_properties())["property"].set_string_value("2");
   Context want_context2 = *put_contexts_request.mutable_contexts(1);
   want_context2.set_id(id2);
+  want_context2.set_type(put_context_type_request.context_type().name());
   (*want_context2.mutable_custom_properties())["custom"].set_int_value(2);
   Context want_context3;
   want_context3.set_type_id(type2_id);
   want_context3.set_name("context3");
+  want_context3.set_type(put_context_type_request2.context_type().name());
 
   PutContextsRequest put_contexts_request2;
   *put_contexts_request2.add_contexts() = want_context1;
@@ -4580,7 +5824,7 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
                                        "last_update_time_since_epoch"})));
   }
   // Test: GetContextsByID: many ids + unknown id
-  const int64 unknown_id =
+  const int64_t unknown_id =
       want_context1.id() + want_context2.id() + want_context3.id() + 1;
   {
     GetContextsByIDRequest get_contexts_by_id_request;
@@ -4660,20 +5904,18 @@ TEST_P(MetadataStoreTestSuite, PutContextsUpdateGetContexts) {
                                            &get_contexts_response));
     ASSERT_THAT(get_contexts_response.contexts(), SizeIs(3));
     EXPECT_THAT(
-        get_contexts_response.contexts(0),
-        EqualsProto(want_context1,
-                    /*ignore_fields=*/{"create_time_since_epoch",
-                                       "last_update_time_since_epoch"}));
-    EXPECT_THAT(
-        get_contexts_response.contexts(1),
-        EqualsProto(want_context2,
-                    /*ignore_fields=*/{"create_time_since_epoch",
-                                       "last_update_time_since_epoch"}));
-    EXPECT_THAT(
-        get_contexts_response.contexts(2),
-        EqualsProto(want_context3,
-                    /*ignore_fields=*/{"create_time_since_epoch",
-                                       "last_update_time_since_epoch"}));
+        get_contexts_response.contexts(),
+        UnorderedElementsAre(
+
+            EqualsProto(want_context1,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(want_context2,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(want_context3,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
   }
 }
 
@@ -4688,8 +5930,8 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   PutTypesResponse put_types_response;
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->PutTypes(put_types_request, &put_types_response));
-  int64 artifact_type_id = put_types_response.artifact_type_ids(0);
-  int64 execution_type_id = put_types_response.execution_type_ids(0);
+  int64_t artifact_type_id = put_types_response.artifact_type_ids(0);
+  int64_t execution_type_id = put_types_response.execution_type_ids(0);
 
   const PutContextTypeRequest put_context_type_request =
       ParseTextProtoOrDie<PutContextTypeRequest>(R"(
@@ -4700,7 +5942,7 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->PutContextType(put_context_type_request,
                                             &put_context_type_response));
-  int64 context_type_id = put_context_type_response.type_id();
+  int64_t context_type_id = put_context_type_response.type_id();
 
   Execution want_execution;
   want_execution.set_type_id(execution_type_id);
@@ -4757,7 +5999,7 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   ASSERT_THAT(get_contexts_by_artifact_response.contexts(), SizeIs(1));
   EXPECT_THAT(get_contexts_by_artifact_response.contexts(0),
               EqualsProto(want_context,
-                          /*ignore_fields=*/{"create_time_since_epoch",
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
 
   GetArtifactsByContextRequest get_artifacts_by_context_request;
@@ -4769,7 +6011,7 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   ASSERT_THAT(get_artifacts_by_context_response.artifacts(), SizeIs(1));
   EXPECT_THAT(get_artifacts_by_context_response.artifacts(0),
               EqualsProto(want_artifact,
-                          /*ignore_fields=*/{"create_time_since_epoch",
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
 
   // append the association and reinsert the existing attribution.
@@ -4788,7 +6030,7 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   ASSERT_THAT(get_contexts_by_execution_response.contexts(), SizeIs(1));
   EXPECT_THAT(get_contexts_by_execution_response.contexts(0),
               EqualsProto(want_context,
-                          /*ignore_fields=*/{"create_time_since_epoch",
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
 
   GetExecutionsByContextRequest get_executions_by_context_request;
@@ -4800,7 +6042,7 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
   ASSERT_THAT(get_executions_by_context_response.executions(), SizeIs(1));
   EXPECT_THAT(get_executions_by_context_response.executions(0),
               EqualsProto(want_execution,
-                          /*ignore_fields=*/{"create_time_since_epoch",
+                          /*ignore_fields=*/{"type", "create_time_since_epoch",
                                              "last_update_time_since_epoch"}));
 
   // Add another artifact.
@@ -4835,10 +6077,10 @@ TEST_P(MetadataStoreTestSuite, PutAndUseAttributionsAndAssociations) {
       get_artifacts_by_context_response_2.artifacts(),
       UnorderedElementsAre(
           EqualsProto(want_artifact,
-                      /*ignore_fields=*/{"create_time_since_epoch",
+                      /*ignore_fields=*/{"type", "create_time_since_epoch",
                                          "last_update_time_since_epoch"}),
           EqualsProto(want_artifact_2,
-                      /*ignore_fields=*/{"create_time_since_epoch",
+                      /*ignore_fields=*/{"type", "create_time_since_epoch",
                                          "last_update_time_since_epoch"})));
 }
 
@@ -4908,14 +6150,14 @@ TEST_P(MetadataStoreTestSuite, PutParentContextsInvalidArgumentError) {
             metadata_store_->PutContexts(put_contexts_request,
                                          &put_contexts_response));
   int stored_context_id = put_contexts_response.context_ids(0);
-  int64 not_exist_context_id = stored_context_id + 1;
-  int64 not_exist_context_id_2 = stored_context_id + 2;
+  int64_t not_exist_context_id = stored_context_id + 1;
+  int64_t not_exist_context_id_2 = stored_context_id + 2;
 
   // Enumerates the case of creating parent context with invalid argument
   // (context id cannot be found in the database).
   auto verify_is_invalid_argument = [this](absl::string_view case_name,
-                                           absl::optional<int64> parent_id,
-                                           absl::optional<int64> child_id) {
+                                           absl::optional<int64_t> parent_id,
+                                           absl::optional<int64_t> child_id) {
     ParentContext parent_context;
     if (parent_id) {
       parent_context.set_parent_id(parent_id.value());
@@ -4988,8 +6230,8 @@ TEST_P(MetadataStoreTestSuite, PutParentContextsAndGetLinkedContextByContext) {
   PutParentContextsRequest put_parent_contexts_request;
 
   auto put_parent_context = [&contexts, &want_parents, &want_children,
-                             &put_parent_contexts_request](int64 parent_idx,
-                                                           int64 child_idx) {
+                             &put_parent_contexts_request](int64_t parent_idx,
+                                                           int64_t child_idx) {
     ParentContext parent_context;
     parent_context.set_parent_id(contexts[parent_idx].id());
     parent_context.set_child_id(contexts[child_idx].id());
@@ -5030,16 +6272,119 @@ TEST_P(MetadataStoreTestSuite, PutParentContextsAndGetLinkedContextByContext) {
                 SizeIs(want_children[i].size()));
     EXPECT_THAT(get_parents_response.contexts(),
                 UnorderedPointwise(EqualsProto<Context>(/*ignore_fields=*/{
-                                       "create_time_since_epoch",
+                                       "type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"}),
                                    want_parents[i]));
     EXPECT_THAT(get_children_response.contexts(),
                 UnorderedPointwise(EqualsProto<Context>(/*ignore_fields=*/{
-                                       "create_time_since_epoch",
+                                       "type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"}),
                                    want_children[i]));
   }
 }
+
+TEST_P(MetadataStoreTestSuite,
+       PutParentContextsAndGetLinkedContextsByContexts) {
+  // Inserts a context type.
+  ContextType context_type;
+  context_type.set_name("context_type_name");
+  PutContextTypeRequest put_type_request;
+  *put_type_request.mutable_context_type() = context_type;
+  PutContextTypeResponse put_type_response;
+  ASSERT_EQ(
+      metadata_store_->PutContextType(put_type_request, &put_type_response),
+      absl::OkStatus());
+  context_type.set_id(put_type_response.type_id());
+
+  // Creates some contexts to be inserted into the later parent context
+  // relationship.
+  const int num_contexts = 7;
+  std::vector<Context> contexts(num_contexts);
+  std::vector<int64_t> context_ids(num_contexts);
+  PutContextsRequest put_contexts_request;
+  for (int i = 0; i < num_contexts; i++) {
+    contexts[i].set_name(absl::StrCat("context_", i));
+    contexts[i].set_type_id(context_type.id());
+    *put_contexts_request.add_contexts() = contexts[i];
+  }
+  PutContextsResponse put_contexts_response;
+  ASSERT_EQ(metadata_store_->PutContexts(put_contexts_request,
+                                         &put_contexts_response),
+            absl::OkStatus());
+  for (int i = 0; i < num_contexts; i++) {
+    contexts[i].set_id(put_contexts_response.context_ids(i));
+    context_ids[i] = contexts[i].id();
+  }
+
+  // Prepares a list of parent contexts and stores every parent context
+  // relationship for each context.
+  std::unordered_map<int, std::vector<Context>> want_parents;
+  std::unordered_map<int, std::vector<Context>> want_children;
+  PutParentContextsRequest put_parent_contexts_request;
+
+  auto put_parent_context = [&](int64_t parent_idx, int64_t child_idx) {
+    ParentContext parent_context;
+    parent_context.set_parent_id(contexts[parent_idx].id());
+    parent_context.set_child_id(contexts[child_idx].id());
+    put_parent_contexts_request.add_parent_contexts()->CopyFrom(parent_context);
+    want_parents[contexts[child_idx].id()].push_back(contexts[parent_idx]);
+    want_children[contexts[parent_idx].id()].push_back(contexts[child_idx]);
+  };
+
+  put_parent_context(/*parent_idx=*/0, /*child_idx=*/1);
+  put_parent_context(/*parent_idx=*/0, /*child_idx=*/2);
+  put_parent_context(/*parent_idx=*/2, /*child_idx=*/3);
+  put_parent_context(/*parent_idx=*/1, /*child_idx=*/6);
+  put_parent_context(/*parent_idx=*/4, /*child_idx=*/5);
+  put_parent_context(/*parent_idx=*/5, /*child_idx=*/6);
+
+  PutParentContextsResponse put_parent_contexts_response;
+  ASSERT_EQ(metadata_store_->PutParentContexts(put_parent_contexts_request,
+                                               &put_parent_contexts_response),
+            absl::OkStatus());
+
+  // Verifies the parent/child contexts by looking up and stored result.
+  GetParentContextsByContextsRequest get_parents_request;
+  absl::c_copy(context_ids, google::protobuf::RepeatedFieldBackInserter(
+                                get_parents_request.mutable_context_ids()));
+  GetParentContextsByContextsResponse get_parents_response;
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetParentContextsByContexts(
+                                  get_parents_request, &get_parents_response));
+  GetChildrenContextsByContextsRequest get_children_request;
+  absl::c_copy(context_ids, google::protobuf::RepeatedFieldBackInserter(
+                                get_children_request.mutable_context_ids()));
+  GetChildrenContextsByContextsResponse get_children_response;
+  ASSERT_EQ(metadata_store_->GetChildrenContextsByContexts(
+                get_children_request, &get_children_response),
+            absl::OkStatus());
+
+  ASSERT_THAT(get_parents_response.contexts(), SizeIs(want_parents.size()));
+  for (const int64_t context_id : context_ids) {
+    ASSERT_EQ(get_parents_response.contexts().contains(context_id),
+              want_parents.count(context_id) > 0);
+    if (!get_parents_response.contexts().contains(context_id)) continue;
+    EXPECT_THAT(
+        get_parents_response.contexts().at(context_id).parent_contexts(),
+        UnorderedPointwise(EqualsProto<Context>(/*ignore_fields=*/{
+                               "type", "create_time_since_epoch",
+                               "last_update_time_since_epoch"}),
+                           want_parents[context_id]));
+  }
+
+  ASSERT_THAT(get_children_response.contexts(), SizeIs(want_children.size()));
+  for (const int64_t context_id : context_ids) {
+    ASSERT_EQ(get_children_response.contexts().contains(context_id),
+              want_children.count(context_id) > 0);
+    if (!get_children_response.contexts().contains(context_id)) continue;
+    EXPECT_THAT(
+        get_children_response.contexts().at(context_id).children_contexts(),
+        UnorderedPointwise(EqualsProto<Context>(/*ignore_fields=*/{
+                               "type", "create_time_since_epoch",
+                               "last_update_time_since_epoch"}),
+                           want_children[context_id]));
+  }
+}
+
 
 TEST_P(MetadataStoreTestSuite,
        PutTypesAndContextsGetContextsThroughTypeWithOptions) {
@@ -5066,7 +6411,7 @@ TEST_P(MetadataStoreTestSuite,
         ASSERT_EQ(want_contexts.size(), get_nodes_response.contexts_size());
         EXPECT_THAT(get_nodes_response.contexts(),
                     UnorderedPointwise(EqualsProto<Context>(/*ignore_fields=*/{
-                                           "create_time_since_epoch",
+                                           "type", "create_time_since_epoch",
                                            "last_update_time_since_epoch"}),
                                        want_contexts));
       };
@@ -5116,8 +6461,8 @@ TEST_P(MetadataStoreTestSuite, GetExecutionsByContextWithFilterStateQuery) {
   PutTypesResponse put_types_response;
   ASSERT_EQ(metadata_store_->PutTypes(put_types_request, &put_types_response),
             absl::OkStatus());
-  int64 context_type_id = put_types_response.context_type_ids(0);
-  int64 execution_type_id = put_types_response.execution_type_ids(0);
+  int64_t context_type_id = put_types_response.context_type_ids(0);
+  int64_t execution_type_id = put_types_response.execution_type_ids(0);
 
   // Insert two contexts.
   Context context1, context2;
@@ -5177,7 +6522,7 @@ TEST_P(MetadataStoreTestSuite, GetExecutionsByContextWithFilterStateQuery) {
     EXPECT_THAT(
         get_executions_response.executions(0),
         EqualsProto(execution1,
-                    /*ignore_fields=*/{"create_time_since_epoch",
+                    /*ignore_fields=*/{"type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"}));
   }
 
@@ -5194,7 +6539,7 @@ TEST_P(MetadataStoreTestSuite, GetExecutionsByContextWithFilterStateQuery) {
     EXPECT_THAT(
         get_executions_response.executions(0),
         EqualsProto(execution2,
-                    /*ignore_fields=*/{"create_time_since_epoch",
+                    /*ignore_fields=*/{"type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"}));
   }
 }
@@ -5207,8 +6552,8 @@ TEST_P(MetadataStoreTestSuite, GetExecutionFilterWithSpecialChars) {
   PutTypesResponse put_types_response;
   ASSERT_EQ(absl::OkStatus(),
             metadata_store_->PutTypes(put_types_request, &put_types_response));
-  int64 context_type_id = put_types_response.context_type_ids(0);
-  int64 execution_type_id = put_types_response.execution_type_ids(0);
+  int64_t context_type_id = put_types_response.context_type_ids(0);
+  int64_t execution_type_id = put_types_response.execution_type_ids(0);
 
   // Setup: Insert an execution, a context and an association.
   Context context;
@@ -5248,7 +6593,7 @@ TEST_P(MetadataStoreTestSuite, GetExecutionFilterWithSpecialChars) {
     EXPECT_THAT(
         get_executions_response.executions(0),
         EqualsProto(execution,
-                    /*ignore_fields=*/{"create_time_since_epoch",
+                    /*ignore_fields=*/{"type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"}));
   }
 
@@ -5266,7 +6611,7 @@ TEST_P(MetadataStoreTestSuite, GetExecutionFilterWithSpecialChars) {
     EXPECT_THAT(
         get_executions_response.executions(0),
         EqualsProto(execution,
-                    /*ignore_fields=*/{"create_time_since_epoch",
+                    /*ignore_fields=*/{"type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"}));
   }
 
@@ -5284,7 +6629,7 @@ TEST_P(MetadataStoreTestSuite, GetExecutionFilterWithSpecialChars) {
     EXPECT_THAT(
         get_executions_response.executions(0),
         EqualsProto(execution,
-                    /*ignore_fields=*/{"create_time_since_epoch",
+                    /*ignore_fields=*/{"type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"}));
   }
 
@@ -5296,6 +6641,61 @@ TEST_P(MetadataStoreTestSuite, GetExecutionFilterWithSpecialChars) {
       name = 'exe_name_with_'')");
     EXPECT_TRUE(absl::IsInvalidArgument(metadata_store_->GetExecutions(
         get_executions_request, &get_executions_response)));
+  }
+}
+
+TEST_P(MetadataStoreTestSuite, GetExecutionWithFilterContextQuery) {
+  PutTypesRequest put_types_request = ParseTextProtoOrDie<PutTypesRequest>(R"pb(
+    context_types: { name: 'context_type' }
+    execution_types: { name: 'execution_type' }
+  )pb");
+  PutTypesResponse put_types_response;
+  ASSERT_EQ(metadata_store_->PutTypes(put_types_request, &put_types_response),
+            absl::OkStatus());
+  int64_t context_type_id = put_types_response.context_type_ids(0);
+  int64_t execution_type_id = put_types_response.execution_type_ids(0);
+
+  // Setup: Insert an execution, a context and an association.
+  Context context;
+  context.set_type_id(context_type_id);
+  // context name has a form similar to properties filter query syntax.
+  context.set_name("properties.component.component");
+  PutContextsRequest put_context_request;
+  *put_context_request.add_contexts() = context;
+  PutContextsResponse put_context_response;
+  ASSERT_EQ(
+      metadata_store_->PutContexts(put_context_request, &put_context_response),
+      absl::OkStatus());
+  context.set_id(put_context_response.context_ids(0));
+
+  Execution execution;
+  execution.set_type_id(execution_type_id);
+  execution.set_name("execution_name'");
+  PutExecutionRequest put_execution_request;
+  *put_execution_request.mutable_execution() = execution;
+  *put_execution_request.add_contexts() = context;
+  PutExecutionResponse put_execution_response;
+  ASSERT_EQ(metadata_store_->PutExecution(put_execution_request,
+                                          &put_execution_response),
+            absl::OkStatus());
+  execution.set_id(put_execution_response.execution_id());
+
+  // Test: GetExecutions with filter query on context.type and context.name
+  // could obtain the wanted execution.
+  {
+    GetExecutionsRequest get_executions_request;
+    GetExecutionsResponse get_executions_response;
+    get_executions_request.mutable_options()->set_filter_query(
+        R"((contexts_0.type = 'context_type') AND (contexts_0.name = 'properties.component.component'))");
+    ASSERT_EQ(metadata_store_->GetExecutions(get_executions_request,
+                                             &get_executions_response),
+              absl::OkStatus());
+    ASSERT_THAT(get_executions_response.executions(), SizeIs(1));
+    EXPECT_THAT(
+        get_executions_response.executions(0),
+        EqualsProto(execution,
+                    /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                       "last_update_time_since_epoch"}));
   }
 }
 
@@ -5413,7 +6813,7 @@ TEST_P(MetadataStoreTestSuite, PutLineageSubgraphAndVerifyLineageGraph) {
   EXPECT_THAT(get_executions_by_context_response.executions(),
               ElementsAre(EqualsProto(
                   execution,
-                  /*ignore_fields=*/{"create_time_since_epoch",
+                  /*ignore_fields=*/{"type", "create_time_since_epoch",
                                      "last_update_time_since_epoch"})));
 
   GetArtifactsByContextRequest get_artifacts_by_context_request;
@@ -5427,7 +6827,7 @@ TEST_P(MetadataStoreTestSuite, PutLineageSubgraphAndVerifyLineageGraph) {
   EXPECT_THAT(get_artifacts_by_context_response.artifacts(),
               ElementsAre(EqualsProto(
                   artifact,
-                  /*ignore_fields=*/{"create_time_since_epoch",
+                  /*ignore_fields=*/{"type", "create_time_since_epoch",
                                      "last_update_time_since_epoch"})));
 
   GetContextsRequest get_contexts_request;
@@ -5441,7 +6841,7 @@ TEST_P(MetadataStoreTestSuite, PutLineageSubgraphAndVerifyLineageGraph) {
   EXPECT_THAT(get_contexts_response.contexts(),
               ElementsAre(EqualsProto(context,
                                       /*ignore_fields=*/
-                                      {"id", "create_time_since_epoch",
+                                      {"id", "type", "create_time_since_epoch",
                                        "last_update_time_since_epoch"})));
 
   GetEventsByExecutionIDsRequest get_events_by_execution_ids_request;
@@ -5456,9 +6856,9 @@ TEST_P(MetadataStoreTestSuite, PutLineageSubgraphAndVerifyLineageGraph) {
             put_lineage_subgraph_response.execution_ids(0));
   EXPECT_EQ(get_events_by_execution_ids_response.events(0).artifact_id(),
             put_lineage_subgraph_response.artifact_ids(0));
-  EXPECT_THAT(
-      get_events_by_execution_ids_response.events(),
-      ElementsAre(EqualsProto(event_1,
+  EXPECT_THAT(get_events_by_execution_ids_response.events(),
+              UnorderedElementsAre(
+                  EqualsProto(event_1,
                               /*ignore_fields=*/{"artifact_id", "execution_id",
                                                  "milliseconds_since_epoch"}),
                   EqualsProto(event_2,
@@ -5544,7 +6944,7 @@ TEST_P(MetadataStoreTestSuite,
   EXPECT_THAT(get_executions_by_id_response.executions(),
               ElementsAre(EqualsProto(
                   execution,
-                  /*ignore_fields=*/{"create_time_since_epoch",
+                  /*ignore_fields=*/{"type", "create_time_since_epoch",
                                      "last_update_time_since_epoch"})));
 
   GetArtifactsByIDRequest get_artifacts_by_id_request;
@@ -5558,7 +6958,7 @@ TEST_P(MetadataStoreTestSuite,
   EXPECT_THAT(get_artifacts_by_id_response.artifacts(),
               ElementsAre(EqualsProto(
                   artifact,
-                  /*ignore_fields=*/{"create_time_since_epoch",
+                  /*ignore_fields=*/{"type", "create_time_since_epoch",
                                      "last_update_time_since_epoch"})));
 }
 
