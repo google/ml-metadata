@@ -63,7 +63,7 @@ class ListOptions(object):
       not given, the field is ignored. If `order_by` is set, then by default
       ascending order is used for performance benefit.
     filter_query: An optional boolean expression in SQL syntax to specify
-      conditions on nodes' attributes and 1-hop neighborhood. See
+      conditions on node attributes and directly connected assets. See
       https://github.com/google/ml-metadata/blob/master/ml_metadata/proto/metadata_store.proto#L705-L783 for the query capabilities and syntax. Note in
       Windows, this is only supported when using grpc config via an mlmd server
       instance.

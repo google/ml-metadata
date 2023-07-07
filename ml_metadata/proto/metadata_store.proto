@@ -891,7 +891,7 @@ message ListOperationOptions {
   optional string next_page_token = 3;
 
   // A boolean expression in SQL syntax that is used to specify the conditions
-  // on nodes' attributes and 1-hop neighborhood.
+  // on node attributes and directly connected assets.
   //
   // In the current implementation, filtering Artifact/Execution/Context with
   // the following attributes and neighborhood is supported:
