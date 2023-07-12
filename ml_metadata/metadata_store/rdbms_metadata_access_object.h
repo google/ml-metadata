@@ -274,6 +274,10 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status FindArtifactsById(absl::Span<const int64_t> artifact_ids,
                                  std::vector<Artifact>* artifacts) final;
 
+  absl::Status FindArtifactsById(
+      absl::Span<const int64_t> artifact_ids, std::vector<Artifact>& artifacts,
+      std::vector<ArtifactType>& artifact_types) final;
+
   absl::Status FindArtifactsByExternalIds(
       absl::Span<absl::string_view> external_ids,
       std::vector<Artifact>* artifacts) final;
@@ -778,6 +782,18 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   template <typename Node>
   absl::Status FindNodesImpl(absl::Span<const int64_t> node_ids,
                              bool skipped_ids_ok, std::vector<Node>& nodes);
+
+  // Gets a set of `Node` which is one of {`Artifact`, `Execution`,
+  // `Context`} by the given 'node_ids' and their node types, which
+  // can be matched by type_ids. Each NodeType contains id, name,
+  // properties and custom_properties fields.
+  // Returns INVALID_ARGUMENT if node_ids is empty or nodes is not empty.
+  // Returns NOT_FOUND error if any of the given `node_ids` is not found.
+  // Returns detailed INTERNAL error if query execution fails.
+  template <typename Node, typename NodeType>
+  absl::Status FindNodesWithTypesImpl(absl::Span<const int64_t> node_ids,
+                                      std::vector<Node>& nodes,
+                                      std::vector<NodeType>& node_types);
 
   // Updates with masking for a `Node` being one of {`Artifact`, `Execution`,
   // `Context`}.

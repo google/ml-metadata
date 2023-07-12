@@ -21,12 +21,14 @@ limitations under the License.
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/substitute.h"
 #include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 
 namespace ml_metadata {
 
 using ml_metadata::testing::EqualsProto;
+using ml_metadata::testing::ParseTextProtoOrDie;
 using ::testing::UnorderedElementsAre;
 
 constexpr absl::string_view kArtifactTypeRecordSet =
@@ -366,6 +368,73 @@ TEST_P(RDBMSMetadataAccessObjectTest, FindParentTypesByTypeIdImpl) {
     // `type_id_6` and `type_id_8`.
     EXPECT_TRUE(absl::IsNotFound(FindParentTypesByTypeIdImpl(
         {type_id_1, type_id_6, type_id_8}, parent_types)));
+  }
+}
+
+TEST_P(RDBMSMetadataAccessObjectTest, FindNodesWithTypesImpl) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  ArtifactType type_1 = ParseTextProtoOrDie<ArtifactType>(R"pb(
+    name: 'artifact_type_1'
+  )pb");
+  ArtifactType type_2 = ParseTextProtoOrDie<ArtifactType>(R"pb(
+    name: 'artifact_type_2'
+    properties { key: 'property' value: STRING }
+  )pb");
+  int64_t type_id_1, type_id_2;
+
+  ASSERT_EQ(CreateType(type_1, &type_id_1), absl::OkStatus());
+  type_1.set_id(type_id_1);
+  ASSERT_EQ(CreateType(type_2, &type_id_2), absl::OkStatus());
+  type_2.set_id(type_id_2);
+
+  Artifact artifact_1 = ParseTextProtoOrDie<Artifact>(absl::Substitute(
+      R"pb(
+        type_id: $0 uri: 'testuri://testing/uri'
+      )pb",
+      type_id_1));
+  Artifact artifact_2 = ParseTextProtoOrDie<Artifact>(absl::Substitute(
+      R"pb(
+        type_id: $0
+        uri: 'testuri://testing/uri'
+        properties {
+          key: 'property'
+          value: { string_value: '$1' }
+        }
+      )pb",
+      type_id_2, "2"));
+  int64_t artifact_id_1, artifact_id_2;
+  ASSERT_EQ(CreateNodeImpl<Artifact>(artifact_1, type_1, &artifact_id_1),
+            absl::OkStatus());
+  ASSERT_EQ(CreateNodeImpl<Artifact>(artifact_2, type_2, &artifact_id_2),
+            absl::OkStatus());
+  artifact_1.set_id(artifact_id_1);
+  artifact_2.set_id(artifact_id_2);
+
+  // Test: Find two artifacts with artifact_types index aligned with them.
+  {
+    std::vector<Artifact> artifacts;
+    std::vector<ArtifactType> types;
+    ASSERT_EQ(
+        FindNodesWithTypeImpl({artifact_id_2, artifact_id_1}, artifacts, types),
+        absl::OkStatus());
+    EXPECT_THAT(
+        artifacts,
+        UnorderedElementsAre(
+            EqualsProto(artifact_1,
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(artifact_2,
+                        /*ignore_fields=*/{"type", "create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+    EXPECT_THAT(types,
+                UnorderedElementsAre(EqualsProto(type_1), EqualsProto(type_2)));
+  }
+  // Test: Finding artifacts with type fails with INVALID_ARGUMENT error.
+  {
+    std::vector<Artifact> artifacts = {artifact_1};
+    std::vector<ArtifactType> types;
+    EXPECT_TRUE(absl::IsInvalidArgument(
+        FindNodesWithTypeImpl({artifact_id_2}, artifacts, types)));
   }
 }
 

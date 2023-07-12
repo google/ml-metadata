@@ -1075,15 +1075,23 @@ absl::Status MetadataStore::GetArtifactsByID(
       [this, &request, &response]() -> absl::Status {
         response->Clear();
         std::vector<Artifact> artifacts;
+        std::vector<ArtifactType> artifact_types;
         const std::vector<int64_t> ids(request.artifact_ids().begin(),
                                        request.artifact_ids().end());
         const absl::Status status =
-            metadata_access_object_->FindArtifactsById(ids, &artifacts);
+            request.populate_artifact_types()
+                ? metadata_access_object_->FindArtifactsById(ids, artifacts,
+                                                             artifact_types)
+                : metadata_access_object_->FindArtifactsById(ids, &artifacts);
         if (!status.ok() && !absl::IsNotFound(status)) {
           return status;
         }
         absl::c_copy(artifacts, google::protobuf::RepeatedPtrFieldBackInserter(
                                     response->mutable_artifacts()));
+        if (request.populate_artifact_types()) {
+          absl::c_copy(artifact_types, google::protobuf::RepeatedFieldBackInserter(
+                                           response->mutable_artifact_types()));
+        }
         return absl::OkStatus();
       },
       request.transaction_options());

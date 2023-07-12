@@ -16,11 +16,13 @@ limitations under the License.
 #define THIRD_PARTY_ML_METADATA_METADATA_STORE_RDBMS_METADATA_ACCESS_OBJECT_TEST_H_
 
 #include <memory>
+#include <vector>
 
 #include <glog/logging.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
+#include "absl/time/clock.h"
 #include "ml_metadata/metadata_store/rdbms_metadata_access_object.h"
 #include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
@@ -127,6 +129,22 @@ class RDBMSMetadataAccessObjectTest
   template <typename MessageType>
   absl::Status CreateType(const MessageType& type, int64_t* type_id) {
     return rdbms_metadata_access_object_->CreateType(type, type_id);
+  }
+
+  template <typename Node, typename NodeType>
+  absl::Status CreateNodeImpl(const Node& node, const NodeType& node_type,
+                              int64_t* node_id) {
+    return rdbms_metadata_access_object_->CreateNodeImpl<Node, NodeType>(
+        node, /*skip_type_and_property_validation=*/false,
+        /*create_timestamp=*/absl::Now(), node_id);
+  }
+
+  template <typename Node, typename NodeType>
+  absl::Status FindNodesWithTypeImpl(absl::Span<const int64_t> node_ids,
+                                     std::vector<Node>& nodes,
+                                     std::vector<NodeType>& node_types) {
+    return rdbms_metadata_access_object_->FindNodesWithTypesImpl(
+        node_ids, nodes, node_types);
   }
 
   std::unique_ptr<RDBMSMetadataAccessObjectContainer>

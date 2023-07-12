@@ -313,6 +313,15 @@ class MetadataAccessObject {
   virtual absl::Status FindArtifactsById(absl::Span<const int64_t> artifact_ids,
                                          std::vector<Artifact>* artifact) = 0;
 
+  // Gets a set of Artifacts by the given ids and their artifact types, which
+  // can be matched by type_ids. Each ArtifactType contains id, name,
+  // properties and custom_properties fields.
+  // Returns NOT_FOUND error, if any of the given artifact_ids is not found.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status FindArtifactsById(
+      absl::Span<const int64_t> artifact_ids, std::vector<Artifact>& artifacts,
+      std::vector<ArtifactType>& artifact_types) = 0;
+
   // Gets Artifacts matching the given 'external_ids'.
   // |external_ids| is a list of non-null strings for the given external ids.
   // Returns whatever found when a part of |external_ids| is non-existing.

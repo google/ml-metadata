@@ -20,6 +20,7 @@ limitations under the License.
 #include <cstdint>
 #include <iterator>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <glog/logging.h>
@@ -70,58 +71,6 @@ TypeKind ResolveTypeKind(const ExecutionType* const type) {
 
 TypeKind ResolveTypeKind(const ContextType* const type) {
   return TypeKind::CONTEXT_TYPE;
-}
-
-// Populates 'node' properties from the rows in 'record'. The assumption is that
-// properties are encoded using the convention in
-// QueryExecutor::Get{X}PropertyBy{X}Id() where X in {Artifact, Execution,
-// Context}.
-template <typename Node>
-absl::Status PopulateNodeProperties(const RecordSet::Record& record,
-                                    const QueryExecutor& executor, Node& node) {
-  // Populate the property of the node.
-  const std::string& property_name = record.values(1);
-  bool is_custom_property;
-  CHECK(absl::SimpleAtob(record.values(2), &is_custom_property));
-  auto& property_value =
-      (is_custom_property ? (*node.mutable_custom_properties())[property_name]
-                          : (*node.mutable_properties())[property_name]);
-  if (record.values(3) != kMetadataSourceNull) {
-    int64_t int_value;
-    CHECK(absl::SimpleAtoi(record.values(3), &int_value));
-    property_value.set_int_value(int_value);
-  } else if (record.values(4) != kMetadataSourceNull) {
-    double double_value;
-    CHECK(absl::SimpleAtod(record.values(4), &double_value));
-    property_value.set_double_value(double_value);
-  } else if (record.values(5) != kMetadataSourceNull) {
-    const std::string& string_value = record.values(5);
-    if (IsStructSerializedString(string_value)) {
-      MLMD_RETURN_IF_ERROR(
-          StringToStruct(string_value, *property_value.mutable_struct_value()));
-    } else {
-      property_value.set_string_value(string_value);
-    }
-  } else if (record.values(6) != kMetadataSourceNull) {
-    std::string to_parse;
-    MLMD_RETURN_IF_ERROR(executor.DecodeBytes(record.values(6), to_parse));
-    google::protobuf::Any* proto_value = property_value.mutable_proto_value();
-    proto_value->ParseFromString(to_parse);
-    if (proto_value->type_url().empty()) {
-      return absl::InternalError(absl::StrCat(
-          "Retrieved proto_value should have a nonempty type_url. Got: ",
-          proto_value->DebugString()));
-    }
-  } else if (record.values(7) != kMetadataSourceNull) {
-    bool bool_value;
-    CHECK(absl::SimpleAtob(record.values(7), &bool_value));
-    property_value.set_bool_value(bool_value);
-  } else {
-    return absl::InternalError("Attempt to populate property with null value "
-                               "in every known *_value column.");
-  }
-
-  return absl::OkStatus();
 }
 
 // Converts a record set that contains an id column at position per record to a
@@ -333,6 +282,102 @@ absl::Status ParseRecordsToMapField(
         ParseValueToField(value_descriptor, value, map_field_message));
   }
 
+  return absl::OkStatus();
+}
+
+// Populates 'node' properties from the rows in 'record'. The assumption is that
+// properties are encoded using the convention in
+// QueryExecutor::Get{X}PropertyBy{X}Id() where X in {Artifact, Execution,
+// Context}.
+template <typename Node>
+absl::Status PopulateNodeProperties(const RecordSet::Record& record,
+                                    const QueryExecutor& executor, Node& node) {
+  // Populate the property of the node.
+  const std::string& property_name = record.values(1);
+  bool is_custom_property;
+  CHECK(absl::SimpleAtob(record.values(2), &is_custom_property));
+  auto& property_value =
+      (is_custom_property ? (*node.mutable_custom_properties())[property_name]
+                          : (*node.mutable_properties())[property_name]);
+  if (record.values(3) != kMetadataSourceNull) {
+    int64_t int_value;
+    CHECK(absl::SimpleAtoi(record.values(3), &int_value));
+    property_value.set_int_value(int_value);
+  } else if (record.values(4) != kMetadataSourceNull) {
+    double double_value;
+    CHECK(absl::SimpleAtod(record.values(4), &double_value));
+    property_value.set_double_value(double_value);
+  } else if (record.values(5) != kMetadataSourceNull) {
+    const std::string& string_value = record.values(5);
+    if (IsStructSerializedString(string_value)) {
+      MLMD_RETURN_IF_ERROR(
+          StringToStruct(string_value, *property_value.mutable_struct_value()));
+    } else {
+      property_value.set_string_value(string_value);
+    }
+  } else if (record.values(6) != kMetadataSourceNull) {
+    std::string to_parse;
+    MLMD_RETURN_IF_ERROR(executor.DecodeBytes(record.values(6), to_parse));
+    google::protobuf::Any* proto_value = property_value.mutable_proto_value();
+    proto_value->ParseFromString(to_parse);
+    if (proto_value->type_url().empty()) {
+      return absl::InternalError(absl::StrCat(
+          "Retrieved proto_value should have a nonempty type_url. Got: ",
+          proto_value->DebugString()));
+    }
+  } else if (record.values(7) != kMetadataSourceNull) {
+    bool bool_value;
+    CHECK(absl::SimpleAtob(record.values(7), &bool_value));
+    property_value.set_bool_value(bool_value);
+  } else {
+    return absl::InternalError(
+        "Attempt to populate property with null value "
+        "in every known *_value column.");
+  }
+
+  return absl::OkStatus();
+}
+
+// Populates type properties for types in `node_types`
+// Returns detailed INTERNAl error if execution fails.
+template <typename NodeType>
+absl::Status PopulateTypeProperties(QueryExecutor& executor,
+                                    std::vector<NodeType>& node_types) {
+  RecordSet property_record_set;
+  std::vector<int64_t> type_ids;
+  absl::c_transform(node_types, std::back_inserter(type_ids),
+                    [](const NodeType& type) { return type.id(); });
+  MLMD_RETURN_IF_ERROR(
+      executor.SelectPropertiesByTypeID(type_ids, &property_record_set));
+  // Builds a map between type.id and all its properties.
+  absl::flat_hash_map<int64_t, std::vector<RecordSet::Record>>
+      type_id_to_records;
+  for (const RecordSet::Record& record : property_record_set.records()) {
+    int64_t type_id;
+    CHECK(absl::SimpleAtoi(record.values(0), &type_id));
+    if (type_id_to_records.contains(type_id)) {
+      type_id_to_records[type_id].push_back(record);
+    } else {
+      type_id_to_records.insert({type_id, {record}});
+    }
+  }
+  // Builds a map between type.id and its position in `types` vector.
+  absl::flat_hash_map<int64_t, std::vector<int64_t>> type_id_to_positions;
+  for (int i = 0; i < node_types.size(); ++i) {
+    if (type_id_to_positions.contains(node_types[i].id())) {
+      type_id_to_positions[node_types[i].id()].push_back(i);
+    } else {
+      type_id_to_positions.insert({node_types[i].id(), {i}});
+    }
+  }
+  // Populates `properties` field.
+  for (auto i = type_id_to_records.begin(); i != type_id_to_records.end();
+       ++i) {
+    for (int64_t position : type_id_to_positions[i->first]) {
+      MLMD_RETURN_IF_ERROR(ParseRecordsToMapField(i->second, "properties",
+                                                  &node_types[position]));
+    }
+  }
   return absl::OkStatus();
 }
 
@@ -794,35 +839,7 @@ absl::Status RDBMSMetadataAccessObject::FindTypesFromRecordSet(
         ParseRecordSetToMessage(type_record_set, &types->at(i), i));
   }
   if (get_properties) {
-    RecordSet property_record_set;
-    std::vector<int64_t> type_ids;
-    absl::c_transform(*types, std::back_inserter(type_ids),
-                      [](const MessageType& type) { return type.id(); });
-    MLMD_RETURN_IF_ERROR(
-        executor_->SelectPropertiesByTypeID(type_ids, &property_record_set));
-    // Builds a map between type.id and all its properties.
-    absl::flat_hash_map<int64_t, std::vector<RecordSet::Record>>
-        type_id_to_records;
-    for (const RecordSet::Record& record : property_record_set.records()) {
-      int64_t type_id;
-      CHECK(absl::SimpleAtoi(record.values(0), &type_id));
-      if (type_id_to_records.contains(type_id)) {
-        type_id_to_records[type_id].push_back(record);
-      } else {
-        type_id_to_records.insert({type_id, {record}});
-      }
-    }
-    // Builds a map between type.id and its position in `types` vector.
-    absl::flat_hash_map<int64_t, int64_t> type_id_to_pos;
-    for (int i = 0; i < types->size(); ++i) {
-      type_id_to_pos.insert({types->at(i).id(), i});
-    }
-    // Populates `properties` field.
-    for (auto i = type_id_to_records.begin(); i != type_id_to_records.end();
-         ++i) {
-      MLMD_RETURN_IF_ERROR(ParseRecordsToMapField(
-          i->second, "properties", &types->at(type_id_to_pos[i->first])));
-    }
+    MLMD_RETURN_IF_ERROR(PopulateTypeProperties(*executor_, *types));
   }
 
   return absl::OkStatus();
@@ -1180,6 +1197,36 @@ absl::Status RDBMSMetadataAccessObject::FindNodesImpl(
     }
   }
   return absl::OkStatus();
+}
+
+template <typename Node, typename NodeType>
+absl::Status RDBMSMetadataAccessObject::FindNodesWithTypesImpl(
+    absl::Span<const int64_t> node_ids, std::vector<Node>& nodes,
+    std::vector<NodeType>& node_types) {
+  absl::Status find_nodes_status =
+      FindNodesImpl<Node>(node_ids, /*skipped_ids_ok=*/true, nodes);
+  // If there exists ids not found, then `find_nodes_status` is expected to be
+  // NOT_FOUND if `skipped_ids_ok` is true. Otherwise, return
+  // `find_nodes_status` if execution fails.
+  if (!absl::IsNotFound(find_nodes_status) && !find_nodes_status.ok()) {
+    return find_nodes_status;
+  }
+  absl::flat_hash_map<int64_t, std::string> type_id_to_name;
+  absl::c_transform(nodes,
+                    std::inserter(type_id_to_name, type_id_to_name.end()),
+                    [](const Node& node) {
+                      return std::make_pair(node.type_id(), node.type());
+                    });
+
+  absl::c_transform(type_id_to_name, std::back_inserter(node_types),
+                    [](const std::pair<int64_t, std::string>& id_and_name) {
+                      NodeType node_type;
+                      node_type.set_id(id_and_name.first);
+                      node_type.set_name(id_and_name.second);
+                      return node_type;
+                    });
+  MLMD_RETURN_IF_ERROR(PopulateTypeProperties(*executor_, node_types));
+  return find_nodes_status;
 }
 
 template <typename Node>
@@ -1649,6 +1696,15 @@ absl::Status RDBMSMetadataAccessObject::FindArtifactsById(
     return absl::OkStatus();
   }
   return FindNodesImpl(artifact_ids, /*skipped_ids_ok=*/true, *artifacts);
+}
+
+absl::Status RDBMSMetadataAccessObject::FindArtifactsById(
+    absl::Span<const int64_t> artifact_ids, std::vector<Artifact>& artifacts,
+    std::vector<ArtifactType>& artifact_types) {
+  if (artifact_ids.empty()) {
+    return absl::OkStatus();
+  }
+  return FindNodesWithTypesImpl(artifact_ids, artifacts, artifact_types);
 }
 
 absl::Status RDBMSMetadataAccessObject::FindExecutionsById(

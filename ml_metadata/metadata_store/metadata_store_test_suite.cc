@@ -1592,7 +1592,7 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndContextsGetContextsThroughType) {
 }
 
 TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {
-  int64_t type_id;
+  ArtifactType type;
   // Create the type
   {
     const PutArtifactTypeRequest put_artifact_type_request =
@@ -1610,7 +1610,8 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {
                                                &put_artifact_type_response));
     ASSERT_TRUE(put_artifact_type_response.has_type_id());
 
-    type_id = put_artifact_type_response.type_id();
+    type = put_artifact_type_request.artifact_type();
+    type.set_id(put_artifact_type_response.type_id());
   }
 
   // Put in two artifacts
@@ -1623,9 +1624,9 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {
           }
       )";
   Artifact artifact1 = ParseTextProtoOrDie<Artifact>(
-      absl::StrFormat(kArtifactTemplate, type_id, "1"));
+      absl::StrFormat(kArtifactTemplate, type.id(), "1"));
   Artifact artifact2 = ParseTextProtoOrDie<Artifact>(
-      absl::StrFormat(kArtifactTemplate, type_id, "2"));
+      absl::StrFormat(kArtifactTemplate, type.id(), "2"));
 
   {
     PutArtifactsRequest put_artifacts_request;
@@ -1655,6 +1656,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {
                     artifact1,
                     /*ignore_fields=*/{"create_time_since_epoch",
                                        "last_update_time_since_epoch"})));
+    ASSERT_THAT(get_artifacts_by_id_response.artifact_types(), IsEmpty());
   }
   // Test: retrieve by one id
   const int64_t unknown_id = artifact1.id() + artifact2.id() + 1;
@@ -1666,6 +1668,7 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {
               metadata_store_->GetArtifactsByID(get_artifacts_by_id_request,
                                                 &get_artifacts_by_id_response));
     ASSERT_THAT(get_artifacts_by_id_response.artifacts(), IsEmpty());
+    ASSERT_THAT(get_artifacts_by_id_response.artifact_types(), IsEmpty());
   }
   // Test: retrieve by multiple ids
   {
@@ -1686,6 +1689,173 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByID) {
             EqualsProto(artifact2,
                         /*ignore_fields=*/{"create_time_since_epoch",
                                            "last_update_time_since_epoch"})));
+    ASSERT_THAT(get_artifacts_by_id_response.artifact_types(), IsEmpty());
+  }
+}
+
+TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByIDAndPopulateType) {
+  std::vector<ArtifactType> types;
+  // Create the types
+  {
+    for (int64_t i = 0; i < 2; i++) {
+      PutArtifactTypeRequest put_artifact_type_request =
+          ParseTextProtoOrDie<PutArtifactTypeRequest>(absl::Substitute(R"(
+              all_fields_match: true
+              artifact_type: {
+                name: 'test_type_$0'
+                properties { key: 'property_$1' value: STRING }
+              }
+            )",
+                                                                       i + 1,
+                                                                       i + 1));
+      PutArtifactTypeResponse put_artifact_type_response;
+      ASSERT_EQ(absl::OkStatus(),
+                metadata_store_->PutArtifactType(put_artifact_type_request,
+                                                 &put_artifact_type_response));
+      ASSERT_TRUE(put_artifact_type_response.has_type_id());
+
+      types.push_back(put_artifact_type_request.artifact_type());
+      types[i].set_id(put_artifact_type_response.type_id());
+    }
+    // Create an ArtifactType without properties.
+    {
+      PutArtifactTypeRequest put_artifact_type_request =
+          ParseTextProtoOrDie<PutArtifactTypeRequest>(absl::Substitute(R"(
+              all_fields_match: true
+              artifact_type: {
+                name: 'test_type_$0'
+              }
+            )",
+                                                                       3));
+      PutArtifactTypeResponse put_artifact_type_response;
+      ASSERT_EQ(absl::OkStatus(),
+                metadata_store_->PutArtifactType(put_artifact_type_request,
+                                                 &put_artifact_type_response));
+      ASSERT_TRUE(put_artifact_type_response.has_type_id());
+
+      types.push_back(put_artifact_type_request.artifact_type());
+      types.back().set_id(put_artifact_type_response.type_id());
+    }
+  }
+
+  // Test: Put in two artifacts with the same type, retrieve Artifacts and
+  // populate ArtifactTypes.
+  {
+    // Put in two artifacts.
+    constexpr absl::string_view kArtifactTemplate = R"(
+          type_id: %d
+          uri: 'testuri://testing/uri'
+          properties {
+            key: 'property_%d'
+            value: { string_value: '%s' }
+          }
+      )";
+    Artifact artifact1 = ParseTextProtoOrDie<Artifact>(
+        absl::StrFormat(kArtifactTemplate, types[0].id(), 1, "1"));
+    Artifact artifact2 = ParseTextProtoOrDie<Artifact>(
+        absl::StrFormat(kArtifactTemplate, types[0].id(), 1, "2"));
+    PutArtifactsRequest put_artifacts_request;
+    *put_artifacts_request.mutable_artifacts()->Add() = artifact1;
+    *put_artifacts_request.mutable_artifacts()->Add() = artifact2;
+    PutArtifactsResponse put_artifacts_response;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->PutArtifacts(put_artifacts_request,
+                                            &put_artifacts_response));
+    ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(2));
+    artifact1.set_id(put_artifacts_response.artifact_ids(0));
+    artifact2.set_id(put_artifacts_response.artifact_ids(1));
+    artifact1.set_type(types[0].name());
+    artifact2.set_type(types[0].name());
+
+    GetArtifactsByIDRequest get_artifacts_by_id_request;
+    get_artifacts_by_id_request.add_artifact_ids(artifact1.id());
+    get_artifacts_by_id_request.add_artifact_ids(artifact2.id());
+    get_artifacts_by_id_request.set_populate_artifact_types(true);
+    GetArtifactsByIDResponse get_artifacts_by_id_response;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->GetArtifactsByID(get_artifacts_by_id_request,
+                                                &get_artifacts_by_id_response));
+    ASSERT_THAT(
+        get_artifacts_by_id_response.artifacts(),
+        UnorderedElementsAre(
+            EqualsProto(artifact1,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(artifact2,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+    ASSERT_THAT(
+        get_artifacts_by_id_response.artifact_types(),
+        UnorderedElementsAre(EqualsProto(types[0])));
+  }
+
+  // Test: Put in three artifacts with different types, retrieve Artifacts and
+  // populate ArtifactTypes.
+  {
+    // Put in two artifacts with properties.
+    constexpr absl::string_view kArtifactTemplate = R"(
+          type_id: %d
+          uri: 'testuri://testing/uri'
+          properties {
+            key: 'property_%d'
+            value: { string_value: '%s' }
+          }
+      )";
+    Artifact artifact1 = ParseTextProtoOrDie<Artifact>(
+        absl::StrFormat(kArtifactTemplate, types[0].id(), 1, "1"));
+    Artifact artifact2 = ParseTextProtoOrDie<Artifact>(
+        absl::StrFormat(kArtifactTemplate, types[1].id(), 2, "2"));
+    // Put in an artifact without property.
+    Artifact artifact3 = ParseTextProtoOrDie<Artifact>(absl::StrFormat(
+        R"(
+          type_id: %d
+          uri: 'testuri://testing/uri'
+      )",
+        types[2].id()));
+    PutArtifactsRequest put_artifacts_request;
+    *put_artifacts_request.mutable_artifacts()->Add() = artifact1;
+    *put_artifacts_request.mutable_artifacts()->Add() = artifact2;
+    *put_artifacts_request.mutable_artifacts()->Add() = artifact3;
+    PutArtifactsResponse put_artifacts_response;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->PutArtifacts(put_artifacts_request,
+                                            &put_artifacts_response));
+    ASSERT_THAT(put_artifacts_response.artifact_ids(), SizeIs(3));
+    artifact1.set_id(put_artifacts_response.artifact_ids(0));
+    artifact2.set_id(put_artifacts_response.artifact_ids(1));
+    artifact3.set_id(put_artifacts_response.artifact_ids(2));
+    artifact1.set_type(types[0].name());
+    artifact2.set_type(types[1].name());
+    artifact3.set_type(types[2].name());
+
+    GetArtifactsByIDRequest get_artifacts_by_id_request;
+    const int64_t kIrrelevantArtifactId = 4;
+    get_artifacts_by_id_request.add_artifact_ids(kIrrelevantArtifactId);
+    get_artifacts_by_id_request.add_artifact_ids(artifact1.id());
+    get_artifacts_by_id_request.add_artifact_ids(artifact2.id());
+    get_artifacts_by_id_request.add_artifact_ids(artifact3.id());
+    get_artifacts_by_id_request.set_populate_artifact_types(true);
+    GetArtifactsByIDResponse get_artifacts_by_id_response;
+    ASSERT_EQ(absl::OkStatus(),
+              metadata_store_->GetArtifactsByID(get_artifacts_by_id_request,
+                                                &get_artifacts_by_id_response));
+
+    ASSERT_THAT(
+        get_artifacts_by_id_response.artifacts(),
+        UnorderedElementsAre(
+            EqualsProto(artifact1,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(artifact2,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(artifact3,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+    ASSERT_THAT(
+        get_artifacts_by_id_response.artifact_types(),
+        UnorderedElementsAre(EqualsProto(types[0]), EqualsProto(types[1]),
+                             EqualsProto(types[2])));
   }
 }
 

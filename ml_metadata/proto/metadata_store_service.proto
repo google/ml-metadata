@@ -566,14 +566,30 @@ message GetArtifactByTypeAndNameResponse {
 message GetArtifactsByIDRequest {
   // A list of artifact ids to retrieve.
   repeated int64 artifact_ids = 1;
+  // An option to populate all the ArtifactTypes in the response.
+  // If true, returns retrieved Artifacts and their artifact types, which can be
+  // matched by type_ids. Each ArtifactType contains id, name, properties and
+  // custom_properties fields.
+  // If false, returns only the retrieved Artifacts.
+  // Example request proto:
+  //   {
+  //     artifact_ids: 101,
+  //     populate_artifact_types: true,
+  //   }
+  //   The response will contain an artifact with id = 101 and an artifact type
+  //   with id = artifact.type_id().
+  optional bool populate_artifact_types = 3 [default = false];
   // Options regarding transactions.
   optional TransactionOptions transaction_options = 2;
 }
 
 message GetArtifactsByIDResponse {
   // Artifacts with matching ids.
-  // This is not index-aligned: if an id is not found, it is not
+  // This is not index-aligned: if an id is not found, it is not returned.
   repeated Artifact artifacts = 1;
+  // ArtifactTypes populated with matching type_ids owned by `artifacts`.
+  // This is not index-aligned: if a type_id is not found, it is not returned.
+  repeated ArtifactType artifact_types = 2;
 }
 
 // Request to retrieve Artifacts using List options.
