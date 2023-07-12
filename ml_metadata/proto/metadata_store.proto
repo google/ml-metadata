@@ -1177,3 +1177,4 @@ message LineageGraphQueryOptions {
   // NOTE: There is no pagination supported.
   optional int64 max_node_size = 3 [default = 20];
 }
+

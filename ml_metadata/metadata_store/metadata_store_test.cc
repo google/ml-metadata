@@ -15,12 +15,14 @@ limitations under the License.
 #include "ml_metadata/metadata_store/metadata_store.h"
 
 #include <memory>
+#include <vector>
 
 #include <glog/logging.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "absl/strings/match.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "absl/types/optional.h"
@@ -134,7 +136,6 @@ absl::Status CreateLineageGraph(MetadataStore& metadata_store,
     Execution* execution = req.mutable_execution();
     execution->set_type_id(put_types_resp.execution_type_ids(0));
     (*execution->mutable_properties())["p2"].set_string_value(label);
-    want_executions.push_back(*execution);
     // database id starts from 1.
     for (int64_t id : input_ids) {
       Event* event = req.add_artifact_event_pairs()->mutable_event();
@@ -148,6 +149,8 @@ absl::Status CreateLineageGraph(MetadataStore& metadata_store,
     }
     PutExecutionResponse resp;
     ASSERT_EQ(absl::OkStatus(), metadata_store.PutExecution(req, &resp));
+    execution->set_id(resp.execution_id());
+    want_executions.push_back(*execution);
   };
 
   // Creates executions and connects lineage
@@ -209,6 +212,7 @@ void VerifySubgraph(const LineageGraph& subgraph,
               UnorderedPointwise(EqualsProto<ContextType>(),
                                  context_types_response.context_types()));
 }
+
 
 // Test valid query options when using GetLineageGraph on the lineage graph
 // created with `CreateLineageGraph`.
@@ -342,7 +346,7 @@ TEST(MetadataStoreExtendedTest, GetLineageGraphWithMaxNodeSize) {
       /*max_node_size=*/absl::nullopt,
       /*want_artifacts=*/want_artifacts,
       /*want_executions=*/want_executions,
-      /*want_events=*/
+      /*want_event_index_pairs=*/
       {{4, 2}, {0, 0}, {4, 3}, {2, 2}, {3, 3}, {5, 3}, {3, 1}, {1, 1}});
 
   // Return every related node if max_node_size <= 0.

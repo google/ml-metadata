@@ -33,6 +33,7 @@ constexpr int kDefaultMaxListOperationResultSize = 100;
 
 constexpr int kPropertyRecordSetSize = 8;
 
+
 }  // namespace ml_metadata
 
 #endif  // THIRD_PARTY_ML_METADATA_METADATA_STORE_CONSTANTS_H_

@@ -453,6 +453,7 @@ cc_library(
     srcs = ["metadata_store.cc"],
     hdrs = ["metadata_store.h"],
     deps = [
+        ":constants",
         ":metadata_access_object_factory",
         ":metadata_source",
         ":metadata_store_service_interface",

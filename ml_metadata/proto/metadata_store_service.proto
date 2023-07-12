@@ -1065,6 +1065,7 @@ message GetLineageGraphResponse {
 
 
 
+
 // LINT.IfChange
 service MetadataStoreService {
   // Inserts or updates an ArtifactType.
@@ -1456,6 +1457,7 @@ service MetadataStoreService {
   // the GetLineageGraphRequest.
   rpc GetLineageGraph(GetLineageGraphRequest)
       returns (GetLineageGraphResponse) {}
+
 
 
 }
