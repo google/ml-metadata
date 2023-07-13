@@ -77,7 +77,7 @@ class RDBMSMetadataStoreContainer : public MetadataStoreContainer {
 
 
 
-// Creates the following lineage graph for deleting lineage.
+// Creates the following lineage graph.
 //  a_0 a_1     a_3
 //   |    \   /     \
 //  e_0    e_1        e_3
