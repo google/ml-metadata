@@ -746,6 +746,7 @@ class MetadataStore(object):
     context_ids = list(response.context_ids)
     return execution_ids, artifact_ids, context_ids
 
+
   def get_artifacts_by_type(
       self,
       type_name: str,

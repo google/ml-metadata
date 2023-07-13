@@ -1866,7 +1866,7 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertEqual(context_result.properties["foo"].int_value, 12)
     self.assertEqual(context_result.external_id, "context_2")
 
-  def test_put_lineage_subgraph(self):
+  def test_put_lineage_subgraph_get_lineage_subgraph(self):
     store = _get_metadata_store()
     execution_type = _create_example_execution_type(self._get_test_type_name())
     execution_type_id = store.put_execution_type(execution_type)
@@ -2027,6 +2027,7 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertIn(output_event_for_new_execution_key, get_events_result)
     self.assertEqual(get_events_result[output_event_for_new_execution_key].type,
                      output_event_for_new_execution.type)
+
 
   def test_put_and_use_attributions_and_associations(self):
     store = _get_metadata_store()
