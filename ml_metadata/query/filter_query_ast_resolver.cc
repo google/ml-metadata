@@ -54,16 +54,19 @@ constexpr absl::string_view kParentContextRE =
 constexpr absl::string_view kEventRE = "\\b(events_[[:word:]]+)\\.";
 
 constexpr absl::string_view kArtifactStatePredicateRE =
-    "\\b(state)[[:space:]](=|!=|(?i)NOT[[:space:]]*IN|(?i)IN)[[:space:]]*"
-    "([[:word:]]+\\b|\\(([[:space:]]*[[:word:]]+[[:space:]]*[,]*[[:space:]]*"
-    "[[:word:]]+[[:space:]]*)*\\))";
+    "\\b(state)[[:space:]]*(=|!=|"
+    "(?i)[[:space:]]NOT[[:space:]]*IN[[:space:]]|(?i)[[:space:]]IN[[:space:]])"
+    "[[:space:]]*([[:word:]]+\\b|\\(([[:space:]]*[[:word:]]+[[:space:]]*[,]*"
+    "[[:space:]]*[[:word:]]+[[:space:]]*)*\\))";
 constexpr absl::string_view kExecutionStatePredicateRE =
-    "\\b(last_known_state)[[:space:]]*(=|!=|(?i)NOT[[:space:]]*IN|(?i)IN)"
+    "\\b(last_known_state)[[:space:]]*(=|!=|"
+    "(?i)[[:space:]]NOT[[:space:]]*IN[[:space:]]|(?i)[[:space:]]IN[[:space:]])"
     "[[:space:]]*([[:word:]]+\\b|\\(([[:space:]]*[[:word:]]+[[:space:]]*[,]*"
     "[[:space:]]*[[:word:]]+[[:space:]]*)*\\))";
 constexpr absl::string_view kEventTypePredicateRE =
-    "\\b(events_[[:word:]]+\\.type)[[:space:]]*(=|!=|(?i)NOT[[:space:]]*IN|(?i)"
-    "IN)[[:space:]]*([[:word:]]+\\b|\\(([[:space:]]*[[:word:]]+[[:space:]]*[,]*"
+    "\\b(events_[[:word:]]+\\.type)[[:space:]]*(=|!=|"
+    "(?i)[[:space:]]NOT[[:space:]]*IN[[:space:]]|(?i)[[:space:]]IN[[:space:]])"
+    "[[:space:]]*([[:word:]]+\\b|\\(([[:space:]]*[[:word:]]+[[:space:]]*[,]*"
     "[[:space:]]*[[:word:]]+[[:space:]]*)*\\))";
 
 // Returns a map of Artifact state Enums to their corresponding int values. See
@@ -173,6 +176,7 @@ absl::StatusOr<std::string> ParseEnumPredicateAndTransformQuery(
         enum_values.push_back(enum_value_mapping.at(literal));
       }
       std::string enum_literal = absl::StrJoin(enum_values, ",");
+      absl::StripAsciiWhitespace(&operator_literal);
       if (absl::EqualsIgnoreCase(operator_literal, "IN")) {
         query_subtitute = absl::Substitute(" $0 $1 ($2) ", state_string_literal,
                                            operator_literal, enum_literal);

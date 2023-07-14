@@ -237,6 +237,7 @@ constexpr QueryTestCase kValidTestQueries[] = {
     {"parent_contexts_abc.type = 'foo'", "", context_only},
     // state related expressions
     {"state = PENDING", "", artifact_only},
+    {"state=PENDING", "", artifact_only},
     {"state != PENDING", "", artifact_only},
     {"state = LIVE", "", artifact_only},
     {"state = PENDING AND state = LIVE", "", artifact_only},
@@ -245,6 +246,7 @@ constexpr QueryTestCase kValidTestQueries[] = {
     {"last_known_state = RUNNING", "", execution_only},
     {"last_known_state != RUNNING", "", execution_only},
     {"last_known_state = CANCELED", "", execution_only},
+    {"last_known_state!=COMPLETE", "", execution_only},
     {"last_known_state IN (COMPLETE, RUNNING)", "", execution_only},
     {"state IS NULL", "", artifact_only},
     {"last_known_state IS NOT NULL", "", execution_only},
@@ -252,6 +254,8 @@ constexpr QueryTestCase kValidTestQueries[] = {
     {"events_0.execution_id = 1", "", artifact_only},
     {"events_0.artifact_id = 1", "", execution_only},
     {"events_0.milliseconds_since_epoch = 1", "", exclude_context},
+    {"events_0.type = INPUT", "", execution_only},
+    {"events_0.type=OUTPUT", "", execution_only},
     {"events_0.type IN (OUTPUT, DECLARED_OUTPUT)", "", execution_only},
 };
 
