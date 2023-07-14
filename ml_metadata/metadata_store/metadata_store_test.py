@@ -529,6 +529,26 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertEqual(artifact_result.properties["bar"].string_value, "Hello")
     self.assertEqual(artifact_result.properties["foo"].int_value, 3)
 
+  def test_put_artifacts_get_artifacts_and_types_by_artifact_ids(self):
+    store = _get_metadata_store()
+    artifact_type = _create_example_artifact_type(self._get_test_type_name())
+    type_id = store.put_artifact_type(artifact_type)
+    artifact = metadata_store_pb2.Artifact(
+        type_id=type_id,
+        properties={
+            "foo": metadata_store_pb2.Value(int_value=3),
+            "bar": metadata_store_pb2.Value(string_value="Hello"),
+        },
+    )
+    [artifact_id] = store.put_artifacts([artifact])
+    [artifact_result], [artifact_type_result] = (
+        store.get_artifacts_and_types_by_artifact_ids([artifact_id])
+    )
+    self.assertEqual(artifact_result.properties["bar"].string_value, "Hello")
+    self.assertEqual(artifact_result.properties["foo"].int_value, 3)
+    self.assertEqual(artifact_type_result.id, type_id)
+    self.assertEqual(artifact_type_result.name, artifact_result.type)
+
   def test_put_artifacts_get_artifacts_by_id_with_set(self):
     store = _get_metadata_store()
     artifact_type = _create_example_artifact_type(self._get_test_type_name())

@@ -838,6 +838,30 @@ class MetadataStore(object):
     self._call('GetArtifactsByID', request, response)
     return list(response.artifacts)
 
+  def get_artifacts_and_types_by_artifact_ids(
+      self, artifact_ids: Iterable[int]
+  ) -> Tuple[List[proto.Artifact], List[proto.ArtifactType]]:
+    """Gets all artifacts with matching ids and populates types.
+
+    The result is not index-aligned: if an id is not found, it is not returned.
+
+    Args:
+      artifact_ids: A list of artifact ids to retrieve.
+
+    Returns:
+      Artifacts with matching ids and ArtifactTypes which can be matched by
+      type_ids from Artifacts. Each ArtifactType contains id, name,
+      properties and custom_properties fields. When false: returns only the
+      retrieved Artifacts.
+    """
+    request = metadata_store_service_pb2.GetArtifactsByIDRequest(
+        artifact_ids=artifact_ids, populate_artifact_types=True
+    )
+    response = metadata_store_service_pb2.GetArtifactsByIDResponse()
+
+    self._call('GetArtifactsByID', request, response)
+    return list(response.artifacts), list(response.artifact_types)
+
   def get_artifacts_by_external_ids(
       self, external_ids: Iterable[str]) -> List[proto.Artifact]:
     """Gets all artifacts with matching external ids.
