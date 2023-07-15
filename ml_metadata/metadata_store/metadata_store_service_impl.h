@@ -247,6 +247,7 @@ class MetadataStoreServiceImpl final
       ::grpc::ServerContext* context, const PutLineageSubgraphRequest* request,
       PutLineageSubgraphResponse* response) override;
 
+
  private:
   const ConnectionConfig connection_config_;
 };
