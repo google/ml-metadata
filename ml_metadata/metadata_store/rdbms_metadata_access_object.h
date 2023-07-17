@@ -487,6 +487,20 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
       absl::optional<std::string> boundary_executions,
       LineageGraph& subgraph) final;
 
+  // TODO(b/283852485): migrate from QueryLineageGraph to QueryLineageSubgraph.
+  // Given the `lineage_subgraph_query_options`, performs a constrained BFS
+  // on the lineage graph and returns a subgraph skeleton including the reached
+  // edges and dehydrated nodes.
+  // The constraints include:
+  // a) `max_num_hops`: it stops traversal at nodes that are at `max_num_hops`
+  //    away from the starting nodes.
+  // Returns INVALID_ARGUMENT error, if `starting_nodes` is not specified in
+  // `lineage_subgraph_query_options`.
+  // Returns INVALID_ARGUMENT error, if `starting_nodes.filter_query` is
+  // unspecified or invalid in `lineage_subgraph_query_options`.
+  // Returns detailed INTERNAL error, if the operation fails.
+  absl::Status QueryLineageSubgraph(const LineageSubgraphQueryOptions& options,
+                                    LineageGraph& subgraph) final;
 
 
   // Deletes a list of artifacts by id.
@@ -907,6 +921,21 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
       absl::flat_hash_set<int64_t>& visited_execution_ids,
       std::vector<Artifact>& output_artifacts, LineageGraph& subgraph);
 
+  // Expands the lineage subgraph under constraint within one hop from input
+  // nodes.
+  // When expanding from artifacts to executions, it treats artifacts as input
+  // nodes and executions as output nodes.
+  // When expanding from executions to artifacts, it treats executions as input
+  // nodes and artifacts as output nodes.
+  // Adds events between input nodes and output nodes to `subgraph`.
+  // Returns ids of output nodes that are one hop away from input nodes if
+  // expanding the lineage subgraph succeeds.
+  // Returns an empty list if no events are found for given input nodes.
+  // Returns detailed INTERNAL error, if expanding the lineage subgraph fails.
+  absl::StatusOr<std::vector<int64_t>> ExpandLineageSubgraphImpl(
+      bool expand_from_artifacts, absl::Span<const int64_t> input_node_ids,
+      absl::flat_hash_set<int64_t>& visited_output_node_ids,
+      LineageGraph& subgraph);
 
   // Given `node_filter`, keeps nodes that satisfy the `node_filter`, and
   // removes any nodes that do not satisfy the `node_filter` from

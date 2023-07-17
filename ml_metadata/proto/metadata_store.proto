@@ -1178,3 +1178,27 @@ message LineageGraphQueryOptions {
   optional int64 max_node_size = 3 [default = 20];
 }
 
+// The query options for lineage graph tracing from a list of interested nodes.
+message LineageSubgraphQueryOptions {
+  // `starting_nodes` is a list of nodes of interest to start graph tracing.
+  message StartingNodes {
+    // `filter_query` is a boolean expression in SQL syntax that is used to
+    // specify the conditions on starting nodes.
+    // Please refer to ListOperationOptions.filter_query for more details.
+    optional string filter_query = 1;
+  }
+
+  oneof starting_nodes {
+    StartingNodes starting_artifacts = 1;
+    StartingNodes starting_executions = 2;
+  }
+
+  // The maximum number of hops from the `starting_nodes` to traverse.
+  // A hop is defined as a jump to the next node following the path of
+  // node -> event -> next_node.
+  // For example, in the lineage graph a_1 -> e_1 -> a_2:
+  // a_2 is 2 hops away from a_1, and e_1 is 1 hop away from a_1.
+  // `max_num_hops` should be non-negative.
+  // When its value is set to 0, only the `starting_nodes` are returned.
+  optional int64 max_num_hops = 3;
+}

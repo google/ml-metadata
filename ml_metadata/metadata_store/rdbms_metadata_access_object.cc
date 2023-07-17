@@ -2622,6 +2622,38 @@ absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
   return absl::OkStatus();
 }
 
+absl::StatusOr<std::vector<int64_t>>
+RDBMSMetadataAccessObject::ExpandLineageSubgraphImpl(
+    const bool expand_from_artifacts, absl::Span<const int64_t> input_node_ids,
+    absl::flat_hash_set<int64_t>& visited_output_node_ids,
+    LineageGraph& subgraph) {
+  std::vector<Event> events;
+  absl::Status status = expand_from_artifacts
+                            ? FindEventsByArtifacts(input_node_ids, &events)
+                            : FindEventsByExecutions(input_node_ids, &events);
+  std::vector<int64_t> output_node_ids;
+  // If no events are found for the given input nodes, directly return.
+  if (absl::IsNotFound(status)) {
+    return output_node_ids;
+  }
+  MLMD_RETURN_IF_ERROR(status);
+
+  absl::flat_hash_set<int64_t> unvisited_output_node_ids;
+
+  for (const Event& event : events) {
+    int64_t output_node_id =
+        expand_from_artifacts ? event.execution_id() : event.artifact_id();
+    if (!visited_output_node_ids.contains(output_node_id)) {
+      unvisited_output_node_ids.insert(output_node_id);
+      *subgraph.add_events() = event;
+    }
+  }
+
+  absl::c_copy(unvisited_output_node_ids, std::back_inserter(output_node_ids));
+  visited_output_node_ids.insert(output_node_ids.begin(),
+                                 output_node_ids.end());
+  return output_node_ids;
+}
 
 absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
     const std::vector<Execution>& input_executions, int64_t max_nodes,
@@ -2753,6 +2785,130 @@ absl::Status RDBMSMetadataAccessObject::QueryLineageGraph(
   return absl::OkStatus();
 }
 
+absl::Status RDBMSMetadataAccessObject::QueryLineageSubgraph(
+    const LineageSubgraphQueryOptions& lineage_subgraph_query_options,
+    LineageGraph& subgraph) {
+  // Perform precondition check for `starting_nodes` and `max_num_hops`.
+  std::string starting_nodes_filter_query;
+  bool is_from_artifacts;
+
+  if (lineage_subgraph_query_options.has_starting_artifacts()) {
+    starting_nodes_filter_query =
+        lineage_subgraph_query_options.starting_artifacts().filter_query();
+    is_from_artifacts = true;
+  } else if (lineage_subgraph_query_options.has_starting_executions()) {
+    starting_nodes_filter_query =
+        lineage_subgraph_query_options.starting_executions().filter_query();
+    is_from_artifacts = false;
+  } else {
+    return absl::InvalidArgumentError(
+        "Missing arguments for listing starting nodes.");
+  }
+
+  if (starting_nodes_filter_query.empty()) {
+    return absl::InvalidArgumentError(
+        "Cannot list starting nodes if `filter_query` is unspecified.");
+  }
+
+  int64_t max_num_hops = kQueryLineageSubgraphMaxNumHops;
+  if (!lineage_subgraph_query_options.has_max_num_hops()) {
+    LOG(INFO) << "max_num_hops is not set. Using maximum value: "
+              << max_num_hops << " to limit the steps of the traversal.";
+  } else {
+    max_num_hops = lineage_subgraph_query_options.max_num_hops();
+    if (max_num_hops < 0) {
+      return absl::InvalidArgumentError(
+          absl::StrCat("max_num_hops cannot be negative: max_num_hops = ",
+                       lineage_subgraph_query_options.max_num_hops()));
+    }
+    if (max_num_hops > kQueryLineageSubgraphMaxNumHops) {
+      LOG(INFO) << "The value of max_num_hops, "
+                << lineage_subgraph_query_options.max_num_hops()
+                << ", is too large. Using the max allowed value, "
+                << kQueryLineageSubgraphMaxNumHops
+                << ", instead to limit the steps of the traversal.";
+      max_num_hops = kQueryLineageSubgraphMaxNumHops;
+    }
+  }
+
+  // Get ordered ids of starting nodes based on `starting_nodes_filter_query`.
+  ListOperationOptions starting_nodes_options;
+  starting_nodes_options.set_filter_query(starting_nodes_filter_query);
+
+  RecordSet record_set;
+  if (is_from_artifacts) {
+    MLMD_RETURN_IF_ERROR(ListNodeIds<Artifact>(starting_nodes_options,
+                                               absl::nullopt, &record_set));
+  } else {
+    MLMD_RETURN_IF_ERROR(ListNodeIds<Execution>(starting_nodes_options,
+                                                absl::nullopt, &record_set));
+  }
+  if (record_set.records_size() == 0) {
+    return absl::NotFoundError(
+        "Cannot find qualified nodes to start the traversal.");
+  }
+
+  // Start expanding from the starting artifacts.
+  std::vector<int64_t> output_artifact_ids;
+  std::vector<int64_t> output_execution_ids;
+  absl::flat_hash_set<int64_t> visited_artifacts_ids;
+  absl::flat_hash_set<int64_t> visited_executions_ids;
+
+  if (is_from_artifacts) {
+    absl::c_copy(ConvertToIds(record_set),
+                 std::back_inserter(output_artifact_ids));
+    absl::c_copy(
+        output_artifact_ids,
+        std::inserter(visited_artifacts_ids, visited_artifacts_ids.end()));
+  } else {
+    absl::c_copy(ConvertToIds(record_set),
+                 std::back_inserter(output_execution_ids));
+    absl::c_copy(
+        output_execution_ids,
+        std::inserter(visited_executions_ids, visited_executions_ids.end()));
+  }
+
+  int64_t curr_distance = 0;
+
+  while (curr_distance < max_num_hops) {
+    // If `is_from_artifacts` is true, expand from Artifacts to Executions if
+    // `curr_distance` is even, vice versa.
+    // If `is_from_artifacts` is false, expand from Executions to Artifacts if
+    // `curr_distance` is even, vice versa.
+    const bool expand_from_artifacts =
+        (is_from_artifacts == (curr_distance % 2 == 0));
+
+    if (expand_from_artifacts) {
+      MLMD_ASSIGN_OR_RETURN(
+          output_execution_ids,
+          ExpandLineageSubgraphImpl(
+              /*expand_from_artifacts=*/expand_from_artifacts,
+              /*input_node_ids=*/output_artifact_ids,
+              /*visited_output_node_ids=*/visited_executions_ids, subgraph));
+      if (output_execution_ids.empty()) {
+        break;
+      }
+    } else {
+      MLMD_ASSIGN_OR_RETURN(
+          output_artifact_ids,
+          ExpandLineageSubgraphImpl(
+              /*expand_from_artifacts=*/expand_from_artifacts,
+              /*input_node_ids=*/output_execution_ids,
+              /*visited_output_node_ids=*/visited_artifacts_ids, subgraph));
+      if (output_artifact_ids.empty()) {
+        break;
+      }
+    }
+    curr_distance++;
+  }
+  for (int64_t artifact_id : visited_artifacts_ids) {
+    subgraph.add_artifacts()->set_id(artifact_id);
+  }
+  for (int64_t execution_id : visited_executions_ids) {
+    subgraph.add_executions()->set_id(execution_id);
+  }
+  return absl::OkStatus();
+}
 
 absl::Status RDBMSMetadataAccessObject::DeleteArtifactsById(
     absl::Span<const int64_t> artifact_ids) {

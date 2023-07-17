@@ -5039,6 +5039,295 @@ TEST_P(MetadataAccessObjectTest, QueryLineageGraphWithBoundaryConditions) {
   }
 }
 
+TEST_P(MetadataAccessObjectTest, QueryLineageSubgraph) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  // Test setup: use a simple graph with multiple paths between (a1, e2).
+  // a1 -> e1 -> a2
+  //  \            \
+  //   \------------> e2
+  const ArtifactType artifact_type = CreateTypeFromTextProto<ArtifactType>(
+      "name: 'artifact_type'", *metadata_access_object_,
+      metadata_access_object_container_.get());
+  const ExecutionType execution_type = CreateTypeFromTextProto<ExecutionType>(
+      "name: 'execution_type'", *metadata_access_object_,
+      metadata_access_object_container_.get());
+  std::vector<Artifact> want_artifacts(2);
+  std::vector<Execution> want_executions(2);
+  for (int i = 0; i < 2; i++) {
+    CreateNodeFromTextProto(absl::Substitute("uri: 'uri_$0'", i),
+                            artifact_type.id(), *metadata_access_object_,
+                            metadata_access_object_container_.get(),
+                            want_artifacts[i]);
+  }
+  for (int i = 0; i < 2; i++) {
+    CreateNodeFromTextProto("", execution_type.id(), *metadata_access_object_,
+                            metadata_access_object_container_.get(),
+                            want_executions[i]);
+  }
+  std::vector<Event> want_events(4);
+  CreateEventFromTextProto("type: INPUT", want_artifacts[0], want_executions[0],
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[0]);
+  CreateEventFromTextProto("type: INPUT", want_artifacts[0], want_executions[1],
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[1]);
+  CreateEventFromTextProto("type: OUTPUT", want_artifacts[1],
+                           want_executions[0], *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[2]);
+  CreateEventFromTextProto("type: INPUT", want_artifacts[1], want_executions[1],
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[3]);
+
+  {
+    // Return invalid argument error if no starting nodes are provided.
+    LineageGraph output_subgraph;
+    LineageSubgraphQueryOptions options;
+    options.mutable_starting_artifacts()->set_filter_query("");
+    options.set_max_num_hops(0);
+    EXPECT_TRUE(
+        absl::IsInvalidArgument(metadata_access_object_->QueryLineageSubgraph(
+            options, output_subgraph)));
+
+    options.mutable_starting_executions()->set_filter_query("");
+    EXPECT_TRUE(
+        absl::IsInvalidArgument(metadata_access_object_->QueryLineageSubgraph(
+            options, output_subgraph)));
+  }
+
+  {
+    // Query a1 with 1 hop.
+    LineageGraph output_subgraph;
+    LineageSubgraphQueryOptions options;
+    options.mutable_starting_artifacts()->set_filter_query(
+        absl::Substitute("id = $0", want_artifacts[0].id()));
+    options.set_max_num_hops(1);
+    ASSERT_EQ(
+        metadata_access_object_->QueryLineageSubgraph(options, output_subgraph),
+        absl::OkStatus());
+    VerifyLineageGraphSkeleton(
+        output_subgraph, {want_artifacts[0].id()},
+        {want_executions[0].id(), want_executions[1].id()},
+        /*events=*/{want_events[0], want_events[1]});
+  }
+  {
+    // Query a1 with 2 hops. It returns all nodes with no duplicate.
+    LineageGraph output_subgraph;
+    LineageSubgraphQueryOptions options;
+    options.mutable_starting_artifacts()->set_filter_query(
+        absl::Substitute("id = $0", want_artifacts[0].id()));
+    options.set_max_num_hops(2);
+    ASSERT_EQ(
+        metadata_access_object_->QueryLineageSubgraph(options, output_subgraph),
+        absl::OkStatus());
+    VerifyLineageGraphSkeleton(
+        output_subgraph, {want_artifacts[0].id(), want_artifacts[1].id()},
+        {want_executions[0].id(), want_executions[1].id()}, want_events);
+  }
+
+  {
+    // With multiple query nodes with 0 hop.
+    LineageGraph output_subgraph;
+    LineageSubgraphQueryOptions options;
+    options.mutable_starting_artifacts()->set_filter_query(absl::Substitute(
+        "id = $0 OR id = $1", want_artifacts[0].id(), want_artifacts[1].id()));
+    options.set_max_num_hops(0);
+    ASSERT_EQ(
+        metadata_access_object_->QueryLineageSubgraph(options, output_subgraph),
+        absl::OkStatus());
+    VerifyLineageGraphSkeleton(output_subgraph,
+                               {want_artifacts[0].id(), want_artifacts[1].id()},
+                               /*expected_execution_ids=*/{},
+                               /*events=*/{});
+  }
+
+  {
+    // Query multiple nodes with a large hop.
+    // It returns all nodes with no duplicate.
+    LineageGraph output_subgraph;
+    LineageSubgraphQueryOptions options;
+    options.mutable_starting_artifacts()->set_filter_query(absl::Substitute(
+        "id = $0 OR id = $1", want_artifacts[0].id(), want_artifacts[1].id()));
+    options.set_max_num_hops(5);
+    ASSERT_EQ(
+        metadata_access_object_->QueryLineageSubgraph(options, output_subgraph),
+        absl::OkStatus());
+    VerifyLineageGraphSkeleton(
+        output_subgraph, {want_artifacts[0].id(), want_artifacts[1].id()},
+        {want_executions[0].id(), want_executions[1].id()}, want_events);
+  }
+  {
+    // Query from e2 with 1 hop
+    LineageGraph output_subgraph;
+    LineageSubgraphQueryOptions options;
+    options.mutable_starting_executions()->set_filter_query(
+        absl::Substitute("id = $0", want_executions[1].id()));
+    options.set_max_num_hops(1);
+    ASSERT_EQ(
+        metadata_access_object_->QueryLineageSubgraph(options, output_subgraph),
+        absl::OkStatus());
+    VerifyLineageGraphSkeleton(output_subgraph,
+                               {want_artifacts[0].id(), want_artifacts[1].id()},
+                               {want_executions[1].id()},
+                               /*events=*/{want_events[1], want_events[3]});
+  }
+  {
+    // Query from e2 with 2 hops
+    LineageGraph output_subgraph;
+    LineageSubgraphQueryOptions options;
+    options.mutable_starting_executions()->set_filter_query(
+        absl::Substitute("id = $0", want_executions[1].id()));
+    options.set_max_num_hops(2);
+    ASSERT_EQ(
+        metadata_access_object_->QueryLineageSubgraph(options, output_subgraph),
+        absl::OkStatus());
+    VerifyLineageGraphSkeleton(
+        output_subgraph, {want_artifacts[0].id(), want_artifacts[1].id()},
+        {want_executions[1].id(), want_executions[0].id()},
+        /*events=*/want_events);
+  }
+  {
+    // With multiple query nodes with 0 hop.
+    LineageGraph output_subgraph;
+    LineageSubgraphQueryOptions options;
+    options.mutable_starting_executions()->set_filter_query(
+        absl::Substitute("id = $0 OR id = $1", want_executions[0].id(),
+                         want_executions[1].id()));
+    options.set_max_num_hops(0);
+    ASSERT_EQ(
+        metadata_access_object_->QueryLineageSubgraph(options, output_subgraph),
+        absl::OkStatus());
+    VerifyLineageGraphSkeleton(
+        output_subgraph, /*expected_artifact_ids=*/
+        {}, {want_executions[0].id(), want_executions[1].id()},
+        /*events=*/{});
+  }
+}
+
+TEST_P(MetadataAccessObjectTest, QueryLineageSubgraphArtifactsOnly) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  // Test setup: only set up an artifact type and 2 artifacts.
+  const ArtifactType artifact_type = CreateTypeFromTextProto<ArtifactType>(
+      "name: 'artifact_type'", *metadata_access_object_,
+      metadata_access_object_container_.get());
+  std::vector<Artifact> want_artifacts(2);
+  for (int i = 0; i < 2; i++) {
+    CreateNodeFromTextProto(absl::Substitute("uri: 'uri_$0'", i),
+                            artifact_type.id(), *metadata_access_object_,
+                            metadata_access_object_container_.get(),
+                            want_artifacts[i]);
+  }
+
+  LineageGraph output_subgraph;
+  LineageSubgraphQueryOptions options;
+  options.mutable_starting_artifacts()->set_filter_query(absl::Substitute(
+      "id = $0 OR id = $1", want_artifacts[0].id(), want_artifacts[1].id()));
+  options.set_max_num_hops(1);
+  ASSERT_EQ(
+      metadata_access_object_->QueryLineageSubgraph(options, output_subgraph),
+      absl::OkStatus());
+  VerifyLineageGraphSkeleton(output_subgraph,
+                             {want_artifacts[0].id(), want_artifacts[1].id()},
+                             /*expected_execution_ids=*/{},
+                             /*events=*/{});
+}
+
+TEST_P(MetadataAccessObjectTest, QueryLineageSubgraphFromFilteredExecutions) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  // Test setup: use a simple graph with multiple paths between (a1, e2).
+  // c1(a1) -> e1(a1)-> c1(a2)
+  //     \               \
+  //      \------------> e2(a2)
+  const ArtifactType artifact_type = CreateTypeFromTextProto<ArtifactType>(
+      "name: 'artifact_type'", *metadata_access_object_,
+      metadata_access_object_container_.get());
+  const ExecutionType execution_type = CreateTypeFromTextProto<ExecutionType>(
+      "name: 'execution_type'", *metadata_access_object_,
+      metadata_access_object_container_.get());
+  const ContextType context_type = CreateTypeFromTextProto<ContextType>(
+      "name: 'context_type'", *metadata_access_object_,
+      metadata_access_object_container_.get());
+  std::vector<Artifact> want_artifacts(2);
+  std::vector<Execution> want_executions(2);
+  std::vector<Context> want_contexts(2);
+  CreateNodeFromTextProto(
+      "name: 'context_1'", context_type.id(), *metadata_access_object_,
+      metadata_access_object_container_.get(), want_contexts[0]);
+  CreateNodeFromTextProto(
+      "name: 'context_2'", context_type.id(), *metadata_access_object_,
+      metadata_access_object_container_.get(), want_contexts[1]);
+  for (int i = 0; i < 2; i++) {
+    CreateNodeFromTextProto(absl::Substitute("uri: 'uri_$0'", i),
+                            artifact_type.id(), *metadata_access_object_,
+                            metadata_access_object_container_.get(),
+                            want_artifacts[i]);
+  }
+  for (int i = 0; i < 2; i++) {
+    CreateNodeFromTextProto("", execution_type.id(), *metadata_access_object_,
+                            metadata_access_object_container_.get(),
+                            want_executions[i]);
+  }
+  std::vector<Event> want_events(4);
+  CreateEventFromTextProto("type: INPUT", want_artifacts[0], want_executions[0],
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[0]);
+  CreateEventFromTextProto("type: INPUT", want_artifacts[0], want_executions[1],
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[1]);
+  CreateEventFromTextProto("type: OUTPUT", want_artifacts[1],
+                           want_executions[0], *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[2]);
+  CreateEventFromTextProto("type: INPUT", want_artifacts[1], want_executions[1],
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[3]);
+  Attribution attribution;
+  attribution.set_artifact_id(want_artifacts[0].id());
+  attribution.set_context_id(want_contexts[0].id());
+  int64_t attribution_id;
+  // Note using ASSERT_EQ as *_OK is not well supported in OSS
+  ASSERT_EQ(
+      metadata_access_object_->CreateAttribution(attribution, &attribution_id),
+      absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+  attribution.set_context_id(want_contexts[1].id());
+  attribution.set_artifact_id(want_artifacts[1].id());
+  ASSERT_EQ(
+      metadata_access_object_->CreateAttribution(attribution, &attribution_id),
+      absl::OkStatus());
+  Association association;
+  association.set_context_id(want_contexts[0].id());
+  association.set_execution_id(want_executions[0].id());
+  int64_t association_id;
+  ASSERT_EQ(
+      metadata_access_object_->CreateAssociation(association, &association_id),
+      absl::OkStatus());
+  association.set_context_id(want_contexts[1].id());
+  association.set_execution_id(want_executions[1].id());
+  ASSERT_EQ(
+      metadata_access_object_->CreateAssociation(association, &association_id),
+      absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  LineageGraph output_subgraph;
+  LineageSubgraphQueryOptions options;
+  options.mutable_starting_executions()->set_filter_query(
+      absl::Substitute("contexts_a.id = $0", want_contexts[0].id()));
+  options.set_max_num_hops(1);
+  ASSERT_EQ(
+      metadata_access_object_->QueryLineageSubgraph(options, output_subgraph),
+      absl::OkStatus());
+  VerifyLineageGraphSkeleton(
+      output_subgraph, {want_artifacts[0].id(), want_artifacts[1].id()},
+      /*expected_execution_ids=*/{want_executions[0].id()},
+      /*events=*/{want_events[0], want_events[2]});
+}
 
 TEST_P(MetadataAccessObjectTest, DeleteArtifactsById) {
   ASSERT_EQ(Init(), absl::OkStatus());

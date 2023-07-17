@@ -746,6 +746,41 @@ class MetadataStore(object):
     context_ids = list(response.context_ids)
     return execution_ids, artifact_ids, context_ids
 
+  def get_lineage_subgraph(
+      self,
+      query_options: metadata_store_pb2.LineageSubgraphQueryOptions,
+      verbose: bool = False,
+  ) -> metadata_store_pb2.LineageGraph:
+    """Gets lineage graph skeleton and get node attributes if necessary.
+
+    Args:
+      query_options: metadata_store_pb2.LineageSubgraphQueryOptions object.
+      verbose: option for getting node details.
+        When True, returns a lineage subgraph with node details.
+          Note that getting subgraph skeleton and getting node details are not
+          wrapped in one transaction, and there is no consistency guarantee.
+        When False, returns a lineage subgraph without node details.
+
+    Returns:
+      metadata_store_pb2.LineageGraph object that contains the lineage graph.
+    """
+    request = metadata_store_service_pb2.GetLineageSubgraphRequest(
+        lineage_subgraph_query_options=query_options
+    )
+    response = metadata_store_service_pb2.GetLineageSubgraphResponse()
+    self._call('GetLineageSubgraph', request, response)
+    skeleton = response.lineage_subgraph
+
+    if not verbose:
+      return skeleton
+
+    lineage_subgraph = metadata_store_pb2.LineageGraph(events=skeleton.events)
+    artifact_ids = [artifact.id for artifact in skeleton.artifacts]
+    execution_ids = [execution.id for execution in skeleton.executions]
+    lineage_subgraph.artifacts.extend(self.get_artifacts_by_id(artifact_ids))
+    lineage_subgraph.executions.extend(self.get_executions_by_id(execution_ids))
+
+    return lineage_subgraph
 
   def get_artifacts_by_type(
       self,

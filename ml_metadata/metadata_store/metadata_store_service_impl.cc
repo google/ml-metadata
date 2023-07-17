@@ -1016,4 +1016,23 @@ MetadataStoreServiceImpl::MetadataStoreServiceImpl(
   return transaction_status;
 }
 
+::grpc::Status MetadataStoreServiceImpl::GetLineageSubgraph(
+    ::grpc::ServerContext* context, const GetLineageSubgraphRequest* request,
+    GetLineageSubgraphResponse* response) {
+  std::unique_ptr<MetadataStore> metadata_store;
+  const ::grpc::Status connection_status =
+      ConnectMetadataStore(connection_config_, &metadata_store);
+  if (!connection_status.ok()) {
+    LOG(WARNING) << "Failed to connect to the database: "
+                 << connection_status.error_message();
+    return connection_status;
+  }
+  const ::grpc::Status transaction_status =
+      ToGRPCStatus(metadata_store->GetLineageSubgraph(*request, response));
+  if (!transaction_status.ok()) {
+    LOG(WARNING) << "GetLineageSubgraph failed: "
+                 << transaction_status.error_message();
+  }
+  return transaction_status;
+}
 }  // namespace ml_metadata

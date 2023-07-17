@@ -2048,6 +2048,51 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertEqual(get_events_result[output_event_for_new_execution_key].type,
                      output_event_for_new_execution.type)
 
+    # Test get_lineage_subgraph() with max_num_hops = 10 and verbose = False,
+    # the whole lineage subgraph skeleton will be returned.
+    query_options = metadata_store_pb2.LineageSubgraphQueryOptions(
+        starting_artifacts=metadata_store_pb2.LineageSubgraphQueryOptions.StartingNodes(
+            filter_query="uri = 'output_artifact'"
+        ),
+        max_num_hops=10,
+    )
+
+    subgraph_skeleton = store.get_lineage_subgraph(query_options)
+    self.assertLen(subgraph_skeleton.artifacts, 2)
+    self.assertLen(subgraph_skeleton.executions, 2)
+    self.assertLen(subgraph_skeleton.events, 4)
+    self.assertEmpty(subgraph_skeleton.artifacts[0].uri)
+
+    # Test get_lineage_subgraph() with max_num_hops = 10 and verbose = True,
+    # the whole lineage subgraph with node details will be returned.
+    subgraph = store.get_lineage_subgraph(query_options, verbose=True)
+    self.assertLen(subgraph.artifacts, 2)
+    self.assertSameElements(
+        [subgraph.artifacts[0].uri, subgraph.artifacts[1].uri],
+        [input_artifact.uri, output_artifact.uri],
+    )
+    self.assertSameElements(
+        [subgraph.executions[0].name, subgraph.executions[1].name],
+        [existing_execution.name, new_execution.name],
+    )
+    self.assertLen(subgraph.events, 4)
+
+    # Test get_lineage_subgraph() with max_num_hops = 0 from starting executions
+    # filtered by context name. All the executions will be returned.
+    query_options = metadata_store_pb2.LineageSubgraphQueryOptions(
+        starting_executions=metadata_store_pb2.LineageSubgraphQueryOptions.StartingNodes(
+            filter_query="contexts_a.name='existing_context'"
+        ),
+        max_num_hops=0,
+    )
+    subgraph = store.get_lineage_subgraph(query_options, verbose=True)
+    self.assertEmpty(subgraph.artifacts)
+    self.assertLen(subgraph_skeleton.executions, 2)
+    self.assertSameElements(
+        [subgraph.executions[0].name, subgraph.executions[1].name],
+        [existing_execution.name, new_execution.name],
+    )
+    self.assertEmpty(subgraph.events)
 
   def test_put_and_use_attributions_and_associations(self):
     store = _get_metadata_store()

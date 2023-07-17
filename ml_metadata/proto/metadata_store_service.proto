@@ -1079,6 +1079,20 @@ message GetLineageGraphResponse {
   optional LineageGraph subgraph = 1;
 }
 
+message GetLineageSubgraphRequest {
+  // Query options for lineage graph tracing from a list of interested
+  // nodes.
+  // A lineage subgraph without node details (e.g., external_id, properties)
+  // will be returned.
+  optional LineageSubgraphQueryOptions lineage_subgraph_query_options = 1;
+  optional TransactionOptions transaction_options = 2;
+}
+
+message GetLineageSubgraphResponse {
+  // A lineage subgraph of MLMD nodes and relations retrieved from lineage
+  // graph tracing.
+  optional LineageGraph lineage_subgraph = 1;
+}
 
 
 
@@ -1474,6 +1488,12 @@ service MetadataStoreService {
   rpc GetLineageGraph(GetLineageGraphRequest)
       returns (GetLineageGraphResponse) {}
 
+  // Gets a lineage subgraph by performing graph traversal from a list of
+  // interested nodes.
+  // A lineage subgraph without node details (e.g., external_id, properties)
+  // will be returned.
+  rpc GetLineageSubgraph(GetLineageSubgraphRequest)
+      returns (GetLineageSubgraphResponse) {}
 
 
 }

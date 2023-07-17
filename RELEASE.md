@@ -7,6 +7,7 @@
 *   Add masking support for Artifact / Execution / Context updates
 *   Support using enum names in IN operator in filter queries.
 *   Support populating ArtifactTypes for GetArtifactByID API.
+*   Add GetLineageSubgraph API for efficient lineage tracing.
 
 ## Breaking Changes
 

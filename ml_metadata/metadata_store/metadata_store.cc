@@ -2301,6 +2301,18 @@ absl::Status MetadataStore::GetLineageGraph(
       request.transaction_options());
 }
 
+absl::Status MetadataStore::GetLineageSubgraph(
+    const GetLineageSubgraphRequest& request,
+    GetLineageSubgraphResponse* response) {
+  return transaction_executor_->Execute(
+      [&]() -> absl::Status {
+        response->Clear();
+        return metadata_access_object_->QueryLineageSubgraph(
+            request.lineage_subgraph_query_options(),
+            *response->mutable_lineage_subgraph());
+      },
+      request.transaction_options());
+}
 
 
 

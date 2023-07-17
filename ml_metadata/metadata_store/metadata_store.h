@@ -515,6 +515,16 @@ class MetadataStore : public MetadataStoreServiceInterface {
   absl::Status GetLineageGraph(const GetLineageGraphRequest& request,
                                GetLineageGraphResponse* response) override;
 
+  // A method to perform lineage graph tracing from a list of interested
+  // nodes. Please refer to metadata_store_service.proto for details.
+  // Returns INVALID_ARGUMENT error, if `starting_nodes` is not specified in
+  // the request.
+  // Returns INVALID_ARGUMENT error, if `starting_nodes.filter_query` is
+  // unspecified or invalid in the request.
+  // Returns detailed INTERNAL error, if the operation fails.
+  absl::Status GetLineageSubgraph(
+      const GetLineageSubgraphRequest& request,
+      GetLineageSubgraphResponse* response) override;
 
 
 

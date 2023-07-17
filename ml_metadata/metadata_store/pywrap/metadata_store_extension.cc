@@ -159,6 +159,7 @@ PYBIND11_MODULE(metadata_store_extension, main_module) {
   METADATA_STORE_METHOD_PYBIND11_DECLARE(GetExecutionsByContext)
   METADATA_STORE_METHOD_PYBIND11_DECLARE(GetParentContextsByContext)
   METADATA_STORE_METHOD_PYBIND11_DECLARE(GetChildrenContextsByContext)
+  METADATA_STORE_METHOD_PYBIND11_DECLARE(GetLineageSubgraph)
 }
 
 }  // namespace

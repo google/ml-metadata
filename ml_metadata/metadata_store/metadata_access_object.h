@@ -970,6 +970,19 @@ class MetadataAccessObject {
       absl::optional<std::string> boundary_executions,
       LineageGraph& subgraph) = 0;
 
+  // Given the `lineage_subgraph_query_options`, performs a constrained BFS
+  // on the lineage graph and returns a subgraph skeleton including the reached
+  // edges and dehydrated nodes.
+  // The constraints include:
+  // a) `max_num_hops`: it stops traversal at nodes that are at `max_num_hops`
+  //    away from the starting nodes.
+  // Returns INVALID_ARGUMENT error, if `starting_nodes` is not specified in
+  // `lineage_subgraph_query_options`.
+  // Returns INVALID_ARGUMENT error, if `starting_nodes.filter_query` is
+  // unspecified or invalid in `lineage_subgraph_query_options`.
+  // Returns detailed INTERNAL error, if the operation fails.
+  virtual absl::Status QueryLineageSubgraph(
+      const LineageSubgraphQueryOptions& options, LineageGraph& subgraph) = 0;
 
 
   // Deletes a list of artifacts by id.
