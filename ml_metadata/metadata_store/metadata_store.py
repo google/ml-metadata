@@ -886,8 +886,7 @@ class MetadataStore(object):
     Returns:
       Artifacts with matching ids and ArtifactTypes which can be matched by
       type_ids from Artifacts. Each ArtifactType contains id, name,
-      properties and custom_properties fields. When false: returns only the
-      retrieved Artifacts.
+      properties and custom_properties fields.
     """
     request = metadata_store_service_pb2.GetArtifactsByIDRequest(
         artifact_ids=artifact_ids, populate_artifact_types=True
