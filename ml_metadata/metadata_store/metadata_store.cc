@@ -1389,7 +1389,8 @@ absl::Status MetadataStore::PutLineageSubgraph(
           if (request.options()
                   .reuse_artifact_if_already_exist_by_external_id() &&
               artifact.has_external_id() && !artifact.external_id().empty() &&
-              !artifact.has_id()) {
+              !artifact.has_id() &&
+              external_id_to_id_map.contains(artifact.external_id())) {
             artifact_copy.set_id(
                 external_id_to_id_map.find(artifact.external_id())->second);
           }

@@ -4817,6 +4817,27 @@ TEST_P(MetadataStoreTestSuite,
   ASSERT_EQ(get_artifact_response.artifacts_size(), 1);
   EXPECT_EQ(get_artifact_response.artifacts(0).external_id(),
             kNewExternalIdStr);
+
+  // Test case 4: Try to insert a new artifact with a new external_id that does
+  // not exist and option=true. Expect regular insertion behavior holds.
+  Artifact another_artifact = ParseTextProtoOrDie<Artifact>(
+      R"pb(
+        external_id: 'another_artifact_reference_str'
+        name: 'another_artifact_name'
+      )pb");
+  another_artifact.set_type_id(put_types_response.artifact_type_ids(0));
+  put_subgraph_request.mutable_artifacts(0)->Swap(&another_artifact);
+  ASSERT_EQ(metadata_store_->PutLineageSubgraph(put_subgraph_request,
+                                                &put_subgraph_response),
+            absl::OkStatus());
+  get_artifact_request.clear_artifact_ids();
+  get_artifact_request.add_artifact_ids(put_subgraph_response.artifact_ids(0));
+  ASSERT_EQ(metadata_store_->GetArtifactsByID(get_artifact_request,
+                                              &get_artifact_response),
+            absl::OkStatus());
+  ASSERT_EQ(get_artifact_response.artifacts_size(), 1);
+  EXPECT_EQ(get_artifact_response.artifacts(0).external_id(),
+            "another_artifact_reference_str");
 }
 
 TEST_P(MetadataStoreTestSuite, PutContextTypeGetContextType) {
