@@ -1181,6 +1181,7 @@ message LineageGraphQueryOptions {
 // The query options for lineage graph tracing from a list of interested nodes.
 message LineageSubgraphQueryOptions {
   // `starting_nodes` is a list of nodes of interest to start graph tracing.
+  // NOTE: The maximum number of starting nodes is 100 at most.
   message StartingNodes {
     // `filter_query` is a boolean expression in SQL syntax that is used to
     // specify the conditions on starting nodes.

@@ -2834,6 +2834,12 @@ absl::Status RDBMSMetadataAccessObject::QueryLineageSubgraph(
   // Get ordered ids of starting nodes based on `starting_nodes_filter_query`.
   ListOperationOptions starting_nodes_options;
   starting_nodes_options.set_filter_query(starting_nodes_filter_query);
+  // Set max_result_size to the maximum value of int32_t.
+  // TODO: Remove the default value of 20 in `ListOperationOptions` proto.
+  // TODO(b/283852485): Investigate whether to increase the 100 limitation of
+  // starting nodes.
+  starting_nodes_options.set_max_result_size(
+      std::numeric_limits<int32_t>::max());
 
   RecordSet record_set;
   if (is_from_artifacts) {
