@@ -80,9 +80,13 @@ message Artifact {
     // A state indicating that the artifact has been abandoned, which may be
     // due to a failed or cancelled execution.
     ABANDONED = 5;
-    // A state indicating that the artifact is a copy for referencing an
-    // external artifact.
-    // TODO(b/261527306) This new state is currently not used.
+    // A state indicating that the artifact is a reference artifact. At
+    // execution start time, the orchestrator produces an output artifact for
+    // each output key with state PENDING. However, for an intermediate
+    // artifact, this first artifact's state will be REFERENCE. Intermediate
+    // artifacts emitted during a component's execution will copy the REFERENCE
+    // artifact's attributes. At the end of an execution, the artifact state
+    // should remain REFERENCE instead of being changed to LIVE.
     REFERENCE = 6;
   }
 
