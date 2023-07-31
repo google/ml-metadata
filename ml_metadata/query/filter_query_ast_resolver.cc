@@ -52,6 +52,7 @@ constexpr absl::string_view kChildContextRE =
 constexpr absl::string_view kParentContextRE =
     "\\b(parent_contexts_[[:word:]]+)\\.";
 constexpr absl::string_view kEventRE = "\\b(events_[[:word:]]+)\\.";
+constexpr absl::string_view kEventPathRE = "\\bevents_([[:word:]]+)\\.path\\.";
 
 constexpr absl::string_view kArtifactStatePredicateRE =
     "\\b(state)[[:space:]]*(=|!=|"
@@ -361,6 +362,43 @@ absl::Status AddExecutionsImpl(absl::string_view query_string,
   return absl::OkStatus();
 }
 
+absl::StatusOr<std::string> AddEventPaths(
+    absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts,
+    zetasql::TypeFactory& type_factory) {
+  static LazyRE2 event_path_re = {kEventPathRE.data()};
+  std::string matched_event_alias;
+  absl::flat_hash_set<std::string> mentioned_events;
+  std::string rewritten_query = std::string(query_string);
+  while (RE2::FindAndConsume(&query_string, *event_path_re,
+                             &matched_event_alias)) {
+    std::string matched_event =
+        absl::StrCat("event_paths_", matched_event_alias);
+    // Each mentioned event path is defined only once.
+    if (mentioned_events.contains(matched_event)) {
+      continue;
+    }
+    mentioned_events.insert(matched_event);
+    const zetasql::Type* event_struct_type;
+    MLMD_RETURN_IF_ERROR(type_factory.MakeStructType(
+        {{"step_index", Int64Type()},
+         {"step_key", StringType()}},
+        &event_struct_type));
+
+    MLMD_RETURN_IF_ERROR(
+        analyzer_opts.AddExpressionColumn(matched_event, event_struct_type));
+
+    const std::string replace_regex =
+        absl::StrCat("events_", matched_event_alias, ".path");
+    if (!RE2::GlobalReplace(&rewritten_query, replace_regex, matched_event)) {
+      return absl::InternalError(
+          "Query cannot be rewritten successfully for matched enum predicate: "
+          "$0 $1 $2");
+    }
+  }
+
+  return rewritten_query;
+}
+
 absl::StatusOr<std::string> AddEvents(absl::string_view query_string,
                                       absl::string_view neighbor_node_id,
                                       zetasql::AnalyzerOptions& analyzer_opts,
@@ -429,7 +467,11 @@ absl::StatusOr<std::string> AddNeighborhoodNodes<Artifact>(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts,
     zetasql::TypeFactory& type_factory) {
   MLMD_RETURN_IF_ERROR(AddContexts(query_string, analyzer_opts, type_factory));
-  return AddEvents(query_string, "execution_id", analyzer_opts, type_factory);
+  MLMD_ASSIGN_OR_RETURN(
+      std::string rewritten_query,
+      AddEventPaths(query_string, analyzer_opts, type_factory));
+  return AddEvents(rewritten_query, "execution_id", analyzer_opts,
+                   type_factory);
 }
 
 template <>
@@ -437,7 +479,10 @@ absl::StatusOr<std::string> AddNeighborhoodNodes<Execution>(
     absl::string_view query_string, zetasql::AnalyzerOptions& analyzer_opts,
     zetasql::TypeFactory& type_factory) {
   MLMD_RETURN_IF_ERROR(AddContexts(query_string, analyzer_opts, type_factory));
-  return AddEvents(query_string, "artifact_id", analyzer_opts, type_factory);
+  MLMD_ASSIGN_OR_RETURN(
+      std::string rewritten_query,
+      AddEventPaths(query_string, analyzer_opts, type_factory));
+  return AddEvents(rewritten_query, "artifact_id", analyzer_opts, type_factory);
 }
 
 template <>

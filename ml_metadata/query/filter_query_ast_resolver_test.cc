@@ -257,6 +257,13 @@ constexpr QueryTestCase kValidTestQueries[] = {
     {"events_0.type = INPUT", "", execution_only},
     {"events_0.type=OUTPUT", "", execution_only},
     {"events_0.type IN (OUTPUT, DECLARED_OUTPUT)", "", execution_only},
+    {"events_0.path.step_key = 'key'", "", exclude_context},
+    {"events_0.path.step_key = 'key' AND events_0.path.step_index = 0", "",
+     exclude_context},
+    {"events_0.path.step_key = 'key' AND events_1.path.step_index = 1", "",
+     exclude_context},
+    {"events_0.path.step_index = 0 AND events_0.type = INPUT", "",
+     exclude_context},
 };
 
 class InValidQueryTest : public ::testing::TestWithParam<QueryTestCase> {
