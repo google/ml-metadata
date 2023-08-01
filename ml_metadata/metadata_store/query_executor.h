@@ -299,6 +299,10 @@ class QueryExecutor {
   // - string: name
   // - int: create time (since epoch)
   // - int: last update time (since epoch)
+  // - string: type (which refers to type name)
+  // - string: type_version
+  // - string: type_description
+  // - string: type_external_id
   virtual absl::Status SelectArtifactsByID(absl::Span<const int64_t> ids,
                                            RecordSet* record_set) = 0;
 
@@ -372,6 +376,10 @@ class QueryExecutor {
   // - name
   // - create_time_since_epoch
   // - last_update_time_since_epoch
+  // - string: type (which refers to type name)
+  // - string: type_version
+  // - string: type_description
+  // - string: type_external_id
   virtual absl::Status SelectExecutionsByID(
       absl::Span<const int64_t> execution_ids, RecordSet* record_set) = 0;
 
@@ -437,6 +445,10 @@ class QueryExecutor {
   // - string: name
   // - int: create time (since epoch)
   // - int: last update time (since epoch)
+  // - string: type (which refers to type name)
+  // - string: type_version
+  // - string: type_description
+  // - string: type_external_id
   virtual absl::Status SelectContextsByID(absl::Span<const int64_t> context_ids,
                                           RecordSet* record_set) = 0;
 

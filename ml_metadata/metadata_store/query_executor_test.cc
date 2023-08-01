@@ -903,6 +903,8 @@ TEST_P(QueryExecutorTest, SelectArtifacts) {
                   /*update_time=*/test_create_time, &artifact_id_2));
     expected_artifact_record_set =
         ParseTextProtoOrDie<RecordSet>(std::string(kArtifactRecordSet));
+    // Add __MLMD_NULL__ values because extra ArtifactType fields are populated
+    // while querying for Artifacts.
     RecordSet::Record artifact_record_1 =
         ParseTextProtoOrDie<RecordSet::Record>(absl::StrCat(
             R"pb(
@@ -917,6 +919,11 @@ TEST_P(QueryExecutorTest, SelectArtifacts) {
             absl::ToUnixMillis(test_create_time),
             R"pb(" 
                  values: "test_type"
+            )pb",
+            R"pb(
+              values: "__MLMD_NULL__"
+              values: "__MLMD_NULL__"
+              values: "__MLMD_NULL__"
             )pb"));
     *expected_artifact_record_set.add_records() = artifact_record_1;
     RecordSet::Record artifact_record_2 =
@@ -933,6 +940,11 @@ TEST_P(QueryExecutorTest, SelectArtifacts) {
             absl::ToUnixMillis(test_create_time),
             R"pb(" 
                  values: "test_type"
+            )pb",
+            R"pb(
+              values: "__MLMD_NULL__"
+              values: "__MLMD_NULL__"
+              values: "__MLMD_NULL__"
             )pb"));
     *expected_artifact_record_set.add_records() = artifact_record_2;
   }
@@ -1021,6 +1033,8 @@ TEST_P(QueryExecutorTest, SelectContexts) {
                   /*update_time=*/test_create_time, &context_id_2));
     expected_context_record_set =
         ParseTextProtoOrDie<RecordSet>(std::string(kContextRecordSet));
+    // Add __MLMD_NULL__ values because extra ContextType fields are populated
+    // while querying for Contexts.
     RecordSet::Record context_record_1 =
         ParseTextProtoOrDie<RecordSet::Record>(absl::StrCat(
             R"pb(
@@ -1033,6 +1047,11 @@ TEST_P(QueryExecutorTest, SelectContexts) {
             absl::ToUnixMillis(test_create_time),
             R"pb(" 
                  values: "test_type"
+            )pb",
+            R"pb(
+              values: "__MLMD_NULL__"
+              values: "__MLMD_NULL__"
+              values: "__MLMD_NULL__"
             )pb"));
     *expected_context_record_set.add_records() = context_record_1;
     RecordSet::Record context_record_2 =
@@ -1047,6 +1066,11 @@ TEST_P(QueryExecutorTest, SelectContexts) {
             absl::ToUnixMillis(test_create_time),
             R"pb(" 
                  values: "test_type"
+            )pb",
+            R"pb(
+              values: "__MLMD_NULL__"
+              values: "__MLMD_NULL__"
+              values: "__MLMD_NULL__"
             )pb"));
     *expected_context_record_set.add_records() = context_record_2;
   }
@@ -1133,6 +1157,8 @@ TEST_P(QueryExecutorTest, SelectExecutions) {
                   /*update_time=*/test_create_time, &execution_id_2));
     expected_execution_record_set =
         ParseTextProtoOrDie<RecordSet>(std::string(kExecutionRecordSet));
+    // Add __MLMD_NULL__ values because extra ExecutionType fields are populated
+    // while querying for Executions.
     RecordSet::Record execution_record_1 =
         ParseTextProtoOrDie<RecordSet::Record>(absl::StrCat(
             R"pb(
@@ -1146,6 +1172,11 @@ TEST_P(QueryExecutorTest, SelectExecutions) {
             absl::ToUnixMillis(test_create_time),
             R"pb(" 
                  values: "test_type"
+            )pb",
+            R"pb(
+              values: "__MLMD_NULL__"
+              values: "__MLMD_NULL__"
+              values: "__MLMD_NULL__"
             )pb"));
     *expected_execution_record_set.add_records() = execution_record_1;
     RecordSet::Record execution_record_2 =
@@ -1161,6 +1192,11 @@ TEST_P(QueryExecutorTest, SelectExecutions) {
             absl::ToUnixMillis(test_create_time),
             R"pb(" 
                  values: "test_type"
+            )pb",
+            R"pb(
+              values: "__MLMD_NULL__"
+              values: "__MLMD_NULL__"
+              values: "__MLMD_NULL__"
             )pb"));
     *expected_execution_record_set.add_records() = execution_record_2;
   }

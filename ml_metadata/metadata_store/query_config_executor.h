@@ -65,7 +65,9 @@ static constexpr absl::string_view kInsertArtifact = R"pb(
 static constexpr absl::string_view kSelectArtifactByIdForMySQL = R"pb(
   query: " SELECT A.id, A.type_id, A.uri, A.state, A.name, "
          "        A.create_time_since_epoch, "
-         "        A.last_update_time_since_epoch, T.name AS `type` "
+         "        A.last_update_time_since_epoch, T.name AS `type`, "
+         "        T.version AS type_version, "
+         "        T.description AS type_description "
          " FROM `Artifact` AS A "
          " INNER JOIN `Type` AS T "
          "   ON (T.id = A.type_id) "
@@ -76,7 +78,9 @@ static constexpr absl::string_view kSelectArtifactByIdForMySQL = R"pb(
 static constexpr absl::string_view kSelectArtifactByIdForSQLite = R"pb(
   query: " SELECT A.id, A.type_id, A.uri, A.state, A.name, "
          "        A.create_time_since_epoch, "
-         "        A.last_update_time_since_epoch, T.name AS `type` "
+         "        A.last_update_time_since_epoch, T.name AS `type`, "
+         "        T.version AS type_version, "
+         "        T.description AS type_description "
          " FROM `Artifact` AS A "
          " INNER JOIN `Type` AS T "
          "   ON (T.id = A.type_id) "
@@ -103,7 +107,9 @@ static constexpr absl::string_view kInsertExecution = R"pb(
 static constexpr absl::string_view kSelectExecutionByIdForMySQL = R"pb(
   query: " SELECT E.id, E.type_id, E.last_known_state, E.name, "
          "        E.create_time_since_epoch, "
-         "        E.last_update_time_since_epoch, T.name AS `type` "
+         "        E.last_update_time_since_epoch, T.name AS `type`, "
+         "        T.version AS type_version, "
+         "        T.description AS type_description "
          " FROM `Execution` AS E "
          " INNER JOIN `Type` AS T "
          "   ON (T.id = E.type_id) "
@@ -114,7 +120,9 @@ static constexpr absl::string_view kSelectExecutionByIdForMySQL = R"pb(
 static constexpr absl::string_view kSelectExecutionByIdForSQLite = R"pb(
   query: " SELECT E.id, E.type_id, E.last_known_state, E.name, "
          "        E.create_time_since_epoch, "
-         "        E.last_update_time_since_epoch, T.name AS `type` "
+         "        E.last_update_time_since_epoch, T.name AS `type`, "
+         "        T.version AS type_version, "
+         "        T.description AS type_description "
          " FROM `Execution` AS E "
          " INNER JOIN `Type` AS T "
          "   ON (T.id = E.type_id) "
@@ -140,7 +148,9 @@ static constexpr absl::string_view kInsertContext = R"pb(
 
 static constexpr absl::string_view kSelectContextByIdForMySQL = R"pb(
   query: " SELECT C.id, C.type_id, C.name, C.create_time_since_epoch, "
-         "        C.last_update_time_since_epoch, T.name AS `type` "
+         "        C.last_update_time_since_epoch, T.name AS `type`, "
+         "        T.version AS type_version, "
+         "        T.description AS type_description "
          " FROM `Context` AS C "
          " INNER JOIN `Type` AS T ON (T.id = C.type_id) "
          " WHERE C.id IN ($0) LOCK IN SHARE MODE; "
@@ -149,7 +159,9 @@ static constexpr absl::string_view kSelectContextByIdForMySQL = R"pb(
 
 static constexpr absl::string_view kSelectContextByIdForSQLite = R"pb(
   query: " SELECT C.id, C.type_id, C.name, C.create_time_since_epoch, "
-         "        C.last_update_time_since_epoch, T.name AS `type` "
+         "        C.last_update_time_since_epoch, T.name AS `type`, "
+         "        T.version AS type_version, "
+         "        T.description AS type_description "
          " FROM `Context` AS C "
          " INNER JOIN `Type` AS T ON (T.id = C.type_id) "
          " WHERE C.id IN ($0); "

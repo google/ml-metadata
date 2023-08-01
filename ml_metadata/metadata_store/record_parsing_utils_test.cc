@@ -267,6 +267,173 @@ TEST(ParseRecordSetTest, MismatchRecordAndFieldNameIgnored) {
               )pb"))));
 }
 
+TEST(ParseRecordSetTest, ParseNodeRecordSetToDedupedArtifactTypeArraySuccess) {
+  RecordSet record_set = ParseTextProtoOrDie<RecordSet>(
+      R"pb(
+        column_names: 'id'
+        column_names: 'type_id'
+        column_names: 'uri'
+        column_names: 'state'
+        column_names: 'name'
+        column_names: 'external_id'
+        column_names: 'create_time_since_epoch'
+        column_names: 'last_update_time_since_epoch'
+        column_names: 'type'
+        column_names: 'type_version'
+        column_names: 'type_description'
+        column_names: 'type_external_id'
+        records {
+          values: '1'
+          values: '1'
+          values: '/fake/uri'
+          values: '1'
+          values: '1a'
+          values: '__MLMD_NULL__'
+          values: '1677288915393'
+          values: '1677288915393'
+          values: 'artifact_type_1'
+          values: 'v1'
+          values: 'artifact_type_description'
+          values: 'artifact_type_1'
+        }
+        records {
+          values: '2'
+          values: '1'
+          values: ''
+          values: '__MLMD_NULL__'
+          values: '1b'
+          values: 'test_id'
+          values: '1677288915393'
+          values: '1677288915393'
+          values: 'artifact_type_1'
+          values: 'v1'
+          values: 'artifact_type_description'
+          values: 'artifact_type_1'
+        }
+      )pb");
+  std::vector<ArtifactType> artifact_types;
+  EXPECT_EQ(ParseNodeRecordSetToDedupedTypes(record_set, artifact_types),
+            absl::OkStatus());
+  EXPECT_THAT(artifact_types,
+              ElementsAre(EqualsProto(ParseTextProtoOrDie<ArtifactType>(R"pb(
+                id: 1
+                name: 'artifact_type_1'
+                version: 'v1'
+                description: 'artifact_type_description'
+                external_id: 'artifact_type_1'
+              )pb"))));
+}
+
+TEST(ParseRecordSetTest, ParseRecordSetToDedupedExecutionTypeArraySuccess) {
+  RecordSet record_set = ParseTextProtoOrDie<RecordSet>(
+      R"pb(
+        column_names: 'id'
+        column_names: 'type_id'
+        column_names: 'last_known_state'
+        column_names: 'name'
+        column_names: 'external_id'
+        column_names: 'create_time_since_epoch'
+        column_names: 'last_update_time_since_epoch'
+        column_names: 'type'
+        column_names: 'type_version'
+        column_names: 'type_description'
+        column_names: 'type_external_id'
+        records {
+          values: '1'
+          values: '1'
+          values: '2'
+          values: 'excution_name'
+          values: '__MLMD_NULL__'
+          values: '1677288907995'
+          values: '1677288907995'
+          values: 'execution_type_1'
+          values: 'v1'
+          values: 'execution_type_description'
+          values: 'execution_type_1'
+        }
+        records {
+          values: '2'
+          values: '2'
+          values: '__MLMD_NULL__'
+          values: '__MLMD_NULL__'
+          values: 'test_external_id'
+          values: '1677288907996'
+          values: '1677288907996'
+          values: 'execution_type_2'
+          values: 'v1'
+          values: 'execution_type_description'
+          values: 'execution_type_2'
+        }
+      )pb");
+
+  std::vector<ExecutionType> execution_types;
+  EXPECT_EQ(ParseNodeRecordSetToDedupedTypes(record_set, execution_types),
+            absl::OkStatus());
+  EXPECT_THAT(execution_types,
+              ElementsAre(EqualsProto(ParseTextProtoOrDie<ExecutionType>(R"pb(
+                            id: 1
+                            name: 'execution_type_1'
+                            version: 'v1'
+                            description: 'execution_type_description'
+                            external_id: 'execution_type_1'
+                          )pb")),
+                          EqualsProto(ParseTextProtoOrDie<ExecutionType>(R"pb(
+                            id: 2
+                            name: 'execution_type_2'
+                            version: 'v1'
+                            description: 'execution_type_description'
+                            external_id: 'execution_type_2'
+                          )pb"))));
+}
+
+TEST(ParseRecordSetTest, ParseRecordSetToDedupedContextTypeArraySuccess) {
+  RecordSet record_set = ParseTextProtoOrDie<RecordSet>(
+      R"pb(
+        column_names: 'id'
+        column_names: 'type_id'
+        column_names: 'name'
+        column_names: 'external_id'
+        column_names: 'create_time_since_epoch'
+        column_names: 'last_update_time_since_epoch'
+        column_names: 'type'
+        column_names: 'type_version'
+        column_names: 'type_description'
+        column_names: 'type_external_id'
+        records {
+          values: '1'
+          values: '1'
+          values: 'delete_contexts_by_id_test_1'
+          values: 'test_id'
+          values: '1677288909912'
+          values: '1677288909912'
+          values: 'context_type_1'
+          values: '__MLMD_NULL__'
+          values: '__MLMD_NULL__'
+          values: '__MLMD_NULL__'
+        }
+        records {
+          values: '2'
+          values: '1'
+          values: '__MLMD_NULL__'
+          values: '__MLMD_NULL__'
+          values: '1677288907996'
+          values: '1677288907996'
+          values: 'context_type_1'
+          values: '__MLMD_NULL__'
+          values: '__MLMD_NULL__'
+          values: '__MLMD_NULL__'
+        }
+      )pb");
+
+  std::vector<ContextType> context_types;
+  EXPECT_EQ(ParseNodeRecordSetToDedupedTypes(record_set, context_types),
+            absl::OkStatus());
+  EXPECT_THAT(context_types,
+              ElementsAre(EqualsProto(ParseTextProtoOrDie<ContextType>(R"pb(
+                id: 1
+                name: 'context_type_1'
+              )pb"))));
+}
 }  // namespace
 }  // namespace testing
 }  // namespace ml_metadata

@@ -72,6 +72,33 @@ absl::Status ParseRecordSetToEdgeArray(
 absl::Status ParseRecordSetToEdgeArray(
     const RecordSet& record_set, std::vector<Association>& output_associations);
 
+// Extracts ArtifactType information from `node_record_set` to a deduped
+// ArtifactType array.
+// Returns OK and the parsed result is outputted by `output_artifact_types`.
+// Returns ERROR when internal error happens.
+absl::Status ParseNodeRecordSetToDedupedTypes(
+    const RecordSet& node_record_set,
+    std::vector<ArtifactType>& output_artifact_types,
+    const CustomColumnParser& parser = CustomColumnParser());
+
+// Extracts ExecutionType information from `node_record_set` to a deduped
+// ExecutionType array.
+// Returns OK and the parsed result is outputted by `output_execution_types`.
+// Returns ERROR when internal error happens.
+absl::Status ParseNodeRecordSetToDedupedTypes(
+    const RecordSet& node_record_set,
+    std::vector<ExecutionType>& output_execution_types,
+    const CustomColumnParser& parser = CustomColumnParser());
+
+// Extracts ContextType information from `node_record_set` to a deduped
+// ContextType array.
+// Returns OK and the parsed result is outputted by `output_context_types`.
+// Returns ERROR when internal error happens.
+absl::Status ParseNodeRecordSetToDedupedTypes(
+    const RecordSet& node_record_set,
+    std::vector<ContextType>& output_context_types,
+    const CustomColumnParser& parser = CustomColumnParser());
+
 }  // namespace ml_metadata
 
 #endif  // THIRD_PARTY_ML_METADATA_METADATA_STORE_RECORD_PARSING_UTILS_H_

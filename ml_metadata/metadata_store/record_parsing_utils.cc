@@ -16,14 +16,20 @@ limitations under the License.
 
 #include <glog/logging.h>
 #include "google/protobuf/util/json_util.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/strip.h"
 #include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/util/return_utils.h"
 
 namespace ml_metadata {
 namespace {
 
+constexpr absl::string_view kTypeTablePrefix = "type_";
+constexpr absl::string_view kTypeNameAliasInNodeRecordSet = "type";
+constexpr absl::string_view kTypeName = "name";
 // Parses and converts a string value to a specific field in a message.
 // If the given string `value` is NULL (encoded as kMetadataSourceNull), then
 // leave the field unset.
@@ -122,6 +128,40 @@ absl::Status ParseRecordSetToMessage(const RecordSet& record_set,
   return absl::OkStatus();
 }
 
+// Converts a RecordSet of Artifact/Execution/Context in the query result to
+// a ArtifactType/ExecutionType/ContextType message.
+template <typename MessageType>
+absl::Status ParseNodeRecordSetToTypeMessage(const RecordSet& record_set,
+                                             const int record_index,
+                                             MessageType& output_message,
+                                             const CustomColumnParser& parser) {
+  CHECK_LT(record_index, record_set.records_size());
+  const google::protobuf::Descriptor* descriptor = output_message.descriptor();
+  for (int i = 0; i < record_set.column_names_size(); i++) {
+    // Get field name of Type proto from column name.
+    absl::string_view field_name;
+    if (absl::StartsWith(record_set.column_names(i), kTypeTablePrefix)) {
+      field_name =
+          absl::StripPrefix(record_set.column_names(i), kTypeTablePrefix);
+    } else if (record_set.column_names(i) == kTypeNameAliasInNodeRecordSet) {
+      field_name = kTypeName;
+    } else {
+      continue;
+    }
+    const google::protobuf::FieldDescriptor* field_descriptor =
+        descriptor->FindFieldByName(std::string(field_name));
+    const std::string& value = record_set.records(record_index).values(i);
+    if (field_descriptor != nullptr) {
+      MLMD_RETURN_IF_ERROR(
+          ParseValueToField(field_descriptor, value, output_message));
+    } else {
+      MLMD_RETURN_IF_ERROR(
+          parser.ParseIntoMessage(field_name, value, &output_message));
+    }
+  }
+  return absl::OkStatus();
+}
+
 template <typename MessageType>
 absl::Status ParseRecordSetToMessageArray(
     const RecordSet& record_set, std::vector<MessageType>& output_messages,
@@ -130,6 +170,23 @@ absl::Status ParseRecordSetToMessageArray(
     output_messages.push_back(MessageType());
     MLMD_RETURN_IF_ERROR(
         ParseRecordSetToMessage(record_set, i, output_messages.back(), parser));
+  }
+  return absl::OkStatus();
+}
+
+template <typename MessageType>
+absl::Status ParseNodeRecordSetToDedupedTypeMessageArray(
+    const RecordSet& record_set, std::vector<MessageType>& output_messages,
+    const CustomColumnParser& parser) {
+  absl::flat_hash_set<int64_t> type_ids;
+  for (int i = 0; i < record_set.records_size(); i++) {
+    MessageType message;
+    MLMD_RETURN_IF_ERROR(
+        ParseNodeRecordSetToTypeMessage(record_set, i, message, parser));
+    if (!type_ids.contains(message.id())) {
+      output_messages.push_back(message);
+      type_ids.insert(message.id());
+    }
   }
   return absl::OkStatus();
 }
@@ -165,6 +222,30 @@ absl::Status ParseRecordSetToEdgeArray(
     std::vector<Association>& output_associations) {
   return ParseRecordSetToMessageArray(record_set, output_associations,
                                       CustomColumnParser());
+}
+
+absl::Status ParseNodeRecordSetToDedupedTypes(
+    const RecordSet& node_record_set,
+    std::vector<ArtifactType>& output_artifact_types,
+    const CustomColumnParser& parser) {
+  return ParseNodeRecordSetToDedupedTypeMessageArray(
+      node_record_set, output_artifact_types, parser);
+}
+
+absl::Status ParseNodeRecordSetToDedupedTypes(
+    const RecordSet& node_record_set,
+    std::vector<ExecutionType>& output_execution_types,
+    const CustomColumnParser& parser) {
+  return ParseNodeRecordSetToDedupedTypeMessageArray(
+      node_record_set, output_execution_types, parser);
+}
+
+absl::Status ParseNodeRecordSetToDedupedTypes(
+    const RecordSet& node_record_set,
+    std::vector<ContextType>& output_context_types,
+    const CustomColumnParser& parser) {
+  return ParseNodeRecordSetToDedupedTypeMessageArray(
+      node_record_set, output_context_types, parser);
 }
 
 }  // namespace ml_metadata
