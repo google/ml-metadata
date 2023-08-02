@@ -18,6 +18,9 @@
 *   Bumped minimum bazel version to 5.3.0.
 *   Upgrade Microsoft Visual Studio (MSVC) version to 2017.
 *   Support filtering by parent/child context id in filter queries.
+*   Add batch queries for retrieving attributions/associations by
+    artifact/execution ids in query executor layer and deprecate the original
+    SelectAttributionByArtifactID and SelectAssociationByExecutionID functions.
 
 # Version 1.13.1
 

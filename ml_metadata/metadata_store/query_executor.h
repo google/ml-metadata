@@ -539,12 +539,13 @@ class QueryExecutor {
   virtual absl::Status SelectAssociationByContextIDs(
       absl::Span<const int64_t> context_id, RecordSet* record_set) = 0;
 
-  // Returns association triplets for the given context id. Each triplet has:
+  // Returns association triplets for the given execution ids.
+  // Each triplet has:
   // Column 0: int: attribution id
   // Column 1: int: context id
   // Column 2: int: execution id
-  virtual absl::Status SelectAssociationByExecutionID(
-      int64_t execution_id, RecordSet* record_set) = 0;
+  virtual absl::Status SelectAssociationsByExecutionIds(
+      absl::Span<const int64_t> execution_ids, RecordSet* record_set) = 0;
 
   // Checks the existence of the Attribution table.
   virtual absl::Status CheckAttributionTable() = 0;
@@ -561,12 +562,12 @@ class QueryExecutor {
   virtual absl::Status SelectAttributionByContextID(int64_t context_id,
                                                     RecordSet* record_set) = 0;
 
-  // Returns attribution triplets for the given artifact id. Each triplet has:
+  // Returns attribution triplets for the given artifact ids. Each triplet has:
   // Column 0: int: attribution id
   // Column 1: int: context id
   // Column 2: int: artifact id
-  virtual absl::Status SelectAttributionByArtifactID(int64_t artifact_id,
-                                                     RecordSet* record_set) = 0;
+  virtual absl::Status SelectAttributionsByArtifactIds(
+      absl::Span<const int64_t> artifact_ids, RecordSet* record_set) = 0;
 
   // Checks the existence of the ParentContext table.
   virtual absl::Status CheckParentContextTable() = 0;

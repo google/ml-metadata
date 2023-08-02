@@ -484,10 +484,10 @@ class PostgreSQLQueryExecutor : public QueryExecutor {
                         {Bind(context_id)}, record_set);
   }
 
-  absl::Status SelectAssociationByExecutionID(int64_t execution_id,
-                                              RecordSet* record_set) final {
-    return ExecuteQuery(query_config_.select_association_by_execution_id(),
-                        {Bind(execution_id)}, record_set);
+  absl::Status SelectAssociationsByExecutionIds(
+      absl::Span<const int64_t> execution_ids, RecordSet* record_set) final {
+    return ExecuteQuery(query_config_.select_associations_by_execution_ids(),
+                        {Bind(execution_ids)}, record_set);
   }
 
   absl::Status CheckAttributionTable() final;
@@ -501,10 +501,10 @@ class PostgreSQLQueryExecutor : public QueryExecutor {
                         {Bind(context_id)}, record_set);
   }
 
-  absl::Status SelectAttributionByArtifactID(int64_t artifact_id,
-                                             RecordSet* record_set) final {
-    return ExecuteQuery(query_config_.select_attribution_by_artifact_id(),
-                        {Bind(artifact_id)}, record_set);
+  absl::Status SelectAttributionsByArtifactIds(
+      absl::Span<const int64_t> artifact_ids, RecordSet* record_set) final {
+    return ExecuteQuery(query_config_.select_attributions_by_artifact_ids(),
+                        {Bind(artifact_ids)}, record_set);
   }
 
   absl::Status CheckParentContextTable() final;

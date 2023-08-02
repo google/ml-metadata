@@ -2020,7 +2020,7 @@ absl::Status RDBMSMetadataAccessObject::FindContextsByExecution(
     int64_t execution_id, std::vector<Context>* contexts) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(
-      executor_->SelectAssociationByExecutionID(execution_id, &record_set));
+      executor_->SelectAssociationsByExecutionIds({execution_id}, &record_set));
   const std::vector<int64_t> context_ids = AssociationsToContextIds(record_set);
   if (context_ids.empty()) {
     return absl::NotFoundError(
@@ -2101,7 +2101,7 @@ absl::Status RDBMSMetadataAccessObject::FindContextsByArtifact(
     int64_t artifact_id, std::vector<Context>* contexts) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(
-      executor_->SelectAttributionByArtifactID(artifact_id, &record_set));
+      executor_->SelectAttributionsByArtifactIds({artifact_id}, &record_set));
   const std::vector<int64_t> context_ids = AttributionsToContextIds(record_set);
   if (context_ids.empty()) {
     return absl::NotFoundError(
@@ -2139,20 +2139,19 @@ RDBMSMetadataAccessObject::FindContextIdsByArtifactsAndExecutions(
     absl::Span<const int64_t> artifact_ids,
     absl::Span<const int64_t> execution_ids) {
   absl::flat_hash_set<int64_t> deduped_context_ids;
-  // TODO(b/287116019): Replace the two for-loops with batch query methods.
-  for (int64_t artifact_id : artifact_ids) {
+  if (!artifact_ids.empty()) {
     RecordSet record_set;
     MLMD_RETURN_IF_ERROR(
-        executor_->SelectAttributionByArtifactID(artifact_id, &record_set));
+        executor_->SelectAttributionsByArtifactIds(artifact_ids, &record_set));
     const std::vector<int64_t> context_ids =
         AttributionsToContextIds(record_set);
     absl::c_copy(context_ids,
                  std::inserter(deduped_context_ids, deduped_context_ids.end()));
   }
-  for (int64_t execution_id : execution_ids) {
+  if (!execution_ids.empty()) {
     RecordSet record_set;
-    MLMD_RETURN_IF_ERROR(
-        executor_->SelectAssociationByExecutionID(execution_id, &record_set));
+    MLMD_RETURN_IF_ERROR(executor_->SelectAssociationsByExecutionIds(
+        execution_ids, &record_set));
     const std::vector<int64_t> context_ids =
         AssociationsToContextIds(record_set);
     absl::c_copy(context_ids,

@@ -685,10 +685,10 @@ R"pb(
            " WHERE `context_id` IN ($0); "
     parameter_num: 1
   }
-  select_association_by_execution_id {
+  select_associations_by_execution_ids {
     query: " SELECT `id`, `context_id`, `execution_id` "
-           " from `Association` "
-           " WHERE `execution_id` = $0; "
+           " FROM `Association` "
+           " WHERE `execution_id` IN ($0); "
     parameter_num: 1
   }
   drop_attribution_table { query: " DROP TABLE IF EXISTS `Attribution`; " }
@@ -716,10 +716,10 @@ R"pb(
            " WHERE `context_id` = $0; "
     parameter_num: 1
   }
-  select_attribution_by_artifact_id {
+  select_attributions_by_artifact_ids {
     query: " SELECT `id`, `context_id`, `artifact_id` "
-           " from `Attribution` "
-           " WHERE `artifact_id` = $0; "
+           " FROM `Attribution` "
+           " WHERE `artifact_id` IN ($0); "
     parameter_num: 1
   }
   drop_mlmd_env_table { query: " DROP TABLE IF EXISTS `MLMDEnv`; " }
@@ -5455,10 +5455,10 @@ R"pb(
            " WHERE context_id IN ($0); "
     parameter_num: 1
   }
-  select_association_by_execution_id {
+  select_associations_by_execution_ids {
     query: " SELECT id, context_id, execution_id "
            " FROM Association "
-           " WHERE execution_id = $0; "
+           " WHERE execution_id IN ($0); "
     parameter_num: 1
   }
   drop_attribution_table { query: " DROP TABLE IF EXISTS Attribution; " }
@@ -5491,10 +5491,10 @@ R"pb(
            " WHERE context_id = $0; "
     parameter_num: 1
   }
-  select_attribution_by_artifact_id {
+  select_attributions_by_artifact_ids {
     query: " SELECT id, context_id, artifact_id "
            " FROM Attribution "
-           " WHERE artifact_id = $0; "
+           " WHERE artifact_id IN ($0); "
     parameter_num: 1
   }
   drop_mlmd_env_table { query: " DROP TABLE IF EXISTS MLMDEnv; " }

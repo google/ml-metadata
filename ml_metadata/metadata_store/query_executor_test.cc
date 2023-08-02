@@ -196,6 +196,18 @@ constexpr absl::string_view kContextRecordSet =
          column_names: "type"
     )pb";
 
+constexpr absl::string_view kAttributionRecordSet =
+    R"pb(column_names: "id"
+         column_names: "context_id"
+         column_names: "artifact_id"
+    )pb";
+
+constexpr absl::string_view kAssociationRecordSet =
+    R"pb(column_names: "id"
+         column_names: "context_id"
+         column_names: "execution_id"
+    )pb";
+
 int GetColumnIndex(const RecordSet& record_set, const std::string column_name) {
   int id_column_index = -1;
   for (int i = 0; i < record_set.column_names_size(); ++i) {
@@ -1310,6 +1322,203 @@ TEST_P(QueryExecutorTest, SelectParentContextsByContextIDs) {
                                               {parent_id_1, child_id_2},
                                               {parent_id_2, child_id_3},
                                               {parent_id_3, child_id_3}});
+}
+
+TEST_P(QueryExecutorTest, SelectAttributions) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+  int64_t artifact_type_id;
+  {
+    ASSERT_EQ(query_executor_->InsertArtifactType(
+                  /*name=*/"artifact_type", /*version=*/absl::nullopt,
+                  /*description=*/absl::nullopt, /*external_id=*/absl::nullopt,
+                  &artifact_type_id),
+              absl::OkStatus());
+  }
+  int64_t context_type_id;
+  {
+    ASSERT_EQ(query_executor_->InsertContextType(
+                  /*name=*/"context_type", /*version=*/absl::nullopt,
+                  /*description=*/absl::nullopt, /*external_id=*/absl::nullopt,
+                  &context_type_id),
+              absl::OkStatus());
+  }
+  int64_t artifact_id_1;
+  int64_t artifact_id_2;
+  {
+    const absl::Time test_create_time = absl::Now();
+    ASSERT_EQ(query_executor_->InsertArtifact(
+                  /*type_id=*/artifact_type_id, /*artifact_uri=*/"artifact_uri",
+                  /*state=*/absl::nullopt,
+                  /*name=*/"artifact_1", /*external_id=*/"test_artifact_1",
+                  /*create_time=*/test_create_time,
+                  /*update_time=*/test_create_time, &artifact_id_1),
+              absl::OkStatus());
+    ASSERT_EQ(query_executor_->InsertArtifact(
+                  /*type_id=*/artifact_type_id, /*artifact_uri=*/"artifact_uri",
+                  /*state=*/absl::nullopt,
+                  /*name=*/"artifact_2", /*external_id=*/"test_artifact_2",
+                  /*create_time=*/test_create_time,
+                  /*update_time=*/test_create_time, &artifact_id_2),
+              absl::OkStatus());
+  }
+  int64_t context_id;
+  {
+    const absl::Time test_create_time = absl::Now();
+    ASSERT_EQ(query_executor_->InsertContext(
+                  /*type_id=*/context_type_id,
+                  /*name=*/"context_name", /*external_id=*/"test_context",
+                  /*create_time=*/test_create_time,
+                  /*update_time=*/test_create_time, &context_id),
+              absl::OkStatus());
+  }
+  int64_t attribution_id_1;
+  int64_t attribution_id_2;
+  {
+    ASSERT_EQ(query_executor_->InsertAttributionDirect(
+                  context_id, artifact_id_1, &attribution_id_1),
+              absl::OkStatus());
+    ASSERT_EQ(query_executor_->InsertAttributionDirect(
+                  context_id, artifact_id_2, &attribution_id_2),
+              absl::OkStatus());
+  }
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  RecordSet::Record expected_attribution_record_1 =
+      ParseTextProtoOrDie<RecordSet::Record>(
+          absl::StrCat(" values: '", attribution_id_1, "' values: '",
+                       context_id, "' values: '", artifact_id_1, "' "));
+  RecordSet::Record expected_attribution_record_2 =
+      ParseTextProtoOrDie<RecordSet::Record>(
+          absl::StrCat(" values: '", attribution_id_2, "'values: '", context_id,
+                       "' values: '", artifact_id_2, "' "));
+  RecordSet expected_attribution_record_set =
+      ParseTextProtoOrDie<RecordSet>(std::string(kAttributionRecordSet));
+  *expected_attribution_record_set.add_records() =
+      expected_attribution_record_1;
+  *expected_attribution_record_set.add_records() =
+      expected_attribution_record_2;
+  // Test: get attributions using SelectAttributionsByContextID.
+  {
+    RecordSet got_record_set;
+    ASSERT_EQ(query_executor_->SelectAttributionByContextID(context_id,
+                                                            &got_record_set),
+              absl::OkStatus());
+    ASSERT_THAT(got_record_set.records(),
+                UnorderedPointwise(EqualsProto<RecordSet::Record>(),
+                                   expected_attribution_record_set.records()));
+  }
+  // Test: get attributions using SelectAttributionsByArtifactIds.
+  {
+    RecordSet got_record_set;
+    ASSERT_EQ(query_executor_->SelectAttributionsByArtifactIds(
+                  {artifact_id_1, artifact_id_2}, &got_record_set),
+              absl::OkStatus());
+    ASSERT_THAT(got_record_set.records(),
+                UnorderedPointwise(EqualsProto<RecordSet::Record>(),
+                                   expected_attribution_record_set.records()));
+  }
+}
+
+TEST_P(QueryExecutorTest, SelectAssociations) {
+  ASSERT_EQ(absl::OkStatus(), Init());
+  int64_t execution_type_id;
+  {
+    ArtifactStructType input_type;
+    AnyArtifactStructType any_input_type;
+    *input_type.mutable_any() = any_input_type;
+    ArtifactStructType output_type;
+    NoneArtifactStructType none_input_type;
+    *output_type.mutable_none() = none_input_type;
+    ASSERT_EQ(query_executor_->InsertExecutionType(
+                  /*name=*/"execution_type", /*version=*/absl::nullopt,
+                  /*description=*/absl::nullopt, /*input_type=*/&input_type,
+                  /*output_type=*/&output_type, /*external_id=*/absl::nullopt,
+                  &execution_type_id),
+              absl::OkStatus());
+  }
+  int64_t context_type_id;
+  {
+    ASSERT_EQ(query_executor_->InsertContextType(
+                  /*name=*/"context_type", /*version=*/absl::nullopt,
+                  /*description=*/absl::nullopt, /*external_id=*/absl::nullopt,
+                  &context_type_id),
+              absl::OkStatus());
+  }
+  int64_t execution_id_1;
+  int64_t execution_id_2;
+  {
+    const absl::Time test_create_time = absl::Now();
+    ASSERT_EQ(
+        query_executor_->InsertExecution(
+            /*type_id=*/execution_type_id, /*last_known_state=*/absl::nullopt,
+            /*name=*/"execution_1", /*external_id=*/"test_execution_1",
+            /*create_time=*/test_create_time,
+            /*update_time=*/test_create_time, &execution_id_1),
+        absl::OkStatus());
+    ASSERT_EQ(
+        query_executor_->InsertExecution(
+            /*type_id=*/execution_type_id, /*last_known_state=*/absl::nullopt,
+            /*name=*/"execution_2", /*external_id=*/"test_execution_2",
+            /*create_time=*/test_create_time,
+            /*update_time=*/test_create_time, &execution_id_2),
+        absl::OkStatus());
+  }
+  int64_t context_id;
+  {
+    const absl::Time test_create_time = absl::Now();
+    ASSERT_EQ(query_executor_->InsertContext(
+                  /*type_id=*/context_type_id,
+                  /*name=*/"context_name", /*external_id=*/"test_context",
+                  /*create_time=*/test_create_time,
+                  /*update_time=*/test_create_time, &context_id),
+              absl::OkStatus());
+  }
+  int64_t association_id_1;
+  int64_t association_id_2;
+  {
+    ASSERT_EQ(query_executor_->InsertAssociation(context_id, execution_id_1,
+                                                 &association_id_1),
+              absl::OkStatus());
+    ASSERT_EQ(query_executor_->InsertAssociation(context_id, execution_id_2,
+                                                 &association_id_2),
+              absl::OkStatus());
+  }
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  RecordSet::Record expected_association_record_1 =
+      ParseTextProtoOrDie<RecordSet::Record>(
+          absl::StrCat(" values: '", association_id_1, "' values: '",
+                       context_id, "' values: '", execution_id_1, "' "));
+  RecordSet::Record expected_association_record_2 =
+      ParseTextProtoOrDie<RecordSet::Record>(
+          absl::StrCat(" values: '", association_id_2, "'values: '", context_id,
+                       "' values: '", execution_id_2, "' "));
+  RecordSet expected_association_record_set =
+      ParseTextProtoOrDie<RecordSet>(std::string(kAssociationRecordSet));
+  *expected_association_record_set.add_records() =
+      expected_association_record_1;
+  *expected_association_record_set.add_records() =
+      expected_association_record_2;
+  // Test: get associations using SelectAssociationsByContextIDs.
+  {
+    RecordSet got_record_set;
+    ASSERT_EQ(query_executor_->SelectAssociationByContextIDs({context_id},
+                                                             &got_record_set),
+              absl::OkStatus());
+    ASSERT_THAT(got_record_set.records(),
+                UnorderedPointwise(EqualsProto<RecordSet::Record>(),
+                                   expected_association_record_set.records()));
+  }
+  // Test: get associations using SelectAssociationsByExecutionIds.
+  {
+    RecordSet got_record_set;
+    ASSERT_EQ(query_executor_->SelectAssociationsByExecutionIds(
+                  {execution_id_1, execution_id_2}, &got_record_set),
+              absl::OkStatus());
+    ASSERT_THAT(got_record_set.records(),
+                UnorderedPointwise(EqualsProto<RecordSet::Record>(),
+                                   expected_association_record_set.records()));
+  }
 }
 
 }  // namespace testing
