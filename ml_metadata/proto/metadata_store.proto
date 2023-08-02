@@ -1057,6 +1057,8 @@ message TransactionOptions {
 }
 
 
+// TODO(b/283852485): Deprecate GetLineageGraph API after migration to
+// GetLineageSubgraph API.
 // The query options for `get_lineage_graph` operation.
 // `query_nodes` is a list of nodes of interest.
 // Currently only artifacts are supported as `query_nodes`.

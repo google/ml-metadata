@@ -509,6 +509,8 @@ class MetadataStore : public MetadataStoreServiceInterface {
       GetChildrenContextsByContextsResponse* response) override;
 
 
+  // TODO(b/283852485): Deprecate GetLineageGraph API after migration to
+  // GetLineageSubgraph API.
   // The method is used for accessing MLMD lineage. Please see
   // metadata_store_service.proto for details. Returns detailed INTERNAL error,
   // if query execution fails.

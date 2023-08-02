@@ -33,7 +33,7 @@ constexpr int kDefaultMaxListOperationResultSize = 100;
 
 constexpr int kPropertyRecordSetSize = 8;
 
-constexpr int kQueryLineageSubgraphMaxNumHops = 50;
+constexpr int kQueryLineageSubgraphMaxNumHops = 100;
 
 }  // namespace ml_metadata
 

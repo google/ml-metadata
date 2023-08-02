@@ -15,6 +15,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/metadata_store.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <iterator>
 #include <string>
 #include <vector>
@@ -2305,11 +2306,21 @@ absl::Status MetadataStore::GetLineageGraph(
 absl::Status MetadataStore::GetLineageSubgraph(
     const GetLineageSubgraphRequest& request,
     GetLineageSubgraphResponse* response) {
+  // If no mask path is provided, add all paths to retrieve all.
+  google::protobuf::FieldMask read_mask;
+  if (request.read_mask().paths().empty()) {
+    for (int64_t index = 0; index < LineageGraph::descriptor()->field_count();
+         index++) {
+      read_mask.add_paths(LineageGraph::descriptor()->field(index)->name());
+    }
+  } else {
+    read_mask = request.read_mask();
+  }
   return transaction_executor_->Execute(
       [&]() -> absl::Status {
         response->Clear();
         return metadata_access_object_->QueryLineageSubgraph(
-            request.lineage_subgraph_query_options(),
+            request.lineage_subgraph_query_options(), read_mask,
             *response->mutable_lineage_subgraph());
       },
       request.transaction_options());

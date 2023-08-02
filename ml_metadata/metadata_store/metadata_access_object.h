@@ -954,6 +954,8 @@ class MetadataAccessObject {
   virtual int64_t GetLibraryVersion() = 0;
 
 
+  // TODO(b/283852485): Deprecate GetLineageGraph API after migration to
+  // GetLineageSubgraph API.
   // Giving a set of `query_nodes` and a set of boundary constraints. The method
   // performs constrained transitive closure and returns a subgraph including
   // the reached nodes and edges. The boundary conditions include
@@ -971,18 +973,29 @@ class MetadataAccessObject {
       LineageGraph& subgraph) = 0;
 
   // Given the `lineage_subgraph_query_options`, performs a constrained BFS
-  // on the lineage graph and returns a subgraph skeleton including the reached
-  // edges and dehydrated nodes.
+  // on the lineage graph and returns a graph including the reached edges and
+  // nodes with only `id` field.
   // The constraints include:
   // a) `max_num_hops`: it stops traversal at nodes that are at `max_num_hops`
-  //    away from the starting nodes.
+  //   away from the starting nodes.
+  // `read_mask` contains user specified paths of fields that should be included
+  // in the output `subgraph`.
+  //   If 'artifacts', 'executions', or 'contexts' is specified in `read_mask`,
+  //     the dehydrated nodes will be included.
+  //   If 'artifact_types', 'execution_types', or 'context_types' is specified
+  //     in `read_mask`, all the node types will be included.
+  //   If 'events' is specified in `read_mask`, the events will be included.
+  // TODO(b/283852485): Include `attributions` and `associations` in the
+  // returned graph.
+  // Returns INVALID_ARGUMENT error, if no paths are specified in `read_mask`.
   // Returns INVALID_ARGUMENT error, if `starting_nodes` is not specified in
   // `lineage_subgraph_query_options`.
   // Returns INVALID_ARGUMENT error, if `starting_nodes.filter_query` is
   // unspecified or invalid in `lineage_subgraph_query_options`.
   // Returns detailed INTERNAL error, if the operation fails.
   virtual absl::Status QueryLineageSubgraph(
-      const LineageSubgraphQueryOptions& options, LineageGraph& subgraph) = 0;
+      const LineageSubgraphQueryOptions& options,
+      const google::protobuf::FieldMask& read_mask, LineageGraph& subgraph) = 0;
 
 
   // Deletes a list of artifacts by id.

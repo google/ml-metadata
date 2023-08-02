@@ -1065,6 +1065,8 @@ message GetExecutionsByContextResponse {
 }
 
 
+// TODO(b/283852485): Deprecate GetLineageGraph API after migration to
+// GetLineageSubgraph API.
 // A lineage query request to specify the query nodes of interest and the
 // boundary conditions for pruning the returned graph.
 message GetLineageGraphRequest {
@@ -1083,8 +1085,29 @@ message GetLineageSubgraphRequest {
   // Query options for lineage graph tracing from a list of interested
   // nodes.
   // A lineage subgraph without node details (e.g., external_id, properties)
-  // will be returned.
+  // will be returned. Please refer to `LineageSubgraphQueryOptions` for more
+  // details.
   optional LineageSubgraphQueryOptions lineage_subgraph_query_options = 1;
+  // `read_mask` contains user specified paths of fields that should be included
+  // in the returned lineage subgraph.
+  //   Supported field paths are: 'artifacts', 'executions', 'contexts',
+  //   'artifact_types', 'execution_types', 'context_types', and 'events'.
+  //   TODO(b/283852485): Include 'associations' or 'attributions' in the
+  //     returned graph.
+  //   If 'artifacts', 'executions', or 'contexts' is specified in `read_mask`,
+  //     the dehydrated nodes will be included.
+  //     Note: A dehydrated node means a node containing only its id and no
+  //     other information. User should call GetNodesByID or other APIs to get
+  //     node details later on.
+  //   If 'artifact_types', 'execution_types', or 'context_types' is specified
+  //     in `read_mask`, all the node types will be included.
+  //   If 'events' is specified in `read_mask`, the events will be included.
+  //   If `read_mask` is not set, the API will return all the fields in
+  //     the returned graph.
+  //   Note: Only paths of fields in LineageGraph message are supported. Paths
+  //   of fields in the submessage, such as "artifacts.id", "contexts.name" are
+  //   not acknowledged.
+  optional google.protobuf.FieldMask read_mask = 3;
   optional TransactionOptions transaction_options = 2;
 }
 
@@ -1482,6 +1505,8 @@ service MetadataStoreService {
       returns (GetExecutionsByContextResponse) {}
 
 
+  // TODO(b/283852485): Deprecate GetLineageGraph API after migration to
+  // GetLineageSubgraph API.
   // The transaction performs a constrained transitive closure and returns a
   // lineage subgraph satisfying the conditions and constraints specified in
   // the GetLineageGraphRequest.

@@ -17,6 +17,7 @@ limitations under the License.
 
 #endif
 
+#include <algorithm>
 #include <cstdint>
 #include <iterator>
 #include <string>
@@ -42,6 +43,7 @@ limitations under the License.
 #include "absl/strings/string_view.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "absl/types/span.h"
 #include "ml_metadata/util/field_mask_utils.h"
 #include "google/protobuf/util/field_mask_util.h"
 // clang-format off
@@ -2132,6 +2134,36 @@ absl::Status RDBMSMetadataAccessObject::FindArtifactsByContext(
   return FindNodesImpl(ids, /*skipped_ids_ok=*/false, *artifacts);
 }
 
+absl::StatusOr<std::vector<int64_t>>
+RDBMSMetadataAccessObject::FindContextIdsByArtifactsAndExecutions(
+    absl::Span<const int64_t> artifact_ids,
+    absl::Span<const int64_t> execution_ids) {
+  absl::flat_hash_set<int64_t> deduped_context_ids;
+  // TODO(b/287116019): Replace the two for-loops with batch query methods.
+  for (int64_t artifact_id : artifact_ids) {
+    RecordSet record_set;
+    MLMD_RETURN_IF_ERROR(
+        executor_->SelectAttributionByArtifactID(artifact_id, &record_set));
+    const std::vector<int64_t> context_ids =
+        AttributionsToContextIds(record_set);
+    absl::c_copy(context_ids,
+                 std::inserter(deduped_context_ids, deduped_context_ids.end()));
+  }
+  for (int64_t execution_id : execution_ids) {
+    RecordSet record_set;
+    MLMD_RETURN_IF_ERROR(
+        executor_->SelectAssociationByExecutionID(execution_id, &record_set));
+    const std::vector<int64_t> context_ids =
+        AssociationsToContextIds(record_set);
+    absl::c_copy(context_ids,
+                 std::inserter(deduped_context_ids, deduped_context_ids.end()));
+  }
+
+  std::vector<int64_t> context_ids;
+  absl::c_copy(deduped_context_ids, std::back_inserter(context_ids));
+  return context_ids;
+}
+
 absl::Status RDBMSMetadataAccessObject::CreateParentContext(
     const ParentContext& parent_context) {
   if (!parent_context.has_parent_id() || !parent_context.has_child_id()) {
@@ -2626,7 +2658,7 @@ absl::StatusOr<std::vector<int64_t>>
 RDBMSMetadataAccessObject::ExpandLineageSubgraphImpl(
     const bool expand_from_artifacts, absl::Span<const int64_t> input_node_ids,
     absl::flat_hash_set<int64_t>& visited_output_node_ids,
-    LineageGraph& subgraph) {
+    std::vector<Event>& output_events) {
   std::vector<Event> events;
   absl::Status status = expand_from_artifacts
                             ? FindEventsByArtifacts(input_node_ids, &events)
@@ -2645,7 +2677,7 @@ RDBMSMetadataAccessObject::ExpandLineageSubgraphImpl(
         expand_from_artifacts ? event.execution_id() : event.artifact_id();
     if (!visited_output_node_ids.contains(output_node_id)) {
       unvisited_output_node_ids.insert(output_node_id);
-      *subgraph.add_events() = event;
+      output_events.push_back(event);
     }
   }
 
@@ -2787,7 +2819,11 @@ absl::Status RDBMSMetadataAccessObject::QueryLineageGraph(
 
 absl::Status RDBMSMetadataAccessObject::QueryLineageSubgraph(
     const LineageSubgraphQueryOptions& lineage_subgraph_query_options,
-    LineageGraph& subgraph) {
+    const google::protobuf::FieldMask& read_mask, LineageGraph& subgraph) {
+  if (read_mask.paths().empty()) {
+    return absl::InvalidArgumentError(
+        "Cannot execute QueryLineageSubgraph when `read_mask` is empty.");
+  }
   // Perform precondition check for `starting_nodes` and `max_num_hops`.
   std::string starting_nodes_filter_query;
   bool is_from_artifacts;
@@ -2859,6 +2895,7 @@ absl::Status RDBMSMetadataAccessObject::QueryLineageSubgraph(
   std::vector<int64_t> output_execution_ids;
   absl::flat_hash_set<int64_t> visited_artifacts_ids;
   absl::flat_hash_set<int64_t> visited_executions_ids;
+  std::vector<Event> visited_events;
 
   if (is_from_artifacts) {
     absl::c_copy(ConvertToIds(record_set),
@@ -2883,14 +2920,15 @@ absl::Status RDBMSMetadataAccessObject::QueryLineageSubgraph(
     // `curr_distance` is even, vice versa.
     const bool expand_from_artifacts =
         (is_from_artifacts == (curr_distance % 2 == 0));
-
+    std::vector<Event> output_events;
     if (expand_from_artifacts) {
       MLMD_ASSIGN_OR_RETURN(
           output_execution_ids,
           ExpandLineageSubgraphImpl(
               /*expand_from_artifacts=*/expand_from_artifacts,
               /*input_node_ids=*/output_artifact_ids,
-              /*visited_output_node_ids=*/visited_executions_ids, subgraph));
+              /*visited_output_node_ids=*/visited_executions_ids,
+              output_events));
       if (output_execution_ids.empty()) {
         break;
       }
@@ -2900,19 +2938,64 @@ absl::Status RDBMSMetadataAccessObject::QueryLineageSubgraph(
           ExpandLineageSubgraphImpl(
               /*expand_from_artifacts=*/expand_from_artifacts,
               /*input_node_ids=*/output_execution_ids,
-              /*visited_output_node_ids=*/visited_artifacts_ids, subgraph));
+              /*visited_output_node_ids=*/visited_artifacts_ids,
+              output_events));
       if (output_artifact_ids.empty()) {
         break;
       }
     }
+    absl::c_copy(output_events, std::back_inserter(visited_events));
     curr_distance++;
   }
-  for (int64_t artifact_id : visited_artifacts_ids) {
-    subgraph.add_artifacts()->set_id(artifact_id);
+
+  absl::flat_hash_set<std::string> field_mask_paths;
+  absl::c_copy(read_mask.paths(),
+               std::inserter(field_mask_paths, field_mask_paths.end()));
+  if (field_mask_paths.contains("artifacts")) {
+    for (int64_t artifact_id : visited_artifacts_ids) {
+      subgraph.add_artifacts()->set_id(artifact_id);
+    }
   }
-  for (int64_t execution_id : visited_executions_ids) {
-    subgraph.add_executions()->set_id(execution_id);
+  if (field_mask_paths.contains("executions")) {
+    for (int64_t execution_id : visited_executions_ids) {
+      subgraph.add_executions()->set_id(execution_id);
+    }
   }
+  if (field_mask_paths.contains("contexts")) {
+    std::vector<int64_t> context_ids;
+    MLMD_ASSIGN_OR_RETURN(
+        context_ids, FindContextIdsByArtifactsAndExecutions(
+                         std::vector<int64_t>(visited_artifacts_ids.begin(),
+                                              visited_artifacts_ids.end()),
+                         std::vector<int64_t>(visited_executions_ids.begin(),
+                                              visited_executions_ids.end())));
+    for (int64_t context_id : context_ids) {
+      subgraph.add_contexts()->set_id(context_id);
+    }
+  }
+  if (field_mask_paths.contains("events")) {
+    absl::c_copy(visited_events,
+                 google::protobuf::RepeatedFieldBackInserter(subgraph.mutable_events()));
+  }
+  if (field_mask_paths.contains("artifact_types")) {
+    std::vector<ArtifactType> artifact_types;
+    MLMD_RETURN_IF_ERROR(FindTypes(&artifact_types));
+    absl::c_copy(artifact_types, google::protobuf::RepeatedFieldBackInserter(
+                                     subgraph.mutable_artifact_types()));
+  }
+  if (field_mask_paths.contains("execution_types")) {
+    std::vector<ExecutionType> execution_types;
+    MLMD_RETURN_IF_ERROR(FindTypes(&execution_types));
+    absl::c_copy(execution_types, google::protobuf::RepeatedFieldBackInserter(
+                                      subgraph.mutable_execution_types()));
+  }
+  if (field_mask_paths.contains("context_types")) {
+    std::vector<ContextType> context_types;
+    MLMD_RETURN_IF_ERROR(FindTypes(&context_types));
+    absl::c_copy(context_types, google::protobuf::RepeatedFieldBackInserter(
+                                    subgraph.mutable_context_types()));
+  }
+  // TODO(b/283852485): Support getting associations and attributions
   return absl::OkStatus();
 }
 

@@ -480,6 +480,8 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // The method is currently used for accessing MLMD lineage.
   // TODO(b/178491112) Support Execution typed query_nodes.
   // TODO(b/178491112) Returns contexts in the returned subgraphs.
+  // TODO(b/283852485): Deprecate GetLineageGraph API after migration to
+  // GetLineageSubgraph API.
   absl::Status QueryLineageGraph(
       const std::vector<Artifact>& query_nodes, int64_t max_num_hops,
       absl::optional<int64_t> max_nodes,
@@ -489,18 +491,32 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   // TODO(b/283852485): migrate from QueryLineageGraph to QueryLineageSubgraph.
   // Given the `lineage_subgraph_query_options`, performs a constrained BFS
-  // on the lineage graph and returns a subgraph skeleton including the reached
-  // edges and dehydrated nodes.
+  // on the lineage graph and returns a graph including the reached edges and
+  // nodes with only `id` field.
   // The constraints include:
   // a) `max_num_hops`: it stops traversal at nodes that are at `max_num_hops`
-  //    away from the starting nodes.
+  //   away from the starting nodes.
+  // `read_mask` contains user specified paths of fields that should be included
+  // in the output `subgraph`.
+  //   If 'artifacts', 'executions', or 'contexts' is specified in `read_mask`,
+  //     the dehydrated nodes will be included.
+  //   If 'artifact_types', 'execution_types', or 'context_types' is specified
+  //     in `read_mask`, all the node types will be included.
+  //   If 'events' is specified in `read_mask`, the events will be included.
+  //   Note: `read_mask` is a mask on fields from `LineageGraph`. Any other
+  //   field path such as artifact.id, execution.name will not be supported.
+  // TODO(b/283852485): Include `attributions` and `associations` in the
+  // returned graph.
+  // Returns INVALID_ARGUMENT error, if no paths are specified in `read_mask`.
   // Returns INVALID_ARGUMENT error, if `starting_nodes` is not specified in
   // `lineage_subgraph_query_options`.
   // Returns INVALID_ARGUMENT error, if `starting_nodes.filter_query` is
   // unspecified or invalid in `lineage_subgraph_query_options`.
   // Returns detailed INTERNAL error, if the operation fails.
-  absl::Status QueryLineageSubgraph(const LineageSubgraphQueryOptions& options,
-                                    LineageGraph& subgraph) final;
+  absl::Status QueryLineageSubgraph(
+      const LineageSubgraphQueryOptions& options,
+      const google::protobuf::FieldMask& read_mask,
+      LineageGraph& subgraph) final;
 
 
   // Deletes a list of artifacts by id.
@@ -893,6 +909,8 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
       ParentContextTraverseDirection direction,
       absl::node_hash_map<int64_t, std::vector<Context>>& output_contexts);
 
+  // TODO(b/283852485): Deprecate GetLineageGraph API after migration to
+  // GetLineageSubgraph API.
   // The utilities to expand lineage `subgraph` within one hop from artifacts.
   // For the `input_artifacts`, their neighborhood executions that do not
   // satisfy `boundary_condition` are visited and output as `output_executions`.
@@ -907,6 +925,8 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
       absl::flat_hash_set<int64_t>& visited_artifact_ids,
       std::vector<Execution>& output_executions, LineageGraph& subgraph);
 
+  // TODO(b/283852485): Deprecate GetLineageGraph API after migration to
+  // GetLineageSubgraph API.
   // The utilities to expand lineage `subgraph` within one hop from executions.
   // For the `input_executions`, their neighborhood artifacts that do not
   // satisfy `boundary_condition` are visited and output as `output_artifacts`.
@@ -927,7 +947,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // nodes and executions as output nodes.
   // When expanding from executions to artifacts, it treats executions as input
   // nodes and artifacts as output nodes.
-  // Adds events between input nodes and output nodes to `subgraph`.
+  // Adds events between input nodes and output nodes to `output_events`.
   // Returns ids of output nodes that are one hop away from input nodes if
   // expanding the lineage subgraph succeeds.
   // Returns an empty list if no events are found for given input nodes.
@@ -935,7 +955,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::StatusOr<std::vector<int64_t>> ExpandLineageSubgraphImpl(
       bool expand_from_artifacts, absl::Span<const int64_t> input_node_ids,
       absl::flat_hash_set<int64_t>& visited_output_node_ids,
-      LineageGraph& subgraph);
+      std::vector<Event>& output_events);
 
   // Given `node_filter`, keeps nodes that satisfy the `node_filter`, and
   // removes any nodes that do not satisfy the `node_filter` from
@@ -947,6 +967,13 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status FilterBoundaryNodesImpl(
       absl::optional<absl::string_view> node_filter,
       absl::flat_hash_set<int64_t>& boundary_node_ids);
+
+  // Find Contexts based on the given artifact_ids and execution_ids.
+  // Returns a list of found Contexts if succeeds.
+  // Returns detailed INTERNAL error, if query execution fails.
+  absl::StatusOr<std::vector<int64_t>> FindContextIdsByArtifactsAndExecutions(
+      absl::Span<const int64_t> artifact_ids,
+      absl::Span<const int64_t> execution_ids);
 
   std::unique_ptr<QueryExecutor> executor_;
 
