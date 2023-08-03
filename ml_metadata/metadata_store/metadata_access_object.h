@@ -314,8 +314,7 @@ class MetadataAccessObject {
                                          std::vector<Artifact>* artifact) = 0;
 
   // Gets a set of Artifacts by the given ids and their artifact types, which
-  // can be matched by type_ids. Each ArtifactType contains id, name,
-  // properties and custom_properties fields.
+  // can be matched by type_ids.
   // Returns NOT_FOUND error, if any of the given artifact_ids is not found.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status FindArtifactsById(

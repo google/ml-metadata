@@ -346,6 +346,9 @@ absl::Status PopulateNodeProperties(const RecordSet::Record& record,
 template <typename NodeType>
 absl::Status PopulateTypeProperties(QueryExecutor& executor,
                                     std::vector<NodeType>& node_types) {
+  if (node_types.empty()) {
+    return absl::OkStatus();
+  }
   RecordSet property_record_set;
   std::vector<int64_t> type_ids;
   absl::c_transform(node_types, std::back_inserter(type_ids),
@@ -1206,30 +1209,63 @@ template <typename Node, typename NodeType>
 absl::Status RDBMSMetadataAccessObject::FindNodesWithTypesImpl(
     absl::Span<const int64_t> node_ids, std::vector<Node>& nodes,
     std::vector<NodeType>& node_types) {
-  absl::Status find_nodes_status =
-      FindNodesImpl<Node>(node_ids, /*skipped_ids_ok=*/true, nodes);
-  // If there exists ids not found, then `find_nodes_status` is expected to be
-  // NOT_FOUND if `skipped_ids_ok` is true. Otherwise, return
-  // `find_nodes_status` if execution fails.
-  if (!absl::IsNotFound(find_nodes_status) && !find_nodes_status.ok()) {
-    return find_nodes_status;
+  if (node_ids.empty()) {
+    return absl::InvalidArgumentError("ids cannot be empty");
   }
-  absl::flat_hash_map<int64_t, std::string> type_id_to_name;
-  absl::c_transform(nodes,
-                    std::inserter(type_id_to_name, type_id_to_name.end()),
-                    [](const Node& node) {
-                      return std::make_pair(node.type_id(), node.type());
-                    });
 
-  absl::c_transform(type_id_to_name, std::back_inserter(node_types),
-                    [](const std::pair<int64_t, std::string>& id_and_name) {
-                      NodeType node_type;
-                      node_type.set_id(id_and_name.first);
-                      node_type.set_name(id_and_name.second);
-                      return node_type;
-                    });
+  if (!nodes.empty()) {
+    return absl::InvalidArgumentError("nodes parameter is not empty");
+  }
+
+  RecordSet node_record_set;
+  RecordSet properties_record_set;
+
+  MLMD_RETURN_IF_ERROR(RetrieveNodesById<Node>(node_ids, &node_record_set,
+                                               &properties_record_set));
+
+  MLMD_RETURN_IF_ERROR(ParseRecordSetToNodeArray(node_record_set, nodes));
+
+  // if there are properties associated with the nodes, parse the returned
+  // values.
+  if (!properties_record_set.records().empty()) {
+    // First we build a hash map from node ids to Node messages, to
+    // facilitate lookups.
+    absl::flat_hash_map<int64_t, typename std::vector<Node>::iterator>
+        node_by_id;
+    for (auto i = nodes.begin(); i != nodes.end(); ++i) {
+      node_by_id.insert({i->id(), i});
+    }
+
+    // previous metadata source versions have fewer property types
+    CHECK_GE(properties_record_set.column_names_size(), 6);
+    CHECK_LE(properties_record_set.column_names_size(), kPropertyRecordSetSize);
+    for (const RecordSet::Record& record : properties_record_set.records()) {
+      // Match the record against a node in the hash map.
+      int64_t node_id;
+      CHECK(absl::SimpleAtoi(record.values(0), &node_id));
+      auto iter = node_by_id.find(node_id);
+      CHECK(iter != node_by_id.end());
+      Node& node = *iter->second;
+
+      MLMD_RETURN_IF_ERROR(PopulateNodeProperties(record, *executor_, node));
+    }
+  }
+  absl::Status return_status = absl::OkStatus();
+  if (node_ids.size() != nodes.size()) {
+    std::vector<int64_t> found_ids;
+    absl::c_transform(nodes, std::back_inserter(found_ids),
+                      [](const Node& node) { return node.id(); });
+
+    const std::string message = absl::StrCat(
+        "Results missing for ids: {", absl::StrJoin(node_ids, ","),
+        "}. Found results for {", absl::StrJoin(found_ids, ","), "}");
+    return_status = absl::NotFoundError(message);
+  }
+  // Extract type fields from `node_record_set` and populate type properties.
+  MLMD_RETURN_IF_ERROR(
+      ParseNodeRecordSetToDedupedTypes(node_record_set, node_types));
   MLMD_RETURN_IF_ERROR(PopulateTypeProperties(*executor_, node_types));
-  return find_nodes_status;
+  return return_status;
 }
 
 template <typename Node>

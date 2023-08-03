@@ -40,6 +40,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/metadata_access_object.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/metadata_store/test_util.h"
+#include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/proto/testing/mock.pb.h"
@@ -276,7 +277,9 @@ QueryConfigMetadataAccessObjectContainer::SetDatabaseVersionIncompatible() {
 namespace {
 
 using ::ml_metadata::testing::ParseTextProtoOrDie;
+using ::testing::AllOf;
 using ::testing::ElementsAre;
+using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 using ::testing::Pointwise;
 using ::testing::SizeIs;
@@ -3101,6 +3104,159 @@ TEST_P(MetadataAccessObjectTest, FindArtifacts) {
             EqualsProto(want_artifact2,
                         /*ignore_fields=*/{"create_time_since_epoch",
                                            "last_update_time_since_epoch"})));
+  }
+}
+
+TEST_P(MetadataAccessObjectTest,
+       FindArtifactsByIdReturnsBothArtifactsAndTypes) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  ArtifactType type = ParseTextProtoOrDie<ArtifactType>(R"pb(
+    name: 'test_type'
+    properties { key: 'property_1' value: INT }
+    properties { key: 'property_2' value: DOUBLE }
+    properties { key: 'property_3' value: STRING }
+  )pb");
+  if (!IfSchemaLessThan(9)) {
+    type.set_external_id("test_type_external_id");
+  }
+  int64_t type_id;
+  ASSERT_EQ(metadata_access_object_->CreateType(type, &type_id),
+            absl::OkStatus());
+  type.set_id(type_id);
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  constexpr absl::string_view kArtifactTemplate = R"(
+    uri: 'testuri://testing/uri'
+    type_id: %d
+    properties {
+      key: 'property_1'
+      value: { int_value: %d }
+    }
+    properties {
+      key: 'property_2'
+      value: { double_value: %f }
+    }
+    properties {
+      key: 'property_3'
+      value: { string_value: '%s' }
+    }
+    custom_properties {
+      key: 'custom_property_1'
+      value: { string_value: '%s' }
+    }
+  )";
+
+  Artifact want_artifact1 = ParseTextProtoOrDie<Artifact>(
+      absl::StrFormat(kArtifactTemplate, type_id, 1, 2.0, "3", "4"));
+  {
+    int64_t artifact1_id;
+    ASSERT_EQ(
+        metadata_access_object_->CreateArtifact(want_artifact1, &artifact1_id),
+        absl::OkStatus());
+    want_artifact1.set_id(artifact1_id);
+  }
+
+  Artifact want_artifact2 = ParseTextProtoOrDie<Artifact>(
+      absl::StrFormat(kArtifactTemplate, type_id, 11, 12.0, "13", "14"));
+  {
+    int64_t artifact2_id;
+    ASSERT_EQ(
+        metadata_access_object_->CreateArtifact(want_artifact2, &artifact2_id),
+        absl::OkStatus());
+    want_artifact2.set_id(artifact2_id);
+  }
+
+  ASSERT_NE(want_artifact1.id(), want_artifact2.id());
+
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  want_artifact1.set_type(type.name());
+  want_artifact2.set_type(type.name());
+
+  // Test: retrieve by empty ids
+  {
+    std::vector<Artifact> got_artifacts;
+    std::vector<ArtifactType> got_artifact_types;
+    EXPECT_EQ(metadata_access_object_->FindArtifactsById({}, got_artifacts,
+                                                         got_artifact_types),
+              absl::OkStatus());
+    EXPECT_THAT(got_artifacts, IsEmpty());
+    EXPECT_THAT(got_artifact_types, IsEmpty());
+  }
+  // Test: retrieve by unknown id
+  const int64_t unknown_id = want_artifact1.id() + want_artifact2.id() + 1;
+  {
+    std::vector<Artifact> got_artifacts;
+    std::vector<ArtifactType> got_artifact_types;
+    EXPECT_TRUE(absl::IsNotFound(metadata_access_object_->FindArtifactsById(
+        {unknown_id}, got_artifacts, got_artifact_types)));
+    EXPECT_THAT(got_artifacts, IsEmpty());
+    EXPECT_THAT(got_artifact_types, IsEmpty());
+  }
+  {
+    std::vector<Artifact> got_artifacts;
+    std::vector<ArtifactType> got_artifact_types;
+    absl::Status status = metadata_access_object_->FindArtifactsById(
+        {unknown_id, want_artifact1.id()}, got_artifacts, got_artifact_types);
+    EXPECT_TRUE(absl::IsNotFound(status));
+    EXPECT_THAT(
+        string(status.message()),
+        AllOf(HasSubstr(absl::StrCat("Results missing for ids: {", unknown_id,
+                                     ",", want_artifact1.id(), "}")),
+              HasSubstr(absl::StrCat("Found results for {", want_artifact1.id(),
+                                     "}"))));
+
+    EXPECT_THAT(got_artifacts,
+                ElementsAre(EqualsProto(
+                    want_artifact1,
+                    /*ignore_fields=*/{"create_time_since_epoch",
+                                       "last_update_time_since_epoch"})));
+    EXPECT_THAT(got_artifact_types, ElementsAre(EqualsProto(type)));
+  }
+  // Test: retrieve by id(s)
+  {
+    std::vector<Artifact> got_artifacts;
+    std::vector<ArtifactType> got_artifact_types;
+    EXPECT_EQ(metadata_access_object_->FindArtifactsById(
+                  {want_artifact1.id()}, got_artifacts, got_artifact_types),
+              absl::OkStatus());
+    EXPECT_THAT(got_artifacts,
+                ElementsAre(EqualsProto(
+                    want_artifact1,
+                    /*ignore_fields=*/{"create_time_since_epoch",
+                                       "last_update_time_since_epoch"})));
+    EXPECT_THAT(got_artifact_types, ElementsAre(EqualsProto(type)));
+  }
+  {
+    std::vector<Artifact> got_artifacts;
+    std::vector<ArtifactType> got_artifact_types;
+    EXPECT_EQ(metadata_access_object_->FindArtifactsById(
+                  {want_artifact2.id()}, got_artifacts, got_artifact_types),
+              absl::OkStatus());
+    EXPECT_THAT(got_artifacts,
+                ElementsAre(EqualsProto(
+                    want_artifact2,
+                    /*ignore_fields=*/{"create_time_since_epoch",
+                                       "last_update_time_since_epoch"})));
+    EXPECT_THAT(got_artifact_types, ElementsAre(EqualsProto(type)));
+  }
+  {
+    std::vector<Artifact> got_artifacts;
+    std::vector<ArtifactType> got_artifact_types;
+    EXPECT_EQ(metadata_access_object_->FindArtifactsById(
+                  {want_artifact1.id(), want_artifact2.id()}, got_artifacts,
+                  got_artifact_types),
+              absl::OkStatus());
+    EXPECT_THAT(
+        got_artifacts,
+        UnorderedElementsAre(
+            EqualsProto(want_artifact1,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"}),
+            EqualsProto(want_artifact2,
+                        /*ignore_fields=*/{"create_time_since_epoch",
+                                           "last_update_time_since_epoch"})));
+    EXPECT_THAT(got_artifact_types, ElementsAre(EqualsProto(type)));
   }
 }
 

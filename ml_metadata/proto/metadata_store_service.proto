@@ -568,8 +568,7 @@ message GetArtifactsByIDRequest {
   repeated int64 artifact_ids = 1;
   // An option to populate all the ArtifactTypes in the response.
   // If true, returns retrieved Artifacts and their artifact types, which can be
-  // matched by type_ids. Each ArtifactType contains id, name, properties and
-  // custom_properties fields.
+  // matched by type_ids.
   // If false, returns only the retrieved Artifacts.
   // Example request proto:
   //   {

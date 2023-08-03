@@ -31,6 +31,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/simple_types_util.h"
 #include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
+#include "ml_metadata/proto/metadata_store_service.pb.h"
 #include "ml_metadata/simple_types/proto/simple_types.pb.h"
 
 namespace ml_metadata {
@@ -1699,15 +1700,18 @@ TEST_P(MetadataStoreTestSuite, PutArtifactsGetArtifactsByIDAndPopulateType) {
   {
     for (int64_t i = 0; i < 2; i++) {
       PutArtifactTypeRequest put_artifact_type_request =
-          ParseTextProtoOrDie<PutArtifactTypeRequest>(absl::Substitute(R"(
+          ParseTextProtoOrDie<PutArtifactTypeRequest>(
+              absl::Substitute(R"(
               all_fields_match: true
               artifact_type: {
                 name: 'test_type_$0'
-                properties { key: 'property_$1' value: STRING }
+                version: 'v1'
+                description: 'artifact_type_description'
+                external_id: 'test_type_$1'
+                properties { key: 'property_$2' value: STRING }
               }
             )",
-                                                                       i + 1,
-                                                                       i + 1));
+                               i + 1, i + 1, i + 1));
       PutArtifactTypeResponse put_artifact_type_response;
       ASSERT_EQ(absl::OkStatus(),
                 metadata_store_->PutArtifactType(put_artifact_type_request,

@@ -14,21 +14,27 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/rdbms_metadata_access_object_test.h"
 
+#include <cstdint>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "ml_metadata/metadata_store/test_util.h"
+#include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 
 namespace ml_metadata {
 
-using ml_metadata::testing::EqualsProto;
-using ml_metadata::testing::ParseTextProtoOrDie;
+using ::ml_metadata::testing::EqualsProto;
+using ::ml_metadata::testing::ParseTextProtoOrDie;
+using ::testing::AllOf;
+using ::testing::AnyOf;
+using ::testing::HasSubstr;
 using ::testing::UnorderedElementsAre;
 
 constexpr absl::string_view kArtifactTypeRecordSet =
@@ -375,9 +381,15 @@ TEST_P(RDBMSMetadataAccessObjectTest, FindNodesWithTypesImpl) {
   ASSERT_EQ(Init(), absl::OkStatus());
   ArtifactType type_1 = ParseTextProtoOrDie<ArtifactType>(R"pb(
     name: 'artifact_type_1'
+    version: 'v1'
+    description: 'artifact_type_description'
+    external_id: 'artifact_type_1'
   )pb");
   ArtifactType type_2 = ParseTextProtoOrDie<ArtifactType>(R"pb(
     name: 'artifact_type_2'
+    version: 'v1'
+    description: 'artifact_type_description'
+    external_id: 'artifact_type_2'
     properties { key: 'property' value: STRING }
   )pb");
   int64_t type_id_1, type_id_2;
@@ -435,6 +447,32 @@ TEST_P(RDBMSMetadataAccessObjectTest, FindNodesWithTypesImpl) {
     std::vector<ArtifactType> types;
     EXPECT_TRUE(absl::IsInvalidArgument(
         FindNodesWithTypeImpl({artifact_id_2}, artifacts, types)));
+  }
+  // Test: Finding artifacts with empty id list fails with INVALID_ARGUMENT
+  // error.
+  {
+    std::vector<Artifact> artifacts;
+    std::vector<ArtifactType> types;
+    EXPECT_TRUE(
+        absl::IsInvalidArgument(FindNodesWithTypeImpl({}, artifacts, types)));
+  }
+  // Test: Finding artifacts with type succeeds with unknown artifact_id.
+  {
+    std::vector<Artifact> artifacts;
+    std::vector<ArtifactType> types;
+    int64_t unknown_artifact_id = artifact_id_1 + artifact_id_2;
+    absl::Status status = FindNodesWithTypeImpl(
+        {artifact_id_1, artifact_id_2, unknown_artifact_id}, artifacts, types);
+    EXPECT_TRUE(absl::IsNotFound(status));
+    EXPECT_THAT(
+        string(status.message()),
+        AllOf(HasSubstr(absl::StrCat("Results missing for ids: {",
+                                     artifact_id_1, ",", artifact_id_2, ",",
+                                     unknown_artifact_id, "}")),
+              AnyOf(HasSubstr(absl::StrCat("Found results for {", artifact_id_1,
+                                           ",", artifact_id_2, "}")),
+                    HasSubstr(absl::StrCat("Found results for {", artifact_id_2,
+                                           ",", artifact_id_1, "}")))));
   }
 }
 

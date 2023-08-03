@@ -815,8 +815,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   // Gets a set of `Node` which is one of {`Artifact`, `Execution`,
   // `Context`} by the given 'node_ids' and their node types, which
-  // can be matched by type_ids. Each NodeType contains id, name,
-  // properties and custom_properties fields.
+  // can be matched by type_ids.
   // Returns INVALID_ARGUMENT if node_ids is empty or nodes is not empty.
   // Returns NOT_FOUND error if any of the given `node_ids` is not found.
   // Returns detailed INTERNAL error if query execution fails.
