@@ -37,6 +37,15 @@ from ml_metadata.proto import metadata_store_service_pb2_grpc
 # Max number of results for one call.
 MAX_NUM_RESULT = 100
 
+# Supported field mask paths in LineageGraph message for get_lineage_subgraph().
+_ARTIFACTS_FIELD_MASK_PATH = 'artifacts'
+_ARTIFACT_TYPES_FIELD_MASK_PATH = 'artifact_types'
+_EXECUTIONS_FIELD_MASK_PATH = 'executions'
+_EXECUTION_TYPES_FIELD_MASK_PATH = 'execution_types'
+_CONTEXTS_FIELD_MASK_PATH = 'contexts'
+_CONTEXT_TYPES_FIELD_MASK_PATH = 'context_types'
+_EVENTS_FIELD_MASK_PATH = 'events'
+
 
 @enum.unique
 class OrderByField(enum.Enum):
@@ -749,17 +758,28 @@ class MetadataStore(object):
   def get_lineage_subgraph(
       self,
       query_options: metadata_store_pb2.LineageSubgraphQueryOptions,
-      verbose: bool = False,
+      field_mask_paths: Optional[Sequence[str]] = None,
   ) -> metadata_store_pb2.LineageGraph:
-    """Gets lineage graph skeleton and get node attributes if necessary.
+    """Gets lineage graph including fields specified in a field mask.
 
     Args:
-      query_options: metadata_store_pb2.LineageSubgraphQueryOptions object.
-      verbose: option for getting node details.
-        When True, returns a lineage subgraph with node details.
-          Note that getting subgraph skeleton and getting node details are not
-          wrapped in one transaction, and there is no consistency guarantee.
-        When False, returns a lineage subgraph without node details.
+      query_options: metadata_store_pb2.LineageSubgraphQueryOptions object. It
+        allows users to specify query options for lineage graph tracing from a
+        list of interested nodes (limited to 100). Please refer to
+        LineageSubgraphQueryOptions for more details.
+      field_mask_paths: a list of user specified paths of fields that should be
+        included in the returned lineage graph.
+        If `field_mask_paths` is specified and non-empty:
+          1. If 'artifacts', 'executions', or 'contexts' is specified in
+          `read_mask`, the nodes with details will be included.
+          2. If 'artifact_types', 'execution_types', or 'context_types' is
+          specified in `read_mask`, all the node types with matched `type_id`
+          in nodes in the returned graph will be included.
+          3. If 'events' is specified in `read_mask`, the events will be
+          included. TODO(b/283852485): Include associations and attributions in
+          the returned graph.
+        If `field_mask_paths` is unspecified or is empty, it will return all the
+        fields in the returned graph.
 
     Returns:
       metadata_store_pb2.LineageGraph object that contains the lineage graph.
@@ -767,19 +787,68 @@ class MetadataStore(object):
     request = metadata_store_service_pb2.GetLineageSubgraphRequest(
         lineage_subgraph_query_options=query_options
     )
+    if not field_mask_paths:
+      field_mask_paths = [
+          field.name
+          for field in metadata_store_pb2.LineageGraph.DESCRIPTOR.fields
+      ]
+    # Do not get types from GetLineageSubgraph API, but send extra RPCs after
+    # retrieving node details.
+    request.read_mask.paths.extend(
+        path for path in field_mask_paths if not path.endswith('_types')
+    )
     response = metadata_store_service_pb2.GetLineageSubgraphResponse()
     self._call('GetLineageSubgraph', request, response)
     skeleton = response.lineage_subgraph
 
-    if not verbose:
-      return skeleton
+    lineage_subgraph = metadata_store_pb2.LineageGraph()
+    if (
+        _ARTIFACTS_FIELD_MASK_PATH in field_mask_paths
+        or _ARTIFACT_TYPES_FIELD_MASK_PATH in field_mask_paths
+    ):
+      artifacts, artifact_types = self.get_artifacts_and_types_by_artifact_ids(
+          artifact.id for artifact in skeleton.artifacts
+      )
+      if _ARTIFACTS_FIELD_MASK_PATH in field_mask_paths:
+        lineage_subgraph.artifacts.extend(artifacts)
+      if _ARTIFACT_TYPES_FIELD_MASK_PATH in field_mask_paths:
+        lineage_subgraph.artifact_types.extend(artifact_types)
 
-    lineage_subgraph = metadata_store_pb2.LineageGraph(events=skeleton.events)
-    artifact_ids = [artifact.id for artifact in skeleton.artifacts]
-    execution_ids = [execution.id for execution in skeleton.executions]
-    lineage_subgraph.artifacts.extend(self.get_artifacts_by_id(artifact_ids))
-    lineage_subgraph.executions.extend(self.get_executions_by_id(execution_ids))
+    # TODO(b/289277521): Use 1 rpc to get both executions and execution types.
+    if (
+        _EXECUTIONS_FIELD_MASK_PATH in field_mask_paths
+        or _EXECUTION_TYPES_FIELD_MASK_PATH in field_mask_paths
+    ):
+      executions = self.get_executions_by_id(
+          execution.id for execution in skeleton.executions
+      )
+      if _EXECUTIONS_FIELD_MASK_PATH in field_mask_paths:
+        lineage_subgraph.executions.extend(executions)
+      if _EXECUTION_TYPES_FIELD_MASK_PATH in field_mask_paths:
+        execution_types = self.get_execution_types_by_id(
+            set(execution.type_id for execution in executions)
+        )
+        lineage_subgraph.execution_types.extend(execution_types)
 
+    # TODO(b/289277521): Use 1 rpc to get both contexts and context types.
+    if (
+        _CONTEXTS_FIELD_MASK_PATH in field_mask_paths
+        or _CONTEXT_TYPES_FIELD_MASK_PATH in field_mask_paths
+    ):
+      contexts = self.get_contexts_by_id(
+          context.id for context in skeleton.contexts
+      )
+      if _CONTEXTS_FIELD_MASK_PATH in field_mask_paths:
+        lineage_subgraph.contexts.extend(contexts)
+      if _CONTEXT_TYPES_FIELD_MASK_PATH in field_mask_paths:
+        context_types = self.get_context_types_by_id(
+            set(context.type_id for context in contexts)
+        )
+        lineage_subgraph.context_types.extend(context_types)
+
+    if _EVENTS_FIELD_MASK_PATH in field_mask_paths:
+      lineage_subgraph.events.extend(skeleton.events)
+    # TODO(b/283852485): Support getting associations and attributions
     return lineage_subgraph
 
   def get_artifacts_by_type(
