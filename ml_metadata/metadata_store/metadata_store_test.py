@@ -2176,6 +2176,127 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertEmpty(subgraph.associations)
     self.assertEmpty(subgraph.attributions)
 
+  def test_put_lineage_subgraph_get_lineage_subgraph_with_direction(self):
+    # Test with a simple lineage graph:
+    # input_artifact -> execution -> output_artifact.
+    store = _get_metadata_store()
+    execution_type = _create_example_execution_type(self._get_test_type_name())
+    execution_type_id = store.put_execution_type(execution_type)
+    artifact_type = _create_example_artifact_type(self._get_test_type_name())
+    artifact_type_id = store.put_artifact_type(artifact_type)
+    context_type = _create_example_context_type(self._get_test_type_name())
+    context_type_id = store.put_context_type(context_type)
+
+    context = metadata_store_pb2.Context(
+        type_id=context_type_id, name="test_context"
+    )
+    [context.id] = store.put_contexts([context])
+
+    input_artifact = metadata_store_pb2.Artifact(
+        type_id=artifact_type_id, uri="input_artifact_uri"
+    )
+    output_artifact = metadata_store_pb2.Artifact(
+        type_id=artifact_type_id, uri="output_artifact_uri"
+    )
+    [input_artifact.id, output_artifact.id] = store.put_artifacts(
+        [input_artifact, output_artifact]
+    )
+
+    execution = metadata_store_pb2.Execution(
+        type_id=execution_type_id, name="test_execution"
+    )
+    [execution.id] = store.put_executions([execution])
+
+    input_event = metadata_store_pb2.Event(
+        type=metadata_store_pb2.Event.INPUT,
+        execution_id=execution.id,
+        artifact_id=input_artifact.id,
+    )
+    output_event = metadata_store_pb2.Event(
+        type=metadata_store_pb2.Event.OUTPUT,
+        execution_id=execution.id,
+        artifact_id=output_artifact.id,
+    )
+
+    request_event_edges = [(0, 0, input_event), (0, 1, output_event)]
+    store.put_lineage_subgraph(
+        [execution],
+        [input_artifact, output_artifact],
+        [context],
+        request_event_edges,
+    )
+
+    # Test get_lineage_subgraph() with direction.
+    query_options = metadata_store_pb2.LineageSubgraphQueryOptions(
+        starting_executions=metadata_store_pb2.LineageSubgraphQueryOptions.StartingNodes(
+            filter_query="name = 'test_execution'"
+        ),
+        max_num_hops=2,
+        direction=metadata_store_pb2.LineageSubgraphQueryOptions.Direction.DOWNSTREAM,
+    )
+    subgraph = store.get_lineage_subgraph(query_options)
+    self.assertLen(subgraph.artifacts, 1)
+    self.assertLen(subgraph.executions, 1)
+    self.assertSameElements(
+        [subgraph.artifacts[0].uri],
+        [output_artifact.uri],
+    )
+    self.assertSameElements(
+        [subgraph.executions[0].name],
+        [execution.name],
+    )
+    self.assertLen(subgraph.contexts, 1)
+    self.assertSameElements(
+        [subgraph.contexts[0].name],
+        [context.name],
+    )
+    self.assertLen(subgraph.events, 1)
+    self.assertLen(subgraph.artifact_types, 1)
+    self.assertSameElements(
+        [subgraph.artifact_types[0].name], [artifact_type.name]
+    )
+    self.assertLen(subgraph.execution_types, 1)
+    self.assertSameElements(
+        [subgraph.execution_types[0].name], [execution_type.name]
+    )
+    self.assertLen(subgraph.context_types, 1)
+    self.assertSameElements(
+        [subgraph.context_types[0].name], [context_type.name]
+    )
+
+    query_options.direction = (
+        metadata_store_pb2.LineageSubgraphQueryOptions.Direction.UPSTREAM
+    )
+    subgraph = store.get_lineage_subgraph(query_options)
+    self.assertLen(subgraph.artifacts, 1)
+    self.assertLen(subgraph.executions, 1)
+    self.assertSameElements(
+        [subgraph.artifacts[0].uri],
+        [input_artifact.uri],
+    )
+    self.assertSameElements(
+        [subgraph.executions[0].name],
+        [execution.name],
+    )
+    self.assertLen(subgraph.contexts, 1)
+    self.assertSameElements(
+        [subgraph.contexts[0].name],
+        [context.name],
+    )
+    self.assertLen(subgraph.events, 1)
+    self.assertLen(subgraph.artifact_types, 1)
+    self.assertSameElements(
+        [subgraph.artifact_types[0].name], [artifact_type.name]
+    )
+    self.assertLen(subgraph.execution_types, 1)
+    self.assertSameElements(
+        [subgraph.execution_types[0].name], [execution_type.name]
+    )
+    self.assertLen(subgraph.context_types, 1)
+    self.assertSameElements(
+        [subgraph.context_types[0].name], [context_type.name]
+    )
+
   def test_put_and_use_attributions_and_associations(self):
     store = _get_metadata_store()
     context_type = _create_example_context_type(self._get_test_type_name())

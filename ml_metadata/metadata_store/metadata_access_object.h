@@ -977,6 +977,8 @@ class MetadataAccessObject {
   // The constraints include:
   // a) `max_num_hops`: it stops traversal at nodes that are at `max_num_hops`
   //   away from the starting nodes.
+  // b) `direction`: it performs either a single-directional graph traversal or
+  //   bidirectional graph traversal based on `direction`.
   // `read_mask` contains user specified paths of fields that should be included
   // in the output `subgraph`.
   //   If 'artifacts', 'executions', or 'contexts' is specified in `read_mask`,

@@ -467,6 +467,59 @@ absl::Status CheckCyClicDependency(int64_t child_id, int64_t parent_id,
   return absl::OkStatus();
 }
 
+std::vector<Event> FilterEventsByDirectionAndEventType(
+    absl::Span<const Event> events, const bool is_from_artifact,
+    LineageSubgraphQueryOptions::Direction direction) {
+  std::vector<Event> filtered_events;
+  if (is_from_artifact) {
+    switch (direction) {
+      case LineageSubgraphQueryOptions::UPSTREAM:
+        absl::c_copy_if(events, std::back_inserter(filtered_events),
+                        [](const Event& event) {
+                          return event.type() == Event::DECLARED_OUTPUT ||
+                                 event.type() == Event::INTERNAL_OUTPUT ||
+                                 event.type() == Event::PENDING_OUTPUT ||
+                                 event.type() == Event::OUTPUT;
+                        });
+        break;
+      case LineageSubgraphQueryOptions::DOWNSTREAM:
+        absl::c_copy_if(events, std::back_inserter(filtered_events),
+                        [](const Event& event) {
+                          return event.type() == Event::DECLARED_INPUT ||
+                                 event.type() == Event::INTERNAL_INPUT ||
+                                 event.type() == Event::INPUT;
+                        });
+        break;
+      default:
+        absl::c_copy(events, std::back_inserter(filtered_events));
+        break;
+    }
+  } else {
+    switch (direction) {
+      case LineageSubgraphQueryOptions::UPSTREAM:
+        absl::c_copy_if(events, std::back_inserter(filtered_events),
+                        [](const Event& event) {
+                          return event.type() == Event::DECLARED_INPUT ||
+                                 event.type() == Event::INTERNAL_INPUT ||
+                                 event.type() == Event::INPUT;
+                        });
+        break;
+      case LineageSubgraphQueryOptions::DOWNSTREAM:
+        absl::c_copy_if(events, std::back_inserter(filtered_events),
+                        [](const Event& event) {
+                          return event.type() == Event::DECLARED_OUTPUT ||
+                                 event.type() == Event::INTERNAL_OUTPUT ||
+                                 event.type() == Event::PENDING_OUTPUT ||
+                                 event.type() == Event::OUTPUT;
+                        });
+        break;
+      default:
+        absl::c_copy(events, std::back_inserter(filtered_events));
+        break;
+    }
+  }
+  return filtered_events;
+}
 }  // namespace
 
 
@@ -2691,13 +2744,19 @@ absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
 
 absl::StatusOr<std::vector<int64_t>>
 RDBMSMetadataAccessObject::ExpandLineageSubgraphImpl(
-    const bool expand_from_artifacts, absl::Span<const int64_t> input_node_ids,
+    const bool expand_from_artifacts,
+    const LineageSubgraphQueryOptions::Direction direction,
+    absl::Span<const int64_t> input_node_ids,
     absl::flat_hash_set<int64_t>& visited_output_node_ids,
     std::vector<Event>& output_events) {
-  std::vector<Event> events;
-  absl::Status status = expand_from_artifacts
-                            ? FindEventsByArtifacts(input_node_ids, &events)
-                            : FindEventsByExecutions(input_node_ids, &events);
+  std::vector<Event> candidate_events;
+  absl::Status status =
+      expand_from_artifacts
+          ? FindEventsByArtifacts(input_node_ids, &candidate_events)
+          : FindEventsByExecutions(input_node_ids, &candidate_events);
+  std::vector<Event> events = FilterEventsByDirectionAndEventType(
+      candidate_events, /*is_from_artifact=*/expand_from_artifacts, direction);
+
   std::vector<int64_t> output_node_ids;
   // If no events are found for the given input nodes, directly return.
   if (absl::IsNotFound(status)) {
@@ -2712,6 +2771,18 @@ RDBMSMetadataAccessObject::ExpandLineageSubgraphImpl(
         expand_from_artifacts ? event.execution_id() : event.artifact_id();
     if (!visited_output_node_ids.contains(output_node_id)) {
       unvisited_output_node_ids.insert(output_node_id);
+      output_events.push_back(event);
+    } else if (direction == LineageSubgraphQueryOptions::UPSTREAM ||
+               direction == LineageSubgraphQueryOptions::DOWNSTREAM) {
+      // For directional bfs, we should still add the edge even a visited output
+      // node is encountered. For example, there are two paths:
+      //   a1 -> input_event1 -> e1 -> output_event1 -> a2 -> input_event2 -> e2
+      //   a1 -> input_event3 -> e2
+      // Imagine when the downstream graph tracing starts from a1 with hops = 3.
+      // In the last hop, although e2 is already visited, input_event2 still
+      // counts as a valid edge that should be included into `output_events`.
+      // For bidirectional bfs, we skip adding those events to avoid duplicate
+      // events which can only happen in this case.
       output_events.push_back(event);
     }
   }
@@ -2955,15 +3026,15 @@ absl::Status RDBMSMetadataAccessObject::QueryLineageSubgraph(
     // `curr_distance` is even, vice versa.
     const bool expand_from_artifacts =
         (is_from_artifacts == (curr_distance % 2 == 0));
-    std::vector<Event> output_events;
     if (expand_from_artifacts) {
       MLMD_ASSIGN_OR_RETURN(
           output_execution_ids,
           ExpandLineageSubgraphImpl(
               /*expand_from_artifacts=*/expand_from_artifacts,
+              /*direction=*/lineage_subgraph_query_options.direction(),
               /*input_node_ids=*/output_artifact_ids,
               /*visited_output_node_ids=*/visited_executions_ids,
-              output_events));
+              visited_events));
       if (output_execution_ids.empty()) {
         break;
       }
@@ -2972,14 +3043,14 @@ absl::Status RDBMSMetadataAccessObject::QueryLineageSubgraph(
           output_artifact_ids,
           ExpandLineageSubgraphImpl(
               /*expand_from_artifacts=*/expand_from_artifacts,
+              /*direction=*/lineage_subgraph_query_options.direction(),
               /*input_node_ids=*/output_execution_ids,
               /*visited_output_node_ids=*/visited_artifacts_ids,
-              output_events));
+              visited_events));
       if (output_artifact_ids.empty()) {
         break;
       }
     }
-    absl::c_copy(output_events, std::back_inserter(visited_events));
     curr_distance++;
   }
 

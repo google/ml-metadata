@@ -496,6 +496,8 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // The constraints include:
   // a) `max_num_hops`: it stops traversal at nodes that are at `max_num_hops`
   //   away from the starting nodes.
+  // b) `direction`: it performs either a single-directional graph traversal or
+  //   bidirectional graph traversal based on `direction`.
   // `read_mask` contains user specified paths of fields that should be included
   // in the output `subgraph`.
   //   If 'artifacts', 'executions', or 'contexts' is specified in `read_mask`,
@@ -943,16 +945,26 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // Expands the lineage subgraph under constraint within one hop from input
   // nodes.
   // When expanding from artifacts to executions, it treats artifacts as input
-  // nodes and executions as output nodes.
+  //   nodes and executions as output nodes.
   // When expanding from executions to artifacts, it treats executions as input
-  // nodes and artifacts as output nodes.
+  //   nodes and artifacts as output nodes.
+  // When expanding towards upstream, it only looks at upstream hops such as
+  //   execution -> input_event -> artifact or
+  //   artifact -> output_event -> execution.
+  // When expanding towards downstream, it only looks at downstream hops such as
+  //   execution -> output_event -> artifact or
+  //   artifact -> input_event -> execution.
+  // When expanding bidirectionally, it looks at both upstream hops and
+  //   downsteam hops.
   // Adds events between input nodes and output nodes to `output_events`.
   // Returns ids of output nodes that are one hop away from input nodes if
   // expanding the lineage subgraph succeeds.
   // Returns an empty list if no events are found for given input nodes.
   // Returns detailed INTERNAL error, if expanding the lineage subgraph fails.
   absl::StatusOr<std::vector<int64_t>> ExpandLineageSubgraphImpl(
-      bool expand_from_artifacts, absl::Span<const int64_t> input_node_ids,
+      bool expand_from_artifacts,
+      LineageSubgraphQueryOptions::Direction direction,
+      absl::Span<const int64_t> input_node_ids,
       absl::flat_hash_set<int64_t>& visited_output_node_ids,
       std::vector<Event>& output_events);
 

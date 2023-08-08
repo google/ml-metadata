@@ -5723,6 +5723,296 @@ TEST_P(MetadataAccessObjectTest, QueryLineageSubgraphWithFieldMask) {
   }
 }
 
+TEST_P(MetadataAccessObjectTest, QueryLineageSubgraphDirectional) {
+  // TODO (b/294894126): Increase test coverage on more test cases.
+  ASSERT_EQ(Init(), absl::OkStatus());
+  // Test setup: query from e2 in the following graph.
+  // a1 -(v1)-> e1 -(v2)-> a2
+  //  \                      \(v4)
+  //   \---------(v3)---------> e2 -(v5)-> a3 -(v6)-> e3
+  //                              \                     \(v7)
+  //                               \---------(v8)--------> a4
+  const ArtifactType artifact_type = CreateTypeFromTextProto<ArtifactType>(
+      "name: 'artifact_type'", *metadata_access_object_,
+      metadata_access_object_container_.get());
+  const ExecutionType execution_type = CreateTypeFromTextProto<ExecutionType>(
+      "name: 'execution_type'", *metadata_access_object_,
+      metadata_access_object_container_.get());
+  std::vector<Artifact> want_artifacts(4);
+  std::vector<Execution> want_executions(3);
+  for (int i = 0; i < 4; i++) {
+    CreateNodeFromTextProto(absl::Substitute("uri: 'uri_$0'", i),
+                            artifact_type.id(), *metadata_access_object_,
+                            metadata_access_object_container_.get(),
+                            want_artifacts[i]);
+  }
+  for (int i = 0; i < 3; i++) {
+    CreateNodeFromTextProto("", execution_type.id(), *metadata_access_object_,
+                            metadata_access_object_container_.get(),
+                            want_executions[i]);
+  }
+  std::vector<Event> want_events(8);
+  CreateEventFromTextProto("type: INPUT", want_artifacts[0], want_executions[0],
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[0]);
+  CreateEventFromTextProto("type: OUTPUT", want_artifacts[1],
+                           want_executions[0], *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[1]);
+  CreateEventFromTextProto("type: INPUT", want_artifacts[0], want_executions[1],
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[2]);
+  CreateEventFromTextProto("type: INPUT", want_artifacts[1], want_executions[1],
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[3]);
+  CreateEventFromTextProto("type: OUTPUT", want_artifacts[2],
+                           want_executions[1], *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[4]);
+  CreateEventFromTextProto("type: INPUT", want_artifacts[2], want_executions[2],
+                           *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[5]);
+  CreateEventFromTextProto("type: OUTPUT", want_artifacts[3],
+                           want_executions[2], *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[6]);
+  CreateEventFromTextProto("type: OUTPUT", want_artifacts[3],
+                           want_executions[1], *metadata_access_object_,
+                           metadata_access_object_container_.get(),
+                           want_events[7]);
+  LineageSubgraphQueryOptions base_options;
+  base_options.mutable_starting_executions()->set_filter_query(
+      absl::Substitute("id = $0", want_executions[1].id()));
+  google::protobuf::FieldMask read_mask =
+      ParseTextProtoOrDie<google::protobuf::FieldMask>(
+          R"pb(
+            paths: "artifacts" paths: "executions" paths: "events"
+          )pb");
+  {
+    // Query from e2 with 1 hop.
+    LineageGraph output_subgraph;
+    LineageSubgraphQueryOptions options = base_options;
+    options.set_max_num_hops(1);
+    // Tracing downstream, returned subgraph will be:
+    // e2 -(v5)-> a3
+    //  \
+    //   \---------(v8)--------> a4
+    options.set_direction(LineageSubgraphQueryOptions::DOWNSTREAM);
+    ASSERT_EQ(metadata_access_object_->QueryLineageSubgraph(options, read_mask,
+                                                            output_subgraph),
+              absl::OkStatus());
+    VerifyLineageGraphSkeleton(output_subgraph,
+                               {want_artifacts[2].id(), want_artifacts[3].id()},
+                               {want_executions[1].id()},
+                               /*events=*/{want_events[4], want_events[7]});
+    // Tracing upstream, returned subgraph will be:
+    // a1                    a2
+    //  \                      \(v4)
+    //   \---------(v3)---------> e2
+    options.set_direction(LineageSubgraphQueryOptions::UPSTREAM);
+    output_subgraph.Clear();
+    ASSERT_EQ(metadata_access_object_->QueryLineageSubgraph(options, read_mask,
+                                                            output_subgraph),
+              absl::OkStatus());
+    VerifyLineageGraphSkeleton(output_subgraph,
+                               {want_artifacts[0].id(), want_artifacts[1].id()},
+                               {want_executions[1].id()},
+                               /*events=*/{want_events[2], want_events[3]});
+  }
+  {
+    // Query from e2 with 2 hops.
+    LineageGraph output_subgraph;
+    LineageSubgraphQueryOptions options = base_options;
+    options.set_max_num_hops(2);
+    // Tracing downstream, returned subgraph will be:
+    // e2 -(v5)-> a3 -(v6)-> e3
+    //   \
+    //    \---------(v8)--------> a4
+    options.set_direction(LineageSubgraphQueryOptions::DOWNSTREAM);
+    ASSERT_EQ(metadata_access_object_->QueryLineageSubgraph(options, read_mask,
+                                                            output_subgraph),
+              absl::OkStatus());
+    VerifyLineageGraphSkeleton(
+        output_subgraph, {want_artifacts[2].id(), want_artifacts[3].id()},
+        {want_executions[1].id(), want_executions[2].id()},
+        {want_events[4], want_events[5], want_events[7]});
+    // Tracing upstream, returned subgraph will be:
+    // a1          e1 -(v2)-> a2
+    //  \                      \(v4)
+    //   \---------(v3)---------> e2
+    options.set_direction(LineageSubgraphQueryOptions::UPSTREAM);
+    output_subgraph.Clear();
+    ASSERT_EQ(metadata_access_object_->QueryLineageSubgraph(options, read_mask,
+                                                            output_subgraph),
+              absl::OkStatus());
+    VerifyLineageGraphSkeleton(
+        output_subgraph, {want_artifacts[0].id(), want_artifacts[1].id()},
+        {want_executions[0].id(), want_executions[1].id()},
+        /*events=*/{want_events[1], want_events[2], want_events[3]});
+  }
+
+  {
+    // Query from e2 with a large hop.
+    LineageGraph output_subgraph;
+    LineageSubgraphQueryOptions options = base_options;
+    options.set_max_num_hops(100);
+    // Tracing downstream, returned subgraph will be:
+    // e2 -(v5)-> a3 -(v6)-> e3
+    //   \                     \(v7)
+    //    \---------(v8)--------> a4
+    options.set_direction(LineageSubgraphQueryOptions::DOWNSTREAM);
+    ASSERT_EQ(metadata_access_object_->QueryLineageSubgraph(options, read_mask,
+                                                            output_subgraph),
+              absl::OkStatus());
+    VerifyLineageGraphSkeleton(
+        output_subgraph, {want_artifacts[2].id(), want_artifacts[3].id()},
+        {want_executions[1].id(), want_executions[2].id()},
+        {want_events[4], want_events[5], want_events[6], want_events[7]});
+    // Tracing upstream, returned subgraph will be:
+    // a1 -(v1)-> e1 -(v2)-> a2
+    //  \                      \(v4)
+    //   \---------(v3)---------> e2
+    options.set_direction(LineageSubgraphQueryOptions::UPSTREAM);
+    output_subgraph.Clear();
+    ASSERT_EQ(metadata_access_object_->QueryLineageSubgraph(options, read_mask,
+                                                            output_subgraph),
+              absl::OkStatus());
+    VerifyLineageGraphSkeleton(
+        output_subgraph, {want_artifacts[0].id(), want_artifacts[1].id()},
+        {want_executions[0].id(), want_executions[1].id()},
+        /*events=*/
+        {want_events[0], want_events[1], want_events[2], want_events[3]});
+  }
+  {
+    // With multiple query nodes with 0 hop.
+    LineageGraph output_subgraph;
+    LineageSubgraphQueryOptions options = base_options;
+    options.mutable_starting_executions()->set_filter_query(absl::Substitute(
+        "id = $0 OR id = $1 OR id = $2", want_executions[0].id(),
+        want_executions[1].id(), want_executions[2].id()));
+    options.set_max_num_hops(0);
+
+    options.set_direction(LineageSubgraphQueryOptions::DOWNSTREAM);
+    ASSERT_EQ(metadata_access_object_->QueryLineageSubgraph(options, read_mask,
+                                                            output_subgraph),
+              absl::OkStatus());
+    VerifyLineageGraphSkeleton(
+        output_subgraph, /*expected_artifact_ids=*/
+        {},
+        {want_executions[0].id(), want_executions[1].id(),
+         want_executions[2].id()},
+        /*events=*/{});
+
+    options.set_direction(LineageSubgraphQueryOptions::UPSTREAM);
+    output_subgraph.Clear();
+    ASSERT_EQ(metadata_access_object_->QueryLineageSubgraph(options, read_mask,
+                                                            output_subgraph),
+              absl::OkStatus());
+    VerifyLineageGraphSkeleton(
+        output_subgraph, /*expected_artifact_ids=*/
+        {},
+        {want_executions[0].id(), want_executions[1].id(),
+         want_executions[2].id()},
+        /*events=*/{});
+  }
+  {
+    // With multiple query nodes with 1 hop.
+    LineageGraph output_subgraph;
+    LineageSubgraphQueryOptions options = base_options;
+    options.mutable_starting_executions()->set_filter_query(absl::Substitute(
+        "id = $0 OR id = $1 OR id = $2", want_executions[0].id(),
+        want_executions[1].id(), want_executions[2].id()));
+    options.set_max_num_hops(1);
+    // Tracing downstream, returned subgraph will be:
+    //             e1 -(v2)-> a2
+    //
+    //.                            e2 -(v5)-> a3         e3
+    //                              \                     \(v7)
+    //                               \---------(v8)--------> a4
+    options.set_direction(LineageSubgraphQueryOptions::DOWNSTREAM);
+    ASSERT_EQ(metadata_access_object_->QueryLineageSubgraph(options, read_mask,
+                                                            output_subgraph),
+              absl::OkStatus());
+    VerifyLineageGraphSkeleton(
+        output_subgraph, /*expected_artifact_ids=*/
+        {want_artifacts[1].id(), want_artifacts[2].id(),
+         want_artifacts[3].id()},
+        {want_executions[0].id(), want_executions[1].id(),
+         want_executions[2].id()},
+        /*events=*/
+        {want_events[1], want_events[4], want_events[6], want_events[7]});
+
+    // Tracing upstream, returned subgraph will be:
+    // a1 -(v1)-> e1          a2
+    //  \                      \(v4)
+    //   \---------(v3)---------> e2          a3 -(v6)-> e3
+    options.set_direction(LineageSubgraphQueryOptions::UPSTREAM);
+    output_subgraph.Clear();
+    ASSERT_EQ(metadata_access_object_->QueryLineageSubgraph(options, read_mask,
+                                                            output_subgraph),
+              absl::OkStatus());
+    VerifyLineageGraphSkeleton(
+        output_subgraph, /*expected_artifact_ids=*/
+        {want_artifacts[0].id(), want_artifacts[1].id(),
+         want_artifacts[2].id()},
+        {want_executions[0].id(), want_executions[1].id(),
+         want_executions[2].id()},
+        /*events=*/
+        {want_events[0], want_events[2], want_events[3], want_events[5]});
+  }
+  {
+    // With multiple query nodes with more hops.
+    LineageGraph output_subgraph;
+    LineageSubgraphQueryOptions options = base_options;
+    options.mutable_starting_executions()->set_filter_query(absl::Substitute(
+        "id = $0 OR id = $1 OR id = $2", want_executions[0].id(),
+        want_executions[1].id(), want_executions[2].id()));
+    options.set_max_num_hops(100);
+    // Tracing downstream, returned subgraph will be:
+    //             e1 -(v2)-> a2
+    //                          \(v4)
+    //                            e2 -(v5)-> a3 -(v6)-> e3
+    //                              \                     \(v7)
+    //                               \---------(v8)--------> a4
+    options.set_direction(LineageSubgraphQueryOptions::DOWNSTREAM);
+    ASSERT_EQ(metadata_access_object_->QueryLineageSubgraph(options, read_mask,
+                                                            output_subgraph),
+              absl::OkStatus());
+    VerifyLineageGraphSkeleton(
+        output_subgraph, /*expected_artifact_ids=*/
+        {want_artifacts[1].id(), want_artifacts[2].id(),
+         want_artifacts[3].id()},
+        {want_executions[0].id(), want_executions[1].id(),
+         want_executions[2].id()},
+        /*events=*/
+        {want_events[1], want_events[3], want_events[4], want_events[5],
+         want_events[6], want_events[7]});
+
+    // Tracing upstream, returned subgraph will be:
+    // a1 -(v1)-> e1 -(v2)-> a2
+    //  \                      \(v4)
+    //   \---------(v3)---------> e2 -(v5)-> a3 -(v6)-> e3
+    options.set_direction(LineageSubgraphQueryOptions::UPSTREAM);
+    output_subgraph.Clear();
+    ASSERT_EQ(metadata_access_object_->QueryLineageSubgraph(options, read_mask,
+                                                            output_subgraph),
+              absl::OkStatus());
+    VerifyLineageGraphSkeleton(
+        output_subgraph, /*expected_artifact_ids=*/
+        {want_artifacts[0].id(), want_artifacts[1].id(),
+         want_artifacts[2].id()},
+        {want_executions[0].id(), want_executions[1].id(),
+         want_executions[2].id()},
+        /*events=*/
+        {want_events[0], want_events[1], want_events[2], want_events[3],
+         want_events[4], want_events[5]});
+  }
+}
+
 TEST_P(MetadataAccessObjectTest, DeleteArtifactsById) {
   ASSERT_EQ(Init(), absl::OkStatus());
 

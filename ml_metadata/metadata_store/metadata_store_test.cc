@@ -14,7 +14,9 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/metadata_store.h"
 
+#include <cstdint>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include <glog/logging.h>
@@ -26,11 +28,13 @@ limitations under the License.
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "absl/types/optional.h"
+#include "absl/types/span.h"
 #include "ml_metadata/metadata_store/metadata_store_test_suite.h"
 #include "ml_metadata/metadata_store/sqlite_metadata_source.h"
 #include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
+#include "ml_metadata/proto/metadata_store_service.pb.h"
 #include "ml_metadata/util/metadata_source_query_config.h"
 #include "ml_metadata/util/return_utils.h"
 
@@ -766,6 +770,198 @@ TEST(MetadataStoreExtendedTest, GetLineageSubgraphFromExecutionsWithMaxHops) {
 
       /*want_events=*/
       {{0, 0}, {1, 1}, {3, 1}, {2, 2}, {4, 2}, {3, 3}, {4, 3}, {5, 3}});
+}
+
+TEST(MetadataStoreExtendedTest, GetLineageSubgraphFromArtifactsWithDirection) {
+  // Prepare a store with the lineage graph
+  // a0 -> e0
+  // a1 -> e1 -> a3 --> e3 -> a5
+  //                 /
+  // a2 -> e2 -> a4 -
+  std::unique_ptr<MetadataStore> metadata_store = CreateMetadataStore();
+  int64_t min_creation_time;
+  std::vector<Artifact> want_artifacts;
+  std::vector<Execution> want_executions;
+  ASSERT_EQ(CreateLineageGraph(*metadata_store, min_creation_time,
+                               want_artifacts, want_executions),
+            absl::OkStatus());
+
+  // Verify the query results with the specified direction
+  auto verify_lineage_graph_with_direction =
+      [&](const LineageSubgraphQueryOptions::Direction direction,
+          const int64_t max_num_hop,
+          absl::Span<const int64_t> expected_artifact_ids,
+          absl::Span<const int64_t> expected_execution_ids,
+          absl::Span<const std::pair<int64_t, int64_t>>
+              expected_node_index_pairs_in_events) {
+        GetLineageSubgraphRequest req;
+        GetLineageSubgraphResponse resp;
+        req.mutable_lineage_subgraph_query_options()
+            ->mutable_starting_artifacts()
+            ->set_filter_query("uri = 'uri://foo/a4'");
+        req.mutable_lineage_subgraph_query_options()->set_max_num_hops(
+            max_num_hop);
+        req.mutable_lineage_subgraph_query_options()->set_direction(direction);
+        EXPECT_EQ(metadata_store->GetLineageSubgraph(req, &resp),
+                  absl::OkStatus());
+        std::vector<std::pair<int64_t, int64_t>>
+            expected_node_id_pairs_in_events;
+        for (const auto& [artifact_index, execution_index] :
+             expected_node_index_pairs_in_events) {
+          expected_node_id_pairs_in_events.push_back(
+              {want_artifacts.at(artifact_index).id(),
+               want_executions.at(execution_index).id()});
+        }
+        VerifySubgraphSkeleton(resp.lineage_subgraph(), expected_artifact_ids,
+                               expected_execution_ids,
+                               expected_node_id_pairs_in_events);
+      };
+
+  // Verify the lineage graph query results by increasing the max_num_hops.
+  verify_lineage_graph_with_direction(
+      LineageSubgraphQueryOptions::DOWNSTREAM,
+      /*max_num_hop=*/1,
+      /*want_artifacts=*/{want_artifacts[4].id()},
+      /*want_executions=*/{want_executions[3].id()},
+      /*want_events=*/{{4, 3}});
+
+  verify_lineage_graph_with_direction(
+      LineageSubgraphQueryOptions::UPSTREAM,
+      /*max_num_hop=*/1,
+      /*want_artifacts=*/{want_artifacts[4].id()},
+      /*want_executions=*/{want_executions[2].id()},
+      /*want_events=*/{{4, 2}});
+
+  verify_lineage_graph_with_direction(
+      LineageSubgraphQueryOptions::DOWNSTREAM,
+      /*max_num_hop=*/2,
+      /*want_artifacts=*/
+      {want_artifacts[4].id(), want_artifacts[5].id()},
+      /*want_executions=*/{want_executions[3].id()},
+      /*want_events=*/{{4, 3}, {5, 3}});
+
+  verify_lineage_graph_with_direction(
+      LineageSubgraphQueryOptions::UPSTREAM,
+      /*max_num_hop=*/2,
+      /*want_artifacts=*/
+      {want_artifacts[2].id(), want_artifacts[4].id()},
+      /*want_executions=*/{want_executions[2].id()},
+      /*want_events=*/{{4, 2}, {2, 2}});
+
+  verify_lineage_graph_with_direction(
+      LineageSubgraphQueryOptions::DOWNSTREAM,
+      /*max_num_hop=*/100,
+      /*want_artifacts=*/
+      {want_artifacts[4].id(), want_artifacts[5].id()},
+      /*want_executions=*/{want_executions[3].id()},
+      /*want_events=*/{{4, 3}, {5, 3}});
+
+  verify_lineage_graph_with_direction(
+      LineageSubgraphQueryOptions::UPSTREAM,
+      /*max_num_hop=*/100,
+      /*want_artifacts=*/
+      {want_artifacts[2].id(), want_artifacts[4].id()},
+      /*want_executions=*/{want_executions[2].id()},
+      /*want_events=*/{{4, 2}, {2, 2}});
+}
+
+TEST(MetadataStoreExtendedTest, GetLineageSubgraphFromExecutionsWithDirection) {
+  // Prepare a store with the lineage graph
+  std::unique_ptr<MetadataStore> metadata_store = CreateMetadataStore();
+  int64_t min_creation_time;
+  std::vector<Artifact> want_artifacts;
+  std::vector<Execution> want_executions;
+  // Creates the following lineage graph for deleting lineage.
+  // a0 -> e0
+  // a1 -> e1 -> a3 --> e3 -> a5
+  //                 /
+  // a2 -> e2 -> a4 -
+
+  ASSERT_EQ(CreateLineageGraph(*metadata_store, min_creation_time,
+                               want_artifacts, want_executions),
+            absl::OkStatus());
+
+  // Verify the query results with the specified max_num_hop.
+  // Starting from execution_0, execution_1 and execution_2.
+  auto verify_lineage_graph_with_direction =
+      [&](LineageSubgraphQueryOptions::Direction direction, int64_t max_num_hop,
+          absl::Span<const int64_t> expected_artifact_ids,
+          absl::Span<const int64_t> expected_execution_ids,
+          absl::Span<const std::pair<int64_t, int64_t>>
+              expected_node_index_pairs_in_events) {
+        GetLineageSubgraphRequest req;
+        GetLineageSubgraphResponse resp;
+        req.mutable_lineage_subgraph_query_options()
+            ->mutable_starting_executions()
+            ->set_filter_query(
+                "properties.p2.string_value = 'e0' OR "
+                "properties.p2.string_value = 'e3'");
+        req.mutable_lineage_subgraph_query_options()->set_direction(direction);
+        req.mutable_lineage_subgraph_query_options()->set_max_num_hops(
+            max_num_hop);
+        EXPECT_EQ(metadata_store->GetLineageSubgraph(req, &resp),
+                  absl::OkStatus());
+        std::vector<std::pair<int64_t, int64_t>>
+            expected_node_id_pairs_in_events;
+        for (const auto& [artifact_index, execution_index] :
+             expected_node_index_pairs_in_events) {
+          expected_node_id_pairs_in_events.push_back(
+              {want_artifacts.at(artifact_index).id(),
+               want_executions.at(execution_index).id()});
+        }
+        VerifySubgraphSkeleton(resp.lineage_subgraph(), expected_artifact_ids,
+                               expected_execution_ids,
+                               expected_node_id_pairs_in_events);
+      };
+
+  // Verify the lineage graph query results by increasing the max_num_hops.
+  verify_lineage_graph_with_direction(
+      LineageSubgraphQueryOptions::DOWNSTREAM, /*max_num_hop=*/1,
+      /*want_artifacts=*/{want_artifacts[5].id()},
+      /*want_executions=*/
+      {want_executions[0].id(), want_executions[3].id()},
+      /*want_events=*/{{5, 3}});
+
+  verify_lineage_graph_with_direction(
+      LineageSubgraphQueryOptions::UPSTREAM, /*max_num_hop=*/1,
+      /*want_artifacts=*/
+      {want_artifacts[0].id(), want_artifacts[3].id(), want_artifacts[4].id()},
+      /*want_executions=*/
+      {want_executions[0].id(), want_executions[3].id()},
+      /*want_events=*/{{0, 0}, {3, 3}, {4, 3}});
+
+  verify_lineage_graph_with_direction(
+      LineageSubgraphQueryOptions::DOWNSTREAM, /*max_num_hop=*/2,
+      /*want_artifacts=*/{want_artifacts[5].id()},
+      /*want_executions=*/
+      {want_executions[0].id(), want_executions[3].id()},
+      /*want_events=*/{{5, 3}});
+
+  verify_lineage_graph_with_direction(
+      LineageSubgraphQueryOptions::UPSTREAM, /*max_num_hop=*/2,
+      /*want_artifacts=*/
+      {want_artifacts[0].id(), want_artifacts[3].id(), want_artifacts[4].id()},
+      /*want_executions=*/
+      {want_executions[0].id(), want_executions[1].id(),
+       want_executions[2].id(), want_executions[3].id()},
+      /*want_events=*/{{0, 0}, {3, 3}, {4, 3}, {3, 1}, {4, 2}});
+
+  verify_lineage_graph_with_direction(
+      LineageSubgraphQueryOptions::DOWNSTREAM, /*max_num_hop=*/100,
+      /*want_artifacts=*/{want_artifacts[5].id()},
+      /*want_executions=*/
+      {want_executions[0].id(), want_executions[3].id()},
+      /*want_events=*/{{5, 3}});
+
+  verify_lineage_graph_with_direction(
+      LineageSubgraphQueryOptions::UPSTREAM, /*max_num_hop=*/100,
+      /*want_artifacts=*/
+      {want_artifacts[0].id(), want_artifacts[1].id(), want_artifacts[2].id(),
+       want_artifacts[3].id(), want_artifacts[4].id()},
+      /*want_executions=*/
+      {want_executions[0].id(), want_executions[1].id(),
+       want_executions[2].id(), want_executions[3].id()},
+      /*want_events=*/{{0, 0}, {3, 3}, {4, 3}, {3, 1}, {4, 2}, {1, 1}, {2, 2}});
 }
 
 TEST(MetadataStoreExtendedTest, GetLineageSubgraphErrors) {

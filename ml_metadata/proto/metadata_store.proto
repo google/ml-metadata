@@ -1208,4 +1208,26 @@ message LineageSubgraphQueryOptions {
   // `max_num_hops` should be non-negative.
   // When its value is set to 0, only the `starting_nodes` are returned.
   optional int64 max_num_hops = 3;
+
+  enum Direction {
+    // Direction is by defult DIRECTION_UNSPECIFIED, which is equivalent to
+    // BIDIRECTIONAL.
+    DIRECTION_UNSPECIFIED = 0;
+    // Indicates tracing the lineage graph by hops in upstream direction.
+    UPSTREAM = 1;
+    // Indicates tracing the lineage graph by hops in downstream direction.
+    DOWNSTREAM = 2;
+    // Indicates tracing the lineage graph in both directions.
+    BIDIRECTIONAL = 3;
+  }
+  // The direction of lineage graph tracing, which means the direction of all
+  // hops in the tracing.
+  //   An UPSTREAM hop means an expansion following the path of
+  //     execution -> output_event -> artifact or
+  //     artifact -> input_event -> execution
+  //   A DOWNSTREAM hop means an expansion following the path of
+  //     execution -> input_event -> artifact or
+  //     artifact -> output_event -> execution
+  // Please refer to `Direction` for more details.
+  optional Direction direction = 4;
 }
