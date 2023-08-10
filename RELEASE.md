@@ -2,6 +2,16 @@
 
 ## Major Features and Improvements
 
+## Breaking Changes
+
+## Deprecations
+
+## Bug Fixed and Other Changes
+
+# Version 1.14.0
+
+## Major Features and Improvements
+
 *   Support PostgreSQL database type.
 *   Support bool_value in (custom_)property filter queries.
 *   Add masking support for Artifact / Execution / Context updates
@@ -11,7 +21,11 @@
 
 ## Breaking Changes
 
+*   N/A
+
 ## Deprecations
+
+*   N/A
 
 ## Bug Fixed and Other Changes
 
