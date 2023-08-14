@@ -25,6 +25,9 @@ limitations under the License.
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
+#include "absl/strings/substitute.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "absl/types/optional.h"
@@ -32,6 +35,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/metadata_store_test_suite.h"
 #include "ml_metadata/metadata_store/sqlite_metadata_source.h"
 #include "ml_metadata/metadata_store/test_util.h"
+#include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
@@ -41,6 +45,14 @@ limitations under the License.
 namespace ml_metadata {
 namespace testing {
 namespace {
+
+constexpr int64_t kTestNumArtifactsInLargeLineageGraph = 102;
+constexpr int64_t kTestNumExecutionsInLargeLineageGraph = 100;
+constexpr int64_t kTestNumContextsInLargeLineageGraph = 2;
+
+constexpr int64_t kTestNumArtifactsInLongLineageGraph = 4;
+constexpr int64_t kTestNumExecutionsInLongLineageGraph = 3;
+constexpr int64_t kTestNumContextsInLongLineageGraph = 3;
 
 using ::testing::SizeIs;
 using ::testing::UnorderedElementsAreArray;
@@ -167,6 +179,212 @@ absl::Status CreateLineageGraph(MetadataStore& metadata_store,
   absl::SleepFor(absl::Milliseconds(1));
   put_artifact(/*label=*/"a5", /*state=*/absl::nullopt);
   put_execution(/*label=*/"e3", /*input_ids=*/{3, 4}, /*output_ids=*/{5});
+  return absl::OkStatus();
+}
+
+// Creates a large lineage graph, with kTestNumArtifactsInLargeLineageGraph
+// artifacts and 2 * kTestNumExecutionsInLargeLineageGraph executions.
+// Each path will look like:
+// a_0 -> ... -> e_i -> a_i+1 -> e_i+kTestNumExecutionsInLargeLineageGraph
+// -> ... -> a_kTestNumArtifactsInLargeLineageGraph
+// TODO(b/283852485): Extract lineage graph creation util functions.
+absl::Status CreateLargeLineageGraph(MetadataStore& metadata_store,
+                                     std::vector<Artifact>& want_artifacts,
+                                     std::vector<Execution>& want_executions,
+                                     std::vector<Context>& want_contexts) {
+  const PutTypesRequest put_types_req =
+      ParseTextProtoOrDie<PutTypesRequest>(R"pb(
+        artifact_types: {
+          name: 'artifact_type'
+          properties { key: 'p1' value: STRING }
+        }
+        execution_types: {
+          name: 'execution_type'
+          properties { key: 'p2' value: STRING }
+        }
+        context_types: {
+          name: 'context_type'
+          properties { key: 'p3' value: STRING }
+        }
+      )pb");
+  PutTypesResponse put_types_resp;
+  MLMD_RETURN_IF_ERROR(metadata_store.PutTypes(put_types_req, &put_types_resp));
+
+  // Insert artifacts
+  auto put_artifact = [&](absl::string_view label) {
+    PutArtifactsRequest put_artifacts_req;
+    Artifact* artifact = put_artifacts_req.add_artifacts();
+    artifact->set_uri(absl::StrCat("uri://foo/", string(label)));
+    artifact->set_type_id(put_types_resp.artifact_type_ids(0));
+    (*artifact->mutable_properties())["p1"].set_string_value(string(label));
+    PutArtifactsResponse resp;
+    CHECK_EQ(metadata_store.PutArtifacts(put_artifacts_req, &resp),
+             absl::OkStatus());
+    artifact->set_id(resp.artifact_ids(0));
+    want_artifacts.push_back(*artifact);
+  };
+
+  for (int i = 0; i < kTestNumArtifactsInLargeLineageGraph; i++) {
+    put_artifact(/*label=*/absl::StrCat("a", i));
+  }
+
+  auto put_context = [&](absl::string_view label) {
+    PutContextsRequest put_context_req;
+    Context* context = put_context_req.add_contexts();
+    context->set_type_id(put_types_resp.context_type_ids(0));
+    context->set_name(string(label));
+    (*context->mutable_properties())["p3"].set_string_value(string(label));
+    PutContextsResponse resp;
+    CHECK_EQ(metadata_store.PutContexts(put_context_req, &resp),
+             absl::OkStatus());
+    context->set_id(resp.context_ids(0));
+    want_contexts.push_back(*context);
+  };
+
+  for (int i = 0; i < kTestNumContextsInLargeLineageGraph; i++) {
+    put_context(/*label=*/absl::StrCat("c", i));
+  }
+
+  // Insert executions and links to artifacts
+  auto put_execution = [&](absl::string_view label,
+                           absl::Span<const int64_t> input_artifact_ids,
+                           absl::Span<const int64_t> output_artifact_ids,
+                           int64_t context_index) {
+    PutExecutionRequest req;
+    Execution* execution = req.mutable_execution();
+    execution->set_type_id(put_types_resp.execution_type_ids(0));
+    (*execution->mutable_properties())["p2"].set_string_value(string(label));
+    for (int64_t id : input_artifact_ids) {
+      Event* event = req.add_artifact_event_pairs()->mutable_event();
+      event->set_artifact_id(id);
+      event->set_type(Event::INPUT);
+    }
+    for (int64_t id : output_artifact_ids) {
+      Event* event = req.add_artifact_event_pairs()->mutable_event();
+      event->set_artifact_id(id);
+      event->set_type(Event::OUTPUT);
+    }
+    req.mutable_contexts()->Add()->CopyFrom(want_contexts[context_index]);
+    PutExecutionResponse resp;
+    ASSERT_EQ(metadata_store.PutExecution(req, &resp), absl::OkStatus());
+    execution->set_id(resp.execution_id());
+    want_executions.push_back(*execution);
+  };
+
+  // Create executions, edges and contexts.
+  for (int i = 0; i < kTestNumExecutionsInLargeLineageGraph; i++) {
+    put_execution(/*label=*/absl::StrCat("e", i),
+                  /*input_artifact_ids=*/{want_artifacts[0].id()},
+                  /*output_artifact_ids=*/{want_artifacts[i + 1].id()},
+                  /*context_index=*/0);
+  }
+  for (int i = 0; i < kTestNumExecutionsInLargeLineageGraph; i++) {
+    put_execution(
+        /*label=*/absl::StrCat("e", i),
+        /*input_artifact_ids=*/{want_artifacts[i + 1].id()},
+        /*output_artifact_ids=*/
+        {want_artifacts[kTestNumArtifactsInLargeLineageGraph - 1].id()},
+        /*context_index=*/1);
+  }
+  return absl::OkStatus();
+}
+
+// Create a lineage subgraph with the following setup:
+// a0 (c0) -> e0 (c0) -> a1 (c0, c1) -> e1 (c1) -> a2 (c1, c2) -> e2 (c2) ->
+// a3 (c2) -> ... -> a_kTestNumArtifactsInLongLineageGraph
+// (c_kTestNumContextsInLongLineageGraph);
+// TODO(b/283852485): Extract lineage graph creation util functions.
+absl::Status CreateLongLineageGraph(MetadataStore& metadata_store,
+                                    std::vector<Artifact>& want_artifacts,
+                                    std::vector<Execution>& want_executions,
+                                    std::vector<Context>& want_contexts) {
+  const PutTypesRequest put_types_req =
+      ParseTextProtoOrDie<PutTypesRequest>(R"pb(
+        artifact_types: {
+          name: 't1'
+          properties { key: 'p1' value: STRING }
+        }
+        execution_types: {
+          name: 't2'
+          properties { key: 'p2' value: STRING }
+        }
+        context_types: {
+          name: 't3'
+          properties { key: 'p3' value: STRING }
+        }
+      )pb");
+  PutTypesResponse put_types_resp;
+  MLMD_RETURN_IF_ERROR(metadata_store.PutTypes(put_types_req, &put_types_resp));
+
+  // insert artifacts
+  auto put_artifact = [&](absl::string_view label) {
+    PutArtifactsRequest put_artifacts_req;
+    Artifact* artifact = put_artifacts_req.add_artifacts();
+    artifact->set_uri(absl::StrCat("uri://foo/", string(label)));
+    artifact->set_type_id(put_types_resp.artifact_type_ids(0));
+    (*artifact->mutable_properties())["p1"].set_string_value(string(label));
+    PutArtifactsResponse resp;
+    CHECK_EQ(metadata_store.PutArtifacts(put_artifacts_req, &resp),
+             absl::OkStatus());
+    artifact->set_id(resp.artifact_ids(0));
+    want_artifacts.push_back(*artifact);
+  };
+
+  for (int i = 0; i < kTestNumArtifactsInLongLineageGraph; i++) {
+    put_artifact(/*label=*/absl::StrCat("a", i));
+  }
+
+  auto put_context = [&](absl::string_view label) {
+    PutContextsRequest put_context_req;
+    Context* context = put_context_req.add_contexts();
+    context->set_type_id(put_types_resp.context_type_ids(0));
+    context->set_name(string(label));
+    (*context->mutable_properties())["p3"].set_string_value(string(label));
+    PutContextsResponse resp;
+    CHECK_EQ(metadata_store.PutContexts(put_context_req, &resp),
+             absl::OkStatus());
+    context->set_id(resp.context_ids(0));
+    want_contexts.push_back(*context);
+  };
+
+  for (int i = 0; i < kTestNumContextsInLongLineageGraph; i++) {
+    put_context(/*label=*/absl::StrCat("c", i));
+  }
+
+  // Insert executions and links to artifacts
+  auto put_execution = [&](absl::string_view label,
+                           absl::Span<const int64_t> input_artifact_ids,
+                           absl::Span<const int64_t> output_artifact_ids,
+                           int64_t context_index) {
+    PutExecutionRequest req;
+    Execution* execution = req.mutable_execution();
+    execution->set_type_id(put_types_resp.execution_type_ids(0));
+    (*execution->mutable_properties())["p2"].set_string_value(string(label));
+    // database id starts from 1.
+    for (int64_t id : input_artifact_ids) {
+      Event* event = req.add_artifact_event_pairs()->mutable_event();
+      event->set_artifact_id(id);
+      event->set_type(Event::INPUT);
+    }
+    for (int64_t id : output_artifact_ids) {
+      Event* event = req.add_artifact_event_pairs()->mutable_event();
+      event->set_artifact_id(id);
+      event->set_type(Event::OUTPUT);
+    }
+    req.mutable_contexts()->Add()->CopyFrom(want_contexts[context_index]);
+    PutExecutionResponse resp;
+    ASSERT_EQ(metadata_store.PutExecution(req, &resp), absl::OkStatus());
+    execution->set_id(resp.execution_id());
+    want_executions.push_back(*execution);
+  };
+
+  // Create executions, edges and contexts.
+  for (int i = 0; i < kTestNumExecutionsInLongLineageGraph; i++) {
+    put_execution(/*label=*/absl::StrCat("e", i),
+                  /*input_artifact_ids=*/{want_artifacts[i].id()},
+                  /*output_artifact_ids=*/{want_artifacts[i + 1].id()},
+                  /*context_index=*/i);
+  }
   return absl::OkStatus();
 }
 
@@ -962,6 +1180,329 @@ TEST(MetadataStoreExtendedTest, GetLineageSubgraphFromExecutionsWithDirection) {
       {want_executions[0].id(), want_executions[1].id(),
        want_executions[2].id(), want_executions[3].id()},
       /*want_events=*/{{0, 0}, {3, 3}, {4, 3}, {3, 1}, {4, 2}, {1, 1}, {2, 2}});
+}
+
+TEST(MetadataStoreExtendedTest, GetLineageSubgraphWithContexts) {
+  std::unique_ptr<MetadataStore> metadata_store = CreateMetadataStore();
+  std::vector<Artifact> want_artifacts;
+  std::vector<Execution> want_executions;
+  std::vector<Context> want_contexts;
+
+  ASSERT_EQ(CreateLongLineageGraph(*metadata_store, want_artifacts,
+                                   want_executions, want_contexts),
+            absl::OkStatus());
+
+  auto verify_lineage_subgraph_with_contexts =
+      [&](LineageSubgraphQueryOptions& options,
+          absl::Span<const int64_t> expected_artifact_ids,
+          absl::Span<const int64_t> expected_execution_ids,
+          absl::Span<const int64_t> expected_context_ids,
+          absl::Span<const std::pair<int64_t, int64_t>>
+              expected_node_index_pairs_in_events) {
+        GetLineageSubgraphRequest req;
+        GetLineageSubgraphResponse resp;
+        req.mutable_lineage_subgraph_query_options()->Swap(&options);
+        EXPECT_EQ(metadata_store->GetLineageSubgraph(req, &resp),
+                  absl::OkStatus());
+        std::vector<std::pair<int64_t, int64_t>>
+            expected_node_id_pairs_in_events;
+        for (const auto& [artifact_index, execution_index] :
+             expected_node_index_pairs_in_events) {
+          expected_node_id_pairs_in_events.push_back(
+              {want_artifacts.at(artifact_index).id(),
+               want_executions.at(execution_index).id()});
+        }
+        VerifySubgraphSkeleton(resp.lineage_subgraph(), expected_artifact_ids,
+                               expected_execution_ids,
+                               expected_node_id_pairs_in_events);
+        EXPECT_THAT(resp.lineage_subgraph().contexts(),
+                    UnorderedPointwise(IdEquals(), expected_context_ids));
+      };
+  LineageSubgraphQueryOptions base_options;
+  base_options.set_direction(LineageSubgraphQueryOptions::DOWNSTREAM);
+  base_options.mutable_starting_artifacts()->set_filter_query(
+      absl::Substitute(" contexts_0.name = 'c$0' ", 0));
+  base_options.set_max_num_hops(0);
+  {
+    // Start from artifacts in context_0 and trace towards downstream in 0 hops.
+    LineageSubgraphQueryOptions options = base_options;
+
+    verify_lineage_subgraph_with_contexts(
+        options, {want_artifacts[0].id(), want_artifacts[1].id()}, {},
+        {want_contexts[0].id(), want_contexts[1].id()}, {});
+  }
+  {
+    // Start from context_0 and trace towards downstream in 1 hop.
+    LineageSubgraphQueryOptions options = base_options;
+    options.set_max_num_hops(1);
+
+    verify_lineage_subgraph_with_contexts(
+        options, {want_artifacts[0].id(), want_artifacts[1].id()},
+        {want_executions[0].id(), want_executions[1].id()},
+        {want_contexts[0].id(), want_contexts[1].id()}, {{0, 0}, {1, 1}});
+  }
+  {
+    // Start from artifacts in context_0 and trace towards downstream in 2 hops.
+    LineageSubgraphQueryOptions options = base_options;
+    options.set_max_num_hops(2);
+
+    verify_lineage_subgraph_with_contexts(
+        options,
+        {want_artifacts[0].id(), want_artifacts[1].id(),
+         want_artifacts[2].id()},
+        {want_executions[0].id(), want_executions[1].id()},
+        {want_contexts[0].id(), want_contexts[1].id(), want_contexts[2].id()},
+        {{0, 0}, {1, 0}, {1, 1}, {2, 1}});
+  }
+  {
+    // Start from artifacts in context_0 OR context_2 and trace towards
+    // downstream in 0 hops.
+    LineageSubgraphQueryOptions options = base_options;
+    options.mutable_starting_artifacts()->set_filter_query(absl::Substitute(
+        " contexts_0.name = 'c$0' OR contexts_1.name = 'c$1' ", 0, 2));
+
+    verify_lineage_subgraph_with_contexts(
+        options,
+        {want_artifacts[0].id(), want_artifacts[1].id(), want_artifacts[2].id(),
+         want_artifacts[3].id()},
+        {},
+        {want_contexts[0].id(), want_contexts[1].id(), want_contexts[2].id()},
+        {});
+  }
+  {
+    // Start from artifacts in context_0 OR context_2 and trace towards
+    // downstream in 1 hop.
+    LineageSubgraphQueryOptions options = base_options;
+    options.mutable_starting_artifacts()->set_filter_query(absl::Substitute(
+        " contexts_0.name = 'c$0' OR contexts_1.name = 'c$1'", 0, 2));
+    options.set_max_num_hops(1);
+    verify_lineage_subgraph_with_contexts(
+        options,
+        {want_artifacts[0].id(), want_artifacts[1].id(), want_artifacts[2].id(),
+         want_artifacts[3].id()},
+        {want_executions[0].id(), want_executions[1].id(),
+         want_executions[2].id()},
+        {want_contexts[0].id(), want_contexts[1].id(), want_contexts[2].id()},
+        {{0, 0}, {1, 1}, {2, 2}});
+  }
+  {
+    // Start from artifacts in context_0 OR context_2 and trace towards
+    // downstream in 20 hops.
+    LineageSubgraphQueryOptions options = base_options;
+    options.mutable_starting_artifacts()->set_filter_query(absl::Substitute(
+        " contexts_0.name = 'c$0' OR contexts_1.name = 'c$1'", 0, 2));
+    options.set_max_num_hops(20);
+    verify_lineage_subgraph_with_contexts(
+        options,
+        {want_artifacts[0].id(), want_artifacts[1].id(), want_artifacts[2].id(),
+         want_artifacts[3].id()},
+        {want_executions[0].id(), want_executions[1].id(),
+         want_executions[2].id()},
+        {want_contexts[0].id(), want_contexts[1].id(), want_contexts[2].id()},
+        {{0, 0}, {1, 0}, {1, 1}, {2, 1}, {2, 2}, {3, 2}});
+  }
+  {
+    // Start from artifacts in context_0 AND context_1 and trace towards
+    // downstream in 0 hops.
+    LineageSubgraphQueryOptions options = base_options;
+    options.mutable_starting_artifacts()->set_filter_query(absl::Substitute(
+        " contexts_0.name = 'c$0' AND contexts_1.name = 'c$1' ", 0, 1));
+
+    verify_lineage_subgraph_with_contexts(
+        options, {want_artifacts[1].id()}, {},
+        {want_contexts[0].id(), want_contexts[1].id()}, {});
+  }
+}
+
+TEST(MetadataStoreExtendedTest, GetLineageSubgraphOnLargeGraphWithDirection) {
+  std::unique_ptr<MetadataStore> metadata_store = CreateMetadataStore();
+  std::vector<Artifact> want_artifacts;
+  std::vector<Execution> want_executions;
+  std::vector<Context> want_contexts;
+  ASSERT_EQ(CreateLargeLineageGraph(*metadata_store, want_artifacts,
+                                    want_executions, want_contexts),
+            absl::OkStatus());
+
+  auto verify_lineage_subgraph_with_direction =
+      [&](LineageSubgraphQueryOptions& options,
+          absl::Span<const int64_t> expected_artifact_ids,
+          absl::Span<const int64_t> expected_execution_ids,
+          absl::Span<const int64_t> expected_context_ids,
+          absl::Span<const std::pair<int64_t, int64_t>>
+              expected_node_index_pairs_in_events) {
+        GetLineageSubgraphRequest req;
+        GetLineageSubgraphResponse resp;
+        req.mutable_lineage_subgraph_query_options()->Swap(&options);
+        EXPECT_EQ(metadata_store->GetLineageSubgraph(req, &resp),
+                  absl::OkStatus());
+        std::vector<std::pair<int64_t, int64_t>>
+            expected_node_id_pairs_in_events;
+        for (const auto& [artifact_index, execution_index] :
+             expected_node_index_pairs_in_events) {
+          expected_node_id_pairs_in_events.push_back(
+              {want_artifacts.at(artifact_index).id(),
+               want_executions.at(execution_index).id()});
+        }
+        VerifySubgraphSkeleton(resp.lineage_subgraph(), expected_artifact_ids,
+                               expected_execution_ids,
+                               expected_node_id_pairs_in_events);
+        EXPECT_THAT(resp.lineage_subgraph().contexts(),
+                    UnorderedPointwise(IdEquals(), expected_context_ids));
+      };
+
+  LineageSubgraphQueryOptions base_options;
+  base_options.set_direction(LineageSubgraphQueryOptions::DOWNSTREAM);
+  base_options.set_max_num_hops(1);
+  base_options.mutable_starting_artifacts()->set_filter_query(
+      " properties.p1.string_value = 'a0' ");
+  {
+    // Query from a_0 towards downstream with max_num_hops = 1.
+    LineageSubgraphQueryOptions options = base_options;
+    std::vector<int64_t> want_artifact_ids = {want_artifacts[0].id()};
+    std::vector<int64_t> want_execution_ids;
+    for (int i = 0; i < kTestNumExecutionsInLargeLineageGraph; i++) {
+      want_execution_ids.push_back(want_executions[i].id());
+    }
+    std::vector<int64_t> want_context_ids = {want_contexts[0].id()};
+    std::vector<std::pair<int64_t, int64_t>> want_node_index_pairs_in_events;
+    for (int i = 0; i < kTestNumExecutionsInLargeLineageGraph; i++) {
+      want_node_index_pairs_in_events.push_back({0, i});
+    }
+    verify_lineage_subgraph_with_direction(options, want_artifact_ids,
+                                           want_execution_ids, want_context_ids,
+                                           want_node_index_pairs_in_events);
+  }
+  {
+    // Query from a_0 towards downstream with max_num_hops = 2.
+    LineageSubgraphQueryOptions options = base_options;
+    options.set_max_num_hops(2);
+    std::vector<int64_t> want_artifact_ids;
+    for (int i = 0; i < kTestNumArtifactsInLargeLineageGraph - 1; i++) {
+      want_artifact_ids.push_back(want_artifacts[i].id());
+    }
+    std::vector<int64_t> want_execution_ids;
+    for (int i = 0; i < kTestNumExecutionsInLargeLineageGraph; i++) {
+      want_execution_ids.push_back(want_executions[i].id());
+    }
+    std::vector<int64_t> want_context_ids = {want_contexts[0].id(),
+                                             want_contexts[1].id()};
+    std::vector<std::pair<int64_t, int64_t>> want_node_index_pairs_in_events;
+    for (int i = 0; i < kTestNumExecutionsInLargeLineageGraph; i++) {
+      want_node_index_pairs_in_events.push_back({0, i});
+      want_node_index_pairs_in_events.push_back({i + 1, i});
+    }
+    verify_lineage_subgraph_with_direction(options, want_artifact_ids,
+                                           want_execution_ids, want_context_ids,
+                                           want_node_index_pairs_in_events);
+  }
+  {
+    // Query from a_0 towards downstream with max_num_hops = 3.
+    LineageSubgraphQueryOptions options = base_options;
+    options.set_max_num_hops(3);
+    std::vector<int64_t> want_artifact_ids;
+    for (int i = 0; i < kTestNumArtifactsInLargeLineageGraph - 1; i++) {
+      want_artifact_ids.push_back(want_artifacts[i].id());
+    }
+    std::vector<int64_t> want_execution_ids;
+    for (int i = 0; i < 2 * kTestNumExecutionsInLargeLineageGraph; i++) {
+      want_execution_ids.push_back(want_executions[i].id());
+    }
+    std::vector<int64_t> want_context_ids = {want_contexts[0].id(),
+                                             want_contexts[1].id()};
+    std::vector<std::pair<int64_t, int64_t>> want_node_index_pairs_in_events;
+    for (int i = 0; i < kTestNumExecutionsInLargeLineageGraph; i++) {
+      want_node_index_pairs_in_events.push_back({0, i});
+      want_node_index_pairs_in_events.push_back({i + 1, i});
+      want_node_index_pairs_in_events.push_back(
+          {i + 1, i + kTestNumExecutionsInLargeLineageGraph});
+    }
+    verify_lineage_subgraph_with_direction(options, want_artifact_ids,
+                                           want_execution_ids, want_context_ids,
+                                           want_node_index_pairs_in_events);
+  }
+  {
+    // Query from a_0 towards downstream with max_num_hops = 4.
+    LineageSubgraphQueryOptions options = base_options;
+    options.set_max_num_hops(4);
+    std::vector<int64_t> want_artifact_ids;
+    for (int i = 0; i < kTestNumArtifactsInLargeLineageGraph; i++) {
+      want_artifact_ids.push_back(want_artifacts[i].id());
+    }
+    std::vector<int64_t> want_execution_ids;
+    for (int i = 0; i < 2 * kTestNumExecutionsInLargeLineageGraph; i++) {
+      want_execution_ids.push_back(want_executions[i].id());
+    }
+    std::vector<int64_t> want_context_ids = {want_contexts[0].id(),
+                                             want_contexts[1].id()};
+    std::vector<std::pair<int64_t, int64_t>> want_node_index_pairs_in_events;
+    for (int i = 0; i < kTestNumExecutionsInLargeLineageGraph; i++) {
+      want_node_index_pairs_in_events.push_back({0, i});
+      want_node_index_pairs_in_events.push_back({i + 1, i});
+      want_node_index_pairs_in_events.push_back(
+          {kTestNumArtifactsInLargeLineageGraph - 1,
+           i + kTestNumExecutionsInLargeLineageGraph});
+      want_node_index_pairs_in_events.push_back(
+          {i + 1, i + kTestNumExecutionsInLargeLineageGraph});
+    }
+    verify_lineage_subgraph_with_direction(options, want_artifact_ids,
+                                           want_execution_ids, want_context_ids,
+                                           want_node_index_pairs_in_events);
+  }
+  {
+    // Query from a_0 bidirectionally with max_num_hops = 3.
+    LineageSubgraphQueryOptions options = base_options;
+    options.set_max_num_hops(3);
+    options.set_direction(LineageSubgraphQueryOptions::BIDIRECTIONAL);
+    std::vector<int64_t> want_artifact_ids;
+    for (int i = 0; i < kTestNumArtifactsInLargeLineageGraph - 1; i++) {
+      want_artifact_ids.push_back(want_artifacts[i].id());
+    }
+    std::vector<int64_t> want_execution_ids;
+    for (int i = 0; i < 2 * kTestNumExecutionsInLargeLineageGraph; i++) {
+      want_execution_ids.push_back(want_executions[i].id());
+    }
+    std::vector<int64_t> want_context_ids = {want_contexts[0].id(),
+                                             want_contexts[1].id()};
+    std::vector<std::pair<int64_t, int64_t>> want_node_index_pairs_in_events;
+    for (int i = 0; i < kTestNumExecutionsInLargeLineageGraph; i++) {
+      want_node_index_pairs_in_events.push_back({0, i});
+      want_node_index_pairs_in_events.push_back({i + 1, i});
+      want_node_index_pairs_in_events.push_back(
+          {i + 1, i + kTestNumExecutionsInLargeLineageGraph});
+    }
+    verify_lineage_subgraph_with_direction(options, want_artifact_ids,
+                                           want_execution_ids, want_context_ids,
+                                           want_node_index_pairs_in_events);
+  }
+  {
+    // Query from a_0 bidirectionally with max_num_hops = 4.
+    LineageSubgraphQueryOptions options = base_options;
+    options.set_max_num_hops(4);
+    options.set_direction(LineageSubgraphQueryOptions::BIDIRECTIONAL);
+    std::vector<int64_t> want_artifact_ids;
+    for (int i = 0; i < kTestNumArtifactsInLargeLineageGraph; i++) {
+      want_artifact_ids.push_back(want_artifacts[i].id());
+    }
+    std::vector<int64_t> want_execution_ids;
+    for (int i = 0; i < 2 * kTestNumExecutionsInLargeLineageGraph; i++) {
+      want_execution_ids.push_back(want_executions[i].id());
+    }
+    std::vector<int64_t> want_context_ids = {want_contexts[0].id(),
+                                             want_contexts[1].id()};
+    std::vector<std::pair<int64_t, int64_t>> want_node_index_pairs_in_events;
+    for (int i = 0; i < kTestNumExecutionsInLargeLineageGraph; i++) {
+      want_node_index_pairs_in_events.push_back({0, i});
+      want_node_index_pairs_in_events.push_back({i + 1, i});
+      want_node_index_pairs_in_events.push_back(
+          {kTestNumArtifactsInLargeLineageGraph - 1,
+           i + kTestNumExecutionsInLargeLineageGraph});
+      want_node_index_pairs_in_events.push_back(
+          {i + 1, i + kTestNumExecutionsInLargeLineageGraph});
+    }
+    verify_lineage_subgraph_with_direction(options, want_artifact_ids,
+                                           want_execution_ids, want_context_ids,
+                                           want_node_index_pairs_in_events);
+  }
 }
 
 TEST(MetadataStoreExtendedTest, GetLineageSubgraphErrors) {
