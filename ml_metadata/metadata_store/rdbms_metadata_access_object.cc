@@ -1379,15 +1379,23 @@ absl::Status RDBMSMetadataAccessObject::UpdateNodeImpl(
       ModifyProperties<NodeType>(node.custom_properties(),
                                  stored_node.custom_properties(), node.id(),
                                  /*is_custom_property=*/true, mask));
+  Node mutable_node = node;
+  // This is added to prevent the case where no `type_id` is specified. The
+  // `type_id` of stored_node will be updated to 0.
+  if (!node.has_type_id()) mutable_node.set_type_id(stored_node.type_id());
 
   // If `force_update_time` is set to True. Always update node regardless of
   // whether input node is the same as stored node or not.
   if (force_update_time) {
-    return RunMaskedNodeUpdate(node, stored_node, update_timestamp, mask);
+    return RunMaskedNodeUpdate(mutable_node, stored_node, update_timestamp,
+                               mask);
   }
   // Update node if attributes are different or properties are updated, so
   // that the last_update_time_since_epoch is updated properly.
   google::protobuf::util::MessageDifferencer diff;
+  // Ignore `type_id` because if node's type is different from stored_node, an
+  // invalid_argument error is already returned.
+  diff.IgnoreField(Node::descriptor()->FindFieldByName("type_id"));
   diff.IgnoreField(Node::descriptor()->FindFieldByName("properties"));
   diff.IgnoreField(Node::descriptor()->FindFieldByName("custom_properties"));
   // create_time_since_epoch and last_update_time_since_epoch are output only
@@ -1399,7 +1407,7 @@ absl::Status RDBMSMetadataAccessObject::UpdateNodeImpl(
   if (!diff.Compare(node, stored_node) ||
       num_changed_properties + num_changed_custom_properties > 0) {
     MLMD_RETURN_IF_ERROR(
-        RunMaskedNodeUpdate(node, stored_node, update_timestamp, mask));
+        RunMaskedNodeUpdate(mutable_node, stored_node, update_timestamp, mask));
   }
   return absl::OkStatus();
 }

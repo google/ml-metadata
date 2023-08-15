@@ -8066,11 +8066,13 @@ TEST_P(MetadataAccessObjectTest, UpdateArtifact) {
     }
   )"));
   updated_artifact.set_id(artifact_id);
-  updated_artifact.set_type_id(type_id);
+  updated_artifact.clear_type_id();
+
   // sleep to verify the latest update time is updated.
   absl::SleepFor(absl::Milliseconds(1));
   EXPECT_EQ(metadata_access_object_->UpdateArtifact(updated_artifact),
             absl::OkStatus());
+  updated_artifact.set_type_id(type_id);
 
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
 
@@ -9475,13 +9477,14 @@ TEST_P(MetadataAccessObjectTest, UpdateExecution) {
     }
   )pb");
   updated_execution.set_id(execution_id);
-  updated_execution.set_type_id(type_id);
+  updated_execution.clear_type_id();
   // sleep to verify the latest update time is updated.
   absl::SleepFor(absl::Milliseconds(1));
   EXPECT_EQ(metadata_access_object_->UpdateExecution(updated_execution),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
 
+  updated_execution.set_type_id(type_id);
   Execution got_execution_after_update;
   {
     std::vector<Execution> executions;
@@ -10621,7 +10624,7 @@ TEST_P(MetadataAccessObjectTest, UpdateContext) {
     }
   )pb");
   want_context.set_id(context_id);
-  want_context.set_type_id(type_id);
+  want_context.clear_type_id();
   // sleep to verify the latest update time is updated.
   absl::SleepFor(absl::Milliseconds(1));
   EXPECT_EQ(metadata_access_object_->UpdateContext(want_context),
@@ -10629,6 +10632,7 @@ TEST_P(MetadataAccessObjectTest, UpdateContext) {
 
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
 
+  want_context.set_type_id(type_id);
   Context got_context_after_update;
   {
     std::vector<Context> contexts;

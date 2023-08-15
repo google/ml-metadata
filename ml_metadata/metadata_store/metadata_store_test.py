@@ -934,6 +934,14 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertEqual(artifact_result.properties["foo"].int_value, artifact_id)
     self.assertEqual(artifact_result.external_id, "artifact_2")
 
+    # Test: updating with an artifact without type_id in the request won't erase
+    # artifact's type_id.
+    artifact_3 = metadata_store_pb2.Artifact(id=artifact_id)
+    [artifact_id_3] = store.put_artifacts([artifact_3])
+    self.assertEqual(artifact_id_3, artifact_id)
+    [artifact_result] = store.get_artifacts_by_id([artifact_id_3])
+    self.assertEqual(artifact_result.type_id, type_id)
+
   def test_update_artifact_with_masking_get_artifact(self):
     store = _get_metadata_store()
     artifact_type = _create_example_artifact_type(self._get_test_type_name())
@@ -1156,6 +1164,13 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertEqual(execution_result.properties["bar"].string_value, "Goodbye")
     self.assertEqual(execution_result.properties["foo"].int_value, 12)
     self.assertEqual(execution_result.external_id, "execution_2")
+    # Test: updating with an execution without type_id in the request won't
+    # erase execution's type_id.
+    execution_3 = metadata_store_pb2.Execution(id=execution_id)
+    [execution_id_3] = store.put_executions([execution_3])
+    self.assertEqual(execution_id_3, execution_id)
+    [execution_result] = store.get_executions_by_id([execution_id_3])
+    self.assertEqual(execution_result.type_id, type_id)
 
   def test_update_execution_with_masking_get_execution(self):
     store = _get_metadata_store()
@@ -1885,6 +1900,14 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertEqual(context_result.properties["bar"].string_value, "Goodbye")
     self.assertEqual(context_result.properties["foo"].int_value, 12)
     self.assertEqual(context_result.external_id, "context_2")
+
+    # Test: updating with an context without type_id in the request won't erase
+    # context's type_id.
+    context_3 = metadata_store_pb2.Context(id=context_id, name="context_3")
+    [context_id_3] = store.put_contexts([context_3])
+    self.assertEqual(context_id_3, context_id)
+    [context_result] = store.get_contexts_by_id([context_id_3])
+    self.assertEqual(context_result.type_id, type_id)
 
   def test_put_lineage_subgraph_get_lineage_subgraph(self):
     store = _get_metadata_store()
