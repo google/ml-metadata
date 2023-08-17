@@ -228,7 +228,7 @@ R"pb(
            "        T.description AS type_description, "
            "        T.external_id AS type_external_id "
            " FROM `Artifact` AS A "
-           " INNER JOIN `Type` AS T "
+           " LEFT JOIN `Type` AS T "
            "   ON (T.id = A.type_id) "
            " WHERE A.id IN ($0); "
     parameter_num: 1
@@ -347,7 +347,7 @@ R"pb(
           "         T.description AS type_description, "
           "         T.external_id AS type_external_id "
           " FROM `Execution` AS E "
-          " INNER JOIN `Type` AS T "
+          " LEFT JOIN `Type` AS T "
           "   ON (T.id = E.type_id) "
           " WHERE E.id IN ($0); "
     parameter_num: 1
@@ -461,7 +461,7 @@ R"pb(
            "        T.description AS type_description, "
            "        T.external_id AS type_external_id "
            " FROM `Context` AS C "
-           " INNER JOIN `Type` AS T ON (T.id = C.type_id) "
+           " LEFT JOIN `Type` AS T ON (T.id = C.type_id) "
            " WHERE C.id IN ($0); "
     parameter_num: 1
   }
@@ -2912,7 +2912,7 @@ R"pb(
            "        T.description AS type_description, "
            "        T.external_id AS type_external_id "
            " FROM `Context` AS C "
-           " INNER JOIN `Type` AS T ON (T.id = C.type_id) "
+           " LEFT JOIN `Type` AS T ON (T.id = C.type_id) "
            " WHERE C.id IN ($0) LOCK IN SHARE MODE; "
     parameter_num: 1
   }
@@ -2924,7 +2924,7 @@ R"pb(
            "        T.description AS type_description, "
            "        T.external_id AS type_external_id "
            " FROM `Execution` AS E "
-           " INNER JOIN `Type` AS T "
+           " LEFT JOIN `Type` AS T "
            "   ON (T.id = E.type_id) "
            " WHERE E.id IN ($0) LOCK IN SHARE MODE; "
     parameter_num: 1
@@ -2937,7 +2937,7 @@ R"pb(
            "        T.description AS type_description, "
            "        T.external_id AS type_external_id "
            " FROM `Artifact` AS A "
-           " INNER JOIN `Type` AS T "
+           " LEFT JOIN `Type` AS T "
            "   ON (T.id = A.type_id) "
            " WHERE A.id IN ($0) LOCK IN SHARE MODE; "
     parameter_num: 1
@@ -4946,7 +4946,7 @@ R"pb(
            " T.description AS type_description, "
            " T.external_id AS type_external_id "
            " FROM Artifact AS A "
-           " INNER JOIN Type AS T "
+           " LEFT JOIN Type AS T "
            "    ON (T.id = A.type_id) "
            " WHERE A.id IN ($0); "
     parameter_num: 1
@@ -5077,7 +5077,7 @@ R"pb(
            "        T.description AS type_description, "
            "        T.external_id AS type_external_id "
            " FROM Execution AS E "
-           " INNER JOIN Type AS T "
+           " LEFT JOIN Type AS T "
            "        ON (T.id = E.type_id) "
            " WHERE E.id IN ($0);"
     parameter_num: 1
@@ -5203,7 +5203,7 @@ R"pb(
            " T.description AS type_description, "
            " T.external_id AS type_external_id "
            " FROM Context AS C "
-           " INNER JOIN Type AS T ON (T.id = C.type_id) "
+           " LEFT JOIN Type AS T ON (T.id = C.type_id) "
            " WHERE C.id IN ($0); "
     parameter_num: 1
   }

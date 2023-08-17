@@ -1213,7 +1213,15 @@ absl::Status RDBMSMetadataAccessObject::FindNodesImpl(
                                                &properties_record_set));
 
   MLMD_RETURN_IF_ERROR(ParseRecordSetToNodeArray(node_record_set, nodes));
-
+  for (const auto& node : nodes) {
+    if (!node.has_type_id()) {
+      return absl::FailedPreconditionError(absl::StrCat(
+          "There exists nodes without an associated node type.",
+          node.DebugString(),
+          "Note that MLMD does not allow creating nodes without a node type."
+          "Please check if there is something wrong with your pipeline."));
+    }
+  }
   // if there are properties associated with the nodes, parse the returned
   // values.
   if (!properties_record_set.records().empty()) {
@@ -1277,7 +1285,15 @@ absl::Status RDBMSMetadataAccessObject::FindNodesWithTypesImpl(
                                                &properties_record_set));
 
   MLMD_RETURN_IF_ERROR(ParseRecordSetToNodeArray(node_record_set, nodes));
-
+  for (const auto& node : nodes) {
+    if (!node.has_type_id()) {
+      return absl::FailedPreconditionError(absl::StrCat(
+          "There exists nodes without an associated node type.",
+          node.DebugString(),
+          "Note that MLMD does not allow creating nodes without a node type."
+          "Please check if there is something wrong with your pipeline."));
+    }
+  }
   // if there are properties associated with the nodes, parse the returned
   // values.
   if (!properties_record_set.records().empty()) {
