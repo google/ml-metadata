@@ -4,6 +4,8 @@
 
 ## Breaking Changes
 
+*   Add mlmd_resolver as a wrapper later upon metadata_store.
+
 ## Deprecations
 
 ## Bug Fixed and Other Changes
