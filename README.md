@@ -1,7 +1,7 @@
 
 # ML Metadata
 
-[![Python](https://img.shields.io/badge/python%20-3.8%7C3.9-blue)](https://github.com/google/ml-metadata)
+[![Python](https://img.shields.io/badge/python%20-3.8%7C3.9%7C3.10-blue)](https://github.com/google/ml-metadata)
 [![PyPI](https://badge.fury.io/py/ml-metadata.svg)](https://badge.fury.io/py/ml-metadata)
 
 *ML Metadata (MLMD)* is a library for recording and retrieving metadata
@@ -57,7 +57,7 @@ sudo docker-compose build ${DOCKER_SERVICE}
 sudo docker-compose run ${DOCKER_SERVICE}
 ```
 
-where `PY_VERSION` is one of `{38, 39}`.
+where `PY_VERSION` is one of `{38, 39, 310}`.
 
 A wheel will be produced under `dist/`, and installed as follows:
 
@@ -122,5 +122,6 @@ bazel build -c opt --define grpc_no_ares=true  //ml_metadata/metadata_store:meta
 MLMD is built and tested on the following 64-bit operating systems:
 
 *   macOS 10.14.6 (Mojave) or later.
-*   Ubuntu 16.04 or later.
-*   Windows 7 or later.
+*   Ubuntu 20.04 or later.
+*   Windows 10 or later (Note: MLMD will deprecate Windows support in its next
+    release).
