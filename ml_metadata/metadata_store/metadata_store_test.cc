@@ -1182,6 +1182,135 @@ TEST(MetadataStoreExtendedTest, GetLineageSubgraphFromExecutionsWithDirection) {
       /*want_events=*/{{0, 0}, {3, 3}, {4, 3}, {3, 1}, {4, 2}, {1, 1}, {2, 2}});
 }
 
+TEST(MetadataStoreExtendedTest, GetLineageSubgraphFromWithEndingNodes) {
+  // Prepare a store with the lineage graph
+  // a0 -> e0
+  // a1 -> e1 -> a3 --> e3 -> a5
+  //                 /
+  // a2 -> e2 -> a4 -
+  std::unique_ptr<MetadataStore> metadata_store = CreateMetadataStore();
+  int64_t min_creation_time;
+  std::vector<Artifact> want_artifacts;
+  std::vector<Execution> want_executions;
+  ASSERT_EQ(CreateLineageGraph(*metadata_store, min_creation_time,
+                               want_artifacts, want_executions),
+            absl::OkStatus());
+
+  // Verify the query results with ending nodes filtering
+  auto verify_lineage_graph_with_ending_nodes =
+      [&](const LineageSubgraphQueryOptions::Direction direction,
+          absl::string_view ending_artifact_filter_query,
+          absl::string_view ending_execution_filter_query,
+          const bool include_ending_nodes, const int64_t max_num_hop,
+          absl::Span<const int64_t> expected_artifact_ids,
+          absl::Span<const int64_t> expected_execution_ids,
+          absl::Span<const std::pair<int64_t, int64_t>>
+              expected_node_index_pairs_in_events) {
+        GetLineageSubgraphRequest req;
+        GetLineageSubgraphResponse resp;
+        req.mutable_lineage_subgraph_query_options()
+            ->mutable_starting_artifacts()
+            ->set_filter_query("uri = 'uri://foo/a4'");
+        req.mutable_lineage_subgraph_query_options()->set_max_num_hops(
+            max_num_hop);
+        req.mutable_lineage_subgraph_query_options()->set_direction(direction);
+        req.mutable_lineage_subgraph_query_options()
+            ->mutable_ending_artifacts()
+            ->set_filter_query(std::string(ending_artifact_filter_query));
+        req.mutable_lineage_subgraph_query_options()
+            ->mutable_ending_executions()
+            ->set_filter_query(std::string(ending_execution_filter_query));
+        req.mutable_lineage_subgraph_query_options()
+            ->mutable_ending_artifacts()
+            ->set_include_ending_nodes(include_ending_nodes);
+        req.mutable_lineage_subgraph_query_options()
+            ->mutable_ending_executions()
+            ->set_include_ending_nodes(include_ending_nodes);
+        EXPECT_EQ(metadata_store->GetLineageSubgraph(req, &resp),
+                  absl::OkStatus());
+        std::vector<std::pair<int64_t, int64_t>>
+            expected_node_id_pairs_in_events;
+        for (const auto& [artifact_index, execution_index] :
+             expected_node_index_pairs_in_events) {
+          expected_node_id_pairs_in_events.push_back(
+              {want_artifacts.at(artifact_index).id(),
+               want_executions.at(execution_index).id()});
+        }
+        VerifySubgraphSkeleton(resp.lineage_subgraph(), expected_artifact_ids,
+                               expected_execution_ids,
+                               expected_node_id_pairs_in_events);
+      };
+
+  verify_lineage_graph_with_ending_nodes(
+      LineageSubgraphQueryOptions::DOWNSTREAM,
+      /*ending_artifact_filter_query=*/"uri = 'uri://foo/a4'",
+      /*ending_execution_filter_query=*/"",
+      /*include_ending_nodes=*/true,
+      /*max_num_hop=*/1,
+      /*want_artifacts=*/{want_artifacts[4].id()},
+      /*want_executions=*/{},
+      /*want_events=*/{});
+
+  verify_lineage_graph_with_ending_nodes(
+      LineageSubgraphQueryOptions::DOWNSTREAM,
+      /*ending_artifact_filter_query=*/"uri = 'uri://foo/a4'",
+      /*ending_execution_filter_query=*/"",
+      /*include_ending_nodes=*/false,
+      /*max_num_hop=*/1,
+      /*want_artifacts=*/{},
+      /*want_executions=*/{},
+      /*want_events=*/{});
+
+  verify_lineage_graph_with_ending_nodes(
+      LineageSubgraphQueryOptions::DOWNSTREAM,
+      /*ending_artifact_filter_query=*/"uri = 'uri://foo/a5'",
+      /*ending_execution_filter_query=*/
+      absl::Substitute("id = $0", want_executions[3].id()),
+      /*include_ending_nodes=*/true,
+      /*max_num_hop=*/1,
+      /*want_artifacts=*/{want_artifacts[4].id()},
+      /*want_executions=*/{want_executions[3].id()},
+      /*want_events=*/{{4, 3}});
+
+  verify_lineage_graph_with_ending_nodes(
+      LineageSubgraphQueryOptions::DOWNSTREAM,
+      /*ending_artifact_filter_query=*/"uri = 'uri://foo/a5'",
+      /*ending_execution_filter_query=*/
+      absl::Substitute("id = $0", want_executions[3].id()),
+      /*include_ending_nodes=*/false,
+      /*max_num_hop=*/1,
+      /*want_artifacts=*/{want_artifacts[4].id()},
+      /*want_executions=*/{},
+      /*want_events=*/{});
+
+  verify_lineage_graph_with_ending_nodes(
+      LineageSubgraphQueryOptions::BIDIRECTIONAL,
+      /*ending_artifact_filter_query=*/"uri = 'uri://foo/a5'",
+      /*ending_execution_filter_query=*/
+      absl::Substitute("id = $0 OR id = $1", want_executions[1].id(),
+                       want_executions[2].id()),
+      /*include_ending_nodes=*/true,
+      /*max_num_hop=*/20,
+      /*want_artifacts=*/
+      {want_artifacts[3].id(), want_artifacts[4].id(), want_artifacts[5].id()},
+      /*want_executions=*/
+      {want_executions[1].id(), want_executions[2].id(),
+       want_executions[3].id()},
+      /*want_events=*/{{4, 3}, {3, 3}, {3, 1}, {4, 2}, {5, 3}});
+
+  verify_lineage_graph_with_ending_nodes(
+      LineageSubgraphQueryOptions::BIDIRECTIONAL,
+      /*ending_artifact_filter_query=*/"uri = 'uri://foo/a5'",
+      /*ending_execution_filter_query=*/
+      absl::Substitute("id = $0 OR id = $1", want_executions[1].id(),
+                       want_executions[2].id()),
+      /*include_ending_nodes=*/false,
+      /*max_num_hop=*/20,
+      /*want_artifacts=*/{want_artifacts[3].id(), want_artifacts[4].id()},
+      /*want_executions=*/{want_executions[3].id()},
+      /*want_events=*/{{4, 3}, {3, 3}});
+}
+
 TEST(MetadataStoreExtendedTest, GetLineageSubgraphWithContexts) {
   std::unique_ptr<MetadataStore> metadata_store = CreateMetadataStore();
   std::vector<Artifact> want_artifacts;
@@ -1253,6 +1382,42 @@ TEST(MetadataStoreExtendedTest, GetLineageSubgraphWithContexts) {
         {want_executions[0].id(), want_executions[1].id()},
         {want_contexts[0].id(), want_contexts[1].id(), want_contexts[2].id()},
         {{0, 0}, {1, 0}, {1, 1}, {2, 1}});
+  }
+  {
+    // Start from artifacts in context_0 and trace towards downstream in 20 hops
+    // with ending nodes as nodes in c2. Include ending nodes.
+    LineageSubgraphQueryOptions options = base_options;
+    options.set_max_num_hops(20);
+    options.mutable_ending_artifacts()->set_filter_query(
+        absl::Substitute(" contexts_0.name = 'c$0' ", 2));
+    options.mutable_ending_artifacts()->set_include_ending_nodes(true);
+    options.mutable_ending_executions()->set_filter_query(
+        absl::Substitute(" contexts_0.name = 'c$0' ", 2));
+    options.mutable_ending_executions()->set_include_ending_nodes(true);
+
+    verify_lineage_subgraph_with_contexts(
+        options,
+        {want_artifacts[0].id(), want_artifacts[1].id(),
+         want_artifacts[2].id()},
+        {want_executions[0].id(), want_executions[1].id()},
+        {want_contexts[0].id(), want_contexts[1].id(), want_contexts[2].id()},
+        {{0, 0}, {1, 0}, {1, 1}, {2, 1}});
+  }
+  {
+    // Start from artifacts in context_0 and trace towards downstream in 20 hops
+    // with ending nodes as nodes in c2. Don't include ending nodes.
+    LineageSubgraphQueryOptions options = base_options;
+    options.set_max_num_hops(20);
+    options.mutable_ending_artifacts()->set_filter_query(
+        absl::Substitute(" contexts_0.name = 'c$0' ", 2));
+    options.mutable_ending_executions()->set_filter_query(
+        absl::Substitute(" contexts_0.name = 'c$0' ", 2));
+
+    verify_lineage_subgraph_with_contexts(
+        options, {want_artifacts[0].id(), want_artifacts[1].id()},
+        {want_executions[0].id(), want_executions[1].id()},
+        {want_contexts[0].id(), want_contexts[1].id()},
+        {{0, 0}, {1, 0}, {1, 1}});
   }
   {
     // Start from artifacts in context_0 OR context_2 and trace towards

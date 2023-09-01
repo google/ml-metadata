@@ -1230,4 +1230,70 @@ message LineageSubgraphQueryOptions {
   //     artifact -> output_event -> execution
   // Please refer to `Direction` for more details.
   optional Direction direction = 4;
+
+  // `ending_nodes` is a list of nodes that end expanding the graph.
+  message EndingNodes {
+    // `filter_query` is a boolean expression in SQL syntax that is used to
+    // specify the conditions on ending nodes.
+    // Please refer to ListOperationOptions.filter_query for more details.
+    optional string filter_query = 1;
+    // If true, include the ending nodes defined by the filter query, as well
+    // as edges connected from the traversed subgraph to them.
+    // If false, do not include the nodes and edges connected to them.
+    optional bool include_ending_nodes = 2 [default = false];
+  }
+  // If set, `ending_artifacts` defines the terminal artifacts within
+  // `max_num_hops` of the traversed subgraph. No further expansion will occur
+  // at these terminal artifact nodes.
+  // If not set, expansion will continue until the traversal reaches
+  // `max_num_hops`.
+  // Taking the following lineage graph as example:
+  // (`a` represents an Artifact, `e` represents an Execution, each arrow
+  // represents a hop.)
+  //  a_0   a_1     a_3
+  //   |      \   /     \
+  //  \/      \/ \/     \/
+  //  e_0      e_1      e_3
+  //                   /   \
+  //                  \/   \/
+  //        a_2     a_4     a_5
+  //           \   /
+  //           \/ \/
+  //            e_2
+  // To query all the upstream and downstream nodes 3 hops away from a_4,
+  // and end traversal if a_3 is met, `ending_artifacts` can be set as:
+  // {
+  //   filter_query: 'id = 3'
+  //   include_ending_nodes: false
+  // }
+  // The returned lineage graph looks like:
+  //                    e_3
+  //                   /   \
+  //                  \/   \/
+  //        a_2     a_4     a_5
+  //           \   /
+  //           \/ \/
+  //            e_2
+  // `ending_artifacts` and `ending_executions` can be combined in the request.
+  // Taking the same graph as example, if we combine `ending_artifacts` defined
+  // above with `ending_executions` as:
+  // {
+  //   filter_query: 'id = 2'
+  //   include_ending_nodes: true
+  // }
+  // The returned lineage graph looks like:
+  //            e_3
+  //           /   \
+  //          \/   \/
+  //        a_4     a_5
+  //       /
+  //      \/
+  //     e_2
+  optional EndingNodes ending_artifacts = 5;
+  // If set, `ending_executions` defines the terminal executions within
+  // `max_num_hops` of the traversed subgraph. No further expansion will occur
+  // at these terminal execution nodes.
+  // If not set, expansion will continue until the traversal reaches
+  // `max_num_hops`.
+  optional EndingNodes ending_executions = 6;
 }

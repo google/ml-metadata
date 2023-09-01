@@ -956,16 +956,18 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   //   artifact -> input_event -> execution.
   // When expanding bidirectionally, it looks at both upstream hops and
   //   downsteam hops.
+  // If `ending_nodes` is set in `options`, do not expand from those ending
+  // nodes.
   // Adds events between input nodes and output nodes to `output_events`.
   // Returns ids of output nodes that are one hop away from input nodes if
   // expanding the lineage subgraph succeeds.
   // Returns an empty list if no events are found for given input nodes.
   // Returns detailed INTERNAL error, if expanding the lineage subgraph fails.
   absl::StatusOr<std::vector<int64_t>> ExpandLineageSubgraphImpl(
-      bool expand_from_artifacts,
-      LineageSubgraphQueryOptions::Direction direction,
+      bool expand_from_artifacts, const LineageSubgraphQueryOptions& options,
       absl::Span<const int64_t> input_node_ids,
       absl::flat_hash_set<int64_t>& visited_output_node_ids,
+      absl::flat_hash_set<int64_t>& output_ending_node_ids,
       std::vector<Event>& output_events);
 
   // Given `node_filter`, keeps nodes that satisfy the `node_filter`, and
@@ -978,6 +980,16 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status FilterBoundaryNodesImpl(
       absl::optional<absl::string_view> node_filter,
       absl::flat_hash_set<int64_t>& boundary_node_ids);
+
+  // Given a list of node ids, finds nodes that satisfy the `filter_query` in
+  // `ending_nodes`.
+  // Returns a list of ending node ids if executing the filter query succeeds.
+  // Returns an empty list if no `filter_query` is specified in `ending_nodes`.
+  // Returns detailed INTERNAL error, if executing the filter query fails.
+  template <typename Node>
+  absl::StatusOr<absl::flat_hash_set<int64_t>> FindEndingNodeIdsIfExists(
+      const LineageSubgraphQueryOptions::EndingNodes ending_nodes,
+      const absl::flat_hash_set<int64_t>& unvisited_node_ids);
 
   // Find Contexts based on the given artifact_ids and execution_ids.
   // Returns a list of found Contexts if succeeds.

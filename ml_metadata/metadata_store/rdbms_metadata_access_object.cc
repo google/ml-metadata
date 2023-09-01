@@ -2716,6 +2716,35 @@ absl::Status RDBMSMetadataAccessObject::FilterBoundaryNodesImpl(
   return absl::OkStatus();
 }
 
+template <typename Node>
+absl::StatusOr<absl::flat_hash_set<int64_t>>
+RDBMSMetadataAccessObject::FindEndingNodeIdsIfExists(
+    const LineageSubgraphQueryOptions::EndingNodes ending_nodes,
+    const absl::flat_hash_set<int64_t>& unvisited_node_ids) {
+  absl::flat_hash_set<int64_t> ending_node_ids;
+  if (!ending_nodes.has_filter_query()) {
+    return ending_node_ids;
+  }
+  const std::vector<int64_t> candidate_ids(unvisited_node_ids.begin(),
+                                           unvisited_node_ids.end());
+  auto list_ids = absl::MakeConstSpan(candidate_ids);
+  // Uses batched retrieval to bound query length and list query invariant.
+  int64_t batch_size = kDefaultMaxListOperationResultSize;
+  for (int offset = 0; offset < candidate_ids.size(); offset += batch_size) {
+    ListOperationOptions boundary_options;
+    boundary_options.set_max_result_size(batch_size);
+    boundary_options.set_filter_query(ending_nodes.filter_query().data());
+    RecordSet record_set;
+    MLMD_RETURN_IF_ERROR(ListNodeIds<Node>(
+        boundary_options, list_ids.subspan(offset, batch_size), &record_set));
+    for (int64_t ending_node_id : ConvertToIds(record_set)) {
+      ending_node_ids.insert(ending_node_id);
+    }
+  }
+
+  return ending_node_ids;
+}
+
 absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
     const std::vector<Artifact>& input_artifacts, int64_t max_nodes,
     absl::optional<std::string> boundary_condition,
@@ -2769,17 +2798,20 @@ absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
 absl::StatusOr<std::vector<int64_t>>
 RDBMSMetadataAccessObject::ExpandLineageSubgraphImpl(
     const bool expand_from_artifacts,
-    const LineageSubgraphQueryOptions::Direction direction,
+    const LineageSubgraphQueryOptions& options,
     absl::Span<const int64_t> input_node_ids,
     absl::flat_hash_set<int64_t>& visited_output_node_ids,
+    absl::flat_hash_set<int64_t>& output_ending_node_ids,
     std::vector<Event>& output_events) {
+  // Step 1: filter events by direction.
   std::vector<Event> candidate_events;
   absl::Status status =
       expand_from_artifacts
           ? FindEventsByArtifacts(input_node_ids, &candidate_events)
           : FindEventsByExecutions(input_node_ids, &candidate_events);
   std::vector<Event> events = FilterEventsByDirectionAndEventType(
-      candidate_events, /*is_from_artifact=*/expand_from_artifacts, direction);
+      candidate_events, /*is_from_artifact=*/expand_from_artifacts,
+      options.direction());
 
   std::vector<int64_t> output_node_ids;
   // If no events are found for the given input nodes, directly return.
@@ -2788,26 +2820,64 @@ RDBMSMetadataAccessObject::ExpandLineageSubgraphImpl(
   }
   MLMD_RETURN_IF_ERROR(status);
 
+  // Step 2: collect the new node IDs to visit from filtered events.
   absl::flat_hash_set<int64_t> unvisited_output_node_ids;
-
   for (const Event& event : events) {
     int64_t output_node_id =
         expand_from_artifacts ? event.execution_id() : event.artifact_id();
-    if (!visited_output_node_ids.contains(output_node_id)) {
+    // Filter nodes by visited node ids and ending node ids collected so far in
+    // the previous graph expansions.
+    if (!visited_output_node_ids.contains(output_node_id) &&
+        !output_ending_node_ids.contains(output_node_id)) {
       unvisited_output_node_ids.insert(output_node_id);
+    }
+  }
+  // Step 3: determine if node IDs are ending nodes and exclude them from
+  // further expansion.
+  absl::flat_hash_set<int64_t> ending_node_ids;
+  MLMD_ASSIGN_OR_RETURN(
+      ending_node_ids,
+      expand_from_artifacts
+          ? FindEndingNodeIdsIfExists<Execution>(options.ending_executions(),
+                                                 unvisited_output_node_ids)
+          : FindEndingNodeIdsIfExists<Artifact>(options.ending_artifacts(),
+                                                unvisited_output_node_ids));
+  absl::c_copy(ending_node_ids, std::inserter(output_ending_node_ids,
+                                              output_ending_node_ids.end()));
+  // Step 4: Filter unvisited_output_node_ids if ending nodes exist.
+  absl::erase_if(unvisited_output_node_ids,
+                 [&output_ending_node_ids](int64_t id) {
+                   return output_ending_node_ids.contains(id);
+                 });
+
+  // Step 5: Filter events by visited nodes and ending nodes if possible.
+  for (const Event& event : events) {
+    int64_t output_node_id =
+        expand_from_artifacts ? event.execution_id() : event.artifact_id();
+    if (!visited_output_node_ids.contains(output_node_id) &&
+        !output_ending_node_ids.contains(output_node_id)) {
       output_events.push_back(event);
-    } else if (direction == LineageSubgraphQueryOptions::UPSTREAM ||
-               direction == LineageSubgraphQueryOptions::DOWNSTREAM) {
-      // For directional bfs, we should still add the edge even a visited output
-      // node is encountered. For example, there are two paths:
-      //   a1 -> input_event1 -> e1 -> output_event1 -> a2 -> input_event2 -> e2
-      //   a1 -> input_event3 -> e2
-      // Imagine when the downstream graph tracing starts from a1 with hops = 3.
-      // In the last hop, although e2 is already visited, input_event2 still
-      // counts as a valid edge that should be included into `output_events`.
-      // For bidirectional bfs, we skip adding those events to avoid duplicate
-      // events which can only happen in this case.
-      output_events.push_back(event);
+    } else if (output_ending_node_ids.contains(output_node_id)) {
+      if ((expand_from_artifacts &&
+           options.ending_executions().include_ending_nodes()) ||
+          (!expand_from_artifacts &&
+           options.ending_artifacts().include_ending_nodes())) {
+        output_events.push_back(event);
+      }
+    } else if (visited_output_node_ids.contains(output_node_id)) {
+      if (options.direction() == LineageSubgraphQueryOptions::UPSTREAM ||
+          options.direction() == LineageSubgraphQueryOptions::DOWNSTREAM) {
+        // For directional bfs, we should still add the edge even a visited
+        // output node is encountered. For example, there are two paths:
+        //   a1 -> input_event1 -> e1 -> output_event1 -> a2 -> input_event2 ->
+        //   e2 a1 -> input_event3 -> e2
+        // Imagine when the downstream graph tracing starts from a1 with hops
+        // = 3. In the last hop, although e2 is already visited, input_event2
+        // still counts as a valid edge that should be included into
+        // `output_events`. For bidirectional bfs, we skip adding those events
+        // to avoid duplicate events which can only happen in this case.
+        output_events.push_back(event);
+      }
     }
   }
 
@@ -3026,6 +3096,8 @@ absl::Status RDBMSMetadataAccessObject::QueryLineageSubgraph(
   absl::flat_hash_set<int64_t> visited_artifacts_ids;
   absl::flat_hash_set<int64_t> visited_executions_ids;
   std::vector<Event> visited_events;
+  absl::flat_hash_set<int64_t> ending_artifact_ids;
+  absl::flat_hash_set<int64_t> ending_execution_ids;
 
   if (is_from_artifacts) {
     absl::c_copy(ConvertToIds(record_set),
@@ -3033,12 +3105,40 @@ absl::Status RDBMSMetadataAccessObject::QueryLineageSubgraph(
     absl::c_copy(
         output_artifact_ids,
         std::inserter(visited_artifacts_ids, visited_artifacts_ids.end()));
+    MLMD_ASSIGN_OR_RETURN(ending_artifact_ids,
+                          FindEndingNodeIdsIfExists<Artifact>(
+                              lineage_subgraph_query_options.ending_artifacts(),
+                              visited_artifacts_ids));
+    output_artifact_ids.erase(
+        std::remove_if(
+            output_artifact_ids.begin(), output_artifact_ids.end(),
+            [&](int64_t id) { return ending_artifact_ids.contains(id); }),
+        output_artifact_ids.end());
+
+    absl::erase_if(visited_artifacts_ids, [&](int64_t artifact_id) {
+      return ending_artifact_ids.contains(artifact_id);
+    });
+
   } else {
     absl::c_copy(ConvertToIds(record_set),
                  std::back_inserter(output_execution_ids));
     absl::c_copy(
         output_execution_ids,
         std::inserter(visited_executions_ids, visited_executions_ids.end()));
+    MLMD_ASSIGN_OR_RETURN(
+        ending_execution_ids,
+        FindEndingNodeIdsIfExists<Execution>(
+            lineage_subgraph_query_options.ending_executions(),
+            visited_executions_ids));
+    output_execution_ids.erase(
+        std::remove_if(
+            output_execution_ids.begin(), output_execution_ids.end(),
+            [&](int64_t id) { return ending_execution_ids.contains(id); }),
+        output_execution_ids.end());
+
+    absl::erase_if(visited_executions_ids, [&](int64_t execution_id) {
+      return ending_execution_ids.contains(execution_id);
+    });
   }
 
   int64_t curr_distance = 0;
@@ -3055,10 +3155,10 @@ absl::Status RDBMSMetadataAccessObject::QueryLineageSubgraph(
           output_execution_ids,
           ExpandLineageSubgraphImpl(
               /*expand_from_artifacts=*/expand_from_artifacts,
-              /*direction=*/lineage_subgraph_query_options.direction(),
+              /*options=*/lineage_subgraph_query_options,
               /*input_node_ids=*/output_artifact_ids,
               /*visited_output_node_ids=*/visited_executions_ids,
-              visited_events));
+              /*output_ending_node_ids=*/ending_execution_ids, visited_events));
       if (output_execution_ids.empty()) {
         break;
       }
@@ -3067,10 +3167,10 @@ absl::Status RDBMSMetadataAccessObject::QueryLineageSubgraph(
           output_artifact_ids,
           ExpandLineageSubgraphImpl(
               /*expand_from_artifacts=*/expand_from_artifacts,
-              /*direction=*/lineage_subgraph_query_options.direction(),
+              /*options=*/lineage_subgraph_query_options,
               /*input_node_ids=*/output_execution_ids,
               /*visited_output_node_ids=*/visited_artifacts_ids,
-              visited_events));
+              /*output_ending_node_ids=*/ending_artifact_ids, visited_events));
       if (output_artifact_ids.empty()) {
         break;
       }
@@ -3081,24 +3181,35 @@ absl::Status RDBMSMetadataAccessObject::QueryLineageSubgraph(
   absl::flat_hash_set<std::string> field_mask_paths;
   absl::c_copy(read_mask.paths(),
                std::inserter(field_mask_paths, field_mask_paths.end()));
+  std::vector<int64_t> artifact_ids(visited_artifacts_ids.begin(),
+                                    visited_artifacts_ids.end());
+  std::vector<int64_t> execution_ids(visited_executions_ids.begin(),
+                                     visited_executions_ids.end());
+  // Append ending nodes to return results if possible.
+  if (lineage_subgraph_query_options.ending_artifacts()
+          .include_ending_nodes()) {
+    artifact_ids.insert(artifact_ids.end(), ending_artifact_ids.begin(),
+                        ending_artifact_ids.end());
+  }
+  if (lineage_subgraph_query_options.ending_executions()
+          .include_ending_nodes()) {
+    execution_ids.insert(execution_ids.end(), ending_execution_ids.begin(),
+                         ending_execution_ids.end());
+  }
   if (field_mask_paths.contains("artifacts")) {
-    for (int64_t artifact_id : visited_artifacts_ids) {
+    for (int64_t artifact_id : artifact_ids) {
       subgraph.add_artifacts()->set_id(artifact_id);
     }
   }
   if (field_mask_paths.contains("executions")) {
-    for (int64_t execution_id : visited_executions_ids) {
+    for (int64_t execution_id : execution_ids) {
       subgraph.add_executions()->set_id(execution_id);
     }
   }
   if (field_mask_paths.contains("contexts")) {
     std::vector<int64_t> context_ids;
-    MLMD_ASSIGN_OR_RETURN(
-        context_ids, FindContextIdsByArtifactsAndExecutions(
-                         std::vector<int64_t>(visited_artifacts_ids.begin(),
-                                              visited_artifacts_ids.end()),
-                         std::vector<int64_t>(visited_executions_ids.begin(),
-                                              visited_executions_ids.end())));
+    MLMD_ASSIGN_OR_RETURN(context_ids, FindContextIdsByArtifactsAndExecutions(
+                                           artifact_ids, execution_ids));
     for (int64_t context_id : context_ids) {
       subgraph.add_contexts()->set_id(context_id);
     }
