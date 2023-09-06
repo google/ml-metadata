@@ -13,7 +13,7 @@
 # limitations under the License.
 """Metadata resolver for reasoning about metadata information."""
 
-from typing import Dict, List
+from typing import Callable, Dict, List, Optional
 
 from ml_metadata import metadata_store
 from ml_metadata.proto import metadata_store_pb2
@@ -59,6 +59,7 @@ class MetadataResolver:
       artifact_ids: List[int],
       max_num_hops: int = _MAX_NUM_HOPS,
       filter_query: str = '',
+      event_filter: Optional[Callable[[metadata_store_pb2.Event], bool]] = None,
   ) -> Dict[int, List[metadata_store_pb2.Artifact]]:
     """Given a list of artifact ids, get their provenance successor artifacts.
 
@@ -84,6 +85,10 @@ class MetadataResolver:
           go/mlmd-filter-query-guide for more detailed guidance. Note: if
           `filter_query` is specified and `max_num_hops` is 0, it's equivalent
           to getting filtered artifacts by artifact ids with `get_artifacts()`.
+        event_filter: an optional callable object for filtering events in the
+          paths towards the downstream artifacts. Only an event with
+          `event_filter(event)` evaluated to True will be considered as valid
+          and kept in the path.
 
     Returns:
     Mapping of artifact ids to a list of downstream artifacts.
@@ -134,6 +139,7 @@ class MetadataResolver:
           artifact_ids,
           metadata_store_pb2.LineageSubgraphQueryOptions.Direction.DOWNSTREAM,
           lineage_graph,
+          event_filter,
       )
       return {
           artifact_id: list(subgraph.artifacts)
@@ -144,6 +150,7 @@ class MetadataResolver:
           artifact_ids,
           metadata_store_pb2.LineageSubgraphQueryOptions.Direction.DOWNSTREAM,
           lineage_graph,
+          event_filter,
       )
 
       candidate_artifact_ids = set()
@@ -241,6 +248,7 @@ class MetadataResolver:
       artifact_ids: List[int],
       max_num_hops: int = _MAX_NUM_HOPS,
       filter_query: str = '',
+      event_filter: Optional[Callable[[metadata_store_pb2.Event], bool]] = None,
   ) -> Dict[int, List[metadata_store_pb2.Artifact]]:
     """Given a list of artifact ids, get their provenance ancestor artifacts.
 
@@ -266,6 +274,10 @@ class MetadataResolver:
           go/mlmd-filter-query-guide for more detailed guidance. Note: if
           `filter_query` is specified and `max_num_hops` is 0, it's equivalent
           to getting filtered artifacts by artifact ids with `get_artifacts()`.
+        event_filter: an optional callable object for filtering events in the
+          paths towards the upstream artifacts. Only an event with
+          `event_filter(event)` evaluated to True will be considered as valid
+          and kept in the path.
 
     Returns:
     Mapping of artifact ids to a list of upstream artifacts.
@@ -316,6 +328,7 @@ class MetadataResolver:
               artifact_ids,
               metadata_store_pb2.LineageSubgraphQueryOptions.Direction.UPSTREAM,
               lineage_graph,
+              event_filter,
           )
       )
       return {
@@ -328,6 +341,7 @@ class MetadataResolver:
               artifact_ids,
               metadata_store_pb2.LineageSubgraphQueryOptions.Direction.UPSTREAM,
               lineage_graph,
+              event_filter,
           )
       )
       candidate_artifact_ids = set()

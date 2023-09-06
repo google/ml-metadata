@@ -17,6 +17,7 @@ from absl.testing import absltest
 from ml_metadata import metadata_store
 from ml_metadata.proto import metadata_store_pb2
 from ml_metadata.tools.mlmd_resolver import metadata_resolver
+from ml_metadata.tools.mlmd_resolver import metadata_resolver_utils
 
 
 def create_artifact_type(
@@ -56,8 +57,27 @@ def create_execution(
     inputs: Dict[str, List[metadata_store_pb2.Artifact]],
     outputs: Dict[str, List[metadata_store_pb2.Artifact]],
     contexts: List[metadata_store_pb2.Context],
+    output_event_type: metadata_store_pb2.Event.Type = metadata_store_pb2.Event.OUTPUT,
 ) -> metadata_store_pb2.Execution:
-  """Put an Execution in the MLMD database."""
+  """Put an Execution in the MLMD database.
+
+  Args:
+      store: metadata store
+      execution_type_id: type id of the execution
+      name: name of the execution
+      inputs: a mapping of the event step key to a list of input artifacts.
+      outputs: a mapping of the event step key to a list of output artifacts.
+      contexts: a list of contexts that the execution is associated with.
+      output_event_type: the event type of all output events. It must be one of
+        the valid output event types.
+
+  Returns:
+  Created execution.
+  """
+  if output_event_type not in metadata_resolver_utils.OUTPUT_EVENT_TYPES:
+    raise ValueError(
+        f'{output_event_type} is not a valid output event type.'
+    )
   execution = metadata_store_pb2.Execution(
       type_id=execution_type_id,
       name=name,
@@ -74,7 +94,7 @@ def create_execution(
   for output_key, artifacts in outputs.items():
     for i, artifact in enumerate(artifacts):
       event = metadata_store_pb2.Event(
-          type=metadata_store_pb2.Event.OUTPUT, artifact_id=artifact.id
+          type=output_event_type, artifact_id=artifact.id
       )
       event.path.steps.add().key = output_key
       event.path.steps.add().index = i
@@ -213,6 +233,7 @@ class MetadataResolverTest(absltest.TestCase):
         inputs={'examples': [self.e2, self.e3]},
         outputs={'model': [self.m2]},
         contexts=[self.pipe_ctx, self.run2_ctx, self.trainer_ctx],
+        output_event_type=metadata_store_pb2.Event.Type.PENDING_OUTPUT,
     )
     self.evaluator = create_execution(
         self.store,
@@ -509,6 +530,59 @@ class MetadataResolverTest(absltest.TestCase):
         [self.e1.name, self.m1.name, self.ev1.name],
     )
 
+    # Test: get downstream artifacts by examples, filter events by event type.
+    # model_2 will be excluded from downstream artifacts list for example_2 and
+    # example_3.
+    def _is_input_event_or_valid_output_event(
+        event: metadata_store_pb2.Event,
+    ) -> bool:
+      return event.type != metadata_store_pb2.Event.Type.PENDING_OUTPUT
+
+    result_from_exps = self.resolver.get_downstream_artifacts_by_artifact_ids(
+        [self.e1.id, self.e2.id, self.e3.id],
+        max_num_hops=20,
+        event_filter=_is_input_event_or_valid_output_event,
+    )
+    self.assertLen(result_from_exps, 3)
+    self.assertIn(self.e1.id, result_from_exps)
+    self.assertIn(self.e2.id, result_from_exps)
+    self.assertIn(self.e3.id, result_from_exps)
+    self.assertCountEqual(
+        [artifact.name for artifact in result_from_exps[self.e1.id]],
+        [self.e1.name, self.m1.name, self.ev1.name],
+    )
+    self.assertCountEqual(
+        [artifact.name for artifact in result_from_exps[self.e2.id]],
+        [self.e2.name, self.m1.name, self.ev1.name],
+    )
+    self.assertCountEqual(
+        [artifact.name for artifact in result_from_exps[self.e3.id]],
+        [self.e3.name, self.ev1.name],
+    )
+
+    # Test: get downstream artifacts by examples, filter events by event type
+    # and filter the downstream artifacts by artifact_type = Model.
+    # model_2 will be excluded from downstream artifacts list for example_2 and
+    # example_3. As example_3 has no qualified downstream artifacts, it's not
+    # included in the result.
+    result_from_exps = self.resolver.get_downstream_artifacts_by_artifact_ids(
+        [self.e1.id, self.e2.id, self.e3.id],
+        max_num_hops=20,
+        filter_query=f'type = "{self.model_type.name}"',
+        event_filter=_is_input_event_or_valid_output_event,
+    )
+    self.assertLen(result_from_exps, 2)
+    self.assertIn(self.e1.id, result_from_exps)
+    self.assertIn(self.e2.id, result_from_exps)
+    self.assertCountEqual(
+        [artifact.name for artifact in result_from_exps[self.e1.id]],
+        [self.m1.name],
+    )
+    self.assertCountEqual(
+        [artifact.name for artifact in result_from_exps[self.e2.id]],
+        [self.m1.name],
+    )
+
   def test_get_upstream_artifacts_by_artifact_ids(self):
     # Test: get upstream artifacts by model_1, with max_num_hops = 0
     result_from_m1 = self.resolver.get_upstream_artifacts_by_artifact_ids(
@@ -748,6 +822,51 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertCountEqual(
         [artifact.name for artifact in result_from_ev1[self.ev1.id]],
         [self.e1.name, self.e2.name, self.e3.name, self.m1.name, self.ev1.name],
+    )
+
+    def _is_input_event_or_valid_output_event(
+        event: metadata_store_pb2.Event,
+    ) -> bool:
+      return event.type != metadata_store_pb2.Event.Type.PENDING_OUTPUT
+
+    # Test: get upstream artifacts filtered by events from models. Only
+    # artifacts connected to model_1 and model_2 itself will be included.
+    result_from_m12 = self.resolver.get_upstream_artifacts_by_artifact_ids(
+        [self.m1.id, self.m2.id],
+        max_num_hops=20,
+        event_filter=_is_input_event_or_valid_output_event,
+    )
+    self.assertLen(result_from_m12, 2)
+    self.assertIn(self.m1.id, result_from_m12)
+    self.assertIn(self.m2.id, result_from_m12)
+    self.assertCountEqual(
+        [artifact.name for artifact in result_from_m12[self.m1.id]],
+        [self.e1.name, self.e2.name, self.m1.name],
+    )
+    self.assertCountEqual(
+        [artifact.name for artifact in result_from_m12[self.m2.id]],
+        [self.m2.name],
+    )
+
+    # Test: get upstream artifacts filtered by events from models, with filter
+    # query for filtering upstream artifacts with type = Model. Only model_1
+    # and model_2 will included.
+    result_from_m12 = self.resolver.get_upstream_artifacts_by_artifact_ids(
+        [self.m1.id, self.m2.id],
+        max_num_hops=20,
+        filter_query=f'type = "{self.model_type.name}"',
+        event_filter=_is_input_event_or_valid_output_event,
+    )
+    self.assertLen(result_from_m12, 2)
+    self.assertIn(self.m1.id, result_from_m12)
+    self.assertIn(self.m2.id, result_from_m12)
+    self.assertCountEqual(
+        [artifact.name for artifact in result_from_m12[self.m1.id]],
+        [self.m1.name],
+    )
+    self.assertCountEqual(
+        [artifact.name for artifact in result_from_m12[self.m2.id]],
+        [self.m2.name],
     )
 
 

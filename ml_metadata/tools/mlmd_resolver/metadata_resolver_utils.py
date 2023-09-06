@@ -15,7 +15,7 @@
 
 import collections
 import enum
-from typing import Dict, List, Set
+from typing import Callable, Dict, List, Optional, Set
 
 import attr
 
@@ -212,6 +212,9 @@ def get_subgraphs_by_artifact_ids(
     starting_artifact_ids: List[int],
     direction: metadata_store_pb2.LineageSubgraphQueryOptions.Direction,
     graph: metadata_store_pb2.LineageGraph,
+    optional_event_filter: Optional[
+        Callable[[metadata_store_pb2.Event], bool]
+    ] = None,
 ) -> Dict[int, metadata_store_pb2.LineageGraph]:
   """Given a list of starting artifacts, retrieve the subgraphs connected.
 
@@ -219,12 +222,15 @@ def get_subgraphs_by_artifact_ids(
     starting_artifact_ids: starting artifact ids.
     direction: direction of dfs. It can be single-directional or bidirectional.
     graph: the lineage graph to run dfs on.
+    optional_event_filter: an optional callable object for filtering events in
+      the paths. Only an event with `optional_event_filter(event)` evaluated to
+      True will be considered as valid and kept in the path.
 
   Returns:
     Mappings of starting artifact ids and subgraphs traced from dfs. The
     subgraphs contain only nodes.
   """
-  resolver_graph = _build_resolver_graph(graph)
+  resolver_graph = _build_resolver_graph(graph, optional_event_filter)
   artifact_to_subgraph = {}
 
   for artifact_id in starting_artifact_ids:
@@ -241,6 +247,9 @@ def get_visited_ids_by_artifact_ids(
     starting_artifact_ids: List[int],
     direction: metadata_store_pb2.LineageSubgraphQueryOptions.Direction,
     graph: metadata_store_pb2.LineageGraph,
+    optional_event_filter: Optional[
+        Callable[[metadata_store_pb2.Event], bool]
+    ] = None,
 ) -> Dict[int, Dict[NodeType, Set[int]]]:
   """Given a list of starting artifacts, retrieve the visited ids explored.
 
@@ -251,11 +260,14 @@ def get_visited_ids_by_artifact_ids(
     starting_artifact_ids: starting artifact ids.
     direction: direction of dfs. It can be single-directional or bidirectional.
     graph: the lineage graph to run dfs on.
+    optional_event_filter: an optional callable object for filtering events in
+      the paths. Only an event with `optional_event_filter(event)` evaluated to
+      True will be considered as valid and kept in the path.
 
   Returns:
     Mappings of starting artifact ids and visited ids explored in dfs.
   """
-  resolver_graph = _build_resolver_graph(graph)
+  resolver_graph = _build_resolver_graph(graph, optional_event_filter)
   artifact_to_visited_ids = collections.defaultdict(
       lambda: collections.defaultdict(set)
   )
@@ -274,6 +286,9 @@ def get_visited_ids_by_artifact_ids(
 
 def _build_resolver_graph(
     lineage_graph: metadata_store_pb2.LineageGraph,
+    optional_event_filter: Optional[
+        Callable[[metadata_store_pb2.Event], bool]
+    ] = None,
 ) -> ResolverGraph:
   """Builds a resolver graph from a lineage graph.
 
@@ -322,6 +337,9 @@ def _build_resolver_graph(
 
   Args:
     lineage_graph: lineage graph to build the resolver graph from.
+    optional_event_filter: an optional callable object for filtering events in
+      the paths. Only an event with `optional_event_filter(event)` evaluated to
+      True will be considered as valid and kept in the path.
 
   Returns:
     A resolver graph dedicated for in-memory graph traversal.
@@ -329,6 +347,8 @@ def _build_resolver_graph(
   resolver_graph = ResolverGraph()
 
   for event in lineage_graph.events:
+    if optional_event_filter is not None and not optional_event_filter(event):
+      continue
     event_type = _get_resolver_event_type(event)
 
     resolver_graph.artifact_to_execution[event_type][event.artifact_id].append(
