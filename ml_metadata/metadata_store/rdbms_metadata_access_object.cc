@@ -569,9 +569,8 @@ absl::Status RDBMSMetadataAccessObject::CreateBasicNode(
 }
 
 template <>
-absl::Status RDBMSMetadataAccessObject::RetrieveNodesById(
-    absl::Span<const int64_t> ids, RecordSet* header, RecordSet* properties,
-    Context* tag) {
+absl::Status RDBMSMetadataAccessObject::RetrieveNodesById<Context>(
+    absl::Span<const int64_t> ids, RecordSet* header, RecordSet* properties) {
   MLMD_RETURN_IF_ERROR(executor_->SelectContextsByID(ids, header));
   if (!header->records().empty()) {
     MLMD_RETURN_IF_ERROR(
@@ -581,9 +580,8 @@ absl::Status RDBMSMetadataAccessObject::RetrieveNodesById(
 }
 
 template <>
-absl::Status RDBMSMetadataAccessObject::RetrieveNodesById(
-    absl::Span<const int64_t> ids, RecordSet* header, RecordSet* properties,
-    Artifact* tag) {
+absl::Status RDBMSMetadataAccessObject::RetrieveNodesById<Artifact>(
+    absl::Span<const int64_t> ids, RecordSet* header, RecordSet* properties) {
   MLMD_RETURN_IF_ERROR(executor_->SelectArtifactsByID(ids, header));
   if (!header->records().empty()) {
     MLMD_RETURN_IF_ERROR(
@@ -593,9 +591,8 @@ absl::Status RDBMSMetadataAccessObject::RetrieveNodesById(
 }
 
 template <>
-absl::Status RDBMSMetadataAccessObject::RetrieveNodesById(
-    absl::Span<const int64_t> ids, RecordSet* header, RecordSet* properties,
-    Execution* tag) {
+absl::Status RDBMSMetadataAccessObject::RetrieveNodesById<Execution>(
+    absl::Span<const int64_t> ids, RecordSet* header, RecordSet* properties) {
   MLMD_RETURN_IF_ERROR(executor_->SelectExecutionsByID(ids, header));
   if (!header->records().empty()) {
     MLMD_RETURN_IF_ERROR(
@@ -2427,28 +2424,28 @@ absl::Status RDBMSMetadataAccessObject::FindArtifacts(
 }
 
 template <>
-absl::Status RDBMSMetadataAccessObject::ListNodeIds(
+absl::Status RDBMSMetadataAccessObject::ListNodeIds<Artifact>(
     const ListOperationOptions& options,
     absl::optional<absl::Span<const int64_t>> candidate_ids,
-    RecordSet* record_set, Artifact* tag) {
+    RecordSet* record_set) {
   return executor_->ListArtifactIDsUsingOptions(options, candidate_ids,
                                                 record_set);
 }
 
 template <>
-absl::Status RDBMSMetadataAccessObject::ListNodeIds(
+absl::Status RDBMSMetadataAccessObject::ListNodeIds<Execution>(
     const ListOperationOptions& options,
     absl::optional<absl::Span<const int64_t>> candidate_ids,
-    RecordSet* record_set, Execution* tag) {
+    RecordSet* record_set) {
   return executor_->ListExecutionIDsUsingOptions(options, candidate_ids,
                                                  record_set);
 }
 
 template <>
-absl::Status RDBMSMetadataAccessObject::ListNodeIds(
+absl::Status RDBMSMetadataAccessObject::ListNodeIds<Context>(
     const ListOperationOptions& options,
     absl::optional<absl::Span<const int64_t>> candidate_ids,
-    RecordSet* record_set, Context* tag) {
+    RecordSet* record_set) {
   return executor_->ListContextIDsUsingOptions(options, candidate_ids,
                                                record_set);
 }

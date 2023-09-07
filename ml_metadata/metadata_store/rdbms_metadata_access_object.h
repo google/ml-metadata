@@ -612,8 +612,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // QueryExecutor::Select{Node}PropertyBy{Node}ID().
   template <typename T>
   absl::Status RetrieveNodesById(
-      absl::Span<const int64_t> id, RecordSet* header, RecordSet* properties,
-      T* tag = nullptr /* used only for the template */);
+      absl::Span<const int64_t> id, RecordSet* header, RecordSet* properties);
 
   // Update a Node's assets based on the field mask.
   // If `mask` is empty, update `stored_node` as a whole.
@@ -866,8 +865,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status ListNodeIds(
       const ListOperationOptions& options,
       absl::optional<absl::Span<const int64_t>> candidate_ids,
-      RecordSet* record_set,
-      Node* tag = nullptr /* used only for template instantiation*/);
+      RecordSet* record_set);
 
   // Gets nodes stored in the metadata source using `options`.
   // `options` is the ListOperationOptions proto message defined
