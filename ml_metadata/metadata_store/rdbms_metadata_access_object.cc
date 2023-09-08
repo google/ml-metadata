@@ -18,9 +18,13 @@ limitations under the License.
 #endif
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <limits>
+#include <memory>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -44,6 +48,7 @@ limitations under the License.
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
+#include "ml_metadata/metadata_store/query_executor.h"
 #include "ml_metadata/util/field_mask_utils.h"
 #include "google/protobuf/util/field_mask_util.h"
 // clang-format off

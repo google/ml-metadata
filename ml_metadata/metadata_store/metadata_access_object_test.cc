@@ -15,8 +15,11 @@ limitations under the License.
 #include "ml_metadata/metadata_store/metadata_access_object_test.h"
 
 #include <cstdint>
+#include <list>
 #include <memory>
 #include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "gflags/gflags.h"
@@ -29,6 +32,7 @@ limitations under the License.
 #include "absl/container/node_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
@@ -37,6 +41,7 @@ limitations under the License.
 #include "absl/time/time.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
+#include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/metadata_store/metadata_access_object.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/metadata_store/test_util.h"

@@ -15,7 +15,10 @@ limitations under the License.
 #ifndef ML_METADATA_METADATA_STORE_RDBMS_METADATA_ACCESS_OBJECT_H_
 #define ML_METADATA_METADATA_STORE_RDBMS_METADATA_ACCESS_OBJECT_H_
 
+#include <cstdint>
 #include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "google/protobuf/field_mask.pb.h"
@@ -24,11 +27,15 @@ limitations under the License.
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/node_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
+#include "absl/types/optional.h"
+#include "absl/types/span.h"
+#include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/metadata_store/metadata_access_object.h"
-#include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/metadata_store/query_executor.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"

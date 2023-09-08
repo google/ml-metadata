@@ -15,15 +15,19 @@ limitations under the License.
 #ifndef THIRD_PARTY_ML_METADATA_METADATA_STORE_METADATA_ACCESS_OBJECT_TEST_H_
 #define THIRD_PARTY_ML_METADATA_METADATA_STORE_METADATA_ACCESS_OBJECT_TEST_H_
 
+#include <cstdint>
+#include <functional>
 #include <memory>
-#include <utility>
+#include <string>
 
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "absl/types/optional.h"
 #include "ml_metadata/metadata_store/metadata_access_object.h"
+#include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/util/return_utils.h"
 
@@ -55,7 +59,7 @@ class MetadataAccessObjectContainer {
 
   // Init a test db environment. By default the testsuite is run against the
   // head schema. If GetSchemaVersion() is overridden, it prepares a
-  // db at tht particular schema version.
+  // db at the particular schema version.
   virtual absl::Status Init() {
     MLMD_RETURN_IF_ERROR(GetMetadataAccessObject()->InitMetadataSource());
     // If the test suite indicates the library at head should be tested against

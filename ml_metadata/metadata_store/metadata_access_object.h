@@ -15,7 +15,9 @@ limitations under the License.
 #ifndef ML_METADATA_METADATA_STORE_METADATA_ACCESS_OBJECT_H_
 #define ML_METADATA_METADATA_STORE_METADATA_ACCESS_OBJECT_H_
 
-#include <memory>
+#include <cstdint>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "google/protobuf/field_mask.pb.h"
@@ -27,8 +29,6 @@ limitations under the License.
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "ml_metadata/metadata_store/constants.h"
-#include "ml_metadata/metadata_store/metadata_source.h"
-#include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 
 namespace ml_metadata {

@@ -37,7 +37,6 @@ cc_library(
     ],
     deps = [
         ":constants",
-        ":metadata_source",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:node_hash_map",
         "@com_google_absl//absl/status",
@@ -45,7 +44,6 @@ cc_library(
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
-        "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
         "@com_google_protobuf//:protobuf",
     ],
@@ -100,7 +98,6 @@ cc_library(
         ":constants",
         ":list_operation_util",
         ":metadata_access_object_base",
-        ":metadata_source",
         ":query_executor",
         ":record_parsing_utils",
         "@com_google_protobuf//:protobuf",
@@ -748,6 +745,7 @@ cc_library(
     srcs = ["metadata_access_object_test.cc"],
     hdrs = ["metadata_access_object_test.h"],
     deps = [
+        ":constants",
         ":metadata_access_object_base",
         ":metadata_source",
         ":test_util",
