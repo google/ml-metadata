@@ -321,11 +321,11 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
                               const google::protobuf::FieldMask& mask) final;
 
   absl::Status UpdateArtifact(const Artifact& artifact,
-                              const absl::Time update_timestamp,
+                              absl::Time update_timestamp,
                               bool force_update_time) final;
 
   absl::Status UpdateArtifact(const Artifact& artifact,
-                              const absl::Time update_timestamp,
+                              absl::Time update_timestamp,
                               bool force_update_time,
                               const google::protobuf::FieldMask& mask) final;
 
@@ -335,7 +335,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   absl::Status CreateExecution(const Execution& execution,
                                bool skip_type_and_property_validation,
-                               const absl::Time create_timestamp,
+                               absl::Time create_timestamp,
                                int64_t* execution_id) final;
 
   absl::Status CreateExecution(const Execution& execution,
@@ -361,7 +361,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status UpdateExecution(const Execution& execution) final;
 
   absl::Status UpdateExecution(const Execution& execution,
-                               const absl::Time update_timestamp,
+                               absl::Time update_timestamp,
                                bool force_update_time) final;
 
   absl::Status UpdateExecution(const Execution& execution,
@@ -378,7 +378,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   absl::Status CreateContext(const Context& context,
                              bool skip_type_and_property_validation,
-                             const absl::Time create_timestamp,
+                             absl::Time create_timestamp,
                              int64_t* context_id) final;
 
   absl::Status CreateContext(const Context& context, int64_t* context_id) final;
@@ -404,7 +404,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status UpdateContext(const Context& context) final;
 
   absl::Status UpdateContext(const Context& context,
-                             const absl::Time update_timestamp,
+                             absl::Time update_timestamp,
                              bool force_update_time) final;
 
   absl::Status UpdateContext(const Context& context,
@@ -417,7 +417,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   absl::Status CreateEvent(const Event& event, int64_t* event_id) final;
 
-  absl::Status CreateEvent(const Event& event, const bool is_already_validated,
+  absl::Status CreateEvent(const Event& event, bool is_already_validated,
                            int64_t* event_id) final;
 
   absl::Status FindEventsByArtifacts(absl::Span<const int64_t> artifact_ids,
@@ -599,16 +599,16 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   // Creates an Artifact (without properties).
   absl::Status CreateBasicNode(const Artifact& artifact,
-                               const absl::Time create_timestamp,
+                               absl::Time create_timestamp,
                                int64_t* node_id);
 
   // Creates an Execution (without properties).
   absl::Status CreateBasicNode(const Execution& execution,
-                               const absl::Time create_timestamp,
+                               absl::Time create_timestamp,
                                int64_t* node_id);
   // Creates a Context (without properties).
   absl::Status CreateBasicNode(const Context& context,
-                               const absl::Time create_timestamp,
+                               absl::Time create_timestamp,
                                int64_t* node_id);
 
   // Gets nodes (and their properties) based on the provided 'ids'.
@@ -631,30 +631,30 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   // Update an Artifact's type_id and URI.
   absl::Status RunNodeUpdate(const Artifact& artifact,
-                             const absl::Time update_timestamp);
+                             absl::Time update_timestamp);
 
   // Update an Execution's type_id.
   absl::Status RunNodeUpdate(const Execution& execution,
-                             const absl::Time update_timestamp);
+                             absl::Time update_timestamp);
 
   // Update a Context's type id and name.
   absl::Status RunNodeUpdate(const Context& context,
-                             const absl::Time update_timestamp);
+                             absl::Time update_timestamp);
 
   // Runs a property insertion query for a NodeType.
   template <typename NodeType>
-  absl::Status InsertProperty(const int64_t node_id, absl::string_view name,
-                              const bool is_custom_property,
+  absl::Status InsertProperty(int64_t node_id, absl::string_view name,
+                              bool is_custom_property,
                               const Value& value);
 
   // Generates a property update query for a NodeType.
   template <typename NodeType>
-  absl::Status UpdateProperty(const int64_t node_id, absl::string_view name,
+  absl::Status UpdateProperty(int64_t node_id, absl::string_view name,
                               const Value& value);
 
   // Generates a property deletion query for a NodeType.
   template <typename NodeType>
-  absl::Status DeleteProperty(const int64_t node_id, absl::string_view name);
+  absl::Status DeleteProperty(int64_t node_id, absl::string_view name);
 
   // Generates a list of queries for the `curr_properties` (C) based on the
   // given `prev_properties` (P) only for properties associated with names in
@@ -675,7 +675,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::StatusOr<int64_t> ModifyProperties(
       const google::protobuf::Map<std::string, Value>& curr_properties,
       const google::protobuf::Map<std::string, Value>& prev_properties,
-      const int64_t node_id, const bool is_custom_property,
+      int64_t node_id, bool is_custom_property,
       const google::protobuf::FieldMask& mask = {});
 
   // Creates a query to insert an artifact type.
@@ -696,7 +696,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status CreateTypeImpl(const Type& type, int64_t* type_id);
 
   // Generates a query to find all type instances.
-  absl::Status GenerateFindAllTypeInstancesQuery(const TypeKind type_kind,
+  absl::Status GenerateFindAllTypeInstancesQuery(TypeKind type_kind,
                                                  RecordSet* record_set);
 
   // FindType takes a result of a query for types, and populates additional
@@ -799,7 +799,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   template <typename Node, typename NodeType>
   absl::Status CreateNodeImpl(const Node& node,
                               bool skip_type_and_property_validation,
-                              const absl::Time create_timestamp,
+                              absl::Time create_timestamp,
                               int64_t* node_id);
 
   // Gets a `Node` which is one of {`Artifact`, `Execution`, `Context`} by
@@ -807,7 +807,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // Returns NOT_FOUND error, if the given id cannot be found.
   // Returns detailed INTERNAL error, if query execution fails.
   template <typename Node>
-  absl::Status FindNodeImpl(const int64_t node_id, Node* node);
+  absl::Status FindNodeImpl(int64_t node_id, Node* node);
 
   // Gets a set of `Node` which is one of {`Artifact`, `Execution`,
   // `Context`} by the given 'ids'.
@@ -844,7 +844,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // type Returns detailed INTERNAL error, if query execution fails.
   template <typename Node, typename NodeType>
   absl::Status UpdateNodeImpl(const Node& node,
-                              const absl::Time update_timestamp,
+                              absl::Time update_timestamp,
                               bool force_update_time,
                               const google::protobuf::FieldMask& mask = {});
 

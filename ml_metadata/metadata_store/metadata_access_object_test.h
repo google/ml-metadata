@@ -127,7 +127,7 @@ class MetadataAccessObjectContainer {
   // InitMetadataSourceIfNotExists when a database is partially created.
   virtual absl::Status DropTypeTable() = 0;
 
-  // Drops the artiface table (or some other table) to test the behavior of
+  // Drops the artifact table (or some other table) to test the behavior of
   // InitMetadataSourceIfNotExists when a database is partially created.
   virtual absl::Status DropArtifactTable() = 0;
 
@@ -180,7 +180,7 @@ class QueryConfigMetadataAccessObjectContainer
 
   bool HasFilterQuerySupport() final { return true; }
 
-  absl::Status VerifyDbSchema(const int64_t version) final;
+  absl::Status VerifyDbSchema(int64_t version) final;
 
   absl::Status SetupPreviousVersionForDowngrade(int64_t version) final;
 

@@ -293,7 +293,7 @@ class MetadataAccessObject {
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status CreateArtifact(const Artifact& artifact,
                                       bool skip_type_and_property_validation,
-                                      const absl::Time create_timestamp,
+                                      absl::Time create_timestamp,
                                       int64_t* artifact_id) = 0;
 
   // Creates an artifact, returns the assigned artifact id. The id field of the
@@ -453,7 +453,7 @@ class MetadataAccessObject {
   // align with the ArtifactType on file.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status UpdateArtifact(const Artifact& artifact,
-                                      const absl::Time update_timestamp,
+                                      absl::Time update_timestamp,
                                       bool force_update_time) = 0;
 
   // Updates an artifact under masking.
@@ -515,7 +515,7 @@ class MetadataAccessObject {
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status CreateExecution(const Execution& execution,
                                        bool skip_type_and_property_validation,
-                                       const absl::Time create_timestamp,
+                                       absl::Time create_timestamp,
                                        int64_t* execution_id) = 0;
 
   // Creates an execution, returns the assigned execution id. The id field of
@@ -592,7 +592,7 @@ class MetadataAccessObject {
   // align with the ExecutionType on file.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status UpdateExecution(const Execution& execution,
-                                       const absl::Time update_timestamp,
+                                       absl::Time update_timestamp,
                                        bool force_update_time) = 0;
 
   // Updates an execution under masking.
@@ -672,7 +672,7 @@ class MetadataAccessObject {
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status CreateContext(const Context& context,
                                      bool skip_type_and_property_validation,
-                                     const absl::Time create_timestamp,
+                                     absl::Time create_timestamp,
                                      int64_t* context_id) = 0;
 
   // Creates a context, returns the assigned context id. The id field of the
@@ -750,7 +750,7 @@ class MetadataAccessObject {
   // align with the ContextType on file.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status UpdateContext(const Context& context,
-                                     const absl::Time update_timestamp,
+                                     absl::Time update_timestamp,
                                      bool force_update_time) = 0;
 
   // Updates a context under masking.
