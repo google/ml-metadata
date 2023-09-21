@@ -13,9 +13,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/list_operation_util.h"
+#include <climits>
+#include <cstdint>
+#include <string>
 
 #include "absl/status/status.h"
 #include "absl/strings/escaping.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
+#include "ml_metadata/proto/metadata_store.pb.h"
 
 namespace ml_metadata {
 
@@ -24,7 +30,7 @@ namespace ml_metadata {
 void SetListOperationInitialValues(const ListOperationOptions& options,
                                    int64_t& field_offset, int64_t& id_offset) {
   const bool is_asc = options.order_by_field().is_asc();
-  field_offset = is_asc ? 0 : LLONG_MAX;
+  field_offset = is_asc ? LLONG_MIN : LLONG_MAX;
   id_offset = field_offset;
 }
 
