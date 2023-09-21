@@ -953,8 +953,7 @@ class MetadataAccessObject {
   virtual int64_t GetLibraryVersion() = 0;
 
 
-  // TODO(b/283852485): Deprecate GetLineageGraph API after migration to
-  // GetLineageSubgraph API.
+  // Dependent of `CloudMetadataStore::GetLineageSubgraphByArtifact`.
   // Giving a set of `query_nodes` and a set of boundary constraints. The method
   // performs constrained transitive closure and returns a subgraph including
   // the reached nodes and edges. The boundary conditions include

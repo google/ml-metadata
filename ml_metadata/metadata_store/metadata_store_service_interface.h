@@ -83,9 +83,8 @@ class MetadataStoreServiceInterface {
   METADATA_STORE_SERVICE_INTERFACE_DECLARE(GetChildrenContextsByContexts)
   METADATA_STORE_SERVICE_INTERFACE_DECLARE(GetArtifactsByContext)
   METADATA_STORE_SERVICE_INTERFACE_DECLARE(GetExecutionsByContext)
-  // The method is used for accessing MLMD lineage.
-  // TODO(b/283852485): Deprecate GetLineageGraph API after migration to
-  // GetLineageSubgraph API.
+  // TODO(b/283852485): delete interface later on once ensure no incoming
+  // traffic.
   METADATA_STORE_SERVICE_INTERFACE_DECLARE(GetLineageGraph)
   METADATA_STORE_SERVICE_INTERFACE_DECLARE(GetLineageSubgraph)
 

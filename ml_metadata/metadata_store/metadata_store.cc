@@ -2241,66 +2241,7 @@ absl::Status MetadataStore::GetChildrenContextsByContexts(
 
 absl::Status MetadataStore::GetLineageGraph(
     const GetLineageGraphRequest& request, GetLineageGraphResponse* response) {
-  if (!request.options().has_artifacts_options()) {
-    return absl::InvalidArgumentError("Missing query_nodes conditions");
-  }
-  static constexpr int64_t kMaxDistance = 20;
-  int64_t max_num_hops = kMaxDistance;
-  if (request.options().stop_conditions().has_max_num_hops()) {
-    if (request.options().stop_conditions().max_num_hops() < 0) {
-      return absl::InvalidArgumentError(
-          absl::StrCat("max_num_hops cannot be negative: max_num_hops =",
-                       request.options().stop_conditions().max_num_hops()));
-    }
-    max_num_hops = std::min<int64_t>(
-        max_num_hops, request.options().stop_conditions().max_num_hops());
-    if (request.options().stop_conditions().max_num_hops() > max_num_hops) {
-      LOG(WARNING) << "stop_conditions.max_num_hops: "
-                   << request.options().stop_conditions().max_num_hops()
-                   << " is greater than the maximum value allowed: "
-                   << kMaxDistance << "; use " << kMaxDistance
-                   << " instead to limit the size of the traversal.";
-    }
-  } else {
-    LOG(INFO) << "stop_conditions.max_num_hops is not set. Use maximum value: "
-              << kMaxDistance << " to limit the size of the traversal.";
-  }
-  return transaction_executor_->Execute(
-      [this, &request, &response, max_num_hops]() -> absl::Status {
-        response->Clear();
-        std::vector<Artifact> artifacts;
-        std::string dummy_token;
-        MLMD_RETURN_IF_ERROR(metadata_access_object_->ListArtifacts(
-            request.options().artifacts_options(), &artifacts, &dummy_token));
-        if (artifacts.empty()) {
-          return absl::NotFoundError(
-              "The query_nodes condition does not match any nodes to do "
-              "traversal.");
-        }
-        if (request.options().max_node_size() > 0 &&
-            artifacts.size() > request.options().max_node_size()) {
-          artifacts.erase(artifacts.begin() + request.options().max_node_size(),
-                          artifacts.end());
-        }
-        const LineageGraphQueryOptions::BoundaryConstraint& stop_conditions =
-            request.options().stop_conditions();
-        return metadata_access_object_->QueryLineageGraph(
-            artifacts, max_num_hops,
-            request.options().max_node_size() > 0
-                ? absl::make_optional<int64_t>(
-                      request.options().max_node_size())
-                : absl::nullopt,
-            !stop_conditions.boundary_artifacts().empty()
-                ? absl::make_optional<std::string>(
-                      stop_conditions.boundary_artifacts())
-                : absl::nullopt,
-            !stop_conditions.boundary_executions().empty()
-                ? absl::make_optional<std::string>(
-                      stop_conditions.boundary_executions())
-                : absl::nullopt,
-            *response->mutable_subgraph());
-      },
-      request.transaction_options());
+  return absl::UnimplementedError("GetLineageGraph is not implemented.");
 }
 
 absl::Status MetadataStore::GetLineageSubgraph(

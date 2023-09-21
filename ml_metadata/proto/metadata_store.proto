@@ -1057,8 +1057,9 @@ message TransactionOptions {
 }
 
 
-// TODO(b/283852485): Deprecate GetLineageGraph API after migration to
-// GetLineageSubgraph API.
+// Deprecated: GetLineageGraph API is deprecated, please refer to
+// GetLineageSubgraph API as the alternative.
+//
 // The query options for `get_lineage_graph` operation.
 // `query_nodes` is a list of nodes of interest.
 // Currently only artifacts are supported as `query_nodes`.
@@ -1066,6 +1067,8 @@ message TransactionOptions {
 // `max_node_size` defines the total number of artifacts and executions returned
 // in the subgraph.
 message LineageGraphQueryOptions {
+  option deprecated = true;
+
   // A query to specify the nodes of interest.
   // `ListOperationOptions.max_result_size` sets the maximum number of nodes to
   // begin with the graph search.

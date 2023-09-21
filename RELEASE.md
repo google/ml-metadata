@@ -8,6 +8,8 @@
 
 ## Deprecations
 
+*   Deprecate GetLineageGraph API.
+
 ## Bug Fixed and Other Changes
 
 # Version 1.14.0

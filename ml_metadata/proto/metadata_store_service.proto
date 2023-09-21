@@ -1064,19 +1064,27 @@ message GetExecutionsByContextResponse {
 }
 
 
-// TODO(b/283852485): Deprecate GetLineageGraph API after migration to
-// GetLineageSubgraph API.
+// Deprecated: GetLineageGraph API is deprecated, please refer to
+// GetLineageSubgraph API as the alternative.
+//
 // A lineage query request to specify the query nodes of interest and the
 // boundary conditions for pruning the returned graph.
 message GetLineageGraphRequest {
+  option deprecated = true;
+
   optional LineageGraphQueryOptions options = 1;
   // Options regarding transactions.
   optional TransactionOptions transaction_options = 2;
 }
 
+// Deprecated: GetLineageGraph API is deprecated, please refer to
+// GetLineageSubgraph API as the alternative.
+//
 // A connected lineage `subgraph` about the MLMD nodes derived from
 // LineageGraphRequest.query_conditions.
 message GetLineageGraphResponse {
+  option deprecated = true;
+
   optional LineageGraph subgraph = 1;
 }
 
@@ -1504,13 +1512,16 @@ service MetadataStoreService {
       returns (GetExecutionsByContextResponse) {}
 
 
-  // TODO(b/283852485): Deprecate GetLineageGraph API after migration to
-  // GetLineageSubgraph API.
+  // Deprecated: GetLineageGraph API is deprecated, please refer to
+  // GetLineageSubgraph API as the alternative.
+  //
   // The transaction performs a constrained transitive closure and returns a
   // lineage subgraph satisfying the conditions and constraints specified in
   // the GetLineageGraphRequest.
   rpc GetLineageGraph(GetLineageGraphRequest)
-      returns (GetLineageGraphResponse) {}
+      returns (GetLineageGraphResponse) {
+    option deprecated = true;
+  }
 
   // Gets a lineage subgraph by performing graph traversal from a list of
   // interested nodes.

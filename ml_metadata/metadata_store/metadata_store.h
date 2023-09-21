@@ -511,9 +511,7 @@ class MetadataStore : public MetadataStoreServiceInterface {
 
   // TODO(b/283852485): Deprecate GetLineageGraph API after migration to
   // GetLineageSubgraph API.
-  // The method is used for accessing MLMD lineage. Please see
-  // metadata_store_service.proto for details. Returns detailed INTERNAL error,
-  // if query execution fails.
+  // The method is deprecated. Please use `GetLineageSubgraph` instead.
   absl::Status GetLineageGraph(const GetLineageGraphRequest& request,
                                GetLineageGraphResponse* response) override;
 
