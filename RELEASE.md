@@ -9,6 +9,7 @@
 ## Deprecations
 
 *   Deprecate GetLineageGraph API.
+*   Deprecate OSS support on Windows OS platform.
 
 ## Bug Fixed and Other Changes
 
