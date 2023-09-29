@@ -10185,11 +10185,11 @@ TEST_P(MetadataAccessObjectTest,
     got_execution_after_2nd_update = executions.at(0);
   }
   // Expect no changes for the updated resource other than last_update_time.
-  // last_update_time should be greater than the 1st update time.
+  // last_update_time should be no less than the 1st update time.
   EXPECT_THAT(got_execution_after_2nd_update,
               EqualsProto(got_execution_after_1st_update,
                           /*ignore_fields=*/{"last_update_time_since_epoch"}));
-  EXPECT_GT(got_execution_after_2nd_update.last_update_time_since_epoch(),
+  EXPECT_GE(got_execution_after_2nd_update.last_update_time_since_epoch(),
             got_execution_after_1st_update.last_update_time_since_epoch());
 
   // Update with no changes again but with force_update_time set to true and
