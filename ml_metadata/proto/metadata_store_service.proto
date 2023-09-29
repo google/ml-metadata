@@ -316,6 +316,11 @@ message PutExecutionRequest {
     // perform an update. Otherwise, it will fall back to relying on `id` field
     // to decide if it's update (if `id` exists) or insert (if `id` is empty).
     optional bool reuse_artifact_if_already_exist_by_external_id = 2;
+
+    // When `force_update_time` is set to true,
+    // `execution.last_update_time_since_epoch` is force-updated even if input
+    // execution is the same as stored execution.
+    optional bool force_update_time = 3;
   }
   // The execution that produces many artifact and event pairs.
   optional Execution execution = 1;

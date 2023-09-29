@@ -1932,9 +1932,10 @@ absl::Status RDBMSMetadataAccessObject::UpdateExecution(
 }
 
 absl::Status RDBMSMetadataAccessObject::UpdateExecution(
-    const Execution& execution, const google::protobuf::FieldMask& mask) {
+    const Execution& execution, bool force_update_time,
+    const google::protobuf::FieldMask& mask) {
   return UpdateExecution(execution, /*update_timestamp=*/absl::Now(),
-                         /*force_update_time=*/false, mask);
+                         force_update_time, mask);
 }
 
 absl::Status RDBMSMetadataAccessObject::UpdateContext(const Context& context) {

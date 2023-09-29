@@ -9983,7 +9983,8 @@ TEST_P(MetadataAccessObjectTest, UpdateExecutionWithMasking) {
       )pb");
   // sleep to verify the latest update time is updated.
   absl::SleepFor(absl::Milliseconds(1));
-  EXPECT_EQ(metadata_access_object_->UpdateExecution(updated_execution, mask),
+  EXPECT_EQ(metadata_access_object_->UpdateExecution(
+                updated_execution, /*force_update_time=*/false, mask),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
 
@@ -10167,9 +10168,10 @@ TEST_P(MetadataAccessObjectTest,
   EXPECT_THAT(got_execution_after_1st_update,
               EqualsProto(got_execution_before_update));
 
-  // Update with no changes again but with force_update_time set to true.
+  // Update with no changes again but with force_update_time set to true and
+  // update_time default set to now.
   ASSERT_EQ(metadata_access_object_->UpdateExecution(
-                got_execution_after_1st_update, update_time,
+                got_execution_after_1st_update,
                 /*force_update_time=*/true, mask),
             absl::OkStatus());
   ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
@@ -10182,13 +10184,37 @@ TEST_P(MetadataAccessObjectTest,
               absl::OkStatus());
     got_execution_after_2nd_update = executions.at(0);
   }
-  // Expect no changes for the updated resource other than
+  // Expect no changes for the updated resource other than last_update_time.
+  // last_update_time should be greater than the 1st update time.
   EXPECT_THAT(got_execution_after_2nd_update,
               EqualsProto(got_execution_after_1st_update,
                           /*ignore_fields=*/{"last_update_time_since_epoch"}));
-  EXPECT_NE(got_execution_after_2nd_update.last_update_time_since_epoch(),
+  EXPECT_GT(got_execution_after_2nd_update.last_update_time_since_epoch(),
             got_execution_after_1st_update.last_update_time_since_epoch());
-  EXPECT_EQ(got_execution_after_2nd_update.last_update_time_since_epoch(),
+
+  // Update with no changes again but with force_update_time set to true and
+  // update_time set to infinite_future.
+  ASSERT_EQ(metadata_access_object_->UpdateExecution(
+                got_execution_after_1st_update, update_time,
+                /*force_update_time=*/true, mask),
+            absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Execution got_execution_after_3nd_update;
+  {
+    std::vector<Execution> executions;
+    EXPECT_EQ(metadata_access_object_->FindExecutionsById({execution_id},
+                                                          &executions),
+              absl::OkStatus());
+    got_execution_after_3nd_update = executions.at(0);
+  }
+  // Expect no changes for the updated resource other than last_update_time.
+  EXPECT_THAT(got_execution_after_3nd_update,
+              EqualsProto(got_execution_after_1st_update,
+                          /*ignore_fields=*/{"last_update_time_since_epoch"}));
+  EXPECT_NE(got_execution_after_3nd_update.last_update_time_since_epoch(),
+            got_execution_after_2nd_update.last_update_time_since_epoch());
+  EXPECT_EQ(got_execution_after_3nd_update.last_update_time_since_epoch(),
             absl::ToUnixMillis(update_time));
 }
 

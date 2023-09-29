@@ -17,6 +17,7 @@ limitations under the License.
 #include <algorithm>
 #include <cstdint>
 #include <iterator>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -322,17 +323,20 @@ absl::Status UpsertArtifact(const Artifact& artifact,
 // whole.
 // If execution.id is given and `mask` is not empty, it only updates
 // fields specified in `mask`.
-// `skip_type_and_property_validation` is set to be true if the `execution`'s
-// type/property has been validated.
+// When `skip_type_and_property_validation` is set to true, skip the validations
+// of `execution` type and properties.
+// When `force_update_time` is set to true, `last_update_time_since_epoch` is
+// updated even if input execution is the same as stored execution.
 absl::Status UpsertExecution(const Execution& execution,
                              MetadataAccessObject* metadata_access_object,
                              const bool skip_type_and_property_validation,
+                             const bool force_update_time,
                              const google::protobuf::FieldMask& mask,
                              int64_t* execution_id) {
   CHECK(execution_id) << "execution_id should not be null";
   if (execution.has_id()) {
-    MLMD_RETURN_IF_ERROR(
-        metadata_access_object->UpdateExecution(execution, mask));
+    MLMD_RETURN_IF_ERROR(metadata_access_object->UpdateExecution(
+        execution, force_update_time, mask));
     *execution_id = execution.id();
   } else {
     MLMD_RETURN_IF_ERROR(metadata_access_object->CreateExecution(
@@ -1198,6 +1202,7 @@ absl::Status MetadataStore::PutExecutions(const PutExecutionsRequest& request,
           MLMD_RETURN_IF_ERROR(
               UpsertExecution(execution, metadata_access_object_.get(),
                               /*skip_type_and_property_validation=*/false,
+                              /*force_update_time=*/false,
                               request.update_mask(), &execution_id));
           response->add_execution_ids(execution_id);
         }
@@ -1283,6 +1288,7 @@ absl::Status MetadataStore::PutExecution(const PutExecutionRequest& request,
     MLMD_RETURN_IF_ERROR(
         UpsertExecution(execution, metadata_access_object_.get(),
                         /*skip_type_and_property_validation=*/false,
+                        request.options().force_update_time(),
                         google::protobuf::FieldMask(), &execution_id));
     response->set_execution_id(execution_id);
     // 2. Upsert Artifacts and insert events
@@ -1368,6 +1374,7 @@ absl::Status MetadataStore::PutLineageSubgraph(
           MLMD_RETURN_IF_ERROR(
               UpsertExecution(execution, metadata_access_object_.get(),
                               /*skip_type_and_property_validation=*/true,
+                              /*force_update_time=*/false,
                               google::protobuf::FieldMask(), &execution_id));
           response->add_execution_ids(execution_id);
         }

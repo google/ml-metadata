@@ -365,6 +365,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
                                bool force_update_time) final;
 
   absl::Status UpdateExecution(const Execution& execution,
+                               bool force_update_time,
                                const google::protobuf::FieldMask& mask) final;
 
   absl::Status UpdateExecution(const Execution& execution,

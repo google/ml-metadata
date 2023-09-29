@@ -598,6 +598,8 @@ class MetadataAccessObject {
   // Updates an execution under masking.
   // If `mask` is empty, update `stored_node` as a whole.
   // If `mask` is not empty, only update fields specified in `mask`.
+  // When `force_update_time` is set to true, `last_update_time_since_epoch` is
+  // updated even if input execution is the same as stored execution.
   // The `last_update_time_since_epoch` field is determined under the hood
   //  and set to absl::Now().
   // If input execution is the same as stored execution, skip update operation
@@ -610,7 +612,8 @@ class MetadataAccessObject {
   // align with the ExecutionType on file.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status UpdateExecution(
-      const Execution& execution, const google::protobuf::FieldMask& mask) = 0;
+      const Execution& execution, bool force_update_time,
+      const google::protobuf::FieldMask& mask) = 0;
 
   // Updates an execution under masking.
   // If `mask` is empty, update `stored_node` as a whole.
