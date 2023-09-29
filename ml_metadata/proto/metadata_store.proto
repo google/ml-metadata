@@ -1225,10 +1225,10 @@ message LineageSubgraphQueryOptions {
   }
   // The direction of lineage graph tracing, which means the direction of all
   // hops in the tracing.
-  //   An UPSTREAM hop means an expansion following the path of
+  //   A DOWNSTREAM hop means an expansion following the path of
   //     execution -> output_event -> artifact or
   //     artifact -> input_event -> execution
-  //   A DOWNSTREAM hop means an expansion following the path of
+  //   An UPSTREAM hop means an expansion following the path of
   //     execution -> input_event -> artifact or
   //     artifact -> output_event -> execution
   // Please refer to `Direction` for more details.
