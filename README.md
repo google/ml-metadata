@@ -123,6 +123,5 @@ MLMD is built and tested on the following 64-bit operating systems:
 
 *   macOS 10.14.6 (Mojave) or later.
 *   Ubuntu 20.04 or later.
-*   Windows: We deprecated support on Windows after version 1.14.0, if you want
-    to install a Windows-compatible library, please refer to MLMD 1.14.0 or
-    earlier versions.
+*   [DEPRECATED] Windows 10 or later. For a Windows-compatible library, please
+    refer to MLMD 1.14.0 or earlier versions.
