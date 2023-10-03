@@ -4,13 +4,6 @@
 licenses(["unencumbered"])  # Public Domain
 
 config_setting(
-    name = "windows",
-    constraint_values = [
-        "@bazel_tools//platforms:windows",
-    ],
-)
-
-config_setting(
     name = "macos",
     constraint_values = [
         "@bazel_tools//platforms:osx",
@@ -25,9 +18,6 @@ SQLITE_COPTS = [
     "-D_FILE_OFFSET_BITS=64",
     "-D_REENTRANT=1",
 ] + select({
-    ":windows": [
-        "-DSQLITE_MAX_TRIGGER_DEPTH=100",
-    ],
     ":macos": [
         "-Os",
         "-DHAVE_GMTIME_R=1",
@@ -60,7 +50,6 @@ cc_library(
         "SQLITE_OMIT_DEPRECATED",
     ],
     linkopts = select({
-        "windows": [],
         "//conditions:default": [
             "-ldl",
             "-lpthread",

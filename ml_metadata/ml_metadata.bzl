@@ -248,7 +248,6 @@ def ml_metadata_pybind_extension(
             "-fno-strict-aliasing",
             "-fexceptions",
         ] + select({
-            "//ml_metadata:windows": [],
             "//conditions:default": [
                 "-fvisibility=hidden",
             ],
@@ -260,7 +259,6 @@ def ml_metadata_pybind_extension(
                 "-Wl,-w",
                 "-Wl,-exported_symbols_list,$(location %s)" % exported_symbols_file,
             ],
-            "//ml_metadata:windows": [],
             "//conditions:default": [
                 "-Wl,--version-script",
                 "$(location %s)" % version_script_file,
@@ -285,7 +283,6 @@ def ml_metadata_pybind_extension(
     native.py_library(
         name = name,
         data = select({
-            "//ml_metadata:windows": [pyd_file],
             "//conditions:default": [so_file],
         }),
         srcs_version = "PY3",

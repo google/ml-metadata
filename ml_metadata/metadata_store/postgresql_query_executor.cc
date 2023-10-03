@@ -31,10 +31,8 @@ limitations under the License.
 #include "ml_metadata/metadata_store/query_executor.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
-#ifndef _WIN32
 #include "ml_metadata/query/filter_query_ast_resolver.h"
 #include "ml_metadata/query/filter_query_builder.h"
-#endif
 #include "ml_metadata/util/return_utils.h"
 #include "ml_metadata/util/struct_utils.h"
 
@@ -884,9 +882,7 @@ absl::Status PostgreSQLQueryExecutor::ListNodeIDsUsingOptions(
     return absl::InvalidArgumentError(
         "Invalid Node passed to ListNodeIDsUsingOptions");
   }
-  // TODO(b/195700145) MLMD Filtering is not supported in Windows platform since
-  // ZetaSQL currently does not compile on Windows.
-#ifndef _WIN32
+
   if (options.has_filter_query() && !options.filter_query().empty()) {
     node_table_alias = ml_metadata::FilterQueryBuilder<Node>::kBaseTableAlias;
     ml_metadata::FilterQueryAstResolver<Node> ast_resolver(
@@ -913,7 +909,7 @@ absl::Status PostgreSQLQueryExecutor::ListNodeIDsUsingOptions(
         query_builder.GetFromClause(query_version),
         query_builder.GetWhereClause());
   }
-#endif
+
   if (candidate_ids) {
     if (node_table_alias.has_value() && !node_table_alias->empty()) {
       absl::SubstituteAndAppend(&sql_query, " $0.id", *node_table_alias);

@@ -12,10 +12,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
-#ifndef _WIN32
 #include "ml_metadata/metadata_store/rdbms_metadata_access_object.h"
 
-#endif
 
 #include <algorithm>
 #include <cstddef>
@@ -47,24 +45,19 @@ limitations under the License.
 #include "absl/strings/string_view.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
-#include "absl/types/span.h"
-#include "ml_metadata/metadata_store/query_executor.h"
-#include "ml_metadata/util/field_mask_utils.h"
-#include "google/protobuf/util/field_mask_util.h"
-// clang-format off
-#ifdef _WIN32
-#include "ml_metadata/metadata_store/rdbms_metadata_access_object.h" // NOLINT
-#endif
-// clang-format on
 #include "absl/types/optional.h"
+#include "absl/types/span.h"
 #include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/metadata_store/list_operation_util.h"
+#include "ml_metadata/metadata_store/query_executor.h"
 #include "ml_metadata/metadata_store/record_parsing_utils.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/simple_types/simple_types_constants.h"
+#include "ml_metadata/util/field_mask_utils.h"
 #include "ml_metadata/util/return_utils.h"
 #include "ml_metadata/util/struct_utils.h"
+#include "google/protobuf/util/field_mask_util.h"
 
 namespace ml_metadata {
 namespace {

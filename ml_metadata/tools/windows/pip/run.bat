@@ -1,1 +1,0 @@
-c:\tools\msys64\usr\bin\bash -l %MLMD_OUTPUT_DIR%/ml_metadata/tools/windows/pip/build_ml_metadata_windows.sh %*

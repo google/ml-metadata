@@ -248,25 +248,24 @@ http_archive(
     url = "https://github.com/gflags/gflags/archive/a738fdf9338412f83ab3f26f31ac11ed3f3ec4bd.zip",
 )
 
-# BEGIN IFNDEF_WIN
-ZETASQL_COMMIT = "ac37cf5c0d80b5605176fc0f29e87b12f00be693" # 08/10/2022  # windows
-http_archive(  # windows
-    name = "com_google_zetasql",  # windows
-    urls = ["https://github.com/google/zetasql/archive/%s.zip" % ZETASQL_COMMIT],  # windows
-    strip_prefix = "zetasql-%s" % ZETASQL_COMMIT,  # windows
-    #patches = ["//ml_metadata/third_party:zetasql.patch"],  # windows
-    sha256 = '651a768cd51627f58aa6de7039aba9ddab22f4b0450521169800555269447840'  # windows
-)  # windows
+ZETASQL_COMMIT = "ac37cf5c0d80b5605176fc0f29e87b12f00be693" # 08/10/2022
+http_archive(
+    name = "com_google_zetasql",
+    urls = ["https://github.com/google/zetasql/archive/%s.zip" % ZETASQL_COMMIT],
+    strip_prefix = "zetasql-%s" % ZETASQL_COMMIT,
+    #patches = ["//ml_metadata/third_party:zetasql.patch"],
+    sha256 = '651a768cd51627f58aa6de7039aba9ddab22f4b0450521169800555269447840'
+)
 
-load("@com_google_zetasql//bazel:zetasql_deps_step_1.bzl", "zetasql_deps_step_1")  # windows
-zetasql_deps_step_1()  # windows
-load("@com_google_zetasql//bazel:zetasql_deps_step_2.bzl", "zetasql_deps_step_2")  # windows
-zetasql_deps_step_2(  # windows
-    analyzer_deps = True,  # windows
-    evaluator_deps = True,  # windows
-    tools_deps = False,  # windows
-    java_deps = False,  # windows
-    testing_deps = False)  # windows
+load("@com_google_zetasql//bazel:zetasql_deps_step_1.bzl", "zetasql_deps_step_1")
+zetasql_deps_step_1()
+load("@com_google_zetasql//bazel:zetasql_deps_step_2.bzl", "zetasql_deps_step_2")
+zetasql_deps_step_2(
+    analyzer_deps = True,
+    evaluator_deps = True,
+    tools_deps = False,
+    java_deps = False,
+    testing_deps = False)
 
 # This is part of what zetasql_deps_step_3() does.
 load("@com_google_googleapis//:repository_rules.bzl", "switched_rules_by_language")
@@ -275,7 +274,6 @@ switched_rules_by_language(
     cc = True,
 )
 
-# END IFNDE
 
 
 # Please add all new ML Metadata dependencies in workspace.bzl.

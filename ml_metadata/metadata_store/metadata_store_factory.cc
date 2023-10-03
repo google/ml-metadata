@@ -18,9 +18,7 @@ limitations under the License.
 #include "absl/status/status.h"
 #include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/metadata_store/transaction_executor.h"
-#ifndef _WIN32
 #include "ml_metadata/metadata_store/mysql_metadata_source.h"
-#endif
 #include "ml_metadata/metadata_store/postgresql_metadata_source.h"
 #include "ml_metadata/metadata_store/sqlite_metadata_source.h"
 #include "ml_metadata/util/metadata_source_query_config.h"
@@ -30,7 +28,6 @@ namespace ml_metadata {
 
 namespace {
 
-#ifndef _WIN32
 absl::Status CreateMySQLMetadataStore(const MySQLDatabaseConfig& config,
                                       const MigrationOptions& migration_options,
                                       std::unique_ptr<MetadataStore>* result) {
@@ -43,15 +40,6 @@ absl::Status CreateMySQLMetadataStore(const MySQLDatabaseConfig& config,
   return (*result)->InitMetadataStoreIfNotExists(
       migration_options.enable_upgrade_migration());
 }
-#else
-absl::Status CreateMySQLMetadataStore(
-    const MySQLDatabaseConfig& config,
-    const MigrationOptions& migration_options,
-    std::unique_ptr<MetadataStore>* result) {
-  return absl::UnimplementedError(
-             "MySQL is not supported in Windows yet");
-}
-#endif
 
 absl::Status CreateSqliteMetadataStore(
     const SqliteMetadataSourceConfig& config,

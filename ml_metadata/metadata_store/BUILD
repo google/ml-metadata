@@ -293,21 +293,19 @@ cc_library(
         ":list_operation_query_helper",
         ":metadata_source",
         ":query_executor",
-        "@com_google_glog//:glog",
-        "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
         
-        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
-        # BEGIN IFNDEF_WIN
-        "//ml_metadata/query:filter_query_ast_resolver",  # windows
-        "//ml_metadata/query:filter_query_builder",  # windows
-        # END IFNDEF_WIN
+        "@com_google_absl//absl/strings",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/query:filter_query_ast_resolver",
+        "//ml_metadata/query:filter_query_builder",
         "//ml_metadata/util:return_utils",
         "//ml_metadata/util:struct_utils",
+        "@com_google_glog//:glog",
+        "@com_google_protobuf//:cc_wkt_protos",
     ],
 )
 
@@ -1013,8 +1011,6 @@ cc_library(
         ":metadata_source",
         ":query_config_executor",
         ":query_executor",
-        "@com_google_glog//:glog",
-        "@com_google_protobuf//:cc_wkt_protos",
         "@com_google_protobuf//:protobuf",
         
         "@com_google_absl//absl/status",
@@ -1022,12 +1018,12 @@ cc_library(
         "@com_google_absl//absl/strings",
         "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/proto:metadata_store_proto",
-        # BEGIN IFNDEF_WIN
-        "//ml_metadata/query:filter_query_ast_resolver",  # windows
-        "//ml_metadata/query:filter_query_builder",  # windows
-        # END IFNDEF_WIN
+        "//ml_metadata/query:filter_query_ast_resolver",
+        "//ml_metadata/query:filter_query_builder",
         "//ml_metadata/util:return_utils",
         "//ml_metadata/util:struct_utils",
+        "@com_google_glog//:glog",
+        "@com_google_protobuf//:cc_wkt_protos",
     ],
 )
 

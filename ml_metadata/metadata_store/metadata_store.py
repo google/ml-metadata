@@ -73,9 +73,7 @@ class ListOptions(object):
       ascending order is used for performance benefit.
     filter_query: An optional boolean expression in SQL syntax to specify
       conditions on node attributes and directly connected assets. See
-      https://github.com/google/ml-metadata/blob/master/ml_metadata/proto/metadata_store.proto#L705-L783 for the query capabilities and syntax. Note in
-      Windows, this is only supported when using grpc config via an mlmd server
-      instance.
+      https://github.com/google/ml-metadata/blob/master/ml_metadata/proto/metadata_store.proto#L705-L783 for the query capabilities and syntax.
   """
 
   limit: Optional[int] = None
@@ -1443,13 +1441,7 @@ class MetadataStore(object):
       if list_options.order_by:
         request.options.order_by_field.field = list_options.order_by.value
       if list_options.filter_query:
-        request.options.filter_query = list_options.filter_query  # windows
-        # windows 1
-        # windows 2
-        # windows 3
-        # windows 4
-        # windows 5
-        # windows 6
+        request.options.filter_query = list_options.filter_query
 
     result = []
     while True:

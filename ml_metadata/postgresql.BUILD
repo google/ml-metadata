@@ -81,18 +81,6 @@ cc_library(
         "src/port/thread.c",
     ] + select({
         "@//ml_metadata:macos": [],
-        "@//ml_metadata:windows": [
-            "src/interfaces/libpq/pthread-win32.c",
-            "src/interfaces/libpq/win32.c",
-            "src/port/dirmod.c",
-            "src/port/getaddrinfo.c",
-            "src/port/inet_aton.c",
-            "src/port/open.c",
-            "src/port/pthread-win32.h",
-            "src/port/strlcpy.c",
-            "src/port/win32error.c",
-            "src/port/win32setlocale.c",
-        ],
         "//conditions:default": [
             "src/port/getpeereid.c",
             "src/port/strlcat.c",
@@ -110,13 +98,6 @@ cc_library(
     defines = [
         "FRONTEND",
     ] + select({
-        "@//ml_metadata:windows": [
-            "BLCKSZ=8192",
-            "XLOG_BLCKSZ=8192",
-            'PG_MAJORVERSION=\\"12\\"',
-            "HAVE_LIBZ=1",
-            "WIN32",
-        ],
         "@//ml_metadata:macos": [
             "HAVE_DECL_STRLCPY=1",
             "HAVE_STRLCPY=1",
@@ -133,19 +114,9 @@ cc_library(
         "src/include",
         "src/interfaces/libpq",
     ] + select({
-        "@//ml_metadata:windows": [
-            "src/include/port/win32",
-            "src/include/port/win32_msvc",
-            "src/port",
-        ],
         "//conditions:default": [],
     }),
     linkopts = select({
-        "@//ml_metadata:windows": [
-            "-DEFAULTLIB:ws2_32.lib",
-            "-DEFAULTLIB:shell32.lib",
-            "-DEFAULTLIB:secur32.lib"
-        ],
         "//conditions:default": [],
     }),
     deps = [],
@@ -154,9 +125,6 @@ cc_library(
 genrule(
     name = "pg_config_os_h",
     srcs = select({
-        "@//ml_metadata:windows": [
-            "src/include/port/win32.h",
-        ],
         "@//ml_metadata:macos": [
             "src/include/port/darwin.h",
         ],
@@ -173,16 +141,12 @@ genrule(
 genrule(
     name = "pg_config_ext_h",
     srcs = select({
-        "@//ml_metadata:windows": [
-            "src/include/pg_config_ext.h.win32",
-        ],
         "//conditions:default": [
             "src/include/pg_config_ext.h.in",
         ],
     }),
     outs = ["config/pg_config_ext.h"],
     cmd = select({
-        "@//ml_metadata:windows": "cp $< $@",
         "//conditions:default": (
             "sed " +
             "-e 's/undef PG_INT64_TYPE/define PG_INT64_TYPE long int/g' " +
@@ -393,9 +357,6 @@ genrule(
 genrule(
     name = "pg_config_h",
     srcs = select({
-        "@//ml_metadata:windows": [
-            "src/include/pg_config.h.win32",
-        ],
         "//conditions:default": [
             "src/include/pg_config.h.in",
         ],
@@ -404,7 +365,6 @@ genrule(
         "config/pg_config.h",
     ],
     cmd = select({
-        "@//ml_metadata:windows": "cp $< $@",
         "//conditions:default": "\n".join([
             "cat <<'EOF' >$@",
             "/* src/include/pg_config.h.  Generated from pg_config.h.in by configure.  */",
@@ -1373,15 +1333,6 @@ genrule(
             "",
             "/* Define to select unnamed POSIX semaphores. */",
             "/* #undef USE_UNNAMED_POSIX_SEMAPHORES */",
-            "",
-            "/* Define to use native Windows API for random number generation */",
-            "/* #undef USE_WIN32_RANDOM */",
-            "",
-            "/* Define to select Win32-style semaphores. */",
-            "/* #undef USE_WIN32_SEMAPHORES */",
-            "",
-            "/* Define to select Win32-style shared memory. */",
-            "/* #undef USE_WIN32_SHARED_MEMORY */",
             "",
             "/* Define to 1 if `wcstombs_l' requires <xlocale.h>. */",
             "#define WCSTOMBS_L_IN_XLOCALE 1",

@@ -5,13 +5,6 @@ load("@bazel_skylib//lib:selects.bzl", "selects")
 package(default_visibility = ["//visibility:public"])
 
 config_setting(
-    name = "windows",
-    constraint_values = [
-        "@platforms//os:windows",
-    ],
-)
-
-config_setting(
     name = "macos_x86_64",
     values = {
         "apple_platform_type": "macos",
@@ -43,9 +36,6 @@ _public_protos = [
 ]
 
 _py_extension = select({
-    ":windows": [
-        "//ml_metadata/metadata_store/pywrap:metadata_store_extension.pyd",
-    ],
     "//conditions:default": [
         "//ml_metadata/metadata_store/pywrap:metadata_store_extension.so",
     ],

@@ -1739,7 +1739,6 @@ class MetadataStoreTest(parameterized.TestCase):
     for i in range(103):
       self.assertEqual(got_contexts[i].id, context_ids[199 - i])
 
-  # BEGIN IFNDEF_WIN
   @parameterized.parameters(
       (_create_example_artifact_type, mlmd.MetadataStore.put_artifact_type,
        metadata_store_pb2.Artifact, mlmd.MetadataStore.put_artifacts,
@@ -1752,7 +1751,6 @@ class MetadataStoreTest(parameterized.TestCase):
        mlmd.MetadataStore.get_contexts))
   def test_get_nodes_by_filter_query(self, create_type_fn, put_type_fn,
                                      node_cls, put_nodes_fn, get_nodes_fn):
-    # windows
     store = _get_metadata_store()
     node_type = create_type_fn(self._get_test_type_name())
     type_id = put_type_fn(store, node_type)
@@ -1781,12 +1779,10 @@ class MetadataStoreTest(parameterized.TestCase):
                             (mlmd.MetadataStore.get_executions),
                             (mlmd.MetadataStore.get_contexts))
   def test_get_nodes_by_filter_query_syntax_errors(self, get_nodes_fn):
-    # windows
     store = _get_metadata_store()
     with self.assertRaises(errors.InvalidArgumentError):
       _ = get_nodes_fn(
           store, list_options=mlmd.ListOptions(filter_query="invalid syntax"))
-  # END IFNDEF_WIN
 
   def test_put_contexts_get_context_by_type_and_name(self):
     # Prepare test data.

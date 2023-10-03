@@ -272,7 +272,9 @@ static char *_swig_makecstring(_gostring_ s, void **tofree) {
      otherwise the caller will call free(ret).  */
   if ((s.p == NULL || s.p[0] == 0) && tofree != NULL) {
     *tofree = NULL;
-    return "";
+    char* res = (char*)malloc(1);
+    res[0] = '\0';
+    return res;
   }
   ret = (char*)malloc(s.n + 1);
   memcpy(ret, s.p, s.n);

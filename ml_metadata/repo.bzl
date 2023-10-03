@@ -17,17 +17,6 @@ _SINGLE_URL_WHITELIST = depset([
     "arm_compiler",
 ])
 
-def _is_windows(ctx):
-    return ctx.os.name.lower().find("windows") != -1
-
-def _wrap_bash_cmd(ctx, cmd):
-    if _is_windows(ctx):
-        bazel_sh = _get_env_var(ctx, "BAZEL_SH")
-        if not bazel_sh:
-            fail("BAZEL_SH environment variable is not set")
-        cmd = [bazel_sh, "-l", "-c", " ".join(["\"%s\"" % s for s in cmd])]
-    return cmd
-
 def _get_env_var(ctx, name):
     if name in ctx.os.environ:
         return ctx.os.environ[name]
@@ -59,14 +48,9 @@ def _execute_and_check_ret_code(repo_ctx, cmd_and_args):
 def _repos_are_siblings():
     return Label("@foo//bar").workspace_root.startswith("../")
 
-# Apply a patch_file to the repository root directory
-# Runs 'git apply' on Unix, 'patch -p1' on Windows.
+# Apply a patch_file to the repository root directory by running 'git apply' on Unix systems.
 def _apply_patch(ctx, patch_file):
-    if _is_windows(ctx):
-        patch_command = ["patch", "-p1", "-d", ctx.path("."), "-i", ctx.path(patch_file)]
-    else:
-        patch_command = ["git", "apply", "-v", ctx.path(patch_file)]
-    cmd = _wrap_bash_cmd(ctx, patch_command)
+    cmd = ["git", "apply", "-v", ctx.path(patch_file)]
     _execute_and_check_ret_code(ctx, cmd)
 
 def _apply_delete(ctx, paths):
@@ -75,7 +59,7 @@ def _apply_delete(ctx, paths):
             fail("refusing to rm -rf path starting with '/': " + path)
         if ".." in path:
             fail("refusing to rm -rf path containing '..': " + path)
-    cmd = _wrap_bash_cmd(ctx, ["rm", "-rf"] + [ctx.path(path) for path in paths])
+    cmd = [ctx.path(path) for path in paths]
     _execute_and_check_ret_code(ctx, cmd)
 
 def _mlmd_http_archive(ctx):
