@@ -120,7 +120,7 @@ absl::Status CreateLineageGraph(MetadataStore& metadata_store,
   // insert artifacts
   auto put_artifact = [&metadata_store, &put_types_resp, &want_artifacts](
                           const std::string& label,
-                          const absl::optional<Artifact::State>& state) {
+                          const std::optional<Artifact::State>& state) {
     PutArtifactsRequest put_artifacts_req;
     Artifact* artifact = put_artifacts_req.add_artifacts();
     artifact->set_uri(absl::StrCat("uri://foo/", label));
@@ -146,8 +146,8 @@ absl::Status CreateLineageGraph(MetadataStore& metadata_store,
   // insert executions and links to artifacts
   auto put_execution = [&metadata_store, &put_types_resp, &want_executions](
                            const std::string& label,
-                           const std::vector<int64_t>& input_ids,
-                           const std::vector<int64_t>& output_ids) {
+                           absl::Span<const int64_t> input_ids,
+                           absl::Span<const int64_t> output_ids) {
     PutExecutionRequest req;
     Execution* execution = req.mutable_execution();
     execution->set_type_id(put_types_resp.execution_type_ids(0));
@@ -468,7 +468,7 @@ TEST(MetadataStoreExtendedTest, GetLineageSubgraphFromArtifactsWithMaxHops) {
 
   // Verify the query results with the specified max_num_hop
   auto verify_lineage_graph_with_max_num_hop =
-      [&](absl::optional<int64_t> max_num_hop,
+      [&](std::optional<int64_t> max_num_hop,
           absl::Span<const int64_t> expected_artifact_ids,
           absl::Span<const int64_t> expected_execution_ids,
           absl::Span<const std::pair<int64_t, int64_t>>
@@ -574,7 +574,7 @@ TEST(MetadataStoreExtendedTest, GetLineageSubgraphFromExecutionsWithMaxHops) {
   // Verify the query results with the specified max_num_hop.
   // Starting from execution_0, execution_1 and execution_2.
   auto verify_lineage_graph_with_max_num_hop =
-      [&](absl::optional<int64_t> max_num_hop,
+      [&](std::optional<int64_t> max_num_hop,
           absl::Span<const int64_t> expected_artifact_ids,
           absl::Span<const int64_t> expected_execution_ids,
           absl::Span<const std::pair<int64_t, int64_t>>

@@ -4638,8 +4638,8 @@ void VerifyLineageGraph(const LineageGraph& subgraph,
 
 void VerifyLineageGraphSkeleton(
     const LineageGraph& skeleton,
-    const std::vector<int64_t>& expected_artifact_ids,
-    const std::vector<int64_t>& expected_execution_ids,
+    absl::Span<const int64_t> expected_artifact_ids,
+    absl::Span<const int64_t> expected_execution_ids,
     const std::vector<Event>& events) {
   EXPECT_THAT(skeleton.artifacts(),
               UnorderedPointwise(IdEquals(), expected_artifact_ids));
@@ -12522,8 +12522,8 @@ TEST_P(MetadataAccessObjectTest, CreateParentContextInvalidArgumentError) {
 
   // Enumerate the case of parent context requests which are invalid
   auto verify_is_invalid_argument = [this](absl::string_view case_name,
-                                           absl::optional<int64_t> parent_id,
-                                           absl::optional<int64_t> child_id) {
+                                           std::optional<int64_t> parent_id,
+                                           std::optional<int64_t> child_id) {
     ParentContext parent_context;
     if (parent_id) {
       parent_context.set_parent_id(parent_id.value());

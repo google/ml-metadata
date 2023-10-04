@@ -15,6 +15,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/metadata_store_test_suite.h"
 
 #include <memory>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -30,6 +31,7 @@ limitations under the License.
 #include "absl/strings/substitute.h"
 #include "ml_metadata/metadata_store/simple_types_util.h"
 #include "ml_metadata/metadata_store/test_util.h"
+#include "ml_metadata/metadata_store/types.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
 #include "ml_metadata/simple_types/proto/simple_types.pb.h"
@@ -1316,7 +1318,7 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndArtifactsGetArtifactsThroughType) {
   PrepareTypesAndNodesForListNodeThroughType(metadata_store_, types, nodes);
 
   auto verify_get_artifacts_by_type =
-      [this](string type_name, absl::optional<string> version,
+      [this](string type_name, std::optional<string> version,
              std::vector<Artifact> want_artifacts) {
         GetArtifactsByTypeRequest get_nodes_request;
         get_nodes_request.set_type_name(type_name);
@@ -1336,7 +1338,7 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndArtifactsGetArtifactsThroughType) {
       };
 
   auto verify_get_artifact_by_type_and_name =
-      [this](string type_name, absl::optional<string> version,
+      [this](string type_name, std::optional<string> version,
              string artifact_name, Artifact want_artifact) {
         GetArtifactByTypeAndNameRequest get_node_request;
         get_node_request.set_type_name(type_name);
@@ -1455,7 +1457,7 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndExecutionsGetExecutionsThroughType) {
   PrepareTypesAndNodesForListNodeThroughType(metadata_store_, types, nodes);
 
   auto verify_get_executions_by_type =
-      [this](string type_name, absl::optional<string> version,
+      [this](string type_name, std::optional<string> version,
              std::vector<Execution> want_executions) {
         GetExecutionsByTypeRequest get_nodes_request;
         get_nodes_request.set_type_name(type_name);
@@ -1475,7 +1477,7 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndExecutionsGetExecutionsThroughType) {
       };
 
   auto verify_get_execution_by_type_and_name =
-      [this](string type_name, absl::optional<string> version,
+      [this](string type_name, std::optional<string> version,
              string execution_name, Execution want_execution) {
         GetExecutionByTypeAndNameRequest get_node_request;
         get_node_request.set_type_name(type_name);
@@ -1528,7 +1530,7 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndContextsGetContextsThroughType) {
   PrepareTypesAndNodesForListNodeThroughType(metadata_store_, types, nodes);
 
   auto verify_get_contexts_by_type =
-      [this](string type_name, absl::optional<string> version,
+      [this](string type_name, std::optional<string> version,
              std::vector<Context> want_contexts) {
         GetContextsByTypeRequest get_nodes_request;
         get_nodes_request.set_type_name(type_name);
@@ -1547,7 +1549,7 @@ TEST_P(MetadataStoreTestSuite, PutTypesAndContextsGetContextsThroughType) {
       };
 
   auto verify_get_context_by_type_and_name =
-      [this](string type_name, absl::optional<string> version,
+      [this](string type_name, std::optional<string> version,
              string context_name, Context want_context) {
         GetContextByTypeAndNameRequest get_node_request;
         get_node_request.set_type_name(type_name);
@@ -6351,8 +6353,8 @@ TEST_P(MetadataStoreTestSuite, PutParentContextsInvalidArgumentError) {
   // Enumerates the case of creating parent context with invalid argument
   // (context id cannot be found in the database).
   auto verify_is_invalid_argument = [this](absl::string_view case_name,
-                                           absl::optional<int64_t> parent_id,
-                                           absl::optional<int64_t> child_id) {
+                                           std::optional<int64_t> parent_id,
+                                           std::optional<int64_t> child_id) {
     ParentContext parent_context;
     if (parent_id) {
       parent_context.set_parent_id(parent_id.value());

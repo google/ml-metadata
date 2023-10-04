@@ -14,7 +14,9 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/metadata_access_object_factory.h"
 
+#include <cstdint>
 #include <memory>
+#include <optional>
 
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
@@ -34,7 +36,7 @@ namespace {
 absl::Status CreateRDBMSMetadataAccessObject(
     const MetadataSourceQueryConfig& query_config,
     MetadataSource* const metadata_source,
-    absl::optional<int64_t> schema_version,
+    std::optional<int64_t> schema_version,
     std::unique_ptr<MetadataAccessObject>* result) {
   if (!metadata_source->is_connected())
     MLMD_RETURN_IF_ERROR(metadata_source->Connect());
@@ -55,7 +57,7 @@ absl::Status CreateRDBMSMetadataAccessObject(
 absl::Status CreateRDBMSMetadataAccessObjectPostgreSQL(
     const MetadataSourceQueryConfig& query_config,
     MetadataSource* const metadata_source,
-    absl::optional<int64_t> schema_version,
+    std::optional<int64_t> schema_version,
     std::unique_ptr<MetadataAccessObject>* result) {
   if (!metadata_source->is_connected())
     MLMD_RETURN_IF_ERROR(metadata_source->Connect());
@@ -85,7 +87,7 @@ absl::Status CreateMetadataAccessObject(
 absl::Status CreateMetadataAccessObject(
     const MetadataSourceQueryConfig& query_config,
     MetadataSource* const metadata_source,
-    absl::optional<int64_t> schema_version,
+    std::optional<int64_t> schema_version,
     std::unique_ptr<MetadataAccessObject>* result) {
   switch (query_config.metadata_source_type()) {
     case UNKNOWN_METADATA_SOURCE:

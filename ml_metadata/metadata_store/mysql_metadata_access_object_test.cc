@@ -14,13 +14,16 @@ limitations under the License.
 ==============================================================================*/
 // Test suite for a MySqlMetadataSource based MetadataAccessObject.
 
+#include <cstdint>
 #include <memory>
+#include <optional>
 
 #include <glog/logging.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "absl/types/optional.h"
 #include "ml_metadata/metadata_store/metadata_access_object_factory.h"
 #include "ml_metadata/metadata_store/metadata_access_object_test.h"
 #include "ml_metadata/metadata_store/metadata_source.h"
@@ -41,7 +44,7 @@ class MySqlMetadataAccessObjectContainer
     : public QueryConfigMetadataAccessObjectContainer {
  public:
   MySqlMetadataAccessObjectContainer(
-      absl::optional<int64_t> earlier_schema_version = absl::nullopt)
+      std::optional<int64_t> earlier_schema_version = absl::nullopt)
       : QueryConfigMetadataAccessObjectContainer(
             util::GetMySqlMetadataSourceQueryConfig(), earlier_schema_version) {
     metadata_source_initializer_ = GetTestMySqlMetadataSourceInitializer();

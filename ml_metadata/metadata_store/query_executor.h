@@ -54,7 +54,7 @@ class QueryExecutor {
   // useful for multi-tenant applications to have better availability when
   // configured with a set of existing backends with different schema versions.
   explicit QueryExecutor(
-      absl::optional<int64_t> query_schema_version = absl::nullopt);
+      std::optional<int64_t> query_schema_version = absl::nullopt);
   virtual ~QueryExecutor() = default;
 
   // default & copy constructors are disallowed.
@@ -164,9 +164,9 @@ class QueryExecutor {
   // `type_id` is the output ID of the artifact type.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status InsertArtifactType(
-      const std::string& name, absl::optional<absl::string_view> version,
-      absl::optional<absl::string_view> description,
-      absl::optional<absl::string_view> external_id, int64_t* type_id) = 0;
+      const std::string& name, std::optional<absl::string_view> version,
+      std::optional<absl::string_view> description,
+      std::optional<absl::string_view> external_id, int64_t* type_id) = 0;
 
   // Inserts an ExecutionType into the database.
   // `input_type` is an optional field to describe the input artifact types.
@@ -174,19 +174,19 @@ class QueryExecutor {
   // `type_id` is the ID of the execution type.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status InsertExecutionType(
-      const std::string& name, absl::optional<absl::string_view> version,
-      absl::optional<absl::string_view> description,
+      const std::string& name, std::optional<absl::string_view> version,
+      std::optional<absl::string_view> description,
       const ArtifactStructType* input_type,
       const ArtifactStructType* output_type,
-      absl::optional<absl::string_view> external_id, int64_t* type_id) = 0;
+      std::optional<absl::string_view> external_id, int64_t* type_id) = 0;
 
   // Inserts a ContextType into the database.
   // `type_id` is the ID of the context type.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status InsertContextType(
-      const std::string& name, absl::optional<absl::string_view> version,
-      absl::optional<absl::string_view> description,
-      absl::optional<absl::string_view> external_id, int64_t* type_id) = 0;
+      const std::string& name, std::optional<absl::string_view> version,
+      std::optional<absl::string_view> description,
+      std::optional<absl::string_view> external_id, int64_t* type_id) = 0;
 
   // Retrieves types from the database by their ids. Not found ids are
   // skipped.
@@ -219,7 +219,7 @@ class QueryExecutor {
   // ContextType, or ExecutionType.
   virtual absl::Status SelectTypeByNameAndVersion(
       absl::string_view type_name,
-      absl::optional<absl::string_view> type_version, TypeKind type_kind,
+      std::optional<absl::string_view> type_version, TypeKind type_kind,
       RecordSet* record_set) = 0;
 
   // Gets types from the database by their name and version pairs. Not found
@@ -242,7 +242,7 @@ class QueryExecutor {
 
   // Updates a type's `external_id` in the database.
   virtual absl::Status UpdateTypeExternalIdDirect(
-      int64_t type_id, absl::optional<absl::string_view> external_id) = 0;
+      int64_t type_id, std::optional<absl::string_view> external_id) = 0;
 
   // Checks the existence of the TypeProperty table.
   virtual absl::Status CheckTypePropertyTable() = 0;
@@ -284,9 +284,9 @@ class QueryExecutor {
   // Inserts an artifact into the database.
   virtual absl::Status InsertArtifact(
       int64_t type_id, const std::string& artifact_uri,
-      const absl::optional<Artifact::State>& state,
-      const absl::optional<std::string>& name,
-      absl::optional<absl::string_view> external_id, absl::Time create_time,
+      const std::optional<Artifact::State>& state,
+      const std::optional<std::string>& name,
+      std::optional<absl::string_view> external_id, absl::Time create_time,
       absl::Time update_time, int64_t* artifact_id) = 0;
 
   // Gets artifacts from the database by their ids. Not found ids are
@@ -330,9 +330,8 @@ class QueryExecutor {
   // Updates an artifact in the database.
   virtual absl::Status UpdateArtifactDirect(
       int64_t artifact_id, int64_t type_id, const std::string& uri,
-      const absl::optional<Artifact::State>& state,
-      absl::optional<absl::string_view> external_id,
-      absl::Time update_time) = 0;
+      const std::optional<Artifact::State>& state,
+      std::optional<absl::string_view> external_id, absl::Time update_time) = 0;
 
   // Checks the existence of the ArtifactProperty table.
   virtual absl::Status CheckArtifactPropertyTable() = 0;
@@ -362,9 +361,9 @@ class QueryExecutor {
 
   // Inserts an execution into the database.
   virtual absl::Status InsertExecution(
-      int64_t type_id, const absl::optional<Execution::State>& last_known_state,
-      const absl::optional<std::string>& name,
-      absl::optional<absl::string_view> external_id, absl::Time create_time,
+      int64_t type_id, const std::optional<Execution::State>& last_known_state,
+      const std::optional<std::string>& name,
+      std::optional<absl::string_view> external_id, absl::Time create_time,
       absl::Time update_time, int64_t* execution_id) = 0;
 
   // Gets Executions based on the given ids. Not found ids are skipped.
@@ -400,9 +399,8 @@ class QueryExecutor {
   // Updates an execution in the database.
   virtual absl::Status UpdateExecutionDirect(
       int64_t execution_id, int64_t type_id,
-      const absl::optional<Execution::State>& last_known_state,
-      absl::optional<absl::string_view> external_id,
-      absl::Time update_time) = 0;
+      const std::optional<Execution::State>& last_known_state,
+      std::optional<absl::string_view> external_id, absl::Time update_time) = 0;
 
   // Checks the existence of the ExecutionProperty table.
   virtual absl::Status CheckExecutionPropertyTable() = 0;
@@ -434,7 +432,7 @@ class QueryExecutor {
   // Inserts a context into the database.
   virtual absl::Status InsertContext(
       int64_t type_id, const std::string& name,
-      absl::optional<absl::string_view> external_id,
+      std::optional<absl::string_view> external_id,
       const absl::Time create_time, const absl::Time update_time,
       int64_t* context_id) = 0;
 
@@ -470,7 +468,7 @@ class QueryExecutor {
   virtual absl::Status UpdateContextDirect(
       int64_t existing_context_id, int64_t type_id,
       const std::string& context_name,
-      absl::optional<absl::string_view> external_id,
+      std::optional<absl::string_view> external_id,
       const absl::Time update_time) = 0;
 
   // Checks the existence of the ContextProperty table.
@@ -635,7 +633,7 @@ class QueryExecutor {
   // `record_set` is updated with artifact IDs based on `options`
   virtual absl::Status ListArtifactIDsUsingOptions(
       const ListOperationOptions& options,
-      absl::optional<absl::Span<const int64_t>> candidate_ids,
+      std::optional<absl::Span<const int64_t>> candidate_ids,
       RecordSet* record_set) = 0;
 
   // List Execution IDs using `options`. If `candidate_ids` is provided, then
@@ -644,7 +642,7 @@ class QueryExecutor {
   // `record_set` is updated with execution IDs based on `options`.
   virtual absl::Status ListExecutionIDsUsingOptions(
       const ListOperationOptions& options,
-      absl::optional<absl::Span<const int64_t>> candidate_ids,
+      std::optional<absl::Span<const int64_t>> candidate_ids,
       RecordSet* record_set) = 0;
 
   // List Context IDs using `options`. If `candidate_ids` is provided, then
@@ -653,7 +651,7 @@ class QueryExecutor {
   // `record_set` is updated with context IDs based on `options`.
   virtual absl::Status ListContextIDsUsingOptions(
       const ListOperationOptions& options,
-      absl::optional<absl::Span<const int64_t>> candidate_ids,
+      std::optional<absl::Span<const int64_t>> candidate_ids,
       RecordSet* record_set) = 0;
 
 
@@ -752,7 +750,7 @@ class QueryExecutor {
   bool IsQuerySchemaVersionEquals(int64_t schema_version) const;
 
   // Access the query_schema_version_ if any.
-  absl::optional<int64_t> query_schema_version() const {
+  std::optional<int64_t> query_schema_version() const {
     return query_schema_version_;
   }
 
@@ -760,7 +758,7 @@ class QueryExecutor {
   // By default, the query executor assumes that the db schema version aligns
   // with the library version. If set, the query executor is switched to use
   // the queries to talk to an earlier schema_version = query_schema_version_.
-  absl::optional<int64_t> query_schema_version_ = absl::nullopt;
+  std::optional<int64_t> query_schema_version_ = absl::nullopt;
 };
 
 }  // namespace ml_metadata

@@ -15,7 +15,9 @@ limitations under the License.
 #ifndef THIRD_PARTY_ML_METADATA_METADATA_STORE_METADATA_ACCESS_OBJECT_FACTORY_H_
 #define THIRD_PARTY_ML_METADATA_METADATA_STORE_METADATA_ACCESS_OBJECT_FACTORY_H_
 
+#include <cstdint>
 #include <memory>
+#include <optional>
 
 #include "absl/status/status.h"
 #include "ml_metadata/metadata_store/metadata_access_object.h"
@@ -41,7 +43,7 @@ absl::Status CreateMetadataAccessObject(
 // works with an existing db having that particular schema version.
 absl::Status CreateMetadataAccessObject(
     const MetadataSourceQueryConfig& query_config,
-    MetadataSource* const metadata_source, absl::optional<int64_t> schema_version,
+    MetadataSource* metadata_source, std::optional<int64_t> schema_version,
     std::unique_ptr<MetadataAccessObject>* result);
 
 }  // namespace ml_metadata

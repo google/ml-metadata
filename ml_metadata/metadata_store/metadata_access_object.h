@@ -178,17 +178,17 @@ class MetadataAccessObject {
   // Returns NOT_FOUND error, if the given name, version cannot be found.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status FindTypeByNameAndVersion(
-      absl::string_view name, absl::optional<absl::string_view> version,
+      absl::string_view name, std::optional<absl::string_view> version,
       ArtifactType* artifact_type) = 0;
   virtual absl::Status FindTypeByNameAndVersion(
-      absl::string_view name, absl::optional<absl::string_view> version,
+      absl::string_view name, std::optional<absl::string_view> version,
       ExecutionType* execution_type) = 0;
   virtual absl::Status FindTypeByNameAndVersion(
-      absl::string_view name, absl::optional<absl::string_view> version,
+      absl::string_view name, std::optional<absl::string_view> version,
       ContextType* context_type) = 0;
 
   virtual absl::Status FindTypeIdByNameAndVersion(
-      absl::string_view name, absl::optional<absl::string_view> version,
+      absl::string_view name, std::optional<absl::string_view> version,
       TypeKind type_kind, int64_t* type_id) = 0;
 
   // Gets a list of types using their name and version pairs in
@@ -400,7 +400,7 @@ class MetadataAccessObject {
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status FindArtifactsByTypeId(
       int64_t artifact_type_id,
-      absl::optional<ListOperationOptions> list_options,
+      std::optional<ListOperationOptions> list_options,
       std::vector<Artifact>* artifacts, std::string* next_page_token) = 0;
 
   // Gets artifacts by a given uri with exact match.
@@ -562,7 +562,7 @@ class MetadataAccessObject {
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status FindExecutionsByTypeId(
       int64_t execution_type_id,
-      absl::optional<ListOperationOptions> list_options,
+      std::optional<ListOperationOptions> list_options,
       std::vector<Execution>* executions, std::string* next_page_token) = 0;
 
   // Updates an execution.
@@ -714,7 +714,7 @@ class MetadataAccessObject {
   // Returns NOT_FOUND error, if no context can be found.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status FindContextsByTypeId(
-      int64_t type_id, absl::optional<ListOperationOptions> list_options,
+      int64_t type_id, std::optional<ListOperationOptions> list_options,
       std::vector<Context>* contexts, std::string* next_page_token) = 0;
 
   // Gets a context by a type_id and a context name. If id_only is true, the
@@ -862,7 +862,7 @@ class MetadataAccessObject {
   // Gets the executions associated with a context_id.
   // Returns INVALID_ARGUMENT error, if the `executions` is null.
   virtual absl::Status FindExecutionsByContext(
-      int64_t context_id, absl::optional<ListOperationOptions> list_options,
+      int64_t context_id, std::optional<ListOperationOptions> list_options,
       std::vector<Execution>* executions, std::string* next_page_token) = 0;
 
   // Creates an attribution, and returns the assigned attribution id.
@@ -904,7 +904,7 @@ class MetadataAccessObject {
   // fields set in `list_options`.
   // Returns INVALID_ARGUMENT error, if the `artifacts` is null.
   virtual absl::Status FindArtifactsByContext(
-      int64_t context_id, absl::optional<ListOperationOptions> list_options,
+      int64_t context_id, std::optional<ListOperationOptions> list_options,
       std::vector<Artifact>* artifacts, std::string* next_page_token) = 0;
 
   // Creates a parent context, returns OK if succeeds.
@@ -929,13 +929,13 @@ class MetadataAccessObject {
   // Gets the parent-contexts of child context_ids list.
   // Returns INVALID_ARGUMENT error, if `context_ids` is empty.
   virtual absl::Status FindParentContextsByContextIds(
-      const std::vector<int64_t>& context_ids,
+      absl::Span<const int64_t> context_ids,
       absl::node_hash_map<int64_t, std::vector<Context>>& contexts) = 0;
 
   // Gets the child-contexts of parent context_ids list.
   // Returns INVALID_ARGUMENT error, if `context_ids` is empty.
   virtual absl::Status FindChildContextsByContextIds(
-      const std::vector<int64_t>& context_ids,
+      absl::Span<const int64_t> context_ids,
       absl::node_hash_map<int64_t, std::vector<Context>>& contexts) = 0;
 
   // Resolves the schema version stored in the metadata source. The `db_version`
@@ -968,9 +968,9 @@ class MetadataAccessObject {
   // max_nodes. No limits on total nodes if max_nodes is not set.
   virtual absl::Status QueryLineageGraph(
       const std::vector<Artifact>& query_nodes, int64_t max_num_hops,
-      absl::optional<int64_t> max_nodes,
-      absl::optional<std::string> boundary_artifacts,
-      absl::optional<std::string> boundary_executions,
+      std::optional<int64_t> max_nodes,
+      std::optional<std::string> boundary_artifacts,
+      std::optional<std::string> boundary_executions,
       LineageGraph& subgraph) = 0;
 
   // Given the `lineage_subgraph_query_options`, performs a constrained BFS

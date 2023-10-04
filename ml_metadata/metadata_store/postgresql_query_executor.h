@@ -85,22 +85,23 @@ class PostgreSQLQueryExecutor : public QueryExecutor {
   absl::Status CheckTypeTable() final;
 
   absl::Status InsertArtifactType(const std::string& name,
-                                  absl::optional<absl::string_view> version,
-                                  absl::optional<absl::string_view> description,
-                                  absl::optional<absl::string_view> external_id,
+                                  std::optional<absl::string_view> version,
+                                  std::optional<absl::string_view> description,
+                                  std::optional<absl::string_view> external_id,
                                   int64_t* type_id) final;
 
-  absl::Status InsertExecutionType(
-      const std::string& name, absl::optional<absl::string_view> version,
-      absl::optional<absl::string_view> description,
-      const ArtifactStructType* input_type,
-      const ArtifactStructType* output_type,
-      absl::optional<absl::string_view> external_id, int64_t* type_id) final;
+  absl::Status InsertExecutionType(const std::string& name,
+                                   std::optional<absl::string_view> version,
+                                   std::optional<absl::string_view> description,
+                                   const ArtifactStructType* input_type,
+                                   const ArtifactStructType* output_type,
+                                   std::optional<absl::string_view> external_id,
+                                   int64_t* type_id) final;
 
   absl::Status InsertContextType(const std::string& name,
-                                 absl::optional<absl::string_view> version,
-                                 absl::optional<absl::string_view> description,
-                                 absl::optional<absl::string_view> external_id,
+                                 std::optional<absl::string_view> version,
+                                 std::optional<absl::string_view> description,
+                                 std::optional<absl::string_view> external_id,
                                  int64_t* type_id) final;
 
   absl::Status SelectTypesByID(absl::Span<const int64_t> type_ids,
@@ -115,7 +116,7 @@ class PostgreSQLQueryExecutor : public QueryExecutor {
 
   absl::Status SelectTypeByNameAndVersion(
       absl::string_view type_name,
-      absl::optional<absl::string_view> type_version, TypeKind type_kind,
+      std::optional<absl::string_view> type_version, TypeKind type_kind,
       RecordSet* record_set) final;
 
   absl::Status SelectTypesByNamesAndVersions(
@@ -125,7 +126,7 @@ class PostgreSQLQueryExecutor : public QueryExecutor {
   absl::Status SelectAllTypes(TypeKind type_kind, RecordSet* record_set) final;
 
   absl::Status UpdateTypeExternalIdDirect(
-      int64_t type_id, absl::optional<absl::string_view> external_id) final {
+      int64_t type_id, std::optional<absl::string_view> external_id) final {
     MLMD_RETURN_IF_ERROR(
         VerifyCurrentQueryVersionIsAtLeast(kSchemaVersionNine));
     return ExecuteQuery(query_config_.update_type(),
@@ -163,9 +164,9 @@ class PostgreSQLQueryExecutor : public QueryExecutor {
   absl::Status CheckArtifactTable() final;
 
   absl::Status InsertArtifact(int64_t type_id, const std::string& artifact_uri,
-                              const absl::optional<Artifact::State>& state,
-                              const absl::optional<std::string>& name,
-                              absl::optional<absl::string_view> external_id,
+                              const std::optional<Artifact::State>& state,
+                              const std::optional<std::string>& name,
+                              std::optional<absl::string_view> external_id,
                               const absl::Time create_time,
                               const absl::Time update_time,
                               int64_t* artifact_id) final {
@@ -212,8 +213,8 @@ class PostgreSQLQueryExecutor : public QueryExecutor {
 
   absl::Status UpdateArtifactDirect(
       int64_t artifact_id, int64_t type_id, const std::string& uri,
-      const absl::optional<Artifact::State>& state,
-      absl::optional<absl::string_view> external_id,
+      const std::optional<Artifact::State>& state,
+      std::optional<absl::string_view> external_id,
       const absl::Time update_time) final {
     return ExecuteQuery(
         query_config_.update_artifact(),
@@ -261,9 +262,9 @@ class PostgreSQLQueryExecutor : public QueryExecutor {
   absl::Status CheckExecutionTable() final;
 
   absl::Status InsertExecution(
-      int64_t type_id, const absl::optional<Execution::State>& last_known_state,
-      const absl::optional<std::string>& name,
-      absl::optional<absl::string_view> external_id,
+      int64_t type_id, const std::optional<Execution::State>& last_known_state,
+      const std::optional<std::string>& name,
+      std::optional<absl::string_view> external_id,
       const absl::Time create_time, const absl::Time update_time,
       int64_t* execution_id) final {
     return ExecuteQuerySelectLastInsertID(
@@ -303,8 +304,8 @@ class PostgreSQLQueryExecutor : public QueryExecutor {
 
   absl::Status UpdateExecutionDirect(
       int64_t execution_id, int64_t type_id,
-      const absl::optional<Execution::State>& last_known_state,
-      absl::optional<absl::string_view> external_id,
+      const std::optional<Execution::State>& last_known_state,
+      std::optional<absl::string_view> external_id,
       const absl::Time update_time) final {
     return ExecuteQuery(
         query_config_.update_execution(),
@@ -350,7 +351,7 @@ class PostgreSQLQueryExecutor : public QueryExecutor {
   absl::Status CheckContextTable() final;
 
   absl::Status InsertContext(int64_t type_id, const std::string& name,
-                             absl::optional<absl::string_view> external_id,
+                             std::optional<absl::string_view> external_id,
                              const absl::Time create_time,
                              const absl::Time update_time,
                              int64_t* context_id) final {
@@ -389,11 +390,10 @@ class PostgreSQLQueryExecutor : public QueryExecutor {
                         {Bind(context_type_id), Bind(name)}, record_set);
   }
 
-  absl::Status UpdateContextDirect(
-      int64_t existing_context_id, int64_t type_id,
-      const std::string& context_name,
-      absl::optional<absl::string_view> external_id,
-      const absl::Time update_time) final {
+  absl::Status UpdateContextDirect(int64_t existing_context_id, int64_t type_id,
+                                   const std::string& context_name,
+                                   std::optional<absl::string_view> external_id,
+                                   const absl::Time update_time) final {
     return ExecuteQuery(
         query_config_.update_context(),
         {Bind(existing_context_id), Bind(type_id), Bind(context_name),
@@ -560,17 +560,17 @@ class PostgreSQLQueryExecutor : public QueryExecutor {
 
   absl::Status ListArtifactIDsUsingOptions(
       const ListOperationOptions& options,
-      absl::optional<absl::Span<const int64_t>> candidate_ids,
+      std::optional<absl::Span<const int64_t>> candidate_ids,
       RecordSet* record_set) final;
 
   absl::Status ListExecutionIDsUsingOptions(
       const ListOperationOptions& options,
-      absl::optional<absl::Span<const int64_t>> candidate_ids,
+      std::optional<absl::Span<const int64_t>> candidate_ids,
       RecordSet* record_set) final;
 
   absl::Status ListContextIDsUsingOptions(
       const ListOperationOptions& options,
-      absl::optional<absl::Span<const int64_t>> candidate_ids,
+      std::optional<absl::Span<const int64_t>> candidate_ids,
       RecordSet* record_set) final;
 
 
@@ -613,7 +613,7 @@ class PostgreSQLQueryExecutor : public QueryExecutor {
  private:
   // Utility method to bind an nullable value.
   template <typename T>
-  std::string Bind(const absl::optional<T>& v) {
+  std::string Bind(const std::optional<T>& v) {
     return v ? Bind(v.value()) : "NULL";
   }
 
@@ -765,7 +765,7 @@ class PostgreSQLQueryExecutor : public QueryExecutor {
   template <typename Node>
   absl::Status ListNodeIDsUsingOptions(
       const ListOperationOptions& options,
-      absl::optional<absl::Span<const int64_t>> candidate_ids,
+      std::optional<absl::Span<const int64_t>> candidate_ids,
       RecordSet* record_set);
 
   MetadataSourceQueryConfig query_config_;

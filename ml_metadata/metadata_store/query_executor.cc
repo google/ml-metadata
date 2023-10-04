@@ -14,6 +14,8 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/query_executor.h"
 
+#include <optional>
+
 #include <glog/logging.h>
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
@@ -26,7 +28,7 @@ namespace ml_metadata {
 // supporting migration for MLMD online services.
 static constexpr int64_t kSupportedEarlierQueryVersion = 7;
 
-QueryExecutor::QueryExecutor(absl::optional<int64_t> query_schema_version)
+QueryExecutor::QueryExecutor(std::optional<int64_t> query_schema_version)
     : query_schema_version_(query_schema_version) {
   if (query_schema_version_) {
     CHECK_GE(*query_schema_version_, kSupportedEarlierQueryVersion)

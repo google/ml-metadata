@@ -51,7 +51,7 @@ namespace ml_metadata {
 // specified is invalid.
 absl::Status AppendOrderingThresholdClause(
     const ListOperationOptions& options,
-    absl::optional<absl::string_view> table_alias,
+    std::optional<absl::string_view> table_alias,
     std::string& sql_query_clause);
 
 // Generates the ORDER BY clause for ListOperation.
@@ -70,7 +70,7 @@ absl::Status AppendOrderingThresholdClause(
 // Appends "ORDER BY `create_time_since_epoch` DESC, `id` DESC" at the end of
 // `sql_query_clause`.
 absl::Status AppendOrderByClause(const ListOperationOptions& options,
-                                 absl::optional<absl::string_view> table_alias,
+                                 std::optional<absl::string_view> table_alias,
                                  std::string& sql_query_clause);
 
 // Generates the LIMIT clause for ListOperation.

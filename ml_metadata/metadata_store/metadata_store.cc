@@ -484,7 +484,7 @@ absl::Status UpsertArtifactAndEvent(
   }
   // validate event and artifact's id aligns.
   // if artifact is not given, the event.artifact_id must exist
-  absl::optional<int64_t> maybe_event_artifact_id =
+  std::optional<int64_t> maybe_event_artifact_id =
       artifact_and_event.has_event() &&
               artifact_and_event.event().has_artifact_id()
           ? absl::make_optional<int64_t>(
@@ -520,7 +520,7 @@ absl::Status UpsertArtifactAndEvent(
 
   // if artifact and event.artifact_id is given, then artifact.id and
   // event.artifact_id must align.
-  absl::optional<int64_t> maybe_artifact_id =
+  std::optional<int64_t> maybe_artifact_id =
       artifact_and_event.has_artifact() && artifact_copy_to_be_upserted.has_id()
           ? absl::make_optional<int64_t>(artifact_copy_to_be_upserted.id())
           : absl::nullopt;
@@ -580,7 +580,7 @@ absl::Status GetExternalIdToIdMapping(
 
 // A util to handle type_version in type read/write API requests.
 template <typename T>
-absl::optional<std::string> GetRequestTypeVersion(const T& type_request) {
+std::optional<std::string> GetRequestTypeVersion(const T& type_request) {
   return type_request.has_type_version() && !type_request.type_version().empty()
              ? absl::make_optional(type_request.type_version())
              : absl::nullopt;

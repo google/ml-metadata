@@ -48,9 +48,7 @@ class MetadataAccessObjectContainer {
 
   // If the head library needs to support earlier schema version, this method
   // should be overridden to test against an earlier schema version.
-  virtual absl::optional<int64_t> GetSchemaVersion() {
-    return absl::nullopt;
-  }
+  virtual std::optional<int64_t> GetSchemaVersion() { return absl::nullopt; }
 
   // Returns OK if DB schema passed verification.
   virtual absl::Status VerifyDbSchema(const int64_t version) {
@@ -65,7 +63,7 @@ class MetadataAccessObjectContainer {
     // If the test suite indicates the library at head should be tested against
     // an existing db with a previous schema version, we downgrade the
     // initialized schema to setup the test environment.
-    const absl::optional<int64_t> earlier_schema_version = GetSchemaVersion();
+    const std::optional<int64_t> earlier_schema_version = GetSchemaVersion();
     if (earlier_schema_version) {
       MLMD_RETURN_IF_ERROR(GetMetadataAccessObject()->DowngradeMetadataSource(
           *earlier_schema_version));
@@ -165,12 +163,12 @@ class QueryConfigMetadataAccessObjectContainer
   // db schema.
   QueryConfigMetadataAccessObjectContainer(
       const MetadataSourceQueryConfig& config,
-      absl::optional<int64_t> earlier_schema_version = absl::nullopt)
+      std::optional<int64_t> earlier_schema_version = absl::nullopt)
       : config_(config), testing_schema_version_(earlier_schema_version) {}
 
   virtual ~QueryConfigMetadataAccessObjectContainer() = default;
 
-  absl::optional<int64_t> GetSchemaVersion() final {
+  std::optional<int64_t> GetSchemaVersion() final {
     return testing_schema_version_;
   }
 
@@ -226,7 +224,7 @@ class QueryConfigMetadataAccessObjectContainer
 
   MetadataSourceQueryConfig config_;
   // If not set, by default, we test against the head version.
-  absl::optional<int64_t> testing_schema_version_;
+  std::optional<int64_t> testing_schema_version_;
 };
 
 // Represents the type of the Gunit Test param for the parameterized

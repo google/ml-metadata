@@ -89,7 +89,7 @@ std::vector<int64_t> ConvertToIds(const RecordSet& record_set,
 }
 
 // Dedups an id list.
-std::vector<int64_t> DedupIds(const std::vector<int64_t>& ids) {
+std::vector<int64_t> DedupIds(absl::Span<const int64_t> ids) {
   std::vector<int64_t> result;
   absl::flat_hash_set<int64_t> deduped_set(ids.begin(), ids.end());
   absl::c_move(deduped_set, std::back_inserter(result));
@@ -145,8 +145,7 @@ std::vector<int64_t> ParentContextsToContextIds(const RecordSet& record_set,
 // Extracts a map of <key_id, vector<value_id_subset>> for each key_id in the
 // key_ids list.
 absl::flat_hash_map<int64_t, std::vector<int64_t>> MapKeyIdToValueIds(
-    const std::vector<int64_t>& key_ids,
-    const std::vector<int64_t>& value_ids) {
+    absl::Span<const int64_t> key_ids, absl::Span<const int64_t> value_ids) {
   CHECK_EQ(key_ids.size(), value_ids.size());
   absl::flat_hash_map<int64_t, std::vector<int64_t>> result;
   for (int i = 0; i < key_ids.size(); ++i) {
@@ -397,7 +396,7 @@ bool IsUniqueConstraintViolated(const absl::Status status) {
 
 // A util to handle `version` in ArtifactType/ExecutionType/ContextType protos.
 template <typename T>
-absl::optional<std::string> GetTypeVersion(const T& type_message) {
+std::optional<std::string> GetTypeVersion(const T& type_message) {
   return type_message.has_version() && !type_message.version().empty()
              ? absl::make_optional(type_message.version())
              : absl::nullopt;
@@ -998,7 +997,7 @@ absl::Status RDBMSMetadataAccessObject::FindTypesByExternalIdsImpl(
 
 template <typename MessageType>
 absl::Status RDBMSMetadataAccessObject::FindTypeImpl(
-    absl::string_view name, absl::optional<absl::string_view> version,
+    absl::string_view name, std::optional<absl::string_view> version,
     MessageType* type) {
   const TypeKind type_kind = ResolveTypeKind(type);
   RecordSet record_set;
@@ -1555,25 +1554,25 @@ absl::Status RDBMSMetadataAccessObject::FindTypes(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindTypeByNameAndVersion(
-    absl::string_view name, absl::optional<absl::string_view> version,
+    absl::string_view name, std::optional<absl::string_view> version,
     ArtifactType* artifact_type) {
   return FindTypeImpl(name, version, artifact_type);
 }
 
 absl::Status RDBMSMetadataAccessObject::FindTypeByNameAndVersion(
-    absl::string_view name, absl::optional<absl::string_view> version,
+    absl::string_view name, std::optional<absl::string_view> version,
     ExecutionType* execution_type) {
   return FindTypeImpl(name, version, execution_type);
 }
 
 absl::Status RDBMSMetadataAccessObject::FindTypeByNameAndVersion(
-    absl::string_view name, absl::optional<absl::string_view> version,
+    absl::string_view name, std::optional<absl::string_view> version,
     ContextType* context_type) {
   return FindTypeImpl(name, version, context_type);
 }
 
 absl::Status RDBMSMetadataAccessObject::FindTypeIdByNameAndVersion(
-    absl::string_view name, absl::optional<absl::string_view> version,
+    absl::string_view name, std::optional<absl::string_view> version,
     TypeKind type_kind, int64_t* type_id) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(executor_->SelectTypeByNameAndVersion(
@@ -2146,7 +2145,7 @@ absl::Status RDBMSMetadataAccessObject::FindExecutionsByContext(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindExecutionsByContext(
-    int64_t context_id, absl::optional<ListOperationOptions> list_options,
+    int64_t context_id, std::optional<ListOperationOptions> list_options,
     std::vector<Execution>* executions, std::string* next_page_token) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(
@@ -2227,7 +2226,7 @@ absl::Status RDBMSMetadataAccessObject::FindArtifactsByContext(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindArtifactsByContext(
-    int64_t context_id, absl::optional<ListOperationOptions> list_options,
+    int64_t context_id, std::optional<ListOperationOptions> list_options,
     std::vector<Artifact>* artifacts, std::string* next_page_token) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(
@@ -2368,7 +2367,7 @@ absl::Status RDBMSMetadataAccessObject::FindLinkedContextsMapImpl(
   output_contexts.clear();
   for (const auto& entry : id_map_to_linked_ids) {
     const int64_t id = entry.first;
-    const std::vector<int64_t>& linked_ids = entry.second;
+    absl::Span<const int64_t> linked_ids = entry.second;
     std::vector<Context> contexts_per_id;
     contexts_per_id.reserve(linked_ids.size());
     for (const int64_t linked_id : linked_ids) {
@@ -2398,14 +2397,14 @@ absl::Status RDBMSMetadataAccessObject::FindChildContextsByContextId(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindParentContextsByContextIds(
-    const std::vector<int64_t>& context_ids,
+    absl::Span<const int64_t> context_ids,
     absl::node_hash_map<int64_t, std::vector<Context>>& contexts) {
   return FindLinkedContextsMapImpl(
       context_ids, ParentContextTraverseDirection::kParent, contexts);
 }
 
 absl::Status RDBMSMetadataAccessObject::FindChildContextsByContextIds(
-    const std::vector<int64_t>& context_ids,
+    absl::Span<const int64_t> context_ids,
     absl::node_hash_map<int64_t, std::vector<Context>>& contexts) {
   return FindLinkedContextsMapImpl(
       context_ids, ParentContextTraverseDirection::kChild, contexts);
@@ -2425,7 +2424,7 @@ absl::Status RDBMSMetadataAccessObject::FindArtifacts(
 template <>
 absl::Status RDBMSMetadataAccessObject::ListNodeIds<Artifact>(
     const ListOperationOptions& options,
-    absl::optional<absl::Span<const int64_t>> candidate_ids,
+    std::optional<absl::Span<const int64_t>> candidate_ids,
     RecordSet* record_set) {
   return executor_->ListArtifactIDsUsingOptions(options, candidate_ids,
                                                 record_set);
@@ -2434,7 +2433,7 @@ absl::Status RDBMSMetadataAccessObject::ListNodeIds<Artifact>(
 template <>
 absl::Status RDBMSMetadataAccessObject::ListNodeIds<Execution>(
     const ListOperationOptions& options,
-    absl::optional<absl::Span<const int64_t>> candidate_ids,
+    std::optional<absl::Span<const int64_t>> candidate_ids,
     RecordSet* record_set) {
   return executor_->ListExecutionIDsUsingOptions(options, candidate_ids,
                                                  record_set);
@@ -2443,7 +2442,7 @@ absl::Status RDBMSMetadataAccessObject::ListNodeIds<Execution>(
 template <>
 absl::Status RDBMSMetadataAccessObject::ListNodeIds<Context>(
     const ListOperationOptions& options,
-    absl::optional<absl::Span<const int64_t>> candidate_ids,
+    std::optional<absl::Span<const int64_t>> candidate_ids,
     RecordSet* record_set) {
   return executor_->ListContextIDsUsingOptions(options, candidate_ids,
                                                record_set);
@@ -2452,7 +2451,7 @@ absl::Status RDBMSMetadataAccessObject::ListNodeIds<Context>(
 template <typename Node>
 absl::Status RDBMSMetadataAccessObject::ListNodes(
     const ListOperationOptions& options,
-    absl::optional<absl::Span<const int64_t>> candidate_ids,
+    std::optional<absl::Span<const int64_t>> candidate_ids,
     std::vector<Node>* nodes, std::string* next_page_token) {
   if (options.max_result_size() <= 0) {
     return absl::InvalidArgumentError(
@@ -2544,7 +2543,7 @@ absl::Status RDBMSMetadataAccessObject::FindArtifactByTypeIdAndArtifactName(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindArtifactsByTypeId(
-    const int64_t type_id, absl::optional<ListOperationOptions> list_options,
+    const int64_t type_id, std::optional<ListOperationOptions> list_options,
     std::vector<Artifact>* artifacts, std::string* next_page_token) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(
@@ -2596,7 +2595,7 @@ absl::Status RDBMSMetadataAccessObject::FindExecutionByTypeIdAndExecutionName(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindExecutionsByTypeId(
-    const int64_t type_id, absl::optional<ListOperationOptions> list_options,
+    const int64_t type_id, std::optional<ListOperationOptions> list_options,
     std::vector<Execution>* executions, std::string* next_page_token) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(
@@ -2626,7 +2625,7 @@ absl::Status RDBMSMetadataAccessObject::FindContexts(
 }
 
 absl::Status RDBMSMetadataAccessObject::FindContextsByTypeId(
-    const int64_t type_id, absl::optional<ListOperationOptions> list_options,
+    const int64_t type_id, std::optional<ListOperationOptions> list_options,
     std::vector<Context>* contexts, std::string* next_page_token) {
   RecordSet record_set;
   MLMD_RETURN_IF_ERROR(executor_->SelectContextsByTypeID(type_id, &record_set));
@@ -2685,7 +2684,7 @@ absl::Status RDBMSMetadataAccessObject::FindContextByTypeIdAndContextName(
 
 template <typename Node>
 absl::Status RDBMSMetadataAccessObject::FilterBoundaryNodesImpl(
-    absl::optional<absl::string_view> node_filter,
+    std::optional<absl::string_view> node_filter,
     absl::flat_hash_set<int64_t>& boundary_node_ids) {
   if (!node_filter.has_value()) {
     return absl::OkStatus();
@@ -2743,7 +2742,7 @@ RDBMSMetadataAccessObject::FindEndingNodeIdsIfExists(
 
 absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
     const std::vector<Artifact>& input_artifacts, int64_t max_nodes,
-    absl::optional<std::string> boundary_condition,
+    std::optional<std::string> boundary_condition,
     const absl::flat_hash_set<int64_t>& visited_execution_ids,
     absl::flat_hash_set<int64_t>& visited_artifact_ids,
     std::vector<Execution>& output_executions, LineageGraph& subgraph) {
@@ -2885,7 +2884,7 @@ RDBMSMetadataAccessObject::ExpandLineageSubgraphImpl(
 
 absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
     const std::vector<Execution>& input_executions, int64_t max_nodes,
-    absl::optional<std::string> boundary_condition,
+    std::optional<std::string> boundary_condition,
     const absl::flat_hash_set<int64_t>& visited_artifact_ids,
     absl::flat_hash_set<int64_t>& visited_execution_ids,
     std::vector<Artifact>& output_artifacts, LineageGraph& subgraph) {
@@ -2935,9 +2934,9 @@ absl::Status RDBMSMetadataAccessObject::ExpandLineageGraphImpl(
 
 absl::Status RDBMSMetadataAccessObject::QueryLineageGraph(
     const std::vector<Artifact>& query_nodes, int64_t max_num_hops,
-    absl::optional<int64_t> max_nodes,
-    absl::optional<std::string> boundary_artifacts,
-    absl::optional<std::string> boundary_executions, LineageGraph& subgraph) {
+    std::optional<int64_t> max_nodes,
+    std::optional<std::string> boundary_artifacts,
+    std::optional<std::string> boundary_executions, LineageGraph& subgraph) {
   absl::c_copy(query_nodes,
                google::protobuf::RepeatedFieldBackInserter(subgraph.mutable_artifacts()));
   // Add nodes and edges

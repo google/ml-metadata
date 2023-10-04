@@ -14,6 +14,8 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/query_config_executor.h"
 
+#include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -573,9 +575,9 @@ absl::Status QueryConfigExecutor::InitMetadataSourceIfNotExists(
 }
 
 absl::Status QueryConfigExecutor::InsertArtifactType(
-    const std::string& name, absl::optional<absl::string_view> version,
-    absl::optional<absl::string_view> description,
-    absl::optional<absl::string_view> external_id, int64_t* type_id) {
+    const std::string& name, std::optional<absl::string_view> version,
+    std::optional<absl::string_view> description,
+    std::optional<absl::string_view> external_id, int64_t* type_id) {
   // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
   if (query_schema_version().has_value() &&
       query_schema_version().value() < kSchemaVersionNine) {
@@ -608,10 +610,10 @@ absl::Status QueryConfigExecutor::InsertArtifactType(
 }
 
 absl::Status QueryConfigExecutor::InsertExecutionType(
-    const std::string& name, absl::optional<absl::string_view> version,
-    absl::optional<absl::string_view> description,
+    const std::string& name, std::optional<absl::string_view> version,
+    std::optional<absl::string_view> description,
     const ArtifactStructType* input_type, const ArtifactStructType* output_type,
-    absl::optional<absl::string_view> external_id, int64_t* type_id) {
+    std::optional<absl::string_view> external_id, int64_t* type_id) {
   // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
   if (query_schema_version().has_value() &&
       query_schema_version().value() < kSchemaVersionNine) {
@@ -646,9 +648,9 @@ absl::Status QueryConfigExecutor::InsertExecutionType(
 }
 
 absl::Status QueryConfigExecutor::InsertContextType(
-    const std::string& name, absl::optional<absl::string_view> version,
-    absl::optional<absl::string_view> description,
-    absl::optional<absl::string_view> external_id, int64_t* type_id) {
+    const std::string& name, std::optional<absl::string_view> version,
+    std::optional<absl::string_view> description,
+    std::optional<absl::string_view> external_id, int64_t* type_id) {
   // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
   if (query_schema_version().has_value() &&
       query_schema_version().value() < kSchemaVersionNine) {
@@ -721,7 +723,7 @@ absl::Status QueryConfigExecutor::SelectTypesByExternalIds(
 }
 
 absl::Status QueryConfigExecutor::SelectTypeByNameAndVersion(
-    absl::string_view type_name, absl::optional<absl::string_view> type_version,
+    absl::string_view type_name, std::optional<absl::string_view> type_version,
     TypeKind type_kind, RecordSet* record_set) {
   // TODO(b/248836219): Cleanup the fat-client after fully migrated to V9+.
   if (type_version && !type_version->empty()) {
@@ -801,7 +803,7 @@ absl::Status QueryConfigExecutor::SelectAllTypes(TypeKind type_kind,
 template <typename Node>
 absl::Status QueryConfigExecutor::ListNodeIDsUsingOptions(
     const ListOperationOptions& options,
-    absl::optional<absl::Span<const int64_t>> candidate_ids,
+    std::optional<absl::Span<const int64_t>> candidate_ids,
     RecordSet* record_set) {
   // Skip query if candidate_ids are set with an empty collection.
   if (candidate_ids && candidate_ids->empty()) {
@@ -811,7 +813,7 @@ absl::Status QueryConfigExecutor::ListNodeIDsUsingOptions(
   int64_t query_version = query_schema_version().has_value()
                             ? query_schema_version().value()
                             : kSchemaVersionTen;
-  absl::optional<absl::string_view> node_table_alias;
+  std::optional<absl::string_view> node_table_alias;
   if (std::is_same<Node, Artifact>::value) {
     sql_query = "SELECT `id` FROM `Artifact` WHERE";
   } else if (std::is_same<Node, Execution>::value) {
@@ -868,21 +870,21 @@ absl::Status QueryConfigExecutor::ListNodeIDsUsingOptions(
 
 absl::Status QueryConfigExecutor::ListArtifactIDsUsingOptions(
     const ListOperationOptions& options,
-    absl::optional<absl::Span<const int64_t>> candidate_ids,
+    std::optional<absl::Span<const int64_t>> candidate_ids,
     RecordSet* record_set) {
   return ListNodeIDsUsingOptions<Artifact>(options, candidate_ids, record_set);
 }
 
 absl::Status QueryConfigExecutor::ListExecutionIDsUsingOptions(
     const ListOperationOptions& options,
-    absl::optional<absl::Span<const int64_t>> candidate_ids,
+    std::optional<absl::Span<const int64_t>> candidate_ids,
     RecordSet* record_set) {
   return ListNodeIDsUsingOptions<Execution>(options, candidate_ids, record_set);
 }
 
 absl::Status QueryConfigExecutor::ListContextIDsUsingOptions(
     const ListOperationOptions& options,
-    absl::optional<absl::Span<const int64_t>> candidate_ids,
+    std::optional<absl::Span<const int64_t>> candidate_ids,
     RecordSet* record_set) {
   return ListNodeIDsUsingOptions<Context>(options, candidate_ids, record_set);
 }

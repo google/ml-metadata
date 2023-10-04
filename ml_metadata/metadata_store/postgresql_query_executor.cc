@@ -12,6 +12,7 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/postgresql_query_executor.h"
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -721,9 +722,9 @@ absl::Status PostgreSQLQueryExecutor::InitMetadataSourceIfNotExists(
   return InitMetadataSource();
 }
 absl::Status PostgreSQLQueryExecutor::InsertArtifactType(
-    const std::string& name, absl::optional<absl::string_view> version,
-    absl::optional<absl::string_view> description,
-    absl::optional<absl::string_view> external_id, int64_t* type_id) {
+    const std::string& name, std::optional<absl::string_view> version,
+    std::optional<absl::string_view> description,
+    std::optional<absl::string_view> external_id, int64_t* type_id) {
   if (external_id.has_value()) {
     RecordSet record;
     MLMD_RETURN_IF_ERROR(
@@ -742,10 +743,10 @@ absl::Status PostgreSQLQueryExecutor::InsertArtifactType(
       type_id);
 }
 absl::Status PostgreSQLQueryExecutor::InsertExecutionType(
-    const std::string& name, absl::optional<absl::string_view> version,
-    absl::optional<absl::string_view> description,
+    const std::string& name, std::optional<absl::string_view> version,
+    std::optional<absl::string_view> description,
     const ArtifactStructType* input_type, const ArtifactStructType* output_type,
-    absl::optional<absl::string_view> external_id, int64_t* type_id) {
+    std::optional<absl::string_view> external_id, int64_t* type_id) {
   if (external_id.has_value()) {
     RecordSet record;
     MLMD_RETURN_IF_ERROR(
@@ -765,9 +766,9 @@ absl::Status PostgreSQLQueryExecutor::InsertExecutionType(
       type_id);
 }
 absl::Status PostgreSQLQueryExecutor::InsertContextType(
-    const std::string& name, absl::optional<absl::string_view> version,
-    absl::optional<absl::string_view> description,
-    absl::optional<absl::string_view> external_id, int64_t* type_id) {
+    const std::string& name, std::optional<absl::string_view> version,
+    std::optional<absl::string_view> description,
+    std::optional<absl::string_view> external_id, int64_t* type_id) {
   if (external_id.has_value()) {
     RecordSet record;
     MLMD_RETURN_IF_ERROR(
@@ -805,7 +806,7 @@ absl::Status PostgreSQLQueryExecutor::SelectTypesByExternalIds(
                       {Bind(external_ids), Bind(type_kind)}, record_set);
 }
 absl::Status PostgreSQLQueryExecutor::SelectTypeByNameAndVersion(
-    absl::string_view type_name, absl::optional<absl::string_view> type_version,
+    absl::string_view type_name, std::optional<absl::string_view> type_version,
     TypeKind type_kind, RecordSet* record_set) {
   if (type_version && !type_version->empty()) {
     return ExecuteQuery(query_config_.select_type_by_name_and_version(),
@@ -861,7 +862,7 @@ absl::Status PostgreSQLQueryExecutor::SelectAllTypes(TypeKind type_kind,
 template <typename Node>
 absl::Status PostgreSQLQueryExecutor::ListNodeIDsUsingOptions(
     const ListOperationOptions& options,
-    absl::optional<absl::Span<const int64_t>> candidate_ids,
+    std::optional<absl::Span<const int64_t>> candidate_ids,
     RecordSet* record_set) {
   // Skip query if candidate_ids are set with an empty collection.
   if (candidate_ids && candidate_ids->empty()) {
@@ -871,7 +872,7 @@ absl::Status PostgreSQLQueryExecutor::ListNodeIDsUsingOptions(
   int64_t query_version = query_schema_version().has_value()
                               ? query_schema_version().value()
                               : kSchemaVersionTen;
-  absl::optional<absl::string_view> node_table_alias;
+  std::optional<absl::string_view> node_table_alias;
   if (std::is_same<Node, Artifact>::value) {
     sql_query = "SELECT id FROM Artifact WHERE";
   } else if (std::is_same<Node, Execution>::value) {
@@ -931,19 +932,19 @@ absl::Status PostgreSQLQueryExecutor::ListNodeIDsUsingOptions(
 }
 absl::Status PostgreSQLQueryExecutor::ListArtifactIDsUsingOptions(
     const ListOperationOptions& options,
-    absl::optional<absl::Span<const int64_t>> candidate_ids,
+    std::optional<absl::Span<const int64_t>> candidate_ids,
     RecordSet* record_set) {
   return ListNodeIDsUsingOptions<Artifact>(options, candidate_ids, record_set);
 }
 absl::Status PostgreSQLQueryExecutor::ListExecutionIDsUsingOptions(
     const ListOperationOptions& options,
-    absl::optional<absl::Span<const int64_t>> candidate_ids,
+    std::optional<absl::Span<const int64_t>> candidate_ids,
     RecordSet* record_set) {
   return ListNodeIDsUsingOptions<Execution>(options, candidate_ids, record_set);
 }
 absl::Status PostgreSQLQueryExecutor::ListContextIDsUsingOptions(
     const ListOperationOptions& options,
-    absl::optional<absl::Span<const int64_t>> candidate_ids,
+    std::optional<absl::Span<const int64_t>> candidate_ids,
     RecordSet* record_set) {
   return ListNodeIDsUsingOptions<Context>(options, candidate_ids, record_set);
 }

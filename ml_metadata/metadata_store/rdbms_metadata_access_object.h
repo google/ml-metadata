@@ -222,17 +222,17 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
       std::vector<ContextType>& context_types) final;
 
   absl::Status FindTypeByNameAndVersion(
-      absl::string_view name, absl::optional<absl::string_view> version,
+      absl::string_view name, std::optional<absl::string_view> version,
       ArtifactType* artifact_type) final;
   absl::Status FindTypeByNameAndVersion(
-      absl::string_view name, absl::optional<absl::string_view> version,
+      absl::string_view name, std::optional<absl::string_view> version,
       ExecutionType* execution_type) final;
   absl::Status FindTypeByNameAndVersion(
-      absl::string_view name, absl::optional<absl::string_view> version,
+      absl::string_view name, std::optional<absl::string_view> version,
       ContextType* context_type) final;
 
   absl::Status FindTypeIdByNameAndVersion(
-      absl::string_view name, absl::optional<absl::string_view> version,
+      absl::string_view name, std::optional<absl::string_view> version,
       TypeKind type_kind, int64_t* type_id) final;
 
   absl::Status FindTypesByNamesAndVersions(
@@ -305,7 +305,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   absl::Status FindArtifactsByTypeId(
       int64_t artifact_type_id,
-      absl::optional<ListOperationOptions> list_options,
+      std::optional<ListOperationOptions> list_options,
       std::vector<Artifact>* artifacts, std::string* next_page_token) final;
 
   absl::Status FindArtifactByTypeIdAndArtifactName(int64_t type_id,
@@ -355,7 +355,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
 
   absl::Status FindExecutionsByTypeId(
       int64_t execution_type_id,
-      absl::optional<ListOperationOptions> list_options,
+      std::optional<ListOperationOptions> list_options,
       std::vector<Execution>* executions, std::string* next_page_token) final;
 
   absl::Status UpdateExecution(const Execution& execution) final;
@@ -394,7 +394,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status FindContexts(std::vector<Context>* contexts) final;
 
   absl::Status FindContextsByTypeId(
-      int64_t type_id, absl::optional<ListOperationOptions> list_options,
+      int64_t type_id, std::optional<ListOperationOptions> list_options,
       std::vector<Context>* contexts, std::string* next_page_token) final;
 
   absl::Status FindContextByTypeIdAndContextName(int64_t type_id,
@@ -442,7 +442,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
       int64_t context_id, std::vector<Execution>* executions) final;
 
   absl::Status FindExecutionsByContext(
-      int64_t context_id, absl::optional<ListOperationOptions> list_options,
+      int64_t context_id, std::optional<ListOperationOptions> list_options,
       std::vector<Execution>* executions, std::string* next_page_token) final;
 
   absl::Status CreateAttribution(const Attribution& attribution,
@@ -459,7 +459,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
                                       std::vector<Artifact>* artifacts) final;
 
   absl::Status FindArtifactsByContext(
-      int64_t context_id, absl::optional<ListOperationOptions> list_options,
+      int64_t context_id, std::optional<ListOperationOptions> list_options,
       std::vector<Artifact>* artifacts, std::string* next_page_token) final;
 
   absl::Status CreateParentContext(const ParentContext& parent_context) final;
@@ -471,11 +471,11 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
       int64_t context_id, std::vector<Context>* contexts) final;
 
   absl::Status FindParentContextsByContextIds(
-      const std::vector<int64_t>& context_ids,
+      absl::Span<const int64_t> context_ids,
       absl::node_hash_map<int64_t, std::vector<Context>>& contexts) final;
 
   absl::Status FindChildContextsByContextIds(
-      const std::vector<int64_t>& context_ids,
+      absl::Span<const int64_t> context_ids,
       absl::node_hash_map<int64_t, std::vector<Context>>& contexts) final;
 
   absl::Status GetSchemaVersion(int64_t* db_version) final {
@@ -490,12 +490,12 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // TODO(b/178491112) Returns contexts in the returned subgraphs.
   // TODO(b/283852485): Deprecate GetLineageGraph API after migration to
   // GetLineageSubgraph API.
-  absl::Status QueryLineageGraph(
-      const std::vector<Artifact>& query_nodes, int64_t max_num_hops,
-      absl::optional<int64_t> max_nodes,
-      absl::optional<std::string> boundary_artifacts,
-      absl::optional<std::string> boundary_executions,
-      LineageGraph& subgraph) final;
+  absl::Status QueryLineageGraph(const std::vector<Artifact>& query_nodes,
+                                 int64_t max_num_hops,
+                                 std::optional<int64_t> max_nodes,
+                                 std::optional<std::string> boundary_artifacts,
+                                 std::optional<std::string> boundary_executions,
+                                 LineageGraph& subgraph) final;
 
   // TODO(b/283852485): migrate from QueryLineageGraph to QueryLineageSubgraph.
   // Given the `lineage_subgraph_query_options`, performs a constrained BFS
@@ -749,7 +749,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // Returns detailed INTERNAL error, if query execution fails.
   template <typename MessageType>
   absl::Status FindTypeImpl(absl::string_view name,
-                            absl::optional<absl::string_view> version,
+                            std::optional<absl::string_view> version,
                             MessageType* type);
 
   // Finds types by the given `names_and_versions`.
@@ -872,7 +872,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   template <typename Node>
   absl::Status ListNodeIds(
       const ListOperationOptions& options,
-      absl::optional<absl::Span<const int64_t>> candidate_ids,
+      std::optional<absl::Span<const int64_t>> candidate_ids,
       RecordSet* record_set);
 
   // Gets nodes stored in the metadata source using `options`.
@@ -892,10 +892,10 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // 2. Direction of ordering is not specified for the order_by_field.
   // 3. next_page_token cannot be decoded.
   template <typename Node>
-  absl::Status ListNodes(
-      const ListOperationOptions& options,
-      absl::optional<absl::Span<const int64_t>> candidate_ids,
-      std::vector<Node>* nodes, std::string* next_page_token);
+  absl::Status ListNodes(const ListOperationOptions& options,
+                         std::optional<absl::Span<const int64_t>> candidate_ids,
+                         std::vector<Node>* nodes,
+                         std::string* next_page_token);
 
   // Traverse a ParentContext relation to look for parent or child context.
   enum class ParentContextTraverseDirection { kParent, kChild };
@@ -927,7 +927,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // maintains previously visited and the newly visited `input_artifacts`.
   absl::Status ExpandLineageGraphImpl(
       const std::vector<Artifact>& input_artifacts, int64_t max_nodes,
-      absl::optional<std::string> boundary_condition,
+      std::optional<std::string> boundary_condition,
       const absl::flat_hash_set<int64_t>& visited_execution_ids,
       absl::flat_hash_set<int64_t>& visited_artifact_ids,
       std::vector<Execution>& output_executions, LineageGraph& subgraph);
@@ -943,7 +943,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // maintains previously visited and the newly visited `input_executions`.
   absl::Status ExpandLineageGraphImpl(
       const std::vector<Execution>& input_executions, int64_t max_nodes,
-      absl::optional<std::string> boundary_condition,
+      std::optional<std::string> boundary_condition,
       const absl::flat_hash_set<int64_t>& visited_artifact_ids,
       absl::flat_hash_set<int64_t>& visited_execution_ids,
       std::vector<Artifact>& output_artifacts, LineageGraph& subgraph);
@@ -984,7 +984,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // Returns detailed INTERNAL error, if filtering boundary nodes fails.
   template <typename Node>
   absl::Status FilterBoundaryNodesImpl(
-      absl::optional<absl::string_view> node_filter,
+      std::optional<absl::string_view> node_filter,
       absl::flat_hash_set<int64_t>& boundary_node_ids);
 
   // Given a list of node ids, finds nodes that satisfy the `filter_query` in

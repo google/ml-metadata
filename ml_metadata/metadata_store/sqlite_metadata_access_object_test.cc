@@ -14,7 +14,9 @@ limitations under the License.
 ==============================================================================*/
 // Test suite for a SqliteMetadataSource based MetadataAccessObject.
 
+#include <cstdint>
 #include <memory>
+#include <optional>
 
 #include <glog/logging.h>
 #include <gmock/gmock.h>
@@ -40,7 +42,7 @@ class SqliteMetadataAccessObjectContainer
     : public QueryConfigMetadataAccessObjectContainer {
  public:
   SqliteMetadataAccessObjectContainer(
-      absl::optional<int64_t> earlier_schema_version = absl::nullopt)
+      std::optional<int64_t> earlier_schema_version = absl::nullopt)
       : QueryConfigMetadataAccessObjectContainer(
             util::GetSqliteMetadataSourceQueryConfig(),
             earlier_schema_version) {

@@ -12,6 +12,9 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
+#include <cstdint>
+#include <optional>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/strings/substitute.h"
@@ -50,7 +53,7 @@ class PostgresqlMetadataAccessObjectContainer
     : public MetadataAccessObjectContainer {
  public:
   PostgresqlMetadataAccessObjectContainer(
-      absl::optional<int64_t> earlier_schema_version = absl::nullopt)
+      std::optional<int64_t> earlier_schema_version = absl::nullopt)
       : MetadataAccessObjectContainer() {
     testing_schema_version_ = earlier_schema_version;
     config_ = util::GetPostgreSQLMetadataSourceQueryConfig();
@@ -75,7 +78,7 @@ class PostgresqlMetadataAccessObjectContainer
     return metadata_access_object_.get();
   }
 
-  absl::optional<int64_t> GetSchemaVersion() final {
+  std::optional<int64_t> GetSchemaVersion() final {
     return testing_schema_version_;
   }
 
@@ -299,7 +302,7 @@ class PostgresqlMetadataAccessObjectContainer
 
   MetadataSourceQueryConfig config_;
   // If not set, by default, we test against the head version.
-  absl::optional<int64_t> testing_schema_version_;
+  std::optional<int64_t> testing_schema_version_;
 };
 
 }  // namespace

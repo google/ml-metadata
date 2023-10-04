@@ -14,10 +14,13 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/list_operation_query_helper.h"
 
+#include <optional>
+
 #include <glog/logging.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/strings/escaping.h"
+#include "absl/strings/string_view.h"
 #include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
 
@@ -45,10 +48,9 @@ ListOperationNextPageToken BasicListOperationNextPageToken() {
   )pb");
 }
 
-void VerifyAppendOrderingThreshold(
-    const ListOperationOptions& options,
-    absl::optional<absl::string_view> table_alias,
-    absl::string_view expected_clause) {
+void VerifyAppendOrderingThreshold(const ListOperationOptions& options,
+                                   std::optional<absl::string_view> table_alias,
+                                   absl::string_view expected_clause) {
   std::string where_clause;
   ASSERT_EQ(absl::OkStatus(),
             AppendOrderingThresholdClause(options, table_alias, where_clause));
@@ -56,7 +58,7 @@ void VerifyAppendOrderingThreshold(
 }
 
 void VerifyAppendOrderBy(const ListOperationOptions& options,
-                         absl::optional<absl::string_view> table_alias,
+                         std::optional<absl::string_view> table_alias,
                          absl::string_view expected_clause) {
   std::string order_by_clause;
   ASSERT_EQ(absl::OkStatus(),

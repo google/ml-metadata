@@ -14,6 +14,9 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/list_operation_query_helper.h"
 
+#include <cstdint>
+#include <optional>
+
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -66,7 +69,7 @@ absl::Status ValidateAndDecodeNextPageToken(
 }
 
 // Returns a proper name to refer a column.
-std::string GetColumnName(absl::optional<absl::string_view> table_alias,
+std::string GetColumnName(std::optional<absl::string_view> table_alias,
                           absl::string_view column_name) {
   return table_alias ? absl::StrCat(*table_alias, ".`", column_name, "`")
                      : absl::StrCat("`", column_name, "`");
@@ -76,7 +79,7 @@ std::string GetColumnName(absl::optional<absl::string_view> table_alias,
 // specified.
 absl::Status ConstructOrderingFieldClause(
     const ListOperationOptions& options,
-    absl::optional<absl::string_view> table_alias, int64_t field_offset,
+    std::optional<absl::string_view> table_alias, int64_t field_offset,
     std::string& ordering_clause) {
   std::string column_name;
   MLMD_RETURN_IF_ERROR(GetDbColumnNameForProtoField(
@@ -95,9 +98,9 @@ absl::Status ConstructOrderingFieldClause(
 }
 
 // Constructs the WHERE clause on the id field for CREATE_TIME ordering.
-std::string ConstructIdOrderCaluse(
-    const ListOperationOptions& options,
-    absl::optional<absl::string_view> table_alias, int64_t id_offset) {
+std::string ConstructIdOrderCaluse(const ListOperationOptions& options,
+                                   std::optional<absl::string_view> table_alias,
+                                   int64_t id_offset) {
   return absl::Substitute("$0 $1 $2 ", GetColumnName(table_alias, "id"),
                           options.order_by_field().is_asc() ? ">" : "<",
                           id_offset);
@@ -106,7 +109,7 @@ std::string ConstructIdOrderCaluse(
 // Constructs the WHERE clause on the id field for LAST_UPDATE_TIME ordering.
 absl::Status ConstructIdNotInCaluse(
     absl::Span<const int64_t> listed_ids,
-    absl::optional<absl::string_view> table_alias, std::string& not_in_clause) {
+    std::optional<absl::string_view> table_alias, std::string& not_in_clause) {
   if (listed_ids.empty()) {
     return absl::InternalError(
         "Invalid NextPageToken in List Operation. listed_ids field should not "
@@ -122,7 +125,7 @@ absl::Status ConstructIdNotInCaluse(
 // if the ordering field is CREATE_TIME or LAST_UPDATE_TIME.
 absl::Status ConstructIdClause(
     const ListOperationOptions& options,
-    absl::optional<absl::string_view> table_alias,
+    std::optional<absl::string_view> table_alias,
     const ListOperationNextPageToken& next_page_token, std::string& id_clause) {
   switch (options.order_by_field().field()) {
     case ListOperationOptions::OrderByField::CREATE_TIME:
@@ -156,7 +159,7 @@ absl::Status ConstructIdClause(
 
 absl::Status AppendOrderingThresholdClause(
     const ListOperationOptions& options,
-    absl::optional<absl::string_view> table_alias,
+    std::optional<absl::string_view> table_alias,
     std::string& sql_query_clause) {
   std::string field_clause, id_clause;
 
@@ -185,7 +188,7 @@ absl::Status AppendOrderingThresholdClause(
 }
 
 absl::Status AppendOrderByClause(const ListOperationOptions& options,
-                                 absl::optional<absl::string_view> table_alias,
+                                 std::optional<absl::string_view> table_alias,
                                  std::string& sql_query_clause) {
   const std::string ordering_direction =
       options.order_by_field().is_asc() ? "ASC" : "DESC";
