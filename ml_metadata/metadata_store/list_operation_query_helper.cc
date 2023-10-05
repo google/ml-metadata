@@ -111,7 +111,7 @@ absl::Status ConstructIdNotInCaluse(
     absl::Span<const int64_t> listed_ids,
     std::optional<absl::string_view> table_alias, std::string& not_in_clause) {
   if (listed_ids.empty()) {
-    return absl::InternalError(
+    return absl::InvalidArgumentError(
         "Invalid NextPageToken in List Operation. listed_ids field should not "
         "be empty.");
   }

@@ -839,7 +839,7 @@ absl::Status QueryConfigExecutor::ListNodeIDsUsingOptions(
     const absl::Status sql_gen_status =
         ast_resolver.GetAst()->Accept(&query_builder);
     if (!sql_gen_status.ok()) {
-      return absl::InternalError(
+      return absl::InvalidArgumentError(
           absl::StrCat("Failed to construct valid SQL from `filter_query`: ",
                        sql_gen_status.message()));
     }
