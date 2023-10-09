@@ -12,7 +12,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
-#include "ml_metadata/metadata_store/record_parsing_utils.h"
+#include "ml_metadata/util/record_parsing_utils.h"
 
 #include <glog/logging.h>
 #include "google/protobuf/util/json_util.h"

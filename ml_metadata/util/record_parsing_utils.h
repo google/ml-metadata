@@ -12,8 +12,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
-#ifndef THIRD_PARTY_ML_METADATA_METADATA_STORE_RECORD_PARSING_UTILS_H_
-#define THIRD_PARTY_ML_METADATA_METADATA_STORE_RECORD_PARSING_UTILS_H_
+#ifndef THIRD_PARTY_ML_METADATA_UTIL_RECORD_PARSING_UTILS_H_
+#define THIRD_PARTY_ML_METADATA_UTIL_RECORD_PARSING_UTILS_H_
 
 #include <vector>
 
@@ -46,28 +46,28 @@ absl::Status ParseRecordSetToNodeArray(
     const CustomColumnParser& parser = CustomColumnParser());
 
 // Converts `record_set` to an Execution array.
-// Returns OK and the parsed result is outputted by `output_artifacts`.
+// Returns OK and the parsed result is outputted by `output_executions`.
 // Returns error when internal error happens.
 absl::Status ParseRecordSetToNodeArray(
     const RecordSet& record_set, std::vector<Execution>& output_executions,
     const CustomColumnParser& parser = CustomColumnParser());
 
 // Converts `record_set` to a Context array.
-// Returns OK and the parsed result is outputted by `output_artifacts`.
+// Returns OK and the parsed result is outputted by `output_contexts`.
 // Returns error when internal error happens.
 absl::Status ParseRecordSetToNodeArray(
     const RecordSet& record_set, std::vector<Context>& output_contexts,
     const CustomColumnParser& parser = CustomColumnParser());
 
 // Converts `record_set` to an Event array.
-// Returns OK and the parsed result is outputted by `output_artifacts`.
+// Returns OK and the parsed result is outputted by `output_events`.
 // Returns error when internal error happens.
 absl::Status ParseRecordSetToEdgeArray(
     const RecordSet& record_set, std::vector<Event>& output_events,
     const CustomColumnParser& parser = CustomColumnParser());
 
 // Converts `record_set` to an Association array.
-// Returns OK and the parsed result is outputted by `output_artifacts`.
+// Returns OK and the parsed result is outputted by `output_associations`.
 // Returns error when internal error happens.
 absl::Status ParseRecordSetToEdgeArray(
     const RecordSet& record_set, std::vector<Association>& output_associations);
@@ -101,4 +101,4 @@ absl::Status ParseNodeRecordSetToDedupedTypes(
 
 }  // namespace ml_metadata
 
-#endif  // THIRD_PARTY_ML_METADATA_METADATA_STORE_RECORD_PARSING_UTILS_H_
+#endif  // THIRD_PARTY_ML_METADATA_UTIL_RECORD_PARSING_UTILS_H_

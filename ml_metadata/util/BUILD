@@ -85,3 +85,32 @@ cc_test(
         "@com_google_protobuf//:protobuf",
     ],
 )
+
+cc_library(
+    name = "record_parsing_utils",
+    srcs = ["record_parsing_utils.cc"],
+    hdrs = ["record_parsing_utils.h"],
+    deps = [
+        ":return_utils",
+        
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "//ml_metadata/metadata_store:constants",
+        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_store_proto",
+        "@com_google_glog//:glog",
+    ],
+)
+
+cc_test(
+    name = "record_parsing_utils_test",
+    srcs = ["record_parsing_utils_test.cc"],
+    deps = [
+        ":record_parsing_utils",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/status",
+        "//ml_metadata/metadata_store:test_util",
+        "//ml_metadata/proto:metadata_store_proto",
+    ],
+)
