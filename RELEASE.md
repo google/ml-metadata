@@ -13,6 +13,8 @@
 
 ## Bug Fixed and Other Changes
 
+*   Depends on `attrs>=20.3,<24`.
+
 # Version 1.14.0
 
 ## Major Features and Improvements
