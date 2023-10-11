@@ -4581,6 +4581,172 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithContextReuseOption) {
                                  "last_update_time_since_epoch"})));
 }
 
+// Call PutExecution with `force_reuse_context`, and verify that the context
+// is not updated.
+TEST_P(MetadataStoreTestSuite, PutExecutionWithForceReuseContextOption) {
+  // Prepares input that consists of 1 execution and 1 context,
+  PutTypesRequest put_types_request = ParseTextProtoOrDie<PutTypesRequest>(R"pb(
+    context_types: { name: 'context_type' }
+    execution_types: { name: 'execution_type' })pb");
+  PutTypesResponse put_types_response;
+  ASSERT_EQ(metadata_store_->PutTypes(put_types_request, &put_types_response),
+            absl::OkStatus());
+  const int64_t context_type_id = put_types_response.context_type_ids(0);
+  const int64_t execution_type_id = put_types_response.execution_type_ids(0);
+
+  Context original_context;
+  original_context.set_type_id(context_type_id);
+  original_context.set_name("context");
+  (*original_context.mutable_custom_properties())["property1"].set_string_value(
+      "value1");
+
+  {
+    PutContextsRequest put_contexts_request;
+    *put_contexts_request.add_contexts() = original_context;
+    PutContextsResponse put_contexts_response;
+    ASSERT_EQ(metadata_store_->PutContexts(put_contexts_request,
+                                           &put_contexts_response),
+              absl::OkStatus());
+    ASSERT_EQ(put_contexts_response.context_ids().size(), 1);
+    original_context.set_id(put_contexts_response.context_ids(0));
+  }
+
+  Context modified_context;
+  modified_context.CopyFrom(original_context);
+  (*modified_context.mutable_custom_properties())["property1"].set_string_value(
+      "changed");
+  (*modified_context.mutable_custom_properties())["property2"].set_string_value(
+      "added");
+
+  PutExecutionRequest request;
+  request.mutable_execution()->set_type_id(execution_type_id);
+  *request.add_contexts() = modified_context;
+  request.mutable_options()->set_force_reuse_context(true);
+
+  PutExecutionResponse response;
+  ASSERT_EQ(metadata_store_->PutExecution(request, &response),
+            absl::OkStatus());
+
+  // Check that the context was not modified.
+  GetContextsResponse get_contexts_response;
+  ASSERT_EQ(metadata_store_->GetContexts({}, &get_contexts_response),
+            absl::OkStatus());
+  ASSERT_THAT(get_contexts_response.contexts(), SizeIs(1));
+  const Context& stored_context = get_contexts_response.contexts(0);
+  EXPECT_THAT(stored_context, EqualsProto(original_context, /*ignore_fields=*/{
+                                              "type", "create_time_since_epoch",
+                                              "last_update_time_since_epoch"}));
+}
+
+// Call PutExecution with `force_reuse_context`, when the context does not
+// exist.
+TEST_P(MetadataStoreTestSuite,
+       PutExecutionWithForceReuseContextOptionContextDoesNotExist) {
+  // Prepares input that consists of 1 execution and 1 context,
+  PutTypesRequest put_types_request = ParseTextProtoOrDie<PutTypesRequest>(R"pb(
+    context_types: { name: 'context_type' }
+    execution_types: { name: 'execution_type' })pb");
+  PutTypesResponse put_types_response;
+  ASSERT_EQ(metadata_store_->PutTypes(put_types_request, &put_types_response),
+            absl::OkStatus());
+  const int64_t context_type_id = put_types_response.context_type_ids(0);
+  const int64_t execution_type_id = put_types_response.execution_type_ids(0);
+
+  Context context;
+  context.set_id(12345);  // Arbitrary ID. This context doesn't exist.
+  context.set_type_id(context_type_id);
+  context.set_name("context");
+
+  PutExecutionRequest request;
+  request.mutable_execution()->set_type_id(execution_type_id);
+  *request.add_contexts() = context;
+  request.mutable_options()->set_force_reuse_context(true);
+
+  PutExecutionResponse response;
+  EXPECT_TRUE(absl::IsNotFound(
+      metadata_store_->PutExecution(request, &response)));
+}
+
+// Call PutExecution with both `force_reuse_context` and
+// `force_reuse_context_if_exists`.
+TEST_P(MetadataStoreTestSuite,
+       PutExecutionWithForceReuseContextAndReuseContextIfAlreadyExistOptions) {
+  // Prepares input that consists of 1 execution and 1 context,
+  PutTypesRequest put_types_request = ParseTextProtoOrDie<PutTypesRequest>(R"pb(
+    context_types: { name: 'context_type' }
+    execution_types: { name: 'execution_type' })pb");
+  PutTypesResponse put_types_response;
+  ASSERT_EQ(metadata_store_->PutTypes(put_types_request, &put_types_response),
+            absl::OkStatus());
+  const int64_t context_type_id = put_types_response.context_type_ids(0);
+  const int64_t execution_type_id = put_types_response.execution_type_ids(0);
+
+  Context context_one;
+  context_one.set_type_id(context_type_id);
+  context_one.set_name("one");
+  (*context_one.mutable_custom_properties())["property1"].set_string_value(
+      "value1");
+
+  Context context_two;
+  context_two.set_type_id(context_type_id);
+  context_two.set_name("two");
+  (*context_two.mutable_custom_properties())["property2"].set_string_value(
+      "value2");
+
+  int64_t context_one_id;
+  int64_t context_two_id;
+  {
+    PutContextsRequest put_contexts_request;
+    *put_contexts_request.add_contexts() = context_one;
+    *put_contexts_request.add_contexts() = context_two;
+    PutContextsResponse put_contexts_response;
+    ASSERT_EQ(metadata_store_->PutContexts(put_contexts_request,
+                                           &put_contexts_response),
+              absl::OkStatus());
+    ASSERT_EQ(put_contexts_response.context_ids().size(), 2);
+    context_one_id = put_contexts_response.context_ids(0);
+    context_two_id = put_contexts_response.context_ids(1);
+  }
+
+  // modified_context_one has a context ID, so it won't be updated.
+  // modified_context_two has no context ID, but reuse_context_if_already_exist
+  // is set, and it matches the name and type ID of an exiting context, so it
+  // also won't be updated.
+  Context modified_context_one;
+  modified_context_one.CopyFrom(context_one);
+  modified_context_one.set_id(context_one_id);
+  (*modified_context_one.mutable_custom_properties())["property1"]
+      .set_string_value("changed1");
+  Context modified_context_two;
+  modified_context_two.CopyFrom(context_two);
+  (*modified_context_one.mutable_custom_properties())["property2"]
+      .set_string_value("changed2");
+
+  PutExecutionRequest request;
+  request.mutable_execution()->set_type_id(execution_type_id);
+  *request.add_contexts() = modified_context_one;
+  *request.add_contexts() = modified_context_two;
+  request.mutable_options()->set_force_reuse_context(true);
+  request.mutable_options()->set_reuse_context_if_already_exist(true);
+
+  PutExecutionResponse response;
+  ASSERT_EQ(metadata_store_->PutExecution(request, &response),
+            absl::OkStatus());
+
+  // Check that the contexts were not modified.
+  GetContextsResponse get_contexts_response;
+  ASSERT_EQ(metadata_store_->GetContexts({}, &get_contexts_response),
+            absl::OkStatus());
+  const std::vector<std::string> ignore_fields = {
+      "type", "create_time_since_epoch", "last_update_time_since_epoch"};
+  // Set the IDs for comparison.
+  context_one.set_id(context_one_id);
+  context_two.set_id(context_two_id);
+  EXPECT_THAT(get_contexts_response.contexts(),
+              UnorderedElementsAre(EqualsProto(context_one, ignore_fields),
+                                   EqualsProto(context_two, ignore_fields)));
+}
+
 TEST_P(MetadataStoreTestSuite, PutAndGetExecutionWithArtifactReuseOption) {
   // Setup: Prepares input that consists of 1 execution and 1 artifact,
   PutTypesRequest put_types_request = ParseTextProtoOrDie<PutTypesRequest>(R"pb(

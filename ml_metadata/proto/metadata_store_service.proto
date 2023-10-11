@@ -321,6 +321,12 @@ message PutExecutionRequest {
     // `execution.last_update_time_since_epoch` is force-updated even if input
     // execution is the same as stored execution.
     optional bool force_update_time = 3;
+
+    // If true, for contexts with a context.id, the stored context will NOT
+    // be updated. For such contexts, we will only look at the context.id.
+    // We will validate that it exists, and associate the context with the
+    // execution. If the context does not exist, a NotFound error is returned.
+    optional bool force_reuse_context = 4;
   }
   // The execution that produces many artifact and event pairs.
   optional Execution execution = 1;
@@ -328,7 +334,8 @@ message PutExecutionRequest {
   repeated ArtifactAndEvent artifact_event_pairs = 2;
   // A list of contexts associated with the execution and artifacts. For each
   // given context without a context.id, it inserts the context, otherwise it
-  // updates the stored context with the same id.
+  // updates the stored context with the same id (unless the option
+  // force_reuse_context is set).
   // Associations between each pair of contexts and the execution, and
   // attributions between each pair of contexts and artifacts are created if
   // they do not already exist.

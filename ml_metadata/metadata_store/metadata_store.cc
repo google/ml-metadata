@@ -1318,11 +1318,25 @@ absl::Status MetadataStore::PutExecution(const PutExecutionRequest& request,
     // 3. Upsert contexts and insert associations and attributions.
     for (const Context& context : request.contexts()) {
       int64_t context_id = -1;
-      const absl::Status status = UpsertContextWithOptions(
-          context, metadata_access_object_.get(),
-          request.options().reuse_context_if_already_exist(),
-          /*skip_type_and_property_validation=*/false, &context_id);
-      MLMD_RETURN_IF_ERROR(status);
+
+      if (context.has_id() && request.options().force_reuse_context()) {
+        context_id = context.id();
+        std::vector<Context> contexts;
+        const absl::Status status =
+            metadata_access_object_->FindContextsById({context_id}, &contexts);
+        MLMD_RETURN_IF_ERROR(status);
+        if ((contexts.size() != 1) || (contexts[0].id() != context_id)) {
+          return absl::NotFoundError(absl::StrCat(
+              "Context with ID ", context_id, " was not found in MLMD"));
+        }
+      } else {
+        const absl::Status status = UpsertContextWithOptions(
+            context, metadata_access_object_.get(),
+            request.options().reuse_context_if_already_exist(),
+            /*skip_type_and_property_validation=*/false, &context_id);
+        MLMD_RETURN_IF_ERROR(status);
+      }
+
       response->add_context_ids(context_id);
       MLMD_RETURN_IF_ERROR(InsertAssociationIfNotExist(
           context_id, response->execution_id(), /*is_already_validated=*/true,
