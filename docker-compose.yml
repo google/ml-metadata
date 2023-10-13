@@ -46,3 +46,12 @@ services:
       PYTHON_VERSION: 310
     volumes:
       - .:/build:delegated
+  manylinux-python311:
+    image: mlmd-build:manylinux2010
+    build:
+      context: .
+      dockerfile: ml_metadata/tools/docker_build/Dockerfile.manylinux2010
+    environment:
+      PYTHON_VERSION: 311
+    volumes:
+      - .:/build:delegated    
