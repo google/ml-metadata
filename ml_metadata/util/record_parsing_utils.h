@@ -17,10 +17,12 @@ limitations under the License.
 
 #include <vector>
 
+#include <glog/logging.h>
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "ml_metadata/proto/metadata_source.pb.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
+#include "ml_metadata/util/return_utils.h"
 
 namespace ml_metadata {
 
@@ -99,6 +101,59 @@ absl::Status ParseNodeRecordSetToDedupedTypes(
     std::vector<ContextType>& output_context_types,
     const CustomColumnParser& parser = CustomColumnParser());
 
+// -----------------------------------------------------------------------------
+// Implementation details follow. Parsing util users need not look further.
+
+// Parses and converts a string value to a specific field in a message.
+// If the given string `value` is NULL (encoded as kMetadataSourceNull), then
+// leave the field unset.
+// The field should be a scalar field. The field type must be one of {string,
+// int64_t, bool, enum, message}.
+absl::Status ParseValueToField(const google::protobuf::FieldDescriptor* field_descriptor,
+                               absl::string_view value,
+                               google::protobuf::Message& output_message);
+
+// Converts a RecordSet in the query result to a MessageType. In the record at
+// the `record_index`, its value of each column is assigned to a message field
+// with the same field name as the column name.
+template <typename MessageType>
+absl::Status ParseRecordSetToMessage(const RecordSet& record_set,
+                                     const int record_index,
+                                     MessageType& output_message,
+                                     const CustomColumnParser& parser) {
+  CHECK_LT(record_index, record_set.records_size());
+  const google::protobuf::Descriptor* descriptor = output_message.descriptor();
+  for (int i = 0; i < record_set.column_names_size(); i++) {
+    const std::string& column_name = record_set.column_names(i);
+    const google::protobuf::FieldDescriptor* field_descriptor =
+        descriptor->FindFieldByName(column_name);
+    const std::string& value = record_set.records(record_index).values(i);
+    if (field_descriptor != nullptr) {
+      MLMD_RETURN_IF_ERROR(
+          ParseValueToField(field_descriptor, value, output_message));
+    } else {
+      MLMD_RETURN_IF_ERROR(
+          parser.ParseIntoMessage(column_name, value, &output_message));
+    }
+  }
+  return absl::OkStatus();
+}
+
+// Extracts MessageType information from  `node_record_set`  to a deduped
+// MessageType array.
+// Returns OK and the parsed result is outputted by `output_messages`.
+// Returns ERROR when internal error happens.
+template <typename MessageType>
+absl::Status ParseRecordSetToMessageArray(
+    const RecordSet& record_set, std::vector<MessageType>& output_messages,
+    const CustomColumnParser& parser = CustomColumnParser()) {
+  for (int i = 0; i < record_set.records_size(); i++) {
+    output_messages.push_back(MessageType());
+    MLMD_RETURN_IF_ERROR(
+        ParseRecordSetToMessage(record_set, i, output_messages.back(), parser));
+  }
+  return absl::OkStatus();
+}
 }  // namespace ml_metadata
 
 #endif  // THIRD_PARTY_ML_METADATA_UTIL_RECORD_PARSING_UTILS_H_
