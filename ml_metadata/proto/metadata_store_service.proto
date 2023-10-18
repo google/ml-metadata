@@ -1110,9 +1110,8 @@ message GetLineageSubgraphRequest {
   // `read_mask` contains user specified paths of fields that should be included
   // in the returned lineage subgraph.
   //   Supported field paths are: 'artifacts', 'executions', 'contexts',
-  //   'artifact_types', 'execution_types', 'context_types', and 'events'.
-  //   TODO(b/283852485): Include 'associations' or 'attributions' in the
-  //     returned graph.
+  //   'artifact_types', 'execution_types', 'context_types', 'events',
+  //   'associations' and 'attributions'.
   //   If 'artifacts', 'executions', or 'contexts' is specified in `read_mask`,
   //     the dehydrated nodes will be included.
   //     Note: A dehydrated node means a node containing only its id and no
@@ -1120,7 +1119,8 @@ message GetLineageSubgraphRequest {
   //     node details later on.
   //   If 'artifact_types', 'execution_types', or 'context_types' is specified
   //     in `read_mask`, all the node types will be included.
-  //   If 'events' is specified in `read_mask`, the events will be included.
+  //   If 'events', 'associations', or 'attributions' is specified in
+  //     `read_mask`, the corresponding edges will be included.
   //   If `read_mask` is not set, the API will return all the fields in
   //     the returned graph.
   //   Note: Only paths of fields in LineageGraph message are supported. Paths

@@ -3328,7 +3328,6 @@ absl::Status RDBMSMetadataAccessObject::QueryLineageSubgraph(
     absl::c_copy(context_types, google::protobuf::RepeatedFieldBackInserter(
                                     subgraph.mutable_context_types()));
   }
-  // TODO(b/283852485): Support getting associations and attributions
   return absl::OkStatus();
 }
 

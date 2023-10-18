@@ -45,6 +45,8 @@ _EXECUTION_TYPES_FIELD_MASK_PATH = 'execution_types'
 _CONTEXTS_FIELD_MASK_PATH = 'contexts'
 _CONTEXT_TYPES_FIELD_MASK_PATH = 'context_types'
 _EVENTS_FIELD_MASK_PATH = 'events'
+_ASSOCIATIONS_FIELD_MASK_PATH = 'associations'
+_ATTRIBUTIONS_FIELD_MASK_PATH = 'attributions'
 
 
 @enum.unique
@@ -804,15 +806,16 @@ class MetadataStore(object):
         list of interested nodes (limited to 100). Please refer to
         LineageSubgraphQueryOptions for more details.
       field_mask_paths: a list of user specified paths of fields that should be
-        included in the returned lineage graph. If `field_mask_paths` is
-        specified and non-empty: 1. If 'artifacts', 'executions', or 'contexts'
-        is specified in `read_mask`, the nodes with details will be included. 2.
-        If 'artifact_types', 'execution_types', or 'context_types' is specified
-        in `read_mask`, all the node types with matched `type_id` in nodes in
-        the returned graph will be included. 3. If 'events' is specified in
-        `read_mask`, the events will be included. TODO(b/283852485): Include
-        associations and attributions in the returned graph. If
-        `field_mask_paths` is unspecified or is empty, it will return all the
+        included in the returned lineage graph.
+        If `field_mask_paths` is specified and non-empty:
+          1. If 'artifacts', 'executions', or 'contexts' is specified in
+          `read_mask`, the nodes with details will be included.
+          2. If 'artifact_types', 'execution_types', or 'context_types' is
+          specified in `read_mask`, all the node types with matched `type_id`
+          in nodes in the returned graph will be included.
+          3. If 'events', 'associations', or 'attributions' is specified in
+          `read_mask`, the corresponding edges will be included.
+        If `field_mask_paths` is unspecified or is empty, it will return all the
         fields in the returned graph.
       extra_options: ExtraOptions instance.
 
@@ -884,7 +887,13 @@ class MetadataStore(object):
 
     if _EVENTS_FIELD_MASK_PATH in field_mask_paths:
       lineage_subgraph.events.extend(skeleton.events)
-    # TODO(b/283852485): Support getting associations and attributions
+
+    if _ASSOCIATIONS_FIELD_MASK_PATH in field_mask_paths:
+      lineage_subgraph.associations.extend(skeleton.associations)
+
+    if _ATTRIBUTIONS_FIELD_MASK_PATH in field_mask_paths:
+      lineage_subgraph.attributions.extend(skeleton.attributions)
+
     return lineage_subgraph
 
   def get_artifacts_by_type(

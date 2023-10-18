@@ -2068,7 +2068,8 @@ class MetadataStoreTest(parameterized.TestCase):
                      output_event_for_new_execution.type)
 
     # Test get_lineage_subgraph() with max_num_hops = 10 and field mask paths =
-    # ["events"], the whole lineage subgraph skeleton will be returned.
+    # ["events", "associations", "attributions"], the whole lineage subgraph
+    # skeleton will be returned.
     query_options = metadata_store_pb2.LineageSubgraphQueryOptions(
         starting_artifacts=metadata_store_pb2.LineageSubgraphQueryOptions.StartingNodes(
             filter_query="uri = 'output_artifact'"
@@ -2076,16 +2077,18 @@ class MetadataStoreTest(parameterized.TestCase):
         max_num_hops=10,
     )
 
-    subgraph_skeleton = store.get_lineage_subgraph(query_options, ["events"])
+    subgraph_skeleton = store.get_lineage_subgraph(
+        query_options, ["events", "associations", "attributions"]
+    )
     self.assertEmpty(subgraph_skeleton.artifacts)
     self.assertEmpty(subgraph_skeleton.executions)
     self.assertEmpty(subgraph_skeleton.contexts)
-    self.assertLen(subgraph_skeleton.events, 4)
     self.assertEmpty(subgraph_skeleton.artifact_types)
     self.assertEmpty(subgraph_skeleton.execution_types)
     self.assertEmpty(subgraph_skeleton.context_types)
-    self.assertEmpty(subgraph_skeleton.associations)
-    self.assertEmpty(subgraph_skeleton.attributions)
+    self.assertLen(subgraph_skeleton.events, 4)
+    self.assertLen(subgraph_skeleton.associations, 4)
+    self.assertLen(subgraph_skeleton.attributions, 4)
 
     # Test get_lineage_subgraph() with max_num_hops = 10 and an empty
     # field_mask_paths list, the whole lineage subgraph with node details will
@@ -2106,7 +2109,6 @@ class MetadataStoreTest(parameterized.TestCase):
         [subgraph.contexts[0].name, subgraph.contexts[1].name],
         [existing_context.name, new_context.name],
     )
-    self.assertLen(subgraph.events, 4)
     self.assertLen(subgraph.artifact_types, 1)
     self.assertSameElements(
         [subgraph.artifact_types[0].name], [artifact_type.name]
@@ -2119,8 +2121,9 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertSameElements(
         [subgraph.context_types[0].name], [context_type.name]
     )
-    self.assertEmpty(subgraph.associations)
-    self.assertEmpty(subgraph.attributions)
+    self.assertLen(subgraph_skeleton.events, 4)
+    self.assertLen(subgraph_skeleton.associations, 4)
+    self.assertLen(subgraph_skeleton.attributions, 4)
 
     # Test get_lineage_subgraph() with max_num_hops = 0 from starting executions
     # filtered by context name. All the executions will be returned.
@@ -2146,7 +2149,7 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertLen(subgraph.execution_types, 1)
     self.assertLen(subgraph.context_types, 1)
     self.assertEmpty(subgraph.events)
-    self.assertEmpty(subgraph.associations)
+    self.assertLen(subgraph.associations, 4)
     self.assertEmpty(subgraph.attributions)
 
     # Test get_lineage_subgraph() with various field mask paths.
@@ -2163,10 +2166,10 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertEmpty(subgraph.artifacts)
     self.assertEmpty(subgraph.executions)
     self.assertEmpty(subgraph.contexts)
-    self.assertEmpty(subgraph.events)
     self.assertLen(subgraph.artifact_types, 1)
     self.assertLen(subgraph.execution_types, 1)
     self.assertLen(subgraph.context_types, 1)
+    self.assertEmpty(subgraph.events)
     self.assertEmpty(subgraph.associations)
     self.assertEmpty(subgraph.attributions)
 
@@ -2188,10 +2191,10 @@ class MetadataStoreTest(parameterized.TestCase):
         [subgraph.contexts[0].name, subgraph.contexts[1].name],
         [existing_context.name, new_context.name],
     )
-    self.assertEmpty(subgraph.events)
     self.assertEmpty(subgraph.artifact_types)
     self.assertEmpty(subgraph.execution_types)
     self.assertEmpty(subgraph.context_types)
+    self.assertEmpty(subgraph.events)
     self.assertEmpty(subgraph.associations)
     self.assertEmpty(subgraph.attributions)
 

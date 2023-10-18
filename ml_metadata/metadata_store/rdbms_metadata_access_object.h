@@ -523,11 +523,10 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   //     the dehydrated nodes will be included.
   //   If 'artifact_types', 'execution_types', or 'context_types' is specified
   //     in `read_mask`, all the node types will be included.
-  //   If 'events' is specified in `read_mask`, the events will be included.
+  //   If 'events', 'associations', or 'attributions' is specified in
+  //     `read_mask`, the corresponding edges will be included.
   //   Note: `read_mask` is a mask on fields from `LineageGraph`. Any other
   //   field path such as artifact.id, execution.name will not be supported.
-  // TODO(b/283852485): Include `attributions` and `associations` in the
-  // returned graph.
   // Returns INVALID_ARGUMENT error, if no paths are specified in `read_mask`.
   // Returns INVALID_ARGUMENT error, if `starting_nodes` is not specified in
   // `lineage_subgraph_query_options`.
