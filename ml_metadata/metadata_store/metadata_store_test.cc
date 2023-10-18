@@ -1000,7 +1000,11 @@ TEST(MetadataStoreExtendedTest, GetLineageSubgraphWithContexts) {
           absl::Span<const int64_t> expected_execution_ids,
           absl::Span<const int64_t> expected_context_ids,
           absl::Span<const std::pair<int64_t, int64_t>>
-              expected_node_index_pairs_in_events) {
+              expected_node_index_pairs_in_events,
+          absl::Span<const std::pair<int64_t, int64_t>>
+              expected_node_index_pairs_in_attributions,
+          absl::Span<const std::pair<int64_t, int64_t>>
+              expected_node_index_pairs_in_associations) {
         GetLineageSubgraphRequest req;
         GetLineageSubgraphResponse resp;
         req.mutable_lineage_subgraph_query_options()->Swap(&options);
@@ -1019,6 +1023,31 @@ TEST(MetadataStoreExtendedTest, GetLineageSubgraphWithContexts) {
                                expected_node_id_pairs_in_events);
         EXPECT_THAT(resp.lineage_subgraph().contexts(),
                     UnorderedPointwise(IdEquals(), expected_context_ids));
+
+        std::vector<Attribution> expected_attributions;
+        for (const auto& [artifact_index, context_index] :
+             expected_node_index_pairs_in_attributions) {
+          Attribution attribution;
+          attribution.set_artifact_id(want_artifacts.at(artifact_index).id());
+          attribution.set_context_id(want_contexts.at(context_index).id());
+          expected_attributions.push_back(attribution);
+        }
+        EXPECT_THAT(resp.lineage_subgraph().attributions(),
+                    UnorderedPointwise(EqualsProto<Attribution>(),
+                                       expected_attributions));
+
+        std::vector<Association> expected_associations;
+        for (const auto& [execution_index, context_index] :
+             expected_node_index_pairs_in_associations) {
+          Association association;
+          association.set_execution_id(
+              want_executions.at(execution_index).id());
+          association.set_context_id(want_contexts.at(context_index).id());
+          expected_associations.push_back(association);
+        }
+        EXPECT_THAT(resp.lineage_subgraph().associations(),
+                    UnorderedPointwise(EqualsProto<Association>(),
+                                       expected_associations));
       };
   LineageSubgraphQueryOptions base_options;
   base_options.set_direction(LineageSubgraphQueryOptions::DOWNSTREAM);
@@ -1031,7 +1060,8 @@ TEST(MetadataStoreExtendedTest, GetLineageSubgraphWithContexts) {
 
     verify_lineage_subgraph_with_contexts(
         options, {want_artifacts[0].id(), want_artifacts[1].id()}, {},
-        {want_contexts[0].id(), want_contexts[1].id()}, {});
+        {want_contexts[0].id(), want_contexts[1].id()}, {},
+        {{0, 0}, {1, 0}, {1, 1}}, {});
   }
   {
     // Start from context_0 and trace towards downstream in 1 hop.
@@ -1041,10 +1071,11 @@ TEST(MetadataStoreExtendedTest, GetLineageSubgraphWithContexts) {
     verify_lineage_subgraph_with_contexts(
         options, {want_artifacts[0].id(), want_artifacts[1].id()},
         {want_executions[0].id(), want_executions[1].id()},
-        {want_contexts[0].id(), want_contexts[1].id()}, {{0, 0}, {1, 1}});
+        {want_contexts[0].id(), want_contexts[1].id()}, {{0, 0}, {1, 1}},
+        {{0, 0}, {1, 0}, {1, 1}}, {{0, 0}, {1, 1}});
   }
   {
-    // Start from artifacts in context_0 and trace towards downstream in 2 hops.
+    // Start from artifacts in context_0 and trace towards downstream in 2 hops
     LineageSubgraphQueryOptions options = base_options;
     options.set_max_num_hops(2);
 
@@ -1054,7 +1085,8 @@ TEST(MetadataStoreExtendedTest, GetLineageSubgraphWithContexts) {
          want_artifacts[2].id()},
         {want_executions[0].id(), want_executions[1].id()},
         {want_contexts[0].id(), want_contexts[1].id(), want_contexts[2].id()},
-        {{0, 0}, {1, 0}, {1, 1}, {2, 1}});
+        {{0, 0}, {1, 0}, {1, 1}, {2, 1}},
+        {{0, 0}, {1, 0}, {1, 1}, {2, 1}, {2, 2}}, {{0, 0}, {1, 1}});
   }
   {
     // Start from artifacts in context_0 and trace towards downstream in 20 hops
@@ -1074,7 +1106,8 @@ TEST(MetadataStoreExtendedTest, GetLineageSubgraphWithContexts) {
          want_artifacts[2].id()},
         {want_executions[0].id(), want_executions[1].id()},
         {want_contexts[0].id(), want_contexts[1].id(), want_contexts[2].id()},
-        {{0, 0}, {1, 0}, {1, 1}, {2, 1}});
+        {{0, 0}, {1, 0}, {1, 1}, {2, 1}},
+        {{0, 0}, {1, 0}, {1, 1}, {2, 1}, {2, 2}}, {{0, 0}, {1, 1}});
   }
   {
     // Start from artifacts in context_0 and trace towards downstream in 20 hops
@@ -1090,7 +1123,7 @@ TEST(MetadataStoreExtendedTest, GetLineageSubgraphWithContexts) {
         options, {want_artifacts[0].id(), want_artifacts[1].id()},
         {want_executions[0].id(), want_executions[1].id()},
         {want_contexts[0].id(), want_contexts[1].id()},
-        {{0, 0}, {1, 0}, {1, 1}});
+        {{0, 0}, {1, 0}, {1, 1}}, {{0, 0}, {1, 0}, {1, 1}}, {{0, 0}, {1, 1}});
   }
   {
     // Start from artifacts in context_0 OR context_2 and trace towards
@@ -1105,7 +1138,7 @@ TEST(MetadataStoreExtendedTest, GetLineageSubgraphWithContexts) {
          want_artifacts[3].id()},
         {},
         {want_contexts[0].id(), want_contexts[1].id(), want_contexts[2].id()},
-        {});
+        {}, {{0, 0}, {1, 0}, {1, 1}, {2, 1}, {2, 2}, {3, 2}}, {});
   }
   {
     // Start from artifacts in context_0 OR context_2 and trace towards
@@ -1121,6 +1154,8 @@ TEST(MetadataStoreExtendedTest, GetLineageSubgraphWithContexts) {
         {want_executions[0].id(), want_executions[1].id(),
          want_executions[2].id()},
         {want_contexts[0].id(), want_contexts[1].id(), want_contexts[2].id()},
+        {{0, 0}, {1, 1}, {2, 2}},
+        {{0, 0}, {1, 0}, {1, 1}, {2, 1}, {2, 2}, {3, 2}},
         {{0, 0}, {1, 1}, {2, 2}});
   }
   {
@@ -1137,7 +1172,9 @@ TEST(MetadataStoreExtendedTest, GetLineageSubgraphWithContexts) {
         {want_executions[0].id(), want_executions[1].id(),
          want_executions[2].id()},
         {want_contexts[0].id(), want_contexts[1].id(), want_contexts[2].id()},
-        {{0, 0}, {1, 0}, {1, 1}, {2, 1}, {2, 2}, {3, 2}});
+        {{0, 0}, {1, 0}, {1, 1}, {2, 1}, {2, 2}, {3, 2}},
+        {{0, 0}, {1, 0}, {1, 1}, {2, 1}, {2, 2}, {3, 2}},
+        {{0, 0}, {1, 1}, {2, 2}});
   }
   {
     // Start from artifacts in context_0 AND context_1 and trace towards
@@ -1148,7 +1185,8 @@ TEST(MetadataStoreExtendedTest, GetLineageSubgraphWithContexts) {
 
     verify_lineage_subgraph_with_contexts(
         options, {want_artifacts[1].id()}, {},
-        {want_contexts[0].id(), want_contexts[1].id()}, {});
+        {want_contexts[0].id(), want_contexts[1].id()}, {}, {{1, 0}, {1, 1}},
+        {});
   }
 }
 

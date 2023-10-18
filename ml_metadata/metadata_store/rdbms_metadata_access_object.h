@@ -434,6 +434,17 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
                                  bool is_already_validated,
                                  int64_t* association_id) final;
 
+  absl::Status FindAssociationsByContexts(
+      absl::Span<const int64_t> context_ids,
+      std::vector<Association>* associations) final;
+
+  absl::Status FindAssociationsByExecutions(
+      absl::Span<const int64_t> execution_ids,
+      std::vector<Association>* associations) final;
+
+  absl::Status FindAttributionsByArtifacts(
+      absl::Span<const int64_t> artifact_ids,
+      std::vector<Attribution>* attributions) final;
 
   absl::Status FindContextsByExecution(int64_t execution_id,
                                        std::vector<Context>* contexts) final;
@@ -862,6 +873,13 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   absl::Status FindAssociationsFromRecordSet(
       const RecordSet& association_record_set,
       std::vector<Association>* associations);
+
+  // Takes a record set that has one record per attribution and parses it into
+  // an Attribution object for each record.
+  // Returns INVALID_ARGUMENT error, if the `attributions` is null.
+  absl::Status FindAttributionsFromRecordSet(
+      const RecordSet& attribution_record_set,
+      std::vector<Attribution>* attributions);
 
   // Gets the ids of the nodes based on 'options' and `candidate_ids`.
   // If `candidate_ids` is provided, then only the nodes with those ids are

@@ -250,6 +250,29 @@ TEST(ParseRecordSetTest, ParseRecordSetToAssociationArraySuccess) {
                           )pb"))));
 }
 
+TEST(ParseRecordSetTest, ParseRecordSetToAttributionArraySuccess) {
+  RecordSet record_set = ParseTextProtoOrDie<RecordSet>(
+      R"pb(
+        column_names: 'artifact_id'
+        column_names: 'context_id'
+        records { values: '1' values: '1' }
+        records { values: '2' values: '2' }
+      )pb");
+
+  std::vector<Attribution> attributions;
+  absl::Status status = ParseRecordSetToEdgeArray(record_set, attributions);
+  EXPECT_EQ(status, absl::OkStatus());
+  EXPECT_THAT(attributions,
+              ElementsAre(EqualsProto(ParseTextProtoOrDie<Attribution>(R"pb(
+                            artifact_id: 1
+                            context_id: 1
+                          )pb")),
+                          EqualsProto(ParseTextProtoOrDie<Attribution>(R"pb(
+                            artifact_id: 2
+                            context_id: 2
+                          )pb"))));
+}
+
 TEST(ParseRecordSetTest, MismatchRecordAndFieldNameIgnored) {
   RecordSet record_set = ParseTextProtoOrDie<RecordSet>(
       R"pb(

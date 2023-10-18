@@ -848,6 +848,31 @@ class MetadataAccessObject {
                                          bool is_already_validated,
                                          int64_t* association_id) = 0;
 
+  // Gets the associations that context_ids are associated with.
+  // Returns INVALID_ARGUMENT error, if the `associations` is null.
+  // Returns NOT_FOUND error, if no associations are found.
+  // Returns detailed INTERNAL error, if query execution fails.
+  // TODO(b/203114828): Support a generic FindAssociations in MetadataStore for
+  // executions.
+  virtual absl::Status FindAssociationsByContexts(
+      absl::Span<const int64_t> context_ids,
+      std::vector<Association>* associations) = 0;
+
+  // Gets the associations that `execution_ids` are associated with.
+  // Returns an empty vector if no associations are found.
+  // Returns INVALID_ARGUMENT error, if the `associations` is null.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status FindAssociationsByExecutions(
+      absl::Span<const int64_t> execution_ids,
+      std::vector<Association>* associations) = 0;
+
+  // Gets the attributions that `artifact_ids` are attributed to.
+  // Returns an empty vector if no attributions are found.
+  // Returns INVALID_ARGUMENT error, if the `attributions` is null.
+  // Returns detailed INTERNAL error, if query execution fails.
+  virtual absl::Status FindAttributionsByArtifacts(
+      absl::Span<const int64_t> artifact_ids,
+      std::vector<Attribution>* attributions) = 0;
 
   // Gets the contexts that an execution_id is associated with.
   // Returns INVALID_ARGUMENT error, if the `contexts` is null.

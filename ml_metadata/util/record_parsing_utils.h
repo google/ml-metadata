@@ -74,6 +74,12 @@ absl::Status ParseRecordSetToEdgeArray(
 absl::Status ParseRecordSetToEdgeArray(
     const RecordSet& record_set, std::vector<Association>& output_associations);
 
+// Converts `record_set` to an Attribution array.
+// Returns OK and the parsed result is outputted by `output_attributions`.
+// Returns error when internal error happens.
+absl::Status ParseRecordSetToEdgeArray(
+    const RecordSet& record_set, std::vector<Attribution>& output_attributions);
+
 // Extracts ArtifactType information from `node_record_set` to a deduped
 // ArtifactType array.
 // Returns OK and the parsed result is outputted by `output_artifact_types`.

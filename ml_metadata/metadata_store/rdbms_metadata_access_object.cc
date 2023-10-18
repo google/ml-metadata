@@ -1468,6 +1468,31 @@ absl::Status RDBMSMetadataAccessObject::FindEventsFromRecordSet(
   return absl::OkStatus();
 }
 
+absl::Status RDBMSMetadataAccessObject::FindAssociationsFromRecordSet(
+    const RecordSet& association_record_set,
+    std::vector<Association>* associations) {
+  if (associations == nullptr)
+    return absl::InvalidArgumentError("Given associations is NULL.");
+
+  associations->reserve(association_record_set.records_size());
+  MLMD_RETURN_IF_ERROR(
+      ParseRecordSetToEdgeArray(association_record_set, *associations));
+
+  return absl::OkStatus();
+}
+
+absl::Status RDBMSMetadataAccessObject::FindAttributionsFromRecordSet(
+    const RecordSet& attribution_record_set,
+    std::vector<Attribution>* attributions) {
+  if (attributions == nullptr)
+    return absl::InvalidArgumentError("Given attributions is NULL.");
+
+  attributions->reserve(attribution_record_set.records_size());
+  MLMD_RETURN_IF_ERROR(
+      ParseRecordSetToEdgeArray(attribution_record_set, *attributions));
+
+  return absl::OkStatus();
+}
 
 absl::Status RDBMSMetadataAccessObject::CreateType(const ArtifactType& type,
                                                    int64_t* type_id) {
@@ -2123,6 +2148,64 @@ absl::Status RDBMSMetadataAccessObject::CreateAssociation(
   return status;
 }
 
+absl::Status RDBMSMetadataAccessObject::FindAssociationsByContexts(
+    absl::Span<const int64_t> context_ids,
+    std::vector<Association>* associations) {
+  if (associations == nullptr) {
+    return absl::InvalidArgumentError(
+        "Given input associations vector is NULL.");
+  }
+
+  RecordSet association_record_set;
+  if (!context_ids.empty()) {
+    MLMD_RETURN_IF_ERROR(executor_->SelectAssociationByContextIDs(
+        context_ids, &association_record_set));
+  }
+
+  if (association_record_set.records_size() == 0) {
+    return absl::NotFoundError(
+        "Cannot find associations by given context ids.");
+  }
+  return FindAssociationsFromRecordSet(association_record_set, associations);
+}
+
+absl::Status RDBMSMetadataAccessObject::FindAssociationsByExecutions(
+    absl::Span<const int64_t> execution_ids,
+    std::vector<Association>* associations) {
+  if (associations == nullptr) {
+    return absl::InvalidArgumentError(
+        "Given input associations vector is NULL.");
+  }
+  RecordSet record_set;
+  if (!execution_ids.empty()) {
+    MLMD_RETURN_IF_ERROR(executor_->SelectAssociationsByExecutionIds(
+        execution_ids, &record_set));
+  }
+  if (record_set.records_size() == 0) {
+    return absl::OkStatus();
+  }
+  MLMD_RETURN_IF_ERROR(FindAssociationsFromRecordSet(record_set, associations));
+  return absl::OkStatus();
+}
+
+absl::Status RDBMSMetadataAccessObject::FindAttributionsByArtifacts(
+    absl::Span<const int64_t> artifact_ids,
+    std::vector<Attribution>* attributions) {
+  if (attributions == nullptr) {
+    return absl::InvalidArgumentError(
+        "Given input attributions vector is NULL.");
+  }
+  RecordSet record_set;
+  if (!artifact_ids.empty()) {
+    MLMD_RETURN_IF_ERROR(
+        executor_->SelectAttributionsByArtifactIds(artifact_ids, &record_set));
+  }
+  if (record_set.records_size() == 0) {
+    return absl::OkStatus();
+  }
+  MLMD_RETURN_IF_ERROR(FindAttributionsFromRecordSet(record_set, attributions));
+  return absl::OkStatus();
+}
 
 absl::Status RDBMSMetadataAccessObject::FindContextsByExecution(
     int64_t execution_id, std::vector<Context>* contexts) {
@@ -3212,6 +3295,20 @@ absl::Status RDBMSMetadataAccessObject::QueryLineageSubgraph(
   if (field_mask_paths.contains("events")) {
     absl::c_copy(visited_events,
                  google::protobuf::RepeatedFieldBackInserter(subgraph.mutable_events()));
+  }
+  if (field_mask_paths.contains("attributions")) {
+    std::vector<Attribution> attributions;
+    MLMD_RETURN_IF_ERROR(
+        FindAttributionsByArtifacts(artifact_ids, &attributions));
+    absl::c_copy(attributions, google::protobuf::RepeatedFieldBackInserter(
+                                   subgraph.mutable_attributions()));
+  }
+  if (field_mask_paths.contains("associations")) {
+    std::vector<Association> associations;
+    MLMD_RETURN_IF_ERROR(
+        FindAssociationsByExecutions(execution_ids, &associations));
+    absl::c_copy(associations, google::protobuf::RepeatedFieldBackInserter(
+                                   subgraph.mutable_associations()));
   }
   if (field_mask_paths.contains("artifact_types")) {
     std::vector<ArtifactType> artifact_types;

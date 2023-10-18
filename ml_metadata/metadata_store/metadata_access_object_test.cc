@@ -11424,6 +11424,242 @@ TEST_P(MetadataAccessObjectTest, CreateAndUseAssociation) {
   EXPECT_EQ(got_artifacts.size(), 0);
 }
 
+TEST_P(MetadataAccessObjectTest, GetAssociationsByContexts) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  // Setup: Prepare associations.
+  int64_t execution_type_id = InsertType<ExecutionType>("execution_type");
+  int64_t context_type_id = InsertType<ContextType>("context_type");
+  Execution execution1;
+  execution1.set_type_id(execution_type_id);
+  (*execution1.mutable_custom_properties())["custom"].set_int_value(3);
+  Execution execution2;
+  execution2.set_type_id(execution_type_id);
+  (*execution2.mutable_custom_properties())["custom"].set_int_value(5);
+
+  Context context = ParseTextProtoOrDie<Context>("name: 'context_instance'");
+  context.set_type_id(context_type_id);
+
+  int64_t execution_id_1, execution_id_2, context_id;
+  ASSERT_EQ(
+      metadata_access_object_->CreateExecution(execution1, &execution_id_1),
+      absl::OkStatus());
+  execution1.set_id(execution_id_1);
+  ASSERT_EQ(
+      metadata_access_object_->CreateExecution(execution2, &execution_id_2),
+      absl::OkStatus());
+  execution2.set_id(execution_id_2);
+
+  ASSERT_EQ(metadata_access_object_->CreateContext(context, &context_id),
+            absl::OkStatus());
+  context.set_id(context_id);
+
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Association association1;
+  association1.set_execution_id(execution_id_1);
+  association1.set_context_id(context_id);
+
+  Association association2;
+  association2.set_execution_id(execution_id_2);
+  association2.set_context_id(context_id);
+
+  int64_t association_id_1;
+  ASSERT_EQ(metadata_access_object_->CreateAssociation(association1,
+                                                       &association_id_1),
+            absl::OkStatus());
+  int64_t association_id_2;
+  ASSERT_EQ(metadata_access_object_->CreateAssociation(association2,
+                                                       &association_id_2),
+            absl::OkStatus());
+
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  // Test: associations can be found by the context.
+  std::vector<Association> got_associations;
+  ASSERT_EQ(metadata_access_object_->FindAssociationsByContexts(
+                {context_id}, &got_associations),
+            absl::OkStatus());
+  ASSERT_THAT(got_associations, SizeIs(2));
+  EXPECT_THAT(
+      got_associations,
+      UnorderedElementsAre(EqualsProto(association1, /*ignore_fields=*/{}),
+                           EqualsProto(association2, /*ignore_fields=*/{})));
+
+  // Test: Existing + Unexisting context_ids returns exsisting associations.
+  const int64_t kInvalidContextId = 12345678;
+  got_associations.clear();
+  ASSERT_EQ(metadata_access_object_->FindAssociationsByContexts(
+                {context_id, kInvalidContextId}, &got_associations),
+            absl::OkStatus());
+  ASSERT_THAT(got_associations, SizeIs(2));
+  EXPECT_THAT(
+      got_associations,
+      UnorderedElementsAre(EqualsProto(association1, /*ignore_fields=*/{}),
+                           EqualsProto(association2, /*ignore_fields=*/{})));
+
+  // Test: Unexisting context_id returns nothing.
+  got_associations.clear();
+  EXPECT_TRUE(
+      absl::IsNotFound(metadata_access_object_->FindAssociationsByContexts(
+          {kInvalidContextId}, &got_associations)));
+}
+
+TEST_P(MetadataAccessObjectTest, GetAssociationsByExecutions) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  int64_t execution_type_id = InsertType<ExecutionType>("execution_type");
+  int64_t context_type_id = InsertType<ContextType>("context_type");
+
+  Execution execution_1;
+  execution_1.set_type_id(execution_type_id);
+  Execution execution_2;
+  execution_2.set_type_id(execution_type_id);
+
+  Context context = ParseTextProtoOrDie<Context>("name: 'associated_context'");
+  context.set_type_id(context_type_id);
+
+  int64_t execution_id_1, execution_id_2, context_id;
+  ASSERT_EQ(
+      metadata_access_object_->CreateExecution(execution_1, &execution_id_1),
+      absl::OkStatus());
+  ASSERT_EQ(
+      metadata_access_object_->CreateExecution(execution_2, &execution_id_2),
+      absl::OkStatus());
+  ASSERT_EQ(metadata_access_object_->CreateContext(context, &context_id),
+            absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Association association_1 = ParseTextProtoOrDie<Association>(absl::Substitute(
+      R"pb(execution_id: $0 context_id: $1)pb", execution_id_1, context_id));
+  Association association_2 = ParseTextProtoOrDie<Association>(absl::Substitute(
+      R"pb(execution_id: $0 context_id: $1)pb", execution_id_2, context_id));
+  int64_t association_id_1, association_id_2;
+  ASSERT_EQ(metadata_access_object_->CreateAssociation(association_1,
+                                                       &association_id_1),
+            absl::OkStatus());
+  ASSERT_EQ(metadata_access_object_->CreateAssociation(association_2,
+                                                       &association_id_2),
+            absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  // Test: got associations for execution_ids = {execution_id_1,
+  // execution_id_2}.
+  {
+    std::vector<Association> got_associations;
+    ASSERT_EQ(metadata_access_object_->FindAssociationsByExecutions(
+                  {execution_id_1, execution_id_2}, &got_associations),
+              absl::OkStatus());
+    ASSERT_THAT(got_associations, SizeIs(2));
+    EXPECT_THAT(got_associations,
+                UnorderedPointwise(EqualsProto<Association>(),
+                                   {association_1, association_2}));
+  }
+
+  // Test: got `association_1` for execution_ids = {execution_id_1,
+  // invalid_execution_id}.
+  {
+    std::vector<Association> got_associations;
+    int64_t invalid_execution_id = execution_id_1 + execution_id_2;
+    ASSERT_EQ(metadata_access_object_->FindAssociationsByExecutions(
+                  {execution_id_1, invalid_execution_id}, &got_associations),
+              absl::OkStatus());
+    ASSERT_THAT(got_associations, SizeIs(1));
+    EXPECT_THAT(got_associations, UnorderedPointwise(EqualsProto<Association>(),
+                                                     {association_1}));
+  }
+
+  // Test: got empty list of associations for empty `execution_ids`.
+  {
+    std::vector<Association> got_associations;
+    ASSERT_EQ(metadata_access_object_->FindAssociationsByExecutions(
+                  {}, &got_associations),
+              absl::OkStatus());
+    EXPECT_TRUE(got_associations.empty());
+  }
+
+  // Test: returns INVALID_ARGUMENT error if `associations` is null.
+  {
+    EXPECT_TRUE(absl::IsInvalidArgument(
+        metadata_access_object_->FindAssociationsByExecutions(
+            {execution_id_1, execution_id_2}, nullptr)));
+  }
+}
+
+TEST_P(MetadataAccessObjectTest, GetAttributionsByArtifacts) {
+  ASSERT_EQ(Init(), absl::OkStatus());
+  int64_t artifact_type_id = InsertType<ArtifactType>("artifact_type");
+  int64_t context_type_id = InsertType<ContextType>("context_type");
+
+  Artifact artifact_1;
+  artifact_1.set_type_id(artifact_type_id);
+  Artifact artifact_2;
+  artifact_2.set_type_id(artifact_type_id);
+
+  Context context = ParseTextProtoOrDie<Context>("name: 'attributed_context'");
+  context.set_type_id(context_type_id);
+
+  int64_t artifact_id_1, artifact_id_2, context_id;
+  ASSERT_EQ(metadata_access_object_->CreateArtifact(artifact_1, &artifact_id_1),
+            absl::OkStatus());
+  ASSERT_EQ(metadata_access_object_->CreateArtifact(artifact_2, &artifact_id_2),
+            absl::OkStatus());
+  ASSERT_EQ(metadata_access_object_->CreateContext(context, &context_id),
+            absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  Attribution attribution_1 = ParseTextProtoOrDie<Attribution>(absl::Substitute(
+      R"pb(artifact_id: $0 context_id: $1)pb", artifact_id_1, context_id));
+  Attribution attribution_2 = ParseTextProtoOrDie<Attribution>(absl::Substitute(
+      R"pb(artifact_id: $0 context_id: $1)pb", artifact_id_2, context_id));
+  int64_t attribution_id_1, attribution_id_2;
+  ASSERT_EQ(metadata_access_object_->CreateAttribution(attribution_1,
+                                                       &attribution_id_1),
+            absl::OkStatus());
+  ASSERT_EQ(metadata_access_object_->CreateAttribution(attribution_2,
+                                                       &attribution_id_2),
+            absl::OkStatus());
+  ASSERT_EQ(AddCommitPointIfNeeded(), absl::OkStatus());
+
+  // Test: got attributions for artifact_ids = {artifact_id_1, artifact_id_2}.
+  {
+    std::vector<Attribution> got_attributions;
+    ASSERT_EQ(metadata_access_object_->FindAttributionsByArtifacts(
+                  {artifact_id_1, artifact_id_2}, &got_attributions),
+              absl::OkStatus());
+    ASSERT_THAT(got_attributions, SizeIs(2));
+    EXPECT_THAT(got_attributions,
+                UnorderedPointwise(EqualsProto<Attribution>(),
+                                   {attribution_1, attribution_2}));
+  }
+
+  // Test: got attribution_1 for artifact_ids = {artifact_id_1,
+  // invalid_artifact_id}.
+  {
+    std::vector<Attribution> got_attributions;
+    int64_t invalid_artifact_id = artifact_id_1 + artifact_id_2;
+    ASSERT_EQ(metadata_access_object_->FindAttributionsByArtifacts(
+                  {artifact_id_1, invalid_artifact_id}, &got_attributions),
+              absl::OkStatus());
+    ASSERT_THAT(got_attributions, SizeIs(1));
+    EXPECT_THAT(got_attributions, UnorderedPointwise(EqualsProto<Attribution>(),
+                                                     {attribution_1}));
+  }
+
+  // Test: got empty list for empty artifact ids.
+  {
+    std::vector<Attribution> got_attributions;
+    ASSERT_EQ(metadata_access_object_->FindAttributionsByArtifacts(
+                  {}, &got_attributions),
+              absl::OkStatus());
+    ASSERT_THAT(got_attributions, IsEmpty());
+  }
+
+  // Test: returns INVALID_ARGUMENT error if `attributions` is null.
+  {
+    EXPECT_TRUE(absl::IsInvalidArgument(
+        metadata_access_object_->FindAttributionsByArtifacts(
+            {artifact_id_1, artifact_id_2}, nullptr)));
+  }
+}
 
 TEST_P(MetadataAccessObjectTest, GetAssociationUsingPagination) {
   ASSERT_EQ(Init(), absl::OkStatus());
