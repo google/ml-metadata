@@ -19,12 +19,11 @@ limitations under the License.
 #include <iterator>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <glog/logging.h>
 #include "google/protobuf/field_mask.pb.h"
-#include "google/protobuf/descriptor.h"
-#include "google/protobuf/repeated_field.h"
 #include "google/protobuf/util/message_differencer.h"
 #include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_map.h"
@@ -33,7 +32,6 @@ limitations under the License.
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
@@ -42,6 +40,7 @@ limitations under the License.
 #include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/metadata_store/metadata_access_object.h"
 #include "ml_metadata/metadata_store/metadata_access_object_factory.h"
+#include "ml_metadata/metadata_store/metadata_source.h"
 #include "ml_metadata/metadata_store/rdbms_metadata_access_object.h"
 #include "ml_metadata/metadata_store/simple_types_util.h"
 #include "ml_metadata/proto/metadata_store.pb.h"
@@ -49,6 +48,8 @@ limitations under the License.
 #include "ml_metadata/simple_types/proto/simple_types.pb.h"
 #include "ml_metadata/simple_types/simple_types_constants.h"
 #include "ml_metadata/util/return_utils.h"
+#include "google/protobuf/repeated_ptr_field.h"
+#include "google/protobuf/unknown_field_set.h"
 
 namespace ml_metadata {
 namespace {
@@ -296,19 +297,45 @@ absl::Status UpsertSimpleTypes(MetadataAccessObject* metadata_access_object) {
 // fields specified in `mask`.
 // `skip_type_and_property_validation` is set to be true if the `artifact`'s
 // type/property has been validated.
+// If reuse_artifact_if_already_exist_by_external_id=true, it will first query
+// with artifact.external_id to see if there is existing artifact. If there is
+// existing artifact, repopulate artifact.id as if it's provided to perform an
+// update. If there is no existing artifact, continue to insert.
 absl::Status UpsertArtifact(const Artifact& artifact,
                             MetadataAccessObject* metadata_access_object,
-                            const bool skip_type_and_property_validation,
+                            bool skip_type_and_property_validation,
                             const google::protobuf::FieldMask& mask,
+                            bool reuse_artifact_if_already_exist_by_external_id,
                             int64_t* artifact_id) {
   CHECK(artifact_id) << "artifact_id should not be null";
-  if (artifact.has_id()) {
-    MLMD_RETURN_IF_ERROR(
-        metadata_access_object->UpdateArtifact(artifact, mask));
-    *artifact_id = artifact.id();
+
+  Artifact artifact_copy_to_be_upserted(artifact);
+  // Try to reuse existing artifact if the options is set to true and has
+  // non-empty external_id by querying and populating
+  // artifact_copy_to_be_upserted.id.
+  if (reuse_artifact_if_already_exist_by_external_id && !artifact.has_id() &&
+      artifact.has_external_id() && !artifact.external_id().empty()) {
+    std::vector<absl::string_view> artifact_external_ids = {
+        artifact.external_id()};
+    std::vector<Artifact> artifacts;
+    const absl::Status status =
+        metadata_access_object->FindArtifactsByExternalIds(
+            absl::MakeSpan(artifact_external_ids), &artifacts);
+    if (!absl::IsNotFound(status)) {
+      MLMD_RETURN_IF_ERROR(status);
+      // Found the artifact by external_id. Use it as artifact_id to return.
+      artifact_copy_to_be_upserted.set_id(artifacts[0].id());
+    }
+  }
+
+  if (artifact_copy_to_be_upserted.has_id()) {
+    MLMD_RETURN_IF_ERROR(metadata_access_object->UpdateArtifact(
+        artifact_copy_to_be_upserted, mask));
+    *artifact_id = artifact_copy_to_be_upserted.id();
   } else {
     MLMD_RETURN_IF_ERROR(metadata_access_object->CreateArtifact(
-        artifact, skip_type_and_property_validation, artifact_id));
+        artifact_copy_to_be_upserted, skip_type_and_property_validation,
+        artifact_id));
   }
   return absl::OkStatus();
 }
@@ -462,96 +489,56 @@ absl::Status InsertAttributionIfNotExist(
   return absl::OkStatus();
 }
 
-// Updates or inserts a pair of {Artifact, Event}.
-// If artifact is not given, the event.artifact_id must exist. It inserts the
-//   event, and returns the artifact_id.
-// If artifact is given, event.artifact_id is optional.
-//   If event.artifact_id is set,
-//     then artifact.id and event.artifact_id must align. The event is
-//     assumed to have been populated with a valid execution_id.
-//   If reuse_artifact_if_already_exist_by_external_id=true, it will first
-//     query with artifact.external_id to see if there is existing artifact.
-//     If there is artifact found, repopulate artifact.id as if it's provided in
-//       the input artifact_and_event.artifact to perform an update.
-//     If there is no artifact found, continue to insert.
-absl::Status UpsertArtifactAndEvent(
+// Inserts an Event in a provided ArtifactAndEvent.
+// If there is no Event in ArtifactAndEvent, return OkStatus().
+// If an Event is provided in ArtifactAndEvent, will do some validation check
+// and then create a Event.
+absl::Status InsertEvent(
     const PutExecutionRequest::ArtifactAndEvent& artifact_and_event,
-    bool reuse_artifact_if_already_exist_by_external_id,
-    MetadataAccessObject* metadata_access_object, int64_t* artifact_id) {
-  CHECK(artifact_id) << "The output artifact_id pointer should not be null";
-  if (!artifact_and_event.has_artifact() && !artifact_and_event.has_event()) {
-    return absl::OkStatus();
-  }
-  // validate event and artifact's id aligns.
-  // if artifact is not given, the event.artifact_id must exist
-  std::optional<int64_t> maybe_event_artifact_id =
-      artifact_and_event.has_event() &&
-              artifact_and_event.event().has_artifact_id()
-          ? absl::make_optional<int64_t>(
-                artifact_and_event.event().artifact_id())
-          : absl::nullopt;
-  if (!artifact_and_event.has_artifact() && !maybe_event_artifact_id) {
-    return absl::InvalidArgumentError(absl::StrCat(
-        "If no artifact is present, given event must have an artifact_id: ",
-        artifact_and_event.DebugString()));
-  }
-
-  Artifact artifact_copy_to_be_upserted;
-  artifact_copy_to_be_upserted.CopyFrom(artifact_and_event.artifact());
-  // Try to reuse existing artifact if the options is set to true and has
-  // non-empty external_id by querying and populating
-  // artifact_copy_to_be_upserted.id.
-  if (reuse_artifact_if_already_exist_by_external_id &&
-      !artifact_and_event.artifact().has_id() &&
-      artifact_and_event.artifact().has_external_id() &&
-      !artifact_and_event.artifact().external_id().empty()) {
-    std::vector<absl::string_view> artifact_external_ids = {
-        artifact_and_event.artifact().external_id()};
-    std::vector<Artifact> artifacts;
-    const absl::Status status =
-        metadata_access_object->FindArtifactsByExternalIds(
-            absl::MakeSpan(artifact_external_ids), &artifacts);
-    if (!absl::IsNotFound(status)) {
-      MLMD_RETURN_IF_ERROR(status);
-      // Found the artifact by external_id. Use it as artifact_id to return.
-      artifact_copy_to_be_upserted.set_id(artifacts[0].id());
-    }
-  }
-
-  // if artifact and event.artifact_id is given, then artifact.id and
-  // event.artifact_id must align.
-  std::optional<int64_t> maybe_artifact_id =
-      artifact_and_event.has_artifact() && artifact_copy_to_be_upserted.has_id()
-          ? absl::make_optional<int64_t>(artifact_copy_to_be_upserted.id())
-          : absl::nullopt;
-
-  if (artifact_and_event.has_artifact() && maybe_event_artifact_id &&
-      maybe_artifact_id != maybe_event_artifact_id) {
-    return absl::InvalidArgumentError(absl::StrCat(
-        "Given event.artifact_id is not aligned with the artifact: ",
-        artifact_and_event.DebugString()));
-  }
-  // upsert artifact if present.
-  if (artifact_and_event.has_artifact()) {
-    MLMD_RETURN_IF_ERROR(
-        UpsertArtifact(artifact_copy_to_be_upserted, metadata_access_object,
-                       /*skip_type_and_property_validation=*/false,
-                       google::protobuf::FieldMask(), artifact_id));
-  }
-  // insert event if any.
+    const int64_t execution_id, MetadataAccessObject* metadata_access_object) {
   if (!artifact_and_event.has_event()) {
     return absl::OkStatus();
   }
-  Event event = artifact_and_event.event();
-  if (artifact_and_event.has_artifact()) {
-    event.set_artifact_id(*artifact_id);
-  } else {
-    *artifact_id = event.artifact_id();
+
+  // Validate execution and event.
+  Event event(artifact_and_event.event());
+  if (event.has_execution_id() && event.execution_id() != execution_id) {
+    return absl::InvalidArgumentError(absl::StrCat(
+        "Request's event.execution_id does not match with the given "
+        "execution: "));
   }
+  event.set_execution_id(execution_id);
+
+  // Validate artifact and event.
+  if (artifact_and_event.has_artifact()) {
+    if (!artifact_and_event.artifact().has_id()) {
+      return absl::InvalidArgumentError(
+          absl::StrCat("Given artifact does not have an id: ",
+                       artifact_and_event.DebugString()));
+    }
+
+    if (event.has_artifact_id() &&
+        event.artifact_id() != artifact_and_event.artifact().id()) {
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Given event.artifact_id is not aligned with the artifact: ",
+          artifact_and_event.DebugString()));
+    }
+
+    event.set_artifact_id(artifact_and_event.artifact().id());
+  } else if (!event.has_artifact_id()) {
+    return absl::InvalidArgumentError(
+        absl::StrCat("If no artifact is present, given event must have an "
+                     "artifact_id: ",
+                     artifact_and_event.DebugString()));
+  }
+
+  // Create an Event.
   int64_t dummy_event_id = -1;
-  return metadata_access_object->CreateEvent(event,
-                                             /*is_already_validated=*/true,
-                                             &dummy_event_id);
+  MLMD_RETURN_IF_ERROR(metadata_access_object->CreateEvent(
+      event,
+      /*is_already_validated=*/true, &dummy_event_id));
+
+  return absl::OkStatus();
 }
 
 // Gets the <external_id, id> mapping from input artifacts by querying the db.
@@ -1181,10 +1168,11 @@ absl::Status MetadataStore::PutArtifacts(const PutArtifactsRequest& request,
           absl::SleepFor(absl::Milliseconds(1));
         }
       }
-      MLMD_RETURN_IF_ERROR(
-          UpsertArtifact(artifact, metadata_access_object_.get(),
-                         /*skip_type_and_property_validation=*/false,
-                         request.update_mask(), &artifact_id));
+      MLMD_RETURN_IF_ERROR(UpsertArtifact(
+          artifact, metadata_access_object_.get(),
+          /*skip_type_and_property_validation=*/false, request.update_mask(),
+          /*reuse_artifact_if_already_exist_by_external_id=*/false,
+          &artifact_id));
       response->add_artifact_ids(artifact_id);
     }
     return absl::OkStatus();
@@ -1282,40 +1270,55 @@ absl::Status MetadataStore::PutExecution(const PutExecutionRequest& request,
       return absl::InvalidArgumentError(
           absl::StrCat("No execution is found: ", request.DebugString()));
     }
-    // 1. Upsert Execution
-    const Execution& execution = request.execution();
+
+    std::vector<PutExecutionRequest::ArtifactAndEvent> artifact_event_pairs(
+        request.artifact_event_pairs().begin(),
+        request.artifact_event_pairs().end());
+
+    // 1. Upsert Artifacts.
+    for (PutExecutionRequest::ArtifactAndEvent& artifact_and_event :
+         artifact_event_pairs) {
+      if (!artifact_and_event.has_artifact()) continue;
+
+      int64_t artifact_id = -1;
+      MLMD_RETURN_IF_ERROR(UpsertArtifact(
+          artifact_and_event.artifact(), metadata_access_object_.get(),
+          /*skip_type_and_property_validation=*/false,
+          google::protobuf::FieldMask(),
+          request.options().reuse_artifact_if_already_exist_by_external_id(),
+          &artifact_id));
+      artifact_and_event.mutable_artifact()->set_id(artifact_id);
+    }
+
+    // 2. Upsert Execution.
     int64_t execution_id = -1;
     MLMD_RETURN_IF_ERROR(
-        UpsertExecution(execution, metadata_access_object_.get(),
+        UpsertExecution(request.execution(), metadata_access_object_.get(),
                         /*skip_type_and_property_validation=*/false,
                         request.options().force_update_time(),
                         google::protobuf::FieldMask(), &execution_id));
     response->set_execution_id(execution_id);
-    // 2. Upsert Artifacts and insert events
-    for (PutExecutionRequest::ArtifactAndEvent artifact_and_event :
-         request.artifact_event_pairs()) {
-      // validate execution and event if given
-      if (artifact_and_event.has_event()) {
-        Event* event = artifact_and_event.mutable_event();
-        if (event->has_execution_id() &&
-            (!execution.has_id() || execution.id() != event->execution_id())) {
-          return absl::InvalidArgumentError(absl::StrCat(
-              "Request's event.execution_id does not match with the given "
-              "execution: ",
-              request.DebugString()));
-        }
-        event->set_execution_id(execution_id);
+
+    // 3. Insert events.
+    for (const PutExecutionRequest::ArtifactAndEvent& artifact_and_event :
+         artifact_event_pairs) {
+      MLMD_RETURN_IF_ERROR(InsertEvent(artifact_and_event, execution_id,
+                                       metadata_access_object_.get()));
+
+      if (artifact_and_event.has_artifact()) {
+        response->add_artifact_ids(artifact_and_event.artifact().id());
+      } else if (artifact_and_event.has_event()) {
+        response->add_artifact_ids(artifact_and_event.event().artifact_id());
+      } else {
+        // It is valid to have empty artifact and event pair, i.e. both artifact
+        // and event are missing. In such a case, we return -1.
+        response->add_artifact_ids(-1);
       }
-      int64_t artifact_id = -1;
-      MLMD_RETURN_IF_ERROR(UpsertArtifactAndEvent(
-          artifact_and_event,
-          request.options().reuse_artifact_if_already_exist_by_external_id(),
-          metadata_access_object_.get(), &artifact_id));
-      response->add_artifact_ids(artifact_id);
     }
+
+    // 4. Upsert contexts and insert associations and attributions.
     absl::flat_hash_set<int64_t> artifact_ids(response->artifact_ids().begin(),
                                               response->artifact_ids().end());
-    // 3. Upsert contexts and insert associations and attributions.
     for (const Context& context : request.contexts()) {
       int64_t context_id = -1;
 
@@ -1417,10 +1420,12 @@ absl::Status MetadataStore::PutLineageSubgraph(
                 external_id_to_id_map.find(artifact.external_id())->second);
           }
           int64_t artifact_id = -1;
-          MLMD_RETURN_IF_ERROR(
-              UpsertArtifact(artifact_copy, metadata_access_object_.get(),
-                             /*skip_type_and_property_validation=*/true,
-                             google::protobuf::FieldMask(), &artifact_id));
+          MLMD_RETURN_IF_ERROR(UpsertArtifact(
+              artifact_copy, metadata_access_object_.get(),
+              /*skip_type_and_property_validation=*/true,
+              google::protobuf::FieldMask(),
+              /*reuse_artifact_if_already_exist_by_external_id=*/false,
+              &artifact_id));
           response->add_artifact_ids(artifact_id);
         }
 

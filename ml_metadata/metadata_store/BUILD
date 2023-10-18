@@ -429,7 +429,6 @@ cc_library(
         ":rdbms_metadata_access_object",
         ":simple_types_util",
         ":transaction_executor",
-        "@com_google_protobuf//:protobuf",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
@@ -464,10 +463,11 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/types:optional",
+        "@com_google_absl//absl/types:span",
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/proto:metadata_store_service_proto",
         "//ml_metadata/simple_types/proto:simple_types_proto",
-        "@com_google_glog//:glog",
     ],
 )
 

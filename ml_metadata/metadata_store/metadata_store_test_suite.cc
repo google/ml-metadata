@@ -14,12 +14,14 @@ limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/metadata_store/metadata_store_test_suite.h"
 
-#include <memory>
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <optional>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
-#include <glog/logging.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "absl/algorithm/container.h"
@@ -29,6 +31,9 @@ limitations under the License.
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "absl/types/optional.h"
+#include "absl/types/span.h"
+#include "ml_metadata/metadata_store/metadata_store.h"
 #include "ml_metadata/metadata_store/simple_types_util.h"
 #include "ml_metadata/metadata_store/test_util.h"
 #include "ml_metadata/metadata_store/types.h"
@@ -42,7 +47,9 @@ namespace {
 
 using ::ml_metadata::testing::EqualsProto;
 using ::ml_metadata::testing::ParseTextProtoOrDie;
+using ::testing::Each;
 using ::testing::ElementsAre;
+using ::testing::Eq;
 using ::testing::IsEmpty;
 using ::testing::Pointwise;
 using ::testing::SizeIs;
@@ -4222,6 +4229,18 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecution) {
   EXPECT_EQ(put_execution_response_3.artifact_ids(0), artifact_1.id());
   artifact_2.set_id(put_execution_response_3.artifact_ids(1));
 
+  // Test empty artifact and event pairs.
+  PutExecutionRequest put_execution_request_4;
+  *put_execution_request_4.mutable_execution() = execution;
+  put_execution_request_4.add_artifact_event_pairs();
+  put_execution_request_4.add_artifact_event_pairs();
+  PutExecutionResponse put_execution_response_4;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecution(put_execution_request_4,
+                                          &put_execution_response_4));
+  EXPECT_THAT(put_execution_response_4.artifact_ids(), SizeIs(2));
+  EXPECT_THAT(put_execution_response_4.artifact_ids(), Each(Eq(-1)));
+
   // In the end, there should be 2 artifacts, 1 execution and 2 events.
   GetArtifactsRequest get_artifacts_request;
   GetArtifactsResponse get_artifacts_response;
@@ -4260,6 +4279,20 @@ TEST_P(MetadataStoreTestSuite, PutAndGetExecution) {
       get_events_response.events(1).artifact_id()};
   EXPECT_THAT(got_events_artifact_ids,
               UnorderedElementsAre(artifact_1.id(), artifact_2.id()));
+
+  // Check that execution's update time is equal or larger than the create time
+  // of all the artifacts.
+  std::vector<int64_t> artifact_create_time;
+  for (const Artifact& artifact : get_artifacts_response.artifacts()) {
+    artifact_create_time.push_back(artifact.create_time_since_epoch());
+  }
+  int64_t max_artifact_create_time = *std::max_element(
+      artifact_create_time.begin(), artifact_create_time.end());
+  EXPECT_GT(max_artifact_create_time, 0);
+  for (const Execution& execution : get_executions_response.executions()) {
+    EXPECT_GE(execution.last_update_time_since_epoch(),
+              max_artifact_create_time);
+  }
 }
 
 // Put an execution with contexts.
