@@ -638,6 +638,7 @@ class MetadataStore(object):
       contexts: Optional[Sequence[proto.Context]],
       reuse_context_if_already_exist: bool = False,
       reuse_artifact_if_already_exist_by_external_id: bool = False,
+      force_reuse_context: bool = False,
       extra_options: Optional[ExtraOptions] = None,
   ) -> Tuple[int, List[int], List[int]]:
     """Inserts or updates an Execution with artifacts, events and contexts.
@@ -674,6 +675,9 @@ class MetadataStore(object):
         artifact in the transaction and perform an update. Otherwise, it will
         fall back to relying on `id` field to decide if it's update (if `id`
         exists) or insert (if `id` is empty).
+      force_reuse_context: If True, for contexts with a context.id, the stored
+        context will NOT be updated. For such contexts,  we will only look at
+        the context.id to associate the context with the execution.
       extra_options: ExtraOptions instance.
 
     Returns:
@@ -692,9 +696,10 @@ class MetadataStore(object):
         contexts=contexts,
         options=metadata_store_service_pb2.PutExecutionRequest.Options(
             reuse_context_if_already_exist=reuse_context_if_already_exist,
-            reuse_artifact_if_already_exist_by_external_id=(
-                reuse_artifact_if_already_exist_by_external_id)
-        ))
+            reuse_artifact_if_already_exist_by_external_id=reuse_artifact_if_already_exist_by_external_id,
+            force_reuse_context=force_reuse_context,
+        ),
+    )
     # Add artifact_and_event pairs to the request.
     for pair in artifact_and_events:
       if pair:

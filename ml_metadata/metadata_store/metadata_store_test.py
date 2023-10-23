@@ -1539,6 +1539,54 @@ class MetadataStoreTest(parameterized.TestCase):
     ]
     self.assertCountEqual(artifact_ids, got_artifact_ids)
 
+  def test_put_execution_force_reuse_context(self):
+    store = _get_metadata_store()
+    execution_type = metadata_store_pb2.ExecutionType(
+        name=self._get_test_type_name()
+    )
+    execution_type_id = store.put_execution_type(execution_type)
+    execution = metadata_store_pb2.Execution(type_id=execution_type_id)
+
+    context_type = metadata_store_pb2.ContextType(
+        name=self._get_test_type_name()
+    )
+    context_type_id = store.put_context_type(context_type)
+    original_context = metadata_store_pb2.Context(
+        type_id=context_type_id,
+        name=self._get_test_type_name(),
+        custom_properties={
+            "property1": metadata_store_pb2.Value(string_value="value1")
+        },
+    )
+    [context_id] = store.put_contexts([original_context])
+    original_context.id = context_id
+
+    modified_context = metadata_store_pb2.Context(
+        id=original_context.id,
+        type_id=original_context.type_id,
+        name=original_context.name,
+        custom_properties={
+            "property1": metadata_store_pb2.Value(string_value="changed"),
+            "property2": metadata_store_pb2.Value(string_value="added"),
+        },
+    )
+
+    _, _, context_ids = store.put_execution(
+        execution=execution,
+        artifact_and_events=[],
+        contexts=[modified_context],
+        force_reuse_context=True,
+    )
+    self.assertCountEqual([context_id], context_ids)
+
+    # Check that PutExecution did not overwrite the existing context with the
+    # modified context, since we set force_reuse_context=True
+    [got_context] = store.get_contexts_by_id([context_id])
+    self.assertCountEqual(
+        list(got_context.custom_properties.items()),
+        list(original_context.custom_properties.items()),
+    )
+
   def test_put_execution_with_reuse_context_if_already_exist(self):
     store = _get_metadata_store()
     execution_type = metadata_store_pb2.ExecutionType(
