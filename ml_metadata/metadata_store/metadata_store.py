@@ -639,6 +639,7 @@ class MetadataStore(object):
       reuse_context_if_already_exist: bool = False,
       reuse_artifact_if_already_exist_by_external_id: bool = False,
       force_reuse_context: bool = False,
+      force_update_time: bool = False,
       extra_options: Optional[ExtraOptions] = None,
   ) -> Tuple[int, List[int], List[int]]:
     """Inserts or updates an Execution with artifacts, events and contexts.
@@ -678,6 +679,8 @@ class MetadataStore(object):
       force_reuse_context: If True, for contexts with a context.id, the stored
         context will NOT be updated. For such contexts,  we will only look at
         the context.id to associate the context with the execution.
+      force_update_time: If it is true, `last_update_time_since_epoch` is
+        updated even if input execution is the same as stored execution.
       extra_options: ExtraOptions instance.
 
     Returns:
@@ -696,8 +699,11 @@ class MetadataStore(object):
         contexts=contexts,
         options=metadata_store_service_pb2.PutExecutionRequest.Options(
             reuse_context_if_already_exist=reuse_context_if_already_exist,
-            reuse_artifact_if_already_exist_by_external_id=reuse_artifact_if_already_exist_by_external_id,
+            reuse_artifact_if_already_exist_by_external_id=(
+                reuse_artifact_if_already_exist_by_external_id
+            ),
             force_reuse_context=force_reuse_context,
+            force_update_time=force_update_time,
         ),
     )
     # Add artifact_and_event pairs to the request.
