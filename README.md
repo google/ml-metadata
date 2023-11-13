@@ -1,7 +1,7 @@
 
 # ML Metadata
 
-[![Python](https://img.shields.io/badge/python%20-3.8%7C3.9%7C3.10-blue)](https://github.com/google/ml-metadata)
+[![Python](https://img.shields.io/badge/python%7C3.9%7C3.10%7C3.11-blue)](https://github.com/google/ml-metadata)
 [![PyPI](https://badge.fury.io/py/ml-metadata.svg)](https://badge.fury.io/py/ml-metadata)
 
 *ML Metadata (MLMD)* is a library for recording and retrieving metadata
@@ -57,7 +57,7 @@ sudo docker-compose build ${DOCKER_SERVICE}
 sudo docker-compose run ${DOCKER_SERVICE}
 ```
 
-where `PY_VERSION` is one of `{38, 39, 310}`.
+where `PY_VERSION` is one of `{39, 310, 311}`.
 
 A wheel will be produced under `dist/`, and installed as follows:
 

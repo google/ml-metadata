@@ -14,6 +14,7 @@
 
 *   Deprecate GetLineageGraph API.
 *   Deprecate OSS support on Windows OS platform.
+*   Deprecated python 3.8 support.
 
 ## Bug Fixed and Other Changes
 
