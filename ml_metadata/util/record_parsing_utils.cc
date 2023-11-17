@@ -13,6 +13,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 #include "ml_metadata/util/record_parsing_utils.h"
+#include <cstdint>
+#include <string>
+#include <vector>
 
 #include <glog/logging.h>
 #include "google/protobuf/util/json_util.h"
@@ -20,6 +23,7 @@ limitations under the License.
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
 #include "ml_metadata/metadata_store/constants.h"
 #include "ml_metadata/util/return_utils.h"
@@ -109,10 +113,9 @@ absl::Status ParseRecordSetToEdgeArray(const RecordSet& record_set,
 }
 
 absl::Status ParseRecordSetToEdgeArray(
-    const RecordSet& record_set,
-    std::vector<Association>& output_associations) {
-  return ParseRecordSetToMessageArray(record_set, output_associations,
-                                      CustomColumnParser());
+    const RecordSet& record_set, std::vector<Association>& output_associations,
+    const CustomColumnParser& parser) {
+  return ParseRecordSetToMessageArray(record_set, output_associations, parser);
 }
 
 absl::Status ParseRecordSetToEdgeArray(

@@ -72,7 +72,8 @@ absl::Status ParseRecordSetToEdgeArray(
 // Returns OK and the parsed result is outputted by `output_associations`.
 // Returns error when internal error happens.
 absl::Status ParseRecordSetToEdgeArray(
-    const RecordSet& record_set, std::vector<Association>& output_associations);
+    const RecordSet& record_set, std::vector<Association>& output_associations,
+    const CustomColumnParser& parser = CustomColumnParser());
 
 // Converts `record_set` to an Attribution array.
 // Returns OK and the parsed result is outputted by `output_attributions`.
