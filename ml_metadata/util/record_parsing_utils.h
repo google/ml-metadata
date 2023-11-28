@@ -81,6 +81,14 @@ absl::Status ParseRecordSetToEdgeArray(
 absl::Status ParseRecordSetToEdgeArray(
     const RecordSet& record_set, std::vector<Attribution>& output_attributions);
 
+// Converts `record_set` to a ParentContext array.
+// Returns OK and the parsed result is outputted by `output_parent_contexts`.
+// Returns error when internal error happens.
+absl::Status ParseRecordSetToEdgeArray(
+    const RecordSet& record_set,
+    std::vector<ParentContext>& output_parent_contexts,
+    const CustomColumnParser& parser = CustomColumnParser());
+
 // Extracts ArtifactType information from `node_record_set` to a deduped
 // ArtifactType array.
 // Returns OK and the parsed result is outputted by `output_artifact_types`.

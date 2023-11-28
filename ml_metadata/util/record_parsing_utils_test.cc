@@ -29,6 +29,7 @@ namespace {
 using ::ml_metadata::testing::EqualsProto;
 using ::ml_metadata::testing::ParseTextProtoOrDie;
 using ::testing::ElementsAre;
+using ::testing::IsEmpty;
 
 TEST(ParseRecordSetTest, ParseRecordSetToArtifactArraySuccess) {
   RecordSet record_set = ParseTextProtoOrDie<RecordSet>(
@@ -273,6 +274,40 @@ TEST(ParseRecordSetTest, ParseRecordSetToAttributionArraySuccess) {
                           )pb"))));
 }
 
+TEST(ParseRecordSetTest, ParseRecordSetToParentContextArraySuccess) {
+  RecordSet record_set = ParseTextProtoOrDie<RecordSet>(
+      R"pb(
+        column_names: 'parent_id'
+        column_names: 'child_id'
+        records { values: '123' values: '321' }
+        records { values: '456' values: '654' }
+      )pb");
+
+  std::vector<ParentContext> parent_contexts;
+  absl::Status status = ParseRecordSetToEdgeArray(record_set, parent_contexts);
+  EXPECT_EQ(status, absl::OkStatus());
+  EXPECT_THAT(parent_contexts,
+              ElementsAre(EqualsProto(ParseTextProtoOrDie<ParentContext>(R"pb(
+                            parent_id: 123 child_id: 321
+                          )pb")),
+                          EqualsProto(ParseTextProtoOrDie<ParentContext>(R"pb(
+                            parent_id: 456 child_id: 654
+                          )pb"))));
+}
+
+TEST(ParseRecordSetTest, ParseRecordSetToParentContextArrayEmptySuccess) {
+  RecordSet record_set = ParseTextProtoOrDie<RecordSet>(
+      R"pb(
+        column_names: 'parent_id'
+        column_names: 'child_id'
+      )pb");
+
+  std::vector<ParentContext> parent_contexts;
+  absl::Status status = ParseRecordSetToEdgeArray(record_set, parent_contexts);
+  EXPECT_EQ(status, absl::OkStatus());
+  EXPECT_THAT(parent_contexts, IsEmpty());
+}
+
 TEST(ParseRecordSetTest, MismatchRecordAndFieldNameIgnored) {
   RecordSet record_set = ParseTextProtoOrDie<RecordSet>(
       R"pb(
@@ -457,6 +492,7 @@ TEST(ParseRecordSetTest, ParseRecordSetToDedupedContextTypeArraySuccess) {
                 name: 'context_type_1'
               )pb"))));
 }
+
 }  // namespace
 }  // namespace testing
 }  // namespace ml_metadata

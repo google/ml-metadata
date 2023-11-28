@@ -462,6 +462,9 @@ message Association {
 message ParentContext {
   optional int64 child_id = 1;
   optional int64 parent_id = 2;
+
+  // Output only.
+  optional google.protobuf.Any system_metadata = 3;
 }
 
 // A self-contained provenance (sub)graph representation consists of MLMD nodes

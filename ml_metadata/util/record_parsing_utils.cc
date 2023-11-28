@@ -125,6 +125,14 @@ absl::Status ParseRecordSetToEdgeArray(
                                       CustomColumnParser());
 }
 
+absl::Status ParseRecordSetToEdgeArray(
+    const RecordSet& record_set,
+    std::vector<ParentContext>& output_parent_contexts,
+    const CustomColumnParser& parser) {
+  return ParseRecordSetToMessageArray(record_set, output_parent_contexts,
+                                      parser);
+}
+
 absl::Status ParseNodeRecordSetToDedupedTypes(
     const RecordSet& node_record_set,
     std::vector<ArtifactType>& output_artifact_types,
