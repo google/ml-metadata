@@ -447,6 +447,9 @@ message Context {
 message Attribution {
   optional int64 artifact_id = 1;
   optional int64 context_id = 2;
+
+  // Output only.
+  optional google.protobuf.Any system_metadata = 3;
 }
 
 // the Association edges between Context and Execution instances.

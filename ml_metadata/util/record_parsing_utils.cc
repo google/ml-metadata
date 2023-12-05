@@ -119,10 +119,9 @@ absl::Status ParseRecordSetToEdgeArray(
 }
 
 absl::Status ParseRecordSetToEdgeArray(
-    const RecordSet& record_set,
-    std::vector<Attribution>& output_attributions) {
-  return ParseRecordSetToMessageArray(record_set, output_attributions,
-                                      CustomColumnParser());
+    const RecordSet& record_set, std::vector<Attribution>& output_attributions,
+    const CustomColumnParser& parser) {
+  return ParseRecordSetToMessageArray(record_set, output_attributions, parser);
 }
 
 absl::Status ParseRecordSetToEdgeArray(
