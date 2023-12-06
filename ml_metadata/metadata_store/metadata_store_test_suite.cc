@@ -40,6 +40,7 @@ limitations under the License.
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
 #include "ml_metadata/simple_types/proto/simple_types.pb.h"
+#include "google/protobuf/repeated_ptr_field.h"
 
 namespace ml_metadata {
 namespace testing {
@@ -7261,6 +7262,118 @@ TEST_P(MetadataStoreTestSuite, PutLineageSubgraphAndVerifyLineageGraph) {
                               /*ignore_fields=*/{"milliseconds_since_epoch"}),
                   EqualsProto(event_3,
                               /*ignore_fields=*/{"milliseconds_since_epoch"})));
+}
+
+// Test that PutLineageSubgraph Upsert artifacts before execution.
+TEST_P(MetadataStoreTestSuite, PutLineageSubgraphWithNewArtifactsExecutions) {
+  // Prepare types and write them to MLMD.
+  PutTypesRequest put_types_request = ParseTextProtoOrDie<PutTypesRequest>(R"pb(
+    context_types: {
+      name: 'context_type'
+      properties { key: 'property_1' value: INT }
+    }
+
+    execution_types: {
+      name: 'execution_type'
+      properties { key: 'property_1' value: DOUBLE }
+    }
+    artifact_types: {
+      name: 'artifact_type'
+      properties { key: 'property_1' value: STRING }
+    }
+  )pb");
+  PutTypesResponse put_types_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutTypes(put_types_request, &put_types_response));
+
+  // Prepare a context and write it to MLMD.
+  Context context;
+  context.set_type_id(put_types_response.context_type_ids(0));
+  context.set_name("context");
+  (*context.mutable_properties())["property_1"].set_int_value(1);
+  PutContextsRequest put_contexts_request;
+  *put_contexts_request.add_contexts() = context;
+  PutContextsResponse put_contexts_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutContexts(put_contexts_request,
+                                         &put_contexts_response));
+
+  // Prepare a new execution and write it to MLMD.
+  Execution execution;
+  execution.set_type_id(put_types_response.execution_type_ids(0));
+  (*execution.mutable_properties())["property_1"].set_double_value(1.0);
+  PutExecutionRequest put_execution_request;
+  *put_execution_request.mutable_execution() = execution;
+  PutExecutionResponse put_execution_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutExecution(put_execution_request,
+                                          &put_execution_response));
+  execution.set_id(put_execution_response.execution_id());
+
+  // Prepare a new artifact, but don't write it to MLMD.
+  Artifact artifact;
+  artifact.set_type_id(put_types_response.artifact_type_ids(0));
+  artifact.set_uri("testuri");
+  (*artifact.mutable_properties())["property_1"].set_string_value("1");
+
+  // Prepare the PutLineageSubgraph request
+  PutLineageSubgraphRequest put_lineage_subgraph_request;
+  *put_lineage_subgraph_request.add_executions() = execution;
+  *put_lineage_subgraph_request.add_artifacts() = artifact;
+  *put_lineage_subgraph_request.add_contexts() = context;
+  put_lineage_subgraph_request.mutable_options()
+      ->set_reuse_context_if_already_exist(true);
+
+  // Prepare event_edge with execution_index and artifact_index but no
+  // execution_id and no artifact_id
+  Event event;
+  event.set_type(Event::OUTPUT);
+  PutLineageSubgraphRequest::EventEdge* event_edge =
+      put_lineage_subgraph_request.add_event_edges();
+  event_edge->set_execution_index(0);
+  event_edge->set_artifact_index(0);
+  *event_edge->mutable_event() = event;
+
+  PutLineageSubgraphResponse put_lineage_subgraph_response;
+  ASSERT_EQ(absl::OkStatus(),
+            metadata_store_->PutLineageSubgraph(
+                put_lineage_subgraph_request, &put_lineage_subgraph_response));
+
+  // Verify that new artifact and execution are correctly written.
+  GetExecutionsByContextRequest get_executions_by_context_request;
+  get_executions_by_context_request.set_context_id(
+      put_lineage_subgraph_response.context_ids(0));
+  GetExecutionsByContextResponse get_executions_by_context_response;
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetExecutionsByContext(
+                                  get_executions_by_context_request,
+                                  &get_executions_by_context_response));
+  ASSERT_THAT(get_executions_by_context_response.executions(), SizeIs(1));
+  EXPECT_THAT(get_executions_by_context_response.executions(),
+              ElementsAre(EqualsProto(
+                  execution,
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"})));
+
+  GetArtifactsByContextRequest get_artifacts_by_context_request;
+  get_artifacts_by_context_request.set_context_id(
+      put_lineage_subgraph_response.context_ids(0));
+  GetArtifactsByContextResponse get_artifacts_by_context_response;
+  ASSERT_EQ(absl::OkStatus(), metadata_store_->GetArtifactsByContext(
+                                  get_artifacts_by_context_request,
+                                  &get_artifacts_by_context_response));
+  ASSERT_THAT(get_artifacts_by_context_response.artifacts(), SizeIs(1));
+  EXPECT_THAT(get_artifacts_by_context_response.artifacts(),
+              ElementsAre(EqualsProto(
+                  artifact,
+                  /*ignore_fields=*/{"id", "type", "create_time_since_epoch",
+                                     "last_update_time_since_epoch"})));
+
+  // Verify that the update time of execution is larger than the creation time
+  // of the artifact.
+  EXPECT_GE(
+      get_executions_by_context_response.executions(0)
+          .last_update_time_since_epoch(),
+      get_artifacts_by_context_response.artifacts(0).create_time_since_epoch());
 }
 
 TEST_P(MetadataStoreTestSuite,

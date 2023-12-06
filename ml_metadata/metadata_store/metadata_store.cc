@@ -1385,18 +1385,7 @@ absl::Status MetadataStore::PutLineageSubgraph(
           response->add_context_ids(context_id);
         }
 
-        // 2. Upsert executions.
-        for (const Execution& execution : request.executions()) {
-          int64_t execution_id = -1;
-          MLMD_RETURN_IF_ERROR(
-              UpsertExecution(execution, metadata_access_object_.get(),
-                              /*skip_type_and_property_validation=*/true,
-                              /*force_update_time=*/false,
-                              google::protobuf::FieldMask(), &execution_id));
-          response->add_execution_ids(execution_id);
-        }
-
-        // 3. Upsert artifacts.
+        // 2. Upsert artifacts.
         // Select the list of external_ids from Artifacts.
         // Search within the db to create a mapping from external_id to id.
         absl::flat_hash_map<std::string, int64_t> external_id_to_id_map;
@@ -1427,6 +1416,17 @@ absl::Status MetadataStore::PutLineageSubgraph(
               /*reuse_artifact_if_already_exist_by_external_id=*/false,
               &artifact_id));
           response->add_artifact_ids(artifact_id);
+        }
+
+        // 3. Upsert executions.
+        for (const Execution& execution : request.executions()) {
+          int64_t execution_id = -1;
+          MLMD_RETURN_IF_ERROR(
+              UpsertExecution(execution, metadata_access_object_.get(),
+                              /*skip_type_and_property_validation=*/true,
+                              /*force_update_time=*/false,
+                              google::protobuf::FieldMask(), &execution_id));
+          response->add_execution_ids(execution_id);
         }
 
         // 4. Create associations and attributions.

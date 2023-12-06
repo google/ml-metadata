@@ -468,6 +468,7 @@ cc_library(
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/proto:metadata_store_service_proto",
         "//ml_metadata/simple_types/proto:simple_types_proto",
+        "//third_party/protobuf:protobuf_lite",
     ],
 )
 
