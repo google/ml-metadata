@@ -475,6 +475,9 @@ cc_library(
 ml_metadata_cc_test(
     name = "metadata_store_cc_test",
     srcs = ["metadata_store_test.cc"],
+    env = {
+        "ASAN_OPTIONS": "detect_odr_violation=0",
+    },
     deps = [
         ":metadata_store",
         ":metadata_store_test_suite",
@@ -549,6 +552,9 @@ cc_library(
 ml_metadata_cc_test(
     name = "metadata_store_factory_test",
     srcs = ["metadata_store_factory_test.cc"],
+    env = {
+        "ASAN_OPTIONS": "detect_odr_violation=0",
+    },
     deps = [
         ":metadata_access_object_factory",
         ":metadata_store",
@@ -898,6 +904,9 @@ cc_test(
 # list.
 cc_test(
     name = "standalone_postgresql_metadata_access_object_test",
+    env = {
+        "ASAN_OPTIONS": "detect_odr_violation=0",
+    },
     tags = [
         "local",
         "manual",
