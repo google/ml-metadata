@@ -14,6 +14,7 @@ http_archive(
     ],
 )
 
+
 #Install bazel platform version 0.0.6
 http_archive(
     name = "platforms",
@@ -41,19 +42,24 @@ http_archive(
 load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
 rules_foreign_cc_dependencies()
 
+# lts_20230125.3
+ABSL_COMMIT = "c2435f8342c2d0ed8101cb43adfd605fdc52dca2"
 http_archive(
     name = "com_google_absl",
-    urls = ["https://github.com/abseil/abseil-cpp/archive/940c06c25d2953f44310b68eb8aab6114dba11fb.zip"],
-    strip_prefix = "abseil-cpp-940c06c25d2953f44310b68eb8aab6114dba11fb",
-    sha256 = "0e800799aa64d0b4d354f3ff317bbd5fbf42f3a522ab0456bb749fc8d3b67415",
+    sha256 = "9892836ab0d3f099b8c15076c6f4168144f452d097bd49da215fe0df36a2d48c",
+    strip_prefix = "abseil-cpp-%s" % ABSL_COMMIT,
+    urls = [
+        "https://github.com/abseil/abseil-cpp/archive/%s.tar.gz" % ABSL_COMMIT,
+    ],
 )
 
+BORINGSSL_COMMIT = "adde128bd706c6caf26dd595e631871b09f40bf6"
 http_archive(
     name = "boringssl",
-    sha256 = "1188e29000013ed6517168600fc35a010d58c5d321846d6a6dfee74e4c788b45",
-    strip_prefix = "boringssl-7f634429a04abc48e2eb041c81c5235816c96514",
+    sha256 = "7fc7632ce455575025be2cac610a23377753b01a4932d94a452cf831a5b32e9e",
+    strip_prefix = "boringssl-%s" % BORINGSSL_COMMIT,
     urls = [
-        "https://github.com/google/boringssl/archive/7f634429a04abc48e2eb041c81c5235816c96514.tar.gz",
+        "https://github.com/google/boringssl/archive/%s.tar.gz" % BORINGSSL_COMMIT,
     ],
 )
 
@@ -69,10 +75,10 @@ http_archive(
 
 http_archive(
     name = "com_google_googletest",
-    sha256 = "ff7a82736e158c077e76188232eac77913a15dac0b22508c390ab3f88e6d6d86",
-    strip_prefix = "googletest-b6cd405286ed8635ece71c72f118e659f4ade3fb",
+    sha256 = "b976cf4fd57b318afdb1bdb27fc708904b3e4bed482859eb94ba2b4bdd077fe2",
+    strip_prefix = "googletest-f8d7d77c06936315286eb55f8de22cd23c188571",
     urls = [
-        "https://github.com/google/googletest/archive/b6cd405286ed8635ece71c72f118e659f4ade3fb.zip",
+        "https://github.com/google/googletest/archive/f8d7d77c06936315286eb55f8de22cd23c188571.zip",
     ],
 )
 
@@ -108,26 +114,6 @@ http_archive(
 )
 
 http_archive(
-    name = "com_google_protobuf",
-    sha256 = "930c2c3b5ecc6c9c12615cf5ad93f1cd6e12d0aba862b572e076259970ac3a53",
-    strip_prefix = "protobuf-3.21.12",
-    urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.21.12.tar.gz"],
-)
-
-load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
-
-protobuf_deps()
-
-# Needed by Protobuf.
-http_archive(
-    name = "zlib",
-    build_file = "@com_google_protobuf//:third_party/zlib.BUILD",
-    sha256 = "d8688496ea40fb61787500e863cc63c9afcbc524468cedeb478068924eb54932",
-    strip_prefix = "zlib-1.2.12",
-    urls = ["https://github.com/madler/zlib/archive/v1.2.12.tar.gz"],
-)
-
-http_archive(
     name = "pybind11_bazel",
     strip_prefix = "pybind11_bazel-faf56fb3df11287f26dbc66fdedf60a2fc2c6631",
     urls = ["https://github.com/pybind/pybind11_bazel/archive/faf56fb3df11287f26dbc66fdedf60a2fc2c6631.tar.gz"],
@@ -145,12 +131,6 @@ http_archive(
 
 load("@pybind11_bazel//:python_configure.bzl", "python_configure")
 python_configure(name = "local_config_python")
-
-# Needed by @com_google_protobuf.
-bind(
-    name = "python_headers",
-    actual = "@local_config_python//:python_headers",
-)
 
 # Note - use @com_github_google_re2 instead of more canonical
 #        @com_google_re2 for consistency with dependency grpc
@@ -210,7 +190,7 @@ go_repository(
 
 go_rules_dependencies()
 
-go_register_toolchains("host")
+go_register_toolchains()
 
 gazelle_dependencies()
 

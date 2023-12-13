@@ -44,10 +44,11 @@ function mlmd::move_generated_files() {
   cp -f ${BUILD_WORKSPACE_DIRECTORY}/${bazel_genfiles}/ml_metadata/simple_types/proto/simple_types_pb2.py \
     ${BUILD_WORKSPACE_DIRECTORY}/ml_metadata/simple_types/proto
 
-
   MLMD_EXTENSION="ml_metadata/metadata_store/pywrap/metadata_store_extension.so"
-  cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-bin/${MLMD_EXTENSION} \
-      ${BUILD_WORKSPACE_DIRECTORY}/${MLMD_EXTENSION}
+  DEST_FILE="${BUILD_WORKSPACE_DIRECTORY}/${MLMD_EXTENSION}"
+  # remove old .so file first to avoid catastrophic failure on macOS due to codesign.
+  rm -f "$DEST_FILE"
+  cp -f ${BUILD_WORKSPACE_DIRECTORY}/bazel-bin/${MLMD_EXTENSION} "${DEST_FILE}"
 
   chmod +w "${BUILD_WORKSPACE_DIRECTORY}/${MLMD_EXTENSION}"
 }
