@@ -15,6 +15,7 @@
 # This macro is needed in order for mlmd to build with ZetaSQL which can only
 # be compiled upon c++17 or higher.
 build --cxxopt="-std=c++17"
+build --host_cxxopt="-std=c++17"
 
 # Needed to avoid zetasql proto error.
 build --protocopt=--experimental_allow_proto3_optional
