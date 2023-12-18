@@ -459,7 +459,6 @@ cc_library(
         ":test_util",
         ":types",
         "@com_google_googletest//:gtest",
-        "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
@@ -468,7 +467,6 @@ cc_library(
         "//ml_metadata/proto:metadata_store_proto",
         "//ml_metadata/proto:metadata_store_service_proto",
         "//ml_metadata/simple_types/proto:simple_types_proto",
-        "//third_party/protobuf:protobuf_lite",
     ],
 )
 

@@ -24,7 +24,6 @@ limitations under the License.
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/algorithm/container.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
@@ -40,7 +39,6 @@ limitations under the License.
 #include "ml_metadata/proto/metadata_store.pb.h"
 #include "ml_metadata/proto/metadata_store_service.pb.h"
 #include "ml_metadata/simple_types/proto/simple_types.pb.h"
-#include "google/protobuf/repeated_ptr_field.h"
 
 namespace ml_metadata {
 namespace testing {
@@ -104,8 +102,9 @@ template <>
 void InsertNodeAndSetNodeID(MetadataStore* metadata_store,
                             std::vector<Artifact>& nodes) {
   PutArtifactsRequest put_nodes_request;
-  absl::c_copy(nodes, google::protobuf::RepeatedFieldBackInserter(
-                          put_nodes_request.mutable_artifacts()));
+  for (const Artifact& artifact : nodes) {
+    *put_nodes_request.add_artifacts() = artifact;
+  }
   PutArtifactsResponse put_nodes_response;
   ASSERT_EQ(absl::OkStatus(), metadata_store->PutArtifacts(
                                   put_nodes_request, &put_nodes_response));
@@ -118,8 +117,9 @@ template <>
 void InsertNodeAndSetNodeID(MetadataStore* metadata_store,
                             std::vector<Execution>& nodes) {
   PutExecutionsRequest put_nodes_request;
-  absl::c_copy(nodes, google::protobuf::RepeatedFieldBackInserter(
-                          put_nodes_request.mutable_executions()));
+  for (const Execution& execution : nodes) {
+    *put_nodes_request.add_executions() = execution;
+  }
   PutExecutionsResponse put_nodes_response;
   ASSERT_EQ(absl::OkStatus(), metadata_store->PutExecutions(
                                   put_nodes_request, &put_nodes_response));
@@ -132,8 +132,9 @@ template <>
 void InsertNodeAndSetNodeID(MetadataStore* metadata_store,
                             std::vector<Context>& nodes) {
   PutContextsRequest put_nodes_request;
-  absl::c_copy(nodes, google::protobuf::RepeatedFieldBackInserter(
-                          put_nodes_request.mutable_contexts()));
+  for (const Context& context : nodes) {
+    *put_nodes_request.add_contexts() = context;
+  }
   PutContextsResponse put_nodes_response;
   ASSERT_EQ(absl::OkStatus(), metadata_store->PutContexts(put_nodes_request,
                                                           &put_nodes_response));
@@ -6742,14 +6743,18 @@ TEST_P(MetadataStoreTestSuite,
 
   // Verifies the parent/child contexts by looking up and stored result.
   GetParentContextsByContextsRequest get_parents_request;
-  absl::c_copy(context_ids, google::protobuf::RepeatedFieldBackInserter(
-                                get_parents_request.mutable_context_ids()));
+  get_parents_request.mutable_context_ids()->Reserve(context_ids.size());
+  for (const int64_t context_id : context_ids) {
+    get_parents_request.add_context_ids(context_id);
+  }
   GetParentContextsByContextsResponse get_parents_response;
   ASSERT_EQ(absl::OkStatus(), metadata_store_->GetParentContextsByContexts(
                                   get_parents_request, &get_parents_response));
   GetChildrenContextsByContextsRequest get_children_request;
-  absl::c_copy(context_ids, google::protobuf::RepeatedFieldBackInserter(
-                                get_children_request.mutable_context_ids()));
+  get_children_request.mutable_context_ids()->Reserve(context_ids.size());
+  for (const int64_t context_id : context_ids) {
+    get_children_request.add_context_ids(context_id);
+  }
   GetChildrenContextsByContextsResponse get_children_response;
   ASSERT_EQ(metadata_store_->GetChildrenContextsByContexts(
                 get_children_request, &get_children_response),
