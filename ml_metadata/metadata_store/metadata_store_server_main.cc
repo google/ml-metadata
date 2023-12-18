@@ -337,18 +337,18 @@ absl::StatusOr<SourceConfigType> ConvertToSourceConfig(
 
   return absl::InvalidArgumentError(
       "metadata_source_config_type is not valid, provide value in one of the "
-      "followings: default, config_file, mysql, postgresql.");
+      "followings: default, config_file, mysql, postgresql, sqlite.");
 }
 
 // Configures Connection Option to choose approach to consume flags.
-// Currently supported options are: default, config_file, mysql, postgresql.
+// Currently supported options are: default, config_file, mysql, postgresql, sqlite.
 DEFINE_string(metadata_source_config_type, "default",
               "Provide the source connection type to determine what flags will "
               "be used by Metadata store to connect to Database. For default "
               "option, metadata_store_server_config_file will be used first, "
               "if metadata_store_server_config_file doesn't exist, try to "
               "connect to mysql using mysql prefixed flags. Valid values "
-              "for this flag are: default, config_file, mysql, postgresql.");
+              "for this flag are: default, config_file, mysql, postgresql, sqlite.");
 
 // metadata store server options
 DEFINE_string(metadata_store_server_config_file, "",
@@ -573,11 +573,10 @@ BuildSQLiteConnectionConfig() {
           (FLAGS_sqlite_config_connection_mode),
           &server_config)) {
     return server_config;
-  } else {
-    LOG(ERROR) << "Unable to construct server config using sqlite flags.";
-    return absl::InvalidArgumentError(
-        "Unable to construct server config using sqlite flags.");
   }
+  LOG(ERROR) << "Unable to construct server config using sqlite flags.";
+  return absl::InvalidArgumentError(
+      "Unable to construct server config using sqlite flags.");
 }
 
 int main(int argc, char** argv) {
