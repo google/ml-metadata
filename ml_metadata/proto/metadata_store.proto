@@ -486,6 +486,7 @@ message LineageGraph {
   repeated Event events = 7;
   repeated Attribution attributions = 8;
   repeated Association associations = 9;
+  repeated ParentContext parent_contexts = 10;
 }
 
 // The list of ArtifactStruct is EXPERIMENTAL and not in use yet.
