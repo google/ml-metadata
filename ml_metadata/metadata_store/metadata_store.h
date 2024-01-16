@@ -80,7 +80,7 @@ class MetadataStore : public MetadataStoreServiceInterface {
   // updated only when the request type is backward compatible for the already
   // stored instances.
   //
-  // Backwards compatibility is violated iff:
+  // Backwards compatibility is violated if:
   //
   //   a) there is a property where the request type and stored_type have
   //      different value type (e.g., int vs. string)
@@ -424,8 +424,8 @@ class MetadataStore : public MetadataStoreServiceInterface {
                                  GetContextsByTypeResponse* response) override;
 
   // Gets the context of a given type and name. If no context found, it returns
-  // OK and empty response. If more than one contexts matchs the type and name,
-  // the query execution fails.
+  // OK and empty response. If multiple contexts are found with the same type
+  // and name, the query execution fails.
   absl::Status GetContextByTypeAndName(
       const GetContextByTypeAndNameRequest& request,
       GetContextByTypeAndNameResponse* response) override;
