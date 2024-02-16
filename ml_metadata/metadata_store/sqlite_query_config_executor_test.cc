@@ -64,6 +64,6 @@ INSTANTIATE_TEST_SUITE_P(
     SqliteQueryConfigExecutorTest, QueryExecutorTest, ::testing::Values([]() {
       return std::make_unique<SqliteQueryConfigExecutorContainer>();
     }));
-
+  GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(QueryExecutorTest);
 }  // namespace testing
 }  // namespace ml_metadata

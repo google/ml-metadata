@@ -15,6 +15,7 @@
 *   Deprecate GetLineageGraph API.
 *   Deprecate OSS support on Windows OS platform.
 *   Deprecated python 3.8 support.
+*   Bumped minimum bazel version to 6.1.0.
 
 ## Bug Fixed and Other Changes
 

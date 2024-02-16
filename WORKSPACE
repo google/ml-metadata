@@ -69,11 +69,9 @@ http_archive(
 
 http_archive(
     name = "com_google_googletest",
-    sha256 = "ff7a82736e158c077e76188232eac77913a15dac0b22508c390ab3f88e6d6d86",
-    strip_prefix = "googletest-b6cd405286ed8635ece71c72f118e659f4ade3fb",
-    urls = [
-        "https://github.com/google/googletest/archive/b6cd405286ed8635ece71c72f118e659f4ade3fb.zip",
-    ],
+    sha256 = "81964fe578e9bd7c94dfdb09c8e4d6e6759e19967e397dbea48d1c10e45d0df2",
+    strip_prefix = "googletest-release-1.12.1",
+    urls = ["https://github.com/google/googletest/archive/refs/tags/release-1.12.1.tar.gz"],
 )
 
 http_archive(
@@ -86,12 +84,13 @@ http_archive(
     sha256 = "6281aa4eeecb9e932d7091f99872e7b26fa6aacece49c15ce5b14af2b7ec050f",
 )
 
+# 1.5.0
 http_archive(
     name = "bazel_skylib",
-    sha256 = "97e70364e9249702246c0e9444bccdc4b847bed1eb03c5a3ece4f83dfe6abc44",
+    sha256 = "cd55a062e763b9349921f0f5db8c3933288dc8ba4f76dd9416aac68acee3cb94",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.0.2/bazel-skylib-1.0.2.tar.gz",
-        "https://github.com/bazelbuild/bazel-skylib/releases/download/1.0.2/bazel-skylib-1.0.2.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.5.0/bazel-skylib-1.5.0.tar.gz",
+        "https://github.com/bazelbuild/bazel-skylib/releases/download/1.5.0/bazel-skylib-1.5.0.tar.gz",
     ],
 )
 
@@ -109,9 +108,9 @@ http_archive(
 
 http_archive(
     name = "com_google_protobuf",
-    sha256 = "930c2c3b5ecc6c9c12615cf5ad93f1cd6e12d0aba862b572e076259970ac3a53",
-    strip_prefix = "protobuf-3.21.12",
-    urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.21.12.tar.gz"],
+    sha256 = "1add10f9bd92775b91f326da259f243881e904dd509367d5031d4c782ba82810",
+    strip_prefix = "protobuf-3.21.9",
+    urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.21.9.tar.gz"],
 )
 
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
@@ -283,4 +282,4 @@ ml_metadata_workspace()
 
 # Specify the minimum required bazel version.
 load("@bazel_skylib//lib:versions.bzl", "versions")
-versions.check("5.3.0")
+versions.check("6.1.0")

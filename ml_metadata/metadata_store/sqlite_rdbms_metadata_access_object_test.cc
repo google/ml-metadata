@@ -85,6 +85,6 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values([]() {
       return std::make_unique<SqliteRDBMSMetadataAccessObjectContainer>();
     }));
-
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(RDBMSMetadataAccessObjectTest);
 }  // namespace testing
 }  // namespace ml_metadata

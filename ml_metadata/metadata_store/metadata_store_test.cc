@@ -1460,6 +1460,6 @@ INSTANTIATE_TEST_SUITE_P(
     MetadataStoreTest, MetadataStoreTestSuite, ::testing::Values([]() {
       return std::make_unique<RDBMSMetadataStoreContainer>();
     }));
-
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(MetadataStoreTestSuite);
 }  // namespace testing
 }  // namespace ml_metadata

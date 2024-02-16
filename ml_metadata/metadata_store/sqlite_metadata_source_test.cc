@@ -16,10 +16,8 @@ limitations under the License.
 
 #include <memory>
 
-#include <glog/logging.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include "absl/memory/memory.h"
 #include "ml_metadata/metadata_store/metadata_source_test_suite.h"
 #include "ml_metadata/metadata_store/test_util.h"
 
@@ -93,6 +91,6 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values([]() {
       return std::make_unique<SqliteMetadataSourceContainer>();
     }));
-
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(MetadataSourceTestSuite);
 }  // namespace testing
 }  // namespace ml_metadata

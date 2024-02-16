@@ -14,7 +14,7 @@
 
 # TODO(b/195701120) Introduces l.gcr.io/google/bazel:5.3.0 when it is available
 # and makes sure that it uses ubuntu 20.04 as base image. Currently the lastest
-# version only supports bazel 3.5.0.
+# version only supports bazel 6.1.0.
 FROM ubuntu:20.04 as builder
 
 RUN export DEBIAN_FRONTEND=noninteractive && \
@@ -35,8 +35,8 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
   python-is-python3 \
   python3-dev
 
-# Set up Bazel 5.3.0
-ENV BAZEL_VERSION 5.3.0
+# Set up Bazel 6.1.0
+ENV BAZEL_VERSION 6.1.0
 WORKDIR /
 RUN mkdir /bazel && \
     cd /bazel && \

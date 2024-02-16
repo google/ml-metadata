@@ -34,8 +34,8 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
   python-is-python3 \
   python3-dev
 
-# Set up Bazel 5.3.0
-ENV BAZEL_VERSION 5.3.0
+# Set up Bazel 6.1.0
+ENV BAZEL_VERSION 6.1.0
 WORKDIR /
 RUN mkdir /bazel && \
     cd /bazel && \
