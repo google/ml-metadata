@@ -108,6 +108,9 @@ bool ParseMetadataStoreServerConfigOrDie(
 bool ParseMySQLFlagsBasedServerConfigOrDie(
     const std::string& host, const int port, const std::string& database,
     const std::string& user, const std::string& password,
+    const std::string& sslcert, const std::string& sslkey,
+    const std::string& sslrootcert, const std::string& sslcapath,
+    const std::string& sslcipher, const bool verify_server_cert,
     const bool enable_database_upgrade,
     const int64_t downgrade_db_schema_version,
     ml_metadata::MetadataStoreServerConfig* server_config) {
@@ -128,6 +131,30 @@ bool ParseMySQLFlagsBasedServerConfigOrDie(
   config->set_database(database);
   config->set_user(user);
   config->set_password(password);
+  bool has_ssl_config;
+  if (!sslcert.empty()) {
+    has_ssl_config = true;
+    config->mutable_ssl_options()->set_cert(sslcert);
+  }
+  if (!sslkey.empty()) {
+    has_ssl_config = true;
+    config->mutable_ssl_options()->set_key(sslkey);
+  }
+  if (!sslrootcert.empty()) {
+    has_ssl_config = true;
+    config->mutable_ssl_options()->set_ca(sslrootcert);
+  }
+  if (!sslcapath.empty()) {
+    has_ssl_config = true;
+    config->mutable_ssl_options()->set_capath(sslcapath);
+  }
+  if (!sslcipher.empty()) {
+    has_ssl_config = true;
+    config->mutable_ssl_options()->set_cipher(sslcipher);
+  }
+  if (has_ssl_config) {
+    config->mutable_ssl_options()->set_verify_server_cert(verify_server_cert);
+  }
 
   CHECK(!enable_database_upgrade || downgrade_db_schema_version < 0)
       << "Both --enable_database_upgraded=true and downgrade_db_schema_version "
@@ -328,6 +355,23 @@ DEFINE_string(mysql_config_user, "",
               "The mysql user name to use (Optional parameter)");
 DEFINE_string(mysql_config_password, "",
               "The mysql user password to use (Optional parameter)");
+DEFINE_string(mysql_config_sslcert, "",
+              "This parameter specifies the file name of the client SSL certificate.");
+DEFINE_string(mysql_config_sslkey, "",
+              "This parameter specifies the location for the secret key used for the "
+              "client certificate.");
+DEFINE_string(mysql_config_sslrootcert, "",
+              "This parameter specifies the name of a file containing SSL "
+              "certificate authority (CA) certificate(s).");
+DEFINE_string(mysql_config_sslcapath, "",
+              "This parameter specifies path name of the directory "
+              "that contains trusted SSL CA certificates.");
+DEFINE_string(mysql_config_sslcipher, "",
+              "This parameter specifies the list of permissible ciphers for "
+              "SSL encryption.");
+DEFINE_bool(mysql_config_verify_server_cert, false,
+              "This parameter enables verification of the server certificate "
+              " against the host name used when connecting to the server.");
 
 // PostgreSQL config command line options
 DEFINE_string(postgres_config_host, "",
@@ -400,6 +444,12 @@ BuildDefaultConnectionConfig() {
           (FLAGS_mysql_config_database),
           (FLAGS_mysql_config_user),
           (FLAGS_mysql_config_password),
+          (FLAGS_mysql_config_sslcert),
+          (FLAGS_mysql_config_sslkey),
+          (FLAGS_mysql_config_sslrootcert),
+          (FLAGS_mysql_config_sslcapath),
+          (FLAGS_mysql_config_sslcipher),
+          (FLAGS_mysql_config_verify_server_cert),
           (FLAGS_enable_database_upgrade),
           (FLAGS_downgrade_db_schema_version), &server_config)) {
     LOG(WARNING) << "The connection_config is not given. Using in memory fake "
@@ -440,6 +490,12 @@ BuildMySQLConnectionConfig() {
           (FLAGS_mysql_config_database),
           (FLAGS_mysql_config_user),
           (FLAGS_mysql_config_password),
+          (FLAGS_mysql_config_sslcert),
+          (FLAGS_mysql_config_sslkey),
+          (FLAGS_mysql_config_sslrootcert),
+          (FLAGS_mysql_config_sslcapath),
+          (FLAGS_mysql_config_sslcipher),
+          (FLAGS_mysql_config_verify_server_cert),
           (FLAGS_enable_database_upgrade),
           (FLAGS_downgrade_db_schema_version), &server_config)) {
     return server_config;
