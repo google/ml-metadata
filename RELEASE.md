@@ -16,10 +16,12 @@
 *   Deprecate OSS support on Windows OS platform.
 *   Deprecated python 3.8 support.
 *   Bumped minimum bazel version to 6.1.0.
+*   Deprecate types.py support.
 
 ## Bug Fixed and Other Changes
 
 *   Depends on `attrs>=20.3,<24`.
+*   Depends on `protobuf>=3.13,<5`.
 
 # Version 1.14.0
 
