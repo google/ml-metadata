@@ -5555,6 +5555,9 @@ R"pb(
 R"pb(
   # secondary indices in the current schema.
   secondary_indices {
+    query: " CREATE EXTENSION IF NOT EXISTS pg_trgm; "
+  }
+  secondary_indices {
     query: " CREATE INDEX IF NOT EXISTS idx_artifact_uri ON Artifact (uri); "
            " CREATE INDEX IF NOT EXISTS "
            "  idx_artifact_create_time_since_epoch "
@@ -5610,7 +5613,7 @@ R"pb(
   secondary_indices {
     query: " CREATE INDEX IF NOT EXISTS "
            "  idx_artifact_property_string "
-           "  ON ArtifactProperty (name, is_custom_property, string_value); "
+           "  ON ArtifactProperty USING gist (name gist_trgm_ops, string_value gist_trgm_ops); "
   }
   secondary_indices {
     query: " CREATE INDEX IF NOT EXISTS "
@@ -5625,7 +5628,7 @@ R"pb(
   secondary_indices {
     query: " CREATE INDEX IF NOT EXISTS "
            "  idx_execution_property_string "
-           "  ON ExecutionProperty (name, is_custom_property, string_value); "
+           "  ON ExecutionProperty USING gist (name gist_trgm_ops, string_value gist_trgm_ops); "
   }
   secondary_indices {
     query: " CREATE INDEX IF NOT EXISTS "
@@ -5640,7 +5643,7 @@ R"pb(
   secondary_indices {
     query: " CREATE INDEX IF NOT EXISTS "
            "  idx_context_property_string "
-           "  ON ContextProperty (name, is_custom_property, string_value); "
+           "  ON ContextProperty USING gist (name gist_trgm_ops, string_value gist_trgm_ops); "
   }
   secondary_indices {
     query: " CREATE INDEX IF NOT EXISTS idx_type_external_id "
