@@ -17,6 +17,7 @@ import os
 import platform
 import shutil
 import subprocess
+import sys
 
 import setuptools
 from setuptools import find_packages
@@ -29,6 +30,8 @@ from setuptools.dist import Distribution
 # https://setuptools.readthedocs.io/en/latest/history.html#v48-0-0
 from distutils.command import build
 # pylint: enable=g-bad-import-order
+
+_IS_PY311 = sys.version_info >= (3, 11)
 
 
 class _BuildCommand(build.build):
@@ -160,7 +163,7 @@ setup(
         'absl-py>=0.9,<2.0.0',
         'attrs>=20.3,<24',
         'grpcio>=1.8.6,<2',
-        'protobuf>=3.13,<5',
+        f'protobuf>={"4.25.2" if _IS_PY311 else "3.20.3"},<5',
         'six>=1.10,<2',
     ],
     python_requires='>=3.9,<4',
