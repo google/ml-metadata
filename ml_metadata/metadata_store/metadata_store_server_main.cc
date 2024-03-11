@@ -255,6 +255,52 @@ bool ParsePostgreSQLFlagsBasedServerConfigOrDie(
   return true;
 }
 
+// Converts flag sqlite_connection_mode value to actual enum
+// ConnectionMode. Returns error if conversion is not successful.
+absl::StatusOr<ml_metadata::SqliteMetadataSourceConfig::ConnectionMode> ConvertToConnectionMode(
+    std::string sqlite_connection_mode) {
+  if (sqlite_connection_mode == "READONLY") {
+    return ml_metadata::SqliteMetadataSourceConfig::READONLY;
+  } else if (sqlite_connection_mode == "READWRITE") {
+    return ml_metadata::SqliteMetadataSourceConfig::READWRITE;
+  } else if (sqlite_connection_mode == "READWRITE_OPENCREATE") {
+    return ml_metadata::SqliteMetadataSourceConfig::READWRITE_OPENCREATE;
+  }
+
+  return absl::InvalidArgumentError(
+      "sqlite_connection_mode is not valid, provide value in one of the "
+      "followings: READONLY, READWRITE, READWRITE_OPENCREATE.");
+}
+
+// Returns true if passed parameters were used to construct sqlite connection
+// config and set it to service_config. If connection config
+// construction is not successful, return false.
+bool ParseSQLiteFlagsBasedServerConfigOrDie(
+    const std::string& filename_uri,
+    const std::string& connection_mode,
+    ml_metadata::MetadataStoreServerConfig* server_config) {
+  CHECK(!filename_uri.empty())
+      << "To use sqlite store, all of --filename_uri, "
+         "needs to be provided";
+
+  ml_metadata::ConnectionConfig* connection_config =
+      server_config->mutable_connection_config();
+  ml_metadata::SqliteMetadataSourceConfig* config = connection_config->mutable_sqlite();
+  config->set_filename_uri(filename_uri);
+
+  if (!connection_mode.empty()) {
+    absl::StatusOr<ml_metadata::SqliteMetadataSourceConfig::ConnectionMode> sqlite_connection_mode =
+    ConvertToConnectionMode(connection_mode);
+    CHECK(sqlite_connection_mode.ok())
+      << "sqlite_connection_mode is invalid: "
+      << sqlite_connection_mode.status().message();
+
+    config->set_connection_mode(sqlite_connection_mode.value());
+  }
+
+  return true;
+}
+
 }  // namespace
 
 // gRPC server options
@@ -270,6 +316,7 @@ enum class SourceConfigType {
   kConfigFile,
   kMySql,
   kPostgreSql,
+  kSqlite
 };
 
 // Converts flag metadata_source_config_type value to actual enum
@@ -284,22 +331,24 @@ absl::StatusOr<SourceConfigType> ConvertToSourceConfig(
     return SourceConfigType::kMySql;
   } else if (metadata_source_config_type == "postgresql") {
     return SourceConfigType::kPostgreSql;
+  } else if (metadata_source_config_type == "sqlite") {
+    return SourceConfigType::kSqlite;
   }
 
   return absl::InvalidArgumentError(
       "metadata_source_config_type is not valid, provide value in one of the "
-      "followings: default, config_file, mysql, postgresql.");
+      "followings: default, config_file, mysql, postgresql, sqlite.");
 }
 
 // Configures Connection Option to choose approach to consume flags.
-// Currently supported options are: default, config_file, mysql, postgresql.
+// Currently supported options are: default, config_file, mysql, postgresql, sqlite.
 DEFINE_string(metadata_source_config_type, "default",
               "Provide the source connection type to determine what flags will "
               "be used by Metadata store to connect to Database. For default "
               "option, metadata_store_server_config_file will be used first, "
               "if metadata_store_server_config_file doesn't exist, try to "
               "connect to mysql using mysql prefixed flags. Valid values "
-              "for this flag are: default, config_file, mysql, postgresql.");
+              "for this flag are: default, config_file, mysql, postgresql, sqlite.");
 
 // metadata store server options
 DEFINE_string(metadata_store_server_config_file, "",
@@ -382,6 +431,14 @@ DEFINE_int64(downgrade_db_schema_version, -1,
              "Database downgrade schema version value. If set the database "
              "schema version is downgraded to the set value during "
              "initialization(Optional Parameter)");
+
+// SQLite config command line options
+DEFINE_string(sqlite_config_filename_uri, "",
+              "SQLite database filename uri to be used.");
+DEFINE_string(sqlite_config_connection_mode, "",
+              "SQLite connection mode. Possible values are READONLY,"
+              "READWRITE and READWRITE_OPENCREATE, if not specifified "
+              "the default is READWRITE_OPENCREATE.");
 
 // Default connection option for metadata source. It will check for
 // the existence of config file first, and check for mysql flags if
@@ -494,6 +551,34 @@ BuildPostgreSQLConnectionConfig() {
   }
 }
 
+// Constructs Connection Config for SQLite database. Requires to
+// set metadata_source_config_type as "sqlite", then provide necessary
+// information in flags that have prefix of `sqlite_`.
+// Example run:
+// sudo docker run --name "${MLMD_GRPC_CONTAINER}" \
+//   -p ${MLMD_GRPC_PORT}:${MLMD_GRPC_PORT} \
+//   --network="${GRPC_E2E_BRIDGE_NETWORK}"\
+//   --entrypoint /bin/metadata_store_server -d "${MLMD_DOCKER_IMAGE}" \
+//   --grpc_port=${MLMD_GRPC_PORT} \
+//   --metadata_source_config_type="sqlite" \
+//   --sqlite_config_filename_uri=${MLMD_SQLITE_DB_URI} \
+//   --sqlite_config_connection_mode=READWRITE_OPENCREATE
+// @return server configuration that contains connection config set by
+// sqlite flags. Or error status if failed.
+absl::StatusOr<ml_metadata::MetadataStoreServerConfig>
+BuildSQLiteConnectionConfig() {
+  ml_metadata::MetadataStoreServerConfig server_config;
+  if (ParseSQLiteFlagsBasedServerConfigOrDie(
+          (FLAGS_sqlite_config_filename_uri),
+          (FLAGS_sqlite_config_connection_mode),
+          &server_config)) {
+    return server_config;
+  }
+  LOG(ERROR) << "Unable to construct server config using sqlite flags.";
+  return absl::InvalidArgumentError(
+      "Unable to construct server config using sqlite flags.");
+}
+
 int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
@@ -521,6 +606,8 @@ int main(int argc, char** argv) {
     server_config_status = BuildMySQLConnectionConfig();
   } else if (source_config.value() == SourceConfigType::kPostgreSql) {
     server_config_status = BuildPostgreSQLConnectionConfig();
+  } else if (source_config.value() == SourceConfigType::kSqlite) {
+    server_config_status = BuildSQLiteConnectionConfig();
   } else {
     LOG(ERROR) << "metadata_source_config_type is invalid: "
                << metadata_source_config_type;
