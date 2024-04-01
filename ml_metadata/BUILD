@@ -1,6 +1,6 @@
-licenses(["notice"])  # Apache 2.0
-
 load("@bazel_skylib//lib:selects.bzl", "selects")
+
+licenses(["notice"])  # Apache 2.0
 
 package(default_visibility = ["//visibility:public"])
 
