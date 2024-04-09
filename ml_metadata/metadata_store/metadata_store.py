@@ -107,6 +107,7 @@ class MetadataStore(object):
         schema and migrates all data if it connects to an old version backend.
         It is ignored when using gRPC `proto.MetadataStoreClientConfig`.
     """
+    self._config = config
     self._max_num_retries = 5
     self._service_client_wrapper = None
     if isinstance(config, proto.ConnectionConfig):
@@ -138,6 +139,7 @@ class MetadataStore(object):
         metadata_store_service_pb2_grpc.MetadataStoreServiceStub(channel))
     logging.log(logging.INFO, 'MetadataStore with gRPC connection initialized')
     logging.log(logging.DEBUG, 'ConnectionConfig: %s', config)
+
 
   def _get_channel(self, config: proto.MetadataStoreClientConfig):
     """Configures the channel, which could be secure or insecure.
