@@ -140,6 +140,13 @@ class MetadataStore(object):
     logging.log(logging.INFO, 'MetadataStore with gRPC connection initialized')
     logging.log(logging.DEBUG, 'ConnectionConfig: %s', config)
 
+  @property
+  def pipeline_asset(self) -> None:
+    """Returns None as the pipeline asset."""
+    logging.log(
+        logging.WARNING, 'Getting pipeline asset from an ossed metadata store.'
+    )
+    return None
 
   def _get_channel(self, config: proto.MetadataStoreClientConfig):
     """Configures the channel, which could be secure or insecure.
