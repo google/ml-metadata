@@ -252,7 +252,7 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertLen(result_from_exp1, 1)
     self.assertIn(self.e1.id, result_from_exp1)
     self.assertCountEqual(
-        [result_from_exp1[self.e1.id][0].name], [self.e1.name]
+        [result_from_exp1[self.e1.id][0][0].name], [self.e1.name]
     )
 
     # Test: get downstream artifacts by example_1, with max_num_hops = 2
@@ -262,8 +262,11 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertLen(result_from_exp1, 1)
     self.assertIn(self.e1.id, result_from_exp1)
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exp1[self.e1.id]],
-        [self.e1.name, self.m1.name],
+        [(e.name, t.name) for e, t in result_from_exp1[self.e1.id]],
+        [
+            (self.e1.name, self.exp_type.name),
+            (self.m1.name, self.model_type.name),
+        ],
     )
 
     # Test: get downstream artifacts by example_1, with max_num_hops = 20
@@ -273,8 +276,12 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertLen(result_from_exp1, 1)
     self.assertIn(self.e1.id, result_from_exp1)
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exp1[self.e1.id]],
-        [self.e1.name, self.m1.name, self.ev1.name],
+        [(a.name, t.name) for a, t in result_from_exp1[self.e1.id]],
+        [
+            (self.e1.name, self.exp_type.name),
+            (self.m1.name, self.model_type.name),
+            (self.ev1.name, self.evaluation_type.name),
+        ],
     )
 
     # Test: get downstream artifacts by example_1, with max_num_hops
@@ -285,8 +292,12 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertLen(result_from_exp1, 1)
     self.assertIn(self.e1.id, result_from_exp1)
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exp1[self.e1.id]],
-        [self.e1.name, self.m1.name, self.ev1.name],
+        [(a.name, t.name) for a, t in result_from_exp1[self.e1.id]],
+        [
+            (self.e1.name, self.exp_type.name),
+            (self.m1.name, self.model_type.name),
+            (self.ev1.name, self.evaluation_type.name),
+        ],
     )
 
     # Test: get downstream artifacts by [example_1, example_2, example_3],
@@ -298,16 +309,29 @@ class MetadataResolverTest(absltest.TestCase):
         [self.e1.id, self.e2.id, self.e3.id], result_from_exp123
     )
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exp123[self.e1.id]],
-        [self.e1.name, self.m1.name, self.ev1.name],
+        [(a.name, t.name) for a, t in result_from_exp1[self.e1.id]],
+        [
+            (self.e1.name, self.exp_type.name),
+            (self.m1.name, self.model_type.name),
+            (self.ev1.name, self.evaluation_type.name),
+        ],
     )
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exp123[self.e2.id]],
-        [self.e2.name, self.m1.name, self.m2.name, self.ev1.name],
+        [(a.name, t.name) for a, t in result_from_exp123[self.e2.id]],
+        [
+            (self.e2.name, self.exp_type.name),
+            (self.m1.name, self.model_type.name),
+            (self.m2.name, self.model_type.name),
+            (self.ev1.name, self.evaluation_type.name),
+        ],
     )
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exp123[self.e3.id]],
-        [self.e3.name, self.m2.name, self.ev1.name],
+        [(a.name, t.name) for a, t in result_from_exp123[self.e3.id]],
+        [
+            (self.e3.name, self.exp_type.name),
+            (self.m2.name, self.model_type.name),
+            (self.ev1.name, self.evaluation_type.name),
+        ],
     )
     # Test: get empty result if `artifact_ids` is empty.
     self.assertEmpty(self.resolver.get_downstream_artifacts_by_artifact_ids([]))
@@ -374,7 +398,7 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertLen(result_from_exps, 1)
     self.assertIn(self.e1.id, result_from_exps)
     self.assertCountEqual(
-        [result_from_exps[self.e1.id][0].name], [self.e1.name]
+        [result_from_exps[self.e1.id][0][0].name], [self.e1.name]
     )
 
     # Test: get downstream artifacts by examples, with max_num_hops = 1, filter
@@ -389,7 +413,7 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertLen(result_from_exps, 1)
     self.assertIn(self.e1.id, result_from_exps)
     self.assertCountEqual(
-        [result_from_exps[self.e1.id][0].name], [self.e1.name]
+        [result_from_exps[self.e1.id][0][0].name], [self.e1.name]
     )
 
     # Test: get downstream artifacts by examples, with max_num_hops = 0, filter
@@ -409,16 +433,16 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertIn(self.e2.id, result_from_exps)
     self.assertIn(self.e3.id, result_from_exps)
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exps[self.e1.id]],
-        [self.e1.name],
+        [(a.name, t.name) for a, t in result_from_exps[self.e1.id]],
+        [(self.e1.name, self.exp_type.name)],
     )
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exps[self.e2.id]],
-        [self.e2.name],
+        [(a.name, t.name) for a, t in result_from_exps[self.e2.id]],
+        [(self.e2.name, self.exp_type.name)],
     )
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exps[self.e3.id]],
-        [self.e3.name],
+        [(a.name, t.name) for a, t in result_from_exps[self.e3.id]],
+        [(self.e3.name, self.exp_type.name)],
     )
 
     # Test: get downstream artifacts by examples, with max_num_hops = 0, filter
@@ -446,16 +470,19 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertIn(self.e2.id, result_from_exps)
     self.assertIn(self.e3.id, result_from_exps)
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exps[self.e1.id]],
-        [self.m1.name],
+        [(a.name, t.name) for a, t in result_from_exps[self.e1.id]],
+        [(self.m1.name, self.model_type.name)],
     )
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exps[self.e2.id]],
-        [self.m1.name, self.m2.name],
+        [(a.name, t.name) for a, t in result_from_exps[self.e2.id]],
+        [
+            (self.m1.name, self.model_type.name),
+            (self.m2.name, self.model_type.name),
+        ],
     )
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exps[self.e3.id]],
-        [self.m2.name],
+        [(a.name, t.name) for a, t in result_from_exps[self.e3.id]],
+        [(self.m2.name, self.model_type.name)],
     )
 
     # Test: get downstream artifacts by examples and evaluation, with
@@ -474,20 +501,30 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertIn(self.e3.id, result_from_exps_eva)
     self.assertIn(self.ev1.id, result_from_exps_eva)
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exps_eva[self.e1.id]],
-        [self.m1.name, self.ev1.name],
+        [(a.name, t.name) for a, t in result_from_exps_eva[self.e1.id]],
+        [
+            (self.m1.name, self.model_type.name),
+            (self.ev1.name, self.evaluation_type.name),
+        ],
     )
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exps_eva[self.e2.id]],
-        [self.m1.name, self.m2.name, self.ev1.name],
+        [(a.name, t.name) for a, t in result_from_exps_eva[self.e2.id]],
+        [
+            (self.m1.name, self.model_type.name),
+            (self.m2.name, self.model_type.name),
+            (self.ev1.name, self.evaluation_type.name),
+        ],
     )
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exps_eva[self.e3.id]],
-        [self.m2.name, self.ev1.name],
+        [(a.name, t.name) for a, t in result_from_exps_eva[self.e3.id]],
+        [
+            (self.m2.name, self.model_type.name),
+            (self.ev1.name, self.evaluation_type.name),
+        ],
     )
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exps_eva[self.ev1.id]],
-        [self.ev1.name],
+        [(a.name, t.name) for a, t in result_from_exps_eva[self.ev1.id]],
+        [(self.ev1.name, self.evaluation_type.name)],
     )
 
     # Test: get downstream artifacts by examples and evaluation, with
@@ -504,16 +541,19 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertIn(self.e2.id, result_from_exps_eva)
     self.assertIn(self.e3.id, result_from_exps_eva)
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exps_eva[self.e1.id]],
-        [self.m1.name],
+        [(a.name, t.name) for a, t in result_from_exps_eva[self.e1.id]],
+        [(self.m1.name, self.model_type.name)],
     )
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exps_eva[self.e2.id]],
-        [self.m1.name, self.m2.name],
+        [(a.name, t.name) for a, t in result_from_exps_eva[self.e2.id]],
+        [
+            (self.m1.name, self.model_type.name),
+            (self.m2.name, self.model_type.name),
+        ],
     )
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exps_eva[self.e3.id]],
-        [self.m2.name],
+        [(a.name, t.name) for a, t in result_from_exps_eva[self.e3.id]],
+        [(self.m2.name, self.model_type.name)],
     )
 
     # Test: get downstream artifacts by example_1, with max_num_hops and
@@ -526,8 +566,12 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertLen(result_from_exp1, 1)
     self.assertIn(self.e1.id, result_from_exp1)
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exp1[self.e1.id]],
-        [self.e1.name, self.m1.name, self.ev1.name],
+        [(a.name, t.name) for a, t in result_from_exp1[self.e1.id]],
+        [
+            (self.e1.name, self.exp_type.name),
+            (self.m1.name, self.model_type.name),
+            (self.ev1.name, self.evaluation_type.name),
+        ],
     )
 
     # Test: get downstream artifacts by examples, filter events by event type.
@@ -548,16 +592,27 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertIn(self.e2.id, result_from_exps)
     self.assertIn(self.e3.id, result_from_exps)
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exps[self.e1.id]],
-        [self.e1.name, self.m1.name, self.ev1.name],
+        [(a.name, t.name) for a, t in result_from_exps[self.e1.id]],
+        [
+            (self.e1.name, self.exp_type.name),
+            (self.m1.name, self.model_type.name),
+            (self.ev1.name, self.evaluation_type.name),
+        ],
     )
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exps[self.e2.id]],
-        [self.e2.name, self.m1.name, self.ev1.name],
+        [(a.name, t.name) for a, t in result_from_exps[self.e2.id]],
+        [
+            (self.e2.name, self.exp_type.name),
+            (self.m1.name, self.model_type.name),
+            (self.ev1.name, self.evaluation_type.name),
+        ],
     )
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exps[self.e3.id]],
-        [self.e3.name, self.ev1.name],
+        [(a.name, t.name) for a, t in result_from_exps[self.e3.id]],
+        [
+            (self.e3.name, self.exp_type.name),
+            (self.ev1.name, self.evaluation_type.name),
+        ],
     )
 
     # Test: get downstream artifacts by examples, filter events by event type
@@ -575,12 +630,12 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertIn(self.e1.id, result_from_exps)
     self.assertIn(self.e2.id, result_from_exps)
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exps[self.e1.id]],
-        [self.m1.name],
+        [(a.name, t.name) for a, t in result_from_exps[self.e1.id]],
+        [(self.m1.name, self.model_type.name)],
     )
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exps[self.e2.id]],
-        [self.m1.name],
+        [(a.name, t.name) for a, t in result_from_exps[self.e2.id]],
+        [(self.m1.name, self.model_type.name)],
     )
 
   def test_get_upstream_artifacts_by_artifact_ids(self):
@@ -590,7 +645,9 @@ class MetadataResolverTest(absltest.TestCase):
     )
     self.assertLen(result_from_m1, 1)
     self.assertIn(self.m1.id, result_from_m1)
-    self.assertCountEqual([result_from_m1[self.m1.id][0].name], [self.m1.name])
+    self.assertCountEqual(
+        [result_from_m1[self.m1.id][0][0].name], [self.m1.name]
+    )
 
     # Test: get upstream artifacts by model_1, with max_num_hops = 2
     result_from_m1 = self.resolver.get_upstream_artifacts_by_artifact_ids(
@@ -599,8 +656,12 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertLen(result_from_m1, 1)
     self.assertIn(self.m1.id, result_from_m1)
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_m1[self.m1.id]],
-        [self.e1.name, self.m1.name, self.e2.name],
+        [(a.name, t.name) for a, t in result_from_m1[self.m1.id]],
+        [
+            (self.e1.name, self.exp_type.name),
+            (self.m1.name, self.model_type.name),
+            (self.e2.name, self.exp_type.name),
+        ],
     )
 
     # Test: get upstream artifacts by evaluation_1, with max_num_hops = 2
@@ -610,8 +671,12 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertLen(result_from_ev1, 1)
     self.assertIn(self.ev1.id, result_from_ev1)
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_ev1[self.ev1.id]],
-        [self.ev1.name, self.e3.name, self.m1.name],
+        [(a.name, t.name) for a, t in result_from_ev1[self.ev1.id]],
+        [
+            (self.ev1.name, self.evaluation_type.name),
+            (self.e3.name, self.exp_type.name),
+            (self.m1.name, self.model_type.name),
+        ],
     )
 
     # Test: get upstream artifacts by evaluation_1, with max_num_hops = 20
@@ -621,8 +686,14 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertLen(result_from_ev1, 1)
     self.assertIn(self.ev1.id, result_from_ev1)
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_ev1[self.ev1.id]],
-        [self.ev1.name, self.e3.name, self.m1.name, self.e1.name, self.e2.name],
+        [(a.name, t.name) for a, t in result_from_ev1[self.ev1.id]],
+        [
+            (self.ev1.name, self.evaluation_type.name),
+            (self.e3.name, self.exp_type.name),
+            (self.m1.name, self.model_type.name),
+            (self.e1.name, self.exp_type.name),
+            (self.e2.name, self.exp_type.name),
+        ],
     )
 
     # Test: get upstream artifacts by evaluation_1, with max_num_hops
@@ -633,8 +704,14 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertLen(result_from_ev1, 1)
     self.assertIn(self.ev1.id, result_from_ev1)
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_ev1[self.ev1.id]],
-        [self.ev1.name, self.e3.name, self.m1.name, self.e1.name, self.e2.name],
+        [(a.name, t.name) for a, t in result_from_ev1[self.ev1.id]],
+        [
+            (self.ev1.name, self.evaluation_type.name),
+            (self.e3.name, self.exp_type.name),
+            (self.m1.name, self.model_type.name),
+            (self.e1.name, self.exp_type.name),
+            (self.e2.name, self.exp_type.name),
+        ],
     )
 
     # Test: get upstream artifacts by example_1, evaluation_1, with max_num_hops
@@ -646,12 +723,18 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertIn(self.e1.id, result_from_exp1_ev1)
     self.assertIn(self.ev1.id, result_from_exp1_ev1)
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exp1_ev1[self.e1.id]],
-        [self.e1.name],
+        [(a.name, t.name) for a, t in result_from_exp1_ev1[self.e1.id]],
+        [(self.e1.name, self.exp_type.name)],
     )
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exp1_ev1[self.ev1.id]],
-        [self.ev1.name, self.e3.name, self.m1.name, self.e1.name, self.e2.name],
+        [(a.name, t.name) for a, t in result_from_exp1_ev1[self.ev1.id]],
+        [
+            (self.ev1.name, self.evaluation_type.name),
+            (self.e3.name, self.exp_type.name),
+            (self.m1.name, self.model_type.name),
+            (self.e1.name, self.exp_type.name),
+            (self.e2.name, self.exp_type.name),
+        ],
     )
     # Test: get empty result if `artifact_ids` is empty.
     self.assertEmpty(self.resolver.get_upstream_artifacts_by_artifact_ids([]))
@@ -724,7 +807,7 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertLen(result_from_exps, 1)
     self.assertIn(self.e1.id, result_from_exps)
     self.assertCountEqual(
-        [result_from_exps[self.e1.id][0].name], [self.e1.name]
+        [result_from_exps[self.e1.id][0][0].name], [self.e1.name]
     )
 
     # Test: get upstream artifacts by examples, with max_num_hops = 1, filter
@@ -737,7 +820,7 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertLen(result_from_exps, 1)
     self.assertIn(self.e1.id, result_from_exps)
     self.assertCountEqual(
-        [result_from_exps[self.e1.id][0].name], [self.e1.name]
+        [result_from_exps[self.e1.id][0][0].name], [self.e1.name]
     )
 
     # Test: get upstream artifacts by examples, with max_num_hops = 0, filter
@@ -755,16 +838,16 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertIn(self.e2.id, result_from_exps)
     self.assertIn(self.e3.id, result_from_exps)
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exps[self.e1.id]],
-        [self.e1.name],
+        [(a.name, t.name) for a, t in result_from_exps[self.e1.id]],
+        [(self.e1.name, self.exp_type.name)],
     )
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exps[self.e2.id]],
-        [self.e2.name],
+        [(a.name, t.name) for a, t in result_from_exps[self.e2.id]],
+        [(self.e2.name, self.exp_type.name)],
     )
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exps[self.e3.id]],
-        [self.e3.name],
+        [(a.name, t.name) for a, t in result_from_exps[self.e3.id]],
+        [(self.e3.name, self.exp_type.name)],
     )
 
     # Test: get upstream artifacts by examples, with max_num_hops = 0, filter
@@ -786,8 +869,8 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertLen(result_from_eva, 1)
     self.assertIn(self.ev1.id, result_from_eva)
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_eva[self.ev1.id]],
-        [self.m1.name],
+        [(a.name, t.name) for a, t in result_from_eva[self.ev1.id]],
+        [(self.m1.name, self.model_type.name)],
     )
 
     # Test: get upstream artifacts by examples, models and evaluation, with
@@ -804,12 +887,15 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertIn(self.m2.id, result_from_exps_model_eva)
     self.assertIn(self.ev1.id, result_from_exps_model_eva)
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exps_model_eva[self.m2.id]],
-        [self.m2.name],
+        [(a.name, t.name) for a, t in result_from_exps_model_eva[self.m2.id]],
+        [(self.m2.name, self.model_type.name)],
     )
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_exps_model_eva[self.ev1.id]],
-        [self.ev1.name, self.m1.name],
+        [(a.name, t.name) for a, t in result_from_exps_model_eva[self.ev1.id]],
+        [
+            (self.ev1.name, self.evaluation_type.name),
+            (self.m1.name, self.model_type.name),
+        ],
     )
 
     # Test: get upstream artifacts by evaluation, with max_num_hops and
@@ -820,8 +906,14 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertLen(result_from_ev1, 1)
     self.assertIn(self.ev1.id, result_from_ev1)
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_ev1[self.ev1.id]],
-        [self.e1.name, self.e2.name, self.e3.name, self.m1.name, self.ev1.name],
+        [(a.name, t.name) for a, t in result_from_ev1[self.ev1.id]],
+        [
+            (self.e1.name, self.exp_type.name),
+            (self.e2.name, self.exp_type.name),
+            (self.e3.name, self.exp_type.name),
+            (self.m1.name, self.model_type.name),
+            (self.ev1.name, self.evaluation_type.name),
+        ],
     )
 
     def _is_input_event_or_valid_output_event(
@@ -840,12 +932,16 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertIn(self.m1.id, result_from_m12)
     self.assertIn(self.m2.id, result_from_m12)
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_m12[self.m1.id]],
-        [self.e1.name, self.e2.name, self.m1.name],
+        [(a.name, t.name) for a, t in result_from_m12[self.m1.id]],
+        [
+            (self.e1.name, self.exp_type.name),
+            (self.e2.name, self.exp_type.name),
+            (self.m1.name, self.model_type.name),
+        ],
     )
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_m12[self.m2.id]],
-        [self.m2.name],
+        [(a.name, t.name) for a, t in result_from_m12[self.m2.id]],
+        [(self.m2.name, self.model_type.name)],
     )
 
     # Test: get upstream artifacts filtered by events from models, with filter
@@ -861,12 +957,12 @@ class MetadataResolverTest(absltest.TestCase):
     self.assertIn(self.m1.id, result_from_m12)
     self.assertIn(self.m2.id, result_from_m12)
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_m12[self.m1.id]],
-        [self.m1.name],
+        [(a.name, t.name) for a, t in result_from_m12[self.m1.id]],
+        [(self.m1.name, self.model_type.name)],
     )
     self.assertCountEqual(
-        [artifact.name for artifact in result_from_m12[self.m2.id]],
-        [self.m2.name],
+        [(a.name, t.name) for a, t in result_from_m12[self.m2.id]],
+        [(self.m2.name, self.model_type.name)],
     )
 
 
