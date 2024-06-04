@@ -553,6 +553,7 @@ class RDBMSMetadataAccessObject : public MetadataAccessObject {
   // Returns detailed INTERNAL error, if query execution fails.
   absl::Status DeleteContextsById(absl::Span<const int64_t> context_ids) final;
 
+
   // Deletes the events corresponding to the |artifact_ids|.
   // Returns detailed INTERNAL error, if query execution fails.
   absl::Status DeleteEventsByArtifactsId(

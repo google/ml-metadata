@@ -1138,6 +1138,7 @@ message GetLineageSubgraphResponse {
 
 
 
+
 // LINT.IfChange
 service MetadataStoreService {
   // Inserts or updates an ArtifactType.

@@ -3355,6 +3355,7 @@ absl::Status RDBMSMetadataAccessObject::DeleteContextsById(
   return executor_->DeleteContextsById(context_ids);
 }
 
+
 absl::Status RDBMSMetadataAccessObject::DeleteEventsByArtifactsId(
     absl::Span<const int64_t> artifact_ids) {
   if (artifact_ids.empty()) {

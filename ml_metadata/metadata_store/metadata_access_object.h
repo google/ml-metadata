@@ -1025,6 +1025,7 @@ class MetadataAccessObject {
       const google::protobuf::FieldMask& read_mask, LineageGraph& subgraph) = 0;
 
 
+
   // Deletes a list of artifacts by id.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status DeleteArtifactsById(

@@ -665,6 +665,7 @@ class QueryExecutor {
   virtual absl::Status DeleteContextsById(
       absl::Span<const int64_t> context_ids) = 0;
 
+
   // Deletes a list of executions by id.
   // Returns detailed INTERNAL error, if query execution fails.
   virtual absl::Status DeleteExecutionsById(

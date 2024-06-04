@@ -528,6 +528,7 @@ class MetadataStore : public MetadataStoreServiceInterface {
 
 
 
+
  private:
   // To construct the object, see Create(...).
   MetadataStore(std::unique_ptr<MetadataSource> metadata_source,

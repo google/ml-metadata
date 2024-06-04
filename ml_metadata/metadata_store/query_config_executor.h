@@ -1059,6 +1059,7 @@ class QueryConfigExecutor : public QueryExecutor {
 
   absl::Status DeleteContextsById(absl::Span<const int64_t> context_ids) final;
 
+
   absl::Status DeleteExecutionsById(
       absl::Span<const int64_t> execution_ids) final;
 
