@@ -6,7 +6,7 @@ exports_files(["COPYRIGHT"])
 
 # This is OSS version of PostgreSQL bazel build target.
 # The build target is consistent with Tensorflow's dependency on PostgreSQL.
-# Reference: https://github.com/tensorflow/io/commit/6a2b9b3e94fd80f9a7f0b982089e8a69751bd059
+# Reference: https://github.com/tensorflow/io/commit/a1171cdd20e658ef3f1a8b3bf66dd4e228ceae30
 cc_library(
     name = "postgresql",
     srcs = glob([
@@ -43,8 +43,8 @@ cc_library(
         "src/common/unicode_norm.c",
         "src/common/username.c",
         "src/common/wait_error.c",
-        "src/interfaces/libpq/fe-auth.c",
         "src/interfaces/libpq/fe-auth-scram.c",
+        "src/interfaces/libpq/fe-auth.c",
         "src/interfaces/libpq/fe-connect.c",
         "src/interfaces/libpq/fe-exec.c",
         "src/interfaces/libpq/fe-lobj.c",
@@ -62,8 +62,6 @@ cc_library(
         "src/port/path.c",
         "src/port/pg_bitutils.c",
         "src/port/pg_crc32c_sb8.c",
-        # Comment this line out to force usage of sb8 algorithm of crc32c
-        # "src/port/pg_crc32c_sse42_choose.c",
         "src/port/pg_strong_random.c",
         "src/port/pgcheckdir.c",
         "src/port/pgmkdirp.c",
@@ -80,12 +78,28 @@ cc_library(
         "src/port/tar.c",
         "src/port/thread.c",
     ] + select({
-        "@//ml_metadata:macos": [],
+        "@bazel_tools//src/conditions:darwin": [],
+        "@bazel_tools//src/conditions:windows": [
+            "src/interfaces/libpq/pthread-win32.c",
+            "src/interfaces/libpq/win32.c",
+            "src/port/dirmod.c",
+            "src/port/getaddrinfo.c",
+            "src/port/inet_aton.c",
+            "src/port/open.c",
+            "src/port/strlcpy.c",
+            "src/port/win32error.c",
+            "src/port/win32setlocale.c",
+            "src/port/pthread-win32.h",
+        ],
         "//conditions:default": [
             "src/port/getpeereid.c",
-            "src/port/strlcat.c",
             "src/port/strlcpy.c",
         ],
+    }) + select({
+        "@platforms//cpu:x86_64": [
+            "src/port/pg_crc32c_sse42_choose.c",
+        ],
+        "//conditions:default": [],
     }),
     hdrs = [
         "config/pg_config.h",
@@ -98,7 +112,14 @@ cc_library(
     defines = [
         "FRONTEND",
     ] + select({
-        "@//ml_metadata:macos": [
+        "@bazel_tools//src/conditions:windows": [
+            "BLCKSZ=8192",
+            "XLOG_BLCKSZ=8192",
+            'PG_MAJORVERSION=\\"12\\"',
+            "HAVE_LIBZ=1",
+            "WIN32",
+        ],
+        "@bazel_tools//src/conditions:darwin": [
             "HAVE_DECL_STRLCPY=1",
             "HAVE_STRLCPY=1",
             "HAVE_STRUCT_SOCKADDR_STORAGE_SS_LEN=1",
@@ -114,9 +135,18 @@ cc_library(
         "src/include",
         "src/interfaces/libpq",
     ] + select({
+        "@bazel_tools//src/conditions:windows": [
+            "src/include/port/win32",
+            "src/include/port/win32_msvc",
+            "src/port",
+        ],
         "//conditions:default": [],
     }),
     linkopts = select({
+        "@bazel_tools//src/conditions:windows": [
+            "-DEFAULTLIB:ws2_32.lib",
+            "-DEFAULTLIB:shell32.lib",
+        ],
         "//conditions:default": [],
     }),
     deps = [],
@@ -125,7 +155,10 @@ cc_library(
 genrule(
     name = "pg_config_os_h",
     srcs = select({
-        "@//ml_metadata:macos": [
+        "@bazel_tools//src/conditions:windows": [
+            "src/include/port/win32.h",
+        ],
+        "@bazel_tools//src/conditions:darwin": [
             "src/include/port/darwin.h",
         ],
         "//conditions:default": [
@@ -135,18 +168,22 @@ genrule(
     outs = [
         "config/pg_config_os.h",
     ],
-    cmd = "cp $< $@",
+    cmd = ("cp $< $@"),
 )
 
 genrule(
     name = "pg_config_ext_h",
     srcs = select({
+        "@bazel_tools//src/conditions:windows": [
+            "src/include/pg_config_ext.h.win32",
+        ],
         "//conditions:default": [
             "src/include/pg_config_ext.h.in",
         ],
     }),
     outs = ["config/pg_config_ext.h"],
     cmd = select({
+        "@bazel_tools//src/conditions:windows": ("cp $< $@"),
         "//conditions:default": (
             "sed " +
             "-e 's/undef PG_INT64_TYPE/define PG_INT64_TYPE long int/g' " +
@@ -357,6 +394,9 @@ genrule(
 genrule(
     name = "pg_config_h",
     srcs = select({
+        "@bazel_tools//src/conditions:windows": [
+            "src/include/pg_config.h.win32",
+        ],
         "//conditions:default": [
             "src/include/pg_config.h.in",
         ],
@@ -365,7 +405,8 @@ genrule(
         "config/pg_config.h",
     ],
     cmd = select({
-        "//conditions:default": "\n".join([
+        "@bazel_tools//src/conditions:windows": ("cp $< $@"),
+        "//conditions:default": ("\n".join([
             "cat <<'EOF' >$@",
             "/* src/include/pg_config.h.  Generated from pg_config.h.in by configure.  */",
             "/* src/include/pg_config.h.in.  Generated from configure.in by autoheader.  */",
@@ -1145,9 +1186,11 @@ genrule(
             "/* Define to 1 if you have __cpuid. */",
             "/* #undef HAVE__CPUID */",
             "",
+            "#if defined __x86_64__",
             "/* Define to 1 if you have __get_cpuid. */",
             "#define HAVE__GET_CPUID 1",
             "",
+            "#endif",
             "/* Define to 1 if your compiler understands _Static_assert. */",
             "#define HAVE__STATIC_ASSERT 1",
             "",
@@ -1312,15 +1355,13 @@ genrule(
             "/* #undef USE_PAM */",
             "",
             "/* Define to 1 to use software CRC-32C implementation (slicing-by-8). */",
-            # Force usage of sb8 algorithm of crc32c
-            "#define USE_SLICING_BY_8_CRC32C 1",
+            "/* #undef USE_SLICING_BY_8_CRC32C */",
             "",
             "/* Define to 1 use Intel SSE 4.2 CRC instructions. */",
             "/* #undef USE_SSE42_CRC32C */",
             "",
             "/* Define to 1 to use Intel SSE 4.2 CRC instructions with a runtime check. */",
-            # Do not check at runtime but force usage of sb8 algorithm of crc32c
-            "/* #undef USE_SSE42_CRC32C_WITH_RUNTIME_CHECK */",
+            "#define USE_SSE42_CRC32C_WITH_RUNTIME_CHECK 1",
             "",
             "/* Define to build with systemd support. (--with-systemd) */",
             "/* #undef USE_SYSTEMD */",
@@ -1333,6 +1374,15 @@ genrule(
             "",
             "/* Define to select unnamed POSIX semaphores. */",
             "/* #undef USE_UNNAMED_POSIX_SEMAPHORES */",
+            "",
+            "/* Define to use native Windows API for random number generation */",
+            "/* #undef USE_WIN32_RANDOM */",
+            "",
+            "/* Define to select Win32-style semaphores. */",
+            "/* #undef USE_WIN32_SEMAPHORES */",
+            "",
+            "/* Define to select Win32-style shared memory. */",
+            "/* #undef USE_WIN32_SHARED_MEMORY */",
             "",
             "/* Define to 1 if `wcstombs_l' requires <xlocale.h>. */",
             "#define WCSTOMBS_L_IN_XLOCALE 1",
@@ -1405,6 +1455,6 @@ genrule(
             "   pointer, if such a type exists, and if the system does not define it. */",
             "/* #undef uintptr_t */",
             "EOF",
-        ]),
+        ])),
     }),
 )

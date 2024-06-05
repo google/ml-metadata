@@ -1,6 +1,7 @@
-Files for building the [Docker](http://www.docker.com) image for running the
-MLMD gRPC server.
+Files for building the container image that runs the MLMD gRPC server (`gcr.io/tfx-oss-public/ml_metadata_store_server`).
 
-To build a docker image, run
-`./ml_metadata/tools/docker_server/build_docker_image.sh` under root directory
-of github checkout.
+To build the image, run the following command:
+
+```shell
+./ml_metadata/tools/docker_server/build_docker_image.sh
+```
