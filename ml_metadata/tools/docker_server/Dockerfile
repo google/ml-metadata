@@ -31,6 +31,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
   unzip \
   software-properties-common \
   git \
+  openjdk-8-jdk
   python3-distutils \
   python-is-python3 \
   python3-dev
@@ -40,19 +41,28 @@ ENV BAZEL_VERSION 6.1.0
 WORKDIR /
 RUN mkdir /bazel && \
     cd /bazel && \
-    curl -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36" -fSsL -O https://github.com/bazelbuild/bazel/releases/download/$BAZEL_VERSION/bazel-$BAZEL_VERSION-installer-linux-x86_64.sh && \
-    curl -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36" -fSsL -o /bazel/LICENSE.txt https://raw.githubusercontent.com/bazelbuild/bazel/master/LICENSE && \
-    chmod +x bazel-*.sh && \
-    ./bazel-$BAZEL_VERSION-installer-linux-x86_64.sh && \
-    cd / && \
-    rm -f /bazel/bazel-$BAZEL_VERSION-installer-linux-x86_64.sh
+	arch=$(arch) && \
+    if [ "$arch" = "x86_64" ]; then \
+      curl -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36" -fSsL -O https://github.com/bazelbuild/bazel/releases/download/$BAZEL_VERSION/bazel-$BAZEL_VERSION-installer-linux-x86_64.sh && \
+      curl -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36" -fSsL -o /bazel/LICENSE.txt https://raw.githubusercontent.com/bazelbuild/bazel/master/LICENSE && \
+      chmod +x bazel-*.sh && \
+      ./bazel-$BAZEL_VERSION-installer-linux-x86_64.sh && \
+      cd / && \
+      rm -f /bazel/bazel-$BAZEL_VERSION-installer-linux-x86_64.sh; \
+    elif ["$arch" = "ppc64le"]; then \
+      curl -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36" -fSsL  https://ftp2.osuosl.org/pub/ppc64el/bazel/ubuntu_18.04/bazel_bin_ppc64le_$BAZEL_VERSION --output /usr/bin/bazel &&  chmod +x /usr/bin/bazel && \
+      cd / && \
+      rm -f /bazel/bazel_bin_ppc64le_$BAZEL_VERSION; \
+    else \
+      echo "Architecture Not Suppoted"; \
+    fi
 
 ADD . /mlmd-src
 WORKDIR /mlmd-src
 
 # "-std=c++17" is needed in order to build with ZetaSQL.
 RUN bazel build -c opt --action_env=PATH \
-  --define=grpc_no_ares=true \
+  --define=grpc_no_ares=true --jobs=8 \
   //ml_metadata/metadata_store:metadata_store_server --cxxopt="-std=c++17"
 
 # copying libmysqlclient source onto THIRD_PARTY folder.
