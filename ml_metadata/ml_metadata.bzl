@@ -15,9 +15,10 @@
 This module contains build rules for ml_metadata in OSS.
 """
 
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
-load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
-load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library", "py_proto_library")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+load("@rules_go//proto:def.bzl", "go_proto_library")
+load("@protobuf//:protobuf.bzl", "py_proto_library")
+load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_proto_library")
 
 def ml_metadata_cc_test(
         name,
@@ -54,7 +55,7 @@ def ml_metadata_proto_library(
         testonly = 0,
         cc_grpc_version = None,
         cc_api_version = 2):
-    """Opensource cc_proto_library."""
+    """Opensource cpp_proto_library."""
     _ignore = [has_services, cc_api_version]
     native.filegroup(
         name = name + "_proto_srcs",
@@ -65,13 +66,13 @@ def ml_metadata_proto_library(
     use_grpc_plugin = None
     if cc_grpc_version:
         use_grpc_plugin = True
-    cc_proto_library(
+    cpp_proto_library(
         name = name,
         srcs = srcs,
         deps = deps,
-        cc_libs = ["@com_google_protobuf//:protobuf"],
-        protoc = "@com_google_protobuf//:protoc",
-        default_runtime = "@com_google_protobuf//:protobuf",
+        cc_libs = ["@protobuf//:protobuf"],
+        protoc = "@protobuf//:protoc",
+        default_runtime = "@protobuf//:protobuf",
         use_grpc_plugin = use_grpc_plugin,
         testonly = testonly,
         visibility = visibility,
@@ -93,9 +94,9 @@ def ml_metadata_proto_library_py(
         name = name,
         srcs = srcs,
         srcs_version = "PY2AND3",
-        deps = ["@com_google_protobuf//:well_known_types_py_pb2"] + deps + oss_deps,
-        default_runtime = "@com_google_protobuf//:protobuf_python",
-        protoc = "@com_google_protobuf//:protoc",
+        deps = ["@protobuf//:well_known_types_py_pb2"] + deps + oss_deps,
+        default_runtime = "@protobuf//:protobuf_python",
+        protoc = "@protobuf//:protoc",
         visibility = visibility,
         testonly = testonly,
         use_grpc_plugin = use_grpc_plugin,
@@ -127,7 +128,7 @@ def ml_metadata_proto_library_go(
         importpath = importpath,
         proto = ":" + proto_library_name,
         deps = go_proto_deps,
-        compilers = ["@io_bazel_rules_go//proto:go_grpc"] if gen_oss_grpc else None,
+        compilers = ["@rules_go//proto:go_grpc"] if gen_oss_grpc else None,
     )
 
 def ml_metadata_go_library(

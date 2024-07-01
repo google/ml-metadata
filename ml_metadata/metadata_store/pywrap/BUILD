@@ -31,7 +31,7 @@ ml_metadata_pybind_extension(
     ],
     module_name = "metadata_store_extension",
     deps = [
-        "@com_google_absl//absl/status",
+        "@abseil-cpp//absl/status",
         "//ml_metadata/metadata_store:metadata_store_factory",
         "//ml_metadata/metadata_store:simple_types_util",
         "//ml_metadata/proto:metadata_store_proto",

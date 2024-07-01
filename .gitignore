@@ -1,0 +1,4 @@
+bazel-bin
+bazel-ml-metadata
+bazel-out
+bazel-testlogs
