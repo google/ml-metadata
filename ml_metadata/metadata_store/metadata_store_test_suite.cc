@@ -3643,7 +3643,7 @@ TEST_P(MetadataStoreTestSuite, GetArtifactByURI) {
     const google::protobuf::Reflection* reflection = request.GetReflection();
     google::protobuf::UnknownFieldSet* fs = reflection->MutableUnknownFields(&request);
     std::string uri = "deprecated_uri_field_value";
-    fs->AddLengthDelimited(1)->assign(uri);
+    fs->AddLengthDelimited(1, uri);
 
     GetArtifactsByURIResponse response;
     absl::Status s = metadata_store_->GetArtifactsByURI(request, &response);
