@@ -623,7 +623,8 @@ message MySQLDatabaseConfig {
   optional string user = 4;
   // The password to use for `user`. If empty, only MYSQL user ids that don't
   // have a password set are allowed to connect.
-  optional string password = 5;
+  optional string password = 5
+      ;
   // The Unix socket to use to connect to the server. If unspecified, a
   // `host` must be provided.
   optional string socket = 6;
@@ -708,7 +709,8 @@ message PostgreSQLDatabaseConfig {
   optional string user = 4;
 
   // Password to be used if the server demands password authentication.
-  optional string password = 5;
+  optional string password = 5
+      ;
 
   // Specifies the name of the file used to store passwords.
   optional string passfile = 6;
