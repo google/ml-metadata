@@ -25,7 +25,7 @@ cc_library(
         "simple_types_constants.h",
     ],
     deps = [
-        "@com_google_absl//absl/base:core_headers",
-        "@com_google_absl//absl/strings",
+        "@abseil-cpp//absl/base:core_headers",
+        "@abseil-cpp//absl/strings",
     ],
 )
