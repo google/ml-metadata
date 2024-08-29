@@ -166,7 +166,16 @@ setup(
     ],
     extras_require={
         'lint': ['pre-commit'],
-    },
+        # TODO: Pin versions for docs
+        "docs": ["mkdocs",
+                 "mkdocs-material",
+                 "mkdocstrings[python]",
+                 "griffe-inherited-docstrings",
+                 "mkdocs-autorefs",
+                 "black",
+                 "mkdocs-caption"
+        ]
+    }
     python_requires='>=3.9,<4',
     packages=find_packages(),
     include_package_data=True,
