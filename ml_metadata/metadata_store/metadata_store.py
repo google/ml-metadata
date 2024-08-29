@@ -1040,8 +1040,8 @@ class MetadataStore:
       extra_options: ExtraOptions instance.
 
     Returns:
-      Artifacts with matching ids and ArtifactTypes which can be matched by
-      type_ids from Artifacts. Each ArtifactType contains id, name,
+      Artifacts with matching ids and ArtifactTypes which can be matched by\
+      type_ids from Artifacts. Each ArtifactType contains id, name,\
       properties and custom_properties fields.
     """
     del extra_options
