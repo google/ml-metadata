@@ -68,6 +68,7 @@ plugins:
               - "^__init__$"
               - "^__call__$"
               - "!^logger"
+              - "!_test$"
             extensions:
               - griffe_inherited_docstrings
           import:
