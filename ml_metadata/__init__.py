@@ -37,6 +37,6 @@ except ImportError as err:
 __all__ = [
     "downgrade_schema",
     "ListOptions",
-    "Metadata",
+    "MetadataStore",
     "OrderByField",
 ]
