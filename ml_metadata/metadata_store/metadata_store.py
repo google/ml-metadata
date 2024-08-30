@@ -53,7 +53,13 @@ _ATTRIBUTIONS_FIELD_MASK_PATH = 'attributions'
 
 @enum.unique
 class OrderByField(enum.Enum):
-  """Defines the available fields to order results in ListOperations."""
+  """Defines the available fields to order results in ListOperations.
+
+  Attributes:
+    CREATE_TIME: `<OrderByField.CREATE_TIME: 1>`
+    ID: `<OrderByField.ID: 3>`
+    UPDATE_TIME: `<OrderByField.UPDATE_TIME: 2>`
+  """
 
   CREATE_TIME = (
       metadata_store_pb2.ListOperationOptions.OrderByField.Field.CREATE_TIME)
