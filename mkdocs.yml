@@ -107,7 +107,7 @@ extra_javascript:
 watch:
   - ml_metadata
 nav:
-  - Getting Started: get_started.md
+  - Getting Started: get_started
 
   - API:
-    - Metadata Store: api/metadata_store.md
+    - Metadata Store: api/metadata_store
