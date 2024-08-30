@@ -107,7 +107,15 @@ extra_javascript:
 watch:
   - ml_metadata
 nav:
-  - Getting Started: get_started
+  - Getting Started: get_started.md
 
   - API:
-    - Metadata Store: api/metadata_store
+    - mlmd:
+        - Overview: api/mlmd/root.md
+        - mlmd: api/mlmd/mlmd.md
+    - mlmd.errors:
+        - Overview: api/mlmd.errors/root.md
+        - mlmd.errors: api/mlmd.errors/mlmd.errors.md
+    - mlmd.proto:
+        - Overview: api/mlmd.proto/root.md
+        - mlmd.proto: api/mlmd.proto/mlmd.proto.md

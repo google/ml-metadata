@@ -12,37 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ML Metadata proto module."""
-from ml_metadata.proto import (
-    metadata_store_pb2,
-    metadata_store_service_pb2,
-    metadata_store_service_pb2_grpc,
-)
 
 # Connection configurations for different deployment.
-ConnectionConfig = metadata_store_pb2.ConnectionConfig
-MetadataStoreClientConfig = metadata_store_pb2.MetadataStoreClientConfig
+from ml_metadata.proto.metadata_store_pb2 import (
+    ConnectionConfig,
+    MetadataStoreClientConfig,
+)
 
 # ML Metadata core data model concepts.
-Artifact = metadata_store_pb2.Artifact
-Execution = metadata_store_pb2.Execution
-Context = metadata_store_pb2.Context
-
-Event = metadata_store_pb2.Event
-Attribution = metadata_store_pb2.Attribution
-Association = metadata_store_pb2.Association
-ParentContext = metadata_store_pb2.ParentContext
-
-ArtifactType = metadata_store_pb2.ArtifactType
-ExecutionType = metadata_store_pb2.ExecutionType
-ContextType = metadata_store_pb2.ContextType
-
-FakeDatabaseConfig = metadata_store_pb2.FakeDatabaseConfig
-MySQLDatabaseConfig = metadata_store_pb2.MySQLDatabaseConfig
-SqliteMetadataSourceConfig = metadata_store_pb2.SqliteMetadataSourceConfig
-
-del metadata_store_pb2
-del metadata_store_service_pb2
-del metadata_store_service_pb2_grpc
+from ml_metadata.proto.metadata_store_pb2 import (
+    Artifact,
+    Execution,
+    Context,
+    Event,
+    Attribution,
+    Association,
+    ParentContext,
+    ArtifactType,
+    ExecutionType,
+    ContextType,
+    FakeDatabaseConfig,
+    MySQLDatabaseConfig,
+    SqliteMetadataSourceConfig,
+)
+import ml_metadata.proto.metadata_store_service_pb2 as _
+import ml_metadata.proto.metadata_store_service_pb2_grpc as _
 
 Artifact.__doc__ = """
 An artifact represents an input or an output of individual steps in a ML
@@ -115,3 +109,21 @@ A connection configuration to use a Sqlite db file as a MLMD backend.
 MetadataStoreClientConfig.__doc__ = """
 A connection configuration to use a MLMD server as the persistent backend.
 """
+
+__all__ = [
+    "ConnectionConfig",
+    "MetadataStoreClientConfig",
+    "Artifact",
+    "Execution",
+    "Context",
+    "Event",
+    "Attribution",
+    "Association",
+    "ParentContext",
+    "ArtifactType",
+    "ExecutionType",
+    "ContextType",
+    "FakeDatabaseConfig",
+    "MySQLDatabaseConfig",
+    "SqliteMetadataSourceConfig",
+]
