@@ -35,8 +35,11 @@ from ml_metadata.proto.metadata_store_pb2 import (
     MySQLDatabaseConfig,
     SqliteMetadataSourceConfig,
 )
-import ml_metadata.proto.metadata_store_service_pb2 as _
-import ml_metadata.proto.metadata_store_service_pb2_grpc as _
+from ml_metadata.proto import metadata_store_service_pb2
+from ml_metadata.proto import metadata_store_service_pb2_grpc
+
+del metadata_store_service_pb2
+del metadata_store_service_pb2_grpc
 
 Artifact.__doc__ = """
 An artifact represents an input or an output of individual steps in a ML
