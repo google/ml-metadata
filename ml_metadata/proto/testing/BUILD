@@ -24,5 +24,4 @@ licenses(["notice"])
 ml_metadata_proto_library(
     name = "mock_proto",
     srcs = ["mock.proto"],
-    cc_api_version = 2,
 )

@@ -20,7 +20,6 @@ licenses(["notice"])
 ml_metadata_proto_library(
     name = "simple_types_proto",
     srcs = ["simple_types.proto"],
-    cc_api_version = 2,
     deps = [
         "//ml_metadata/proto:metadata_store_proto",
     ],
