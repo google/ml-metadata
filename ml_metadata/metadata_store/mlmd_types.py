@@ -68,9 +68,9 @@ class _SystemType(abc.ABC):
       type_name: name of the desired system type.
 
     Raises:
-      NOT_FOUND: if 'type_name' is not found in the pre-loaded simple type list;\
-      It also raises the corresponding error from wrapped LoadSimpleTypes util\
-      method.
+      NOT_FOUND: if 'type_name' is not found in the pre-loaded simple type list;
+        It also raises the corresponding error from wrapped LoadSimpleTypes util
+        method.
     """
     [types_str, error_message,
      status_code] = metadata_store_serialized.LoadSimpleTypes()
