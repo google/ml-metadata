@@ -844,7 +844,7 @@ absl::Status QueryConfigExecutor::ListNodeIDsUsingOptions(
                        sql_gen_status.message()));
     }
     sql_query = absl::Substitute(
-        "SELECT distinct $0.`id` FROM $1 WHERE $2 AND ", *node_table_alias,
+        "SELECT distinct $0.`id`, $0.`create_time_since_epoch`, $0.`last_update_time_since_epoch` FROM $1 WHERE $2 AND ", *node_table_alias,
         // TODO(b/257334039): remove query_version-conditional logic
         query_builder.GetFromClause(query_version),
         query_builder.GetWhereClause());
