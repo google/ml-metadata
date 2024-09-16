@@ -22,17 +22,19 @@ import random
 import time
 from typing import Any, Iterable, List, Optional, Sequence, Tuple
 
-from absl import logging
 import attr
 import grpc
+from absl import logging
 
-from ml_metadata import errors
-from ml_metadata import proto
-from ml_metadata.metadata_store.pywrap.metadata_store_extension import metadata_store as metadata_store_serialized
-from ml_metadata.proto import metadata_store_pb2
-from ml_metadata.proto import metadata_store_service_pb2
-from ml_metadata.proto import metadata_store_service_pb2_grpc
-
+from ml_metadata import errors, proto
+from ml_metadata.metadata_store.pywrap.metadata_store_extension import (
+  metadata_store as metadata_store_serialized,
+)
+from ml_metadata.proto import (
+  metadata_store_pb2,
+  metadata_store_service_pb2,
+  metadata_store_service_pb2_grpc,
+)
 
 # Max number of results for one call.
 MAX_NUM_RESULT = 100
@@ -62,7 +64,7 @@ class OrderByField(enum.Enum):
 
 
 @attr.s(auto_attribs=True)
-class ListOptions(object):
+class ListOptions:
   """Defines the available options when listing nodes.
 
   Attributes:
@@ -84,14 +86,14 @@ class ListOptions(object):
   filter_query: Optional[str] = None
 
 
-class ExtraOptions(object):
+class ExtraOptions:
   """Dummy Extra options to align with internal MetadataStore."""
 
   def __init__(self, euc=None):
     """Initialize ExtraOptions."""
 
 
-class MetadataStore(object):
+class MetadataStore:
   """A store for the metadata."""
 
   def __init__(self, config, enable_upgrade_migration: bool = False):

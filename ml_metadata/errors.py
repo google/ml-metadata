@@ -208,7 +208,6 @@ def make_exception(message: str, error_code: int):
   Returns:
     An exception.
   """
-
   try:
     exc_type = exception_type_from_error_code(error_code)
     # log internal backend engine errors only.

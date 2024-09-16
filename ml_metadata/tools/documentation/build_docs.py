@@ -28,22 +28,14 @@ python3 ml_metadata/tools/documentation/build_docs.py --output_dir=/tmp/mlmd
 ```
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import os
 
-from absl import app
-from absl import flags
-
-from tensorflow_docs.api_generator import doc_controls
-from tensorflow_docs.api_generator import generate_lib
-from tensorflow_docs.api_generator import public_api
+from absl import app, flags
+from google.protobuf.reflection import GeneratedProtocolMessageType
+from tensorflow_docs.api_generator import doc_controls, generate_lib, public_api
 
 import ml_metadata as mlmd
-
-from google.protobuf.reflection import GeneratedProtocolMessageType
 
 flags.DEFINE_string('output_dir', '/tmp/mlmd_api', 'Where to output the docs')
 flags.DEFINE_string(
