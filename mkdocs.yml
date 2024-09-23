@@ -1,5 +1,5 @@
 site_name: "ML Metadata"
-repo_name: "Tensorflow ML Metadata"
+repo_name: "ML Metadata"
 repo_url: https://github.com/google/ml-metadata
 
 docs_dir: g3doc
