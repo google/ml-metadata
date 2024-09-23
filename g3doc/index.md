@@ -555,7 +555,7 @@ ml-metadata (MLMD) | schema_version
 
 The MLMD library has a high-level API that you can readily use with your ML
 pipelines. See the
-[MLMD API documentation](../api/mlmd)
+[MLMD API documentation](api/mlmd.md)
 for more details.
 
 Check out
