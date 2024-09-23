@@ -108,7 +108,7 @@ watch:
   - ml_metadata
 nav:
   - Getting Started: get_started.md
-
+  - Tutorial: https://tensorflow.github.io/tfx/tutorials/mlmd/mlmd_tutorial/
   - API:
     - mlmd:
         - Overview: api/mlmd/root.md
