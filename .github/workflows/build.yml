@@ -3,10 +3,12 @@ name: Build ml-metadata
 on:
   push:
     branches:
-      - master
+     # Remove before merge (only for testing)
+      - "*"
   pull_request:
     branches:
       - master
+  workflow_dispatch:
 
 jobs:
   build:
@@ -35,10 +37,6 @@ jobs:
         docker compose build ${DOCKER_SERVICE}
         docker compose run ${DOCKER_SERVICE}
 
-    - name: Test
-      run: |
-        pytest -vv
-
     - name: Upload wheel artifact for Python ${{ matrix.python-version }}
       uses: actions/upload-artifact@v4.4.0
       with:
@@ -48,6 +46,9 @@ jobs:
     - name: Install built wheel
       run: pip install dist/*.whl
 
+    - name: Test
+      run: |
+        pytest -vv
 
   upload_to_pypi:
     name: Upload to PyPI
