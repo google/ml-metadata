@@ -35,6 +35,10 @@ jobs:
         docker compose build ${DOCKER_SERVICE}
         docker compose run ${DOCKER_SERVICE}
 
+    - name: Test
+      run: |
+        pytest -vv
+
     - name: Upload wheel artifact for Python ${{ matrix.python-version }}
       uses: actions/upload-artifact@v4.4.0
       with:

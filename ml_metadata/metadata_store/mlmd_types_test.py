@@ -13,7 +13,7 @@
 # limitations under the License.
 """Tests for mlmd_types."""
 
-from absl.testing import absltest
+import unittest
 
 from ml_metadata.metadata_store import mlmd_types
 from ml_metadata.proto import metadata_store_pb2
@@ -33,7 +33,7 @@ def _get_execution_type_name(
   return extensions[metadata_store_pb2.system_type_extension].type_name
 
 
-class MlmdTypesTest(absltest.TestCase):
+class MlmdTypesTest(unittest.TestCase):
 
   def testSystemArtifactTypes(self):
     self.assertEqual(
@@ -65,7 +65,3 @@ class MlmdTypesTest(absltest.TestCase):
     self.assertEqual(
         _get_execution_type_name(metadata_store_pb2.ExecutionType.DEPLOY),
         mlmd_types.Deploy().name)
-
-
-if __name__ == "__main__":
-  absltest.main()
