@@ -36,10 +36,37 @@ jobs:
         docker compose run ${DOCKER_SERVICE}
 
     - name: Upload wheel artifact for Python ${{ matrix.python-version }}
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4.4.0
       with:
         name: ml-metadata-wheel-py${{ matrix.python-version }}
         path: dist/*.whl
 
     - name: Install built wheel
       run: pip install dist/*.whl
+
+
+  upload_to_pypi:
+    name: Upload to PyPI
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'release' && startsWith(github.ref, 'refs/tags')) || (github.event_name == 'workflow_dispatch')
+    needs: [build]
+    environment:
+      name: pypi
+      url: https://pypi.org/p/ml-metadata/
+    permissions:
+      id-token: write
+    steps:
+      - name: Retrieve wheels
+        uses: actions/download-artifact@v4.1.8
+        with:
+          merge-multiple: true
+          path: wheels
+
+      - name: List the build artifacts
+        run: |
+          ls -lAs wheels/
+
+      - name: Upload to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1.9
+        with:
+          packages_dir: wheels/
