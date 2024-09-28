@@ -3,8 +3,7 @@ name: Build ml-metadata
 on:
   push:
     branches:
-     # Remove before merge (only for testing)
-      - "*"
+      - master
   pull_request:
     branches:
       - master
