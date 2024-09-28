@@ -48,6 +48,9 @@ jobs:
 
     - name: Test
       run: |
+        # cleanup (interferes with tests)
+        rm -rf bazel-*
+        # run tests
         pytest -vv
 
   upload_to_pypi:
