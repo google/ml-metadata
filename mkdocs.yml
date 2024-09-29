@@ -2,8 +2,6 @@ site_name: "ML Metadata"
 repo_name: "ML Metadata"
 repo_url: https://github.com/google/ml-metadata
 
-docs_dir: g3doc
-
 theme:
   name: material
   palette:
@@ -110,11 +108,11 @@ nav:
   - Tutorial: https://tensorflow.github.io/tfx/tutorials/mlmd/mlmd_tutorial/
   - API:
     - mlmd:
-        - Overview: api/mlmd/
+        - Overview: api/mlmd/index.md
         - mlmd: api/mlmd/mlmd.md
     - mlmd.errors:
-        - Overview: api/mlmd.errors/
+        - Overview: api/mlmd.errors/index.md
         - mlmd.errors: api/mlmd.errors/mlmd.errors.md
     - mlmd.proto:
-        - Overview: api/mlmd.proto/
+        - Overview: api/mlmd.proto/index.md
         - mlmd.proto: api/mlmd.proto/mlmd.proto.md
