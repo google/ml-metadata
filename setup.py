@@ -172,7 +172,7 @@ setup(
     extras_require={
         'lint': ['pre-commit'],
         # TODO: Pin versions for docs
-        "docs": docs_reqs
+        "docs": docs_reqs,
     },
     python_requires='>=3.9,<4',
     packages=find_packages(),
