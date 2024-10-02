@@ -19,3 +19,7 @@ requires = [
   # Required for using org_tensorflow bazel repository.
   "numpy~=1.22.0",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["ml_metadata/metadata_store/"]
+python_files = "*_test.py"

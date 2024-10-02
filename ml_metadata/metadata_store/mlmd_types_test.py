@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for mlmd_types."""
-
-import unittest
+from absl.testing import absltest
 
 from ml_metadata.metadata_store import mlmd_types
 from ml_metadata.proto import metadata_store_pb2
@@ -33,7 +32,7 @@ def _get_execution_type_name(
   return extensions[metadata_store_pb2.system_type_extension].type_name
 
 
-class MlmdTypesTest(unittest.TestCase):
+class MlmdTypesTest(absltest.TestCase):
 
   def testSystemArtifactTypes(self):
     self.assertEqual(
