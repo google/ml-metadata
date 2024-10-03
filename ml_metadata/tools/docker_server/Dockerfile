@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# TODO(b/195701120) Introduces l.gcr.io/google/bazel:5.3.0 when it is available
-# and makes sure that it uses ubuntu 20.04 as base image. Currently the lastest
-# version only supports bazel 6.1.0.
 FROM ubuntu:20.04 as builder
+
+ARG TARGETARCH
 
 RUN export DEBIAN_FRONTEND=noninteractive && \
   apt-get update -y --option Acquire::Retries=3 && \
@@ -35,17 +34,16 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
   python-is-python3 \
   python3-dev
 
-# Set up Bazel 6.1.0
-ENV BAZEL_VERSION 6.1.0
+# Install Bazelisk
+ENV BAZELISK_VERSION 1.19.0
 WORKDIR /
-RUN mkdir /bazel && \
-    cd /bazel && \
-    curl -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36" -fSsL -O https://github.com/bazelbuild/bazel/releases/download/$BAZEL_VERSION/bazel-$BAZEL_VERSION-installer-linux-x86_64.sh && \
-    curl -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36" -fSsL -o /bazel/LICENSE.txt https://raw.githubusercontent.com/bazelbuild/bazel/master/LICENSE && \
-    chmod +x bazel-*.sh && \
-    ./bazel-$BAZEL_VERSION-installer-linux-x86_64.sh && \
-    cd / && \
-    rm -f /bazel/bazel-$BAZEL_VERSION-installer-linux-x86_64.sh
+RUN case "${TARGETARCH}" in \
+      amd64) BAZELISK_ARCH="amd64" ;; \
+      arm64) BAZELISK_ARCH="arm64" ;; \
+      *) echo "Unsupported architecture: ${TARGETARCH}"; exit 1 ;; \
+    esac && \
+    curl -fSsL https://github.com/bazelbuild/bazelisk/releases/download/v${BAZELISK_VERSION}/bazelisk-linux-${BAZELISK_ARCH} -o /usr/local/bin/bazel && \
+    chmod +x /usr/local/bin/bazel
 
 ADD . /mlmd-src
 WORKDIR /mlmd-src
