@@ -6769,7 +6769,7 @@ R"pb(
       upgrade_queries {
         query: " CREATE INDEX idx_execution_property_string "
                "  ON ExecutionProperty "
-               "   (name, is_custom_property, string_value);" 
+               "   (name, is_custom_property, string_value);"
       }
       upgrade_queries {
         query: " CREATE INDEX idx_context_property_int "

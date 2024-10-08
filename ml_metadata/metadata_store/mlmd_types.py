@@ -17,7 +17,9 @@ import abc
 from typing import Union
 
 from ml_metadata import errors
-from ml_metadata.metadata_store.pywrap.metadata_store_extension import metadata_store as metadata_store_serialized
+from ml_metadata.metadata_store.pywrap.metadata_store_extension import (
+  metadata_store as metadata_store_serialized,
+)
 from ml_metadata.proto import metadata_store_pb2
 from ml_metadata.simple_types.proto import simple_types_pb2
 
@@ -32,7 +34,6 @@ def _make_exception(msg, error_code):
   Returns:
     An exception.
   """
-
   try:
     exc_type = errors.exception_type_from_error_code(error_code)
     return exc_type(msg)
@@ -49,7 +50,7 @@ def _get_type_proto(
   for execution_type in types.execution_types:
     if execution_type.name == type_name:
       return execution_type
-  raise _make_exception('Type name: {} is not found'.format(type_name),
+  raise _make_exception(f'Type name: {type_name} is not found',
                         errors.NOT_FOUND)
 
 
