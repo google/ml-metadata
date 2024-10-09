@@ -21,3 +21,36 @@ All submissions, including submissions by project members, require review. We
 use GitHub pull requests for this purpose. Consult
 [GitHub Help](https://help.github.com/articles/about-pull-requests/) for more
 information on using pull requests.
+
+## Using `pre-commit`
+
+To enforce style and coding standards, this repository uses
+[`pre-commit`](https://pre-commit.com/). To get started:
+
+```shell
+pip install pre-commit
+pre-commit install
+```
+
+### Run pre-commit on all files
+
+By default, `pre-commit` will run its checks on files that have been modified in
+a commit. To instead run it on all files, use this command:
+
+```console
+$ pre-commit run --all-files
+
+# Alternatively
+$ pre-commit run -a
+```
+
+### Skip the pre-commit checks
+
+Run the following command:
+
+```console
+$ git commit --no-verify
+```
+
+Be aware the pre-commit checks are run on CI, so any violations will need to be
+fixed before code gets merged.
