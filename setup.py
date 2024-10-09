@@ -13,23 +13,21 @@
 # limitations under the License.
 """Package Setup script for ML Metadata."""
 
-import os
+import os  # noqa: I001
 import platform
 import shutil
 import subprocess
 import sys
 
 import setuptools
-from setuptools import find_packages
-from setuptools import setup
+from setuptools import find_packages, setup
 from setuptools.command.install import install
 from setuptools.dist import Distribution
-# pylint: disable=g-bad-import-order
+
 # It is recommended to import setuptools prior to importing distutils to avoid
 # using legacy behavior from distutils.
 # https://setuptools.readthedocs.io/en/latest/history.html#v48-0-0
 from distutils.command import build
-# pylint: enable=g-bad-import-order
 
 _IS_PY311 = sys.version_info >= (3, 11)
 
@@ -166,6 +164,9 @@ setup(
         f'protobuf>={"4.25.2" if _IS_PY311 else "3.20.3"},<5',
         'six>=1.10,<2',
     ],
+    extras_require={
+        'lint': ['pre-commit'],
+    },
     python_requires='>=3.9,<4',
     packages=find_packages(),
     include_package_data=True,
