@@ -929,7 +929,7 @@ TEST_P(QueryExecutorTest, SelectArtifacts) {
               values: ")pb",
             absl::ToUnixMillis(test_create_time), R"pb(" values: ")pb",
             absl::ToUnixMillis(test_create_time),
-            R"pb(" 
+            R"pb("
                  values: "test_type"
             )pb",
             R"pb(
@@ -950,7 +950,7 @@ TEST_P(QueryExecutorTest, SelectArtifacts) {
               values: ")pb",
             absl::ToUnixMillis(test_create_time), R"pb(" values: ")pb",
             absl::ToUnixMillis(test_create_time),
-            R"pb(" 
+            R"pb("
                  values: "test_type"
             )pb",
             R"pb(
@@ -1057,7 +1057,7 @@ TEST_P(QueryExecutorTest, SelectContexts) {
               values: ")pb",
             absl::ToUnixMillis(test_create_time), R"pb(" values: ")pb",
             absl::ToUnixMillis(test_create_time),
-            R"pb(" 
+            R"pb("
                  values: "test_type"
             )pb",
             R"pb(
@@ -1076,7 +1076,7 @@ TEST_P(QueryExecutorTest, SelectContexts) {
               values: ")pb",
             absl::ToUnixMillis(test_create_time), R"pb(" values: ")pb",
             absl::ToUnixMillis(test_create_time),
-            R"pb(" 
+            R"pb("
                  values: "test_type"
             )pb",
             R"pb(
@@ -1182,7 +1182,7 @@ TEST_P(QueryExecutorTest, SelectExecutions) {
               values: ")pb",
             absl::ToUnixMillis(test_create_time), R"pb(" values: ")pb",
             absl::ToUnixMillis(test_create_time),
-            R"pb(" 
+            R"pb("
                  values: "test_type"
             )pb",
             R"pb(
@@ -1202,7 +1202,7 @@ TEST_P(QueryExecutorTest, SelectExecutions) {
               values: ")pb",
             absl::ToUnixMillis(test_create_time), R"pb(" values: ")pb",
             absl::ToUnixMillis(test_create_time),
-            R"pb(" 
+            R"pb("
                  values: "test_type"
             )pb",
             R"pb(

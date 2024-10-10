@@ -92,7 +92,7 @@ cc_library(
     hdrs = ["record_parsing_utils.h"],
     deps = [
         ":return_utils",
-        
+
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",

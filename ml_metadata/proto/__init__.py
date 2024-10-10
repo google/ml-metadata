@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ML Metadata proto module."""
-from ml_metadata.proto import metadata_store_pb2
-from ml_metadata.proto import metadata_store_service_pb2
-from ml_metadata.proto import metadata_store_service_pb2_grpc
+from ml_metadata.proto import (
+    metadata_store_pb2,
+    metadata_store_service_pb2,
+    metadata_store_service_pb2_grpc,
+)
 
 # Connection configurations for different deployment.
 ConnectionConfig = metadata_store_pb2.ConnectionConfig

@@ -45,4 +45,4 @@ services:
     environment:
       PYTHON_VERSION: 311
     volumes:
-      - .:/build:delegated    
+      - .:/build:delegated

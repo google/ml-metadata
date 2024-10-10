@@ -231,7 +231,7 @@ static char *_swig_topofstack() {
 }
 
 /* This function does not work with Go 1.5 or later
-   
+
 static void *_swig_goallocate(size_t len) {
   struct {
     size_t len;
@@ -255,7 +255,7 @@ static void _swig_gopanic(const char *p) {
 
 
 /* This function does not work with Go 1.5 or later
-   
+
 static _gostring_ _swig_makegostring(const char *p, size_t l) {
   _gostring_ ret;
   ret.p = (char*)_swig_goallocate(l + 1);
@@ -1546,4 +1546,3 @@ _gostring_ _wrap_ErrorMessage_metadata_store_go_wrap_111d7b2874b915fe(
 #ifdef __cplusplus
 }
 #endif
-

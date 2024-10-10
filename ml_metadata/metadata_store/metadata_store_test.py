@@ -17,8 +17,8 @@ import os
 import uuid
 import pytest
 
-from absl.testing import absltest
-from absl.testing import parameterized
+from absl import flags
+from absl.testing import absltest, parameterized
 
 import ml_metadata as mlmd
 from ml_metadata import errors
@@ -97,13 +97,13 @@ def _create_example_context_type(type_name, type_version=None):
 class MetadataStoreTest(parameterized.TestCase):
 
   def _get_test_type_name(self):
-    return "test_type_{}".format(uuid.uuid4())
+    return f"test_type_{uuid.uuid4()}"
 
   def _get_test_type_version(self):
-    return "test_version_{}".format(uuid.uuid4())
+    return f"test_version_{uuid.uuid4()}"
 
   def _get_test_db_name(self):
-    return "test_mlmd_{}.db".format(uuid.uuid4())
+    return f"test_mlmd_{uuid.uuid4()}.db"
 
   def test_unset_connection_config(self):
     connection_config = metadata_store_pb2.ConnectionConfig()
@@ -1800,7 +1800,7 @@ class MetadataStoreTest(parameterized.TestCase):
 
     nodes = []
     for i in range(200):
-      nodes.append(node_cls(name="node_{}".format(i), type_id=type_id))
+      nodes.append(node_cls(name=f"node_{i}", type_id=type_id))
       nodes[i].custom_properties["p"].int_value = i
     node_ids = put_nodes_fn(store, nodes)
 
