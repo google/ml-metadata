@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for mlmd_types."""
-
 from absl.testing import absltest
 
 from ml_metadata.metadata_store import mlmd_types
@@ -65,7 +64,3 @@ class MlmdTypesTest(absltest.TestCase):
     self.assertEqual(
         _get_execution_type_name(metadata_store_pb2.ExecutionType.DEPLOY),
         mlmd_types.Deploy().name)
-
-
-if __name__ == "__main__":
-  absltest.main()
