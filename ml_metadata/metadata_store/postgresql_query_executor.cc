@@ -903,7 +903,7 @@ absl::Status PostgreSQLQueryExecutor::ListNodeIDsUsingOptions(
                        sql_gen_status.message()));
     }
     sql_query = absl::Substitute(
-        "SELECT distinct $0.id, $0.create_time_since_epoch FROM $1 WHERE $2 "
+        "SELECT distinct $0.id, $0.create_time_since_epoch, $0.last_update_time_since_epoch FROM $1 WHERE $2 "
         "AND ",
         *node_table_alias,
         // TODO(b/257334039): remove query_version-conditional logic
