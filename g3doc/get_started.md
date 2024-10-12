@@ -390,7 +390,37 @@ connection_config {
 }
 ```
 
-*   Create the client stub and use it in Python
+*   Create the `MetadataStore` providing a `MetadataStoreClientConfig` object
+
+```python
+import ml_metadata as mlmd
+from ml_metadata.metadata_store import metadata_store
+from ml_metadata.proto import metadata_store_pb2
+
+# Setup store client config
+client_connection_config = metadata_store_pb2.MetadataStoreClientConfig()
+client_connection_config.host = 'localhost'
+client_connection_config.port = 8080
+
+store = metadata_store.MetadataStore(client_connection_config)
+```
+
+*   Use MLMD store following the same instructions provided in [Integrate ML Metadata into your ML Workflows](#integrate-ml-metadata-into-your-ml-workflows) section.
+
+```python
+# Create ArtifactType, e.g., DataSet
+data_type = metadata_store_pb2.ArtifactType()
+data_type.name = "DataSet"
+data_type.properties["day"] = metadata_store_pb2.INT
+data_type.properties["split"] = metadata_store_pb2.STRING
+data_type_id = store.put_artifact_type(data_type)
+
+...
+```
+
+Alternatively, to have complete control over gRPC requests and responses:
+
+*   Create the `MetadataStoreServiceStub` by supplying a gRPC connection and use it in Python
 
 ```python
 from grpc import insecure_channel
@@ -402,7 +432,7 @@ channel = insecure_channel('localhost:8080')
 stub = metadata_store_service_pb2_grpc.MetadataStoreServiceStub(channel)
 ```
 
-*   Use MLMD with RPC calls
+*   Use MLMD stub with RPC calls
 
 ```python
 # Create ArtifactTypes, e.g., Data and Model
