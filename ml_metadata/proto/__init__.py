@@ -14,29 +14,29 @@
 """ML Metadata proto module."""
 
 # Connection configurations for different deployment.
-from ml_metadata.proto.metadata_store_pb2 import (
-    ConnectionConfig,
-    MetadataStoreClientConfig,
+from ml_metadata.proto import (
+    metadata_store_service_pb2,
+    metadata_store_service_pb2_grpc,
 )
 
 # ML Metadata core data model concepts.
 from ml_metadata.proto.metadata_store_pb2 import (
     Artifact,
-    Execution,
-    Context,
-    Event,
-    Attribution,
-    Association,
-    ParentContext,
     ArtifactType,
-    ExecutionType,
+    Association,
+    Attribution,
+    ConnectionConfig,
+    Context,
     ContextType,
+    Event,
+    Execution,
+    ExecutionType,
     FakeDatabaseConfig,
+    MetadataStoreClientConfig,
     MySQLDatabaseConfig,
+    ParentContext,
     SqliteMetadataSourceConfig,
 )
-from ml_metadata.proto import metadata_store_service_pb2
-from ml_metadata.proto import metadata_store_service_pb2_grpc
 
 del metadata_store_service_pb2
 del metadata_store_service_pb2_grpc

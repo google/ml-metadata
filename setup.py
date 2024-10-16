@@ -128,7 +128,7 @@ with open('README.md') as fp:
   _LONG_DESCRIPTION = fp.read()
 
 # Get documentation build requirements
-with open("requirements-docs.txt", "r") as fp:
+with open("requirements-docs.txt") as fp:
   docs_reqs = fp.readlines()
 docs_reqs = [req.replace("\n", "") for req in docs_reqs]
 
