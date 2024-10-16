@@ -18,3 +18,10 @@ from ml_metadata.metadata_store.metadata_store import (
     OrderByField,
     downgrade_schema,
 )
+
+__all__ = [
+    "downgrade_schema",
+    "ListOptions",
+    "MetadataStore",
+    "OrderByField",
+]

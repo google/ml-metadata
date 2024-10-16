@@ -127,6 +127,11 @@ __version__ = globals_dict['__version__']
 with open('README.md') as fp:
   _LONG_DESCRIPTION = fp.read()
 
+# Get documentation build requirements
+with open("requirements-docs.txt") as fp:
+  docs_reqs = fp.readlines()
+docs_reqs = [req.replace("\n", "") for req in docs_reqs]
+
 setup(
     name='ml-metadata',
     version=__version__,
@@ -166,6 +171,8 @@ setup(
     ],
     extras_require={
         'lint': ['pre-commit'],
+        # TODO: Pin versions for docs
+        "docs": docs_reqs,
     },
     python_requires='>=3.9,<4',
     packages=find_packages(),
