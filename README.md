@@ -53,8 +53,8 @@ Then, run the following at the project root:
 
 ```bash
 DOCKER_SERVICE=manylinux-python${PY_VERSION}
-sudo docker-compose build ${DOCKER_SERVICE}
-sudo docker-compose run ${DOCKER_SERVICE}
+sudo docker compose build ${DOCKER_SERVICE}
+sudo docker compose run ${DOCKER_SERVICE}
 ```
 
 where `PY_VERSION` is one of `{39, 310, 311}`.
