@@ -15,9 +15,8 @@
 import collections
 import os
 import uuid
-import pytest
 
-from absl import flags
+import pytest
 from absl.testing import absltest, parameterized
 
 import ml_metadata as mlmd
