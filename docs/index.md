@@ -190,7 +190,7 @@ following list provides a non-exhaustive overview of some of the major benefits.
     within a range; find previous executions in a context with the same inputs.
 
 See the
-[MLMD tutorial](https://www.tensorflow.org/tfx/tutorials/mlmd/mlmd_tutorial) for
+[MLMD tutorial](https://tensorflow.github.io/tfx/tutorials/mlmd/mlmd_tutorial/) for
 an example that shows you how to use the MLMD API and the metadata store to
 retrieve lineage information.
 
@@ -484,10 +484,11 @@ the steps together within a single transaction, and the transaction is
 rolled-back when an error occurs. The migration script is provided together with
 any schema-change commit and verified through testing.
 
-Note: The migration DDLs in MySQL are not transactional. When using MySQL, there
-should only be a single connection with the upgrade migration enabled to use the
-old database. Take a backup of the database before upgrading to prevent
-potential data losses.
+!!! Note
+	The migration DDLs in MySQL are not transactional. When using MySQL, there
+	should only be a single connection with the upgrade migration enabled to use the
+	old database. Take a backup of the database before upgrading to prevent
+	potential data losses.
 
 ### Downgrade the database schema
 
@@ -509,11 +510,12 @@ metadata_store.downgrade_schema(connection_config,
                                 downgrade_to_schema_version = 0)
 ```
 
-Note: When downgrading, MLMD prevents data loss as much as possible. However,
-newer schema versions might be inherently more expressive and hence a downgrade
-can introduce data loss. When using backends that do not support DDL
-transactions (e.g., MySQL), the database should be backed up before downgrading
-and the downgrade script should be the only MLMD connection to the database.
+!!! Note
+	When downgrading, MLMD prevents data loss as much as possible. However,
+	newer schema versions might be inherently more expressive and hence a downgrade
+	can introduce data loss. When using backends that do not support DDL
+	transactions (e.g., MySQL), the database should be backed up before downgrading
+	and the downgrade script should be the only MLMD connection to the database.
 
 The list of `schema_version` used in MLMD releases are:
 
@@ -555,7 +557,7 @@ ml-metadata (MLMD) | schema_version
 
 The MLMD library has a high-level API that you can readily use with your ML
 pipelines. See the
-[MLMD API documentation](https://www.tensorflow.org/tfx/ml_metadata/api_docs/python/mlmd)
+[MLMD API documentation](api/mlmd/)
 for more details.
 
 Check out
@@ -564,5 +566,5 @@ to learn how to use MLMD declarative nodes filtering capabilities on properties
 and 1-hop neighborhood nodes.
 
 Also check out the
-[MLMD tutorial](https://www.tensorflow.org/tfx/tutorials/mlmd/mlmd_tutorial) to
+[MLMD tutorial](https://tensorflow.github.io/tfx/tutorials/mlmd/mlmd_tutorial/) to
 learn how to use MLMD to trace the lineage of your pipeline components.
