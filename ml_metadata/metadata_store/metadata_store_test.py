@@ -25,7 +25,7 @@ from ml_metadata.proto import metadata_store_pb2
 
 
 @pytest.fixture(scope="class")
-def cli_args(request):
+def cli_args(request):  # noqa: PT004
     request.cls.cli_args = {
       "use_grpc_backend": request.config.getoption("--use_grpc_backend"),
       "grpc_host": request.config.getoption("--grpc_host"),
