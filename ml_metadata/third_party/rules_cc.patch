@@ -1,0 +1,11 @@
+--- ./cc/private/toolchain/cc_toolchain_config.bzl	2020-05-13 07:24:06
++++ ./cc/private/toolchain/cc_toolchain_config.bzl.new	2025-02-06 12:52:31
+@@ -385,8 +385,6 @@
+                         flag_group(
+                             flags = [
+                                 "-lstdc++",
+-                                "-undefined",
+-                                "dynamic_lookup",
+                                 "-headerpad_max_install_names",
+                                 "-no-canonical-prefixes",
+                             ],
