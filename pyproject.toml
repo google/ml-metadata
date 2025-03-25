@@ -20,6 +20,10 @@ requires = [
   "numpy~=1.22.0",
 ]
 
+[tool.pytest.ini_options]
+testpaths = ["ml_metadata/metadata_store/"]
+python_files = "*_test.py"
+
 [tool.ruff]
 line-length = 88
 

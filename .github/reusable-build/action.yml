@@ -1,0 +1,37 @@
+name: Resusable steps to build ml-metadata
+
+inputs:
+  python-version:
+    description: 'Python version'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+
+  - name: Set up Python ${{ inputs.python-version }}
+    uses: actions/setup-python@v5
+    with:
+      python-version: ${{ inputs.python-version }}
+
+  - name: Upgrade pip
+    shell: bash
+    run: |
+      python -m pip install --upgrade pip pytest
+
+  - name: Build the package for Python ${{ inputs.python-version }}
+    shell: bash
+    run: |
+      version="${{ inputs.python-version }}"
+      DOCKER_SERVICE=manylinux-python$(echo "$version" | sed 's/\.//')
+      docker compose build ${DOCKER_SERVICE}
+      docker compose run ${DOCKER_SERVICE}
+
+  - name: Upload wheel artifact for Python ${{ inputs.python-version }}
+    uses: actions/upload-artifact@v4.4.0
+    with:
+      name: ml-metadata-wheel-py${{ inputs.python-version }}
+      path: dist/*.whl
+
+  - name: Install built wheel
+    shell: bash
+    run: pip install dist/*.whl
