@@ -1,0 +1,11 @@
+--- bazel/build_defs.bzl	2022-10-17 09:59:30
++++ bazel/build_defs.bzl.new	2025-02-06 11:28:56
+@@ -34,7 +34,7 @@
+ _DEFAULT_CPPOPTS.extend([
+     "-Wextra",
+     # "-Wshorten-64-to-32",  # not in GCC (and my Kokoro images doesn't have Clang)
+-    "-Werror",
++    # "-Werror",
+     "-Wno-long-long",
+ ])
+ _DEFAULT_COPTS.extend([

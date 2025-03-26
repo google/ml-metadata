@@ -1,7 +1,19 @@
 workspace(name = "ml_metadata")
 
 load("//ml_metadata:repo.bzl", "clean_dep")
+load("//ml_metadata:utils.bzl", "github_archive")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+github_archive(
+    name = "rules_cc",
+    repo = "https://github.com/bazelbuild/rules_cc",
+    commit = "818289e5613731ae410efb54218a4077fb9dbb03",
+    sha256 = "0adbd6f567291ad526e82c765e15aed33cea5e256eeba129f1501142c2c56610",
+    patches = [
+        "//ml_metadata/third_party:rules_cc.patch",
+        "//ml_metadata/third_party:rules_cc_2.patch"
+        ]
+)
 
 http_archive(
     name = "postgresql",
@@ -39,7 +51,10 @@ http_archive(
 )
 
 load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
-rules_foreign_cc_dependencies()
+rules_foreign_cc_dependencies(
+    register_preinstalled_tools = True,
+    register_built_tools = False,
+)
 
 http_archive(
     name = "com_google_absl",
@@ -104,6 +119,14 @@ http_archive(
     sha256 = "105f8d68616f8248e24bf0e9372ef04d3cc10104f1980f54d57b2ce73a5ad56a",
     strip_prefix = "six-1.10.0",
     build_file = "//ml_metadata/third_party:six.BUILD"
+)
+
+github_archive(
+    name = "upb",
+    repo = "https://github.com/protocolbuffers/upb",
+    commit = "230d502d6ea96fc9d40f02ad26c20fe85a627648",
+    sha256 = "28488db7f638ed5a433f7ac3b67e6b62932c155c2cd9987a2c534a3591f3b2dd",
+    patches = ["//ml_metadata/third_party:upb.patch",],
 )
 
 http_archive(
@@ -252,7 +275,9 @@ http_archive(
     name = "com_google_zetasql",
     urls = ["https://github.com/google/zetasql/archive/%s.zip" % ZETASQL_COMMIT],
     strip_prefix = "zetasql-%s" % ZETASQL_COMMIT,
-    #patches = ["//ml_metadata/third_party:zetasql.patch"],
+    patches = [
+        "//ml_metadata/third_party:zetasql_2.patch",
+        ],
     sha256 = '651a768cd51627f58aa6de7039aba9ddab22f4b0450521169800555269447840'
 )
 
