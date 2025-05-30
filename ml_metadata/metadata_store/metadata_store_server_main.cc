@@ -563,6 +563,9 @@ int main(int argc, char** argv) {
   const string server_address =
       absl::StrCat("0.0.0.0:", (FLAGS_grpc_port));
   ::grpc::ServerBuilder builder;
+  builder.AddChannelArgument(GRPC_ARG_MAX_METADATA_SIZE, 8192);
+  builder.AddChannelArgument(GRPC_ARG_MAX_SEND_MESSAGE_LENGTH, 8192);
+  builder.AddChannelArgument(GRPC_ARG_MAX_RECEIVE_MESSAGE_LENGTH, 8192);
 
   std::shared_ptr<::grpc::ServerCredentials> credentials =
       ::grpc::InsecureServerCredentials();
