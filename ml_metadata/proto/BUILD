@@ -18,9 +18,14 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
-cc_proto_library(
+proto_library(
     name = "metadata_store_proto",
     srcs = ["metadata_store.proto"],
+)
+
+cc_proto_library(
+    name = "metadata_store_proto_cc"
+    deps = [":metadata_store_proto"],
 )
 
 cc_proto_library (
