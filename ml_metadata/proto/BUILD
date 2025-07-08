@@ -60,6 +60,7 @@ ml_metadata_proto_library(
     name = "metadata_source_proto",
     srcs = ["metadata_source.proto"],
     deps = [
+        "@com_google_protobuf//:any_proto"
         # "@com_google_protobuf//:cc_wkt_protos",
     ],
 )
