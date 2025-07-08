@@ -89,7 +89,19 @@ cc_library(
         "//ml_metadata/util:return_utils",
         "//ml_metadata/util:struct_utils",
         "@com_google_glog//:glog",
-        "@com_google_protobuf//:cc_wkt_protos",
+        # For well-known proto types like protobuf.Any.
+        "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:api_proto",
+        "@com_google_protobuf//:compiler_plugin_proto",
+        "@com_google_protobuf//:descriptor_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:field_mask_proto",
+        "@com_google_protobuf//:source_context_proto",
+        "@com_google_protobuf//:struct_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:type_proto",
+        "@com_google_protobuf//:wrappers_proto",
     ],
 )
 
