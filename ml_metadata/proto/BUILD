@@ -18,12 +18,12 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
-ml_metadata_proto_library(
+cc_proto_library(
     name = "metadata_store_proto",
     srcs = ["metadata_store.proto"],
 )
 
-ml_metadata_proto_library (
+cc_proto_library (
     name = "metadata_store_service_proto",
     srcs = ["metadata_store_service.proto"],
     deps = [":metadata_store_proto"],
@@ -56,7 +56,7 @@ ml_metadata_proto_library_go(
     deps = [":metadata_store_service_proto"],
 )
 
-ml_metadata_proto_library(
+cc_proto_library(
     name = "metadata_source_proto",
     srcs = ["metadata_source.proto"],
 )
