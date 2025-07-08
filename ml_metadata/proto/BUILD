@@ -23,7 +23,7 @@ ml_metadata_proto_library(
     srcs = ["metadata_store.proto"],
 )
 
-ml_metadata_proto_library(
+ml_metadata_proto_library (
     name = "metadata_store_service_proto",
     srcs = ["metadata_store_service.proto"],
     deps = [":metadata_store_proto"],
@@ -60,6 +60,6 @@ ml_metadata_proto_library(
     name = "metadata_source_proto",
     srcs = ["metadata_source.proto"],
     deps = [
-        "@com_google_protobuf//:cc_wkt_protos",
+        # "@com_google_protobuf//:cc_wkt_protos",
     ],
 )
