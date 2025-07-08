@@ -59,6 +59,4 @@ ml_metadata_proto_library_go(
 ml_metadata_proto_library(
     name = "metadata_source_proto",
     srcs = ["metadata_source.proto"],
-    deps = [
-    ],
 )
