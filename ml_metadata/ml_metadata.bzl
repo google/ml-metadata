@@ -17,10 +17,16 @@ This module contains build rules for ml_metadata in OSS.
 
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
-load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
+load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
+#load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 load("@rules_cc//cc:defs.bzl", "cc_proto_library")
 
-def ml_metadata_proto_library(name, srcs = [], deps = [], visibility = None, testonly = 0):
+def ml_metadata_proto_library(name, **kwargs):
+    """Google proto_library and cc_proto_library.
+
+    Args:
+        name: Name of the cc proto library.
+        **kwargs: Keyword arguments to pass to the proto libraries."""
     well_known_protos = [
         "@com_google_protobuf//:any_proto",
         "@com_google_protobuf//:duration_proto",
@@ -29,29 +35,39 @@ def ml_metadata_proto_library(name, srcs = [], deps = [], visibility = None, tes
         "@com_google_protobuf//:empty_proto",
         "@com_google_protobuf//:wrappers_proto",
     ]
-    native.proto_library(
-        name = name,
-        srcs = srcs,
-        deps = deps + well_known_protos,
-        visibility = visibility,
-        testonly = testonly,
-    )
+    kwargs["deps"] = kwargs.get("deps", []) + well_known_protos
+    native.proto_library(name = name, **kwargs)  # buildifier: disable=native-proto
     cc_proto_kwargs = {
         "deps": [":" + name],
     }
-    if visibility:
-        cc_proto_kwargs["visibility"] = visibility
-    if testonly:
-        cc_proto_kwargs["testonly"] = testonly
+    if "visibility" in kwargs:
+        cc_proto_kwargs["visibility"] = kwargs["visibility"]
+    if "testonly" in kwargs:
+        cc_proto_kwargs["testonly"] = kwargs["testonly"]
+    if "compatible_with" in kwargs:
+        cc_proto_kwargs["compatible_with"] = kwargs["compatible_with"]
     cc_proto_library(name = name + "_cc_pb2", **cc_proto_kwargs)
 
-def ml_metadata_proto_library_py(name, deps, visibility = None, testonly = 0):
+def ml_metadata_proto_library_py(
+        name,
+        proto_library,
+        srcs = [],
+        deps = [],
+        visibility = None,
+        testonly = 0):
+    """Opensource py_proto_library."""
+    _ignore = [proto_library]  # buildifier: disable=unused-variable
     py_proto_library(
         name = name,
-        deps = deps,
+        srcs = srcs,
+        srcs_version = "PY3",
+        deps = deps,  # ["@com_google_protobuf//:well_known_types_py_pb2"] +
+        default_runtime = "@com_google_protobuf//:protobuf_python",
+        protoc = "@com_google_protobuf//:protoc",
         visibility = visibility,
         testonly = testonly,
     )
+
 
 def ml_metadata_proto_library_go(
         name,

@@ -19,7 +19,7 @@ licenses(["notice"])
 
 ml_metadata_proto_library(
     name = "simple_types_proto",
-    srcs = ["simple_types.proto"],
+    srcs = ["simple_types.proto"],      
     deps = [
         "//ml_metadata/proto:metadata_store_proto",
     ],
@@ -27,5 +27,6 @@ ml_metadata_proto_library(
 
 ml_metadata_proto_library_py(
     name = "simple_types_py_pb2",
-    deps = [":simple_types_proto"],
+    proto_library = "simple_types_proto",
+    srcs = ["simple_types.proto"],
 )

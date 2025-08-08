@@ -4,6 +4,36 @@ load("//ml_metadata:repo.bzl", "clean_dep")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
+    name = "google_bazel_common",
+    sha256 = "82a49fb27c01ad184db948747733159022f9464fc2e62da996fa700594d9ea42",
+    strip_prefix = "bazel-common-2a6b6406e12208e02b2060df0631fb30919080f3",
+    urls = ["https://github.com/google/bazel-common/archive/2a6b6406e12208e02b2060df0631fb30919080f3.zip"],
+)
+
+################################################################################
+# Generic Bazel Support                                                        #
+################################################################################
+
+http_archive(
+    name = "rules_proto",
+    sha256 = "6fb6767d1bef535310547e03247f7518b03487740c11b6c6adb7952033fe1295",
+    strip_prefix = "rules_proto-6.0.2",
+    url = "https://github.com/bazelbuild/rules_proto/releases/download/6.0.2/rules_proto-6.0.2.tar.gz",
+)
+
+load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies")
+
+rules_proto_dependencies()
+
+load("@rules_proto//proto:setup.bzl", "rules_proto_setup")
+
+rules_proto_setup()
+
+load("@rules_proto//proto:toolchains.bzl", "rules_proto_toolchains")
+
+rules_proto_toolchains()
+
+http_archive(
     name = "postgresql",
     build_file = "//ml_metadata:postgresql.BUILD",
     workspace_file_content = "//ml_metadata:postgresql.WORKSPACE",
@@ -49,25 +79,6 @@ http_archive(
 )
 
 http_archive(
-    name = "rules_proto",
-    sha256 = "6fb6767d1bef535310547e03247f7518b03487740c11b6c6adb7952033fe1295",
-    strip_prefix = "rules_proto-6.0.2",
-    url = "https://github.com/bazelbuild/rules_proto/releases/download/6.0.2/rules_proto-6.0.2.tar.gz",
-)
-
-load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies")
-
-rules_proto_dependencies()
-
-load("@rules_proto//proto:setup.bzl", "rules_proto_setup")
-
-rules_proto_setup()
-
-load("@rules_proto//proto:toolchains.bzl", "rules_proto_toolchains")
-
-rules_proto_toolchains()
-
-http_archive(
     name = "boringssl",
     sha256 = "1188e29000013ed6517168600fc35a010d58c5d321846d6a6dfee74e4c788b45",
     strip_prefix = "boringssl-7f634429a04abc48e2eb041c81c5235816c96514",
@@ -104,14 +115,32 @@ http_archive(
 )
 
 # 1.5.0
+# http_archive(
+#     name = "bazel_skylib",
+#     sha256 = "cd55a062e763b9349921f0f5db8c3933288dc8ba4f76dd9416aac68acee3cb94",
+#     urls = [
+#         "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.5.0/bazel-skylib-1.5.0.tar.gz",
+#         "https://github.com/bazelbuild/bazel-skylib/releases/download/1.5.0/bazel-skylib-1.5.0.tar.gz",
+#     ],
+# )
+
+
 http_archive(
+
     name = "bazel_skylib",
-    sha256 = "cd55a062e763b9349921f0f5db8c3933288dc8ba4f76dd9416aac68acee3cb94",
+
+    sha256 = "97e70364e9249702246c0e9444bccdc4b847bed1eb03c5a3ece4f83dfe6abc44",
+
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.5.0/bazel-skylib-1.5.0.tar.gz",
-        "https://github.com/bazelbuild/bazel-skylib/releases/download/1.5.0/bazel-skylib-1.5.0.tar.gz",
+
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.0.2/bazel-skylib-1.0.2.tar.gz",
+
+        "https://github.com/bazelbuild/bazel-skylib/releases/download/1.0.2/bazel-skylib-1.0.2.tar.gz",
+
     ],
+
 )
+
 
 # Needed by abseil-py by zetasql.
 http_archive(
@@ -137,20 +166,20 @@ load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 protobuf_deps()
 
 # Needed by Protobuf.
-http_archive(
-    name = "zlib",
-    build_file = "@com_google_protobuf//:third_party/zlib.BUILD",
-    sha256 = "d8688496ea40fb61787500e863cc63c9afcbc524468cedeb478068924eb54932",
-    strip_prefix = "zlib-1.2.12",
-    urls = ["https://github.com/madler/zlib/archive/v1.2.12.tar.gz"],
-)
+# http_archive(
+#     name = "zlib",
+#     build_file = "@com_google_protobuf//:third_party/zlib.BUILD",
+#     sha256 = "d8688496ea40fb61787500e863cc63c9afcbc524468cedeb478068924eb54932",
+#     strip_prefix = "zlib-1.2.12",
+#     urls = ["https://github.com/madler/zlib/archive/v1.2.12.tar.gz"],
+# )
 
-http_archive(
-    name = "pybind11_bazel",
-    strip_prefix = "pybind11_bazel-faf56fb3df11287f26dbc66fdedf60a2fc2c6631",
-    urls = ["https://github.com/pybind/pybind11_bazel/archive/faf56fb3df11287f26dbc66fdedf60a2fc2c6631.tar.gz"],
-    sha256 = "a2b107b06ffe1049696e132d39987d80e24d73b131d87f1af581c2cb271232f8",
-)
+# http_archive(
+#     name = "pybind11_bazel",
+#     strip_prefix = "pybind11_bazel-faf56fb3df11287f26dbc66fdedf60a2fc2c6631",
+#     urls = ["https://github.com/pybind/pybind11_bazel/archive/faf56fb3df11287f26dbc66fdedf60a2fc2c6631.tar.gz"],
+#     sha256 = "a2b107b06ffe1049696e132d39987d80e24d73b131d87f1af581c2cb271232f8",
+# )
 
 http_archive(
     name = "pybind11",
@@ -164,134 +193,136 @@ load("//ml_metadata/third_party:python_configure.bzl", "local_python_configure")
 
 local_python_configure(name = "local_config_python")
 
+# http_archive(
+#     name = "com_github_grpc_grpc",
+#     urls = ["https://github.com/grpc/grpc/archive/v1.50.0.tar.gz"],
+#     sha256 = "76900ab068da86378395a8e125b5cc43dfae671e09ff6462ddfef18676e2165a",
+#     strip_prefix = "grpc-1.50.0",
+# )
+# 
+# load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
+# grpc_deps()
+# 
+# load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
+# grpc_extra_deps()
+# 
+# # Needed by Protobuf.
+# bind(
+#     name = "grpc_python_plugin",
+#     actual = "@com_github_grpc_grpc//src/compiler:grpc_python_plugin",
+# )
+# 
+# # Needed by Protobuf.
+# bind(
+#     name = "grpc_lib",
+#     actual = "@com_github_grpc_grpc//:grpc++",
+# )
+# 
+# # Needed by gRPC.
+# http_archive(
+#     name = "build_bazel_rules_swift",
+#     sha256 = "d0833bc6dad817a367936a5f902a0c11318160b5e80a20ece35fb85a5675c886",
+#     strip_prefix = "rules_swift-3eeeb53cebda55b349d64c9fc144e18c5f7c0eb8",
+#     urls = ["https://github.com/bazelbuild/rules_swift/archive/3eeeb53cebda55b349d64c9fc144e18c5f7c0eb8.tar.gz"],
+# )
+
+
+################################################################################
+# Google APIs protos                                                           #
+################################################################################
 http_archive(
-    name = "com_github_grpc_grpc",
-    urls = ["https://github.com/grpc/grpc/archive/v1.50.0.tar.gz"],
-    sha256 = "76900ab068da86378395a8e125b5cc43dfae671e09ff6462ddfef18676e2165a",
-    strip_prefix = "grpc-1.50.0",
+    name = "com_google_googleapis",
+    #patch_args = ["-p1"],
+    #patches = ["//ml_metadata/third_party:googleapis.patch"],
+    sha256 = "28e7fe3a640dd1f47622a4c263c40d5509c008cc20f97bd366076d5546cccb64",
+    strip_prefix = "googleapis-4ce00b00904a7ce1df8c157e54fcbf96fda0dc49",
+    url = "https://github.com/googleapis/googleapis/archive/4ce00b00904a7ce1df8c157e54fcbf96fda0dc49.tar.gz",
 )
 
-load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
-grpc_deps()
+load("@com_google_googleapis//:repository_rules.bzl", "switched_rules_by_language")
 
-load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
-grpc_extra_deps()
-
-# Needed by Protobuf.
-bind(
-    name = "grpc_python_plugin",
-    actual = "@com_github_grpc_grpc//src/compiler:grpc_python_plugin",
-)
-
-# Needed by Protobuf.
-bind(
-    name = "grpc_lib",
-    actual = "@com_github_grpc_grpc//:grpc++",
-)
-
-# Needed by gRPC.
-http_archive(
-    name = "build_bazel_rules_swift",
-    sha256 = "d0833bc6dad817a367936a5f902a0c11318160b5e80a20ece35fb85a5675c886",
-    strip_prefix = "rules_swift-3eeeb53cebda55b349d64c9fc144e18c5f7c0eb8",
-    urls = ["https://github.com/bazelbuild/rules_swift/archive/3eeeb53cebda55b349d64c9fc144e18c5f7c0eb8.tar.gz"],
+switched_rules_by_language(
+    name = "com_google_googleapis_imports",
+    cc = True,
+    go = True
 )
 
 
+###############################################################################
+# Gazelle Support                                                             #
+###############################################################################
+
+_rules_go_version = "v0.48.1"
 
 http_archive(
     name = "io_bazel_rules_go",
+    sha256 = "b2038e2de2cace18f032249cb4bb0048abf583a36369fa98f687af1b3f880b26",
     urls = [
-        "https://storage.googleapis.com/bazel-mirror/github.com/bazelbuild/rules_go/releases/download/v0.20.3/rules_go-v0.20.3.tar.gz",
-        "https://github.com/bazelbuild/rules_go/releases/download/v0.20.3/rules_go-v0.20.3.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/{0}/rules_go-{0}.zip".format(_rules_go_version),
+        "https://github.com/bazelbuild/rules_go/releases/download/{0}/rules_go-{0}.zip.format(_rules_go_version)",
     ],
-    sha256 = "e88471aea3a3a4f19ec1310a55ba94772d087e9ce46e41ae38ecebe17935de7b",
 )
 
-load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies", "go_register_toolchains")
-
-http_archive(
-    name = "bazel_gazelle",
-    urls = [
-        "https://storage.googleapis.com/bazel-mirror/github.com/bazelbuild/bazel-gazelle/releases/download/v0.19.1/bazel-gazelle-v0.19.1.tar.gz",
-        "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.19.1/bazel-gazelle-v0.19.1.tar.gz",
-    ],
-    sha256 = "86c6d481b3f7aedc1d60c1c211c6f76da282ae197c3b3160f54bd3a8f847896f",
-)
-
-load("@bazel_gazelle//:deps.bzl", "go_repository", "gazelle_dependencies")
-
-go_repository(
-    name = "org_golang_x_sys",
-    commit = "57f5ac02873b2752783ca8c3c763a20f911e4d89",
-    importpath = "golang.org/x/sys",
-)
-
-go_repository(
-    name = "com_github_google_go_cmp",
-    importpath = "github.com/google/go-cmp",
-    tag = "v0.2.0",
-)
-
-go_repository(
-    name = "com_github_golang_protobuf",
-    importpath = "github.com/golang/protobuf",
-    tag = "v1.3.2",
-)
-
-go_repository(
-    name = "org_golang_google_protobuf",
-    importpath = "google.golang.org/protobuf",
-    tag = "v1.25.0",
-)
-
-go_repository(
-    name = "org_golang_x_net",
-    importpath = "golang.org/x/net",
-    commit = "b3afb19ee333d5231c1034d3ac2a5313cde533a3",
-)
+load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
 
 go_rules_dependencies()
 
-go_register_toolchains()
+go_register_toolchains(version = "1.21.11")
+
+_bazel_gazelle_version = "0.36.0"
+
+http_archive(
+    name = "bazel_gazelle",
+    sha256 = "75df288c4b31c81eb50f51e2e14f4763cb7548daae126817247064637fd9ea62",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-gazelle/releases/download/v{0}/bazel-gazelle-v{0}.tar.gz".format(_bazel_gazelle_version),
+        "https://github.com/bazelbuild/bazel-gazelle/releases/download/v{0}/bazel-gazelle-v{0}.tar.gz".format(_bazel_gazelle_version),
+    ],
+)
+
+load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies", "go_repository")
 
 gazelle_dependencies()
 
-# For commandline flags used in gRPC server
-# gflags needed by glog
-http_archive(
-    name = "com_github_gflags_gflags",
-    strip_prefix = "gflags-a738fdf9338412f83ab3f26f31ac11ed3f3ec4bd",
-    sha256 = "017e0a91531bfc45be9eaf07e4d8fed33c488b90b58509dbd2e33a33b2648ae6",
-    url = "https://github.com/gflags/gflags/archive/a738fdf9338412f83ab3f26f31ac11ed3f3ec4bd.zip",
-)
+################################################################################
+# ZetaSQL                                                                      #
+################################################################################
 
-ZETASQL_COMMIT = "a516c6b26d183efc4f56293256bba92e243b7a61" # 11/01/2024
+ZETASQL_COMMIT = "a516c6b26d183efc4f56293256bba92e243b7a61"  # 11/01/2024
+
 http_archive(
     name = "com_google_zetasql",
     patch_args = ["-p1"],
     patches = ["//ml_metadata/third_party:zetasql.patch"],
-    urls = ["https://github.com/google/zetasql/archive/%s.zip" % ZETASQL_COMMIT],
+    sha256 = "1afc2210d4aad371eff0a6bfdd8417ba99e02183a35dff167af2fa6097643f26",
     strip_prefix = "zetasql-%s" % ZETASQL_COMMIT,
-    sha256 = '8db98b93bd6bb7348ed6d374f8eb6b602f7012bd5d368b3ffdee0a56c6c8d85f'
+    urls = ["https://github.com/google/zetasql/archive/%s.tar.gz" % ZETASQL_COMMIT],
 )
 
 load("@com_google_zetasql//bazel:zetasql_deps_step_1.bzl", "zetasql_deps_step_1")
+
 zetasql_deps_step_1()
+
 load("@com_google_zetasql//bazel:zetasql_deps_step_2.bzl", "zetasql_deps_step_2")
+
 zetasql_deps_step_2(
     analyzer_deps = True,
     evaluator_deps = True,
-    tools_deps = False,
     java_deps = False,
-    testing_deps = False)
-
-# This is part of what zetasql_deps_step_3() does.
-load("@com_google_googleapis//:repository_rules.bzl", "switched_rules_by_language")
-switched_rules_by_language(
-    name = "com_google_googleapis_imports",
-    cc = True,
+    testing_deps = False,
+    tools_deps = False,
 )
+
+# No need to run zetasql_deps_step_3 and zetasql_deps_step_4 since all necessary dependencies are
+# already installed.
+
+# load("@com_google_zetasql//bazel:zetasql_deps_step_3.bzl", "zetasql_deps_step_3")
+
+# zetasql_deps_step_3()
+
+# load("@com_google_zetasql//bazel:zetasql_deps_step_4.bzl", "zetasql_deps_step_4")
+
+# zetasql_deps_step_4()
 
 
 
