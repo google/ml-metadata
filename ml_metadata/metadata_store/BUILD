@@ -289,7 +289,7 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "//ml_metadata/util:return_utils",
     ],
 )
@@ -303,7 +303,7 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
     ],
 )
 
@@ -317,7 +317,7 @@ cc_test(
         "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/strings",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "@com_google_glog//:glog",
     ],
 )
@@ -410,8 +410,8 @@ cc_library(
     hdrs = ["metadata_store_service_interface.h"],
     deps = [
         "@com_google_absl//absl/status",
-        "//ml_metadata/proto:metadata_store_proto",
-        "//ml_metadata/proto:metadata_store_service_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
+        "//ml_metadata/proto:metadata_store_service_proto_cc_pb2",
     ],
 )
 
@@ -440,7 +440,7 @@ cc_library(
         "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "//ml_metadata/proto:metadata_store_service_proto_cc_pb2",
         "//ml_metadata/simple_types:simple_types_constants",
-        "//ml_metadata/simple_types/proto:simple_types_proto",
+        "//ml_metadata/simple_types/proto:simple_types_proto_cc_pb2",
         "//ml_metadata/util:return_utils",
         "@com_google_glog//:glog",
     ],
@@ -464,7 +464,7 @@ cc_library(
         "@com_google_absl//absl/types:span",
         "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "//ml_metadata/proto:metadata_store_service_proto_cc_pb2",
-        "//ml_metadata/simple_types/proto:simple_types_proto",
+        "//ml_metadata/simple_types/proto:simple_types_proto_cc_pb2",
     ],
 )
 
@@ -629,7 +629,7 @@ cc_library(
         "@com_google_absl//absl/strings",
         "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "//ml_metadata/simple_types:simple_types_constants",
-        "//ml_metadata/simple_types/proto:simple_types_proto",
+        "//ml_metadata/simple_types/proto:simple_types_proto_cc_pb2",
     ],
 )
 
@@ -687,7 +687,7 @@ cc_library(
         ":metadata_store",
         ":metadata_store_factory",
         "@com_google_absl//absl/status",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "@com_github_grpc_grpc//:grpc++",
         "@com_google_glog//:glog",
     ],
@@ -704,7 +704,7 @@ cc_binary(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "@com_github_gflags_gflags//:gflags_nothreads",
         "@com_github_grpc_grpc//:grpc++",
         "@com_google_glog//:glog",
@@ -778,7 +778,7 @@ cc_library(
         ":mysql_metadata_source",
         ":test_mysql_metadata_source_initializer",
         "@com_google_absl//absl/memory",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "@com_github_gflags_gflags//:gflags_nothreads",
         "@com_google_glog//:glog",
     ],
@@ -953,7 +953,7 @@ cc_library(
         ":postgresql_metadata_source",
         ":test_postgresql_metadata_source_initializer",
         "@com_google_absl//absl/memory",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "@com_github_gflags_gflags//:gflags_nothreads",
         "@com_google_glog//:glog",
         "@postgresql",
