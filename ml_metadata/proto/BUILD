@@ -31,14 +31,15 @@ ml_metadata_proto_library(
 
 ml_metadata_proto_library_py(
     name = "metadata_store_py_pb2",
-    srcs = ["metadata_store.proto"],
-    proto_library="metadata_store_proto",
+    deps = [":metadata_store_proto"],
 )
 
 ml_metadata_proto_library_py(
     name = "metadata_store_service_py_pb2",
-    srcs = ["metadata_store_service.proto"],
-    proto_library="metadata_store_service_proto",
+    deps = [
+        ":metadata_store_service_proto",
+        ":metadata_store_proto",
+    ],
 )
 
 ml_metadata_proto_library_go(

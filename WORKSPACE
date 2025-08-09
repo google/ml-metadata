@@ -161,6 +161,13 @@ http_archive(
     urls = ["https://github.com/protocolbuffers/protobuf/archive/v4.25.6.tar.gz"],
 )
 
+
+# Needed by com_google_protobuf.
+bind(
+    name = "six",
+    actual = "@six_archive//:six",
+)
+
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 protobuf_deps()
@@ -325,12 +332,11 @@ zetasql_deps_step_2(
 # zetasql_deps_step_4()
 
 
+# Specify the minimum required bazel version.
+load("@bazel_skylib//lib:versions.bzl", "versions")
+versions.check("6.5.0")
 
 # Please add all new ML Metadata dependencies in workspace.bzl.
 load("//ml_metadata:workspace.bzl", "ml_metadata_workspace")
 
 ml_metadata_workspace()
-
-# Specify the minimum required bazel version.
-load("@bazel_skylib//lib:versions.bzl", "versions")
-versions.check("6.5.0")

@@ -17,8 +17,7 @@ This module contains build rules for ml_metadata in OSS.
 
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
-load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
-#load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
+load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 load("@rules_cc//cc:defs.bzl", "cc_proto_library")
 
 def ml_metadata_proto_library(name, **kwargs):
@@ -28,11 +27,18 @@ def ml_metadata_proto_library(name, **kwargs):
         name: Name of the cc proto library.
         **kwargs: Keyword arguments to pass to the proto libraries."""
     well_known_protos = [
+        # For well-known proto types like protobuf.Any.
         "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:api_proto",
+        "@com_google_protobuf//:compiler_plugin_proto",
+        "@com_google_protobuf//:descriptor_proto",
         "@com_google_protobuf//:duration_proto",
-        "@com_google_protobuf//:timestamp_proto",
-        "@com_google_protobuf//:struct_proto",
         "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:field_mask_proto",
+        "@com_google_protobuf//:source_context_proto",
+        "@com_google_protobuf//:struct_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:type_proto",
         "@com_google_protobuf//:wrappers_proto",
     ]
     kwargs["deps"] = kwargs.get("deps", []) + well_known_protos
@@ -50,20 +56,13 @@ def ml_metadata_proto_library(name, **kwargs):
 
 def ml_metadata_proto_library_py(
         name,
-        proto_library,
-        srcs = [],
-        deps = [],
+        deps,
         visibility = None,
         testonly = 0):
     """Opensource py_proto_library."""
-    _ignore = [proto_library]  # buildifier: disable=unused-variable
     py_proto_library(
         name = name,
-        srcs = srcs,
-        srcs_version = "PY3",
-        deps = deps,  # ["@com_google_protobuf//:well_known_types_py_pb2"] +
-        default_runtime = "@com_google_protobuf//:protobuf_python",
-        protoc = "@com_google_protobuf//:protoc",
+        deps = deps,
         visibility = visibility,
         testonly = testonly,
     )
