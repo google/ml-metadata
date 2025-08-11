@@ -100,8 +100,7 @@ cc_library(
         "//ml_metadata/proto:metadata_source_proto_cc_pb2",  # switched
         "//ml_metadata/proto:metadata_store_proto_cc_pb2",   # switched
         "@com_google_glog//:glog",
-        "@com_google_protobuf//:protobuf",  # Add this if not already present
-        "@com_google_protobuf//src/google/protobuf/util:json_util",  # Add this
+        "@com_google_protobuf//:protobuf",
     ],
 )
 
