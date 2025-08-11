@@ -114,17 +114,6 @@ http_archive(
     sha256 = "6281aa4eeecb9e932d7091f99872e7b26fa6aacece49c15ce5b14af2b7ec050f",
 )
 
-# 1.5.0
-# http_archive(
-#     name = "bazel_skylib",
-#     sha256 = "cd55a062e763b9349921f0f5db8c3933288dc8ba4f76dd9416aac68acee3cb94",
-#     urls = [
-#         "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/releases/download/1.5.0/bazel-skylib-1.5.0.tar.gz",
-#         "https://github.com/bazelbuild/bazel-skylib/releases/download/1.5.0/bazel-skylib-1.5.0.tar.gz",
-#     ],
-# )
-
-
 http_archive(
 
     name = "bazel_skylib",
@@ -172,22 +161,6 @@ load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 protobuf_deps()
 
-# Needed by Protobuf.
-# http_archive(
-#     name = "zlib",
-#     build_file = "@com_google_protobuf//:third_party/zlib.BUILD",
-#     sha256 = "d8688496ea40fb61787500e863cc63c9afcbc524468cedeb478068924eb54932",
-#     strip_prefix = "zlib-1.2.12",
-#     urls = ["https://github.com/madler/zlib/archive/v1.2.12.tar.gz"],
-# )
-
-# http_archive(
-#     name = "pybind11_bazel",
-#     strip_prefix = "pybind11_bazel-faf56fb3df11287f26dbc66fdedf60a2fc2c6631",
-#     urls = ["https://github.com/pybind/pybind11_bazel/archive/faf56fb3df11287f26dbc66fdedf60a2fc2c6631.tar.gz"],
-#     sha256 = "a2b107b06ffe1049696e132d39987d80e24d73b131d87f1af581c2cb271232f8",
-# )
-
 http_archive(
     name = "pybind11",
     build_file = "//ml_metadata/third_party:pybind11.BUILD",
@@ -200,47 +173,11 @@ load("//ml_metadata/third_party:python_configure.bzl", "local_python_configure")
 
 local_python_configure(name = "local_config_python")
 
-# http_archive(
-#     name = "com_github_grpc_grpc",
-#     urls = ["https://github.com/grpc/grpc/archive/v1.50.0.tar.gz"],
-#     sha256 = "76900ab068da86378395a8e125b5cc43dfae671e09ff6462ddfef18676e2165a",
-#     strip_prefix = "grpc-1.50.0",
-# )
-# 
-# load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
-# grpc_deps()
-# 
-# load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
-# grpc_extra_deps()
-# 
-# # Needed by Protobuf.
-# bind(
-#     name = "grpc_python_plugin",
-#     actual = "@com_github_grpc_grpc//src/compiler:grpc_python_plugin",
-# )
-# 
-# # Needed by Protobuf.
-# bind(
-#     name = "grpc_lib",
-#     actual = "@com_github_grpc_grpc//:grpc++",
-# )
-# 
-# # Needed by gRPC.
-# http_archive(
-#     name = "build_bazel_rules_swift",
-#     sha256 = "d0833bc6dad817a367936a5f902a0c11318160b5e80a20ece35fb85a5675c886",
-#     strip_prefix = "rules_swift-3eeeb53cebda55b349d64c9fc144e18c5f7c0eb8",
-#     urls = ["https://github.com/bazelbuild/rules_swift/archive/3eeeb53cebda55b349d64c9fc144e18c5f7c0eb8.tar.gz"],
-# )
-
-
 ################################################################################
 # Google APIs protos                                                           #
 ################################################################################
 http_archive(
     name = "com_google_googleapis",
-    #patch_args = ["-p1"],
-    #patches = ["//ml_metadata/third_party:googleapis.patch"],
     sha256 = "28e7fe3a640dd1f47622a4c263c40d5509c008cc20f97bd366076d5546cccb64",
     strip_prefix = "googleapis-4ce00b00904a7ce1df8c157e54fcbf96fda0dc49",
     url = "https://github.com/googleapis/googleapis/archive/4ce00b00904a7ce1df8c157e54fcbf96fda0dc49.tar.gz",
