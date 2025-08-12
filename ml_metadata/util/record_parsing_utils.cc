@@ -18,7 +18,7 @@ limitations under the License.
 #include <vector>
 
 #include <glog/logging.h>
-#include "google/protobuf/util/json_util.h"
+#include "google/protobuf/json/json.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/strings/match.h"
@@ -206,7 +206,7 @@ absl::Status ParseValueToField(const google::protobuf::FieldDescriptor* field_de
       if (!value.empty()) {
         google::protobuf::Message* sub_message =
             reflection->MutableMessage(&output_message, field_descriptor);
-        if (!google::protobuf::util::JsonStringToMessage(
+        if (!google::protobuf::json::JsonStringToMessage(
                  std::string(value.begin(), value.size()), sub_message)
                  .ok()) {
           return absl::InternalError(

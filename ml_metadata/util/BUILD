@@ -11,7 +11,7 @@ cc_library(
     deps = [
         "@com_google_protobuf//:protobuf",
         "@com_google_absl//absl/strings",
-        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",  # switched to cc proto library
         "@com_google_glog//:glog",
     ],
 )
@@ -66,7 +66,7 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",  # switched
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -81,7 +81,7 @@ cc_test(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",  # switched
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -97,9 +97,10 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "//ml_metadata/metadata_store:constants",
-        "//ml_metadata/proto:metadata_source_proto",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",  # switched
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",   # switched
         "@com_google_glog//:glog",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -111,6 +112,6 @@ cc_test(
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/status",
         "//ml_metadata/metadata_store:test_util",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",  # switched
     ],
 )

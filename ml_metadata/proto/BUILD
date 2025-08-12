@@ -36,7 +36,10 @@ ml_metadata_proto_library_py(
 
 ml_metadata_proto_library_py(
     name = "metadata_store_service_py_pb2",
-    deps = [":metadata_store_service_proto"],
+    deps = [
+        ":metadata_store_service_proto",
+        ":metadata_store_proto",
+    ],
 )
 
 ml_metadata_proto_library_go(
@@ -59,7 +62,4 @@ ml_metadata_proto_library_go(
 ml_metadata_proto_library(
     name = "metadata_source_proto",
     srcs = ["metadata_source.proto"],
-    deps = [
-        "@com_google_protobuf//:cc_wkt_protos",
-    ],
 )
