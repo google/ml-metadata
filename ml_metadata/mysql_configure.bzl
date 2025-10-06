@@ -26,6 +26,5 @@ def mysql_configure():
         build_file = "//ml_metadata:libmysqlclient.BUILD",
         workspace_file = "//ml_metadata:libmysqlclient.WORKSPACE",
         remote = "https://github.com/MariaDB/mariadb-connector-c.git",
-        tag = "v3.0.8-release",
-        patches = ["//ml_metadata/third_party:libmysqlclient.patch"],
+        tag = "v3.4.7",
     )
