@@ -68,8 +68,8 @@ plugins:
               - "!_test$"
             extensions:
               - griffe_inherited_docstrings
-          import:
-            - https://docs.python.org/3/objects.inv
+      import:
+        - https://docs.python.org/3/objects.inv
   - caption:
       figure:
         ignore_alt: true
