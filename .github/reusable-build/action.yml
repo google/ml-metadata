@@ -32,6 +32,10 @@ runs:
       name: ml-metadata-wheel-py${{ inputs.python-version }}
       path: dist/*.whl
 
-  - name: Install built wheel
-    shell: bash
-    run: pip install dist/*.whl
+    - name: Install setuptools
+      shell: bash
+      run: pip install setuptools wheel
+  
+    - name: Install built wheel
+      shell: bash
+      run: pip install dist/*.whl
