@@ -13,8 +13,24 @@
 # limitations under the License.
 
 # Dockerfile for building a manylinux2010 MLMD wheel.
+# We use manylinux2014 as it has a modern GCC.
+FROM quay.io/pypa/manylinux2014_x86_64
 
-# This docker image is essentially pypa/manylinux2010 + bazel.
-FROM gcr.io/tfx-oss-public/manylinux2014-bazel:bazel-6.1.0
+# Install Bazel 6.5.0
+RUN curl -sSL -o /usr/local/bin/bazel https://github.com/bazelbuild/bazel/releases/download/6.5.0/bazel-6.5.0-linux-x86_64 && \
+    chmod +x /usr/local/bin/bazel
+
+# Install a recent version of cmake
+RUN yum install -y cmake3 && \
+    ln -s /usr/bin/cmake3 /usr/bin/cmake
+
+# Set up the environment
+ENV BAZEL_VERSION=6.5.0
+ENV BAZEL_OPTS="--host_jvm_args=-Xms2g --host_jvm_args=-Xmx2g"
+# devtoolset-10 is pre-installed on the image, we just need to enable it.
+ENV PATH="/opt/rh/devtoolset-10/root/usr/bin:${PATH}"
+ENV LD_LIBRARY_PATH="/opt/rh/devtoolset-10/root/usr/lib64:/opt/rh/devtoolset-10/root/usr/lib:${LD_LIBRARY_PATH}"
+
+
 WORKDIR /build
 CMD ["ml_metadata/tools/docker_build/build_manylinux.sh"]
