@@ -47,7 +47,7 @@ jobs:
         fi
         chmod +x /tmp/bazelisk
         sudo mv /tmp/bazelisk /usr/local/bin/bazel
-        echo "USE_BAZEL_VERSION=6.1.0" >> $GITHUB_ENV
+        echo "USE_BAZEL_VERSION=6.5.0" >> $GITHUB_ENV
         bazel --version
 
     - name: Build the package
