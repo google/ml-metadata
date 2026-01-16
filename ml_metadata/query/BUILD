@@ -12,10 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load(
-    "//ml_metadata:ml_metadata.bzl",
-    "ml_metadata_cc_test",
-)
+
 
 licenses(["notice"])
 
@@ -29,7 +26,7 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "//ml_metadata/util:return_utils",
         "@com_googlesource_code_re2//:re2",
         "@com_google_zetasql//zetasql/public:analyzer",
@@ -37,7 +34,7 @@ cc_library(
     ],
 )
 
-ml_metadata_cc_test(
+cc_test(
     name = "filter_query_ast_resolver_test",
     size = "small",
     srcs = ["filter_query_ast_resolver_test.cc"],
@@ -46,7 +43,7 @@ ml_metadata_cc_test(
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/status",
         "//ml_metadata/metadata_store:test_util",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
     ],
 )
 
@@ -60,14 +57,14 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "//ml_metadata/metadata_store:constants",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "@com_google_glog//:glog",
         "@com_google_zetasql//zetasql/public:strings",
         "@com_google_zetasql//zetasql/resolved_ast:sql_builder",
     ],
 )
 
-ml_metadata_cc_test(
+cc_test(
     name = "filter_query_builder_test",
     size = "small",
     srcs = ["filter_query_builder_test.cc"],
@@ -77,6 +74,6 @@ ml_metadata_cc_test(
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/status",
         "//ml_metadata/metadata_store:test_util",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
     ],
 )

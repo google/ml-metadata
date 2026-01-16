@@ -14,7 +14,6 @@
 
 load(
     "//ml_metadata:ml_metadata.bzl",
-    "ml_metadata_cc_test",
     "ml_metadata_go_library",
     "ml_metadata_go_test",
     "ml_metadata_go_wrap_cc",
@@ -44,7 +43,7 @@ cc_library(
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -71,7 +70,6 @@ cc_library(
         ":metadata_access_object_base",
         ":query_executor",
         "@com_google_protobuf//:protobuf",
-
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
@@ -82,15 +80,14 @@ cc_library(
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
-        "//ml_metadata/proto:metadata_source_proto",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "//ml_metadata/simple_types:simple_types_constants",
         "//ml_metadata/util:field_mask_utils",
         "//ml_metadata/util:record_parsing_utils",
         "//ml_metadata/util:return_utils",
         "//ml_metadata/util:struct_utils",
-        "@com_google_glog//:glog",
-        "@com_google_protobuf//:cc_wkt_protos",
+        "@com_google_glog//:glog"
     ],
 )
 
@@ -112,14 +109,14 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
-        "//ml_metadata/proto:metadata_source_proto",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "//ml_metadata/util:return_utils",
         "@com_google_glog//:glog",
     ],
 )
 
-ml_metadata_cc_test(
+cc_test(
     name = "sqlite_rdbms_metadata_access_object_test",
     size = "small",
     srcs = ["sqlite_rdbms_metadata_access_object_test.cc"],
@@ -132,7 +129,7 @@ ml_metadata_cc_test(
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
-        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",
         "//ml_metadata/util:metadata_source_query_config",
         "@com_google_glog//:glog",
     ],
@@ -154,8 +151,8 @@ cc_library(
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
-        "//ml_metadata/proto:metadata_source_proto",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "//ml_metadata/util:return_utils",
         "@com_google_glog//:glog",
     ],
@@ -181,14 +178,14 @@ cc_library(
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
-        "//ml_metadata/proto:metadata_source_proto",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "//ml_metadata/util:return_utils",
         "@com_google_glog//:glog",
     ],
 )
 
-ml_metadata_cc_test(
+cc_test(
     name = "sqlite_query_config_executor_test",
     srcs = [
         "sqlite_query_config_executor_test.cc",
@@ -201,7 +198,7 @@ ml_metadata_cc_test(
         ":sqlite_metadata_source",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/memory",
-        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",
         "//ml_metadata/util:metadata_source_query_config",
         "@com_google_glog//:glog",
     ],
@@ -222,7 +219,7 @@ cc_library(
         ":test_mysql_metadata_source_initializer",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/memory",
-        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",
         "//ml_metadata/util:metadata_source_query_config",
         "@com_google_glog//:glog",
     ],
@@ -269,8 +266,8 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        "//ml_metadata/proto:metadata_source_proto",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "//ml_metadata/query:filter_query_ast_resolver",
         "//ml_metadata/query:filter_query_builder",
         "//ml_metadata/util:return_utils",
@@ -292,7 +289,7 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "//ml_metadata/util:return_utils",
     ],
 )
@@ -306,11 +303,11 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
     ],
 )
 
-ml_metadata_cc_test(
+cc_test(
     name = "list_operation_query_helper_test",
     size = "small",
     srcs = ["list_operation_query_helper_test.cc"],
@@ -320,7 +317,7 @@ ml_metadata_cc_test(
         "@com_google_googletest//:gtest",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/strings",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "@com_google_glog//:glog",
     ],
 )
@@ -349,8 +346,8 @@ cc_library(
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
-        "//ml_metadata/proto:metadata_source_proto",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "//ml_metadata/util:return_utils",
         "@com_google_protobuf//:protobuf",
     ],
@@ -365,12 +362,12 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",
         "//ml_metadata/util:return_utils",
     ],
 )
 
-ml_metadata_cc_test(
+cc_test(
     name = "metadata_source_test",
     size = "small",
     srcs = ["metadata_source_test.cc"],
@@ -379,7 +376,7 @@ ml_metadata_cc_test(
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
-        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",
     ],
 )
 
@@ -390,12 +387,12 @@ cc_library(
     deps = [
         ":metadata_source",
         "@com_google_absl//absl/status",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "//ml_metadata/util:return_utils",
     ],
 )
 
-ml_metadata_cc_test(
+cc_test(
     name = "transaction_executor_test",
     srcs = ["transaction_executor_test.cc"],
     deps = [
@@ -413,7 +410,8 @@ cc_library(
     hdrs = ["metadata_store_service_interface.h"],
     deps = [
         "@com_google_absl//absl/status",
-        "//ml_metadata/proto:metadata_store_service_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
+        "//ml_metadata/proto:metadata_store_service_proto_cc_pb2",
     ],
 )
 
@@ -439,10 +437,10 @@ cc_library(
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
-        "//ml_metadata/proto:metadata_store_proto",
-        "//ml_metadata/proto:metadata_store_service_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
+        "//ml_metadata/proto:metadata_store_service_proto_cc_pb2",
         "//ml_metadata/simple_types:simple_types_constants",
-        "//ml_metadata/simple_types/proto:simple_types_proto",
+        "//ml_metadata/simple_types/proto:simple_types_proto_cc_pb2",
         "//ml_metadata/util:return_utils",
         "@com_google_glog//:glog",
     ],
@@ -464,13 +462,13 @@ cc_library(
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
-        "//ml_metadata/proto:metadata_store_proto",
-        "//ml_metadata/proto:metadata_store_service_proto",
-        "//ml_metadata/simple_types/proto:simple_types_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
+        "//ml_metadata/proto:metadata_store_service_proto_cc_pb2",
+        "//ml_metadata/simple_types/proto:simple_types_proto_cc_pb2",
     ],
 )
 
-ml_metadata_cc_test(
+cc_test(
     name = "metadata_store_cc_test",
     srcs = ["metadata_store_test.cc"],
     env = {
@@ -491,9 +489,9 @@ ml_metadata_cc_test(
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
-        "//ml_metadata/proto:metadata_source_proto",
-        "//ml_metadata/proto:metadata_store_proto",
-        "//ml_metadata/proto:metadata_store_service_proto",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
+        "//ml_metadata/proto:metadata_store_service_proto_cc_pb2",
         "//ml_metadata/util:metadata_source_query_config",
         "//ml_metadata/util:return_utils",
         "@com_google_glog//:glog",
@@ -522,9 +520,9 @@ cc_library(
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
-        "//ml_metadata/proto:metadata_source_proto",
-        "//ml_metadata/proto:metadata_store_proto",
-        "//ml_metadata/proto:metadata_store_service_proto",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
+        "//ml_metadata/proto:metadata_store_service_proto_cc_pb2",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -541,13 +539,13 @@ cc_library(
         ":transaction_executor",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "//ml_metadata/util:metadata_source_query_config",
         "//ml_metadata/util:return_utils",
     ],
 )
 
-ml_metadata_cc_test(
+cc_test(
     name = "metadata_store_factory_test",
     srcs = ["metadata_store_factory_test.cc"],
     env = {
@@ -559,8 +557,8 @@ ml_metadata_cc_test(
         ":metadata_store_factory",
         ":test_util",
         "@com_google_googletest//:gtest_main",
-        "//ml_metadata/proto:metadata_source_proto",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "@com_google_glog//:glog",
     ],
 )
@@ -573,7 +571,7 @@ cc_library(
         ":constants",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",
         "@org_sqlite",
     ],
 )
@@ -589,13 +587,13 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "@com_google_glog//:glog",
         "@org_sqlite",
     ],
 )
 
-ml_metadata_cc_test(
+cc_test(
     name = "sqlite_metadata_source_test",
     size = "small",
     srcs = ["sqlite_metadata_source_test.cc"],
@@ -629,30 +627,30 @@ cc_library(
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "//ml_metadata/simple_types:simple_types_constants",
-        "//ml_metadata/simple_types/proto:simple_types_proto",
+        "//ml_metadata/simple_types/proto:simple_types_proto_cc_pb2",
     ],
 )
 
-ml_metadata_cc_test(
+cc_test(
     name = "simple_types_util_test",
     srcs = ["simple_types_util_test.cc"],
     deps = [
         ":simple_types_util",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/status",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
     ],
 )
 
-ml_metadata_cc_test(
+cc_test(
     name = "test_util_test",
     srcs = ["test_util_test.cc"],
     deps = [
         ":test_util",
         "@com_google_googletest//:gtest_main",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
     ],
 )
 
@@ -673,8 +671,8 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        "//ml_metadata/proto:metadata_source_proto",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "//ml_metadata/util:return_utils",
         "@com_google_glog//:glog",
         "@libmysqlclient",
@@ -689,7 +687,7 @@ cc_library(
         ":metadata_store",
         ":metadata_store_factory",
         "@com_google_absl//absl/status",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "@com_github_grpc_grpc//:grpc++",
         "@com_google_glog//:glog",
     ],
@@ -706,7 +704,7 @@ cc_binary(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "@com_github_gflags_gflags//:gflags_nothreads",
         "@com_github_grpc_grpc//:grpc++",
         "@com_google_glog//:glog",
@@ -735,9 +733,9 @@ cc_library(
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
-        "//ml_metadata/proto:metadata_source_proto",
-        "//ml_metadata/proto:metadata_store_proto",
-        "//ml_metadata/proto/testing:mock_proto",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
+        "//ml_metadata/proto/testing:mock_proto_cc_pb2",
         "//ml_metadata/util:return_utils",
         "@com_github_gflags_gflags//:gflags_nothreads",
         "@com_google_glog//:glog",
@@ -759,7 +757,7 @@ cc_library(
         "@com_google_googletest//:gtest",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
-        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",
     ],
 )
 
@@ -780,7 +778,7 @@ cc_library(
         ":mysql_metadata_source",
         ":test_mysql_metadata_source_initializer",
         "@com_google_absl//absl/memory",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "@com_github_gflags_gflags//:gflags_nothreads",
         "@com_google_glog//:glog",
     ],
@@ -828,7 +826,7 @@ cc_test(
     ],
 )
 
-ml_metadata_cc_test(
+cc_test(
     name = "sqlite_metadata_access_object_test",
     srcs = ["sqlite_metadata_access_object_test.cc"],
     deps = [
@@ -839,7 +837,7 @@ ml_metadata_cc_test(
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
-        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",
         "//ml_metadata/util:metadata_source_query_config",
         "@com_google_glog//:glog",
     ],
@@ -859,7 +857,7 @@ cc_library(
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/types:optional",
-        "//ml_metadata/proto:metadata_source_proto",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",
         "//ml_metadata/util:metadata_source_query_config",
         "@com_google_glog//:glog",
     ],
@@ -955,7 +953,7 @@ cc_library(
         ":postgresql_metadata_source",
         ":test_postgresql_metadata_source_initializer",
         "@com_google_absl//absl/memory",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "@com_github_gflags_gflags//:gflags_nothreads",
         "@com_google_glog//:glog",
         "@postgresql",
@@ -975,8 +973,8 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        "//ml_metadata/proto:metadata_source_proto",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "//ml_metadata/util:return_utils",
         "@com_google_glog//:glog",
         "@postgresql",
@@ -997,8 +995,8 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        "//ml_metadata/proto:metadata_source_proto",
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "//ml_metadata/query:filter_query_ast_resolver",
         "//ml_metadata/query:filter_query_builder",
         "//ml_metadata/util:return_utils",
@@ -1034,7 +1032,7 @@ cc_library(
     deps = [":postgresql_metadata_source"],
 )
 
-ml_metadata_cc_test(
+cc_test(
     name = "metadata_access_object_factory_test",
     srcs = ["metadata_access_object_factory_test.cc"],
     deps = [
@@ -1043,8 +1041,8 @@ ml_metadata_cc_test(
         ":sqlite_metadata_source",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/memory",
-        "//ml_metadata/proto:metadata_source_proto",
-        "//ml_metadata/util:metadata_source_query_config",
+        "//ml_metadata/proto:metadata_source_proto_cc_pb2",
+        "//ml_metadata/proto:metadata_store_proto_cc_pb2",
         "@com_google_glog//:glog",
     ],
 )

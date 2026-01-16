@@ -17,88 +17,56 @@ This module contains build rules for ml_metadata in OSS.
 
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
-load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library", "py_proto_library")
+load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
+load("@rules_cc//cc:defs.bzl", "cc_proto_library")
 
-def ml_metadata_cc_test(
-        name,
-        srcs = [],
-        deps = [],
-        env = {},
-        tags = [],
-        args = [],
-        size = None,
-        data = None):
-    _ignore = [data]
-    native.cc_test(
-        name = name,
-        srcs = srcs,
-        deps = deps,
-        env = env,
-        tags = tags,
-        args = args,
-        size = size,
-        # cc_tests with ".so"s in srcs incorrectly link on Darwin unless
-        # linkstatic=1 (https://github.com/bazelbuild/bazel/issues/3450).
-        linkstatic = select({
-            "//ml_metadata/metadata_store:darwin": 1,
-            "//conditions:default": 0,
-        }),
-    )
+def ml_metadata_proto_library(name, **kwargs):
+    """Google proto_library and cc_proto_library.
 
-def ml_metadata_proto_library(
-        name,
-        srcs = [],
-        has_services = False,
-        deps = [],
-        visibility = None,
-        testonly = 0,
-        cc_grpc_version = None):
-    """Opensource cc_proto_library."""
-    _ignore = [has_services]
-    native.filegroup(
-        name = name + "_proto_srcs",
-        srcs = srcs,
-        testonly = testonly,
-    )
-
-    use_grpc_plugin = None
-    if cc_grpc_version:
-        use_grpc_plugin = True
-    cc_proto_library(
-        name = name,
-        srcs = srcs,
-        deps = deps,
-        cc_libs = ["@com_google_protobuf//:protobuf"],
-        protoc = "@com_google_protobuf//:protoc",
-        default_runtime = "@com_google_protobuf//:protobuf",
-        use_grpc_plugin = use_grpc_plugin,
-        testonly = testonly,
-        visibility = visibility,
-    )
+    Args:
+        name: Name of the cc proto library.
+        **kwargs: Keyword arguments to pass to the proto libraries."""
+    well_known_protos = [
+        # For well-known proto types like protobuf.Any.
+        "@com_google_protobuf//:any_proto",
+        "@com_google_protobuf//:api_proto",
+        "@com_google_protobuf//:compiler_plugin_proto",
+        "@com_google_protobuf//:descriptor_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
+        "@com_google_protobuf//:field_mask_proto",
+        "@com_google_protobuf//:source_context_proto",
+        "@com_google_protobuf//:struct_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@com_google_protobuf//:type_proto",
+        "@com_google_protobuf//:wrappers_proto",
+    ]
+    kwargs["deps"] = kwargs.get("deps", []) + well_known_protos
+    native.proto_library(name = name, **kwargs)  # buildifier: disable=native-proto
+    cc_proto_kwargs = {
+        "deps": [":" + name],
+    }
+    if "visibility" in kwargs:
+        cc_proto_kwargs["visibility"] = kwargs["visibility"]
+    if "testonly" in kwargs:
+        cc_proto_kwargs["testonly"] = kwargs["testonly"]
+    if "compatible_with" in kwargs:
+        cc_proto_kwargs["compatible_with"] = kwargs["compatible_with"]
+    cc_proto_library(name = name + "_cc_pb2", **cc_proto_kwargs)
 
 def ml_metadata_proto_library_py(
         name,
-        proto_library = None,
-        api_version = None,
-        srcs = [],
-        deps = [],
+        deps,
         visibility = None,
-        testonly = 0,
-        oss_deps = [],
-        use_grpc_plugin = False):
+        testonly = 0):
     """Opensource py_proto_library."""
-    _ignore = [proto_library, api_version, oss_deps]
     py_proto_library(
         name = name,
-        srcs = srcs,
-        srcs_version = "PY2AND3",
-        deps = ["@com_google_protobuf//:well_known_types_py_pb2"] + deps + oss_deps,
-        default_runtime = "@com_google_protobuf//:protobuf_python",
-        protoc = "@com_google_protobuf//:protoc",
+        deps = deps,
         visibility = visibility,
         testonly = testonly,
-        use_grpc_plugin = use_grpc_plugin,
     )
+
 
 def ml_metadata_proto_library_go(
         name,
@@ -254,7 +222,7 @@ def ml_metadata_pybind_extension(
             ],
         }),
         linkopts = select({
-            "//ml_metadata:macos": [
+            "@platforms//os:macos": [
                 # TODO: the -w suppresses a wall of harmless warnings about hidden typeinfo symbols
                 # not being exported.  There should be a better way to deal with this.
                 "-Wl,-w",

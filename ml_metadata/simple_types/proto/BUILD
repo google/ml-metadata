@@ -21,14 +21,14 @@ ml_metadata_proto_library(
     name = "simple_types_proto",
     srcs = ["simple_types.proto"],
     deps = [
-        "//ml_metadata/proto:metadata_store_proto",
+        "//ml_metadata/proto:metadata_store_proto"
     ],
 )
 
 ml_metadata_proto_library_py(
     name = "simple_types_py_pb2",
-    srcs = ["simple_types.proto"],
-    api_version = 2,
-    oss_deps = ["//ml_metadata/proto:metadata_store_py_pb2"],
-    proto_library = "simple_types_proto",
+    deps = [
+        ":simple_types_proto",
+        "//ml_metadata/proto:metadata_store_proto",
+    ],
 )

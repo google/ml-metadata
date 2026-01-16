@@ -21,31 +21,25 @@ licenses(["notice"])
 ml_metadata_proto_library(
     name = "metadata_store_proto",
     srcs = ["metadata_store.proto"],
-    deps = ["@com_google_protobuf//:cc_wkt_protos"],
 )
 
 ml_metadata_proto_library(
     name = "metadata_store_service_proto",
     srcs = ["metadata_store_service.proto"],
-    has_services = 1,
-    cc_grpc_version = 1,
     deps = [":metadata_store_proto"],
 )
 
 ml_metadata_proto_library_py(
     name = "metadata_store_py_pb2",
-    srcs = ["metadata_store.proto"],
-    api_version = 2,
-    proto_library = "metadata_store_proto",
+    deps = [":metadata_store_proto"],
 )
 
 ml_metadata_proto_library_py(
     name = "metadata_store_service_py_pb2",
-    srcs = ["metadata_store_service.proto"],
-    api_version = 2,
-    oss_deps = [":metadata_store_py_pb2"],
-    proto_library = "metadata_store_service_proto",
-    use_grpc_plugin = True,
+    deps = [
+        ":metadata_store_service_proto",
+        ":metadata_store_proto",
+    ],
 )
 
 ml_metadata_proto_library_go(
@@ -68,7 +62,4 @@ ml_metadata_proto_library_go(
 ml_metadata_proto_library(
     name = "metadata_source_proto",
     srcs = ["metadata_source.proto"],
-    deps = [
-        "@com_google_protobuf//:cc_wkt_protos",
-    ],
 )
