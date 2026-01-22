@@ -50,18 +50,23 @@ jobs:
         echo "USE_BAZEL_VERSION=6.5.0" >> $GITHUB_ENV
         bazel --version
 
+    - name: Install build tooling
+      shell: bash -l {0}
+      run: |
+        python -m pip install --upgrade pip build wheel "setuptools<69.3"
+
     - name: Build the package
       shell: bash -l {0}
       run: |
-        python setup.py bdist_wheel
+        python -m build --wheel --no-isolation
 
-    - name: Repair wheel (Linux)
+    - name: Repair wheel for manylinux
       if: runner.os == 'Linux'
       shell: bash -l {0}
       run: |
+        python -m pip install auditwheel
         WHEEL_PATH="$(ls dist/*.whl)"
-        WHEEL_DIR=$(dirname "${WHEEL_PATH}")
-        auditwheel repair --plat manylinux2014_x86_64 -w "${WHEEL_DIR}" "${WHEEL_PATH}"
+        auditwheel repair --plat auto -w dist "${WHEEL_PATH}"
         rm "${WHEEL_PATH}"
 
     - name: Upload wheel artifact
