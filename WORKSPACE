@@ -8,6 +8,7 @@ http_archive(
     build_file = "//ml_metadata:postgresql.BUILD",
     workspace_file_content = "//ml_metadata:postgresql.WORKSPACE",
     sha256 = "9868c1149a04bae1131533c5cbd1c46f9c077f834f6147abaef8791a7c91b1a1",
+    patches = ["//ml_metadata/third_party:postgresql.patch",],
     strip_prefix = "postgresql-12.1",
     urls = [
         "https://ftp.postgresql.org/pub/source/v12.1/postgresql-12.1.tar.gz",
@@ -50,10 +51,10 @@ http_archive(
 
 http_archive(
     name = "boringssl",
-    sha256 = "1188e29000013ed6517168600fc35a010d58c5d321846d6a6dfee74e4c788b45",
-    strip_prefix = "boringssl-7f634429a04abc48e2eb041c81c5235816c96514",
+    sha256 = "579cb415458e9f3642da0a39a72f79fdfe6dc9c1713b3a823f1e276681b9703e",
+    strip_prefix = "boringssl-648cbaf033401b7fe7acdce02f275b06a88aab5c",
     urls = [
-        "https://github.com/google/boringssl/archive/7f634429a04abc48e2eb041c81c5235816c96514.tar.gz",
+        "https://github.com/google/boringssl/archive/648cbaf033401b7fe7acdce02f275b06a88aab5c.tar.gz",
     ],
 )
 
@@ -252,7 +253,7 @@ http_archive(
     name = "com_google_zetasql",
     urls = ["https://github.com/google/zetasql/archive/%s.zip" % ZETASQL_COMMIT],
     strip_prefix = "zetasql-%s" % ZETASQL_COMMIT,
-    #patches = ["//ml_metadata/third_party:zetasql.patch"],
+    patches = ["//ml_metadata/third_party:zetasql.patch"],
     sha256 = '651a768cd51627f58aa6de7039aba9ddab22f4b0450521169800555269447840'
 )
 
