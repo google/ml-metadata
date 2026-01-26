@@ -99,10 +99,10 @@ class _BazelBuildCommand(setuptools.Command):
       else:
         self._additional_build_options = ['--macos_minimum_os=10.14']
 
-      if 'ICONV_LIBRARIES' in os.environ:
+      if 'ICONV_PATH' in os.environ:
         self._additional_build_options.append(
-            '--action_env=CMAKE_ICONV_FLAG=-DICONV_LIBRARIES=' +
-            os.environ['ICONV_LIBRARIES'])
+            '--action_env=CMAKE_ICONV_FLAG=-DICONV_PATH=' +
+            os.environ['ICONV_PATH'])
 
   def run(self):
     subprocess.check_call(

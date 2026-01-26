@@ -1,0 +1,24 @@
+--- bazel/BUILD	2022-08-10 22:20:30
++++ bazel/BUILD.new	2025-02-07 14:49:24
+@@ -40,7 +40,11 @@
+ configure_make(
+     name = "m4",
+     env = select({
+-        "@platforms//os:macos": {"AR": ""},
++        "@platforms//os:macos": {
++            "AR": "",
++            "CFLAGS": "-Wno-incompatible-function-pointer-types",
++            "CXXFLAGS": "-Wno-incompatible-function-pointer-types",
++        },
+         "//conditions:default": {},
+     }),
+     lib_source = "@m4//:all",
+@@ -63,6 +67,8 @@
+     env = select({
+         "@platforms//os:macos": {
+             "AR": "",
++            "CFLAGS": "-Wno-incompatible-function-pointer-types",
++            "CXXFLAGS": "-Wno-incompatible-function-pointer-types",
+             "M4": "$(execpath :m4_bin)",
+         },
+         "//conditions:default": {"M4": "$(execpath :m4_bin)"},

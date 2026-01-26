@@ -1,0 +1,19 @@
+--- cmake/FindIconv.cmake	2025-02-07 16:18:14
++++ cmake/FindIconv.cmake.new	2025-02-07 16:21:47
+@@ -18,14 +18,14 @@
+   set(ICONV_FIND_QUIETLY TRUE)
+ endif (ICONV_INCLUDE_DIR AND ICONV_LIBRARIES)
+ 
+-find_path(ICONV_INCLUDE_DIR iconv.h)
++find_path(ICONV_INCLUDE_DIR iconv.h ${ICONV_PATH}/include)
+ 
+ IF(CMAKE_SYSTEM_NAME MATCHES "SunOS")
+   # There is some libiconv.so in  /usr/local that must
+   # be avoided, iconv routines are in libc  
+ ELSEIF(APPLE)
+   find_library(ICONV_LIBRARIES NAMES iconv libiconv PATHS
+-               /usr/lib/
++               ${ICONV_PATH}/lib
+                NO_CMAKE_SYSTEM_PATH)
+     SET(ICONV_EXTERNAL TRUE)
+ ELSE()

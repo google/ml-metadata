@@ -1,0 +1,11 @@
+--- cc/private/toolchain/unix_cc_configure.bzl	2025-02-06 15:38:22
++++ cc/private/toolchain/unix_cc_configure.bzl.new	2025-02-06 15:39:08
+@@ -521,8 +521,6 @@
+                 "-z",
+             ) + (
+                 [
+-                    "-undefined",
+-                    "dynamic_lookup",
+                     "-headerpad_max_install_names",
+                 ] if darwin else bin_search_flag + [
+                     # Gold linker only? Can we enable this by default?
