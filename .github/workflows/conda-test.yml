@@ -1,0 +1,69 @@
+name: Test ml-metadata with Conda
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.9", "3.10", "3.11"]
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Micromamba
+      uses: mamba-org/setup-micromamba@v1
+      with:
+        environment-file: ci/environment.yml
+        cache-environment: true
+        create-args: >-
+          python=${{ matrix.python-version }}
+
+    - name: Display environment info
+      shell: bash -l {0}
+      run: |
+        micromamba info
+        micromamba list
+
+    - name: Install Bazel
+      shell: bash -l {0}
+      run: |
+        # Install Bazelisk (manages Bazel versions)
+        if [ "$RUNNER_OS" == "Linux" ]; then
+          curl -Lo /tmp/bazelisk https://github.com/bazelbuild/bazelisk/releases/download/v1.20.0/bazelisk-linux-amd64
+        elif [ "$RUNNER_OS" == "macOS" ]; then
+          curl -Lo /tmp/bazelisk https://github.com/bazelbuild/bazelisk/releases/download/v1.20.0/bazelisk-darwin-amd64
+        fi
+        chmod +x /tmp/bazelisk
+        sudo mv /tmp/bazelisk /usr/local/bin/bazel
+        echo "USE_BAZEL_VERSION=6.5.0" >> $GITHUB_ENV
+        bazel --version
+
+    - name: Build the package
+      shell: bash -l {0}
+      run: |
+        python setup.py bdist_wheel
+
+    - name: Install built wheel (Linux/macOS)
+      shell: bash -l {0}
+      run: |
+        pip install dist/*.whl
+
+    - name: Run tests
+      shell: bash -l {0}
+      run: |
+        # cleanup (interferes with tests)
+        rm -rf bazel-*
+        # run tests
+        pytest -vv

@@ -1,0 +1,22 @@
+# Conda environment for building and testing ml-metadata on Linux
+name: mlmd-dev
+channels:
+  - conda-forge
+dependencies:
+  # Note: Bazel is installed separately via official installer (conda package is unreliable)
+  - setuptools<69.3  # Pin to avoid Metadata-Version 2.4 (PyPI only supports up to 2.3)
+  - wheel
+  - pip
+  - numpy>=1.23,<2.0
+  - pytest
+  - pytest-cov
+  - patchelf  # For wheel repair on Linux
+  - cmake=3.29
+
+  # C/C++ compilers - GCC 8.x to match manylinux2014 devtoolset-8
+  - gcc_linux-64=8.5.0
+  - gxx_linux-64=8.5.0
+  - sysroot_linux-64=2.17  # CentOS 7/manylinux2014 compatible glibc headers
+
+  - pip:
+    - auditwheel  # For manylinux wheel compliance

@@ -15,6 +15,14 @@
 # Dockerfile for building a manylinux2010 MLMD wheel.
 
 # This docker image is essentially pypa/manylinux2010 + bazel.
-FROM gcr.io/tfx-oss-public/manylinux2014-bazel:bazel-6.1.0
+FROM gcr.io/tfx-oss-public/manylinux2014-bazel:bazel-6.5.0
+
+# Install CMake 3.24 for compatibility with older CMake projects (libmysqlclient)
+RUN yum remove -y cmake cmake3 && \
+    curl -L https://github.com/Kitware/CMake/releases/download/v3.24.4/cmake-3.24.4-linux-x86_64.tar.gz | tar -xz -C /opt && \
+    ln -sf /opt/cmake-3.24.4-linux-x86_64/bin/cmake /usr/local/bin/cmake && \
+    ln -sf /opt/cmake-3.24.4-linux-x86_64/bin/ctest /usr/local/bin/ctest && \
+    ln -sf /opt/cmake-3.24.4-linux-x86_64/bin/cpack /usr/local/bin/cpack
+
 WORKDIR /build
 CMD ["ml_metadata/tools/docker_build/build_manylinux.sh"]
