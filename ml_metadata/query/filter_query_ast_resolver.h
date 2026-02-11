@@ -22,6 +22,11 @@ limitations under the License.
 
 namespace ml_metadata {
 
+// DEPRECATED: This class and its associated ZetaSQL-based filter_query
+// functionality is deprecated and will be removed in version 1.18.0.
+// ZetaSQL dependency is being phased out from ML Metadata.
+// Please migrate to alternative filtering approaches.
+//
 // FilterQueryAstResolver parses the MLMD filtering query string and generates
 // an AST via ZetaSQL analyzer. It can be instantiated with MLMD nodes types:
 // Artifact, Execution and Context.
