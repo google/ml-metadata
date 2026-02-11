@@ -253,6 +253,7 @@ artifacts = store.get_artifacts()
 # Plus, there are many ways to query the same Artifact
 [stored_data_artifact] = store.get_artifacts_by_id([data_artifact_id])
 artifacts_with_uri = store.get_artifacts_by_uri(data_artifact.uri)
+# Note: filter_query is deprecated and will be removed in version 1.18.0.
 artifacts_with_conditions = store.get_artifacts(
       list_options=mlmd.ListOptions(
           filter_query='uri LIKE "%/data" AND properties.day.int_value > 0'))
@@ -270,6 +271,7 @@ trainer_run.properties["state"].string_value = "RUNNING"
 # Query all registered Execution
 executions = store.get_executions_by_id([run_id])
 # Similarly, the same execution can be queried with conditions.
+# Note: filter_query is deprecated and will be removed in version 1.18.0.
 executions_with_conditions = store.get_executions(
     list_options = mlmd.ListOptions(
         filter_query='type = "Trainer" AND properties.state.string_value IS NOT NULL'))
@@ -355,6 +357,7 @@ experiment_executions = store.get_executions_by_context(experiment_id)
 
 # You can also use neighborhood queries to fetch these artifacts and executions
 # with conditions.
+# Note: filter_query is deprecated and will be removed in version 1.18.0.
 experiment_artifacts_with_conditions = store.get_artifacts(
     list_options = mlmd.ListOptions(
         filter_query=('contexts_a.type = "Experiment" AND contexts_a.name = "exp1"')))

@@ -15,6 +15,7 @@
 import collections
 import os
 import uuid
+import warnings
 
 import pytest
 from absl.testing import absltest, parameterized
@@ -1803,14 +1804,20 @@ class MetadataStoreTest(parameterized.TestCase):
       nodes[i].custom_properties["p"].int_value = i
     node_ids = put_nodes_fn(store, nodes)
 
-    got_nodes = get_nodes_fn(
-        store,
-        list_options=mlmd.ListOptions(
-            order_by=mlmd.OrderByField.ID,
-            is_asc=True,
-            filter_query=("custom_properties.p.int_value < 21 AND "
-                          "name LIKE 'node_2%'")
-        ))
+    # Verify deprecation warning is raised when using filter_query
+    with self.assertWarns(DeprecationWarning) as warning_context:
+      got_nodes = get_nodes_fn(
+          store,
+          list_options=mlmd.ListOptions(
+              order_by=mlmd.OrderByField.ID,
+              is_asc=True,
+              filter_query=("custom_properties.p.int_value < 21 AND "
+                            "name LIKE 'node_2%'")
+          ))
+    # Verify the warning message mentions version 1.18.0
+    self.assertIn("1.18.0", str(warning_context.warning))
+    self.assertIn("filter_query", str(warning_context.warning))
+
     self.assertLen(got_nodes, 2)
     self.assertEqual(got_nodes[0].id, node_ids[2])
     self.assertEqual(got_nodes[0].name, "node_2")
@@ -1822,9 +1829,15 @@ class MetadataStoreTest(parameterized.TestCase):
                             (mlmd.MetadataStore.get_contexts))
   def test_get_nodes_by_filter_query_syntax_errors(self, get_nodes_fn):
     store = _get_metadata_store(self.cli_args)
-    with self.assertRaises(errors.InvalidArgumentError):
+    # Verify deprecation warning is raised even for syntax errors
+    with (
+        self.assertWarns(DeprecationWarning) as warning_context,
+        self.assertRaises(errors.InvalidArgumentError),
+    ):
       _ = get_nodes_fn(
           store, list_options=mlmd.ListOptions(filter_query="invalid syntax"))
+    # Verify the warning message mentions version 1.18.0
+    self.assertIn("1.18.0", str(warning_context.warning))
 
   def test_put_contexts_get_context_by_type_and_name(self):
     # Prepare test data.
@@ -2112,12 +2125,15 @@ class MetadataStoreTest(parameterized.TestCase):
     # Test get_lineage_subgraph() with max_num_hops = 10 and field mask paths =
     # ["events", "associations", "attributions"], the whole lineage subgraph
     # skeleton will be returned.
-    query_options = metadata_store_pb2.LineageSubgraphQueryOptions(
-        starting_artifacts=metadata_store_pb2.LineageSubgraphQueryOptions.StartingNodes(
-            filter_query="uri = 'output_artifact'"
-        ),
-        max_num_hops=10,
-    )
+    # Note: filter_query is deprecated but tested here for backward compatibility.
+    with warnings.catch_warnings():
+      warnings.filterwarnings("ignore", category=DeprecationWarning)
+      query_options = metadata_store_pb2.LineageSubgraphQueryOptions(
+          starting_artifacts=metadata_store_pb2.LineageSubgraphQueryOptions.StartingNodes(
+              filter_query="uri = 'output_artifact'"
+          ),
+          max_num_hops=10,
+      )
 
     subgraph_skeleton = store.get_lineage_subgraph(
         query_options, ["events", "associations", "attributions"]
@@ -2169,12 +2185,15 @@ class MetadataStoreTest(parameterized.TestCase):
 
     # Test get_lineage_subgraph() with max_num_hops = 0 from starting executions
     # filtered by context name. All the executions will be returned.
-    query_options = metadata_store_pb2.LineageSubgraphQueryOptions(
-        starting_executions=metadata_store_pb2.LineageSubgraphQueryOptions.StartingNodes(
-            filter_query="contexts_a.name='existing_context'"
-        ),
-        max_num_hops=0,
-    )
+    # Note: filter_query is deprecated but tested here for backward compatibility.
+    with warnings.catch_warnings():
+      warnings.filterwarnings("ignore", category=DeprecationWarning)
+      query_options = metadata_store_pb2.LineageSubgraphQueryOptions(
+          starting_executions=metadata_store_pb2.LineageSubgraphQueryOptions.StartingNodes(
+              filter_query="contexts_a.name='existing_context'"
+          ),
+          max_num_hops=0,
+      )
     subgraph = store.get_lineage_subgraph(query_options)
     self.assertEmpty(subgraph.artifacts)
     self.assertLen(subgraph.executions, 2)
@@ -2195,12 +2214,15 @@ class MetadataStoreTest(parameterized.TestCase):
     self.assertEmpty(subgraph.attributions)
 
     # Test get_lineage_subgraph() with various field mask paths.
-    query_options = metadata_store_pb2.LineageSubgraphQueryOptions(
-        starting_artifacts=metadata_store_pb2.LineageSubgraphQueryOptions.StartingNodes(
-            filter_query="uri = 'output_artifact'"
-        ),
-        max_num_hops=10,
-    )
+    # Note: filter_query is deprecated but tested here for backward compatibility.
+    with warnings.catch_warnings():
+      warnings.filterwarnings("ignore", category=DeprecationWarning)
+      query_options = metadata_store_pb2.LineageSubgraphQueryOptions(
+          starting_artifacts=metadata_store_pb2.LineageSubgraphQueryOptions.StartingNodes(
+              filter_query="uri = 'output_artifact'"
+          ),
+          max_num_hops=10,
+      )
 
     subgraph = store.get_lineage_subgraph(
         query_options, ["artifact_types", "execution_types", "context_types"]
@@ -2291,13 +2313,16 @@ class MetadataStoreTest(parameterized.TestCase):
     )
 
     # Test get_lineage_subgraph() with direction.
-    query_options = metadata_store_pb2.LineageSubgraphQueryOptions(
-        starting_executions=metadata_store_pb2.LineageSubgraphQueryOptions.StartingNodes(
-            filter_query="name = 'test_execution'"
-        ),
-        max_num_hops=2,
-        direction=metadata_store_pb2.LineageSubgraphQueryOptions.Direction.DOWNSTREAM,
-    )
+    # Note: filter_query is deprecated but tested here for backward compatibility.
+    with warnings.catch_warnings():
+      warnings.filterwarnings("ignore", category=DeprecationWarning)
+      query_options = metadata_store_pb2.LineageSubgraphQueryOptions(
+          starting_executions=metadata_store_pb2.LineageSubgraphQueryOptions.StartingNodes(
+              filter_query="name = 'test_execution'"
+          ),
+          max_num_hops=2,
+          direction=metadata_store_pb2.LineageSubgraphQueryOptions.Direction.DOWNSTREAM,
+      )
     subgraph = store.get_lineage_subgraph(query_options)
     self.assertLen(subgraph.artifacts, 1)
     self.assertLen(subgraph.executions, 1)

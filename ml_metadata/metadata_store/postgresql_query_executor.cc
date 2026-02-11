@@ -885,6 +885,12 @@ absl::Status PostgreSQLQueryExecutor::ListNodeIDsUsingOptions(
   }
 
   if (options.has_filter_query() && !options.filter_query().empty()) {
+    // DEPRECATED: ZetaSQL-based filter_query is deprecated and will be removed
+    // in version 1.18.0. This feature depends on ZetaSQL which is being phased
+    // out. Please migrate to alternative filtering approaches.
+    LOG(WARNING) << "DEPRECATION WARNING: ZetaSQL-based filter_query is "
+                 << "deprecated and will be removed in version 1.18.0. "
+                 << "This feature depends on ZetaSQL which is being removed.";
     node_table_alias = ml_metadata::FilterQueryBuilder<Node>::kBaseTableAlias;
     ml_metadata::FilterQueryAstResolver<Node> ast_resolver(
         options.filter_query());

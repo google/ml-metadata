@@ -12,6 +12,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
+
+// DEPRECATED: This file and its associated ZetaSQL-based filter_query
+// functionality is deprecated and will be removed in version 1.18.0.
+// ZetaSQL dependency is being phased out from ML Metadata.
+// Please migrate to alternative filtering approaches.
+
 #include "ml_metadata/query/filter_query_builder.h"
 
 #include <glog/logging.h>
