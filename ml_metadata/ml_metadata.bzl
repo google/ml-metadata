@@ -17,7 +17,198 @@ This module contains build rules for ml_metadata in OSS.
 
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
-load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library", "py_proto_library")
+
+# Custom provider for descriptor proto files
+ProtoDescriptorInfo = provider(
+    fields = {
+        "direct_sources": "Direct proto source files",
+        "transitive_sources": "Transitive proto source files",
+    }
+)
+
+# Helper rule to make proto files available without compilation
+def _proto_descriptor_impl(ctx):
+    proto_sources = depset(direct = ctx.files.srcs)
+    return [
+        DefaultInfo(files = proto_sources),
+        ProtoDescriptorInfo(
+            direct_sources = ctx.files.srcs,
+            transitive_sources = proto_sources,
+        )
+    ]
+
+proto_descriptor = rule(
+    implementation = _proto_descriptor_impl,
+    attrs = {
+        "srcs": attr.label_list(allow_files = [".proto"]),
+    },
+)
+
+def _py_proto_library_impl(ctx):
+    proto_deps = ctx.attr.deps
+    use_grpc = ctx.attr.use_grpc_plugin
+
+    all_sources = []
+    py_infos = []
+    all_proto_infos = []
+
+    for dep in proto_deps:
+        if ProtoInfo in dep:
+            all_sources.extend(dep[ProtoInfo].direct_sources)
+            all_proto_infos.append(dep[ProtoInfo])
+        elif ProtoDescriptorInfo in dep:
+            # Handle proto_descriptor custom provider
+            all_sources.extend(dep[ProtoDescriptorInfo].direct_sources)
+        elif PyInfo in dep:
+            py_infos.append(dep[PyInfo])
+
+    workspace_sources = []
+    for src in all_sources:
+        if not src.short_path.startswith("external/") and not src.short_path.startswith("../"):
+            workspace_sources.append(src)
+
+    py_outputs = []
+    for proto_src in workspace_sources:
+        basename = proto_src.basename[:-6]
+        py_outputs.append(ctx.actions.declare_file(basename + "_pb2.py"))
+        # Add grpc output file if grpc plugin is enabled
+        if use_grpc:
+            py_outputs.append(ctx.actions.declare_file(basename + "_pb2_grpc.py"))
+
+    if py_outputs:
+        proto_path_args = ["--proto_path=."]
+        proto_paths = {".": True}
+
+        for ws in workspace_sources:
+            ws_dir = "/".join(ws.short_path.split("/")[:-1])
+            if ws_dir and ws_dir not in proto_paths:
+                proto_paths[ws_dir] = True
+                proto_path_args.append("--proto_path=" + ws_dir)
+
+        # Extract proto paths from dependencies
+        for proto_info in all_proto_infos:
+            # Extract _virtual_imports paths from direct and transitive sources
+            for src in proto_info.direct_sources:
+                src_path = src.path
+                if "_virtual_imports" in src_path:
+                    # Extract path up to and including _virtual_imports/XXX
+                    parts = src_path.split("/_virtual_imports/")
+                    if len(parts) == 2:
+                        virtual_import_path = parts[0] + "/_virtual_imports/" + parts[1].split("/")[0]
+                        if virtual_import_path not in proto_paths:
+                            proto_paths[virtual_import_path] = True
+                            proto_path_args.append("--proto_path=" + virtual_import_path)
+
+            # Also process transitive sources
+            for src in proto_info.transitive_sources.to_list():
+                src_path = src.path
+                if "_virtual_imports" in src_path:
+                    # Extract path up to and including _virtual_imports/XXX
+                    parts = src_path.split("/_virtual_imports/")
+                    if len(parts) == 2:
+                        virtual_import_path = parts[0] + "/_virtual_imports/" + parts[1].split("/")[0]
+                        if virtual_import_path not in proto_paths:
+                            proto_paths[virtual_import_path] = True
+                            proto_path_args.append("--proto_path=" + virtual_import_path)
+
+        proto_file_args = [src.short_path for src in workspace_sources]
+
+        # Build protoc arguments
+        protoc_args = ["--python_out=" + ctx.bin_dir.path]
+
+        # Add grpc plugin if enabled
+        tools = []
+        if use_grpc and ctx.executable._grpc_plugin:
+            protoc_args.append("--grpc_python_out=" + ctx.bin_dir.path)
+            protoc_args.append("--plugin=protoc-gen-grpc_python=" + ctx.executable._grpc_plugin.path)
+            tools.append(ctx.executable._grpc_plugin)
+
+        ctx.actions.run(
+            inputs = depset(
+                direct = workspace_sources,
+                transitive = [
+                    dep[ProtoInfo].transitive_sources
+                    for dep in proto_deps
+                    if ProtoInfo in dep
+                ]
+            ),
+            outputs = py_outputs,
+            executable = ctx.executable._protoc,
+            arguments = protoc_args + proto_path_args + proto_file_args,
+            tools = tools,
+            mnemonic = "ProtocPython",
+        )
+
+    all_transitive_sources = [depset(py_outputs)]
+    all_imports = [depset([ctx.bin_dir.path])] if py_outputs else []
+
+    for py_info in py_infos:
+        all_transitive_sources.append(py_info.transitive_sources)
+        if hasattr(py_info, "imports"):
+            all_imports.append(py_info.imports)
+
+    return [
+        DefaultInfo(files = depset(py_outputs)),
+        PyInfo(
+            transitive_sources = depset(transitive = all_transitive_sources),
+            imports = depset(transitive = all_imports),
+            has_py2_only_sources = False,
+            has_py3_only_sources = True,
+        ),
+    ]
+
+_py_proto_library_rule = rule(
+    implementation = _py_proto_library_impl,
+    attrs = {
+        "deps": attr.label_list(
+            providers = [[ProtoInfo], [PyInfo]],
+        ),
+        "use_grpc_plugin": attr.bool(
+            default = False,
+            doc = "Whether to use the gRPC plugin to generate service stubs",
+        ),
+        "_protoc": attr.label(
+            default = "@com_google_protobuf//:protoc",
+            executable = True,
+            cfg = "exec",
+        ),
+        "_grpc_plugin": attr.label(
+            default = "@com_github_grpc_grpc//src/compiler:grpc_python_plugin",
+            executable = True,
+            cfg = "exec",
+        ),
+    },
+    provides = [PyInfo],
+)
+
+# Wrapper for cc_proto_library to maintain compatibility with Protobuf 4.x.
+def cc_proto_library(
+        name,
+        srcs = [],
+        deps = [],
+        cc_libs = [],
+        protoc = None,
+        default_runtime = None,
+        use_grpc_plugin = None,
+        testonly = 0,
+        visibility = None,
+        **kwargs):
+    _ignore = [cc_libs, protoc, default_runtime, use_grpc_plugin, kwargs]
+
+    native.proto_library(
+        name = name + "_proto",
+        srcs = srcs,
+        deps = [d + "_proto" if not d.startswith("@") else d for d in deps],
+        testonly = testonly,
+        visibility = visibility,
+    )
+
+    native.cc_proto_library(
+        name = name,
+        deps = [":" + name + "_proto"],
+        testonly = testonly,
+        visibility = visibility,
+    )
 
 def ml_metadata_cc_test(
         name,
@@ -87,17 +278,18 @@ def ml_metadata_proto_library_py(
         oss_deps = [],
         use_grpc_plugin = False):
     """Opensource py_proto_library."""
-    _ignore = [proto_library, api_version, oss_deps]
-    py_proto_library(
+    _ignore = [api_version, srcs]
+    if not proto_library:
+        fail("proto_library parameter is required for ml_metadata_proto_library_py")
+
+    actual_proto_library = ":" + proto_library + "_proto"
+
+    _py_proto_library_rule(
         name = name,
-        srcs = srcs,
-        srcs_version = "PY2AND3",
-        deps = ["@com_google_protobuf//:well_known_types_py_pb2"] + deps + oss_deps,
-        default_runtime = "@com_google_protobuf//:protobuf_python",
-        protoc = "@com_google_protobuf//:protoc",
+        deps = [actual_proto_library] + deps + oss_deps,
+        use_grpc_plugin = use_grpc_plugin,
         visibility = visibility,
         testonly = testonly,
-        use_grpc_plugin = use_grpc_plugin,
     )
 
 def ml_metadata_proto_library_go(
