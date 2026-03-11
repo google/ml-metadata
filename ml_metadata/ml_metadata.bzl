@@ -221,7 +221,7 @@ def ml_metadata_pybind_extension(
         "PyInit_%s" % sname,
     ]
 
-    # For Linux, include Python 2 symbols for compatibility
+    # For Linux, do not include Python 2 symbols for compatibility
     # (version script allows undefined symbols)
     exported_symbols_linux = [
         "PyInit_%s" % sname,
