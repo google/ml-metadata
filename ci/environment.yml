@@ -7,7 +7,7 @@ dependencies:
   - setuptools<69.3  # Pin to avoid Metadata-Version 2.4 (PyPI only supports up to 2.3)
   - wheel
   - pip
-  - numpy>=1.23,<2.0
+  - numpy>=1.23
   - pytest
   - pytest-cov
   - patchelf  # For wheel repair on Linux
