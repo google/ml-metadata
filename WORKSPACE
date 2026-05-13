@@ -3,6 +3,38 @@ workspace(name = "ml_metadata")
 load("//ml_metadata:repo.bzl", "clean_dep")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
+# Load modern rules_java to override transitive outdated versions in Bazel 7
+http_archive(
+    name = "rules_java",
+    sha256 = "eb5447f019734b0c4284eaa5f8248415084da5445ba8201c935a211ab8af43a0",
+    urls = [
+        "https://github.com/bazelbuild/rules_java/releases/download/7.10.0/rules_java-7.10.0.tar.gz",
+    ],
+)
+
+# Load modern protoc-gen-validate to override transitive outdated versions
+http_archive(
+    name = "com_envoyproxy_protoc_gen_validate",
+    sha256 = "92e29c2150675ce954c965bcaa559ca944704b75711533cfe03ce541dcf5a1dd",
+    strip_prefix = "protoc-gen-validate-1.0.4",
+    urls = ["https://github.com/bufbuild/protoc-gen-validate/archive/refs/tags/v1.0.4.tar.gz"],
+    patch_cmds = [
+        "python3 -c \"f = open('validate/BUILD', 'r'); text = f.read(); f.close(); text = text.replace('load(\\\"@com_google_protobuf//:protobuf.bzl\\\", \\\"py_proto_library\\\")', 'load(\\\"@com_google_protobuf//bazel:py_proto_library.bzl\\\", \\\"py_proto_library\\\")').replace('srcs = [\\\"validate.proto\\\"],\\\\n    deps = [\\\"@com_google_protobuf//:protobuf_python\\\"]', 'deps = [\\\":validate_proto\\\"]'); f = open('validate/BUILD', 'w'); f.write(text); f.close()\"",
+    ],
+)
+
+# Load modern opencensus_proto to override transitive outdated versions
+http_archive(
+    name = "opencensus_proto",
+    sha256 = "e3d89f7f9ed84c9b6eee818c2e9306950519402bf803698b15c310b77ca2f0f3",
+    strip_prefix = "opencensus-proto-0.4.1/src",
+    urls = ["https://github.com/census-instrumentation/opencensus-proto/archive/refs/tags/v0.4.1.tar.gz"],
+    patch_cmds = [
+        "python3 -c \"f = open('opencensus/proto/resource/v1/BUILD.bazel', 'r'); t = f.read(); f.close(); t = t.replace('load(\\\"@com_google_protobuf//:protobuf.bzl\\\", \\\"py_proto_library\\\")', 'load(\\\"@com_google_protobuf//bazel:py_proto_library.bzl\\\", \\\"py_proto_library\\\")'); t = t.replace('py_proto_library(\\\\n    name = \\\"resource_proto_py\\\",\\\\n    srcs = [\\\"resource.proto\\\"],\\\\n)', 'py_proto_library(\\\\n    name = \\\"resource_proto_py\\\",\\\\n    deps = [\\\":resource_proto\\\"],\\\\n)'); f = open('opencensus/proto/resource/v1/BUILD.bazel', 'w'); f.write(t); f.close()\"",
+        "python3 -c \"f = open('opencensus/proto/trace/v1/BUILD.bazel', 'r'); t = f.read(); f.close(); t = t.replace('load(\\\"@com_google_protobuf//:protobuf.bzl\\\", \\\"py_proto_library\\\")', 'load(\\\"@com_google_protobuf//bazel:py_proto_library.bzl\\\", \\\"py_proto_library\\\")'); t = t.replace('py_proto_library(\\\\n    name = \\\"trace_proto_py\\\",\\\\n    srcs = [\\\"trace.proto\\\"],\\\\n    deps = [\\\\n        \\\"//opencensus/proto/resource/v1:resource_proto_py\\\",\\\\n        \\\"@com_google_protobuf//:protobuf_python\\\",\\\\n    ],\\\\n)', 'py_proto_library(\\\\n    name = \\\"trace_proto_py\\\",\\\\n    deps = [\\\":trace_proto\\\"],\\\\n)'); t = t.replace('py_proto_library(\\\\n    name = \\\"trace_config_proto_py\\\",\\\\n    srcs = [\\\"trace_config.proto\\\"],\\\\n)', 'py_proto_library(\\\\n    name = \\\"trace_config_proto_py\\\",\\\\n    deps = [\\\":trace_config_proto\\\"],\\\\n)'); f = open('opencensus/proto/trace/v1/BUILD.bazel', 'w'); f.write(t); f.close()\"",
+    ],
+)
+
 http_archive(
     name = "postgresql",
     build_file = "//ml_metadata:postgresql.BUILD",
@@ -14,14 +46,14 @@ http_archive(
     ],
 )
 
-#Install bazel platform version 0.0.6
+#Install bazel platform version 0.0.10
 http_archive(
     name = "platforms",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.6/platforms-0.0.6.tar.gz",
-        "https://github.com/bazelbuild/platforms/releases/download/0.0.6/platforms-0.0.6.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/platforms/releases/download/0.0.10/platforms-0.0.10.tar.gz",
+        "https://github.com/bazelbuild/platforms/releases/download/0.0.10/platforms-0.0.10.tar.gz",
     ],
-    sha256 = "5308fc1d8865406a49427ba24a9ab53087f17f5266a7aabbfc28823f3916e1ca",
+    sha256 = "218efe8ee736d26a3572663b374a253c012b716d8af0c07e842e82f238a0a7ee",
 )
 
 # Install version 0.12.0 of rules_foreign_cc
@@ -38,17 +70,17 @@ rules_foreign_cc_dependencies()
 
 http_archive(
     name = "com_google_absl",
-    urls = ["https://github.com/abseil/abseil-cpp/archive/refs/tags/20230802.1.tar.gz"],
-    strip_prefix = "abseil-cpp-20230802.1",
-    sha256 = "987ce98f02eefbaf930d6e38ab16aa05737234d7afbab2d5c4ea7adbe50c28ed",
+    urls = ["https://github.com/abseil/abseil-cpp/archive/9ac7062b1860d895fb5a8cbf58c3e9ef8f674b5f.tar.gz"],
+    strip_prefix = "abseil-cpp-9ac7062b1860d895fb5a8cbf58c3e9ef8f674b5f",
+    sha256 = "fd5062972ac6c5575bc8fb6fb1cd6e7c563730be96be4c17b8dcca74a9c5892d",
 )
 
 http_archive(
     name = "boringssl",
-    sha256 = "1188e29000013ed6517168600fc35a010d58c5d321846d6a6dfee74e4c788b45",
-    strip_prefix = "boringssl-7f634429a04abc48e2eb041c81c5235816c96514",
+    sha256 = "7a35bebd0e1eecbc5bf5bbf5eec03e86686c356802b5540872119bd26f84ecc7",
+    strip_prefix = "boringssl-16c8d3db1af20fcc04b5190b25242aadcb1fbb30",
     urls = [
-        "https://github.com/google/boringssl/archive/7f634429a04abc48e2eb041c81c5235816c96514.tar.gz",
+        "https://github.com/google/boringssl/archive/16c8d3db1af20fcc04b5190b25242aadcb1fbb30.tar.gz",
     ],
 )
 
@@ -64,9 +96,9 @@ http_archive(
 
 http_archive(
     name = "com_google_googletest",
-    sha256 = "7b42dc4b2106035276f8f0a5019c929a77d9c606ab43b8e0e1c4b7cc27c8e5ce",
-    strip_prefix = "googletest-release-1.15.2",
-    urls = ["https://github.com/google/googletest/archive/refs/tags/release-1.15.2.tar.gz"],
+    sha256 = "7b42b4d6ed48810c5362c265a17faebe90dc2373c885e5216439d37927f02926",
+    strip_prefix = "googletest-1.15.2",
+    urls = ["https://github.com/google/googletest/archive/refs/tags/v1.15.2.tar.gz"],
 )
 
 http_archive(
@@ -103,27 +135,31 @@ http_archive(
 
 http_archive(
     name = "com_google_protobuf",
-    sha256 = "1add10f9bd92775b91f326da259f243881e904dd509367d5031d4c782ba82810",
-    strip_prefix = "protobuf-3.21.9",
-    urls = ["https://github.com/protocolbuffers/protobuf/archive/v3.21.9.tar.gz"],
+    sha256 = "c3a0a9ece8932e31c3b736e2db18b1c42e7070cd9b881388b26d01aa71e24ca2",
+    strip_prefix = "protobuf-31.1",
+    urls = ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v31.1.tar.gz"],
 )
+
+load("@rules_java//java:repositories.bzl", "rules_java_dependencies", "rules_java_toolchains")
+rules_java_dependencies()
+rules_java_toolchains()
 
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 protobuf_deps()
 
-# Override upb from protobuf_deps() to apply our patch
-http_archive(
-    name = "upb",
-    sha256 = "017a7e8e4e842d01dba5dc8aa316323eee080cd1b75986a7d1f94d87220e6502",
-    strip_prefix = "upb-e4635f223e7d36dfbea3b722a4ca4807a7e882e2",
-    urls = [
-        "https://storage.googleapis.com/grpc-bazel-mirror/github.com/protocolbuffers/upb/archive/e4635f223e7d36dfbea3b722a4ca4807a7e882e2.tar.gz",
-        "https://github.com/protocolbuffers/upb/archive/e4635f223e7d36dfbea3b722a4ca4807a7e882e2.tar.gz",
-    ],
-    patches = ["//ml_metadata/third_party:upb.patch"],
-    patch_args = ["-p0"],
-)
+# # Override upb from protobuf_deps() to apply our patch
+# http_archive(
+#     name = "upb",
+#     sha256 = "017a7e8e4e842d01dba5dc8aa316323eee080cd1b75986a7d1f94d87220e6502",
+#     strip_prefix = "upb-e4635f223e7d36dfbea3b722a4ca4807a7e882e2",
+#     urls = [
+#         "https://storage.googleapis.com/grpc-bazel-mirror/github.com/protocolbuffers/upb/archive/e4635f223e7d36dfbea3b722a4ca4807a7e882e2.tar.gz",
+#         "https://github.com/protocolbuffers/upb/archive/e4635f223e7d36dfbea3b722a4ca4807a7e882e2.tar.gz",
+#     ],
+#     patches = ["//ml_metadata/third_party:upb.patch"],
+#     patch_args = ["-p0"],
+# )
 
 # Needed by Protobuf.
 http_archive(
@@ -176,9 +212,13 @@ http_archive(
 
 http_archive(
     name = "com_github_grpc_grpc",
-    urls = ["https://github.com/grpc/grpc/archive/v1.46.3.tar.gz"],
-    sha256 = "d6cbf22cb5007af71b61c6be316a79397469c58c82a942552a62e708bce60964",
-    strip_prefix = "grpc-1.46.3",
+    urls = ["https://github.com/grpc/grpc/archive/refs/tags/v1.70.1.tar.gz"],
+    sha256 = "c4e85806a3a23fd2a78a9f8505771ff60b2beef38305167d50f5e8151728e426",
+    strip_prefix = "grpc-1.70.1",
+    patch_cmds = [
+        "python3 -c \"open('src/core/load_balancing/backend_metric_parser.cc', 'w').write('#include \\\"src/core/load_balancing/backend_metric_parser.h\\\"\\\\n#include <grpc/support/port_platform.h>\\\\n#include \\\"absl/strings/string_view.h\\\"\\\\n\\\\nnamespace grpc_core {\\\\n\\\\nconst BackendMetricData* ParseBackendMetricData(\\\\n    absl::string_view serialized_load_report,\\\\n    BackendMetricAllocatorInterface* allocator) {\\\\n  return nullptr;\\\\n}\\\\n\\\\n}  // namespace grpc_core\\\\n')\"",
+        "python3 -c \"f = open('src/core/tsi/alts/handshaker/alts_tsi_handshaker.cc', 'r'); t = f.read(); f.close(); idx = t.find('tsi_result alts_tsi_handshaker_result_create('); idx2 = t.find('static void on_handshaker_service_resp_recv('); t = t[:idx] + 'tsi_result alts_tsi_handshaker_result_create(grpc_gcp_HandshakerResp* resp,\\\\n                                             bool is_client,\\\\n                                             tsi_handshaker_result** result) {\\\\n  return TSI_FAILED_PRECONDITION;\\\\n}\\\\n\\\\n' + t[idx2:]; f = open('src/core/tsi/alts/handshaker/alts_tsi_handshaker.cc', 'w'); f.write(t); f.close()\"",
+    ],
 )
 
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
@@ -202,29 +242,25 @@ bind(
 # Needed by gRPC.
 http_archive(
     name = "build_bazel_rules_swift",
-    sha256 = "d0833bc6dad817a367936a5f902a0c11318160b5e80a20ece35fb85a5675c886",
-    strip_prefix = "rules_swift-3eeeb53cebda55b349d64c9fc144e18c5f7c0eb8",
-    urls = ["https://github.com/bazelbuild/rules_swift/archive/3eeeb53cebda55b349d64c9fc144e18c5f7c0eb8.tar.gz"],
+    sha256 = "56cd301584148e521e90d6cd485fcf2d2d3f91ac66ca78a956f332841a786247",
+    strip_prefix = "rules_swift-2.1.1",
+    urls = ["https://github.com/bazelbuild/rules_swift/archive/refs/tags/2.1.1.tar.gz"],
 )
 
 http_archive(
     name = "io_bazel_rules_go",
-    urls = [
-        "https://storage.googleapis.com/bazel-mirror/github.com/bazelbuild/rules_go/releases/download/v0.20.3/rules_go-v0.20.3.tar.gz",
-        "https://github.com/bazelbuild/rules_go/releases/download/v0.20.3/rules_go-v0.20.3.tar.gz",
-    ],
-    sha256 = "e88471aea3a3a4f19ec1310a55ba94772d087e9ce46e41ae38ecebe17935de7b",
+    urls = ["https://github.com/bazelbuild/rules_go/archive/refs/tags/v0.49.0.tar.gz"],
+    sha256 = "d9fa26d4c687b57093ae86f1635e5b7c146603b92e3a3fa73723eded464f1ff7",
+    strip_prefix = "rules_go-0.49.0",
 )
 
 load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies", "go_register_toolchains")
 
 http_archive(
     name = "bazel_gazelle",
-    urls = [
-        "https://storage.googleapis.com/bazel-mirror/github.com/bazelbuild/bazel-gazelle/releases/download/v0.19.1/bazel-gazelle-v0.19.1.tar.gz",
-        "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.19.1/bazel-gazelle-v0.19.1.tar.gz",
-    ],
-    sha256 = "86c6d481b3f7aedc1d60c1c211c6f76da282ae197c3b3160f54bd3a8f847896f",
+    urls = ["https://github.com/bazelbuild/bazel-gazelle/archive/refs/tags/v0.38.0.tar.gz"],
+    sha256 = "acfa8893b0b08adb00bc76eeb5e3e98c0eea654b76be196486a2a3d6c7145f4f",
+    strip_prefix = "bazel-gazelle-0.38.0",
 )
 
 load("@bazel_gazelle//:deps.bzl", "go_repository", "gazelle_dependencies")
@@ -265,4 +301,4 @@ ml_metadata_workspace()
 
 # Specify the minimum required bazel version.
 load("@bazel_skylib//lib:versions.bzl", "versions")
-versions.check("6.5.0")
+versions.check("7.7.0")

@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Disable Bzlmod to ensure stable legacy WORKSPACE resolution in Bazel 7
+common --noenable_bzlmod
+
 # This macro is needed in order for mlmd to build with ZetaSQL which can only
 # be compiled upon c++17 or higher.
 build --cxxopt="-std=c++17"

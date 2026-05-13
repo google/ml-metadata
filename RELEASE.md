@@ -14,6 +14,31 @@
 
 ## Bug Fixed and Other Changes
 
+*   Upgraded Bazel minimum required version to `7.7.0`.
+*   Upgraded Protobuf C++ and Python dependencies to `v31.1` / `6.31.1` to align with TensorFlow 2.21.
+*   Upgraded Abseil (`com_google_absl`) C++ libraries to stable LTS release `20250127`.
+*   Upgraded gRPC (`com_github_grpc_grpc`) to stable release `v1.70.1`.
+*   Upgraded `boringssl` dependency to stable commit `16c8d3db1af20fcc04b5190b25242aadcb1fbb30` to support OpenSSL 1.1.0+ APIs in modern gRPC versions.
+*   Upgraded rules archives (`rules_swift`, `rules_go`, `bazel_gazelle`, `platforms`) to Bazel 7 compatible versions.
+
+
+# Version 1.17.1
+
+## Major Features and Improvements
+
+*    Add conda/mamba CI workflows for building manylinux2014 wheels across Python 3.9-3.11
+
+## Breaking Changes
+*   N/A
+
+## Deprecations
+
+*   N/A
+
+## Bug Fixed and Other Changes
+
+*   Used dev-toolset-8 for python workflow and dev-toolset-10 for docker workflow.
+
 # Version 1.17.0
 
 ## Major Features and Improvements

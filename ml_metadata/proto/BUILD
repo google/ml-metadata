@@ -29,7 +29,10 @@ ml_metadata_proto_library(
     srcs = ["metadata_store_service.proto"],
     has_services = 1,
     cc_grpc_version = 1,
-    deps = [":metadata_store_proto"],
+    deps = [
+        ":metadata_store_proto",
+        "@com_google_protobuf//:cc_wkt_protos",
+    ],
 )
 
 ml_metadata_proto_library_py(

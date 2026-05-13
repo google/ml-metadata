@@ -1,0 +1,23 @@
+--- a/opencensus/proto/resource/v1/BUILD.bazel
++++ b/opencensus/proto/resource/v1/BUILD.bazel
+@@ -20,1 +20,1 @@
+-load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
++load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
+@@ -45,1 +45,1 @@
+-    srcs = ["resource.proto"],
++    deps = [":resource_proto"],
+--- a/opencensus/proto/trace/v1/BUILD.bazel
++++ b/opencensus/proto/trace/v1/BUILD.bazel
+@@ -21,1 +21,1 @@
+-load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
++load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
+@@ -77,5 +77,1 @@
+-    srcs = ["trace.proto"],
+-    deps = [
+-        "//opencensus/proto/resource/v1:resource_proto_py",
+-        "@com_google_protobuf//:protobuf_python",
+-    ],
++    deps = [":trace_proto"],
+@@ -86,1 +82,1 @@
+-    srcs = ["trace_config.proto"],
++    deps = [":trace_config_proto"],

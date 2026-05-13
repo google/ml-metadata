@@ -1,0 +1,12 @@
+--- validate/BUILD
++++ validate/BUILD
+@@ -1,1 +1,1 @@
+-load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
++load("@com_google_protobuf//bazel:py_proto_library.bzl", "py_proto_library")
+@@ -28,5 +28,4 @@
+ py_proto_library(
+     name = "validate_py",
+-    srcs = ["validate.proto"],
+-    deps = ["@com_google_protobuf//:protobuf_python"],
++    deps = [":validate_proto"],
+ )
