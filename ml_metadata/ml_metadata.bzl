@@ -141,7 +141,7 @@ def ml_metadata_proto_library_py(
         use_grpc_plugin = False):
     """Opensource py_proto_library."""
     _ignore = [srcs, deps, api_version, oss_deps]
-    
+
     target_proto = ":" + proto_library + "_proto"
 
     if use_grpc_plugin:
