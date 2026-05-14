@@ -2,7 +2,11 @@
 
 ## Major Features and Improvements
 
+*   Added Python 3.12 and Python 3.13 support.
+
 ## Breaking Changes
+
+*   Removed Python 3.9 support.
 
 ## Deprecations
 

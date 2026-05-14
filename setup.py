@@ -153,7 +153,6 @@ setup(
         'Operating System :: POSIX :: Linux',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
@@ -181,7 +180,7 @@ setup(
         # TODO: Pin versions for docs
         "docs": docs_reqs,
     },
-    python_requires='>=3.9,<4',
+    python_requires='>=3.10,<4',
     packages=find_packages(),
     include_package_data=True,
     package_data={'': ['*.so', '*.pyd']},
