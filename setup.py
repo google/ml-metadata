@@ -45,6 +45,10 @@ class _BuildCommand(build.build):
     - python setup.py bdist_wheel (which invokes bdist_wheel command)
   """
 
+  def finalize_options(self):
+    build.build.finalize_options(self)
+    self.build_base = 'build_mlmd_tmp'
+
   def _build_cc_extensions(self):
     return True
 

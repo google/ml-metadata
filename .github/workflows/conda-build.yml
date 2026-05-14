@@ -60,7 +60,7 @@ jobs:
     - name: Build the package
       shell: bash -l {0}
       run: |
-        rm -rf build dist
+        rm -rf build build_mlmd_tmp dist
         python -m build --wheel --no-isolation
 
     - name: Repair wheel (Linux)
