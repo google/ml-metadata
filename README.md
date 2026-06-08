@@ -180,7 +180,7 @@ This method creates a formal GitHub release with a tag, which automatically trig
 
 1. Go to the Releases tab: https://github.com/google/ml-metadata/releases
 2. Click the `Draft new release` button (you'll be redirected to https://github.com/google/ml-metadata/releases/new)
-3. Click the `Select tag` button and create a new tag for your release (e.g., `v1.18.0`)
+3. Click the `Select tag` button and create a new tag for your release (e.g., `v1.21.0`)
 4. Click the `Target` dropdown and select your release branch
 5. Fill in the **Release title** and **Release notes** sections
 6. Choose the release type:
