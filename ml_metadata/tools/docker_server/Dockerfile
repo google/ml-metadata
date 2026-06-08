@@ -33,10 +33,11 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
   git \
   python3-distutils \
   python-is-python3 \
-  python3-dev
+  python3-dev \
+  openjdk-11-jdk-headless
 
-# Set up Bazel 6.1.0
-ENV BAZEL_VERSION 6.1.0
+# Set up Bazel 7.7.0
+ENV BAZEL_VERSION 7.7.0
 WORKDIR /
 RUN mkdir /bazel && \
     cd /bazel && \
