@@ -139,12 +139,12 @@ Create a new environment named `pypi` in the GitHub repository:
 - Name it `pypi`
 - Click "Configure environment"
 
-**Step 2: Add PYPI_TOKEN secret**
+**Step 2: Add PYPI_API_TOKEN secret**
 
 Add your PyPI token to the `pypi` environment:
 - In the `pypi` environment settings, scroll to "Environment secrets"
 - Click "Add secret"
-- Name: `PYPI_TOKEN` (use this exact name)
+- Name: `PYPI_API_TOKEN` (use this exact name)
 - Value: Your PyPI API token
 - Click "Add secret"
 
