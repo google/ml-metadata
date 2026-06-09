@@ -2,19 +2,38 @@
 
 ## Major Features and Improvements
 
+*   N/A
+
+## Breaking Changes
+
+*   N/A
+
+## Deprecations
+
+*   N/A
+
+## Bug Fixed and Other Changes
+
+*   N/A
+
+# Version 1.21.0
+
+## Major Features and Improvements
+
 *   Added Python 3.12 and Python 3.13 support.
 
 ## Breaking Changes
 
 *   Removed Python 3.9 support.
+*   Removed ZetaSQL-based `filter_query` functionality. The `filter_query`
+    parameter in `ListOptions` that relied on ZetaSQL for declarative filtering
+    has been removed in version 1.21.0. Users should migrate to native lookup
+    and lineage APIs (such as `get_artifacts_by_uri`, `get_artifacts_by_context`,
+    and `get_lineage_subgraph`) and filter retrieved objects directly in Python.
 
 ## Deprecations
 
-*   Deprecate ZetaSQL-based filter_query functionality. The `filter_query`
-    parameter in ListOperationOptions that relies on ZetaSQL for declarative
-    filtering is deprecated and will be removed in version 1.18.0. ZetaSQL
-    dependency is being removed from ML Metadata. Users should migrate to
-    alternative filtering approaches before the 1.18.0 release.
+*   N/A
 
 ## Bug Fixed and Other Changes
 

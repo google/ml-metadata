@@ -14,7 +14,7 @@ limitations under the License.
 ==============================================================================*/
 
 // DEPRECATED: This file and its associated ZetaSQL-based filter_query
-// functionality is deprecated and will be removed in version 1.18.0.
+// functionality has been removed in version 1.21.0.
 // ZetaSQL dependency is being phased out from ML Metadata.
 // Please migrate to alternative filtering approaches.
 
