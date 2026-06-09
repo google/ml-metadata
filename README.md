@@ -139,12 +139,12 @@ Create a new environment named `pypi` in the GitHub repository:
 - Name it `pypi`
 - Click "Configure environment"
 
-**Step 2: Add PYPI_TOKEN secret**
+**Step 2: Add PYPI_API_TOKEN secret**
 
 Add your PyPI token to the `pypi` environment:
 - In the `pypi` environment settings, scroll to "Environment secrets"
 - Click "Add secret"
-- Name: `PYPI_TOKEN` (use this exact name)
+- Name: `PYPI_API_TOKEN` (use this exact name)
 - Value: Your PyPI API token
 - Click "Add secret"
 
@@ -180,7 +180,7 @@ This method creates a formal GitHub release with a tag, which automatically trig
 
 1. Go to the Releases tab: https://github.com/google/ml-metadata/releases
 2. Click the `Draft new release` button (you'll be redirected to https://github.com/google/ml-metadata/releases/new)
-3. Click the `Select tag` button and create a new tag for your release (e.g., `v1.18.0`)
+3. Click the `Select tag` button and create a new tag for your release (e.g., `v1.21.0`)
 4. Click the `Target` dropdown and select your release branch
 5. Fill in the **Release title** and **Release notes** sections
 6. Choose the release type:
