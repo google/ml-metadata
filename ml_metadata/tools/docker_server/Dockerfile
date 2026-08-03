@@ -40,13 +40,12 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
 ENV BAZEL_VERSION 7.7.0
 WORKDIR /
 RUN mkdir /bazel && \
-    cd /bazel && \
-    curl -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36" -fSsL -O https://github.com/bazelbuild/bazel/releases/download/$BAZEL_VERSION/bazel-$BAZEL_VERSION-installer-linux-x86_64.sh && \
-    curl -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36" -fSsL -o /bazel/LICENSE.txt https://raw.githubusercontent.com/bazelbuild/bazel/master/LICENSE && \
-    chmod +x bazel-*.sh && \
-    ./bazel-$BAZEL_VERSION-installer-linux-x86_64.sh && \
-    cd / && \
-    rm -f /bazel/bazel-$BAZEL_VERSION-installer-linux-x86_64.sh
+    ARCH=$(dpkg --print-architecture) && \
+    curl -H "User-Agent: Mozilla/5.0" -fSsL -o /usr/local/bin/bazel \
+      https://github.com/bazelbuild/bazel/releases/download/$BAZEL_VERSION/bazel-$BAZEL_VERSION-linux-${ARCH} && \
+    curl -H "User-Agent: Mozilla/5.0" -fSsL -o /bazel/LICENSE.txt \
+      https://raw.githubusercontent.com/bazelbuild/bazel/master/LICENSE && \
+    chmod +x /usr/local/bin/bazel
 
 ADD . /mlmd-src
 WORKDIR /mlmd-src
