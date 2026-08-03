@@ -51,7 +51,18 @@ ADD . /mlmd-src
 WORKDIR /mlmd-src
 
 # "-std=c++17" is needed in order to build with ZetaSQL.
-RUN bazel build -c opt --action_env=PATH \
+# Abseil's stacktrace.cc emits the ARMv8.3 pointer-authentication instruction
+# xpaclri, which the assembler rejects at the default armv8-a baseline. The
+# flag is only valid on aarch64, so it is selected by architecture. Note both
+# --copt and --host_copt are needed: the failing target is built in the exec
+# configuration, which --copt does not affect.
+RUN ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "arm64" ]; then \
+      MARCH_FLAGS="--copt=-march=armv8.3-a --host_copt=-march=armv8.3-a"; \
+    else \
+      MARCH_FLAGS=""; \
+    fi && \
+    bazel build -c opt --action_env=PATH $MARCH_FLAGS \
   --define=grpc_no_ares=true \
   //ml_metadata/metadata_store:metadata_store_server --cxxopt="-std=c++17"
 
