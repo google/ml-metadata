@@ -67,6 +67,7 @@ jobs:
     - name: Build the package
       shell: bash -l {0}
       run: |
+        unset APPLE_SDK_VERSION_OVERRIDE XCODE_VERSION_OVERRIDE
         rm -rf build build_mlmd_tmp dist
         python setup.py bdist_wheel
 

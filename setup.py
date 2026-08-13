@@ -103,6 +103,10 @@ class _BazelBuildCommand(setuptools.Command):
       else:
         self._additional_build_options = ['--macos_minimum_os=10.14']
 
+      # Remove any overrides from conda environment that break Bazel on macOS
+      os.environ.pop('APPLE_SDK_VERSION_OVERRIDE', None)
+      os.environ.pop('XCODE_VERSION_OVERRIDE', None)
+
       if 'ICONV_LIBRARIES' in os.environ:
         self._additional_build_options.append(
             '--action_env=CMAKE_ICONV_FLAG=-DICONV_LIBRARIES=' +
