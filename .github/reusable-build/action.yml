@@ -9,7 +9,7 @@ runs:
   steps:
 
   - name: Set up Python ${{ inputs.python-version }}
-    uses: actions/setup-python@v5
+    uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
     with:
       python-version: ${{ inputs.python-version }}
 
@@ -20,14 +20,15 @@ runs:
 
   - name: Build the package for Python ${{ inputs.python-version }}
     shell: bash
+    env:
+      PYTHON_VERSION: ${{ inputs.python-version }}
     run: |
-      version="${{ inputs.python-version }}"
-      DOCKER_SERVICE=manylinux-python$(echo "$version" | sed 's/\.//')
+      DOCKER_SERVICE=manylinux-python$(echo "$PYTHON_VERSION" | sed 's/\.//')
       docker compose build ${DOCKER_SERVICE}
       docker compose run ${DOCKER_SERVICE}
 
   - name: Upload wheel artifact for Python ${{ inputs.python-version }}
-    uses: actions/upload-artifact@v4.4.0
+    uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
     with:
       name: ml-metadata-wheel-py${{ inputs.python-version }}
       path: dist/*.whl
