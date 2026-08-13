@@ -64,6 +64,7 @@ jobs:
         fi
         echo "$HOME/.local/bin" >> $GITHUB_PATH
         echo "USE_BAZEL_VERSION=7.7.0" >> $GITHUB_ENV
+        echo "BAZEL_USE_CPP_ONLY_TOOLCHAIN=1" >> $GITHUB_ENV
         bazel --version
 
     - name: Install build tooling

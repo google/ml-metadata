@@ -29,7 +29,9 @@ build --protocopt=--experimental_allow_proto3_optional
 build --incompatible_require_linker_input_cc_api=false
 
 build:macos --apple_platform_type=macos
+build:macos --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1
 build:macos_arm64 --cpu=darwin_arm64
+build:macos_arm64 --repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1
 build:macos_arm64 --linkopt=-Wl,-undefined,dynamic_lookup
 build:macos_arm64 --host_linkopt=-Wl,-undefined,dynamic_lookup
 build --conlyopt=-std=c11
