@@ -14,9 +14,5 @@ dependencies:
   - six  # Required by ZetaSQL build tools
   - libiconv  # Required by libmysqlclient for character encoding conversions
 
-  # C/C++ compilers
-  - clang
-  - clangxx
-
   - pip:
     - delocate  # For macOS wheel repair
