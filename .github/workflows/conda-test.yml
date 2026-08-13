@@ -45,13 +45,22 @@ jobs:
       shell: bash -l {0}
       run: |
         # Install Bazelisk (manages Bazel versions)
-        if [ "$RUNNER_OS" == "Linux" ]; then
-          curl -Lo /tmp/bazelisk https://github.com/bazelbuild/bazelisk/releases/download/v1.20.0/bazelisk-linux-amd64
-        elif [ "$RUNNER_OS" == "macOS" ]; then
-          curl -Lo /tmp/bazelisk https://github.com/bazelbuild/bazelisk/releases/download/v1.20.0/bazelisk-darwin-amd64
+        ARCH="amd64"
+        if [ "$(uname -m)" == "arm64" ]; then
+          ARCH="arm64"
         fi
-        chmod +x /tmp/bazelisk
-        sudo mv /tmp/bazelisk /usr/local/bin/bazel
+
+        mkdir -p "$HOME/.local/bin"
+        if [ "$RUNNER_OS" == "Linux" ]; then
+          curl -Lo "$HOME/.local/bin/bazel" "https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-${ARCH}"
+        elif [ "$RUNNER_OS" == "macOS" ]; then
+          curl -Lo "$HOME/.local/bin/bazel" "https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-darwin-${ARCH}"
+        fi
+        chmod +x "$HOME/.local/bin/bazel"
+        if [ -n "$CONDA_PREFIX" ]; then
+          cp "$HOME/.local/bin/bazel" "$CONDA_PREFIX/bin/bazel"
+        fi
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
         echo "USE_BAZEL_VERSION=7.7.0" >> $GITHUB_ENV
         bazel --version
 
