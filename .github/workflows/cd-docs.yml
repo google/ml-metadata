@@ -5,10 +5,8 @@ on:
     branches:
       - 'master'
 
-# zizmor: ignore[excessive-permissions]
 permissions:
-  # Required to deploy documentation to GitHub Pages (gh-pages branch)
-  contents: write
+  contents: read
 
 jobs:
   deploy:
