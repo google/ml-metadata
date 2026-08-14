@@ -11,6 +11,9 @@ on:
     types: [published]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -22,10 +25,12 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      with:
+        persist-credentials: false
 
     - name: Setup Micromamba
-      uses: mamba-org/setup-micromamba@v1
+      uses: mamba-org/setup-micromamba@4b9113af4fba0e9e1124b252dd6497a419e7396d # v1.11.0
       with:
         environment-file: ${{ matrix.os == 'macos-latest' && 'ci/environment-macos.yml' || 'ci/environment.yml' }}
         cache-environment: true
@@ -42,14 +47,24 @@ jobs:
       shell: bash -l {0}
       run: |
         # Install Bazelisk (manages Bazel versions)
-        if [ "$RUNNER_OS" == "Linux" ]; then
-          curl -Lo /tmp/bazelisk https://github.com/bazelbuild/bazelisk/releases/download/v1.20.0/bazelisk-linux-amd64
-        elif [ "$RUNNER_OS" == "macOS" ]; then
-          curl -Lo /tmp/bazelisk https://github.com/bazelbuild/bazelisk/releases/download/v1.20.0/bazelisk-darwin-amd64
+        ARCH="amd64"
+        if [ "$(uname -m)" == "arm64" ]; then
+          ARCH="arm64"
         fi
-        chmod +x /tmp/bazelisk
-        sudo mv /tmp/bazelisk /usr/local/bin/bazel
+
+        mkdir -p "$HOME/.local/bin"
+        if [ "$RUNNER_OS" == "Linux" ]; then
+          curl -Lo "$HOME/.local/bin/bazel" "https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-linux-${ARCH}"
+        elif [ "$RUNNER_OS" == "macOS" ]; then
+          curl -Lo "$HOME/.local/bin/bazel" "https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-darwin-${ARCH}"
+        fi
+        chmod +x "$HOME/.local/bin/bazel"
+        if [ -n "$CONDA_PREFIX" ]; then
+          cp "$HOME/.local/bin/bazel" "$CONDA_PREFIX/bin/bazel"
+        fi
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
         echo "USE_BAZEL_VERSION=7.7.0" >> $GITHUB_ENV
+        echo "BAZEL_USE_CPP_ONLY_TOOLCHAIN=1" >> $GITHUB_ENV
         bazel --version
 
     - name: Install build tooling
@@ -60,6 +75,7 @@ jobs:
     - name: Build the package
       shell: bash -l {0}
       run: |
+        unset APPLE_SDK_VERSION_OVERRIDE XCODE_VERSION_OVERRIDE
         rm -rf build build_mlmd_tmp dist
         python -m build --wheel --no-isolation
 
@@ -73,7 +89,7 @@ jobs:
         rm "${WHEEL_PATH}"
 
     - name: Upload wheel artifact
-      uses: actions/upload-artifact@v4.4.0
+      uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
       with:
         name: ml-metadata-wheel-${{ matrix.os }}-py${{ matrix.python-version }}
         path: dist/*.whl
@@ -86,9 +102,11 @@ jobs:
     environment:
       name: pypi
       url: https://pypi.org/p/ml-metadata/
+    permissions:
+      contents: read
     steps:
       - name: Retrieve wheels
-        uses: actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
         with:
           merge-multiple: true
           path: wheels
@@ -98,7 +116,8 @@ jobs:
           ls -lAs wheels/
 
       - name: Upload to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1.9
+        # zizmor: ignore[use-trusted-publishing]
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
         with:
           packages_dir: wheels/
           user: __token__

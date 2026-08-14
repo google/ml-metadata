@@ -1,7 +1,7 @@
-name: deploy-docs
+name: Check docs
+
 on:
-  workflow_dispatch:
-  push:
+  pull_request:
     branches:
       - 'master'
 
@@ -9,13 +9,11 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
-    name: Deploy to GitHub Pages
+  build:
+    name: Build docs check
     runs-on: ubuntu-latest
-    # zizmor: ignore[excessive-permissions]
     permissions:
-      # Required to deploy documentation to GitHub Pages (gh-pages branch)
-      contents: write
+      contents: read
     steps:
       - name: Checkout repo
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -45,8 +43,5 @@ jobs:
       - name: Install Dependencies
         run: pip install -r requirements-docs.txt
 
-      - name: Deploy to GitHub Pages
-        run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          mkdocs gh-deploy --force
+      - name: Build docs to check for errors
+        run: mkdocs build

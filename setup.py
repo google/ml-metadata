@@ -99,9 +99,16 @@ class _BazelBuildCommand(setuptools.Command):
       # This flag determines the platform qualifier of the macos wheel.
       if platform.machine() == 'arm64':
         self._additional_build_options = ['--macos_minimum_os=11.0',
-                                          '--config=macos_arm64']
+                                          '--config=macos_arm64',
+                                          '--repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1']
       else:
-        self._additional_build_options = ['--macos_minimum_os=10.14']
+        self._additional_build_options = ['--macos_minimum_os=10.14',
+                                          '--repo_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1']
+
+      # Remove any overrides from conda environment that break Bazel on macOS
+      os.environ.pop('APPLE_SDK_VERSION_OVERRIDE', None)
+      os.environ.pop('XCODE_VERSION_OVERRIDE', None)
+      os.environ['BAZEL_USE_CPP_ONLY_TOOLCHAIN'] = '1'
 
       if 'ICONV_LIBRARIES' in os.environ:
         self._additional_build_options.append(
