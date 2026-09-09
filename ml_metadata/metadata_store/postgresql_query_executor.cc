@@ -818,6 +818,13 @@ absl::Status PostgreSQLQueryExecutor::SelectTypeByNameAndVersion(
 absl::Status PostgreSQLQueryExecutor::SelectTypesByNamesAndVersions(
     absl::Span<std::pair<std::string, std::string>> names_and_versions,
     TypeKind type_kind, RecordSet* record_set) {
+  // This lookup starts the read-modify-write transaction used by UpsertTypes.
+  // PostgreSQL row locks do not protect absent types. Serialize type writers
+  // before reading, and retain the lock until commit/rollback, so concurrent
+  // creators cannot both observe a missing (name, version, type_kind). Ordinary
+  // type readers remain unblocked by this lock.
+  MLMD_RETURN_IF_ERROR(metadata_source_->ExecuteQuery(
+      "LOCK TABLE Type IN SHARE ROW EXCLUSIVE MODE", nullptr));
   auto partition = std::partition(
       names_and_versions.begin(), names_and_versions.end(),
       [](std::pair<absl::string_view, absl::string_view> name_and_version) {

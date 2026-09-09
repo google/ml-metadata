@@ -1004,6 +1004,16 @@ cc_library(
     ],
 )
 
+# Uses the same PostgreSQL connection flags as the standalone source test.
+cc_test(
+    name = "standalone_postgresql_query_executor_test",
+    tags = ["local", "manual"],
+    deps = [
+        ":postgresql_query_executor_test",
+        ":test_postgresql_standalone_metadata_source_initializer",
+    ],
+)
+
 cc_library(
     name = "postgresql_query_executor_test",
     testonly = 1,
@@ -1017,6 +1027,11 @@ cc_library(
         ":test_postgresql_metadata_source_initializer",
         "@com_google_googletest//:gtest_main",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:span",
+        "@com_github_gflags_gflags//:gflags_nothreads",
+        "//ml_metadata/proto:metadata_source_proto",
         "//ml_metadata/util:metadata_source_query_config",
     ],
 )
